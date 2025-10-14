@@ -139,6 +139,39 @@ export type Database = {
           },
         ]
       }
+      sync_status: {
+        Row: {
+          created_at: string
+          error_message: string | null
+          id: string
+          last_sync_at: string | null
+          status: string
+          sync_interval_minutes: number
+          sync_type: string
+          updated_at: string
+        }
+        Insert: {
+          created_at?: string
+          error_message?: string | null
+          id?: string
+          last_sync_at?: string | null
+          status?: string
+          sync_interval_minutes?: number
+          sync_type: string
+          updated_at?: string
+        }
+        Update: {
+          created_at?: string
+          error_message?: string | null
+          id?: string
+          last_sync_at?: string | null
+          status?: string
+          sync_interval_minutes?: number
+          sync_type?: string
+          updated_at?: string
+        }
+        Relationships: []
+      }
       units: {
         Row: {
           created_at: string
