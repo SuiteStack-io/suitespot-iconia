@@ -174,24 +174,39 @@ export type Database = {
       }
       units: {
         Row: {
+          availability_date: string | null
+          comments: string | null
           created_at: string
           id: string
           name: string
           status: string
+          unit_number: string | null
+          unit_size: string | null
+          unit_type: string | null
           updated_at: string
         }
         Insert: {
+          availability_date?: string | null
+          comments?: string | null
           created_at?: string
           id?: string
           name: string
           status: string
+          unit_number?: string | null
+          unit_size?: string | null
+          unit_type?: string | null
           updated_at?: string
         }
         Update: {
+          availability_date?: string | null
+          comments?: string | null
           created_at?: string
           id?: string
           name?: string
           status?: string
+          unit_number?: string | null
+          unit_size?: string | null
+          unit_type?: string | null
           updated_at?: string
         }
         Relationships: []

@@ -5,7 +5,7 @@ import { Dashboard } from '@/components/Dashboard';
 import { ReservationsList } from '@/components/ReservationsList';
 import { AddUserDialog } from '@/components/AddUserDialog';
 import { Button } from '@/components/ui/button';
-import { Hotel, LogOut } from 'lucide-react';
+import { Hotel, LogOut, CalendarDays } from 'lucide-react';
 
 const Index = () => {
   const { user, loading, signOut, userRole } = useAuth();
@@ -43,6 +43,10 @@ const Index = () => {
             </div>
           </div>
           <div className="flex items-center gap-2">
+            <Button variant="outline" size="sm" onClick={() => navigate('/calendar')}>
+              <CalendarDays className="h-4 w-4 mr-2" />
+              Calendar View
+            </Button>
             {userRole === 'admin' && <AddUserDialog />}
             <Button variant="outline" size="sm" onClick={() => signOut()}>
               <LogOut className="h-4 w-4 mr-2" />
