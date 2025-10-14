@@ -3,11 +3,12 @@ import { useNavigate } from 'react-router-dom';
 import { useAuth } from '@/lib/auth';
 import { Dashboard } from '@/components/Dashboard';
 import { ReservationsList } from '@/components/ReservationsList';
+import { AddUserDialog } from '@/components/AddUserDialog';
 import { Button } from '@/components/ui/button';
 import { Hotel, LogOut } from 'lucide-react';
 
 const Index = () => {
-  const { user, loading, signOut } = useAuth();
+  const { user, loading, signOut, userRole } = useAuth();
   const navigate = useNavigate();
 
   useEffect(() => {
@@ -41,10 +42,13 @@ const Index = () => {
               <p className="text-sm text-muted-foreground">Manage your bookings with ease</p>
             </div>
           </div>
-          <Button variant="outline" size="sm" onClick={() => signOut()}>
-            <LogOut className="h-4 w-4 mr-2" />
-            Sign Out
-          </Button>
+          <div className="flex items-center gap-2">
+            {userRole === 'admin' && <AddUserDialog />}
+            <Button variant="outline" size="sm" onClick={() => signOut()}>
+              <LogOut className="h-4 w-4 mr-2" />
+              Sign Out
+            </Button>
+          </div>
         </div>
       </header>
 
