@@ -33,6 +33,7 @@ interface Reservation {
   guest_nationality: string | null;
   status: string;
   units: { name: string } | null;
+  source: string;
 }
 
 const statusColors = {
@@ -81,7 +82,7 @@ export const ReservationsList = () => {
   const fetchReservations = async () => {
     const { data, error } = await supabase
       .from('reservations')
-      .select('*, units(name)')
+      .select('*, units(name), source')
       .order('check_in_date', { ascending: false });
 
     if (!error && data) {
@@ -162,13 +163,14 @@ export const ReservationsList = () => {
               <TableHead>Guests</TableHead>
               <TableHead>Nationality</TableHead>
               <TableHead>Status</TableHead>
+              <TableHead>Source</TableHead>
               <TableHead>Reference</TableHead>
             </TableRow>
           </TableHeader>
           <TableBody>
             {filteredReservations.length === 0 ? (
               <TableRow>
-                <TableCell colSpan={9} className="text-center text-muted-foreground">
+                <TableCell colSpan={10} className="text-center text-muted-foreground">
                   No reservations found
                 </TableCell>
               </TableRow>
@@ -191,6 +193,7 @@ export const ReservationsList = () => {
                       {reservation.status}
                     </Badge>
                   </TableCell>
+                  <TableCell>{reservation.source}</TableCell>
                   <TableCell className="font-mono text-sm">{reservation.booking_reference}</TableCell>
                 </TableRow>
               ))

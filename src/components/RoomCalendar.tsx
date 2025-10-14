@@ -22,6 +22,7 @@ interface Reservation {
   guest_names: string[];
   status: string;
   booking_reference: string;
+  source: string;
 }
 
 export const RoomCalendar = () => {
@@ -71,6 +72,13 @@ export const RoomCalendar = () => {
       const checkOut = new Date(res.check_out_date);
       return res.unit_id === unitId && date >= checkIn && date < checkOut;
     });
+  };
+
+  const getSourceAbbreviation = (source: string) => {
+    if (source.toLowerCase().includes('booking')) return 'B.com';
+    if (source.toLowerCase().includes('direct')) return 'Direct';
+    if (source.toLowerCase().includes('referral')) return 'Ref';
+    return source.substring(0, 6);
   };
 
   const navigatePrevious = () => {
@@ -173,10 +181,14 @@ export const RoomCalendar = () => {
                           variant={reservation.status === 'confirmed' ? 'default' : 'secondary'}
                           className="w-full text-xs truncate"
                         >
-                          {isCheckInDay && (
-                            <span className="block text-xs">{reservation.guest_names[0]}</span>
+                          {isCheckInDay ? (
+                            <div className="flex flex-col items-center">
+                              <span className="block text-xs">{reservation.guest_names[0]}</span>
+                              <span className="block text-[9px] opacity-75">{getSourceAbbreviation(reservation.source)}</span>
+                            </div>
+                          ) : (
+                            '•'
                           )}
-                          {!isCheckInDay && '•'}
                         </Badge>
                       ) : (
                         <span className="text-muted-foreground">—</span>

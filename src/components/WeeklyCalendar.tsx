@@ -17,6 +17,7 @@ interface Reservation {
   check_in_date: string;
   check_out_date: string;
   status: string;
+  source: string;
 }
 
 export const WeeklyCalendar = () => {
@@ -45,7 +46,7 @@ export const WeeklyCalendar = () => {
   const fetchReservations = async () => {
     const { data, error } = await supabase
       .from('reservations')
-      .select('id, unit_id, check_in_date, check_out_date, status')
+      .select('id, unit_id, check_in_date, check_out_date, status, source')
       .eq('status', 'confirmed');
     
     if (error) {
@@ -59,8 +60,8 @@ export const WeeklyCalendar = () => {
     return Array.from({ length: 7 }, (_, i) => addDays(currentWeekStart, i));
   };
 
-  const isDateReserved = (date: Date, unitId: string) => {
-    return reservations.some(reservation => {
+  const getReservationForDate = (date: Date, unitId: string) => {
+    return reservations.find(reservation => {
       if (reservation.unit_id !== unitId) return false;
       
       const checkIn = new Date(reservation.check_in_date);
@@ -70,6 +71,13 @@ export const WeeklyCalendar = () => {
              isSameDay(date, checkIn) || 
              isSameDay(date, checkOut);
     });
+  };
+
+  const getSourceAbbreviation = (source: string) => {
+    if (source.toLowerCase().includes('booking')) return 'B.com';
+    if (source.toLowerCase().includes('direct')) return 'Direct';
+    if (source.toLowerCase().includes('referral')) return 'Ref';
+    return source.substring(0, 6);
   };
 
   const navigatePreviousWeek = () => {
@@ -132,20 +140,26 @@ export const WeeklyCalendar = () => {
                   <td className="sticky left-0 z-10 bg-card border border-border p-3 font-medium">
                     {unit.unit_number || unit.name}
                   </td>
-                  {weekDays.map((day, index) => (
-                    <td
-                      key={index}
-                      className={`border border-border p-3 text-center ${
-                        isDateReserved(day, unit.id)
-                          ? 'bg-red-500/80 text-white'
-                          : 'bg-background'
-                      }`}
-                    >
-                      {isDateReserved(day, unit.id) && (
-                        <div className="text-xs">Reserved</div>
-                      )}
-                    </td>
-                  ))}
+                  {weekDays.map((day, index) => {
+                    const reservation = getReservationForDate(day, unit.id);
+                    return (
+                      <td
+                        key={index}
+                        className={`border border-border p-3 text-center ${
+                          reservation
+                            ? 'bg-red-500/80 text-white'
+                            : 'bg-background'
+                        }`}
+                      >
+                        {reservation && (
+                          <div className="text-xs space-y-1">
+                            <div>Reserved</div>
+                            <div className="text-[10px] opacity-90">{getSourceAbbreviation(reservation.source)}</div>
+                          </div>
+                        )}
+                      </td>
+                    );
+                  })}
                 </tr>
               ))}
             </tbody>
