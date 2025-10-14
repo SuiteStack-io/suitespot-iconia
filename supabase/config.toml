@@ -1,1 +1,10 @@
 project_id = "phvduifvymozqiqwvajj"
+
+[functions.gmail-auth-start]
+verify_jwt = false
+
+[functions.gmail-auth-callback]
+verify_jwt = false
+
+[functions.sync-booking-gmail]
+verify_jwt = true
