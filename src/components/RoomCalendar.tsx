@@ -1,0 +1,205 @@
+import { useState, useEffect } from 'react';
+import { format, addWeeks, subWeeks, startOfWeek, endOfWeek, eachDayOfInterval, isSameDay, addMonths, subMonths, startOfMonth, endOfMonth } from 'date-fns';
+import { supabase } from '@/integrations/supabase/client';
+import { Button } from '@/components/ui/button';
+import { ChevronLeft, ChevronRight, Calendar as CalendarIcon } from 'lucide-react';
+import { Card } from '@/components/ui/card';
+import { Badge } from '@/components/ui/badge';
+import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
+
+interface Unit {
+  id: string;
+  unit_number: string;
+  name: string;
+  unit_type: string;
+}
+
+interface Reservation {
+  id: string;
+  unit_id: string;
+  check_in_date: string;
+  check_out_date: string;
+  guest_names: string[];
+  status: string;
+  booking_reference: string;
+}
+
+export const RoomCalendar = () => {
+  const [currentDate, setCurrentDate] = useState(new Date());
+  const [units, setUnits] = useState<Unit[]>([]);
+  const [reservations, setReservations] = useState<Reservation[]>([]);
+  const [viewMode, setViewMode] = useState<'week' | 'month'>('week');
+
+  useEffect(() => {
+    fetchUnits();
+    fetchReservations();
+  }, []);
+
+  const fetchUnits = async () => {
+    const { data } = await supabase
+      .from('units')
+      .select('id, unit_number, name, unit_type')
+      .order('unit_number');
+    
+    if (data) setUnits(data);
+  };
+
+  const fetchReservations = async () => {
+    const { data } = await supabase
+      .from('reservations')
+      .select('*')
+      .eq('status', 'confirmed');
+    
+    if (data) setReservations(data);
+  };
+
+  const getDaysInView = () => {
+    if (viewMode === 'week') {
+      const start = startOfWeek(currentDate, { weekStartsOn: 1 });
+      const end = endOfWeek(currentDate, { weekStartsOn: 1 });
+      return eachDayOfInterval({ start, end });
+    } else {
+      const start = startOfMonth(currentDate);
+      const end = endOfMonth(currentDate);
+      return eachDayOfInterval({ start, end });
+    }
+  };
+
+  const getReservationForDateAndUnit = (date: Date, unitId: string) => {
+    return reservations.find(res => {
+      const checkIn = new Date(res.check_in_date);
+      const checkOut = new Date(res.check_out_date);
+      return res.unit_id === unitId && date >= checkIn && date < checkOut;
+    });
+  };
+
+  const navigatePrevious = () => {
+    if (viewMode === 'week') {
+      setCurrentDate(subWeeks(currentDate, 1));
+    } else {
+      setCurrentDate(subMonths(currentDate, 1));
+    }
+  };
+
+  const navigateNext = () => {
+    if (viewMode === 'week') {
+      setCurrentDate(addWeeks(currentDate, 1));
+    } else {
+      setCurrentDate(addMonths(currentDate, 1));
+    }
+  };
+
+  const goToToday = () => {
+    setCurrentDate(new Date());
+  };
+
+  const days = getDaysInView();
+
+  return (
+    <div className="space-y-4">
+      <div className="flex items-center justify-between">
+        <div className="flex items-center gap-3">
+          <Button variant="outline" size="icon" onClick={navigatePrevious}>
+            <ChevronLeft className="h-4 w-4" />
+          </Button>
+          <div className="min-w-[180px] text-center">
+            <h2 className="text-xl font-bold">
+              {viewMode === 'week' 
+                ? `Week of ${format(startOfWeek(currentDate, { weekStartsOn: 1 }), 'MMM d, yyyy')}`
+                : format(currentDate, 'MMMM yyyy')}
+            </h2>
+          </div>
+          <Button variant="outline" size="icon" onClick={navigateNext}>
+            <ChevronRight className="h-4 w-4" />
+          </Button>
+          <Button variant="outline" onClick={goToToday}>
+            <CalendarIcon className="h-4 w-4 mr-2" />
+            Today
+          </Button>
+        </div>
+        
+        <Tabs value={viewMode} onValueChange={(v) => setViewMode(v as 'week' | 'month')}>
+          <TabsList>
+            <TabsTrigger value="week">Week</TabsTrigger>
+            <TabsTrigger value="month">Month</TabsTrigger>
+          </TabsList>
+        </Tabs>
+      </div>
+
+      <Card className="p-4 overflow-x-auto">
+        <table className="w-full border-collapse">
+          <thead>
+            <tr>
+              <th className="border border-border bg-muted/50 p-3 text-left font-semibold min-w-[120px] sticky left-0 z-10">
+                Room
+              </th>
+              {days.map((day) => (
+                <th 
+                  key={day.toISOString()} 
+                  className={`border border-border p-3 text-center font-semibold min-w-[${viewMode === 'week' ? '140' : '100'}px] ${
+                    isSameDay(day, new Date()) ? 'bg-primary/10' : 'bg-muted/50'
+                  }`}
+                >
+                  <div className="flex flex-col">
+                    <span className="text-sm">{format(day, 'EEE')}</span>
+                    <span className="text-lg">{format(day, viewMode === 'week' ? 'd MMM' : 'd')}</span>
+                  </div>
+                </th>
+              ))}
+            </tr>
+          </thead>
+          <tbody>
+            {units.map((unit) => (
+              <tr key={unit.id} className="hover:bg-muted/30 transition-colors">
+                <td className="border border-border p-3 bg-background sticky left-0 z-10">
+                  <div>
+                    <div className="font-semibold">{unit.unit_number}</div>
+                    <div className="text-sm text-muted-foreground">{unit.unit_type}</div>
+                  </div>
+                </td>
+                {days.map((day) => {
+                  const reservation = getReservationForDateAndUnit(day, unit.id);
+                  const isCheckInDay = reservation && isSameDay(new Date(reservation.check_in_date), day);
+                  
+                  return (
+                    <td 
+                      key={day.toISOString()} 
+                      className={`border border-border p-2 text-center ${
+                        isSameDay(day, new Date()) ? 'bg-primary/5' : ''
+                      }`}
+                    >
+                      {reservation ? (
+                        <Badge 
+                          variant={reservation.status === 'confirmed' ? 'default' : 'secondary'}
+                          className="w-full text-xs truncate"
+                        >
+                          {isCheckInDay && (
+                            <span className="block text-xs">{reservation.guest_names[0]}</span>
+                          )}
+                          {!isCheckInDay && '•'}
+                        </Badge>
+                      ) : (
+                        <span className="text-muted-foreground">—</span>
+                      )}
+                    </td>
+                  );
+                })}
+              </tr>
+            ))}
+          </tbody>
+        </table>
+      </Card>
+
+      <div className="flex items-center gap-4 text-sm">
+        <div className="flex items-center gap-2">
+          <Badge variant="default" className="w-16">Booked</Badge>
+          <span>= Confirmed Reservation</span>
+        </div>
+        <div className="flex items-center gap-2">
+          <span className="text-muted-foreground">—</span>
+          <span>= Available</span>
+        </div>
+      </div>
+    </div>
+  );
+};
