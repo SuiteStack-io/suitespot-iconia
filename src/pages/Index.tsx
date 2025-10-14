@@ -3,6 +3,7 @@ import { useNavigate } from 'react-router-dom';
 import { useAuth } from '@/lib/auth';
 import { Dashboard } from '@/components/Dashboard';
 import { ReservationsList } from '@/components/ReservationsList';
+import { WeeklyCalendar } from '@/components/WeeklyCalendar';
 import { AddUserDialog } from '@/components/AddUserDialog';
 import { Button } from '@/components/ui/button';
 import { Hotel, LogOut, CalendarDays } from 'lucide-react';
@@ -65,6 +66,11 @@ const Index = () => {
         <section>
           <h2 className="text-2xl font-bold mb-4">All Reservations</h2>
           <ReservationsList />
+        </section>
+
+        <section>
+          <h2 className="text-2xl font-bold mb-4">Weekly Calendar</h2>
+          <WeeklyCalendar />
         </section>
       </main>
     </div>
