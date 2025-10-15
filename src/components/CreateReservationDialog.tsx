@@ -114,7 +114,7 @@ export function CreateReservationDialog() {
       .from("reservations")
       .select("unit_id")
       .or(`and(check_in_date.lte.${checkOut},check_out_date.gte.${checkIn})`)
-      .in("status", ["Upcoming", "In-House"]);
+      .eq("status", "confirmed");
 
     if (error) {
       console.error("Error checking availability:", error);
@@ -227,7 +227,7 @@ export function CreateReservationDialog() {
         guest_names: guestNames.filter(name => name.trim() !== ""),
         guest_nationality: nationality,
         source,
-        status: "Upcoming",
+        status: "confirmed",
         channel: "Manual",
         price_per_night: Number(pricePerNight),
         total_price: total,
