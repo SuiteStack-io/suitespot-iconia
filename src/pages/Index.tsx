@@ -40,7 +40,7 @@ const Index = () => {
   return (
     <div className="min-h-screen bg-background">
       <header className="border-b bg-card">
-        <div className="container mx-auto px-4 py-4 flex items-center justify-between">
+        <div className="container mx-auto px-4 py-4 flex items-start justify-between">
           <div className="flex items-center gap-3">
             <img src={suitespotLogo} alt="SuiteSpot Logo" className="h-10 w-10 object-contain" />
             <div>
@@ -48,7 +48,7 @@ const Index = () => {
               <p className="text-sm text-muted-foreground">Manage your bookings with ease</p>
             </div>
           </div>
-          <div className="flex items-center gap-3">
+          <div className="flex flex-col items-end gap-2">
             {/* User info display with dropdown for admins */}
             {userRole === 'admin' ? (
               <DropdownMenu>
@@ -117,15 +117,17 @@ const Index = () => {
               </div>
             )}
 
-            {/* Existing buttons */}
-            <Button variant="outline" size="sm" onClick={() => navigate('/calendar')}>
-              <CalendarDays className="h-4 w-4 mr-2" />
-              Calendar View
-            </Button>
-            <Button variant="outline" size="sm" onClick={() => signOut()}>
-              <LogOut className="h-4 w-4 mr-2" />
-              Sign Out
-            </Button>
+            {/* Action buttons stacked vertically */}
+            <div className="flex flex-col gap-2 w-full">
+              <Button variant="outline" size="sm" onClick={() => navigate('/calendar')} className="w-full justify-start">
+                <CalendarDays className="h-4 w-4 mr-2" />
+                Calendar View
+              </Button>
+              <Button variant="outline" size="sm" onClick={() => signOut()} className="w-full justify-start">
+                <LogOut className="h-4 w-4 mr-2" />
+                Sign Out
+              </Button>
+            </div>
           </div>
         </div>
       </header>
