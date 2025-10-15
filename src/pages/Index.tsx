@@ -41,9 +41,9 @@ const Index = () => {
     <div className="min-h-screen bg-background">
       <header className="border-b bg-card">
         <div className="container mx-auto px-4 py-4 flex items-start justify-between">
-          <div className="flex items-center gap-3">
+          <div className="flex flex-col items-center gap-2">
             <img src={suitespotLogo} alt="SuiteSpot Logo" className="h-10 w-10 object-contain" />
-            <div>
+            <div className="text-center">
               <h1 className="text-xl font-bold">SuiteSpot Reservations</h1>
               <p className="text-sm text-muted-foreground">Manage your bookings with ease</p>
             </div>
