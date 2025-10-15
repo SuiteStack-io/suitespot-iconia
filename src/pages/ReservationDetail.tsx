@@ -178,7 +178,6 @@ const ReservationDetail = () => {
         unit_id: formData.unit_id,
         check_in_date: format(formData.check_in_date, 'yyyy-MM-dd'),
         check_out_date: format(formData.check_out_date, 'yyyy-MM-dd'),
-        nights,
         number_of_guests: formData.number_of_guests,
         guest_names: formData.guest_names,
         guest_nationality: formData.guest_nationality,
