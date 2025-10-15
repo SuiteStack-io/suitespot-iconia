@@ -54,7 +54,7 @@ const Index = () => {
               <DropdownMenu>
                 <DropdownMenuTrigger asChild>
                   <button className="flex items-center gap-2 px-3 py-2 bg-accent/10 rounded-lg border border-accent/20 hover:bg-accent/20 transition-colors cursor-pointer">
-                    <div className="flex flex-col items-end">
+                    <div className="hidden md:flex flex-col items-end">
                       <span className="text-sm font-medium">
                         {user.user_metadata?.full_name || user.email?.split('@')[0] || 'User'}
                       </span>
@@ -64,7 +64,17 @@ const Index = () => {
                     </div>
                     <div className="w-8 h-8 rounded-full bg-accent/20 flex items-center justify-center">
                       <span className="text-sm font-semibold text-accent">
-                        {(user.user_metadata?.full_name || user.email || 'U')[0].toUpperCase()}
+                        {(() => {
+                          const fullName = user.user_metadata?.full_name;
+                          if (fullName) {
+                            const names = fullName.split(' ');
+                            if (names.length > 1) {
+                              return (names[0][0] + names[names.length - 1][0]).toUpperCase();
+                            }
+                            return fullName.substring(0, 2).toUpperCase();
+                          }
+                          return (user.email || 'U').substring(0, 2).toUpperCase();
+                        })()}
                       </span>
                     </div>
                     <ChevronDown className="h-4 w-4 text-muted-foreground" />
@@ -81,7 +91,7 @@ const Index = () => {
               </DropdownMenu>
             ) : (
               <div className="flex items-center gap-2 px-3 py-2 bg-accent/10 rounded-lg border border-accent/20">
-                <div className="flex flex-col items-end">
+                <div className="hidden md:flex flex-col items-end">
                   <span className="text-sm font-medium">
                     {user.user_metadata?.full_name || user.email?.split('@')[0] || 'User'}
                   </span>
@@ -91,7 +101,17 @@ const Index = () => {
                 </div>
                 <div className="w-8 h-8 rounded-full bg-accent/20 flex items-center justify-center">
                   <span className="text-sm font-semibold text-accent">
-                    {(user.user_metadata?.full_name || user.email || 'U')[0].toUpperCase()}
+                    {(() => {
+                      const fullName = user.user_metadata?.full_name;
+                      if (fullName) {
+                        const names = fullName.split(' ');
+                        if (names.length > 1) {
+                          return (names[0][0] + names[names.length - 1][0]).toUpperCase();
+                        }
+                        return fullName.substring(0, 2).toUpperCase();
+                      }
+                      return (user.email || 'U').substring(0, 2).toUpperCase();
+                    })()}
                   </span>
                 </div>
               </div>
