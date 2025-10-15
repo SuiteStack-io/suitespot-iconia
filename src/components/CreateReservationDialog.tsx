@@ -222,7 +222,6 @@ export function CreateReservationDialog() {
         booking_reference: `MAN-${Date.now()}`,
         check_in_date: format(checkInDate!, "yyyy-MM-dd"),
         check_out_date: format(checkOutDate!, "yyyy-MM-dd"),
-        nights,
         unit_id: unitId,
         number_of_guests: numberOfGuests,
         guest_names: guestNames.filter(name => name.trim() !== ""),
