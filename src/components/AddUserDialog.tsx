@@ -42,17 +42,39 @@ export const AddUserDialog = () => {
         .from('user_roles')
         .insert([{
           user_id: authData.user.id,
-          role: formData.role as 'admin' | 'manager' | 'front_desk',
+          role: formData.role as 'admin' | 'manager' | 'front_desk' | 'housekeeping',
         }]);
 
-      if (roleError) throw roleError;
+      if (roleError) {
+        console.error('Role assignment error:', roleError);
+        throw roleError;
+      }
 
-      toast.success('User created successfully');
-      setFormData({ email: '', password: '', fullName: '', role: 'front_desk' });
+      // Success! Show message and close dialog
+      toast.success('User created successfully!', {
+        description: `${formData.fullName} can now log in with their email.`
+      });
+      
+      // Reset form and close dialog
+      setFormData({ email: '', password: '', fullName: '', role: 'front_desk' as 'admin' | 'manager' | 'front_desk' | 'housekeeping' });
       setOpen(false);
     } catch (error: any) {
       console.error('Error creating user:', error);
-      toast.error(error.message || 'Failed to create user');
+      
+      // Provide specific error messages based on error type
+      if (error.message?.includes('violates row-level security') || error.code === '42501') {
+        toast.error('Permission denied: Unable to assign role to user. Please make sure you have admin privileges.');
+      } else if (error.message?.includes('already registered') || error.message?.includes('already exists')) {
+        toast.error('This email is already registered in the system.');
+      } else if (error.message?.includes('invalid email')) {
+        toast.error('Please enter a valid email address.');
+      } else if (error.message?.includes('password') && error.message?.includes('least')) {
+        toast.error('Password must be at least 6 characters long.');
+      } else if (error.message?.includes('User already registered')) {
+        toast.error('A user with this email already exists.');
+      } else {
+        toast.error(error.message || 'Failed to create user. Please try again.');
+      }
     } finally {
       setLoading(false);
     }
