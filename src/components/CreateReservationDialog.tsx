@@ -362,6 +362,7 @@ export function CreateReservationDialog() {
                     selected={dateRange}
                     onSelect={setDateRange}
                     numberOfMonths={2}
+                    disabled={(date) => date < startOfDay(new Date())}
                     className={cn("pointer-events-auto")}
                   />
                   <div className="flex justify-end gap-2 pt-2 border-t">
