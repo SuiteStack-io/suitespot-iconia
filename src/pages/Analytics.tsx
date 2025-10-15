@@ -232,11 +232,15 @@ const Analytics = () => {
               <div className="space-y-2">
                 <div className="flex justify-between items-center">
                   <span className="text-sm text-muted-foreground">Direct</span>
-                  <span className="font-bold">{bookingSources.direct}</span>
+                  <span className="font-bold">
+                    {bookingSources.direct} ({totalBookings > 0 ? ((bookingSources.direct / totalBookings) * 100).toFixed(1) : 0}%)
+                  </span>
                 </div>
                 <div className="flex justify-between items-center">
                   <span className="text-sm text-muted-foreground">Indirect</span>
-                  <span className="font-bold">{bookingSources.indirect}</span>
+                  <span className="font-bold">
+                    {bookingSources.indirect} ({totalBookings > 0 ? ((bookingSources.indirect / totalBookings) * 100).toFixed(1) : 0}%)
+                  </span>
                 </div>
               </div>
             </CardContent>
