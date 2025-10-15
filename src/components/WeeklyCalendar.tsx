@@ -126,12 +126,22 @@ export const WeeklyCalendar = () => {
                 <th className="sticky left-0 z-10 bg-card border border-border p-3 text-left font-semibold min-w-[120px]">
                   Room ID
                 </th>
-                {weekDays.map((day, index) => (
-                  <th key={index} className="border border-border p-3 text-center font-semibold min-w-[100px]">
-                    <div>{format(day, 'EEE')}</div>
-                    <div className="text-sm font-normal text-muted-foreground">{format(day, 'MMM d')}</div>
-                  </th>
-                ))}
+                {weekDays.map((day, index) => {
+                  const isToday = isSameDay(day, new Date());
+                  return (
+                    <th 
+                      key={index} 
+                      className={`border border-border p-3 text-center font-semibold min-w-[100px] ${
+                        isToday ? 'bg-primary text-primary-foreground' : ''
+                      }`}
+                    >
+                      <div>{format(day, 'EEE')}</div>
+                      <div className={`text-sm font-normal ${isToday ? 'opacity-90' : 'text-muted-foreground'}`}>
+                        {format(day, 'MMM d')}
+                      </div>
+                    </th>
+                  );
+                })}
               </tr>
             </thead>
             <tbody>
@@ -142,14 +152,17 @@ export const WeeklyCalendar = () => {
                   </td>
                   {weekDays.map((day, index) => {
                     const reservation = getReservationForDate(day, unit.id);
+                    const isToday = isSameDay(day, new Date());
                     return (
                       <td
                         key={index}
                         className={`border border-border p-3 text-center ${
                           reservation
                             ? 'bg-red-500/80 text-white'
+                            : isToday
+                            ? 'bg-primary/10'
                             : 'bg-background'
-                        }`}
+                        } ${isToday ? 'border-primary border-2' : ''}`}
                       >
                         {reservation && (
                           <div className="text-xs space-y-1">
