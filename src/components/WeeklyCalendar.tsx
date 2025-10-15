@@ -132,6 +132,11 @@ export const WeeklyCalendar = () => {
         <div className="flex items-center justify-between">
           <CardTitle>Weekly Calendar</CardTitle>
           <div className="flex items-center gap-2">
+            {!isCurrentWeek && (
+              <Button variant="outline" size="sm" onClick={goToCurrentWeek}>
+                Today
+              </Button>
+            )}
             <Button variant="outline" size="sm" onClick={navigatePreviousWeek}>
               <ChevronLeft className="h-4 w-4" />
             </Button>
@@ -141,11 +146,6 @@ export const WeeklyCalendar = () => {
             <Button variant="outline" size="sm" onClick={navigateNextWeek}>
               <ChevronRight className="h-4 w-4" />
             </Button>
-            {!isCurrentWeek && (
-              <Button variant="outline" size="sm" onClick={goToCurrentWeek}>
-                Today
-              </Button>
-            )}
           </div>
         </div>
       </CardHeader>
