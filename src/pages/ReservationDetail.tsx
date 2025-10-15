@@ -489,6 +489,7 @@ const ReservationDetail = () => {
                       <SelectItem value="Nicola">Nicola</SelectItem>
                       <SelectItem value="Youssef">Youssef</SelectItem>
                       <SelectItem value="KSS">KSS</SelectItem>
+                      <SelectItem value="booking.com">booking.com</SelectItem>
                     </SelectContent>
                   </Select>
                 </div>
