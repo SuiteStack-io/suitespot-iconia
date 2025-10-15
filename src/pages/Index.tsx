@@ -4,11 +4,15 @@ import { useAuth } from '@/lib/auth';
 import { Dashboard } from '@/components/Dashboard';
 import { ReservationsList } from '@/components/ReservationsList';
 import { WeeklyCalendar } from '@/components/WeeklyCalendar';
-import { AddUserDialog } from '@/components/AddUserDialog';
 import { CreateReservationDialog } from '@/components/CreateReservationDialog';
-import { RevenueBySource } from '@/components/RevenueBySource';
 import { Button } from '@/components/ui/button';
-import { Hotel, LogOut, CalendarDays } from 'lucide-react';
+import { Hotel, LogOut, CalendarDays, ChevronDown } from 'lucide-react';
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuTrigger,
+} from '@/components/ui/dropdown-menu';
 
 const Index = () => {
   const { user, loading, signOut, userRole } = useAuth();
@@ -46,29 +50,59 @@ const Index = () => {
             </div>
           </div>
           <div className="flex items-center gap-3">
-            {/* User info display */}
-            <div className="flex items-center gap-2 px-3 py-2 bg-accent/10 rounded-lg border border-accent/20">
-              <div className="flex flex-col items-end">
-                <span className="text-sm font-medium">
-                  {user.user_metadata?.full_name || user.email?.split('@')[0] || 'User'}
-                </span>
-                <span className="text-xs text-muted-foreground capitalize">
-                  {userRole || 'No role'}
-                </span>
+            {/* User info display with dropdown for admins */}
+            {userRole === 'admin' ? (
+              <DropdownMenu>
+                <DropdownMenuTrigger asChild>
+                  <button className="flex items-center gap-2 px-3 py-2 bg-accent/10 rounded-lg border border-accent/20 hover:bg-accent/20 transition-colors cursor-pointer">
+                    <div className="flex flex-col items-end">
+                      <span className="text-sm font-medium">
+                        {user.user_metadata?.full_name || user.email?.split('@')[0] || 'User'}
+                      </span>
+                      <span className="text-xs text-muted-foreground capitalize">
+                        {userRole || 'No role'}
+                      </span>
+                    </div>
+                    <div className="w-8 h-8 rounded-full bg-accent/20 flex items-center justify-center">
+                      <span className="text-sm font-semibold text-accent">
+                        {(user.user_metadata?.full_name || user.email || 'U')[0].toUpperCase()}
+                      </span>
+                    </div>
+                    <ChevronDown className="h-4 w-4 text-muted-foreground" />
+                  </button>
+                </DropdownMenuTrigger>
+                <DropdownMenuContent align="end" className="w-48">
+                  <DropdownMenuItem onClick={() => navigate('/users')}>
+                    Users
+                  </DropdownMenuItem>
+                  <DropdownMenuItem onClick={() => navigate('/analytics')}>
+                    Analytics
+                  </DropdownMenuItem>
+                </DropdownMenuContent>
+              </DropdownMenu>
+            ) : (
+              <div className="flex items-center gap-2 px-3 py-2 bg-accent/10 rounded-lg border border-accent/20">
+                <div className="flex flex-col items-end">
+                  <span className="text-sm font-medium">
+                    {user.user_metadata?.full_name || user.email?.split('@')[0] || 'User'}
+                  </span>
+                  <span className="text-xs text-muted-foreground capitalize">
+                    {userRole || 'No role'}
+                  </span>
+                </div>
+                <div className="w-8 h-8 rounded-full bg-accent/20 flex items-center justify-center">
+                  <span className="text-sm font-semibold text-accent">
+                    {(user.user_metadata?.full_name || user.email || 'U')[0].toUpperCase()}
+                  </span>
+                </div>
               </div>
-              <div className="w-8 h-8 rounded-full bg-accent/20 flex items-center justify-center">
-                <span className="text-sm font-semibold text-accent">
-                  {(user.user_metadata?.full_name || user.email || 'U')[0].toUpperCase()}
-                </span>
-              </div>
-            </div>
+            )}
 
             {/* Existing buttons */}
             <Button variant="outline" size="sm" onClick={() => navigate('/calendar')}>
               <CalendarDays className="h-4 w-4 mr-2" />
               Calendar View
             </Button>
-            {userRole === 'admin' && <AddUserDialog />}
             <Button variant="outline" size="sm" onClick={() => signOut()}>
               <LogOut className="h-4 w-4 mr-2" />
               Sign Out
@@ -81,11 +115,6 @@ const Index = () => {
         <section>
           <h2 className="text-2xl font-bold mb-4">Dashboard</h2>
           <Dashboard />
-        </section>
-
-        <section>
-          <h2 className="text-2xl font-bold mb-4">Revenue Analytics</h2>
-          <RevenueBySource />
         </section>
 
         <section>

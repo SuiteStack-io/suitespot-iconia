@@ -9,6 +9,8 @@ import Auth from "./pages/Auth";
 import Calendar from "./pages/Calendar";
 import ReservationDetail from "./pages/ReservationDetail";
 import NotFound from "./pages/NotFound";
+import Users from "./pages/Users";
+import Analytics from "./pages/Analytics";
 
 const queryClient = new QueryClient();
 
@@ -24,6 +26,8 @@ const App = () => (
             <Route path="/auth" element={<Auth />} />
             <Route path="/calendar" element={<Calendar />} />
             <Route path="/reservation/:id" element={<ReservationDetail />} />
+            <Route path="/users" element={<Users />} />
+            <Route path="/analytics" element={<Analytics />} />
             {/* ADD ALL CUSTOM ROUTES ABOVE THE CATCH-ALL "*" ROUTE */}
             <Route path="*" element={<NotFound />} />
           </Routes>

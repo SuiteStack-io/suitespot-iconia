@@ -1,4 +1,8 @@
 import { useState } from 'react';
+
+interface AddUserDialogProps {
+  onUserAdded?: () => void;
+}
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from '@/components/ui/dialog';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -8,7 +12,7 @@ import { UserPlus } from 'lucide-react';
 import { supabase } from '@/integrations/supabase/client';
 import { toast } from 'sonner';
 
-export const AddUserDialog = () => {
+export const AddUserDialog = ({ onUserAdded }: AddUserDialogProps = {}) => {
   const [open, setOpen] = useState(false);
   const [loading, setLoading] = useState(false);
   const [formData, setFormData] = useState({

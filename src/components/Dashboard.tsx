@@ -129,30 +129,6 @@ export const Dashboard = () => {
       color: 'text-purple-600',
       isRevenue: false,
     },
-    {
-      title: 'Total Revenue',
-      value: stats.totalRevenue,
-      icon: DollarSign,
-      color: 'text-emerald-600',
-      isRevenue: true,
-      subtitle: 'Gross revenue',
-    },
-    {
-      title: 'Net Revenue',
-      value: stats.netRevenue,
-      icon: DollarSign,
-      color: 'text-green-600',
-      isRevenue: true,
-      subtitle: 'After commission',
-    },
-    {
-      title: 'Commission Paid',
-      value: stats.totalCommission,
-      icon: DollarSign,
-      color: 'text-amber-600',
-      isRevenue: true,
-      subtitle: 'Total commission',
-    },
   ];
 
   return (
@@ -169,9 +145,6 @@ export const Dashboard = () => {
               <div className="text-2xl font-bold">
                 {stat.isRevenue ? `$${stat.value.toFixed(2)}` : stat.value}
               </div>
-              {stat.subtitle && (
-                <p className="text-xs text-muted-foreground mt-1">{stat.subtitle}</p>
-              )}
             </CardContent>
           </Card>
         );
