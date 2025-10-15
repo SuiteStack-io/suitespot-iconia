@@ -42,10 +42,9 @@ const Index = () => {
       <header className="border-b bg-card">
         <div className="container mx-auto px-4 py-4 flex items-start justify-between">
           <div className="flex flex-col items-center gap-2">
-            <img src={suitespotLogo} alt="SuiteSpot Logo" className="h-14 w-14 object-contain" />
+            <img src={suitespotLogo} alt="SuiteSpot Logo" className="h-10 w-10 object-contain" />
             <div className="text-center">
-              <h1 className="text-xl font-bold leading-tight">SuiteSpot</h1>
-              <h2 className="text-xl font-bold leading-tight">Reservations</h2>
+              <h1 className="text-xl font-bold">SuiteSpot Reservations</h1>
               <p className="text-sm text-muted-foreground">Manage your bookings with ease</p>
             </div>
           </div>
