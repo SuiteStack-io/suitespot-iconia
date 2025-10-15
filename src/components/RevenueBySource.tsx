@@ -2,6 +2,13 @@ import { useEffect, useState } from 'react';
 import { supabase } from '@/integrations/supabase/client';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from '@/components/ui/select';
+import {
   Table,
   TableBody,
   TableCell,
@@ -31,7 +38,9 @@ const getCommissionRate = (source: string): number => {
 
 export const RevenueBySource = () => {
   const [revenueBySource, setRevenueBySource] = useState<SourceRevenue[]>([]);
+  const [filteredRevenue, setFilteredRevenue] = useState<SourceRevenue[]>([]);
   const [loading, setLoading] = useState(true);
+  const [selectedSource, setSelectedSource] = useState<string>('all');
 
   useEffect(() => {
     fetchRevenueBySource();
@@ -56,6 +65,14 @@ export const RevenueBySource = () => {
       supabase.removeChannel(channel);
     };
   }, []);
+
+  useEffect(() => {
+    if (selectedSource === 'all') {
+      setFilteredRevenue(revenueBySource);
+    } else {
+      setFilteredRevenue(revenueBySource.filter(r => r.source === selectedSource));
+    }
+  }, [selectedSource, revenueBySource]);
 
   const fetchRevenueBySource = async () => {
     const { data, error } = await supabase
@@ -98,6 +115,7 @@ export const RevenueBySource = () => {
     );
 
     setRevenueBySource(revenueArray);
+    setFilteredRevenue(revenueArray);
     setLoading(false);
   };
 
@@ -129,7 +147,7 @@ export const RevenueBySource = () => {
     );
   }
 
-  const totals = revenueBySource.reduce(
+  const totals = filteredRevenue.reduce(
     (acc, source) => ({
       count: acc.count + source.count,
       grossRevenue: acc.grossRevenue + source.grossRevenue,
@@ -141,8 +159,21 @@ export const RevenueBySource = () => {
 
   return (
     <Card>
-      <CardHeader>
+      <CardHeader className="flex flex-row items-center justify-between">
         <CardTitle>Revenue by Source</CardTitle>
+        <Select value={selectedSource} onValueChange={setSelectedSource}>
+          <SelectTrigger className="w-[180px]">
+            <SelectValue placeholder="Filter by source" />
+          </SelectTrigger>
+          <SelectContent>
+            <SelectItem value="all">All Sources</SelectItem>
+            {revenueBySource.map((source) => (
+              <SelectItem key={source.source} value={source.source}>
+                {source.source}
+              </SelectItem>
+            ))}
+          </SelectContent>
+        </Select>
       </CardHeader>
       <CardContent>
         <div className="border rounded-lg overflow-hidden">
@@ -158,7 +189,7 @@ export const RevenueBySource = () => {
               </TableRow>
             </TableHeader>
             <TableBody>
-              {revenueBySource.map((source) => (
+              {filteredRevenue.map((source) => (
                 <TableRow key={source.source}>
                   <TableCell className="font-medium">{source.source}</TableCell>
                   <TableCell className="text-right">{source.count}</TableCell>
