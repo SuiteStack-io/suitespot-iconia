@@ -70,11 +70,14 @@ export const ReservationsList = () => {
           schema: 'public',
           table: 'reservations',
         },
-        () => {
+        (payload) => {
+          console.log('ReservationsList real-time update:', payload);
           fetchReservations();
         }
       )
-      .subscribe();
+      .subscribe((status) => {
+        console.log('ReservationsList subscription status:', status);
+      });
 
     return () => {
       supabase.removeChannel(channel);

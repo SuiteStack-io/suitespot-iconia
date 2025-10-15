@@ -34,6 +34,29 @@ export const RoomCalendar = () => {
   useEffect(() => {
     fetchUnits();
     fetchReservations();
+
+    // Set up real-time subscription for reservations
+    const channel = supabase
+      .channel('room-calendar-reservations')
+      .on(
+        'postgres_changes',
+        {
+          event: '*',
+          schema: 'public',
+          table: 'reservations'
+        },
+        (payload) => {
+          console.log('RoomCalendar real-time update:', payload);
+          fetchReservations();
+        }
+      )
+      .subscribe((status) => {
+        console.log('RoomCalendar subscription status:', status);
+      });
+
+    return () => {
+      supabase.removeChannel(channel);
+    };
   }, []);
 
   const fetchUnits = async () => {
