@@ -42,6 +42,7 @@ export function CreateReservationDialog() {
   const { userRole } = useAuth();
   const [open, setOpen] = useState(false);
   const [loading, setLoading] = useState(false);
+  const [datePickerOpen, setDatePickerOpen] = useState(false);
   
   // Form state
   const [dateRange, setDateRange] = useState<DateRange | undefined>();
@@ -315,7 +316,7 @@ export function CreateReservationDialog() {
             <Label>
               Check-in & Check-out Dates <span className="text-destructive">*</span>
             </Label>
-            <Popover>
+            <Popover open={datePickerOpen} onOpenChange={setDatePickerOpen}>
               <PopoverTrigger asChild>
                 <Button
                   variant="outline"
@@ -339,13 +340,34 @@ export function CreateReservationDialog() {
                 </Button>
               </PopoverTrigger>
               <PopoverContent className="w-auto p-0" align="start">
-                <Calendar
-                  mode="range"
-                  selected={dateRange}
-                  onSelect={setDateRange}
-                  numberOfMonths={2}
-                  className={cn("p-3 pointer-events-auto")}
-                />
+                <div className="p-3 space-y-3">
+                  <Calendar
+                    mode="range"
+                    selected={dateRange}
+                    onSelect={setDateRange}
+                    numberOfMonths={2}
+                    className={cn("pointer-events-auto")}
+                  />
+                  <div className="flex justify-end gap-2 pt-2 border-t">
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      onClick={() => {
+                        setDateRange(undefined);
+                        setDatePickerOpen(false);
+                      }}
+                    >
+                      Clear
+                    </Button>
+                    <Button
+                      size="sm"
+                      onClick={() => setDatePickerOpen(false)}
+                      disabled={!dateRange?.from || !dateRange?.to}
+                    >
+                      Save
+                    </Button>
+                  </div>
+                </div>
               </PopoverContent>
             </Popover>
           </div>
