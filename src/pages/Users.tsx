@@ -53,27 +53,25 @@ const Users = () => {
   }, [userRole]);
 
   const fetchUsers = async () => {
-    const { data: profiles } = await supabase
-      .from('profiles')
-      .select('id, full_name');
-
-    const { data: roles } = await supabase
-      .from('user_roles')
-      .select('user_id, role');
-
-    // Get current user's profile to check if they're the master account
-    const { data: { user } } = await supabase.auth.getUser();
+    const { data, error } = await supabase.rpc('get_all_users_with_emails');
     
-    if (profiles) {
-      const usersData = profiles.map(profile => {
-        const userRole = roles?.find(r => r.user_id === profile.id);
-        return {
-          id: profile.id,
-          email: '', // Email will be fetched separately for master account
-          full_name: profile.full_name || '',
-          role: (userRole?.role as string) || 'No role',
-        };
+    if (error) {
+      console.error('Error fetching users:', error);
+      toast({
+        title: 'Error',
+        description: 'Failed to fetch users',
+        variant: 'destructive',
       });
+      return;
+    }
+    
+    if (data) {
+      const usersData = data.map((user: any) => ({
+        id: user.user_id,
+        email: user.email || '',
+        full_name: user.full_name || '',
+        role: user.role || 'No role',
+      }));
       setUsers(usersData);
     }
   };
