@@ -116,7 +116,7 @@ const ReservationDetail = () => {
         contact_email: data.contact_email || '',
         contact_phone: data.contact_phone || '',
         price_per_night: data.price_per_night || 0,
-        total_price: data.total_price,
+        total_price: data.total_price || 0,
         commission_rate: data.commission_rate || 10,
         source: data.source,
         status: data.status,
