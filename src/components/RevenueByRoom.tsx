@@ -25,6 +25,7 @@ interface RoomRevenue {
   terrace: string;
   bookings: number;
   revenue: number;
+  occupancy: number;
 }
 
 export const RevenueByRoom = () => {
@@ -63,6 +64,9 @@ export const RevenueByRoom = () => {
     
     const startDate = format(dateRange.from, 'yyyy-MM-dd');
     const endDate = format(dateRange.to, 'yyyy-MM-dd');
+    
+    // Calculate total days in the date range
+    const daysDiff = Math.ceil((dateRange.to.getTime() - dateRange.from.getTime()) / (1000 * 60 * 60 * 24)) + 1;
 
     // Fetch all units
     const { data: units, error: unitsError } = await supabase
@@ -79,7 +83,7 @@ export const RevenueByRoom = () => {
     // Fetch reservations for the date range
     const { data: reservations, error: reservationsError } = await supabase
       .from('reservations')
-      .select('unit_id, total_price, net_revenue')
+      .select('unit_id, total_price, net_revenue, check_in_date, check_out_date, nights')
       .neq('status', 'Cancelled')
       .gte('check_in_date', startDate)
       .lte('check_out_date', endDate);
@@ -102,6 +106,15 @@ export const RevenueByRoom = () => {
         (sum, r) => sum + (r.net_revenue || r.total_price || 0),
         0
       );
+      
+      // Calculate total nights booked for this room
+      const totalNightsBooked = unitReservations.reduce(
+        (sum, r) => sum + (r.nights || 0),
+        0
+      );
+      
+      // Calculate occupancy percentage
+      const occupancy = daysDiff > 0 ? (totalNightsBooked / daysDiff) * 100 : 0;
 
       // Parse beds from unit_type (e.g., "1bd + Balcony" -> "1")
       const bedsMatch = unit.unit_type?.match(/(\d+)bd/);
@@ -135,6 +148,7 @@ export const RevenueByRoom = () => {
         terrace,
         bookings: unitReservations.length,
         revenue: totalRevenue,
+        occupancy,
       };
     });
 
@@ -218,6 +232,7 @@ export const RevenueByRoom = () => {
                 <TableHead className="text-center">Beds</TableHead>
                 <TableHead className="text-center">Area</TableHead>
                 <TableHead className="text-center">Terrace</TableHead>
+                <TableHead className="text-right">Occupancy</TableHead>
                 <TableHead className="text-right">Number of Bookings</TableHead>
                 <TableHead className="text-right font-semibold">Revenue</TableHead>
               </TableRow>
@@ -230,6 +245,11 @@ export const RevenueByRoom = () => {
                   <TableCell className="text-center">{room.beds}</TableCell>
                   <TableCell className="text-center">{room.area}</TableCell>
                   <TableCell className="text-center">{room.terrace}</TableCell>
+                  <TableCell className="text-right">
+                    <span className={room.occupancy >= 70 ? 'text-green-600 font-semibold' : room.occupancy >= 40 ? 'text-amber-600' : 'text-red-600'}>
+                      {room.occupancy.toFixed(1)}%
+                    </span>
+                  </TableCell>
                   <TableCell className="text-right">{room.bookings}</TableCell>
                   <TableCell className="text-right text-green-600 font-semibold">
                     ${room.revenue.toFixed(2)}
@@ -237,7 +257,7 @@ export const RevenueByRoom = () => {
                 </TableRow>
               ))}
               <TableRow className="bg-muted/50 font-semibold">
-                <TableCell colSpan={5}>Total</TableCell>
+                <TableCell colSpan={6}>Total</TableCell>
                 <TableCell className="text-right">{totals.bookings}</TableCell>
                 <TableCell className="text-right text-green-600">
                   ${totals.revenue.toFixed(2)}
