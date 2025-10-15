@@ -296,8 +296,25 @@ export function CreateReservationDialog() {
     Number(pricePerNight) > 0 &&
     Number.isInteger(Number(pricePerNight));
 
+  const resetForm = () => {
+    setDateRange(undefined);
+    setUnitId("");
+    setNumberOfGuests(1);
+    setGuestNames([""]);
+    setNationality("");
+    setSource("");
+    setPricePerNight("");
+  };
+
+  const handleOpenChange = (isOpen: boolean) => {
+    setOpen(isOpen);
+    if (isOpen) {
+      resetForm();
+    }
+  };
+
   return (
-    <Dialog open={open} onOpenChange={setOpen}>
+    <Dialog open={open} onOpenChange={handleOpenChange}>
       <DialogTrigger asChild>
         <Button>
           <Plus className="mr-2 h-4 w-4" />
@@ -532,7 +549,14 @@ export function CreateReservationDialog() {
 
         {/* Footer Buttons */}
         <div className="flex justify-end gap-2">
-          <Button variant="outline" onClick={() => setOpen(false)} disabled={loading}>
+          <Button 
+            variant="outline" 
+            onClick={() => {
+              resetForm();
+              setOpen(false);
+            }} 
+            disabled={loading}
+          >
             Cancel
           </Button>
           <Button onClick={handleSubmit} disabled={!isFormValid || loading}>
