@@ -89,21 +89,46 @@ const Users = () => {
     if (!editingUser || currentUserId !== MASTER_ACCOUNT_ID) return;
 
     try {
+      console.log('Updating user:', editingUser.id, 'with role:', editForm.role);
+      
       // Update profile
       const { error: profileError } = await supabase
         .from('profiles')
         .update({ full_name: editForm.full_name })
         .eq('id', editingUser.id);
 
-      if (profileError) throw profileError;
+      if (profileError) {
+        console.error('Profile update error:', profileError);
+        throw profileError;
+      }
 
-      // Update role
-      const { error: roleError } = await supabase
+      // Check current role first
+      const { data: currentRole, error: checkError } = await supabase
+        .from('user_roles')
+        .select('role')
+        .eq('user_id', editingUser.id)
+        .single();
+
+      if (checkError) {
+        console.error('Role check error:', checkError);
+        throw checkError;
+      }
+
+      console.log('Current role in DB:', currentRole);
+
+      // Update role - using the exact enum value
+      const { data: updateData, error: roleError } = await supabase
         .from('user_roles')
         .update({ role: editForm.role as any })
-        .eq('user_id', editingUser.id);
+        .eq('user_id', editingUser.id)
+        .select();
 
-      if (roleError) throw roleError;
+      console.log('Role update result:', { updateData, roleError });
+
+      if (roleError) {
+        console.error('Role update error:', roleError);
+        throw roleError;
+      }
 
       toast({
         title: 'Success',
@@ -115,12 +140,12 @@ const Users = () => {
       // Force refetch after a short delay to ensure DB has updated
       setTimeout(() => {
         fetchUsers();
-      }, 100);
+      }, 300);
     } catch (error) {
       console.error('Update error:', error);
       toast({
         title: 'Error',
-        description: 'Failed to update user',
+        description: error instanceof Error ? error.message : 'Failed to update user',
         variant: 'destructive',
       });
     }
