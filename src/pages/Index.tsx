@@ -42,9 +42,10 @@ const Index = () => {
       <header className="border-b bg-card">
         <div className="container mx-auto px-4 py-4 flex items-start justify-between">
           <div className="flex flex-col items-center gap-2">
-            <img src={suitespotLogo} alt="SuiteSpot Logo" className="h-10 w-10 object-contain" />
+            <img src={suitespotLogo} alt="SuiteSpot Logo" className="h-14 w-14 object-contain" />
             <div className="text-center">
-              <h1 className="text-xl font-bold">SuiteSpot Reservations</h1>
+              <h1 className="text-xl font-bold leading-tight">SuiteSpot</h1>
+              <h2 className="text-xl font-bold leading-tight">Reservations</h2>
               <p className="text-sm text-muted-foreground">Manage your bookings with ease</p>
             </div>
           </div>
@@ -121,7 +122,8 @@ const Index = () => {
             <div className="flex flex-col gap-2 w-full">
               <Button variant="outline" size="sm" onClick={() => navigate('/calendar')} className="w-full justify-start">
                 <CalendarDays className="h-4 w-4 mr-2" />
-                Calendar View
+                <span className="md:hidden">Calendar</span>
+                <span className="hidden md:inline">Calendar View</span>
               </Button>
               <Button variant="outline" size="sm" onClick={() => signOut()} className="w-full justify-start">
                 <LogOut className="h-4 w-4 mr-2" />
