@@ -32,7 +32,7 @@ export const WeeklyCalendar = () => {
 
     // Set up real-time subscription for reservations
     const channel = supabase
-      .channel('reservations-changes')
+      .channel('weekly-calendar-reservations-realtime')
       .on(
         'postgres_changes',
         {
@@ -41,15 +41,21 @@ export const WeeklyCalendar = () => {
           table: 'reservations'
         },
         (payload) => {
-          console.log('Real-time reservation update:', payload);
+          console.log('WeeklyCalendar real-time update received:', payload);
           fetchReservations();
         }
       )
-      .subscribe((status) => {
-        console.log('Reservation subscription status:', status);
+      .subscribe((status, err) => {
+        if (status === 'SUBSCRIBED') {
+          console.log('WeeklyCalendar successfully subscribed to real-time updates');
+        }
+        if (err) {
+          console.error('WeeklyCalendar subscription error:', err);
+        }
       });
 
     return () => {
+      console.log('WeeklyCalendar cleaning up subscription');
       supabase.removeChannel(channel);
     };
   }, []);
