@@ -56,10 +56,12 @@ export const ReservationsList = () => {
   const [searchQuery, setSearchQuery] = useState('');
   const [statusFilter, setStatusFilter] = useState<string>('all');
   const [unitFilter, setUnitFilter] = useState<string>('all');
+  const [units, setUnits] = useState<{ id: string; name: string }[]>([]);
   const navigate = useNavigate();
 
   useEffect(() => {
     fetchReservations();
+    fetchUnits();
 
     // Real-time updates
     const channel = supabase
@@ -97,6 +99,17 @@ export const ReservationsList = () => {
 
     if (!error && data) {
       setReservations(data as Reservation[]);
+    }
+  };
+
+  const fetchUnits = async () => {
+    const { data, error } = await supabase
+      .from('units')
+      .select('id, name')
+      .order('name');
+
+    if (!error && data) {
+      setUnits(data);
     }
   };
 
@@ -153,11 +166,11 @@ export const ReservationsList = () => {
           </SelectTrigger>
           <SelectContent>
             <SelectItem value="all">All Units</SelectItem>
-            <SelectItem value="101">Unit 101</SelectItem>
-            <SelectItem value="102">Unit 102</SelectItem>
-            <SelectItem value="103">Unit 103</SelectItem>
-            <SelectItem value="104">Unit 104</SelectItem>
-            <SelectItem value="105">Unit 105</SelectItem>
+            {units.map((unit) => (
+              <SelectItem key={unit.id} value={unit.name}>
+                {unit.name}
+              </SelectItem>
+            ))}
           </SelectContent>
         </Select>
       </div>
