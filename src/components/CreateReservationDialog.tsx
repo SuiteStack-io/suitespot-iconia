@@ -520,6 +520,7 @@ export function CreateReservationDialog() {
                 <SelectItem value="Emad">Emad</SelectItem>
                 <SelectItem value="Nicola">Nicola</SelectItem>
                 <SelectItem value="Youssef">Youssef</SelectItem>
+                <SelectItem value="KSS">KSS</SelectItem>
               </SelectContent>
             </Select>
           </div>

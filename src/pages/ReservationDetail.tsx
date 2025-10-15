@@ -481,12 +481,17 @@ const ReservationDetail = () => {
                 </div>
                 <div>
                   <Label>Source</Label>
-                  <Input
-                    value={formData.source}
-                    onChange={(e) => setFormData(prev => ({ ...prev, source: e.target.value }))}
-                    placeholder="e.g., Booking.com, Direct, Airbnb"
-                    className="mt-2"
-                  />
+                  <Select value={formData.source} onValueChange={(value) => setFormData(prev => ({ ...prev, source: value }))}>
+                    <SelectTrigger className="mt-2">
+                      <SelectValue placeholder="Select a source" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="Emad">Emad</SelectItem>
+                      <SelectItem value="Nicola">Nicola</SelectItem>
+                      <SelectItem value="Youssef">Youssef</SelectItem>
+                      <SelectItem value="KSS">KSS</SelectItem>
+                    </SelectContent>
+                  </Select>
                 </div>
               </>
             ) : (
