@@ -15,7 +15,7 @@ export const AddUserDialog = () => {
     email: '',
     password: '',
     fullName: '',
-    role: 'front_desk'
+    role: 'front_desk' as 'admin' | 'manager' | 'front_desk' | 'housekeeping'
   });
 
   const handleSubmit = async (e: React.FormEvent) => {
@@ -42,7 +42,7 @@ export const AddUserDialog = () => {
         .from('user_roles')
         .insert([{
           user_id: authData.user.id,
-          role: formData.role as 'admin' | 'front_desk',
+          role: formData.role as 'admin' | 'manager' | 'front_desk',
         }]);
 
       if (roleError) throw roleError;
@@ -103,15 +103,20 @@ export const AddUserDialog = () => {
           </div>
           <div>
             <Label htmlFor="role">Role</Label>
-            <Select value={formData.role} onValueChange={(value) => setFormData({ ...formData, role: value })}>
+            <Select value={formData.role} onValueChange={(value) => setFormData({ ...formData, role: value as 'admin' | 'manager' | 'front_desk' | 'housekeeping' })}>
               <SelectTrigger id="role">
                 <SelectValue />
               </SelectTrigger>
-              <SelectContent>
+              <SelectContent className="bg-popover z-50">
                 <SelectItem value="admin">Admin</SelectItem>
+                <SelectItem value="manager">Manager</SelectItem>
                 <SelectItem value="front_desk">Front Desk</SelectItem>
+                <SelectItem value="housekeeping">Housekeeping</SelectItem>
               </SelectContent>
             </Select>
+            <p className="text-xs text-muted-foreground mt-1">
+              Admin & Manager can create/edit reservations
+            </p>
           </div>
           <div className="flex gap-3 justify-end">
             <Button type="button" variant="outline" onClick={() => setOpen(false)}>

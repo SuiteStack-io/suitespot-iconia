@@ -27,6 +27,7 @@ import { format, differenceInDays, isBefore, isAfter, startOfDay } from "date-fn
 import { cn } from "@/lib/utils";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
+import { useAuth } from "@/lib/auth";
 
 interface Unit {
   id: string;
@@ -37,6 +38,7 @@ interface Unit {
 const COMMISSION_RATE = 10.00; // 10% commission across all sources
 
 export function CreateReservationDialog() {
+  const { userRole } = useAuth();
   const [open, setOpen] = useState(false);
   const [loading, setLoading] = useState(false);
   
@@ -195,6 +197,12 @@ export function CreateReservationDialog() {
   };
 
   const handleSubmit = async () => {
+    // Check permissions first
+    if (!userRole || (userRole !== 'admin' && userRole !== 'manager')) {
+      toast.error('You do not have permission to create reservations. Admin or Manager role required.');
+      return;
+    }
+
     if (!validateForm()) return;
 
     setLoading(true);
@@ -247,9 +255,27 @@ export function CreateReservationDialog() {
       setSource("");
       setPricePerNight("");
       setOpen(false);
-    } catch (error) {
+    } catch (error: any) {
       console.error("Error creating reservation:", error);
-      toast.error("Failed to create reservation");
+      
+      // Provide specific error messages
+      if (error.code === '42501') {
+        // Permission denied error
+        toast.error('You do not have permission to create reservations. Please contact an administrator.');
+      } else if (error.code === '23505') {
+        // Unique constraint violation
+        toast.error('A reservation with this booking reference already exists.');
+      } else if (error.message?.includes('violates row-level security')) {
+        toast.error('Permission denied. Your account may not have the required role to create reservations.');
+      } else if (error.message?.includes('not found')) {
+        toast.error('The selected unit was not found. Please refresh and try again.');
+      } else if (error.details) {
+        // Show specific error details from Supabase
+        toast.error(`Error: ${error.message}. ${error.details}`);
+      } else {
+        // Generic error
+        toast.error(`Failed to create reservation: ${error.message || 'Please try again.'}`);
+      }
     } finally {
       setLoading(false);
     }

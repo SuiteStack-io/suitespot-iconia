@@ -45,7 +45,25 @@ const Index = () => {
               <p className="text-sm text-muted-foreground">Manage your bookings with ease</p>
             </div>
           </div>
-          <div className="flex items-center gap-2">
+          <div className="flex items-center gap-3">
+            {/* User info display */}
+            <div className="flex items-center gap-2 px-3 py-2 bg-accent/10 rounded-lg border border-accent/20">
+              <div className="flex flex-col items-end">
+                <span className="text-sm font-medium">
+                  {user.user_metadata?.full_name || user.email?.split('@')[0] || 'User'}
+                </span>
+                <span className="text-xs text-muted-foreground capitalize">
+                  {userRole || 'No role'}
+                </span>
+              </div>
+              <div className="w-8 h-8 rounded-full bg-accent/20 flex items-center justify-center">
+                <span className="text-sm font-semibold text-accent">
+                  {(user.user_metadata?.full_name || user.email || 'U')[0].toUpperCase()}
+                </span>
+              </div>
+            </div>
+
+            {/* Existing buttons */}
             <Button variant="outline" size="sm" onClick={() => navigate('/calendar')}>
               <CalendarDays className="h-4 w-4 mr-2" />
               Calendar View
