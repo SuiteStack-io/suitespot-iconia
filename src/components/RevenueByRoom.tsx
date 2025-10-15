@@ -67,7 +67,7 @@ export const RevenueByRoom = () => {
     // Fetch all units
     const { data: units, error: unitsError } = await supabase
       .from('units')
-      .select('id, name, unit_number, unit_size')
+      .select('id, name, unit_number, unit_size, unit_type')
       .order('unit_number', { ascending: true });
 
     if (unitsError) {
@@ -103,12 +103,36 @@ export const RevenueByRoom = () => {
         0
       );
 
+      // Parse beds from unit_type (e.g., "1bd + Balcony" -> "1")
+      const bedsMatch = unit.unit_type?.match(/(\d+)bd/);
+      const beds = bedsMatch ? bedsMatch[1] : 'N/A';
+
+      // Parse area and terrace from unit_size (e.g., "52m2+25m2" -> area: "52m2", terrace: "25m2")
+      let area = 'N/A';
+      let terrace = 'N/A';
+      
+      if (unit.unit_size) {
+        const sizeMatch = unit.unit_size.match(/(\d+)\s*m2?\s*\+?\s*(\d+)?\s*m2?/);
+        if (sizeMatch) {
+          area = `${sizeMatch[1]}m²`;
+          if (sizeMatch[2]) {
+            terrace = `${sizeMatch[2]}m²`;
+          }
+        } else {
+          // Handle formats like "75 m2" without terrace
+          const simpleMatch = unit.unit_size.match(/(\d+)\s*m2?/);
+          if (simpleMatch) {
+            area = `${simpleMatch[1]}m²`;
+          }
+        }
+      }
+
       roomRevenueMap[unit.id] = {
         roomId: unit.unit_number || unit.id.substring(0, 8),
         roomName: unit.name,
-        beds: 'N/A', // Placeholder - can be added to units table
-        area: unit.unit_size || 'N/A',
-        terrace: 'N/A', // Placeholder - can be added to units table
+        beds,
+        area,
+        terrace,
         bookings: unitReservations.length,
         revenue: totalRevenue,
       };
@@ -223,7 +247,6 @@ export const RevenueByRoom = () => {
           </Table>
         </div>
         <div className="mt-4 text-xs text-muted-foreground">
-          <p>* Beds and Terrace columns can be added to the units table for accurate data</p>
           <p>* Revenue shown is net revenue after commission</p>
         </div>
       </CardContent>
