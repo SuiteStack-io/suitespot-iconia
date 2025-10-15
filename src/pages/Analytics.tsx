@@ -1,22 +1,27 @@
-import { useEffect } from 'react';
+import { useEffect, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useAuth } from '@/lib/auth';
 import { Button } from '@/components/ui/button';
-import { ArrowLeft } from 'lucide-react';
+import { ArrowLeft, DollarSign, TrendingUp, Calendar, BarChart3 } from 'lucide-react';
 import { RevenueBySource } from '@/components/RevenueBySource';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
-import { DollarSign } from 'lucide-react';
-import { useState } from 'react';
 import { supabase } from '@/integrations/supabase/client';
+import { Tabs, TabsList, TabsTrigger } from '@/components/ui/tabs';
+
+type TimePeriod = 'week' | 'month' | 'quarter' | 'year';
 
 const Analytics = () => {
   const { userRole, loading } = useAuth();
   const navigate = useNavigate();
+  const [timePeriod, setTimePeriod] = useState<TimePeriod>('month');
   const [revenueStats, setRevenueStats] = useState({
     totalRevenue: 0,
     netRevenue: 0,
     totalCommission: 0,
   });
+  const [occupancyRate, setOccupancyRate] = useState(0);
+  const [totalBookings, setTotalBookings] = useState(0);
+  const [bookingSources, setBookingSources] = useState({ direct: 0, indirect: 0 });
 
   useEffect(() => {
     if (!loading && userRole !== 'admin') {
@@ -26,10 +31,10 @@ const Analytics = () => {
 
   useEffect(() => {
     if (userRole === 'admin') {
-      fetchRevenueStats();
+      fetchAllStats();
       
       const channel = supabase
-        .channel('reservations-revenue')
+        .channel('reservations-analytics')
         .on(
           'postgres_changes',
           {
@@ -38,7 +43,7 @@ const Analytics = () => {
             table: 'reservations',
           },
           () => {
-            fetchRevenueStats();
+            fetchAllStats();
           }
         )
         .subscribe();
@@ -47,19 +52,101 @@ const Analytics = () => {
         supabase.removeChannel(channel);
       };
     }
-  }, [userRole]);
+  }, [userRole, timePeriod]);
 
-  const fetchRevenueStats = async () => {
+  const getDateRange = () => {
+    const now = new Date();
+    let startDate = new Date();
+    
+    switch (timePeriod) {
+      case 'week':
+        startDate.setDate(now.getDate() - 7);
+        break;
+      case 'month':
+        startDate.setMonth(now.getMonth() - 1);
+        break;
+      case 'quarter':
+        startDate.setMonth(now.getMonth() - 3);
+        break;
+      case 'year':
+        startDate.setFullYear(now.getFullYear() - 1);
+        break;
+    }
+    
+    return { startDate: startDate.toISOString().split('T')[0], endDate: now.toISOString().split('T')[0] };
+  };
+
+  const fetchAllStats = async () => {
+    const { startDate, endDate } = getDateRange();
+    
+    // Fetch revenue stats
     const { data: revenueData } = await supabase
       .from('reservations')
-      .select('total_price, net_revenue, commission_amount')
-      .neq('status', 'Cancelled');
+      .select('total_price, net_revenue, commission_amount, channel, source')
+      .neq('status', 'Cancelled')
+      .gte('created_at', startDate)
+      .lte('created_at', endDate);
 
     const totalRevenue = revenueData?.reduce((sum, r) => sum + (r.total_price || 0), 0) || 0;
     const netRevenue = revenueData?.reduce((sum, r) => sum + (r.net_revenue || 0), 0) || 0;
     const totalCommission = revenueData?.reduce((sum, r) => sum + (r.commission_amount || 0), 0) || 0;
 
     setRevenueStats({ totalRevenue, netRevenue, totalCommission });
+    
+    // Fetch total bookings
+    const { data: bookingsData, count } = await supabase
+      .from('reservations')
+      .select('*', { count: 'exact', head: true })
+      .neq('status', 'Cancelled')
+      .gte('created_at', startDate)
+      .lte('created_at', endDate);
+      
+    setTotalBookings(count || 0);
+    
+    // Calculate booking sources
+    const directBookings = revenueData?.filter(r => 
+      r.channel?.toLowerCase() === 'direct' || r.source?.toLowerCase() === 'direct'
+    ).length || 0;
+    const indirectBookings = (revenueData?.length || 0) - directBookings;
+    
+    setBookingSources({ direct: directBookings, indirect: indirectBookings });
+    
+    // Calculate occupancy rate
+    const { data: units } = await supabase
+      .from('units')
+      .select('id');
+      
+    const totalUnits = units?.length || 1;
+    
+    const { data: reservations } = await supabase
+      .from('reservations')
+      .select('check_in_date, check_out_date, nights')
+      .eq('status', 'confirmed')
+      .gte('check_in_date', startDate)
+      .lte('check_out_date', endDate);
+    
+    const totalNights = reservations?.reduce((sum, r) => sum + (r.nights || 0), 0) || 0;
+    
+    let days = 1;
+    switch (timePeriod) {
+      case 'week':
+        days = 7;
+        break;
+      case 'month':
+        days = 30;
+        break;
+      case 'quarter':
+        days = 90;
+        break;
+      case 'year':
+        days = 365;
+        break;
+    }
+    
+    const totalAvailableNights = totalUnits * days;
+    const occupancy = totalAvailableNights > 0 ? (totalNights / totalAvailableNights) * 100 : 0;
+    
+    setOccupancyRate(occupancy);
   };
 
   if (loading || userRole !== 'admin') {
@@ -100,6 +187,62 @@ const Analytics = () => {
       </header>
 
       <main className="container mx-auto px-4 py-8 space-y-8">
+        <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-4">
+          <Card>
+            <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+              <CardTitle className="text-sm font-medium">Occupancy Rate</CardTitle>
+              <TrendingUp className="h-4 w-4 text-blue-600" />
+            </CardHeader>
+            <CardContent>
+              <div className="text-2xl font-bold">
+                {occupancyRate.toFixed(1)}%
+              </div>
+              <Tabs value={timePeriod} onValueChange={(value) => setTimePeriod(value as TimePeriod)} className="mt-3">
+                <TabsList className="grid w-full grid-cols-4">
+                  <TabsTrigger value="week">Week</TabsTrigger>
+                  <TabsTrigger value="month">Month</TabsTrigger>
+                  <TabsTrigger value="quarter">Quarter</TabsTrigger>
+                  <TabsTrigger value="year">Year</TabsTrigger>
+                </TabsList>
+              </Tabs>
+            </CardContent>
+          </Card>
+
+          <Card>
+            <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+              <CardTitle className="text-sm font-medium">Total Bookings</CardTitle>
+              <Calendar className="h-4 w-4 text-purple-600" />
+            </CardHeader>
+            <CardContent>
+              <div className="text-2xl font-bold">
+                {totalBookings}
+              </div>
+              <p className="text-xs text-muted-foreground mt-1">
+                Last {timePeriod}
+              </p>
+            </CardContent>
+          </Card>
+
+          <Card>
+            <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+              <CardTitle className="text-sm font-medium">Booking Sources</CardTitle>
+              <BarChart3 className="h-4 w-4 text-indigo-600" />
+            </CardHeader>
+            <CardContent>
+              <div className="space-y-2">
+                <div className="flex justify-between items-center">
+                  <span className="text-sm text-muted-foreground">Direct</span>
+                  <span className="font-bold">{bookingSources.direct}</span>
+                </div>
+                <div className="flex justify-between items-center">
+                  <span className="text-sm text-muted-foreground">Indirect</span>
+                  <span className="font-bold">{bookingSources.indirect}</span>
+                </div>
+              </div>
+            </CardContent>
+          </Card>
+        </div>
+
         <div className="grid gap-4 md:grid-cols-3">
           {revenueCards.map((stat) => (
             <Card key={stat.title}>
