@@ -6,8 +6,9 @@ import { ReservationsList } from '@/components/ReservationsList';
 import { WeeklyCalendar } from '@/components/WeeklyCalendar';
 import { CreateReservationDialog } from '@/components/CreateReservationDialog';
 import { Button } from '@/components/ui/button';
-import { LogOut, CalendarDays, ChevronDown } from 'lucide-react';
+import { LogOut, CalendarDays, ChevronDown, UserPlus } from 'lucide-react';
 import suitespotLogo from '@/assets/suitespot-logo.png';
+import { useIsMobile } from '@/hooks/use-mobile';
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -18,6 +19,7 @@ import {
 const Index = () => {
   const { user, loading, signOut, userRole } = useAuth();
   const navigate = useNavigate();
+  const isMobile = useIsMobile();
 
   useEffect(() => {
     if (!loading && !user) {
@@ -41,15 +43,26 @@ const Index = () => {
     <div className="min-h-screen bg-background">
       <header className="border-b bg-card">
         <div className="container mx-auto px-4 py-4 flex items-start justify-between">
-          <div className="flex flex-col items-center gap-2">
-            <img src={suitespotLogo} alt="SuiteSpot Logo" className="h-14 w-14 object-contain" />
-            <div className="text-center">
-              <h1 className="text-xl font-bold leading-tight">SuiteSpot</h1>
-              <h2 className="text-xl font-bold leading-tight">Reservations</h2>
+          {/* Logo and title - horizontal on desktop, stacked on mobile */}
+          <div className={isMobile ? "flex flex-col items-center gap-2" : "flex items-center gap-3"}>
+            <img src={suitespotLogo} alt="SuiteSpot Logo" className={isMobile ? "h-14 w-14" : "h-10 w-10"} />
+            <div className={isMobile ? "text-center" : ""}>
+              <h1 className={isMobile ? "text-xl font-bold leading-tight" : "text-xl font-bold"}>
+                {isMobile ? (
+                  <>
+                    <div>SuiteSpot</div>
+                    <div>Reservations</div>
+                  </>
+                ) : (
+                  'SuiteSpot Reservations'
+                )}
+              </h1>
               <p className="text-sm text-muted-foreground">Manage your bookings with ease</p>
             </div>
           </div>
-          <div className="flex flex-col items-end gap-2">
+
+          {/* Right side - user info and action buttons */}
+          <div className={isMobile ? "flex flex-col items-end gap-2" : "flex items-center gap-2"}>
             {/* User info display with dropdown for admins */}
             {userRole === 'admin' ? (
               <DropdownMenu>
@@ -118,14 +131,36 @@ const Index = () => {
               </div>
             )}
 
-            {/* Action buttons stacked vertically */}
-            <div className="flex flex-col gap-2 w-full">
-              <Button variant="outline" size="sm" onClick={() => navigate('/calendar')} className="w-full justify-start">
+            {/* Action buttons - horizontal on desktop, stacked on mobile */}
+            <div className={isMobile ? "flex flex-col gap-2 w-full" : "flex items-center gap-2"}>
+              <Button 
+                variant="outline" 
+                size="sm" 
+                onClick={() => navigate('/calendar')} 
+                className={isMobile ? "w-full justify-start" : ""}
+              >
                 <CalendarDays className="h-4 w-4 mr-2" />
-                <span className="md:hidden">Calendar</span>
-                <span className="hidden md:inline">Calendar View</span>
+                <span className={isMobile ? "" : "hidden md:inline"}>
+                  {isMobile ? "Calendar" : "Calendar View"}
+                </span>
+                <span className={isMobile ? "hidden" : "md:hidden inline"}>Calendar</span>
               </Button>
-              <Button variant="outline" size="sm" onClick={() => signOut()} className="w-full justify-start">
+              {userRole === 'admin' && !isMobile && (
+                <Button 
+                  variant="outline" 
+                  size="sm" 
+                  onClick={() => navigate('/users')}
+                >
+                  <UserPlus className="h-4 w-4 mr-2" />
+                  Add User
+                </Button>
+              )}
+              <Button 
+                variant="outline" 
+                size="sm" 
+                onClick={() => signOut()} 
+                className={isMobile ? "w-full justify-start" : ""}
+              >
                 <LogOut className="h-4 w-4 mr-2" />
                 Sign Out
               </Button>
