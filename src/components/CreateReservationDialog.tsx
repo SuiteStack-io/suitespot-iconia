@@ -28,6 +28,7 @@ import { cn } from "@/lib/utils";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
 import { useAuth } from "@/lib/auth";
+import { DateRange } from "react-day-picker";
 
 interface Unit {
   id: string;
@@ -43,8 +44,7 @@ export function CreateReservationDialog() {
   const [loading, setLoading] = useState(false);
   
   // Form state
-  const [checkInDate, setCheckInDate] = useState<Date>();
-  const [checkOutDate, setCheckOutDate] = useState<Date>();
+  const [dateRange, setDateRange] = useState<DateRange | undefined>();
   const [unitId, setUnitId] = useState("");
   const [numberOfGuests, setNumberOfGuests] = useState<number>(1);
   const [guestNames, setGuestNames] = useState<string[]>([""]);
@@ -56,6 +56,10 @@ export function CreateReservationDialog() {
   const [allUnits, setAllUnits] = useState<Unit[]>([]);
   const [availableUnits, setAvailableUnits] = useState<Unit[]>([]);
   const [checkingAvailability, setCheckingAvailability] = useState(false);
+
+  // Extract dates from range
+  const checkInDate = dateRange?.from;
+  const checkOutDate = dateRange?.to;
 
   // Calculate nights
   const nights = checkInDate && checkOutDate 
@@ -246,8 +250,7 @@ export function CreateReservationDialog() {
       toast.success("Reservation created successfully!");
       
       // Reset form
-      setCheckInDate(undefined);
-      setCheckOutDate(undefined);
+      setDateRange(undefined);
       setUnitId("");
       setNumberOfGuests(1);
       setGuestNames([""]);
@@ -308,64 +311,43 @@ export function CreateReservationDialog() {
         
         <div className="space-y-4 py-4">
           {/* Check-in and Check-out Dates */}
-          <div className="grid grid-cols-2 gap-4">
-            <div className="space-y-2">
-              <Label htmlFor="checkIn">
-                Check-in Date <span className="text-destructive">*</span>
-              </Label>
-              <Popover>
-                <PopoverTrigger asChild>
-                  <Button
-                    variant="outline"
-                    className={cn(
-                      "w-full justify-start text-left font-normal",
-                      !checkInDate && "text-muted-foreground"
-                    )}
-                  >
-                    <CalendarIcon className="mr-2 h-4 w-4" />
-                    {checkInDate ? format(checkInDate, "PPP") : "Pick a date"}
-                  </Button>
-                </PopoverTrigger>
-                <PopoverContent className="w-auto p-0" align="start">
-                  <Calendar
-                    mode="single"
-                    selected={checkInDate}
-                    onSelect={setCheckInDate}
-                    initialFocus
-                    className="pointer-events-auto"
-                  />
-                </PopoverContent>
-              </Popover>
-            </div>
-
-            <div className="space-y-2">
-              <Label htmlFor="checkOut">
-                Check-out Date <span className="text-destructive">*</span>
-              </Label>
-              <Popover>
-                <PopoverTrigger asChild>
-                  <Button
-                    variant="outline"
-                    className={cn(
-                      "w-full justify-start text-left font-normal",
-                      !checkOutDate && "text-muted-foreground"
-                    )}
-                  >
-                    <CalendarIcon className="mr-2 h-4 w-4" />
-                    {checkOutDate ? format(checkOutDate, "PPP") : "Pick a date"}
-                  </Button>
-                </PopoverTrigger>
-                <PopoverContent className="w-auto p-0" align="start">
-                  <Calendar
-                    mode="single"
-                    selected={checkOutDate}
-                    onSelect={setCheckOutDate}
-                    initialFocus
-                    className="pointer-events-auto"
-                  />
-                </PopoverContent>
-              </Popover>
-            </div>
+          <div className="space-y-2">
+            <Label>
+              Check-in & Check-out Dates <span className="text-destructive">*</span>
+            </Label>
+            <Popover>
+              <PopoverTrigger asChild>
+                <Button
+                  variant="outline"
+                  className={cn(
+                    "w-full justify-start text-left font-normal",
+                    !dateRange && "text-muted-foreground"
+                  )}
+                >
+                  <CalendarIcon className="mr-2 h-4 w-4" />
+                  {dateRange?.from ? (
+                    dateRange.to ? (
+                      <>
+                        {format(dateRange.from, "PPP")} - {format(dateRange.to, "PPP")}
+                      </>
+                    ) : (
+                      format(dateRange.from, "PPP")
+                    )
+                  ) : (
+                    <span>Pick a date range</span>
+                  )}
+                </Button>
+              </PopoverTrigger>
+              <PopoverContent className="w-auto p-0" align="start">
+                <Calendar
+                  mode="range"
+                  selected={dateRange}
+                  onSelect={setDateRange}
+                  numberOfMonths={2}
+                  className={cn("p-3 pointer-events-auto")}
+                />
+              </PopoverContent>
+            </Popover>
           </div>
 
           {nights > 0 && (
