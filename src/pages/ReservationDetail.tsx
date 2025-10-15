@@ -19,8 +19,18 @@ import { Calendar } from '@/components/ui/calendar';
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
 import { toast } from 'sonner';
 import { format } from 'date-fns';
-import { ArrowLeft, Edit2, X, CalendarIcon } from 'lucide-react';
+import { ArrowLeft, Edit2, X, CalendarIcon, Trash2 } from 'lucide-react';
 import { cn } from '@/lib/utils';
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from '@/components/ui/alert-dialog';
 
 interface Reservation {
   id: string;
@@ -70,6 +80,8 @@ const ReservationDetail = () => {
   const [units, setUnits] = useState<Unit[]>([]);
   const [isEditMode, setIsEditMode] = useState(false);
   const [saving, setSaving] = useState(false);
+  const [showDeleteDialog, setShowDeleteDialog] = useState(false);
+  const [deleting, setDeleting] = useState(false);
   
   // Form state
   const [formData, setFormData] = useState({
@@ -204,6 +216,28 @@ const ReservationDetail = () => {
     setSaving(false);
   };
 
+  const handleDelete = async () => {
+    if (!canEdit) {
+      toast.error('You do not have permission to delete reservations');
+      return;
+    }
+
+    setDeleting(true);
+    
+    const { error } = await supabase
+      .from('reservations')
+      .delete()
+      .eq('id', id);
+
+    if (error) {
+      toast.error('Failed to delete reservation');
+      setDeleting(false);
+    } else {
+      toast.success('Reservation deleted successfully');
+      navigate('/');
+    }
+  };
+
   const addGuestName = () => {
     setFormData(prev => ({
       ...prev,
@@ -248,10 +282,19 @@ const ReservationDetail = () => {
           </div>
         </div>
         {canEdit && !isEditMode && (
-          <Button onClick={() => setIsEditMode(true)}>
-            <Edit2 className="h-4 w-4 mr-2" />
-            Edit Reservation
-          </Button>
+          <div className="flex gap-2">
+            <Button onClick={() => setIsEditMode(true)}>
+              <Edit2 className="h-4 w-4 mr-2" />
+              Edit Reservation
+            </Button>
+            <Button 
+              variant="destructive" 
+              onClick={() => setShowDeleteDialog(true)}
+            >
+              <Trash2 className="h-4 w-4 mr-2" />
+              Delete Reservation
+            </Button>
+          </div>
         )}
         {isEditMode && (
           <div className="flex gap-2">
@@ -600,6 +643,27 @@ const ReservationDetail = () => {
           </CardContent>
         </Card>
       </div>
+
+      <AlertDialog open={showDeleteDialog} onOpenChange={setShowDeleteDialog}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Are you sure you want to delete this reservation?</AlertDialogTitle>
+            <AlertDialogDescription>
+              This action cannot be undone. This will permanently delete the reservation.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>No</AlertDialogCancel>
+            <AlertDialogAction 
+              onClick={handleDelete}
+              disabled={deleting}
+              className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
+            >
+              {deleting ? 'Deleting...' : 'Yes'}
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </div>
   );
 };
