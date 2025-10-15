@@ -4,6 +4,7 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { ChevronLeft, ChevronRight } from 'lucide-react';
 import { startOfWeek, addDays, format, addWeeks, subWeeks, isWithinInterval, isSameDay } from 'date-fns';
+import { useIsMobile } from '@/hooks/use-mobile';
 
 interface Unit {
   id: string;
@@ -23,6 +24,7 @@ interface Reservation {
 }
 
 export const WeeklyCalendar = () => {
+  const isMobile = useIsMobile();
   const [currentWeekStart, setCurrentWeekStart] = useState(() => startOfWeek(new Date(), { weekStartsOn: 0 }));
   const [units, setUnits] = useState<Unit[]>([]);
   const [reservations, setReservations] = useState<Reservation[]>([]);
@@ -129,23 +131,23 @@ export const WeeklyCalendar = () => {
   return (
     <Card>
       <CardHeader>
-        <div className="flex items-center justify-between">
-          <CardTitle>Weekly Calendar</CardTitle>
-          <div className="flex items-center gap-2">
-            {!isCurrentWeek && (
-              <Button variant="outline" size="sm" onClick={goToCurrentWeek}>
-                Today
-              </Button>
-            )}
+        <div className={isMobile ? "flex flex-col gap-3" : "flex items-center justify-between"}>
+          {!isMobile && <CardTitle>Weekly Calendar</CardTitle>}
+          <div className="flex items-center gap-1.5 w-full justify-between">
             <Button variant="outline" size="sm" onClick={navigatePreviousWeek}>
               <ChevronLeft className="h-4 w-4" />
             </Button>
-            <div className="text-sm font-medium min-w-[200px] text-center">
+            <div className="text-sm font-medium text-center flex-1">
               {format(weekDays[0], 'MMM d')} - {format(weekDays[6], 'MMM d, yyyy')}
             </div>
             <Button variant="outline" size="sm" onClick={navigateNextWeek}>
               <ChevronRight className="h-4 w-4" />
             </Button>
+            {!isCurrentWeek && (
+              <Button variant="outline" size="sm" onClick={goToCurrentWeek} className="ml-1">
+                Today
+              </Button>
+            )}
           </div>
         </div>
       </CardHeader>
