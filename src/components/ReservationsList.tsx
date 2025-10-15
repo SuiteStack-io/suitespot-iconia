@@ -34,6 +34,12 @@ interface Reservation {
   status: string;
   units: { name: string } | null;
   source: string;
+  price_per_night: number | null;
+  total_price: number | null;
+  commission_rate: number | null;
+  commission_amount: number | null;
+  net_revenue: number | null;
+  currency: string | null;
 }
 
 const statusColors = {
@@ -82,7 +88,7 @@ export const ReservationsList = () => {
   const fetchReservations = async () => {
     const { data, error } = await supabase
       .from('reservations')
-      .select('*, units(name), source')
+      .select('*, units(name)')
       .order('check_in_date', { ascending: false });
 
     if (!error && data) {
@@ -164,13 +170,15 @@ export const ReservationsList = () => {
               <TableHead>Nationality</TableHead>
               <TableHead>Status</TableHead>
               <TableHead>Source</TableHead>
+              <TableHead className="text-right">Price/Night</TableHead>
+              <TableHead className="text-right">Total</TableHead>
               <TableHead>Reference</TableHead>
             </TableRow>
           </TableHeader>
           <TableBody>
             {filteredReservations.length === 0 ? (
               <TableRow>
-                <TableCell colSpan={10} className="text-center text-muted-foreground">
+                <TableCell colSpan={12} className="text-center text-muted-foreground">
                   No reservations found
                 </TableCell>
               </TableRow>
@@ -194,6 +202,12 @@ export const ReservationsList = () => {
                     </Badge>
                   </TableCell>
                   <TableCell>{reservation.source}</TableCell>
+                  <TableCell className="text-right">
+                    {reservation.price_per_night ? `$${reservation.price_per_night}` : '-'}
+                  </TableCell>
+                  <TableCell className="text-right font-medium">
+                    {reservation.total_price ? `$${reservation.total_price}` : '-'}
+                  </TableCell>
                   <TableCell className="font-mono text-sm">{reservation.booking_reference}</TableCell>
                 </TableRow>
               ))

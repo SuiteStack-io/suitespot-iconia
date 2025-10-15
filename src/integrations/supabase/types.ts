@@ -71,6 +71,8 @@ export type Database = {
           channel: string
           check_in_date: string
           check_out_date: string
+          commission_amount: number | null
+          commission_rate: number | null
           contact_email: string | null
           contact_phone: string | null
           created_at: string
@@ -79,9 +81,11 @@ export type Database = {
           guest_names: string[]
           guest_nationality: string | null
           id: string
+          net_revenue: number | null
           nights: number | null
           notes: string | null
           number_of_guests: number
+          price_per_night: number | null
           source: string
           status: string
           total_price: number | null
@@ -93,6 +97,8 @@ export type Database = {
           channel?: string
           check_in_date: string
           check_out_date: string
+          commission_amount?: number | null
+          commission_rate?: number | null
           contact_email?: string | null
           contact_phone?: string | null
           created_at?: string
@@ -101,9 +107,11 @@ export type Database = {
           guest_names?: string[]
           guest_nationality?: string | null
           id?: string
+          net_revenue?: number | null
           nights?: number | null
           notes?: string | null
           number_of_guests: number
+          price_per_night?: number | null
           source?: string
           status: string
           total_price?: number | null
@@ -115,6 +123,8 @@ export type Database = {
           channel?: string
           check_in_date?: string
           check_out_date?: string
+          commission_amount?: number | null
+          commission_rate?: number | null
           contact_email?: string | null
           contact_phone?: string | null
           created_at?: string
@@ -123,9 +133,11 @@ export type Database = {
           guest_names?: string[]
           guest_nationality?: string | null
           id?: string
+          net_revenue?: number | null
           nights?: number | null
           notes?: string | null
           number_of_guests?: number
+          price_per_night?: number | null
           source?: string
           status?: string
           total_price?: number | null

@@ -1,7 +1,7 @@
 import { useEffect, useState } from 'react';
 import { supabase } from '@/integrations/supabase/client';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
-import { Calendar, LogIn, LogOut, TrendingUp } from 'lucide-react';
+import { Calendar, LogIn, LogOut, TrendingUp, DollarSign } from 'lucide-react';
 import { format } from 'date-fns';
 
 interface DashboardStats {
@@ -9,6 +9,9 @@ interface DashboardStats {
   todayDepartures: number;
   inHouse: number;
   newBookings: number;
+  totalRevenue: number;
+  netRevenue: number;
+  totalCommission: number;
 }
 
 export const Dashboard = () => {
@@ -17,6 +20,9 @@ export const Dashboard = () => {
     todayDepartures: 0,
     inHouse: 0,
     newBookings: 0,
+    totalRevenue: 0,
+    netRevenue: 0,
+    totalCommission: 0,
   });
 
   useEffect(() => {
@@ -73,11 +79,24 @@ export const Dashboard = () => {
       .select('id', { count: 'exact' })
       .gte('created_at', yesterday);
 
+    // Revenue calculations
+    const { data: revenueData } = await supabase
+      .from('reservations')
+      .select('total_price, net_revenue, commission_amount')
+      .neq('status', 'Cancelled');
+
+    const totalRevenue = revenueData?.reduce((sum, r) => sum + (r.total_price || 0), 0) || 0;
+    const netRevenue = revenueData?.reduce((sum, r) => sum + (r.net_revenue || 0), 0) || 0;
+    const totalCommission = revenueData?.reduce((sum, r) => sum + (r.commission_amount || 0), 0) || 0;
+
     setStats({
       todayArrivals: arrivals?.length || 0,
       todayDepartures: departures?.length || 0,
       inHouse: inHouse?.length || 0,
       newBookings: newBookings?.length || 0,
+      totalRevenue,
+      netRevenue,
+      totalCommission,
     });
   };
 
@@ -87,24 +106,52 @@ export const Dashboard = () => {
       value: stats.todayArrivals,
       icon: LogIn,
       color: 'text-blue-600',
+      isRevenue: false,
     },
     {
       title: "Today's Departures",
       value: stats.todayDepartures,
       icon: LogOut,
       color: 'text-orange-600',
+      isRevenue: false,
     },
     {
       title: 'In-House Now',
       value: stats.inHouse,
       icon: Calendar,
       color: 'text-green-600',
+      isRevenue: false,
     },
     {
       title: 'New Bookings (24h)',
       value: stats.newBookings,
       icon: TrendingUp,
       color: 'text-purple-600',
+      isRevenue: false,
+    },
+    {
+      title: 'Total Revenue',
+      value: stats.totalRevenue,
+      icon: DollarSign,
+      color: 'text-emerald-600',
+      isRevenue: true,
+      subtitle: 'Gross revenue',
+    },
+    {
+      title: 'Net Revenue',
+      value: stats.netRevenue,
+      icon: DollarSign,
+      color: 'text-green-600',
+      isRevenue: true,
+      subtitle: 'After commission',
+    },
+    {
+      title: 'Commission Paid',
+      value: stats.totalCommission,
+      icon: DollarSign,
+      color: 'text-amber-600',
+      isRevenue: true,
+      subtitle: 'Total commission',
     },
   ];
 
@@ -119,7 +166,12 @@ export const Dashboard = () => {
               <Icon className={`h-4 w-4 ${stat.color}`} />
             </CardHeader>
             <CardContent>
-              <div className="text-2xl font-bold">{stat.value}</div>
+              <div className="text-2xl font-bold">
+                {stat.isRevenue ? `$${stat.value.toFixed(2)}` : stat.value}
+              </div>
+              {stat.subtitle && (
+                <p className="text-xs text-muted-foreground mt-1">{stat.subtitle}</p>
+              )}
             </CardContent>
           </Card>
         );

@@ -5,6 +5,8 @@ import { Dashboard } from '@/components/Dashboard';
 import { ReservationsList } from '@/components/ReservationsList';
 import { WeeklyCalendar } from '@/components/WeeklyCalendar';
 import { AddUserDialog } from '@/components/AddUserDialog';
+import { CreateReservationDialog } from '@/components/CreateReservationDialog';
+import { RevenueBySource } from '@/components/RevenueBySource';
 import { Button } from '@/components/ui/button';
 import { Hotel, LogOut, CalendarDays } from 'lucide-react';
 
@@ -64,7 +66,15 @@ const Index = () => {
         </section>
 
         <section>
-          <h2 className="text-2xl font-bold mb-4">All Reservations</h2>
+          <h2 className="text-2xl font-bold mb-4">Revenue Analytics</h2>
+          <RevenueBySource />
+        </section>
+
+        <section>
+          <div className="flex items-center justify-between mb-4">
+            <h2 className="text-2xl font-bold">All Reservations</h2>
+            <CreateReservationDialog />
+          </div>
           <ReservationsList />
         </section>
 
