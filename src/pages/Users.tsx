@@ -90,16 +90,20 @@ const Users = () => {
 
     try {
       // Update profile
-      await supabase
+      const { error: profileError } = await supabase
         .from('profiles')
         .update({ full_name: editForm.full_name })
         .eq('id', editingUser.id);
 
+      if (profileError) throw profileError;
+
       // Update role
-      await supabase
+      const { error: roleError } = await supabase
         .from('user_roles')
         .update({ role: editForm.role as any })
         .eq('user_id', editingUser.id);
+
+      if (roleError) throw roleError;
 
       toast({
         title: 'Success',
@@ -107,8 +111,13 @@ const Users = () => {
       });
 
       setEditingUser(null);
-      fetchUsers();
+      
+      // Force refetch after a short delay to ensure DB has updated
+      setTimeout(() => {
+        fetchUsers();
+      }, 100);
     } catch (error) {
+      console.error('Update error:', error);
       toast({
         title: 'Error',
         description: 'Failed to update user',
