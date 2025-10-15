@@ -594,11 +594,15 @@ const ReservationDetail = () => {
                 </div>
                 <div>
                   <Label className="text-muted-foreground">Commission Amount</Label>
-                  <p className="mt-1 font-medium">${reservation.commission_amount || 'N/A'}</p>
+                  <p className="mt-1 font-medium">
+                    ${reservation.commission_amount ? Number(reservation.commission_amount).toFixed(1) : 'N/A'}
+                  </p>
                 </div>
                 <div>
                   <Label className="text-muted-foreground">Net Revenue</Label>
-                  <p className="mt-1 font-medium">${reservation.net_revenue || 'N/A'}</p>
+                  <p className="mt-1 font-medium">
+                    ${reservation.net_revenue ? Number(reservation.net_revenue).toFixed(1) : 'N/A'}
+                  </p>
                 </div>
                 <div>
                   <Label className="text-muted-foreground">Source</Label>
