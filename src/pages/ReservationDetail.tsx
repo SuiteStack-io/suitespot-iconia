@@ -181,6 +181,19 @@ const ReservationDetail = () => {
     }
   }, [formData.source]);
 
+  // Auto-sync number of guests with guest names count
+  useEffect(() => {
+    if (isEditMode) {
+      const validGuestCount = formData.guest_names.filter(name => name.trim() !== '').length;
+      if (validGuestCount > 0 && validGuestCount !== formData.number_of_guests) {
+        setFormData(prev => ({
+          ...prev,
+          number_of_guests: validGuestCount,
+        }));
+      }
+    }
+  }, [formData.guest_names, isEditMode]);
+
   const handleSave = async () => {
     if (!canEdit) {
       toast.error('You do not have permission to edit reservations');

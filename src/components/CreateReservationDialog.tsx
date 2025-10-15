@@ -80,6 +80,14 @@ export function CreateReservationDialog() {
     }
   }, [source]);
 
+  // Auto-sync number of guests with guest names count
+  useEffect(() => {
+    const validGuestCount = guestNames.filter(name => name.trim() !== '').length;
+    if (validGuestCount > 0) {
+      setNumberOfGuests(validGuestCount);
+    }
+  }, [guestNames]);
+
   // Fetch all units on mount
   useEffect(() => {
     fetchUnits();
