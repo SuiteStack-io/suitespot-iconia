@@ -6,7 +6,7 @@ import { ReservationsList } from '@/components/ReservationsList';
 import { WeeklyCalendar } from '@/components/WeeklyCalendar';
 import { CreateReservationDialog } from '@/components/CreateReservationDialog';
 import { Button } from '@/components/ui/button';
-import { LogOut, CalendarDays, ChevronDown, UserPlus } from 'lucide-react';
+import { LogOut, CalendarDays, ChevronDown } from 'lucide-react';
 import suitespotLogo from '@/assets/suitespot-logo.png';
 import { useIsMobile } from '@/hooks/use-mobile';
 import {
@@ -145,16 +145,6 @@ const Index = () => {
                 </span>
                 <span className={isMobile ? "hidden" : "md:hidden inline"}>Calendar</span>
               </Button>
-              {userRole === 'admin' && !isMobile && (
-                <Button 
-                  variant="outline" 
-                  size="sm" 
-                  onClick={() => navigate('/users')}
-                >
-                  <UserPlus className="h-4 w-4 mr-2" />
-                  Add User
-                </Button>
-              )}
               <Button 
                 variant="outline" 
                 size="sm" 
