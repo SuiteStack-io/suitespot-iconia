@@ -80,6 +80,8 @@ export function CreateReservationDialog() {
   const [numberOfGuests, setNumberOfGuests] = useState<number>(1);
   const [guestNames, setGuestNames] = useState<string[]>([""]);
   const [nationality, setNationality] = useState("");
+  const [contactEmail, setContactEmail] = useState("");
+  const [contactPhone, setContactPhone] = useState("");
   const [source, setSource] = useState("");
   const [pricePerNight, setPricePerNight] = useState<number | "">("");
   const [commissionRate, setCommissionRate] = useState<number>(10.00);
@@ -234,6 +236,18 @@ export function CreateReservationDialog() {
       toast.error("Please enter guest nationality");
       return false;
     }
+    if (!contactEmail.trim()) {
+      toast.error("Please enter contact email");
+      return false;
+    }
+    if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(contactEmail)) {
+      toast.error("Please enter a valid email address");
+      return false;
+    }
+    if (!contactPhone.trim()) {
+      toast.error("Please enter contact phone number");
+      return false;
+    }
     if (!source) {
       toast.error("Please select a source");
       return false;
@@ -283,8 +297,8 @@ export function CreateReservationDialog() {
         commission_amount: commissionAmount,
         net_revenue: netRevenue,
         currency: "USD",
-        contact_email: null,
-        contact_phone: null,
+        contact_email: contactEmail,
+        contact_phone: contactPhone,
         notes: null,
         guest_ages: [],
       };
@@ -303,6 +317,8 @@ export function CreateReservationDialog() {
       setNumberOfGuests(1);
       setGuestNames([""]);
       setNationality("");
+      setContactEmail("");
+      setContactPhone("");
       setSource("");
       setPricePerNight("");
       setOpen(false);
@@ -339,6 +355,8 @@ export function CreateReservationDialog() {
     numberOfGuests > 0 &&
     guestNames[0]?.trim() !== "" &&
     nationality.trim() !== "" &&
+    contactEmail.trim() !== "" &&
+    contactPhone.trim() !== "" &&
     source &&
     pricePerNight &&
     Number(pricePerNight) > 0 &&
@@ -350,6 +368,8 @@ export function CreateReservationDialog() {
     setNumberOfGuests(1);
     setGuestNames([""]);
     setNationality("");
+    setContactEmail("");
+    setContactPhone("");
     setSource("");
     setPricePerNight("");
   };
@@ -571,6 +591,34 @@ export function CreateReservationDialog() {
                 </Command>
               </PopoverContent>
             </Popover>
+          </div>
+
+          {/* Contact Email */}
+          <div className="space-y-2">
+            <Label htmlFor="contactEmail">
+              Contact Email <span className="text-destructive">*</span>
+            </Label>
+            <Input
+              id="contactEmail"
+              type="email"
+              placeholder="guest@example.com"
+              value={contactEmail}
+              onChange={(e) => setContactEmail(e.target.value)}
+            />
+          </div>
+
+          {/* Contact Phone */}
+          <div className="space-y-2">
+            <Label htmlFor="contactPhone">
+              Contact Phone <span className="text-destructive">*</span>
+            </Label>
+            <Input
+              id="contactPhone"
+              type="tel"
+              placeholder="+1234567890"
+              value={contactPhone}
+              onChange={(e) => setContactPhone(e.target.value)}
+            />
           </div>
 
           {/* Price Per Night */}
