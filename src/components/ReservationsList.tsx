@@ -43,6 +43,7 @@ interface Reservation {
 }
 
 const statusColors = {
+  confirmed: 'bg-blue-100 text-blue-800 hover:bg-blue-100',
   Upcoming: 'bg-blue-100 text-blue-800 hover:bg-blue-100',
   'In-House': 'bg-green-100 text-green-800 hover:bg-green-100',
   'Checked-Out': 'bg-gray-100 text-gray-800 hover:bg-gray-100',
@@ -139,6 +140,7 @@ export const ReservationsList = () => {
           </SelectTrigger>
           <SelectContent>
             <SelectItem value="all">All Statuses</SelectItem>
+            <SelectItem value="confirmed">Confirmed</SelectItem>
             <SelectItem value="Upcoming">Upcoming</SelectItem>
             <SelectItem value="In-House">In-House</SelectItem>
             <SelectItem value="Checked-Out">Checked-Out</SelectItem>
