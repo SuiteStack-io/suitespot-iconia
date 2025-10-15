@@ -18,7 +18,6 @@ interface Reservation {
   check_out_date: string;
   status: string;
   source: string;
-  guest_names: string[];
 }
 
 export const WeeklyCalendar = () => {
@@ -67,7 +66,7 @@ export const WeeklyCalendar = () => {
   const fetchReservations = async () => {
     const { data, error } = await supabase
       .from('reservations')
-      .select('id, unit_id, check_in_date, check_out_date, status, source, guest_names')
+      .select('id, unit_id, check_in_date, check_out_date, status, source')
       .eq('status', 'confirmed');
     
     if (error) {
@@ -152,7 +151,7 @@ export const WeeklyCalendar = () => {
                   return (
                     <th 
                       key={index} 
-                      className={`border border-border p-3 text-center font-semibold min-w-[120px] ${
+                      className={`border border-border p-3 text-center font-semibold min-w-[100px] ${
                         isToday ? 'bg-primary text-primary-foreground' : ''
                       }`}
                     >
@@ -176,15 +175,15 @@ export const WeeklyCalendar = () => {
                     return (
                       <td
                         key={index}
-                        className={`border border-border p-2 text-center ${
+                        className={`border border-border p-3 text-center ${
                           reservation
                             ? 'bg-red-500/80 text-white'
                             : 'bg-background'
                         }`}
                       >
                         {reservation && (
-                          <div className="text-xs space-y-1 break-words">
-                            <div className="font-medium">{reservation.guest_names[0] || 'Reserved'}</div>
+                          <div className="text-xs space-y-1">
+                            <div>Reserved</div>
                             <div className="text-[10px] opacity-90">{getSourceAbbreviation(reservation.source)}</div>
                           </div>
                         )}
