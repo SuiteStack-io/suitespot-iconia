@@ -27,6 +27,18 @@ const Users = () => {
   const [users, setUsers] = useState<User[]>([]);
   const [editingUser, setEditingUser] = useState<User | null>(null);
   const [editForm, setEditForm] = useState({ full_name: '', email: '', role: '' });
+  const [currentUserId, setCurrentUserId] = useState<string | null>(null);
+  
+  // Master account user ID (Youssef Noureldin)
+  const MASTER_ACCOUNT_ID = 'd540b87e-f856-4ef1-9193-2fb077366ef9';
+
+  useEffect(() => {
+    const getCurrentUser = async () => {
+      const { data: { user } } = await supabase.auth.getUser();
+      setCurrentUserId(user?.id || null);
+    };
+    getCurrentUser();
+  }, []);
 
   useEffect(() => {
     if (!loading && userRole !== 'admin') {
@@ -49,16 +61,15 @@ const Users = () => {
       .from('user_roles')
       .select('user_id, role');
 
-    const { data } = await supabase.auth.admin.listUsers();
-    const authUsers = data?.users || [];
-
-    if (profiles && authUsers) {
+    // Get current user's profile to check if they're the master account
+    const { data: { user } } = await supabase.auth.getUser();
+    
+    if (profiles) {
       const usersData = profiles.map(profile => {
-        const authUser = authUsers.find((u: any) => u.id === profile.id);
         const userRole = roles?.find(r => r.user_id === profile.id);
         return {
           id: profile.id,
-          email: authUser?.email || '',
+          email: '', // Email will be fetched separately for master account
           full_name: profile.full_name || '',
           role: (userRole?.role as string) || 'No role',
         };
@@ -77,7 +88,7 @@ const Users = () => {
   };
 
   const handleSaveEdit = async () => {
-    if (!editingUser) return;
+    if (!editingUser || currentUserId !== MASTER_ACCOUNT_ID) return;
 
     try {
       // Update profile
@@ -85,11 +96,6 @@ const Users = () => {
         .from('profiles')
         .update({ full_name: editForm.full_name })
         .eq('id', editingUser.id);
-
-      // Update email in auth
-      await supabase.auth.admin.updateUserById(editingUser.id, {
-        email: editForm.email,
-      });
 
       // Update role
       await supabase
@@ -136,7 +142,7 @@ const Users = () => {
               <CardTitle>Users</CardTitle>
               <CardDescription>Manage user accounts and roles</CardDescription>
             </div>
-            <AddUserDialog onUserAdded={fetchUsers} />
+            {currentUserId === MASTER_ACCOUNT_ID && <AddUserDialog onUserAdded={fetchUsers} />}
           </CardHeader>
           <CardContent>
             <Table>
@@ -155,12 +161,13 @@ const Users = () => {
                     <TableCell>{user.email}</TableCell>
                     <TableCell className="capitalize">{user.role}</TableCell>
                     <TableCell className="text-right">
-                      <Dialog open={editingUser?.id === user.id} onOpenChange={(open) => !open && setEditingUser(null)}>
-                        <DialogTrigger asChild>
-                          <Button variant="ghost" size="sm" onClick={() => handleEdit(user)}>
-                            <Pencil className="h-4 w-4" />
-                          </Button>
-                        </DialogTrigger>
+                      {currentUserId === MASTER_ACCOUNT_ID && (
+                        <Dialog open={editingUser?.id === user.id} onOpenChange={(open) => !open && setEditingUser(null)}>
+                          <DialogTrigger asChild>
+                            <Button variant="ghost" size="sm" onClick={() => handleEdit(user)}>
+                              <Pencil className="h-4 w-4" />
+                            </Button>
+                          </DialogTrigger>
                         <DialogContent>
                           <DialogHeader>
                             <DialogTitle>Edit User</DialogTitle>
@@ -173,15 +180,6 @@ const Users = () => {
                                 id="name"
                                 value={editForm.full_name}
                                 onChange={(e) => setEditForm({ ...editForm, full_name: e.target.value })}
-                              />
-                            </div>
-                            <div className="space-y-2">
-                              <Label htmlFor="email">Email</Label>
-                              <Input
-                                id="email"
-                                type="email"
-                                value={editForm.email}
-                                onChange={(e) => setEditForm({ ...editForm, email: e.target.value })}
                               />
                             </div>
                             <div className="space-y-2">
@@ -207,7 +205,8 @@ const Users = () => {
                             </div>
                           </div>
                         </DialogContent>
-                      </Dialog>
+                        </Dialog>
+                      )}
                     </TableCell>
                   </TableRow>
                 ))}
