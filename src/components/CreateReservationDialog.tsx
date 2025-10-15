@@ -36,8 +36,6 @@ interface Unit {
   unit_number: string | null;
 }
 
-const COMMISSION_RATE = 10.00; // 10% commission across all sources
-
 export function CreateReservationDialog() {
   const { userRole } = useAuth();
   const [open, setOpen] = useState(false);
@@ -52,6 +50,7 @@ export function CreateReservationDialog() {
   const [nationality, setNationality] = useState("");
   const [source, setSource] = useState("");
   const [pricePerNight, setPricePerNight] = useState<number | "">("");
+  const [commissionRate, setCommissionRate] = useState<number>(10.00);
   
   // Units data
   const [allUnits, setAllUnits] = useState<Unit[]>([]);
@@ -71,6 +70,15 @@ export function CreateReservationDialog() {
   const totalPrice = pricePerNight && nights > 0 
     ? Number(pricePerNight) * nights 
     : 0;
+
+  // Auto-set commission rate based on source
+  useEffect(() => {
+    if (source.toLowerCase().includes('booking')) {
+      setCommissionRate(17.4);
+    } else {
+      setCommissionRate(10.0);
+    }
+  }, [source]);
 
   // Fetch all units on mount
   useEffect(() => {
@@ -215,7 +223,7 @@ export function CreateReservationDialog() {
     try {
       // Calculate pricing and commission
       const total = Number(pricePerNight) * nights;
-      const commissionAmount = (total * COMMISSION_RATE) / 100;
+      const commissionAmount = (total * commissionRate) / 100;
       const netRevenue = total - commissionAmount;
 
       const reservationData = {
@@ -231,7 +239,7 @@ export function CreateReservationDialog() {
         channel: "Manual",
         price_per_night: Number(pricePerNight),
         total_price: total,
-        commission_rate: COMMISSION_RATE,
+        commission_rate: commissionRate,
         commission_amount: commissionAmount,
         net_revenue: netRevenue,
         currency: "USD",
@@ -519,10 +527,10 @@ export function CreateReservationDialog() {
                   Total Price: ${totalPrice.toFixed(0)}
                 </p>
                 <p className="text-xs text-muted-foreground">
-                  Commission (10%): ${((totalPrice * COMMISSION_RATE) / 100).toFixed(2)}
+                  Commission ({commissionRate}%): ${((totalPrice * commissionRate) / 100).toFixed(2)}
                 </p>
                 <p className="text-xs text-muted-foreground">
-                  Net Revenue: ${(totalPrice - (totalPrice * COMMISSION_RATE) / 100).toFixed(2)}
+                  Net Revenue: ${(totalPrice - (totalPrice * commissionRate) / 100).toFixed(2)}
                 </p>
               </div>
             )}

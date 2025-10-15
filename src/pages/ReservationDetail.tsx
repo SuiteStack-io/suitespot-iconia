@@ -171,6 +171,16 @@ const ReservationDetail = () => {
     }
   }, [formData.price_per_night, formData.check_in_date, formData.check_out_date, formData.commission_rate]);
 
+  // Auto-set commission rate based on source
+  useEffect(() => {
+    if (formData.source.toLowerCase().includes('booking')) {
+      setFormData(prev => ({
+        ...prev,
+        commission_rate: 17.4,
+      }));
+    }
+  }, [formData.source]);
+
   const handleSave = async () => {
     if (!canEdit) {
       toast.error('You do not have permission to edit reservations');
