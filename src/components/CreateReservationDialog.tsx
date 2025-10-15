@@ -1,4 +1,5 @@
 import { useState, useEffect } from "react";
+import { useIsMobile } from "@/hooks/use-mobile";
 import { Button } from "@/components/ui/button";
 import {
   Dialog,
@@ -161,6 +162,7 @@ interface Unit {
 
 export function CreateReservationDialog() {
   const { userRole } = useAuth();
+  const isMobile = useIsMobile();
   const [open, setOpen] = useState(false);
   const [loading, setLoading] = useState(false);
   const [datePickerOpen, setDatePickerOpen] = useState(false);
@@ -481,8 +483,15 @@ export function CreateReservationDialog() {
     <Dialog open={open} onOpenChange={handleOpenChange}>
       <DialogTrigger asChild>
         <Button>
-          <Plus className="mr-2 h-4 w-4" />
-          Create Reservation
+          <Plus className={isMobile ? "mb-1" : "mr-2 h-4 w-4"} />
+          {isMobile ? (
+            <span className="flex flex-col items-center leading-tight">
+              <span>Create</span>
+              <span>Reservation</span>
+            </span>
+          ) : (
+            "Create Reservation"
+          )}
         </Button>
       </DialogTrigger>
       <DialogContent className="max-w-2xl max-h-[90vh] overflow-y-auto">
