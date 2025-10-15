@@ -152,17 +152,14 @@ export const WeeklyCalendar = () => {
                   </td>
                   {weekDays.map((day, index) => {
                     const reservation = getReservationForDate(day, unit.id);
-                    const isToday = isSameDay(day, new Date());
                     return (
                       <td
                         key={index}
                         className={`border border-border p-3 text-center ${
                           reservation
                             ? 'bg-red-500/80 text-white'
-                            : isToday
-                            ? 'bg-primary/10'
                             : 'bg-background'
-                        } ${isToday ? 'border-primary border-2' : ''}`}
+                        }`}
                       >
                         {reservation && (
                           <div className="text-xs space-y-1">
