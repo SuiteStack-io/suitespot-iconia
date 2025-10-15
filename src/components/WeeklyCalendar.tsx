@@ -40,11 +40,14 @@ export const WeeklyCalendar = () => {
           schema: 'public',
           table: 'reservations'
         },
-        () => {
+        (payload) => {
+          console.log('Real-time reservation update:', payload);
           fetchReservations();
         }
       )
-      .subscribe();
+      .subscribe((status) => {
+        console.log('Reservation subscription status:', status);
+      });
 
     return () => {
       supabase.removeChannel(channel);
