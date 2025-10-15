@@ -9,6 +9,7 @@ interface Unit {
   id: string;
   unit_number: string | null;
   name: string;
+  unit_type: string | null;
 }
 
 interface Reservation {
@@ -63,7 +64,7 @@ export const WeeklyCalendar = () => {
   const fetchUnits = async () => {
     const { data, error } = await supabase
       .from('units')
-      .select('id, unit_number, name')
+      .select('id, unit_number, name, unit_type')
       .order('unit_number');
     
     if (error) {
@@ -177,8 +178,11 @@ export const WeeklyCalendar = () => {
             <tbody>
               {units.map((unit) => (
                 <tr key={unit.id}>
-                  <td className="sticky left-0 z-10 bg-card border border-border p-3 font-medium">
-                    {unit.unit_number || unit.name}
+                  <td className="sticky left-0 z-10 bg-card border border-border p-3">
+                    <div>
+                      <div className="font-semibold">{unit.unit_number || unit.name}</div>
+                      <div className="text-sm text-muted-foreground">{unit.unit_type}</div>
+                    </div>
                   </td>
                   {weekDays.map((day, index) => {
                     const reservation = getReservationForDate(day, unit.id);
