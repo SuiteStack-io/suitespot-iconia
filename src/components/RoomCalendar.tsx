@@ -4,7 +4,6 @@ import { supabase } from '@/integrations/supabase/client';
 import { Button } from '@/components/ui/button';
 import { ChevronLeft, ChevronRight, Calendar as CalendarIcon } from 'lucide-react';
 import { Card } from '@/components/ui/card';
-import { Badge } from '@/components/ui/badge';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 
 interface Unit {
@@ -190,29 +189,25 @@ export const RoomCalendar = () => {
                 </td>
                 {days.map((day) => {
                   const reservation = getReservationForDateAndUnit(day, unit.id);
-                  const isCheckInDay = reservation && isSameDay(new Date(reservation.check_in_date), day);
                   
                   return (
                     <td 
                       key={day.toISOString()} 
                       className={`border border-border p-2 text-center ${
-                        isSameDay(day, new Date()) ? 'bg-primary/5' : ''
+                        reservation
+                          ? 'bg-red-500/80 text-white'
+                          : isSameDay(day, new Date()) 
+                          ? 'bg-primary/5' 
+                          : 'bg-background'
                       }`}
                     >
                       {reservation ? (
-                        <Badge 
-                          variant={reservation.status === 'confirmed' ? 'default' : 'secondary'}
-                          className="w-full text-xs truncate"
-                        >
-                          {isCheckInDay ? (
-                            <div className="flex flex-col items-center">
-                              <span className="block text-xs">{reservation.guest_names[0]}</span>
-                              <span className="block text-[9px] opacity-75">{getSourceAbbreviation(reservation.source)}</span>
-                            </div>
-                          ) : (
-                            '•'
-                          )}
-                        </Badge>
+                        <div className="text-xs space-y-1 break-words">
+                          <div>Reserved</div>
+                          <div className="text-[10px] opacity-90 font-medium">
+                            {reservation.guest_names[0] || 'Guest'}
+                          </div>
+                        </div>
                       ) : (
                         <span className="text-muted-foreground">—</span>
                       )}
@@ -227,7 +222,7 @@ export const RoomCalendar = () => {
 
       <div className="flex items-center gap-4 text-sm">
         <div className="flex items-center gap-2">
-          <Badge variant="default" className="w-16">Booked</Badge>
+          <div className="w-16 h-6 bg-red-500/80 border rounded flex items-center justify-center text-white text-xs">Booked</div>
           <span>= Confirmed Reservation</span>
         </div>
         <div className="flex items-center gap-2">
