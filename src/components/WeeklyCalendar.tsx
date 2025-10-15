@@ -28,6 +28,26 @@ export const WeeklyCalendar = () => {
   useEffect(() => {
     fetchUnits();
     fetchReservations();
+
+    // Set up real-time subscription for reservations
+    const channel = supabase
+      .channel('reservations-changes')
+      .on(
+        'postgres_changes',
+        {
+          event: '*',
+          schema: 'public',
+          table: 'reservations'
+        },
+        () => {
+          fetchReservations();
+        }
+      )
+      .subscribe();
+
+    return () => {
+      supabase.removeChannel(channel);
+    };
   }, []);
 
   const fetchUnits = async () => {
