@@ -121,8 +121,7 @@ const Index = () => {
             <div className="flex flex-col gap-2 w-full">
               <Button variant="outline" size="sm" onClick={() => navigate('/calendar')} className="w-full justify-start">
                 <CalendarDays className="h-4 w-4 mr-2" />
-                <span className="md:hidden">Calendar</span>
-                <span className="hidden md:inline">Calendar View</span>
+                Calendar View
               </Button>
               <Button variant="outline" size="sm" onClick={() => signOut()} className="w-full justify-start">
                 <LogOut className="h-4 w-4 mr-2" />
