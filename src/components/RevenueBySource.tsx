@@ -19,7 +19,15 @@ interface SourceRevenue {
   netRevenue: number;
 }
 
-const COMMISSION_RATE = 10.00;
+const COMMISSION_RATES: Record<string, number> = {
+  'Booking.com': 17.4,
+  'booking.com': 17.4,
+  'default': 10.0
+};
+
+const getCommissionRate = (source: string): number => {
+  return COMMISSION_RATES[source] || COMMISSION_RATES['default'];
+};
 
 export const RevenueBySource = () => {
   const [revenueBySource, setRevenueBySource] = useState<SourceRevenue[]>([]);
@@ -72,7 +80,7 @@ export const RevenueBySource = () => {
           source,
           count: 0,
           grossRevenue: 0,
-          commissionRate: COMMISSION_RATE,
+          commissionRate: getCommissionRate(source),
           commission: 0,
           netRevenue: 0,
         };
@@ -184,7 +192,7 @@ export const RevenueBySource = () => {
           </Table>
         </div>
         <div className="mt-4 text-xs text-muted-foreground">
-          <p>* All sources have a commission rate of 10%</p>
+          <p>* Commission rates: Booking.com (17.4%), Others (10%)</p>
           <p>* Net Revenue = Gross Revenue - Commission</p>
         </div>
       </CardContent>
