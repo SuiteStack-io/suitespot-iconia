@@ -4,6 +4,7 @@ import { useAuth } from '@/lib/auth';
 import { RoomCalendar } from '@/components/RoomCalendar';
 import { Button } from '@/components/ui/button';
 import { ArrowLeft } from 'lucide-react';
+import suitespotLogo from '@/assets/suitespot-logo.png';
 
 const Calendar = () => {
   const { user, loading } = useAuth();
@@ -34,6 +35,7 @@ const Calendar = () => {
           <Button variant="ghost" size="icon" onClick={() => navigate('/')}>
             <ArrowLeft className="h-5 w-5" />
           </Button>
+          <img src={suitespotLogo} alt="SuiteSpot Logo" className="h-10 w-10 object-contain" />
           <div>
             <h1 className="text-xl font-bold">Room Calendar</h1>
             <p className="text-sm text-muted-foreground">View and manage room bookings</p>

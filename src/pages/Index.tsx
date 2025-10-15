@@ -6,7 +6,8 @@ import { ReservationsList } from '@/components/ReservationsList';
 import { WeeklyCalendar } from '@/components/WeeklyCalendar';
 import { CreateReservationDialog } from '@/components/CreateReservationDialog';
 import { Button } from '@/components/ui/button';
-import { Hotel, LogOut, CalendarDays, ChevronDown } from 'lucide-react';
+import { LogOut, CalendarDays, ChevronDown } from 'lucide-react';
+import suitespotLogo from '@/assets/suitespot-logo.png';
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -41,9 +42,7 @@ const Index = () => {
       <header className="border-b bg-card">
         <div className="container mx-auto px-4 py-4 flex items-center justify-between">
           <div className="flex items-center gap-3">
-            <div className="p-2 bg-accent/10 rounded-lg">
-              <Hotel className="h-6 w-6 text-accent" />
-            </div>
+            <img src={suitespotLogo} alt="SuiteSpot Logo" className="h-10 w-10 object-contain" />
             <div>
               <h1 className="text-xl font-bold">SuiteSpot Reservations</h1>
               <p className="text-sm text-muted-foreground">Manage your bookings with ease</p>
