@@ -131,19 +131,24 @@ export const WeeklyCalendar = () => {
   return (
     <Card>
       <CardHeader>
-        <div className={isMobile ? "flex flex-col gap-3" : "flex items-center justify-between"}>
-          {!isMobile && <CardTitle>Weekly Calendar</CardTitle>}
-          <div className="flex items-center gap-1.5 w-full justify-between">
+        <div className="flex items-center justify-between">
+          <CardTitle className={isMobile ? "hidden" : ""}>Weekly Calendar</CardTitle>
+          <div className={`flex items-center ${isMobile ? 'gap-1.5 w-full justify-between' : 'gap-2'}`}>
+            {!isMobile && !isCurrentWeek && (
+              <Button variant="outline" size="sm" onClick={goToCurrentWeek}>
+                Today
+              </Button>
+            )}
             <Button variant="outline" size="sm" onClick={navigatePreviousWeek}>
               <ChevronLeft className="h-4 w-4" />
             </Button>
-            <div className="text-sm font-medium text-center flex-1">
+            <div className={`text-sm font-medium text-center ${isMobile ? 'flex-1' : 'min-w-[200px]'}`}>
               {format(weekDays[0], 'MMM d')} - {format(weekDays[6], 'MMM d, yyyy')}
             </div>
             <Button variant="outline" size="sm" onClick={navigateNextWeek}>
               <ChevronRight className="h-4 w-4" />
             </Button>
-            {!isCurrentWeek && (
+            {isMobile && !isCurrentWeek && (
               <Button variant="outline" size="sm" onClick={goToCurrentWeek} className="ml-1">
                 Today
               </Button>
