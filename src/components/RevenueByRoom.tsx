@@ -14,6 +14,8 @@ import { Calendar } from '@/components/ui/calendar';
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
 import { CalendarIcon } from 'lucide-react';
 import { format } from 'date-fns';
+import { DateRange } from 'react-day-picker';
+import { cn } from '@/lib/utils';
 
 interface RoomRevenue {
   roomId: string;
@@ -28,7 +30,7 @@ interface RoomRevenue {
 export const RevenueByRoom = () => {
   const [revenueByRoom, setRevenueByRoom] = useState<RoomRevenue[]>([]);
   const [loading, setLoading] = useState(true);
-  const [dateRange, setDateRange] = useState<{ from: Date; to: Date }>({
+  const [dateRange, setDateRange] = useState<DateRange | undefined>({
     from: new Date(new Date().setMonth(new Date().getMonth() - 1)),
     to: new Date(),
   });
@@ -57,6 +59,8 @@ export const RevenueByRoom = () => {
   }, [dateRange]);
 
   const fetchRevenueByRoom = async () => {
+    if (!dateRange?.from || !dateRange?.to) return;
+    
     const startDate = format(dateRange.from, 'yyyy-MM-dd');
     const endDate = format(dateRange.to, 'yyyy-MM-dd');
 
@@ -146,30 +150,36 @@ export const RevenueByRoom = () => {
         <div className="flex gap-2">
           <Popover>
             <PopoverTrigger asChild>
-              <Button variant="outline" size="sm">
+              <Button
+                variant="outline"
+                size="sm"
+                className={cn(
+                  "justify-start text-left font-normal",
+                  !dateRange && "text-muted-foreground"
+                )}
+              >
                 <CalendarIcon className="mr-2 h-4 w-4" />
-                {format(dateRange.from, 'MMM dd, yyyy')} - {format(dateRange.to, 'MMM dd, yyyy')}
+                {dateRange?.from ? (
+                  dateRange.to ? (
+                    <>
+                      {format(dateRange.from, 'MMM dd, yyyy')} - {format(dateRange.to, 'MMM dd, yyyy')}
+                    </>
+                  ) : (
+                    format(dateRange.from, 'MMM dd, yyyy')
+                  )
+                ) : (
+                  <span>Pick a date range</span>
+                )}
               </Button>
             </PopoverTrigger>
             <PopoverContent className="w-auto p-0" align="end">
-              <div className="p-3 space-y-3">
-                <div>
-                  <label className="text-sm font-medium mb-2 block">From</label>
-                  <Calendar
-                    mode="single"
-                    selected={dateRange.from}
-                    onSelect={(date) => date && setDateRange({ ...dateRange, from: date })}
-                  />
-                </div>
-                <div>
-                  <label className="text-sm font-medium mb-2 block">To</label>
-                  <Calendar
-                    mode="single"
-                    selected={dateRange.to}
-                    onSelect={(date) => date && setDateRange({ ...dateRange, to: date })}
-                  />
-                </div>
-              </div>
+              <Calendar
+                mode="range"
+                selected={dateRange}
+                onSelect={setDateRange}
+                numberOfMonths={2}
+                className={cn("p-3 pointer-events-auto")}
+              />
             </PopoverContent>
           </Popover>
         </div>
