@@ -20,7 +20,7 @@ import { cn } from '@/lib/utils';
 interface RoomRevenue {
   roomId: string;
   roomName: string;
-  beds: string;
+  roomType: string;
   area: string;
   terrace: string;
   bookings: number;
@@ -116,9 +116,8 @@ export const RevenueByRoom = () => {
       // Calculate occupancy percentage
       const occupancy = daysDiff > 0 ? (totalNightsBooked / daysDiff) * 100 : 0;
 
-      // Parse beds from unit_type (e.g., "1bd + Balcony" -> "1")
-      const bedsMatch = unit.unit_type?.match(/(\d+)bd/);
-      const beds = bedsMatch ? bedsMatch[1] : 'N/A';
+      // Use the full unit_type as room type
+      const roomType = unit.unit_type || 'N/A';
 
       // Parse area and terrace from unit_size (e.g., "52m2+25m2" -> area: "52m2", terrace: "25m2")
       let area = 'N/A';
@@ -143,7 +142,7 @@ export const RevenueByRoom = () => {
       roomRevenueMap[unit.id] = {
         roomId: unit.unit_number || unit.id.substring(0, 8),
         roomName: unit.name,
-        beds,
+        roomType,
         area,
         terrace,
         bookings: unitReservations.length,
@@ -228,7 +227,7 @@ export const RevenueByRoom = () => {
             <TableHeader>
               <TableRow>
                 <TableHead>Room ID</TableHead>
-                <TableHead className="text-center">Beds</TableHead>
+                <TableHead className="text-center">Room Type</TableHead>
                 <TableHead className="text-center">Area</TableHead>
                 <TableHead className="text-center">Terrace</TableHead>
                 <TableHead className="text-right">Occupancy</TableHead>
@@ -240,7 +239,7 @@ export const RevenueByRoom = () => {
               {revenueByRoom.map((room) => (
                 <TableRow key={room.roomId}>
                   <TableCell className="font-medium">{room.roomId}</TableCell>
-                  <TableCell className="text-center">{room.beds}</TableCell>
+                  <TableCell className="text-center">{room.roomType}</TableCell>
                   <TableCell className="text-center">{room.area}</TableCell>
                   <TableCell className="text-center">{room.terrace}</TableCell>
                   <TableCell className="text-right">
