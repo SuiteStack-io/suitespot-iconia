@@ -167,7 +167,7 @@ const Index = () => {
 
         <section>
           <div className="flex items-center justify-between mb-4">
-            <h2 className="text-2xl font-bold">All Reservations</h2>
+            <h2 className="text-2xl font-bold">{isMobile ? 'Reservations' : 'All Reservations'}</h2>
             <CreateReservationDialog />
           </div>
           <ReservationsList />
