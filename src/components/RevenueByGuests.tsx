@@ -126,19 +126,19 @@ export const RevenueByGuests = () => {
         <CardTitle>Revenue by Guests</CardTitle>
         <div className="flex flex-col md:flex-row gap-4 mt-4">
           <div className="flex items-center gap-2">
-            <Button variant="ghost" size="sm" onClick={navigatePreviousMonth}>
-              <ChevronLeft className="h-4 w-4" />
-            </Button>
-            <Button variant="ghost" size="sm" onClick={goToCurrentMonth}>
+            <button onClick={navigatePreviousMonth} className="p-1 hover:opacity-70 transition-opacity">
+              <ChevronLeft className="h-5 w-5" />
+            </button>
+            <span className="text-sm font-medium px-2">
+              {format(currentMonth, 'MMMM yyyy')}
+            </span>
+            <button onClick={navigateNextMonth} className="p-1 hover:opacity-70 transition-opacity">
+              <ChevronRight className="h-5 w-5" />
+            </button>
+            <Button variant="ghost" size="sm" onClick={goToCurrentMonth} className="ml-2">
               <Calendar className="h-4 w-4 mr-2" />
               Today
             </Button>
-            <Button variant="ghost" size="sm" onClick={navigateNextMonth}>
-              <ChevronRight className="h-4 w-4" />
-            </Button>
-            <span className="text-sm font-medium ml-2">
-              {format(currentMonth, 'MMMM yyyy')}
-            </span>
           </div>
 
           <Select value={selectedNationality} onValueChange={setSelectedNationality}>
