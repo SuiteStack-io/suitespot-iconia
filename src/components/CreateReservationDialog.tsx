@@ -399,11 +399,37 @@ export function CreateReservationDialog() {
         guest_ages: [],
       };
 
-      const { error } = await supabase
+      const { data: insertedReservation, error } = await supabase
         .from("reservations")
-        .insert([reservationData]);
+        .insert([reservationData])
+        .select()
+        .single();
 
       if (error) throw error;
+
+      // Get unit name for email
+      const selectedUnit = allUnits.find(u => u.id === unitId);
+      const unitName = selectedUnit ? `${selectedUnit.name} ${selectedUnit.unit_number || ''}`.trim() : 'Unit';
+
+      // Send email notification to platform users
+      try {
+        await supabase.functions.invoke('send-reservation-notification', {
+          body: {
+            reservationId: insertedReservation.id,
+            guestNames: guestNames.filter(name => name.trim() !== ""),
+            checkIn: format(checkInDate!, "yyyy-MM-dd"),
+            checkOut: format(checkOutDate!, "yyyy-MM-dd"),
+            unitName,
+            totalPrice: total,
+            numberOfGuests,
+            source,
+          },
+        });
+        console.log('Email notification sent successfully');
+      } catch (emailError) {
+        // Don't fail the reservation if email fails
+        console.error('Failed to send email notification:', emailError);
+      }
 
       toast.success("Reservation created successfully!");
       
