@@ -117,7 +117,7 @@ const Auth = () => {
                 minLength={6}
               />
             </div>
-            <Button type="submit" className="w-full" disabled={loading}>
+            <Button type="submit" className="w-full bg-slate-900 hover:bg-slate-800 text-white" disabled={loading}>
               {loading ? 'Please wait...' : isLogin ? 'Sign In' : 'Sign Up'}
             </Button>
           </form>
