@@ -87,7 +87,7 @@ const Analytics = () => {
         startDate.setMonth(now.getMonth() - 3);
         break;
       case 'ytd':
-        startDate = new Date(now.getFullYear(), 0, 1); // January 1st of current year
+        startDate = new Date(2025, 0, 1); // January 1st, 2025
         break;
     }
     
@@ -110,13 +110,13 @@ const Analytics = () => {
   const fetchAllStats = async () => {
     const { startDate, endDate } = getDateRange();
     
-    // Fetch revenue stats
+    // Fetch revenue stats - using check_in_date for accurate date range
     const { data: revenueData } = await supabase
       .from('reservations')
       .select('total_price, net_revenue, commission_amount, channel, source')
       .neq('status', 'Cancelled')
-      .gte('created_at', startDate)
-      .lte('created_at', endDate);
+      .gte('check_in_date', startDate)
+      .lte('check_in_date', endDate);
 
     const totalRevenue = revenueData?.reduce((sum, r) => sum + (r.total_price || 0), 0) || 0;
     const netRevenue = revenueData?.reduce((sum, r) => sum + (r.net_revenue || 0), 0) || 0;
@@ -124,13 +124,13 @@ const Analytics = () => {
 
     setRevenueStats({ totalRevenue, netRevenue, totalCommission });
     
-    // Fetch total bookings
+    // Fetch total bookings - using check_in_date
     const { data: bookingsData, count } = await supabase
       .from('reservations')
       .select('*', { count: 'exact', head: true })
       .neq('status', 'Cancelled')
-      .gte('created_at', startDate)
-      .lte('created_at', endDate);
+      .gte('check_in_date', startDate)
+      .lte('check_in_date', endDate);
       
     setTotalBookings(count || 0);
     
@@ -138,9 +138,9 @@ const Analytics = () => {
     const { data: guestsData } = await supabase
       .from('reservations')
       .select('number_of_guests')
-      .neq('status', 'cancelled')
+      .neq('status', 'Cancelled')
       .gte('check_in_date', startDate)
-      .lte('check_out_date', endDate);
+      .lte('check_in_date', endDate);
     
     const totalGuestsCount = guestsData?.reduce((sum, r) => sum + (r.number_of_guests || 0), 0) || 0;
     setTotalGuests(totalGuestsCount);
@@ -163,7 +163,7 @@ const Analytics = () => {
     const { data: reservations } = await supabase
       .from('reservations')
       .select('check_in_date, check_out_date, nights')
-      .eq('status', 'confirmed')
+      .neq('status', 'Cancelled')
       .gte('check_in_date', startDate)
       .lte('check_out_date', endDate);
     
@@ -173,6 +173,7 @@ const Analytics = () => {
     if (customDateRange?.from && customDateRange?.to) {
       days = Math.ceil((customDateRange.to.getTime() - customDateRange.from.getTime()) / (1000 * 60 * 60 * 24)) + 1;
     } else {
+      const now = new Date();
       switch (timePeriod) {
         case 'week':
           days = 7;
@@ -184,9 +185,8 @@ const Analytics = () => {
           days = 90;
           break;
         case 'ytd':
-          const now = new Date();
-          const startOfYear = new Date(now.getFullYear(), 0, 1);
-          days = Math.ceil((now.getTime() - startOfYear.getTime()) / (1000 * 60 * 60 * 24));
+          const ytdStart = new Date(2025, 0, 1);
+          days = Math.ceil((now.getTime() - ytdStart.getTime()) / (1000 * 60 * 60 * 24));
           break;
       }
     }
