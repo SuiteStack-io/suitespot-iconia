@@ -126,14 +126,14 @@ export const RevenueByGuests = () => {
         <CardTitle>Revenue by Guests</CardTitle>
         <div className="flex flex-col md:flex-row gap-4 mt-4">
           <div className="flex items-center gap-2">
-            <Button variant="outline" size="sm" onClick={navigatePreviousMonth}>
+            <Button variant="ghost" size="sm" onClick={navigatePreviousMonth}>
               <ChevronLeft className="h-4 w-4" />
             </Button>
-            <Button variant="outline" size="sm" onClick={goToCurrentMonth}>
+            <Button variant="ghost" size="sm" onClick={goToCurrentMonth}>
               <Calendar className="h-4 w-4 mr-2" />
               Today
             </Button>
-            <Button variant="outline" size="sm" onClick={navigateNextMonth}>
+            <Button variant="ghost" size="sm" onClick={navigateNextMonth}>
               <ChevronRight className="h-4 w-4" />
             </Button>
             <span className="text-sm font-medium ml-2">
