@@ -441,7 +441,7 @@ const Guests = () => {
                   <TableHead>Phone</TableHead>
                   <TableHead>Check-in</TableHead>
                   <TableHead>Check-out</TableHead>
-                  <TableHead>Unit</TableHead>
+                  <TableHead>Room ID</TableHead>
                   <TableHead>Guests</TableHead>
                   <TableHead>Source</TableHead>
                   <TableHead>Booking Ref</TableHead>

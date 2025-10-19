@@ -179,7 +179,7 @@ export const ReservationsList = () => {
         <Table>
           <TableHeader>
             <TableRow>
-              <TableHead>Unit</TableHead>
+              <TableHead>Room ID</TableHead>
               <TableHead>Guest Name(s)</TableHead>
               <TableHead>Check-in</TableHead>
               <TableHead>Check-out</TableHead>

@@ -228,7 +228,6 @@ export const RevenueByRoom = () => {
             <TableHeader>
               <TableRow>
                 <TableHead>Room ID</TableHead>
-                <TableHead>Room Name</TableHead>
                 <TableHead className="text-center">Beds</TableHead>
                 <TableHead className="text-center">Area</TableHead>
                 <TableHead className="text-center">Terrace</TableHead>
@@ -241,7 +240,6 @@ export const RevenueByRoom = () => {
               {revenueByRoom.map((room) => (
                 <TableRow key={room.roomId}>
                   <TableCell className="font-medium">{room.roomId}</TableCell>
-                  <TableCell>{room.roomName}</TableCell>
                   <TableCell className="text-center">{room.beds}</TableCell>
                   <TableCell className="text-center">{room.area}</TableCell>
                   <TableCell className="text-center">{room.terrace}</TableCell>
@@ -257,7 +255,7 @@ export const RevenueByRoom = () => {
                 </TableRow>
               ))}
               <TableRow className="bg-muted/50 font-semibold">
-                <TableCell colSpan={6}>Total</TableCell>
+                <TableCell colSpan={5}>Total</TableCell>
                 <TableCell className="text-right">{totals.bookings}</TableCell>
                 <TableCell className="text-right text-green-600">
                   ${totals.revenue.toFixed(2)}
