@@ -12,11 +12,9 @@ import {
 } from "@/components/ui/table";
 import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
-import { Search, ArrowLeft, ChevronLeft, ChevronRight, CalendarIcon } from "lucide-react";
+import { Search, ArrowLeft, ChevronLeft, ChevronRight } from "lucide-react";
 import { Button } from "@/components/ui/button";
-import { Calendar } from "@/components/ui/calendar";
-import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
-import { format, startOfWeek, addDays, addWeeks, subWeeks, isSameDay, isWithinInterval, startOfMonth, endOfMonth } from "date-fns";
+import { format, startOfWeek, addDays, addWeeks, subWeeks, isSameDay, isWithinInterval, startOfMonth, endOfMonth, addMonths, subMonths, isSameMonth } from "date-fns";
 import { cn } from "@/lib/utils";
 
 interface GuestRecord {
@@ -163,8 +161,21 @@ const Guests = () => {
     setCurrentWeekStart(startOfWeek(new Date(), { weekStartsOn: 0 }));
   };
 
+  const navigatePreviousMonth = () => {
+    setSelectedMonth(prev => subMonths(prev, 1));
+  };
+
+  const navigateNextMonth = () => {
+    setSelectedMonth(prev => addMonths(prev, 1));
+  };
+
+  const goToCurrentMonth = () => {
+    setSelectedMonth(new Date());
+  };
+
   const weekDays = getWeekDays();
   const isCurrentWeek = isSameDay(currentWeekStart, startOfWeek(new Date(), { weekStartsOn: 0 }));
+  const isCurrentMonth = isSameMonth(selectedMonth, new Date());
 
   const getStatusColor = (status: string) => {
     const colors: Record<string, string> = {
@@ -240,29 +251,22 @@ const Guests = () => {
                   </Button>
                 </div>
               ) : (
-                <Popover>
-                  <PopoverTrigger asChild>
-                    <Button
-                      variant="outline"
-                      className={cn(
-                        "justify-start text-left font-normal min-w-[240px]",
-                        !selectedMonth && "text-muted-foreground"
-                      )}
-                    >
-                      <CalendarIcon className="mr-2 h-4 w-4" />
-                      {format(selectedMonth, "MMMM yyyy")}
+                <div className="flex items-center gap-2">
+                  {!isCurrentMonth && (
+                    <Button variant="outline" size="sm" onClick={goToCurrentMonth}>
+                      Today
                     </Button>
-                  </PopoverTrigger>
-                  <PopoverContent className="w-auto p-0" align="center">
-                    <Calendar
-                      mode="single"
-                      selected={selectedMonth}
-                      onSelect={(date) => date && setSelectedMonth(date)}
-                      initialFocus
-                      className={cn("p-3 pointer-events-auto")}
-                    />
-                  </PopoverContent>
-                </Popover>
+                  )}
+                  <Button variant="outline" size="sm" onClick={navigatePreviousMonth}>
+                    <ChevronLeft className="h-4 w-4" />
+                  </Button>
+                  <div className="text-sm font-medium text-center min-w-[200px]">
+                    {format(selectedMonth, 'MMMM yyyy')}
+                  </div>
+                  <Button variant="outline" size="sm" onClick={navigateNextMonth}>
+                    <ChevronRight className="h-4 w-4" />
+                  </Button>
+                </div>
               )}
             </div>
             
