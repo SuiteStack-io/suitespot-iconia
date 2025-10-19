@@ -10,7 +10,7 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { supabase } from '@/integrations/supabase/client';
 import { Tabs, TabsList, TabsTrigger } from '@/components/ui/tabs';
 
-type TimePeriod = 'week' | 'month' | 'quarter' | 'year';
+type TimePeriod = 'week' | 'month' | 'quarter' | 'ytd';
 
 const Analytics = () => {
   const { userRole, loading } = useAuth();
@@ -71,12 +71,24 @@ const Analytics = () => {
       case 'quarter':
         startDate.setMonth(now.getMonth() - 3);
         break;
-      case 'year':
-        startDate.setFullYear(now.getFullYear() - 1);
+      case 'ytd':
+        startDate = new Date(now.getFullYear(), 0, 1); // January 1st of current year
         break;
     }
     
     return { startDate: startDate.toISOString().split('T')[0], endDate: now.toISOString().split('T')[0] };
+  };
+
+  const getFormattedDateRange = () => {
+    const { startDate, endDate } = getDateRange();
+    const start = new Date(startDate);
+    const end = new Date(endDate);
+    
+    const formatDate = (date: Date) => {
+      return date.toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' });
+    };
+    
+    return `${formatDate(start)} - ${formatDate(end)}`;
   };
 
   const fetchAllStats = async () => {
@@ -152,8 +164,10 @@ const Analytics = () => {
       case 'quarter':
         days = 90;
         break;
-      case 'year':
-        days = 365;
+      case 'ytd':
+        const now = new Date();
+        const startOfYear = new Date(now.getFullYear(), 0, 1);
+        days = Math.ceil((now.getTime() - startOfYear.getTime()) / (1000 * 60 * 60 * 24));
         break;
     }
     
@@ -201,15 +215,20 @@ const Analytics = () => {
       </header>
 
       <main className="container mx-auto px-4 py-8 space-y-8">
-        <div className="flex justify-center mb-6">
-          <Tabs value={timePeriod} onValueChange={(value) => setTimePeriod(value as TimePeriod)}>
-            <TabsList className="grid w-full grid-cols-4">
-              <TabsTrigger value="week">Week</TabsTrigger>
-              <TabsTrigger value="month">Month</TabsTrigger>
-              <TabsTrigger value="quarter">Quarter</TabsTrigger>
-              <TabsTrigger value="year">Year</TabsTrigger>
-            </TabsList>
-          </Tabs>
+        <div className="space-y-2">
+          <div className="flex justify-center">
+            <Tabs value={timePeriod} onValueChange={(value) => setTimePeriod(value as TimePeriod)}>
+              <TabsList className="grid w-full grid-cols-4">
+                <TabsTrigger value="week">Week</TabsTrigger>
+                <TabsTrigger value="month">Month</TabsTrigger>
+                <TabsTrigger value="quarter">Quarter</TabsTrigger>
+                <TabsTrigger value="ytd">YTD</TabsTrigger>
+              </TabsList>
+            </Tabs>
+          </div>
+          <div className="text-center text-sm text-muted-foreground">
+            {getFormattedDateRange()}
+          </div>
         </div>
 
         <div className="grid gap-4 md:grid-cols-4">
