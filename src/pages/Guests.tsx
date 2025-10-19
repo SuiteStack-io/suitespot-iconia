@@ -12,9 +12,12 @@ import {
 } from "@/components/ui/table";
 import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
-import { Search, ArrowLeft, ChevronLeft, ChevronRight } from "lucide-react";
+import { Search, ArrowLeft, ChevronLeft, ChevronRight, CalendarIcon } from "lucide-react";
 import { Button } from "@/components/ui/button";
-import { format, startOfWeek, addDays, addWeeks, subWeeks, isSameDay, isWithinInterval } from "date-fns";
+import { Calendar } from "@/components/ui/calendar";
+import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
+import { format, startOfWeek, addDays, addWeeks, subWeeks, isSameDay, isWithinInterval, startOfMonth, endOfMonth } from "date-fns";
+import { cn } from "@/lib/utils";
 
 interface GuestRecord {
   guestName: string;
@@ -38,6 +41,8 @@ const Guests = () => {
   const [searchQuery, setSearchQuery] = useState("");
   const [loading, setLoading] = useState(true);
   const [currentWeekStart, setCurrentWeekStart] = useState(() => startOfWeek(new Date(), { weekStartsOn: 0 }));
+  const [viewMode, setViewMode] = useState<"week" | "month">("week");
+  const [selectedMonth, setSelectedMonth] = useState<Date>(new Date());
 
   useEffect(() => {
     if (!authLoading && userRole !== "admin") {
@@ -51,7 +56,7 @@ const Guests = () => {
 
   useEffect(() => {
     filterGuests();
-  }, [searchQuery, guests, currentWeekStart]);
+  }, [searchQuery, guests, currentWeekStart, viewMode, selectedMonth]);
 
   const fetchGuests = async () => {
     try {
@@ -95,18 +100,36 @@ const Guests = () => {
   };
 
   const filterGuests = () => {
-    const weekEnd = addDays(currentWeekStart, 6);
-    
-    let filtered = guests.filter((guest) => {
-      const checkIn = new Date(guest.checkInDate);
-      const checkOut = new Date(guest.checkOutDate);
+    let filtered = guests;
+
+    if (viewMode === "week") {
+      const weekEnd = addDays(currentWeekStart, 6);
       
-      // Check if the reservation overlaps with the current week
-      return isWithinInterval(currentWeekStart, { start: checkIn, end: checkOut }) ||
-             isWithinInterval(weekEnd, { start: checkIn, end: checkOut }) ||
-             isWithinInterval(checkIn, { start: currentWeekStart, end: weekEnd }) ||
-             isWithinInterval(checkOut, { start: currentWeekStart, end: weekEnd });
-    });
+      filtered = guests.filter((guest) => {
+        const checkIn = new Date(guest.checkInDate);
+        const checkOut = new Date(guest.checkOutDate);
+        
+        // Check if the reservation overlaps with the current week
+        return isWithinInterval(currentWeekStart, { start: checkIn, end: checkOut }) ||
+               isWithinInterval(weekEnd, { start: checkIn, end: checkOut }) ||
+               isWithinInterval(checkIn, { start: currentWeekStart, end: weekEnd }) ||
+               isWithinInterval(checkOut, { start: currentWeekStart, end: weekEnd });
+      });
+    } else {
+      const monthStart = startOfMonth(selectedMonth);
+      const monthEnd = endOfMonth(selectedMonth);
+      
+      filtered = guests.filter((guest) => {
+        const checkIn = new Date(guest.checkInDate);
+        const checkOut = new Date(guest.checkOutDate);
+        
+        // Check if the reservation overlaps with the selected month
+        return isWithinInterval(monthStart, { start: checkIn, end: checkOut }) ||
+               isWithinInterval(monthEnd, { start: checkIn, end: checkOut }) ||
+               isWithinInterval(checkIn, { start: monthStart, end: monthEnd }) ||
+               isWithinInterval(checkOut, { start: monthStart, end: monthEnd });
+      });
+    }
 
     if (searchQuery.trim()) {
       const query = searchQuery.toLowerCase();
@@ -181,21 +204,66 @@ const Guests = () => {
 
         <div className="bg-card rounded-lg border p-6">
           <div className="mb-6 space-y-4">
-            <div className="flex items-center justify-center gap-2">
-              {!isCurrentWeek && (
-                <Button variant="outline" size="sm" onClick={goToCurrentWeek}>
-                  Today
+            <div className="flex items-center justify-between gap-4">
+              <div className="flex gap-2">
+                <Button
+                  variant={viewMode === "week" ? "default" : "outline"}
+                  size="sm"
+                  onClick={() => setViewMode("week")}
+                >
+                  Week
                 </Button>
-              )}
-              <Button variant="outline" size="sm" onClick={navigatePreviousWeek}>
-                <ChevronLeft className="h-4 w-4" />
-              </Button>
-              <div className="text-sm font-medium text-center min-w-[200px]">
-                {format(weekDays[0], 'MMM d')} - {format(weekDays[6], 'MMM d, yyyy')}
+                <Button
+                  variant={viewMode === "month" ? "default" : "outline"}
+                  size="sm"
+                  onClick={() => setViewMode("month")}
+                >
+                  Month
+                </Button>
               </div>
-              <Button variant="outline" size="sm" onClick={navigateNextWeek}>
-                <ChevronRight className="h-4 w-4" />
-              </Button>
+
+              {viewMode === "week" ? (
+                <div className="flex items-center gap-2">
+                  {!isCurrentWeek && (
+                    <Button variant="outline" size="sm" onClick={goToCurrentWeek}>
+                      Today
+                    </Button>
+                  )}
+                  <Button variant="outline" size="sm" onClick={navigatePreviousWeek}>
+                    <ChevronLeft className="h-4 w-4" />
+                  </Button>
+                  <div className="text-sm font-medium text-center min-w-[200px]">
+                    {format(weekDays[0], 'MMM d')} - {format(weekDays[6], 'MMM d, yyyy')}
+                  </div>
+                  <Button variant="outline" size="sm" onClick={navigateNextWeek}>
+                    <ChevronRight className="h-4 w-4" />
+                  </Button>
+                </div>
+              ) : (
+                <Popover>
+                  <PopoverTrigger asChild>
+                    <Button
+                      variant="outline"
+                      className={cn(
+                        "justify-start text-left font-normal min-w-[240px]",
+                        !selectedMonth && "text-muted-foreground"
+                      )}
+                    >
+                      <CalendarIcon className="mr-2 h-4 w-4" />
+                      {format(selectedMonth, "MMMM yyyy")}
+                    </Button>
+                  </PopoverTrigger>
+                  <PopoverContent className="w-auto p-0" align="center">
+                    <Calendar
+                      mode="single"
+                      selected={selectedMonth}
+                      onSelect={(date) => date && setSelectedMonth(date)}
+                      initialFocus
+                      className={cn("p-3 pointer-events-auto")}
+                    />
+                  </PopoverContent>
+                </Popover>
+              )}
             </div>
             
             <div className="relative">
@@ -230,7 +298,7 @@ const Guests = () => {
                 {filteredGuests.length === 0 ? (
                   <TableRow>
                     <TableCell colSpan={11} className="text-center text-muted-foreground">
-                      No guests found for this week
+                      No guests found for this {viewMode}
                     </TableCell>
                   </TableRow>
                 ) : (
