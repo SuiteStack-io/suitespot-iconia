@@ -126,14 +126,20 @@ export const RevenueByGuests = () => {
         <CardTitle>Revenue by Guests</CardTitle>
         <div className="flex flex-col md:flex-row gap-4 mt-4">
           <div className="flex items-center gap-2">
-            <button onClick={navigatePreviousMonth} className="p-1 hover:opacity-70 transition-opacity">
-              <ChevronLeft className="h-5 w-5" />
+            <button 
+              onClick={navigatePreviousMonth} 
+              className="p-1 hover:opacity-60 transition-opacity bg-transparent border-0 cursor-pointer"
+            >
+              <ChevronLeft className="h-5 w-5 text-foreground" />
             </button>
             <span className="text-sm font-medium px-2">
               {format(currentMonth, 'MMMM yyyy')}
             </span>
-            <button onClick={navigateNextMonth} className="p-1 hover:opacity-70 transition-opacity">
-              <ChevronRight className="h-5 w-5" />
+            <button 
+              onClick={navigateNextMonth} 
+              className="p-1 hover:opacity-60 transition-opacity bg-transparent border-0 cursor-pointer"
+            >
+              <ChevronRight className="h-5 w-5 text-foreground" />
             </button>
             <Button variant="ghost" size="sm" onClick={goToCurrentMonth} className="ml-2">
               <Calendar className="h-4 w-4 mr-2" />
