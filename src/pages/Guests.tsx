@@ -376,10 +376,16 @@ const Guests = () => {
               )}
             </div>
             
-            <div className="flex gap-4">
-              <div className="flex-1 flex gap-2">
+            <div className={cn(
+              "flex gap-4",
+              isMobile ? "flex-col" : ""
+            )}>
+              <div className={cn(
+                "flex gap-2",
+                isMobile ? "flex-col" : "flex-1"
+              )}>
                 <Select value={searchField} onValueChange={setSearchField}>
-                  <SelectTrigger className="w-[160px]">
+                  <SelectTrigger className={cn(isMobile ? "w-full" : "w-[160px]")}>
                     <SelectValue placeholder="Search by..." />
                   </SelectTrigger>
                   <SelectContent>
@@ -410,7 +416,7 @@ const Guests = () => {
               </div>
               
               <Select value={statusFilter} onValueChange={setStatusFilter}>
-                <SelectTrigger className="w-[180px]">
+                <SelectTrigger className={cn(isMobile ? "w-full" : "w-[180px]")}>
                   <SelectValue placeholder="All Statuses" />
                 </SelectTrigger>
                 <SelectContent>
