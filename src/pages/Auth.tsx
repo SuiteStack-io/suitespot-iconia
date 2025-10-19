@@ -74,7 +74,7 @@ const Auth = () => {
           <div className="flex justify-center mb-4">
             <img src={suitespotLogo} alt="Suite Spot Logo" className="h-16 w-auto" />
           </div>
-          <CardTitle className="text-2xl">Suite Spot Bookings</CardTitle>
+          <CardTitle className="text-2xl">SuiteSpot Bookings</CardTitle>
           <CardDescription>
             {isLogin ? 'Sign in to manage your reservations' : 'Create an account to get started'}
           </CardDescription>
