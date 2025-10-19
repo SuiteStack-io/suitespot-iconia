@@ -67,10 +67,12 @@ export type Database = {
       }
       reservations: {
         Row: {
+          adults: number | null
           booking_reference: string
           channel: string
           check_in_date: string
           check_out_date: string
+          children: number | null
           commission_amount: number | null
           commission_rate: number | null
           contact_email: string | null
@@ -93,10 +95,12 @@ export type Database = {
           updated_at: string
         }
         Insert: {
+          adults?: number | null
           booking_reference: string
           channel?: string
           check_in_date: string
           check_out_date: string
+          children?: number | null
           commission_amount?: number | null
           commission_rate?: number | null
           contact_email?: string | null
@@ -119,10 +123,12 @@ export type Database = {
           updated_at?: string
         }
         Update: {
+          adults?: number | null
           booking_reference?: string
           channel?: string
           check_in_date?: string
           check_out_date?: string
+          children?: number | null
           commission_amount?: number | null
           commission_rate?: number | null
           contact_email?: string | null

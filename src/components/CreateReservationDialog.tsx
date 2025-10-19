@@ -389,6 +389,8 @@ export function CreateReservationDialog() {
         check_out_date: format(checkOutDate!, "yyyy-MM-dd"),
         unit_id: unitId,
         number_of_guests: numberOfGuests,
+        adults: adults,
+        children: children,
         guest_names: guestNames.filter(name => name.trim() !== ""),
         guest_nationality: nationality,
         source,

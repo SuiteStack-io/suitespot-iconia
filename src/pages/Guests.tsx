@@ -25,12 +25,15 @@ interface GuestRecord {
   contactEmail: string | null;
   contactPhone: string | null;
   numberOfGuests: number;
+  adults: number;
+  children: number;
   checkInDate: string;
   checkOutDate: string;
   bookingReference: string;
   status: string;
   unitName: string | null;
   source: string;
+  guestIndex: number;
 }
 
 const Guests = () => {
@@ -76,19 +79,22 @@ const Guests = () => {
       const guestRecords: GuestRecord[] = [];
       
       reservations?.forEach((reservation) => {
-        reservation.guest_names?.forEach((guestName: string) => {
+        reservation.guest_names?.forEach((guestName: string, index: number) => {
           guestRecords.push({
             guestName,
             nationality: reservation.guest_nationality,
             contactEmail: reservation.contact_email,
             contactPhone: reservation.contact_phone,
             numberOfGuests: reservation.number_of_guests,
+            adults: reservation.adults || 1,
+            children: reservation.children || 0,
             checkInDate: reservation.check_in_date,
             checkOutDate: reservation.check_out_date,
             bookingReference: reservation.booking_reference,
             status: reservation.status,
             unitName: reservation.units?.name || null,
             source: reservation.source,
+            guestIndex: index,
           });
         });
       });
@@ -236,32 +242,41 @@ const Guests = () => {
     // Prepare CSV headers
     const headers = [
       "Guest Name",
+      "Type",
       "Nationality",
       "Email",
       "Phone",
       "Check-in",
       "Check-out",
       "Unit",
-      "Number of Guests",
+      "Adults",
+      "Children",
+      "Total Guests",
       "Source",
       "Booking Reference",
       "Status"
     ];
 
     // Prepare CSV rows
-    const rows = filteredGuests.map(guest => [
-      guest.guestName,
-      guest.nationality || "-",
-      guest.contactEmail || "-",
-      guest.contactPhone || "-",
-      format(new Date(guest.checkInDate), "MMM dd, yyyy"),
-      format(new Date(guest.checkOutDate), "MMM dd, yyyy"),
-      guest.unitName || "-",
-      guest.numberOfGuests.toString(),
-      guest.source,
-      guest.bookingReference,
-      guest.status
-    ]);
+    const rows = filteredGuests.map(guest => {
+      const isAdult = guest.guestIndex < guest.adults;
+      return [
+        guest.guestName,
+        isAdult ? "Adult" : "Child",
+        guest.nationality || "-",
+        guest.contactEmail || "-",
+        guest.contactPhone || "-",
+        format(new Date(guest.checkInDate), "MMM dd, yyyy"),
+        format(new Date(guest.checkOutDate), "MMM dd, yyyy"),
+        guest.unitName || "-",
+        guest.adults.toString(),
+        guest.children.toString(),
+        guest.numberOfGuests.toString(),
+        guest.source,
+        guest.bookingReference,
+        guest.status
+      ];
+    });
 
     // Create CSV content
     const csvContent = [
@@ -436,13 +451,14 @@ const Guests = () => {
               <TableHeader>
                 <TableRow>
                   <TableHead>Guest Name</TableHead>
+                  <TableHead>Type</TableHead>
                   <TableHead>Nationality</TableHead>
                   <TableHead>Email</TableHead>
                   <TableHead>Phone</TableHead>
                   <TableHead>Check-in</TableHead>
                   <TableHead>Check-out</TableHead>
                   <TableHead>Room ID</TableHead>
-                  <TableHead>Guests</TableHead>
+                  <TableHead>Total Guests</TableHead>
                   <TableHead>Source</TableHead>
                   <TableHead>Booking Ref</TableHead>
                   <TableHead>Status</TableHead>
@@ -451,47 +467,61 @@ const Guests = () => {
               <TableBody>
                 {filteredGuests.length === 0 ? (
                   <TableRow>
-                    <TableCell colSpan={11} className="text-center text-muted-foreground">
+                    <TableCell colSpan={12} className="text-center text-muted-foreground">
                       No guests found for this {viewMode}
                     </TableCell>
                   </TableRow>
                 ) : (
-                  filteredGuests.map((guest, index) => (
-                    <TableRow key={`${guest.bookingReference}-${index}`}>
-                      <TableCell className="font-medium">
-                        {shouldHighlight("name") 
-                          ? highlightText(guest.guestName, searchQuery)
-                          : guest.guestName
-                        }
-                      </TableCell>
-                      <TableCell>
-                        {guest.nationality 
-                          ? shouldHighlight("nationality")
-                            ? highlightText(guest.nationality, searchQuery)
-                            : guest.nationality
-                          : "-"
-                        }
-                      </TableCell>
-                      <TableCell>{guest.contactEmail || "-"}</TableCell>
-                      <TableCell>{guest.contactPhone || "-"}</TableCell>
-                      <TableCell>{format(new Date(guest.checkInDate), "MMM dd, yyyy")}</TableCell>
-                      <TableCell>{format(new Date(guest.checkOutDate), "MMM dd, yyyy")}</TableCell>
-                      <TableCell>{guest.unitName || "-"}</TableCell>
-                      <TableCell>{guest.numberOfGuests}</TableCell>
-                      <TableCell>{guest.source}</TableCell>
-                      <TableCell className="font-mono text-sm">
-                        {shouldHighlight("booking")
-                          ? highlightText(guest.bookingReference, searchQuery)
-                          : guest.bookingReference
-                        }
-                      </TableCell>
-                      <TableCell>
-                        <Badge className={getStatusColor(guest.status)}>
-                          {guest.status}
-                        </Badge>
-                      </TableCell>
-                    </TableRow>
-                  ))
+                  filteredGuests.map((guest, index) => {
+                    // Determine if this guest is an adult or child based on their position
+                    const isAdult = guest.guestIndex < guest.adults;
+                    
+                    return (
+                      <TableRow key={`${guest.bookingReference}-${index}`}>
+                        <TableCell className="font-medium">
+                          {shouldHighlight("name") 
+                            ? highlightText(guest.guestName, searchQuery)
+                            : guest.guestName
+                          }
+                        </TableCell>
+                        <TableCell>
+                          <Badge variant={isAdult ? "default" : "secondary"} className="text-xs">
+                            {isAdult ? "Adult" : "Child"}
+                          </Badge>
+                        </TableCell>
+                        <TableCell>
+                          {guest.nationality 
+                            ? shouldHighlight("nationality")
+                              ? highlightText(guest.nationality, searchQuery)
+                              : guest.nationality
+                            : "-"
+                          }
+                        </TableCell>
+                        <TableCell>{guest.contactEmail || "-"}</TableCell>
+                        <TableCell>{guest.contactPhone || "-"}</TableCell>
+                        <TableCell>{format(new Date(guest.checkInDate), "MMM dd, yyyy")}</TableCell>
+                        <TableCell>{format(new Date(guest.checkOutDate), "MMM dd, yyyy")}</TableCell>
+                        <TableCell>{guest.unitName || "-"}</TableCell>
+                        <TableCell>
+                          <div className="text-sm">
+                            {guest.adults} Adult{guest.adults !== 1 ? 's' : ''}, {guest.children} Child{guest.children !== 1 ? 'ren' : ''}
+                          </div>
+                        </TableCell>
+                        <TableCell>{guest.source}</TableCell>
+                        <TableCell className="font-mono text-sm">
+                          {shouldHighlight("booking")
+                            ? highlightText(guest.bookingReference, searchQuery)
+                            : guest.bookingReference
+                          }
+                        </TableCell>
+                        <TableCell>
+                          <Badge className={cn("capitalize", getStatusColor(guest.status))}>
+                            {guest.status}
+                          </Badge>
+                        </TableCell>
+                      </TableRow>
+                    );
+                  })
                 )}
               </TableBody>
             </Table>
