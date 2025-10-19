@@ -45,6 +45,7 @@ const Guests = () => {
   const [viewMode, setViewMode] = useState<"week" | "month">("week");
   const [selectedMonth, setSelectedMonth] = useState<Date>(new Date());
   const [statusFilter, setStatusFilter] = useState<string>("all");
+  const [searchField, setSearchField] = useState<string>("all");
 
   useEffect(() => {
     if (!authLoading && userRole !== "admin") {
@@ -58,7 +59,7 @@ const Guests = () => {
 
   useEffect(() => {
     filterGuests();
-  }, [searchQuery, guests, currentWeekStart, viewMode, selectedMonth, statusFilter]);
+  }, [searchQuery, guests, currentWeekStart, viewMode, selectedMonth, statusFilter, searchField]);
 
   const fetchGuests = async () => {
     try {
@@ -135,15 +136,27 @@ const Guests = () => {
 
     if (searchQuery.trim()) {
       const query = searchQuery.toLowerCase();
-      filtered = filtered.filter(
-        (guest) =>
-          guest.guestName.toLowerCase().includes(query) ||
-          guest.nationality?.toLowerCase().includes(query) ||
-          guest.contactEmail?.toLowerCase().includes(query) ||
-          guest.contactPhone?.toLowerCase().includes(query) ||
-          guest.bookingReference.toLowerCase().includes(query) ||
-          guest.source.toLowerCase().includes(query)
-      );
+      
+      if (searchField === "all") {
+        filtered = filtered.filter(
+          (guest) =>
+            guest.guestName.toLowerCase().includes(query) ||
+            guest.nationality?.toLowerCase().includes(query) ||
+            guest.bookingReference.toLowerCase().includes(query)
+        );
+      } else if (searchField === "name") {
+        filtered = filtered.filter((guest) =>
+          guest.guestName.toLowerCase().includes(query)
+        );
+      } else if (searchField === "nationality") {
+        filtered = filtered.filter((guest) =>
+          guest.nationality?.toLowerCase().includes(query)
+        );
+      } else if (searchField === "booking") {
+        filtered = filtered.filter((guest) =>
+          guest.bookingReference.toLowerCase().includes(query)
+        );
+      }
     }
 
     if (statusFilter !== "all") {
@@ -341,14 +354,36 @@ const Guests = () => {
             </div>
             
             <div className="flex gap-4">
-              <div className="relative flex-1">
-                <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-muted-foreground h-4 w-4" />
-                <Input
-                  placeholder="Search by name, email, phone, nationality, source, or booking reference..."
-                  value={searchQuery}
-                  onChange={(e) => setSearchQuery(e.target.value)}
-                  className="pl-10"
-                />
+              <div className="flex-1 flex gap-2">
+                <Select value={searchField} onValueChange={setSearchField}>
+                  <SelectTrigger className="w-[160px]">
+                    <SelectValue placeholder="Search by..." />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="all">All Fields</SelectItem>
+                    <SelectItem value="name">Guest Name</SelectItem>
+                    <SelectItem value="nationality">Nationality</SelectItem>
+                    <SelectItem value="booking">Booking Ref</SelectItem>
+                  </SelectContent>
+                </Select>
+                
+                <div className="relative flex-1">
+                  <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-muted-foreground h-4 w-4" />
+                  <Input
+                    placeholder={
+                      searchField === "all" 
+                        ? "Search by name, nationality, or booking reference..." 
+                        : searchField === "name"
+                        ? "Search by guest name..."
+                        : searchField === "nationality"
+                        ? "Search by nationality..."
+                        : "Search by booking reference..."
+                    }
+                    value={searchQuery}
+                    onChange={(e) => setSearchQuery(e.target.value)}
+                    className="pl-10"
+                  />
+                </div>
               </div>
               
               <Select value={statusFilter} onValueChange={setStatusFilter}>
