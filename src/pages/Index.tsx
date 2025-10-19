@@ -98,6 +98,9 @@ const Index = () => {
                   <DropdownMenuItem onClick={() => navigate('/users')}>
                     Users
                   </DropdownMenuItem>
+                  <DropdownMenuItem onClick={() => navigate('/guests')}>
+                    Guests
+                  </DropdownMenuItem>
                   <DropdownMenuItem onClick={() => navigate('/analytics')}>
                     Analytics
                   </DropdownMenuItem>
