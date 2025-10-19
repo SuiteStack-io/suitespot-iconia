@@ -64,6 +64,11 @@ All colors MUST be HSL.
     /* Gradient */
     --gradient-primary: linear-gradient(135deg, hsl(215 40% 25%), hsl(215 50% 35%));
     --gradient-accent: linear-gradient(135deg, hsl(45 100% 50%), hsl(45 100% 60%));
+    
+    /* Liquid glass effect */
+    --glass-bg: rgba(255, 255, 255, 0.05);
+    --glass-border: rgba(255, 255, 255, 0.1);
+    --glass-blur: 20px;
   }
 
   .dark {

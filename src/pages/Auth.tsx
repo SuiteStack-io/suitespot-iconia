@@ -6,7 +6,7 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { toast } from 'sonner';
-import { Hotel } from 'lucide-react';
+import suitespotLogo from '@/assets/suitespot-logo.png';
 
 const Auth = () => {
   const [isLogin, setIsLogin] = useState(true);
@@ -61,15 +61,20 @@ const Auth = () => {
   };
 
   return (
-    <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-primary to-primary/80 p-4">
-      <Card className="w-full max-w-md">
+    <div className="min-h-screen flex items-center justify-center p-4 relative overflow-hidden">
+      {/* Liquid glass background effect */}
+      <div className="absolute inset-0 bg-gradient-to-br from-slate-900 via-blue-900 to-slate-800">
+        <div className="absolute inset-0 backdrop-blur-3xl bg-gradient-to-tr from-blue-500/10 via-purple-500/10 to-pink-500/10"></div>
+        <div className="absolute top-20 left-20 w-96 h-96 bg-blue-500/20 rounded-full blur-3xl animate-pulse"></div>
+        <div className="absolute bottom-20 right-20 w-96 h-96 bg-purple-500/20 rounded-full blur-3xl animate-pulse delay-1000"></div>
+      </div>
+      
+      <Card className="w-full max-w-md relative backdrop-blur-xl bg-white/90 dark:bg-slate-900/90 border-white/20 shadow-2xl">
         <CardHeader className="text-center">
           <div className="flex justify-center mb-4">
-            <div className="p-3 bg-accent/10 rounded-full">
-              <Hotel className="h-8 w-8 text-accent" />
-            </div>
+            <img src={suitespotLogo} alt="Suite Spot Logo" className="h-16 w-auto" />
           </div>
-          <CardTitle className="text-2xl">SuiteSpot Reservations</CardTitle>
+          <CardTitle className="text-2xl">Suite Spot Bookings</CardTitle>
           <CardDescription>
             {isLogin ? 'Sign in to manage your reservations' : 'Create an account to get started'}
           </CardDescription>
