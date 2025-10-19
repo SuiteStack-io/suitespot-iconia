@@ -649,42 +649,44 @@ export function CreateReservationDialog() {
               Number of Guests <span className="text-destructive">*</span>
             </Label>
             
-            {/* Adults */}
-            <div className="space-y-2">
-              <Label htmlFor="adults" className="text-sm text-muted-foreground">
-                Adults
-              </Label>
-              <Select value={adults.toString()} onValueChange={(value) => setAdults(parseInt(value))}>
-                <SelectTrigger id="adults">
-                  <SelectValue />
-                </SelectTrigger>
-                <SelectContent>
-                  {[1, 2, 3, 4, 5, 6, 7, 8, 9, 10].map((num) => (
-                    <SelectItem key={num} value={num.toString()}>
-                      {num} {num === 1 ? 'Adult' : 'Adults'}
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-            </div>
+            <div className="grid grid-cols-2 gap-4">
+              {/* Adults */}
+              <div className="space-y-2">
+                <Label htmlFor="adults" className="text-sm text-muted-foreground">
+                  Adults
+                </Label>
+                <Select value={adults.toString()} onValueChange={(value) => setAdults(parseInt(value))}>
+                  <SelectTrigger id="adults">
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {[1, 2, 3, 4, 5, 6, 7, 8, 9, 10].map((num) => (
+                      <SelectItem key={num} value={num.toString()}>
+                        {num} {num === 1 ? 'Adult' : 'Adults'}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
 
-            {/* Children */}
-            <div className="space-y-2">
-              <Label htmlFor="children" className="text-sm text-muted-foreground">
-                Children
-              </Label>
-              <Select value={children.toString()} onValueChange={(value) => setChildren(parseInt(value))}>
-                <SelectTrigger id="children">
-                  <SelectValue />
-                </SelectTrigger>
-                <SelectContent>
-                  {[0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10].map((num) => (
-                    <SelectItem key={num} value={num.toString()}>
-                      {num} {num === 1 ? 'Child' : 'Children'}
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
+              {/* Children */}
+              <div className="space-y-2">
+                <Label htmlFor="children" className="text-sm text-muted-foreground">
+                  Children
+                </Label>
+                <Select value={children.toString()} onValueChange={(value) => setChildren(parseInt(value))}>
+                  <SelectTrigger id="children">
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {[0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10].map((num) => (
+                      <SelectItem key={num} value={num.toString()}>
+                        {num} {num === 1 ? 'Child' : 'Children'}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
             </div>
 
             <p className="text-sm text-muted-foreground">
