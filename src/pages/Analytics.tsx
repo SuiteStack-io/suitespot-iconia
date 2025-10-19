@@ -2,7 +2,7 @@ import { useEffect, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useAuth } from '@/lib/auth';
 import { Button } from '@/components/ui/button';
-import { ArrowLeft, DollarSign, TrendingUp, Calendar, BarChart3 } from 'lucide-react';
+import { ArrowLeft, DollarSign, TrendingUp, Calendar, BarChart3, Users } from 'lucide-react';
 import { RevenueBySource } from '@/components/RevenueBySource';
 import { RevenueByRoom } from '@/components/RevenueByRoom';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
@@ -23,6 +23,7 @@ const Analytics = () => {
   const [occupancyRate, setOccupancyRate] = useState(0);
   const [totalBookings, setTotalBookings] = useState(0);
   const [bookingSources, setBookingSources] = useState({ direct: 0, indirect: 0 });
+  const [totalGuests, setTotalGuests] = useState(0);
 
   useEffect(() => {
     if (!loading && userRole !== 'admin') {
@@ -104,6 +105,17 @@ const Analytics = () => {
       
     setTotalBookings(count || 0);
     
+    // Calculate total guests
+    const { data: guestsData } = await supabase
+      .from('reservations')
+      .select('number_of_guests')
+      .neq('status', 'cancelled')
+      .gte('check_in_date', startDate)
+      .lte('check_out_date', endDate);
+    
+    const totalGuestsCount = guestsData?.reduce((sum, r) => sum + (r.number_of_guests || 0), 0) || 0;
+    setTotalGuests(totalGuestsCount);
+    
     // Calculate booking sources
     const directBookings = revenueData?.filter(r => 
       r.channel?.toLowerCase() === 'direct' || r.source?.toLowerCase() === 'direct'
@@ -183,12 +195,23 @@ const Analytics = () => {
             <ArrowLeft className="h-4 w-4 mr-2" />
             Back
           </Button>
-          <h1 className="text-xl font-bold">Revenue Analytics</h1>
+          <h1 className="text-xl font-bold">Suitespot Analytics</h1>
         </div>
       </header>
 
       <main className="container mx-auto px-4 py-8 space-y-8">
-        <div className="grid gap-4 md:grid-cols-3">
+        <div className="flex justify-center mb-6">
+          <Tabs value={timePeriod} onValueChange={(value) => setTimePeriod(value as TimePeriod)}>
+            <TabsList className="grid w-full grid-cols-4">
+              <TabsTrigger value="week">Week</TabsTrigger>
+              <TabsTrigger value="month">Month</TabsTrigger>
+              <TabsTrigger value="quarter">Quarter</TabsTrigger>
+              <TabsTrigger value="year">Year</TabsTrigger>
+            </TabsList>
+          </Tabs>
+        </div>
+
+        <div className="grid gap-4 md:grid-cols-4">
           <Card>
             <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
               <CardTitle className="text-sm font-medium">Occupancy Rate</CardTitle>
@@ -198,14 +221,9 @@ const Analytics = () => {
               <div className="text-2xl font-bold">
                 {occupancyRate.toFixed(1)}%
               </div>
-              <Tabs value={timePeriod} onValueChange={(value) => setTimePeriod(value as TimePeriod)} className="mt-3">
-                <TabsList className="grid w-full grid-cols-4">
-                  <TabsTrigger value="week">Week</TabsTrigger>
-                  <TabsTrigger value="month">Month</TabsTrigger>
-                  <TabsTrigger value="quarter">Quarter</TabsTrigger>
-                  <TabsTrigger value="year">Year</TabsTrigger>
-                </TabsList>
-              </Tabs>
+              <p className="text-xs text-muted-foreground mt-1">
+                Last {timePeriod}
+              </p>
             </CardContent>
           </Card>
 
@@ -217,6 +235,21 @@ const Analytics = () => {
             <CardContent>
               <div className="text-2xl font-bold">
                 {totalBookings}
+              </div>
+              <p className="text-xs text-muted-foreground mt-1">
+                Last {timePeriod}
+              </p>
+            </CardContent>
+          </Card>
+
+          <Card>
+            <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+              <CardTitle className="text-sm font-medium">Guests</CardTitle>
+              <Users className="h-4 w-4 text-teal-600" />
+            </CardHeader>
+            <CardContent>
+              <div className="text-2xl font-bold">
+                {totalGuests}
               </div>
               <p className="text-xs text-muted-foreground mt-1">
                 Last {timePeriod}
