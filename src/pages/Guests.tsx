@@ -12,7 +12,7 @@ import {
 } from "@/components/ui/table";
 import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
-import { Search, ArrowLeft, ChevronLeft, ChevronRight } from "lucide-react";
+import { Search, ArrowLeft, ChevronLeft, ChevronRight, Download } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { format, startOfWeek, addDays, addWeeks, subWeeks, isSameDay, isWithinInterval, startOfMonth, endOfMonth, addMonths, subMonths, isSameMonth } from "date-fns";
@@ -194,6 +194,56 @@ const Guests = () => {
     return colors[status] || "";
   };
 
+  const exportToCSV = () => {
+    // Prepare CSV headers
+    const headers = [
+      "Guest Name",
+      "Nationality",
+      "Email",
+      "Phone",
+      "Check-in",
+      "Check-out",
+      "Unit",
+      "Number of Guests",
+      "Source",
+      "Booking Reference",
+      "Status"
+    ];
+
+    // Prepare CSV rows
+    const rows = filteredGuests.map(guest => [
+      guest.guestName,
+      guest.nationality || "-",
+      guest.contactEmail || "-",
+      guest.contactPhone || "-",
+      format(new Date(guest.checkInDate), "MMM dd, yyyy"),
+      format(new Date(guest.checkOutDate), "MMM dd, yyyy"),
+      guest.unitName || "-",
+      guest.numberOfGuests.toString(),
+      guest.source,
+      guest.bookingReference,
+      guest.status
+    ]);
+
+    // Create CSV content
+    const csvContent = [
+      headers.join(","),
+      ...rows.map(row => row.map(cell => `"${cell}"`).join(","))
+    ].join("\n");
+
+    // Create blob and download
+    const blob = new Blob([csvContent], { type: "text/csv;charset=utf-8;" });
+    const link = document.createElement("a");
+    const url = URL.createObjectURL(blob);
+    
+    link.setAttribute("href", url);
+    link.setAttribute("download", `guests_${format(new Date(), "yyyy-MM-dd")}.csv`);
+    link.style.visibility = "hidden";
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+  };
+
   if (authLoading || loading) {
     return (
       <div className="min-h-screen flex items-center justify-center">
@@ -205,18 +255,25 @@ const Guests = () => {
   return (
     <div className="min-h-screen bg-background p-4 md:p-8">
       <div className="max-w-7xl mx-auto">
-        <div className="flex items-center gap-4 mb-6">
-          <Button
-            variant="ghost"
-            size="icon"
-            onClick={() => navigate("/")}
-          >
-            <ArrowLeft className="h-5 w-5" />
-          </Button>
-          <div>
-            <h1 className="text-3xl font-bold">Guests</h1>
-            <p className="text-muted-foreground">All guest records from reservations</p>
+        <div className="flex items-center justify-between mb-6">
+          <div className="flex items-center gap-4">
+            <Button
+              variant="ghost"
+              size="icon"
+              onClick={() => navigate("/")}
+            >
+              <ArrowLeft className="h-5 w-5" />
+            </Button>
+            <div>
+              <h1 className="text-3xl font-bold">Guests</h1>
+              <p className="text-muted-foreground">All guest records from reservations</p>
+            </div>
           </div>
+          
+          <Button onClick={exportToCSV} variant="outline">
+            <Download className="h-4 w-4 mr-2" />
+            Export CSV
+          </Button>
         </div>
 
         <div className="bg-card rounded-lg border p-6">
