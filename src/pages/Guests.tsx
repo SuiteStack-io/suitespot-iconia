@@ -401,12 +401,12 @@ const Guests = () => {
                   <Input
                     placeholder={
                       searchField === "all" 
-                        ? "Search by name, nationality, or booking reference..." 
+                        ? "name, nationality, or booking reference..." 
                         : searchField === "name"
-                        ? "Search by guest name..."
+                        ? "guest name..."
                         : searchField === "nationality"
-                        ? "Search by nationality..."
-                        : "Search by booking reference..."
+                        ? "nationality..."
+                        : "booking reference..."
                     }
                     value={searchQuery}
                     onChange={(e) => setSearchQuery(e.target.value)}
