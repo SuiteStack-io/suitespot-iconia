@@ -116,8 +116,8 @@ export const RevenueByGuests = () => {
   };
 
   const getSortIcon = (field: SortField) => {
-    if (sortField !== field) return '↕';
-    return sortOrder === 'asc' ? '↑' : '↓';
+    if (sortField !== field) return '';
+    return sortOrder === 'asc' ? ' ↑' : ' ↓';
   };
 
   return (
