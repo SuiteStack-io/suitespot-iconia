@@ -3,9 +3,13 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
-import { ChevronLeft, ChevronRight, Calendar } from 'lucide-react';
+import { Calendar } from '@/components/ui/calendar';
+import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
+import { CalendarIcon } from 'lucide-react';
 import { supabase } from '@/integrations/supabase/client';
-import { format, startOfMonth, endOfMonth, addMonths, subMonths } from 'date-fns';
+import { format } from 'date-fns';
+import { DateRange } from 'react-day-picker';
+import { cn } from '@/lib/utils';
 
 interface GuestRevenue {
   id: string;
@@ -21,7 +25,10 @@ type SortField = 'guestName' | 'roomId' | 'pricePerNight' | 'total' | 'nationali
 type SortOrder = 'asc' | 'desc';
 
 export const RevenueByGuests = () => {
-  const [currentMonth, setCurrentMonth] = useState(new Date());
+  const [dateRange, setDateRange] = useState<DateRange | undefined>({
+    from: new Date(new Date().setMonth(new Date().getMonth() - 1)),
+    to: new Date(),
+  });
   const [guestRevenues, setGuestRevenues] = useState<GuestRevenue[]>([]);
   const [filteredRevenues, setFilteredRevenues] = useState<GuestRevenue[]>([]);
   const [nationalities, setNationalities] = useState<string[]>([]);
@@ -31,15 +38,17 @@ export const RevenueByGuests = () => {
 
   useEffect(() => {
     fetchGuestRevenues();
-  }, [currentMonth]);
+  }, [dateRange]);
 
   useEffect(() => {
     applyFiltersAndSort();
   }, [guestRevenues, selectedNationality, sortField, sortOrder]);
 
   const fetchGuestRevenues = async () => {
-    const startDate = format(startOfMonth(currentMonth), 'yyyy-MM-dd');
-    const endDate = format(endOfMonth(currentMonth), 'yyyy-MM-dd');
+    if (!dateRange?.from || !dateRange?.to) return;
+    
+    const startDate = format(dateRange.from, 'yyyy-MM-dd');
+    const endDate = format(dateRange.to, 'yyyy-MM-dd');
 
     const { data: reservations } = await supabase
       .from('reservations')
@@ -103,18 +112,6 @@ export const RevenueByGuests = () => {
     }
   };
 
-  const navigatePreviousMonth = () => {
-    setCurrentMonth(subMonths(currentMonth, 1));
-  };
-
-  const navigateNextMonth = () => {
-    setCurrentMonth(addMonths(currentMonth, 1));
-  };
-
-  const goToCurrentMonth = () => {
-    setCurrentMonth(new Date());
-  };
-
   const getSortIcon = (field: SortField) => {
     if (sortField !== field) return '';
     return sortOrder === 'asc' ? ' ↑' : ' ↓';
@@ -122,31 +119,43 @@ export const RevenueByGuests = () => {
 
   return (
     <Card>
-      <CardHeader>
+      <CardHeader className="flex flex-row items-center justify-between">
         <CardTitle>Revenue by Guests</CardTitle>
-        <div className="flex flex-col md:flex-row gap-4 mt-4">
-          <div className="flex items-center gap-2">
-            <span 
-              onClick={navigatePreviousMonth} 
-              className="cursor-pointer hover:opacity-60 transition-opacity inline-flex"
-            >
-              <ChevronLeft className="h-5 w-5" />
-            </span>
-            <span className="text-sm font-medium px-2">
-              {format(currentMonth, 'MMMM yyyy')}
-            </span>
-            <span 
-              onClick={navigateNextMonth} 
-              className="cursor-pointer hover:opacity-60 transition-opacity inline-flex"
-            >
-              <ChevronRight className="h-5 w-5" />
-            </span>
-            <Button variant="ghost" size="sm" onClick={goToCurrentMonth} className="ml-2">
-              <Calendar className="h-4 w-4 mr-2" />
-              Today
-            </Button>
-          </div>
-
+        <div className="flex gap-2">
+          <Popover>
+            <PopoverTrigger asChild>
+              <Button
+                variant="outline"
+                size="sm"
+                className={cn(
+                  "justify-start text-left font-normal",
+                  !dateRange && "text-muted-foreground"
+                )}
+              >
+                <CalendarIcon className="mr-2 h-4 w-4" />
+                {dateRange?.from ? (
+                  dateRange.to ? (
+                    <>
+                      {format(dateRange.from, 'MMM dd, yyyy')} - {format(dateRange.to, 'MMM dd, yyyy')}
+                    </>
+                  ) : (
+                    format(dateRange.from, 'MMM dd, yyyy')
+                  )
+                ) : (
+                  <span>Pick a date range</span>
+                )}
+              </Button>
+            </PopoverTrigger>
+            <PopoverContent className="w-auto p-0" align="end">
+              <Calendar
+                mode="range"
+                selected={dateRange}
+                onSelect={setDateRange}
+                numberOfMonths={2}
+                className={cn("p-3 pointer-events-auto")}
+              />
+            </PopoverContent>
+          </Popover>
           <Select value={selectedNationality} onValueChange={setSelectedNationality}>
             <SelectTrigger className="w-[200px]">
               <SelectValue placeholder="Filter by nationality" />
