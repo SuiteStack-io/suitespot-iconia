@@ -12,9 +12,9 @@ import {
 } from "@/components/ui/table";
 import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
-import { Search, ArrowLeft } from "lucide-react";
+import { Search, ArrowLeft, ChevronLeft, ChevronRight } from "lucide-react";
 import { Button } from "@/components/ui/button";
-import { format } from "date-fns";
+import { format, startOfWeek, addDays, addWeeks, subWeeks, isSameDay, isWithinInterval } from "date-fns";
 
 interface GuestRecord {
   guestName: string;
@@ -27,6 +27,7 @@ interface GuestRecord {
   bookingReference: string;
   status: string;
   unitName: string | null;
+  source: string;
 }
 
 const Guests = () => {
@@ -36,6 +37,7 @@ const Guests = () => {
   const [filteredGuests, setFilteredGuests] = useState<GuestRecord[]>([]);
   const [searchQuery, setSearchQuery] = useState("");
   const [loading, setLoading] = useState(true);
+  const [currentWeekStart, setCurrentWeekStart] = useState(() => startOfWeek(new Date(), { weekStartsOn: 0 }));
 
   useEffect(() => {
     if (!authLoading && userRole !== "admin") {
@@ -49,7 +51,7 @@ const Guests = () => {
 
   useEffect(() => {
     filterGuests();
-  }, [searchQuery, guests]);
+  }, [searchQuery, guests, currentWeekStart]);
 
   const fetchGuests = async () => {
     try {
@@ -78,6 +80,7 @@ const Guests = () => {
             bookingReference: reservation.booking_reference,
             status: reservation.status,
             unitName: reservation.units?.name || null,
+            source: reservation.source,
           });
         });
       });
@@ -92,22 +95,53 @@ const Guests = () => {
   };
 
   const filterGuests = () => {
-    if (!searchQuery.trim()) {
-      setFilteredGuests(guests);
-      return;
-    }
+    const weekEnd = addDays(currentWeekStart, 6);
+    
+    let filtered = guests.filter((guest) => {
+      const checkIn = new Date(guest.checkInDate);
+      const checkOut = new Date(guest.checkOutDate);
+      
+      // Check if the reservation overlaps with the current week
+      return isWithinInterval(currentWeekStart, { start: checkIn, end: checkOut }) ||
+             isWithinInterval(weekEnd, { start: checkIn, end: checkOut }) ||
+             isWithinInterval(checkIn, { start: currentWeekStart, end: weekEnd }) ||
+             isWithinInterval(checkOut, { start: currentWeekStart, end: weekEnd });
+    });
 
-    const query = searchQuery.toLowerCase();
-    const filtered = guests.filter(
-      (guest) =>
-        guest.guestName.toLowerCase().includes(query) ||
-        guest.nationality?.toLowerCase().includes(query) ||
-        guest.contactEmail?.toLowerCase().includes(query) ||
-        guest.contactPhone?.toLowerCase().includes(query) ||
-        guest.bookingReference.toLowerCase().includes(query)
-    );
+    if (searchQuery.trim()) {
+      const query = searchQuery.toLowerCase();
+      filtered = filtered.filter(
+        (guest) =>
+          guest.guestName.toLowerCase().includes(query) ||
+          guest.nationality?.toLowerCase().includes(query) ||
+          guest.contactEmail?.toLowerCase().includes(query) ||
+          guest.contactPhone?.toLowerCase().includes(query) ||
+          guest.bookingReference.toLowerCase().includes(query) ||
+          guest.source.toLowerCase().includes(query)
+      );
+    }
+    
     setFilteredGuests(filtered);
   };
+
+  const getWeekDays = () => {
+    return Array.from({ length: 7 }, (_, i) => addDays(currentWeekStart, i));
+  };
+
+  const navigatePreviousWeek = () => {
+    setCurrentWeekStart(prev => subWeeks(prev, 1));
+  };
+
+  const navigateNextWeek = () => {
+    setCurrentWeekStart(prev => addWeeks(prev, 1));
+  };
+
+  const goToCurrentWeek = () => {
+    setCurrentWeekStart(startOfWeek(new Date(), { weekStartsOn: 0 }));
+  };
+
+  const weekDays = getWeekDays();
+  const isCurrentWeek = isSameDay(currentWeekStart, startOfWeek(new Date(), { weekStartsOn: 0 }));
 
   const getStatusColor = (status: string) => {
     const colors: Record<string, string> = {
@@ -146,11 +180,28 @@ const Guests = () => {
         </div>
 
         <div className="bg-card rounded-lg border p-6">
-          <div className="mb-6">
+          <div className="mb-6 space-y-4">
+            <div className="flex items-center justify-center gap-2">
+              {!isCurrentWeek && (
+                <Button variant="outline" size="sm" onClick={goToCurrentWeek}>
+                  Today
+                </Button>
+              )}
+              <Button variant="outline" size="sm" onClick={navigatePreviousWeek}>
+                <ChevronLeft className="h-4 w-4" />
+              </Button>
+              <div className="text-sm font-medium text-center min-w-[200px]">
+                {format(weekDays[0], 'MMM d')} - {format(weekDays[6], 'MMM d, yyyy')}
+              </div>
+              <Button variant="outline" size="sm" onClick={navigateNextWeek}>
+                <ChevronRight className="h-4 w-4" />
+              </Button>
+            </div>
+            
             <div className="relative">
               <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-muted-foreground h-4 w-4" />
               <Input
-                placeholder="Search by name, email, phone, nationality, or booking reference..."
+                placeholder="Search by name, email, phone, nationality, source, or booking reference..."
                 value={searchQuery}
                 onChange={(e) => setSearchQuery(e.target.value)}
                 className="pl-10"
@@ -170,6 +221,7 @@ const Guests = () => {
                   <TableHead>Check-out</TableHead>
                   <TableHead>Unit</TableHead>
                   <TableHead>Guests</TableHead>
+                  <TableHead>Source</TableHead>
                   <TableHead>Booking Ref</TableHead>
                   <TableHead>Status</TableHead>
                 </TableRow>
@@ -177,8 +229,8 @@ const Guests = () => {
               <TableBody>
                 {filteredGuests.length === 0 ? (
                   <TableRow>
-                    <TableCell colSpan={10} className="text-center text-muted-foreground">
-                      No guests found
+                    <TableCell colSpan={11} className="text-center text-muted-foreground">
+                      No guests found for this week
                     </TableCell>
                   </TableRow>
                 ) : (
@@ -192,6 +244,7 @@ const Guests = () => {
                       <TableCell>{format(new Date(guest.checkOutDate), "MMM dd, yyyy")}</TableCell>
                       <TableCell>{guest.unitName || "-"}</TableCell>
                       <TableCell>{guest.numberOfGuests}</TableCell>
+                      <TableCell>{guest.source}</TableCell>
                       <TableCell className="font-mono text-sm">{guest.bookingReference}</TableCell>
                       <TableCell>
                         <Badge className={getStatusColor(guest.status)}>
