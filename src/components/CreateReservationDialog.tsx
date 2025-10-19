@@ -172,6 +172,8 @@ export function CreateReservationDialog() {
   // Form state
   const [dateRange, setDateRange] = useState<DateRange | undefined>();
   const [unitId, setUnitId] = useState("");
+  const [adults, setAdults] = useState<number>(1);
+  const [children, setChildren] = useState<number>(0);
   const [numberOfGuests, setNumberOfGuests] = useState<number>(1);
   const [guestNames, setGuestNames] = useState<string[]>([""]);
   const [nationality, setNationality] = useState("");
@@ -209,6 +211,11 @@ export function CreateReservationDialog() {
       setCommissionRate(10.0);
     }
   }, [source]);
+
+  // Auto-sync number of guests with adults and children
+  useEffect(() => {
+    setNumberOfGuests(adults + children);
+  }, [adults, children]);
 
   // Auto-sync number of guests with guest names count
   useEffect(() => {
@@ -436,6 +443,8 @@ export function CreateReservationDialog() {
       // Reset form
       setDateRange(undefined);
       setUnitId("");
+      setAdults(1);
+      setChildren(0);
       setNumberOfGuests(1);
       setGuestNames([""]);
       setNationality("");
@@ -635,17 +644,52 @@ export function CreateReservationDialog() {
           </div>
 
           {/* Number of Guests */}
-          <div className="space-y-2">
-            <Label htmlFor="numberOfGuests">
+          <div className="space-y-4">
+            <Label>
               Number of Guests <span className="text-destructive">*</span>
             </Label>
-            <Input
-              id="numberOfGuests"
-              type="number"
-              min="1"
-              value={numberOfGuests}
-              onChange={(e) => setNumberOfGuests(parseInt(e.target.value) || 1)}
-            />
+            
+            {/* Adults */}
+            <div className="space-y-2">
+              <Label htmlFor="adults" className="text-sm text-muted-foreground">
+                Adults
+              </Label>
+              <Select value={adults.toString()} onValueChange={(value) => setAdults(parseInt(value))}>
+                <SelectTrigger id="adults">
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  {[1, 2, 3, 4, 5, 6, 7, 8, 9, 10].map((num) => (
+                    <SelectItem key={num} value={num.toString()}>
+                      {num} {num === 1 ? 'Adult' : 'Adults'}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+
+            {/* Children */}
+            <div className="space-y-2">
+              <Label htmlFor="children" className="text-sm text-muted-foreground">
+                Children
+              </Label>
+              <Select value={children.toString()} onValueChange={(value) => setChildren(parseInt(value))}>
+                <SelectTrigger id="children">
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  {[0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10].map((num) => (
+                    <SelectItem key={num} value={num.toString()}>
+                      {num} {num === 1 ? 'Child' : 'Children'}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+
+            <p className="text-sm text-muted-foreground">
+              Total guests: <span className="font-semibold">{numberOfGuests}</span>
+            </p>
           </div>
 
           {/* Guest Names */}
