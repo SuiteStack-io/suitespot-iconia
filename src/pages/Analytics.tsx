@@ -5,6 +5,7 @@ import { Button } from '@/components/ui/button';
 import { ArrowLeft, DollarSign, TrendingUp, Calendar, BarChart3, Users } from 'lucide-react';
 import { RevenueBySource } from '@/components/RevenueBySource';
 import { RevenueByRoom } from '@/components/RevenueByRoom';
+import { RevenueByGuests } from '@/components/RevenueByGuests';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { supabase } from '@/integrations/supabase/client';
 import { Tabs, TabsList, TabsTrigger } from '@/components/ui/tabs';
@@ -301,6 +302,7 @@ const Analytics = () => {
         <section className="space-y-8">
           <RevenueBySource />
           <RevenueByRoom />
+          <RevenueByGuests />
         </section>
       </main>
     </div>
