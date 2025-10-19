@@ -17,6 +17,7 @@ import { Button } from "@/components/ui/button";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { format, startOfWeek, addDays, addWeeks, subWeeks, isSameDay, isWithinInterval, startOfMonth, endOfMonth, addMonths, subMonths, isSameMonth } from "date-fns";
 import { cn } from "@/lib/utils";
+import { useIsMobile } from "@/hooks/use-mobile";
 
 interface GuestRecord {
   guestName: string;
@@ -35,6 +36,7 @@ interface GuestRecord {
 const Guests = () => {
   const { userRole, loading: authLoading } = useAuth();
   const navigate = useNavigate();
+  const isMobile = useIsMobile();
   const [guests, setGuests] = useState<GuestRecord[]>([]);
   const [filteredGuests, setFilteredGuests] = useState<GuestRecord[]>([]);
   const [searchQuery, setSearchQuery] = useState("");
@@ -266,7 +268,9 @@ const Guests = () => {
             </Button>
             <div>
               <h1 className="text-3xl font-bold">Guests</h1>
-              <p className="text-muted-foreground">All guest records from reservations</p>
+              {!isMobile && (
+                <p className="text-muted-foreground">All guest records from reservations</p>
+              )}
             </div>
           </div>
           
@@ -278,7 +282,10 @@ const Guests = () => {
 
         <div className="bg-card rounded-lg border p-6">
           <div className="mb-6 space-y-4">
-            <div className="flex items-center justify-between gap-4">
+            <div className={cn(
+              "flex items-center gap-4",
+              isMobile ? "flex-col items-stretch" : "justify-between"
+            )}>
               <div className="flex gap-2">
                 <Button
                   variant={viewMode === "week" ? "default" : "outline"}
