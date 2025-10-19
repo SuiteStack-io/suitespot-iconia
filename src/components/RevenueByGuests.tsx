@@ -14,9 +14,10 @@ interface GuestRevenue {
   pricePerNight: number;
   total: number;
   nationality: string;
+  nights: number;
 }
 
-type SortField = 'guestName' | 'roomId' | 'pricePerNight' | 'total';
+type SortField = 'guestName' | 'roomId' | 'pricePerNight' | 'total' | 'nationality' | 'nights';
 type SortOrder = 'asc' | 'desc';
 
 export const RevenueByGuests = () => {
@@ -42,7 +43,7 @@ export const RevenueByGuests = () => {
 
     const { data: reservations } = await supabase
       .from('reservations')
-      .select('id, guest_names, unit_id, price_per_night, total_price, guest_nationality, units(unit_number)')
+      .select('id, guest_names, unit_id, price_per_night, total_price, guest_nationality, nights, units(unit_number)')
       .neq('status', 'Cancelled')
       .gte('check_in_date', startDate)
       .lte('check_out_date', endDate);
@@ -56,6 +57,7 @@ export const RevenueByGuests = () => {
           pricePerNight: r.price_per_night || 0,
           total: r.total_price || 0,
           nationality: r.guest_nationality || 'Unknown',
+          nights: r.nights || 0,
         }))
       );
 
@@ -173,6 +175,18 @@ export const RevenueByGuests = () => {
                 </TableHead>
                 <TableHead 
                   className="cursor-pointer hover:bg-muted/50"
+                  onClick={() => handleSort('nationality')}
+                >
+                  Nationality {getSortIcon('nationality')}
+                </TableHead>
+                <TableHead 
+                  className="cursor-pointer hover:bg-muted/50"
+                  onClick={() => handleSort('nights')}
+                >
+                  Total Nights {getSortIcon('nights')}
+                </TableHead>
+                <TableHead 
+                  className="cursor-pointer hover:bg-muted/50"
                   onClick={() => handleSort('pricePerNight')}
                 >
                   Price per Night {getSortIcon('pricePerNight')}
@@ -188,7 +202,7 @@ export const RevenueByGuests = () => {
             <TableBody>
               {filteredRevenues.length === 0 ? (
                 <TableRow>
-                  <TableCell colSpan={4} className="text-center text-muted-foreground">
+                  <TableCell colSpan={6} className="text-center text-muted-foreground">
                     No guest data for this period
                   </TableCell>
                 </TableRow>
@@ -197,6 +211,8 @@ export const RevenueByGuests = () => {
                   <TableRow key={revenue.id}>
                     <TableCell className="font-medium">{revenue.guestName}</TableCell>
                     <TableCell>{revenue.roomId}</TableCell>
+                    <TableCell>{revenue.nationality}</TableCell>
+                    <TableCell>{revenue.nights}</TableCell>
                     <TableCell>${revenue.pricePerNight.toFixed(2)}</TableCell>
                     <TableCell className="font-semibold">${revenue.total.toFixed(2)}</TableCell>
                   </TableRow>
