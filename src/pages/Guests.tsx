@@ -14,6 +14,7 @@ import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
 import { Search, ArrowLeft, ChevronLeft, ChevronRight } from "lucide-react";
 import { Button } from "@/components/ui/button";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { format, startOfWeek, addDays, addWeeks, subWeeks, isSameDay, isWithinInterval, startOfMonth, endOfMonth, addMonths, subMonths, isSameMonth } from "date-fns";
 import { cn } from "@/lib/utils";
 
@@ -41,6 +42,7 @@ const Guests = () => {
   const [currentWeekStart, setCurrentWeekStart] = useState(() => startOfWeek(new Date(), { weekStartsOn: 0 }));
   const [viewMode, setViewMode] = useState<"week" | "month">("week");
   const [selectedMonth, setSelectedMonth] = useState<Date>(new Date());
+  const [statusFilter, setStatusFilter] = useState<string>("all");
 
   useEffect(() => {
     if (!authLoading && userRole !== "admin") {
@@ -54,7 +56,7 @@ const Guests = () => {
 
   useEffect(() => {
     filterGuests();
-  }, [searchQuery, guests, currentWeekStart, viewMode, selectedMonth]);
+  }, [searchQuery, guests, currentWeekStart, viewMode, selectedMonth, statusFilter]);
 
   const fetchGuests = async () => {
     try {
@@ -140,6 +142,10 @@ const Guests = () => {
           guest.bookingReference.toLowerCase().includes(query) ||
           guest.source.toLowerCase().includes(query)
       );
+    }
+
+    if (statusFilter !== "all") {
+      filtered = filtered.filter((guest) => guest.status === statusFilter);
     }
     
     setFilteredGuests(filtered);
@@ -270,14 +276,30 @@ const Guests = () => {
               )}
             </div>
             
-            <div className="relative">
-              <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-muted-foreground h-4 w-4" />
-              <Input
-                placeholder="Search by name, email, phone, nationality, source, or booking reference..."
-                value={searchQuery}
-                onChange={(e) => setSearchQuery(e.target.value)}
-                className="pl-10"
-              />
+            <div className="flex gap-4">
+              <div className="relative flex-1">
+                <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-muted-foreground h-4 w-4" />
+                <Input
+                  placeholder="Search by name, email, phone, nationality, source, or booking reference..."
+                  value={searchQuery}
+                  onChange={(e) => setSearchQuery(e.target.value)}
+                  className="pl-10"
+                />
+              </div>
+              
+              <Select value={statusFilter} onValueChange={setStatusFilter}>
+                <SelectTrigger className="w-[180px]">
+                  <SelectValue placeholder="All Statuses" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="all">All Statuses</SelectItem>
+                  <SelectItem value="confirmed">Confirmed</SelectItem>
+                  <SelectItem value="pending">Pending</SelectItem>
+                  <SelectItem value="cancelled">Cancelled</SelectItem>
+                  <SelectItem value="checked-in">Checked-in</SelectItem>
+                  <SelectItem value="checked-out">Checked-out</SelectItem>
+                </SelectContent>
+              </Select>
             </div>
           </div>
 
