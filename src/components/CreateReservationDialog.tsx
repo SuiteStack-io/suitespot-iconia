@@ -533,30 +533,38 @@ export function CreateReservationDialog() {
                   <Calendar
                     mode="range"
                     selected={dateRange}
-                    onSelect={setDateRange}
+                    onSelect={(range) => {
+                      setDateRange(range);
+                      // Auto-close on mobile after selecting both dates
+                      if (isMobile && range?.from && range?.to) {
+                        setDatePickerOpen(false);
+                      }
+                    }}
                     numberOfMonths={2}
                     disabled={(date) => date < startOfDay(new Date())}
                     className={cn("pointer-events-auto")}
                   />
-                  <div className="flex justify-end gap-2 pt-2 border-t">
-                    <Button
-                      variant="outline"
-                      size="sm"
-                      onClick={() => {
-                        setDateRange(undefined);
-                        setDatePickerOpen(false);
-                      }}
-                    >
-                      Clear
-                    </Button>
-                    <Button
-                      size="sm"
-                      onClick={() => setDatePickerOpen(false)}
-                      disabled={!dateRange?.from || !dateRange?.to}
-                    >
-                      Save
-                    </Button>
-                  </div>
+                  {!isMobile && (
+                    <div className="flex justify-end gap-2 pt-2 border-t">
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        onClick={() => {
+                          setDateRange(undefined);
+                          setDatePickerOpen(false);
+                        }}
+                      >
+                        Clear
+                      </Button>
+                      <Button
+                        size="sm"
+                        onClick={() => setDatePickerOpen(false)}
+                        disabled={!dateRange?.from || !dateRange?.to}
+                      >
+                        Save
+                      </Button>
+                    </div>
+                  )}
                 </div>
               </PopoverContent>
             </Popover>
