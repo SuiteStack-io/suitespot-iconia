@@ -389,7 +389,7 @@ const Guests = () => {
                     <SelectValue placeholder="Search by..." />
                   </SelectTrigger>
                   <SelectContent>
-                    <SelectItem value="all">All Fields</SelectItem>
+                    <SelectItem value="all">Search by</SelectItem>
                     <SelectItem value="name">Guest Name</SelectItem>
                     <SelectItem value="nationality">Nationality</SelectItem>
                     <SelectItem value="booking">Booking Ref</SelectItem>
