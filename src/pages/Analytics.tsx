@@ -2,13 +2,18 @@ import { useEffect, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useAuth } from '@/lib/auth';
 import { Button } from '@/components/ui/button';
-import { ArrowLeft, DollarSign, TrendingUp, Calendar, BarChart3, Users } from 'lucide-react';
+import { ArrowLeft, DollarSign, TrendingUp, Calendar as CalendarIcon, BarChart3, Users } from 'lucide-react';
 import { RevenueBySource } from '@/components/RevenueBySource';
 import { RevenueByRoom } from '@/components/RevenueByRoom';
 import { RevenueByGuests } from '@/components/RevenueByGuests';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { supabase } from '@/integrations/supabase/client';
 import { Tabs, TabsList, TabsTrigger } from '@/components/ui/tabs';
+import { Calendar } from '@/components/ui/calendar';
+import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
+import { DateRange } from 'react-day-picker';
+import { cn } from '@/lib/utils';
+import { format } from 'date-fns';
 
 type TimePeriod = 'week' | 'month' | 'quarter' | 'ytd';
 
@@ -16,6 +21,7 @@ const Analytics = () => {
   const { userRole, loading } = useAuth();
   const navigate = useNavigate();
   const [timePeriod, setTimePeriod] = useState<TimePeriod>('month');
+  const [customDateRange, setCustomDateRange] = useState<DateRange | undefined>();
   const [revenueStats, setRevenueStats] = useState({
     totalRevenue: 0,
     netRevenue: 0,
@@ -55,9 +61,18 @@ const Analytics = () => {
         supabase.removeChannel(channel);
       };
     }
-  }, [userRole, timePeriod]);
+  }, [userRole, timePeriod, customDateRange]);
 
   const getDateRange = () => {
+    // If custom date range is set, use it
+    if (customDateRange?.from && customDateRange?.to) {
+      return { 
+        startDate: format(customDateRange.from, 'yyyy-MM-dd'), 
+        endDate: format(customDateRange.to, 'yyyy-MM-dd') 
+      };
+    }
+    
+    // Otherwise use predefined period
     const now = new Date();
     let startDate = new Date();
     
@@ -84,11 +99,12 @@ const Analytics = () => {
     const start = new Date(startDate);
     const end = new Date(endDate);
     
-    const formatDate = (date: Date) => {
-      return date.toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' });
-    };
-    
-    return `${formatDate(start)} - ${formatDate(end)}`;
+    return `${format(start, 'MMM dd, yyyy')} - ${format(end, 'MMM dd, yyyy')}`;
+  };
+
+  const handleTabChange = (value: string) => {
+    setTimePeriod(value as TimePeriod);
+    setCustomDateRange(undefined); // Clear custom date range when tab is selected
   };
 
   const fetchAllStats = async () => {
@@ -154,21 +170,25 @@ const Analytics = () => {
     const totalNights = reservations?.reduce((sum, r) => sum + (r.nights || 0), 0) || 0;
     
     let days = 1;
-    switch (timePeriod) {
-      case 'week':
-        days = 7;
-        break;
-      case 'month':
-        days = 30;
-        break;
-      case 'quarter':
-        days = 90;
-        break;
-      case 'ytd':
-        const now = new Date();
-        const startOfYear = new Date(now.getFullYear(), 0, 1);
-        days = Math.ceil((now.getTime() - startOfYear.getTime()) / (1000 * 60 * 60 * 24));
-        break;
+    if (customDateRange?.from && customDateRange?.to) {
+      days = Math.ceil((customDateRange.to.getTime() - customDateRange.from.getTime()) / (1000 * 60 * 60 * 24)) + 1;
+    } else {
+      switch (timePeriod) {
+        case 'week':
+          days = 7;
+          break;
+        case 'month':
+          days = 30;
+          break;
+        case 'quarter':
+          days = 90;
+          break;
+        case 'ytd':
+          const now = new Date();
+          const startOfYear = new Date(now.getFullYear(), 0, 1);
+          days = Math.ceil((now.getTime() - startOfYear.getTime()) / (1000 * 60 * 60 * 24));
+          break;
+      }
     }
     
     const totalAvailableNights = totalUnits * days;
@@ -217,7 +237,7 @@ const Analytics = () => {
       <main className="container mx-auto px-4 py-8 space-y-8">
         <div className="space-y-2">
           <div className="flex justify-center">
-            <Tabs value={timePeriod} onValueChange={(value) => setTimePeriod(value as TimePeriod)}>
+            <Tabs value={customDateRange ? '' : timePeriod} onValueChange={handleTabChange}>
               <TabsList className="grid w-full grid-cols-4">
                 <TabsTrigger value="week">Week</TabsTrigger>
                 <TabsTrigger value="month">Month</TabsTrigger>
@@ -226,8 +246,33 @@ const Analytics = () => {
               </TabsList>
             </Tabs>
           </div>
-          <div className="text-center text-sm text-muted-foreground">
-            {getFormattedDateRange()}
+          <div className="flex justify-center">
+            <Popover>
+              <PopoverTrigger asChild>
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  className={cn(
+                    "text-sm text-muted-foreground hover:text-foreground"
+                  )}
+                >
+                  <CalendarIcon className="mr-2 h-4 w-4" />
+                  {getFormattedDateRange()}
+                </Button>
+              </PopoverTrigger>
+              <PopoverContent className="w-auto p-0" align="center">
+                <Calendar
+                  mode="range"
+                  selected={customDateRange || {
+                    from: new Date(getDateRange().startDate),
+                    to: new Date(getDateRange().endDate)
+                  }}
+                  onSelect={setCustomDateRange}
+                  numberOfMonths={2}
+                  className={cn("p-3 pointer-events-auto")}
+                />
+              </PopoverContent>
+            </Popover>
           </div>
         </div>
 
@@ -250,7 +295,7 @@ const Analytics = () => {
           <Card>
             <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
               <CardTitle className="text-sm font-medium">Total Bookings</CardTitle>
-              <Calendar className="h-4 w-4 text-purple-600" />
+              <CalendarIcon className="h-4 w-4 text-purple-600" />
             </CardHeader>
             <CardContent>
               <div className="text-2xl font-bold">
