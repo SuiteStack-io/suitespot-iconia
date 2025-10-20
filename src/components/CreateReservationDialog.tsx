@@ -771,9 +771,10 @@ export function CreateReservationDialog() {
 
       if (error) throw error;
 
-      // Get unit name for email
+      // Get unit name and type for email
       const selectedUnit = allUnits.find(u => u.id === unitId);
       const unitName = selectedUnit ? `${selectedUnit.name} ${selectedUnit.unit_number || ''}`.trim() : 'Unit';
+      const unitType = selectedUnit?.unit_type || '';
 
       // Send email notification to platform users
       try {
@@ -784,8 +785,11 @@ export function CreateReservationDialog() {
             checkIn: format(checkInDate!, "yyyy-MM-dd"),
             checkOut: format(checkOutDate!, "yyyy-MM-dd"),
             unitName,
+            unitType,
             totalPrice: total,
             numberOfGuests,
+            adults,
+            children,
             source,
           },
         });

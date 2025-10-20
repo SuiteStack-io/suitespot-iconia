@@ -16,8 +16,11 @@ interface ReservationNotification {
   checkIn: string;
   checkOut: string;
   unitName: string;
+  unitType: string;
   totalPrice: number;
   numberOfGuests: number;
+  adults: number;
+  children: number;
   source: string;
 }
 
@@ -39,8 +42,11 @@ const handler = async (req: Request): Promise<Response> => {
       checkIn,
       checkOut,
       unitName,
+      unitType,
       totalPrice,
       numberOfGuests,
+      adults,
+      children,
       source,
     }: ReservationNotification = await req.json();
 
@@ -227,7 +233,7 @@ const handler = async (req: Request): Promise<Response> => {
                 
                 <div class="detail-row">
                   <div class="detail-label">Unit:</div>
-                  <div class="detail-value"><strong>${unitName}</strong></div>
+                  <div class="detail-value"><strong>${unitName}</strong> ${unitType ? `(${unitType})` : ''}</div>
                 </div>
                 
                 <div class="detail-row">
@@ -248,6 +254,16 @@ const handler = async (req: Request): Promise<Response> => {
                 <div class="detail-row">
                   <div class="detail-label">Guests:</div>
                   <div class="detail-value">${numberOfGuests} guest${numberOfGuests > 1 ? "s" : ""}</div>
+                </div>
+                
+                <div class="detail-row">
+                  <div class="detail-label">Adults:</div>
+                  <div class="detail-value">${adults}</div>
+                </div>
+                
+                <div class="detail-row">
+                  <div class="detail-label">Children:</div>
+                  <div class="detail-value">${children}</div>
                 </div>
                 
                 <div class="detail-row">
