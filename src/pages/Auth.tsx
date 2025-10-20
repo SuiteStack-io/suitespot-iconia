@@ -5,6 +5,7 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
+import { Checkbox } from '@/components/ui/checkbox';
 import { toast } from 'sonner';
 import suitespotLogo from '@/assets/suitespot-logo.png';
 
@@ -13,6 +14,7 @@ const Auth = () => {
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [fullName, setFullName] = useState('');
+  const [rememberMe, setRememberMe] = useState(true);
   const [loading, setLoading] = useState(false);
   const { signIn, signUp, user } = useAuth();
   const navigate = useNavigate();
@@ -117,6 +119,21 @@ const Auth = () => {
                 minLength={6}
               />
             </div>
+            {isLogin && (
+              <div className="flex items-center space-x-2">
+                <Checkbox 
+                  id="remember" 
+                  checked={rememberMe}
+                  onCheckedChange={(checked) => setRememberMe(checked as boolean)}
+                />
+                <Label 
+                  htmlFor="remember" 
+                  className="text-sm font-normal cursor-pointer"
+                >
+                  Stay signed in
+                </Label>
+              </div>
+            )}
             <Button type="submit" className="w-full bg-slate-900 hover:bg-slate-800 text-white" disabled={loading}>
               {loading ? 'Please wait...' : isLogin ? 'Sign In' : 'Sign Up'}
             </Button>
