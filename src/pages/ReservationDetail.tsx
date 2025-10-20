@@ -336,44 +336,46 @@ const ReservationDetail = () => {
   return (
     <div className="space-y-6">
       <div className="flex items-center justify-between">
-        <div className="flex items-center gap-4">
-          <Button variant="outline" size="icon" onClick={() => navigate('/')}>
-            <ArrowLeft className="h-4 w-4" />
-          </Button>
-          <div>
-            <h1 className="text-3xl font-bold">Reservation Details</h1>
-            <p className="text-muted-foreground">Booking Reference: {reservation.booking_reference}</p>
-          </div>
+        <Button variant="outline" size="icon" onClick={() => navigate('/')}>
+          <ArrowLeft className="h-4 w-4" />
+        </Button>
+        
+        <div className="flex-1 text-center">
+          <h1 className="text-3xl font-bold">Reservation Details</h1>
+          <p className="text-muted-foreground">Booking Reference: {reservation.booking_reference}</p>
         </div>
-        {canEdit && !isEditMode && (
-          <div className="flex gap-2">
-            <Button onClick={() => setIsEditMode(true)}>
-              <Edit2 className="h-4 w-4 mr-2" />
-              Edit Reservation
-            </Button>
-            <Button 
-              variant="destructive" 
-              onClick={() => setShowDeleteDialog(true)}
-            >
-              <Trash2 className="h-4 w-4 mr-2" />
-              Delete Reservation
-            </Button>
-          </div>
-        )}
-        {isEditMode && (
-          <div className="flex gap-2">
-            <Button variant="outline" onClick={() => {
-              setIsEditMode(false);
-              fetchReservation();
-            }}>
-              <X className="h-4 w-4 mr-2" />
-              Cancel
-            </Button>
-            <Button onClick={handleSave} disabled={saving}>
-              {saving ? 'Saving...' : 'Save Changes'}
-            </Button>
-          </div>
-        )}
+        
+        <div className="flex gap-2">
+          {canEdit && !isEditMode && (
+            <>
+              <Button onClick={() => setIsEditMode(true)}>
+                <Edit2 className="h-4 w-4 mr-2" />
+                Edit Reservation
+              </Button>
+              <Button 
+                variant="destructive" 
+                onClick={() => setShowDeleteDialog(true)}
+              >
+                <Trash2 className="h-4 w-4 mr-2" />
+                Delete Reservation
+              </Button>
+            </>
+          )}
+          {isEditMode && (
+            <>
+              <Button variant="outline" onClick={() => {
+                setIsEditMode(false);
+                fetchReservation();
+              }}>
+                <X className="h-4 w-4 mr-2" />
+                Cancel
+              </Button>
+              <Button onClick={handleSave} disabled={saving}>
+                {saving ? 'Saving...' : 'Save Changes'}
+              </Button>
+            </>
+          )}
+        </div>
       </div>
 
       <div className="grid gap-6 md:grid-cols-2">
