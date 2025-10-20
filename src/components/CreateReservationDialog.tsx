@@ -1077,7 +1077,9 @@ export function CreateReservationDialog() {
                   />
                 </div>
                 <div className="space-y-2">
-                  <Label className="text-sm text-muted-foreground">Guest Type</Label>
+                  <Label className="text-sm text-muted-foreground">
+                    Guest Type <span className="text-destructive">*</span>
+                  </Label>
                   <RadioGroup
                     value={guestTypes[index]}
                     onValueChange={(value) => updateGuestType(index, value as 'adult' | 'child')}
