@@ -364,7 +364,7 @@ const ReservationDetail = () => {
           )}
         </div>
         {canEdit && !isEditMode && (
-          <div className="flex md:hidden gap-2 mt-4">
+          <div className="flex md:hidden gap-2 mt-4 justify-center">
             <Button onClick={() => setIsEditMode(true)}>
               <Edit2 className="h-4 w-4 mr-2" />
               Edit Reservation
