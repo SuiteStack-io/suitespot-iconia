@@ -92,7 +92,7 @@ const handler = async (req: Request): Promise<Response> => {
     // Send emails to all users
     const emailPromises = users.map((user: any) =>
       resend.emails.send({
-        from: "SuiteSpot Bookings <onboarding@resend.dev>",
+        from: "SuiteSpot Bookings <notifications@bookings.suitespoteg.com>",
         to: [user.email],
         subject: `New Reservation: ${guestNames.join(", ")} - ${unitName}`,
         html: `
