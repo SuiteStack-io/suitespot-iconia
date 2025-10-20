@@ -200,6 +200,7 @@ export function CreateReservationDialog() {
   const [countryCode, setCountryCode] = useState("+20"); // Default to Egypt
   const [contactPhone, setContactPhone] = useState("");
   const [source, setSource] = useState("");
+  const [sourceSpecification, setSourceSpecification] = useState("");
   const [pricePerNight, setPricePerNight] = useState<number | "">("");
   const [commissionRate, setCommissionRate] = useState<number>(10.00);
   const [notes, setNotes] = useState("");
@@ -208,6 +209,9 @@ export function CreateReservationDialog() {
   const [allUnits, setAllUnits] = useState<Unit[]>([]);
   const [availableUnits, setAvailableUnits] = useState<Unit[]>([]);
   const [checkingAvailability, setCheckingAvailability] = useState(false);
+  
+  // Users for source selection
+  const [userSources, setUserSources] = useState<string[]>([]);
 
   // Extract dates from range
   const checkInDate = dateRange?.from;
@@ -288,10 +292,26 @@ export function CreateReservationDialog() {
     }
   }, [guestNames]);
 
-  // Fetch all units on mount
+  // Fetch all units and users on mount
   useEffect(() => {
     fetchUnits();
+    fetchUsers();
   }, []);
+
+  const fetchUsers = async () => {
+    const { data, error } = await supabase
+      .from("profiles")
+      .select("full_name")
+      .order("full_name");
+
+    if (error) {
+      console.error("Error fetching users:", error);
+      return;
+    }
+
+    const names = data?.map(profile => profile.full_name).filter(name => name) || [];
+    setUserSources(names);
+  };
 
   // Check availability when dates change
   useEffect(() => {
@@ -639,6 +659,11 @@ export function CreateReservationDialog() {
       missingFields.push("Booking source");
     }
     
+    // Source specification for "Others"
+    if (source === "Others" && !sourceSpecification.trim()) {
+      missingFields.push("Source specification (when selecting Others)");
+    }
+    
     // Price validation
     if (!pricePerNight || Number(pricePerNight) <= 0) {
       missingFields.push("Price per night");
@@ -681,6 +706,11 @@ export function CreateReservationDialog() {
       const commissionAmount = (total * commissionRate) / 100;
       const netRevenue = total - commissionAmount;
 
+      // Prepare source value: if "Others", append specification
+      const finalSource = source === "Others" && sourceSpecification.trim()
+        ? `Others - ${sourceSpecification.trim()}`
+        : source;
+
       const reservationData = {
         booking_reference: `MAN-${Date.now()}`,
         check_in_date: format(checkInDate!, "yyyy-MM-dd"),
@@ -695,7 +725,7 @@ export function CreateReservationDialog() {
         marriage_certificate_url: marriageCertificateUrl || null,
         id_passport_url: idPassportUrl || null,
         id_passport_url_back: idPassportUrlBack || null,
-        source,
+        source: finalSource,
         status: "confirmed",
         channel: "Manual",
         price_per_night: Number(pricePerNight),
@@ -802,6 +832,7 @@ export function CreateReservationDialog() {
     contactEmail.trim() !== "" &&
     contactPhone.trim() !== "" &&
     source &&
+    (source !== "Others" || sourceSpecification.trim() !== "") &&
     pricePerNight &&
     Number(pricePerNight) > 0 &&
     Number.isInteger(Number(pricePerNight));
@@ -817,6 +848,7 @@ export function CreateReservationDialog() {
     setCountryCode("+20");
     setContactPhone("");
     setSource("");
+    setSourceSpecification("");
     setPricePerNight("");
   };
 
@@ -1475,19 +1507,42 @@ export function CreateReservationDialog() {
             <Label htmlFor="source">
               Source <span className="text-destructive">*</span>
             </Label>
-            <Select value={source} onValueChange={setSource}>
+            <Select value={source} onValueChange={(value) => {
+              setSource(value);
+              if (value !== "Others") {
+                setSourceSpecification("");
+              }
+            }}>
               <SelectTrigger>
                 <SelectValue placeholder="Select a source" />
               </SelectTrigger>
               <SelectContent>
-                <SelectItem value="Emad">Emad</SelectItem>
-                <SelectItem value="Nicola">Nicola</SelectItem>
-                <SelectItem value="Youssef">Youssef</SelectItem>
+                {userSources.map((userName) => (
+                  <SelectItem key={userName} value={userName}>
+                    {userName}
+                  </SelectItem>
+                ))}
                 <SelectItem value="KSS">KSS</SelectItem>
                 <SelectItem value="booking.com">booking.com</SelectItem>
+                <SelectItem value="Others">Others</SelectItem>
               </SelectContent>
             </Select>
           </div>
+
+          {/* Source Specification for "Others" */}
+          {source === "Others" && (
+            <div className="space-y-2">
+              <Label htmlFor="sourceSpecification">
+                Pls Specify <span className="text-destructive">*</span>
+              </Label>
+              <Input
+                id="sourceSpecification"
+                value={sourceSpecification}
+                onChange={(e) => setSourceSpecification(e.target.value)}
+                placeholder="Please specify the source"
+              />
+            </div>
+          )}
         </div>
 
         {/* Notes / Special Requests */}
