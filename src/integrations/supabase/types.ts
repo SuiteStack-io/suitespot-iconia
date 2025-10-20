@@ -85,6 +85,7 @@ export type Database = {
           guest_nationality: string | null
           id: string
           id_passport_url: string | null
+          id_passport_url_back: string | null
           marriage_certificate_url: string | null
           net_revenue: number | null
           nights: number | null
@@ -116,6 +117,7 @@ export type Database = {
           guest_nationality?: string | null
           id?: string
           id_passport_url?: string | null
+          id_passport_url_back?: string | null
           marriage_certificate_url?: string | null
           net_revenue?: number | null
           nights?: number | null
@@ -147,6 +149,7 @@ export type Database = {
           guest_nationality?: string | null
           id?: string
           id_passport_url?: string | null
+          id_passport_url_back?: string | null
           marriage_certificate_url?: string | null
           net_revenue?: number | null
           nights?: number | null

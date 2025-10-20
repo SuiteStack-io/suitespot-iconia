@@ -183,11 +183,11 @@ export function CreateReservationDialog() {
   const [guestTypes, setGuestTypes] = useState<('adult' | 'child')[]>(["adult"]);
   const [guestGenders, setGuestGenders] = useState<('male' | 'female' | '')[]>([""]);
   const [nationality, setNationality] = useState("");
-  const [idPassportFile, setIdPassportFile] = useState<File | null>(null);
-  const [idPassportUrl, setIdPassportUrl] = useState<string | null>(null);
+  const [idPassportFiles, setIdPassportFiles] = useState<(File | null)[]>([null, null]);
+  const [idPassportUrls, setIdPassportUrls] = useState<(string | null)[]>([null, null]);
   const [idPassportType, setIdPassportType] = useState<'id' | 'passport'>('id');
-  const [idUploadProgress, setIdUploadProgress] = useState<number>(0);
-  const [isIdUploading, setIsIdUploading] = useState<boolean>(false);
+  const [idUploadProgress, setIdUploadProgress] = useState<number[]>([0, 0]);
+  const [isIdUploading, setIsIdUploading] = useState<boolean[]>([false, false]);
   const [marriageCertificateFile, setMarriageCertificateFile] = useState<File | null>(null);
   const [marriageCertificateUrl, setMarriageCertificateUrl] = useState<string | null>(null);
   const [marriageUploadProgress, setMarriageUploadProgress] = useState<number>(0);
@@ -366,40 +366,61 @@ export function CreateReservationDialog() {
     setGuestGenders(newGuestGenders);
   };
 
-  const handleIdPassportUpload = async (file: File) => {
-    setIdPassportFile(file);
-    setIsIdUploading(true);
-    setIdUploadProgress(0);
+  const handleIdPassportUpload = async (file: File, index: 0 | 1) => {
+    const newFiles = [...idPassportFiles];
+    newFiles[index] = file;
+    setIdPassportFiles(newFiles);
+    
+    const newIsUploading = [...isIdUploading];
+    newIsUploading[index] = true;
+    setIsIdUploading(newIsUploading);
+    
+    const newProgress = [...idUploadProgress];
+    newProgress[index] = 0;
+    setIdUploadProgress(newProgress);
     
     // Simulate upload progress
     const progressInterval = setInterval(() => {
       setIdUploadProgress(prev => {
-        if (prev >= 90) {
+        const updated = [...prev];
+        if (updated[index] >= 90) {
           clearInterval(progressInterval);
-          return 90;
+          return prev;
         }
-        return prev + 10;
+        updated[index] = updated[index] + 10;
+        return updated;
       });
     }, 100);
     
     try {
       const fileExt = file.name.split('.').pop();
-      const fileName = `${Date.now()}-${Math.random().toString(36).substring(7)}.${fileExt}`;
+      const fileName = `${Date.now()}-${index}-${Math.random().toString(36).substring(7)}.${fileExt}`;
       const filePath = `${fileName}`;
 
       const { error: uploadError } = await supabase.storage
-        .from('marriage-certificates') // Using same bucket for now
+        .from('marriage-certificates')
         .upload(filePath, file);
 
       clearInterval(progressInterval);
-      setIdUploadProgress(100);
+      
+      const updatedProgress = [...idUploadProgress];
+      updatedProgress[index] = 100;
+      setIdUploadProgress(updatedProgress);
 
       if (uploadError) {
         console.error('Error uploading ID/Passport:', uploadError);
-        toast.error('Failed to upload ID/Passport');
-        setIdPassportFile(null);
-        setIsIdUploading(false);
-        setIdUploadProgress(0);
+        toast.error(`Failed to upload ${index === 0 ? 'front' : 'back'} of ID/Passport`);
+        const resetFiles = [...idPassportFiles];
+        resetFiles[index] = null;
+        setIdPassportFiles(resetFiles);
+        
+        const resetUploading = [...isIdUploading];
+        resetUploading[index] = false;
+        setIsIdUploading(resetUploading);
+        
+        const resetProgress = [...idUploadProgress];
+        resetProgress[index] = 0;
+        setIdUploadProgress(resetProgress);
         return;
       }
 
@@ -407,29 +428,59 @@ export function CreateReservationDialog() {
         .from('marriage-certificates')
         .getPublicUrl(filePath);
       
-      setIdPassportUrl(publicUrl);
+      const newUrls = [...idPassportUrls];
+      newUrls[index] = publicUrl;
+      setIdPassportUrls(newUrls);
       
       // Keep progress bar at 100% for a moment before hiding
       await new Promise(resolve => setTimeout(resolve, 500));
-      setIsIdUploading(false);
-      setIdUploadProgress(0);
-      toast.success('ID/Passport uploaded successfully');
+      
+      const finalUploading = [...isIdUploading];
+      finalUploading[index] = false;
+      setIsIdUploading(finalUploading);
+      
+      const finalProgress = [...idUploadProgress];
+      finalProgress[index] = 0;
+      setIdUploadProgress(finalProgress);
+      
+      toast.success(`${index === 0 ? 'Front' : 'Back'} of ID/Passport uploaded successfully`);
     } catch (error) {
       clearInterval(progressInterval);
       console.error('Upload error:', error);
-      toast.error('Failed to upload ID/Passport');
-      setIdPassportFile(null);
-      setIsIdUploading(false);
-      setIdUploadProgress(0);
+      toast.error(`Failed to upload ${index === 0 ? 'front' : 'back'} of ID/Passport`);
+      
+      const resetFiles = [...idPassportFiles];
+      resetFiles[index] = null;
+      setIdPassportFiles(resetFiles);
+      
+      const resetUploading = [...isIdUploading];
+      resetUploading[index] = false;
+      setIsIdUploading(resetUploading);
+      
+      const resetProgress = [...idUploadProgress];
+      resetProgress[index] = 0;
+      setIdUploadProgress(resetProgress);
     }
   };
 
-  const handleIdPassportDelete = () => {
-    setIdPassportFile(null);
-    setIdPassportUrl(null);
-    setIdUploadProgress(0);
-    setIsIdUploading(false);
-    const input = document.getElementById('idPassport') as HTMLInputElement;
+  const handleIdPassportDelete = (index: 0 | 1) => {
+    const newFiles = [...idPassportFiles];
+    newFiles[index] = null;
+    setIdPassportFiles(newFiles);
+    
+    const newUrls = [...idPassportUrls];
+    newUrls[index] = null;
+    setIdPassportUrls(newUrls);
+    
+    const newProgress = [...idUploadProgress];
+    newProgress[index] = 0;
+    setIdUploadProgress(newProgress);
+    
+    const newUploading = [...isIdUploading];
+    newUploading[index] = false;
+    setIsIdUploading(newUploading);
+    
+    const input = document.getElementById(`idPassport-${index}`) as HTMLInputElement;
     if (input) input.value = '';
   };
 
@@ -542,8 +593,8 @@ export function CreateReservationDialog() {
       toast.error("Please enter guest nationality");
       return false;
     }
-    if (!idPassportFile) {
-      toast.error("Please upload ID/Passport");
+    if (!idPassportFiles[0]) {
+      toast.error("Please upload at least the front of ID/Passport");
       return false;
     }
     // Validate adult genders are selected
@@ -619,7 +670,8 @@ export function CreateReservationDialog() {
         guest_genders: guestGenders.filter((_, i) => guestNames[i]?.trim() !== ""),
         guest_nationality: nationality,
         marriage_certificate_url: marriageCertificateUrl || null,
-        id_passport_url: idPassportUrl || null,
+        id_passport_url: idPassportUrls[0] || null,
+        id_passport_url_back: idPassportUrls[1] || null,
         source,
         status: "confirmed",
         channel: "Manual",
@@ -1043,7 +1095,7 @@ export function CreateReservationDialog() {
           {/* ID/Passport Upload */}
           <div className="space-y-2">
             <Label htmlFor="idPassport">
-              Upload ID/Passport <span className="text-destructive">*</span>
+              Upload ID/Passport (Front & Back) <span className="text-destructive">*</span>
             </Label>
             <RadioGroup
               value={idPassportType}
@@ -1064,62 +1116,127 @@ export function CreateReservationDialog() {
               </div>
             </RadioGroup>
             
-            {idPassportFile ? (
+            <div className="grid gap-4 md:grid-cols-2">
+              {/* Front */}
               <div className="space-y-2">
-                <div className="flex items-center gap-2 p-2 bg-background rounded border">
-                  <span className="text-sm flex-1 truncate">{idPassportFile.name}</span>
-                  <Button
-                    type="button"
-                    variant="ghost"
-                    size="sm"
-                    onClick={handleIdPassportDelete}
-                    className="hover:text-destructive"
-                    disabled={isIdUploading}
-                  >
-                    <X className="h-4 w-4" />
-                  </Button>
-                </div>
-                {isIdUploading && (
-                  <div className="space-y-1">
-                    <Progress value={idUploadProgress} className="h-2 [&>div]:bg-blue-500" />
-                    <p className="text-xs text-muted-foreground text-center">{idUploadProgress}%</p>
+                <Label className="text-sm font-medium">Front</Label>
+                {idPassportFiles[0] ? (
+                  <div className="space-y-2">
+                    <div className="flex items-center gap-2 p-2 bg-background rounded border">
+                      <span className="text-sm flex-1 truncate">{idPassportFiles[0].name}</span>
+                      <Button
+                        type="button"
+                        variant="ghost"
+                        size="sm"
+                        onClick={() => handleIdPassportDelete(0)}
+                        className="hover:text-destructive"
+                        disabled={isIdUploading[0]}
+                      >
+                        <X className="h-4 w-4" />
+                      </Button>
+                    </div>
+                    {isIdUploading[0] && (
+                      <div className="space-y-1">
+                        <Progress value={idUploadProgress[0]} className="h-2 [&>div]:bg-blue-500" />
+                        <p className="text-xs text-muted-foreground text-center">{idUploadProgress[0]}%</p>
+                      </div>
+                    )}
+                  </div>
+                ) : (
+                  <div className="flex items-center gap-2">
+                    <Input
+                      id="idPassport-0"
+                      type="file"
+                      accept="image/*"
+                      onChange={(e) => {
+                        const file = e.target.files?.[0];
+                        if (file) {
+                          if (!file.type.startsWith('image/')) {
+                            toast.error("Only image files are supported");
+                            e.target.value = '';
+                            return;
+                          }
+                          if (file.size > 10 * 1024 * 1024) {
+                            toast.error('File size must be less than 10MB');
+                            e.target.value = '';
+                            return;
+                          }
+                          handleIdPassportUpload(file, 0);
+                        }
+                      }}
+                      className="hidden"
+                    />
+                    <Label
+                      htmlFor="idPassport-0"
+                      className="flex items-center gap-2 px-4 py-2 border rounded-md cursor-pointer hover:bg-accent transition-colors w-full justify-center"
+                    >
+                      <Upload className="h-4 w-4" />
+                      Upload Front
+                    </Label>
                   </div>
                 )}
               </div>
-            ) : (
-              <div className="flex items-center gap-2">
-                <Input
-                  id="idPassport"
-                  type="file"
-                  accept="image/*"
-                  onChange={(e) => {
-                    const file = e.target.files?.[0];
-                    if (file) {
-                      if (!file.type.startsWith('image/')) {
-                        toast.error("Only image files are supported");
-                        e.target.value = '';
-                        return;
-                      }
-                      // Validate file size (10MB max)
-                      if (file.size > 10 * 1024 * 1024) {
-                        toast.error('File size must be less than 10MB');
-                        e.target.value = '';
-                        return;
-                      }
-                      handleIdPassportUpload(file);
-                    }
-                  }}
-                  className="hidden"
-                />
-                <Label
-                  htmlFor="idPassport"
-                  className="flex items-center gap-2 px-4 py-2 border rounded-md cursor-pointer hover:bg-accent transition-colors"
-                >
-                  <Upload className="h-4 w-4" />
-                  Upload
-                </Label>
+
+              {/* Back */}
+              <div className="space-y-2">
+                <Label className="text-sm font-medium">Back</Label>
+                {idPassportFiles[1] ? (
+                  <div className="space-y-2">
+                    <div className="flex items-center gap-2 p-2 bg-background rounded border">
+                      <span className="text-sm flex-1 truncate">{idPassportFiles[1].name}</span>
+                      <Button
+                        type="button"
+                        variant="ghost"
+                        size="sm"
+                        onClick={() => handleIdPassportDelete(1)}
+                        className="hover:text-destructive"
+                        disabled={isIdUploading[1]}
+                      >
+                        <X className="h-4 w-4" />
+                      </Button>
+                    </div>
+                    {isIdUploading[1] && (
+                      <div className="space-y-1">
+                        <Progress value={idUploadProgress[1]} className="h-2 [&>div]:bg-blue-500" />
+                        <p className="text-xs text-muted-foreground text-center">{idUploadProgress[1]}%</p>
+                      </div>
+                    )}
+                  </div>
+                ) : (
+                  <div className="flex items-center gap-2">
+                    <Input
+                      id="idPassport-1"
+                      type="file"
+                      accept="image/*"
+                      onChange={(e) => {
+                        const file = e.target.files?.[0];
+                        if (file) {
+                          if (!file.type.startsWith('image/')) {
+                            toast.error("Only image files are supported");
+                            e.target.value = '';
+                            return;
+                          }
+                          if (file.size > 10 * 1024 * 1024) {
+                            toast.error('File size must be less than 10MB');
+                            e.target.value = '';
+                            return;
+                          }
+                          handleIdPassportUpload(file, 1);
+                        }
+                      }}
+                      className="hidden"
+                    />
+                    <Label
+                      htmlFor="idPassport-1"
+                      className="flex items-center gap-2 px-4 py-2 border rounded-md cursor-pointer hover:bg-accent transition-colors w-full justify-center"
+                    >
+                      <Upload className="h-4 w-4" />
+                      Upload Back
+                    </Label>
+                  </div>
+                )}
               </div>
-            )}
+            </div>
           </div>
 
           {/* Marriage Certificate Upload - Conditional */}

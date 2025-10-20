@@ -58,6 +58,7 @@ interface Reservation {
   status: string;
   marriage_certificate_url: string | null;
   id_passport_url: string | null;
+  id_passport_url_back: string | null;
   created_at: string;
   updated_at: string;
   units: { name: string } | null;
@@ -679,24 +680,41 @@ const ReservationDetail = () => {
         </Card>
 
         {/* Documents Card */}
-        {(reservation.marriage_certificate_url || reservation.id_passport_url) && (
+        {(reservation.marriage_certificate_url || reservation.id_passport_url || reservation.id_passport_url_back) && (
           <Card className="md:col-span-2">
             <CardHeader>
               <CardTitle>Uploaded Documents</CardTitle>
             </CardHeader>
             <CardContent className="space-y-4">
-              <div className="grid gap-4 md:grid-cols-2">
+              <div className="grid gap-4 md:grid-cols-3">
                 {reservation.id_passport_url && (
                   <div className="p-4 border rounded-lg space-y-2">
                     <div className="flex items-center gap-2">
                       <FileText className="h-5 w-5 text-primary" />
-                      <Label className="font-semibold">ID/Passport</Label>
+                      <Label className="font-semibold">ID/Passport (Front)</Label>
                     </div>
                     <Button
                       variant="outline"
                       size="sm"
                       className="w-full"
                       onClick={() => window.open(reservation.id_passport_url!, '_blank')}
+                    >
+                      <Download className="h-4 w-4 mr-2" />
+                      View/Download
+                    </Button>
+                  </div>
+                )}
+                {reservation.id_passport_url_back && (
+                  <div className="p-4 border rounded-lg space-y-2">
+                    <div className="flex items-center gap-2">
+                      <FileText className="h-5 w-5 text-primary" />
+                      <Label className="font-semibold">ID/Passport (Back)</Label>
+                    </div>
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      className="w-full"
+                      onClick={() => window.open(reservation.id_passport_url_back!, '_blank')}
                     >
                       <Download className="h-4 w-4 mr-2" />
                       View/Download
