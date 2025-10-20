@@ -162,11 +162,13 @@ const handler = async (req: Request): Promise<Response> => {
     );
 
     // Send emails to all users
-    const emailPromises = users.map((user: any) =>
-      resend.emails.send({
-        from: "SuiteSpot Bookings <onboarding@resend.dev>",
-        to: [user.email],
-        subject: `New Reservation: ${guestNames.join(", ")} - ${unitName}`,
+    const emailPromises = users.map(async (user: any) => {
+      console.log(`Attempting to send email to: ${user.email}`);
+      try {
+        const result = await resend.emails.send({
+          from: "SuiteSpot Bookings <onboarding@resend.dev>",
+          to: [user.email],
+          subject: `New Reservation: ${guestNames.join(", ")} - ${unitName}`,
         html: `
           <!DOCTYPE html>
           <html>
@@ -318,8 +320,14 @@ const handler = async (req: Request): Promise<Response> => {
             </body>
           </html>
         `,
-      })
-    );
+        });
+        console.log(`Email sent to ${user.email}:`, result);
+        return result;
+      } catch (error) {
+        console.error(`Failed to send email to ${user.email}:`, error);
+        throw error;
+      }
+    });
 
     const results = await Promise.allSettled(emailPromises);
 
