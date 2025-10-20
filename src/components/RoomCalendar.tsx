@@ -103,6 +103,13 @@ export const RoomCalendar = () => {
     return source.substring(0, 6);
   };
 
+  const getReservationColor = (source: string) => {
+    if (source.toLowerCase().includes('booking')) {
+      return 'bg-[#003580] text-white'; // Booking.com brand blue
+    }
+    return 'bg-red-500/80 text-white';
+  };
+
   const navigatePrevious = () => {
     if (viewMode === 'week') {
       setCurrentDate(subWeeks(currentDate, 1));
@@ -195,7 +202,7 @@ export const RoomCalendar = () => {
                       key={day.toISOString()} 
                       className={`border border-border p-2 text-center ${
                         reservation
-                          ? 'bg-red-500/80 text-white'
+                          ? getReservationColor(reservation.source)
                           : isSameDay(day, new Date()) 
                           ? 'bg-primary/5' 
                           : 'bg-background'
@@ -222,8 +229,12 @@ export const RoomCalendar = () => {
 
       <div className="flex items-center gap-4 text-sm">
         <div className="flex items-center gap-2">
-          <div className="w-16 h-6 bg-red-500/80 border rounded flex items-center justify-center text-white text-xs">Booked</div>
-          <span>= Confirmed Reservation</span>
+          <div className="w-16 h-6 bg-[#003580] border rounded flex items-center justify-center text-white text-xs">B.com</div>
+          <span>= Booking.com</span>
+        </div>
+        <div className="flex items-center gap-2">
+          <div className="w-16 h-6 bg-red-500/80 border rounded flex items-center justify-center text-white text-xs">Other</div>
+          <span>= Other Sources</span>
         </div>
         <div className="flex items-center gap-2">
           <span className="text-muted-foreground">—</span>

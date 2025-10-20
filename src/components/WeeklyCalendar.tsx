@@ -115,7 +115,7 @@ export const WeeklyCalendar = () => {
 
   const getReservationColor = (source: string) => {
     if (source.toLowerCase().includes('booking')) {
-      return 'bg-blue-500/80 text-white';
+      return 'bg-[#003580] text-white'; // Booking.com brand blue
     }
     return 'bg-red-500/80 text-white';
   };
