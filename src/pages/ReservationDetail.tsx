@@ -335,7 +335,7 @@ const ReservationDetail = () => {
 
   return (
     <div className="space-y-6">
-      <div className="flex items-center justify-between">
+      <div className="flex items-center justify-between py-8">
         <div className="flex items-center gap-4">
           <Button variant="outline" size="icon" onClick={() => navigate('/')}>
             <ArrowLeft className="h-4 w-4" />
@@ -353,6 +353,7 @@ const ReservationDetail = () => {
             </Button>
             <Button 
               variant="destructive" 
+              size="sm"
               onClick={() => setShowDeleteDialog(true)}
             >
               <Trash2 className="h-4 w-4 mr-2" />
