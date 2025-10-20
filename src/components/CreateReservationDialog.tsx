@@ -186,6 +186,7 @@ export function CreateReservationDialog() {
   const [idPassportFile, setIdPassportFile] = useState<File | null>(null);
   const [idPassportType, setIdPassportType] = useState<'id' | 'passport'>('id');
   const [marriageCertificateFile, setMarriageCertificateFile] = useState<File | null>(null);
+  const [marriageCertificateUrl, setMarriageCertificateUrl] = useState<string | null>(null);
   const [uploadProgress, setUploadProgress] = useState<number>(0);
   const [isUploading, setIsUploading] = useState<boolean>(false);
   const [contactEmail, setContactEmail] = useState("");
@@ -362,6 +363,73 @@ export function CreateReservationDialog() {
     setGuestGenders(newGuestGenders);
   };
 
+  const handleMarriageCertificateUpload = async (file: File) => {
+    setMarriageCertificateFile(file);
+    setIsUploading(true);
+    setUploadProgress(0);
+    
+    // Simulate upload progress
+    const progressInterval = setInterval(() => {
+      setUploadProgress(prev => {
+        if (prev >= 90) {
+          clearInterval(progressInterval);
+          return 90;
+        }
+        return prev + 10;
+      });
+    }, 100);
+    
+    try {
+      const fileExt = file.name.split('.').pop();
+      const fileName = `${Date.now()}-${Math.random().toString(36).substring(7)}.${fileExt}`;
+      const filePath = `${fileName}`;
+
+      const { error: uploadError } = await supabase.storage
+        .from('marriage-certificates')
+        .upload(filePath, file);
+
+      clearInterval(progressInterval);
+      setUploadProgress(100);
+
+      if (uploadError) {
+        console.error('Error uploading marriage certificate:', uploadError);
+        toast.error('Failed to upload marriage certificate');
+        setMarriageCertificateFile(null);
+        setIsUploading(false);
+        setUploadProgress(0);
+        return;
+      }
+
+      const { data: { publicUrl } } = supabase.storage
+        .from('marriage-certificates')
+        .getPublicUrl(filePath);
+      
+      setMarriageCertificateUrl(publicUrl);
+      
+      // Keep progress bar at 100% for a moment before hiding
+      await new Promise(resolve => setTimeout(resolve, 500));
+      setIsUploading(false);
+      setUploadProgress(0);
+      toast.success('Marriage certificate uploaded successfully');
+    } catch (error) {
+      clearInterval(progressInterval);
+      console.error('Upload error:', error);
+      toast.error('Failed to upload marriage certificate');
+      setMarriageCertificateFile(null);
+      setIsUploading(false);
+      setUploadProgress(0);
+    }
+  };
+
+  const handleMarriageCertificateDelete = () => {
+    setMarriageCertificateFile(null);
+    setMarriageCertificateUrl(null);
+    setUploadProgress(0);
+    setIsUploading(false);
+    const input = document.getElementById('marriage-certificate') as HTMLInputElement;
+    if (input) input.value = '';
+  };
+
   const validateForm = () => {
     if (!checkInDate) {
       toast.error("Please select a check-in date");
@@ -462,54 +530,7 @@ export function CreateReservationDialog() {
     setLoading(true);
 
     try {
-      // Upload marriage certificate if provided
-      let marriageCertificateUrl = null;
-      if (marriageCertificateFile) {
-        setIsUploading(true);
-        setUploadProgress(0);
-        
-        // Simulate upload progress
-        const progressInterval = setInterval(() => {
-          setUploadProgress(prev => {
-            if (prev >= 90) {
-              clearInterval(progressInterval);
-              return 90;
-            }
-            return prev + 10;
-          });
-        }, 100);
-        
-        const fileExt = marriageCertificateFile.name.split('.').pop();
-        const fileName = `${Date.now()}-${Math.random().toString(36).substring(7)}.${fileExt}`;
-        const filePath = `${fileName}`;
-
-        const { error: uploadError } = await supabase.storage
-          .from('marriage-certificates')
-          .upload(filePath, marriageCertificateFile);
-
-        clearInterval(progressInterval);
-        setUploadProgress(100);
-
-        if (uploadError) {
-          console.error('Error uploading marriage certificate:', uploadError);
-          toast.error('Failed to upload marriage certificate');
-          setLoading(false);
-          setIsUploading(false);
-          setUploadProgress(0);
-          return;
-        }
-
-        const { data: { publicUrl } } = supabase.storage
-          .from('marriage-certificates')
-          .getPublicUrl(filePath);
-        
-        marriageCertificateUrl = publicUrl;
-        
-        // Keep progress bar at 100% for a moment before hiding
-        await new Promise(resolve => setTimeout(resolve, 500));
-        setIsUploading(false);
-        setUploadProgress(0);
-      }
+      // Marriage certificate URL is already set from immediate upload
 
       // Calculate pricing and commission
       const total = Number(pricePerNight) * nights;
@@ -527,7 +548,7 @@ export function CreateReservationDialog() {
         guest_names: guestNames.filter(name => name.trim() !== ""),
         guest_genders: guestGenders.filter((_, i) => guestNames[i]?.trim() !== ""),
         guest_nationality: nationality,
-        marriage_certificate_url: marriageCertificateUrl,
+        marriage_certificate_url: marriageCertificateUrl || null,
         source,
         status: "confirmed",
         channel: "Manual",
@@ -1040,13 +1061,7 @@ export function CreateReservationDialog() {
                       type="button"
                       variant="ghost"
                       size="sm"
-                      onClick={() => {
-                        setMarriageCertificateFile(null);
-                        setUploadProgress(0);
-                        setIsUploading(false);
-                        const input = document.getElementById('marriage-certificate') as HTMLInputElement;
-                        if (input) input.value = '';
-                      }}
+                      onClick={handleMarriageCertificateDelete}
                       className="hover:text-destructive"
                       disabled={isUploading}
                     >
@@ -1055,7 +1070,7 @@ export function CreateReservationDialog() {
                   </div>
                   {isUploading && (
                     <div className="space-y-1">
-                      <Progress value={uploadProgress} className="h-2" />
+                      <Progress value={uploadProgress} className="h-2 [&>div]:bg-blue-500" />
                       <p className="text-xs text-muted-foreground text-center">{uploadProgress}%</p>
                     </div>
                   )}
@@ -1082,7 +1097,7 @@ export function CreateReservationDialog() {
                           e.target.value = '';
                           return;
                         }
-                        setMarriageCertificateFile(file);
+                        handleMarriageCertificateUpload(file);
                       }
                     }}
                     className="flex-1"
