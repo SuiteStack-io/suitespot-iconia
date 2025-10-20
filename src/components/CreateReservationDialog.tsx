@@ -10,6 +10,7 @@ import {
 } from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
+import { Textarea } from "@/components/ui/textarea";
 import {
   Select,
   SelectContent,
@@ -188,6 +189,7 @@ export function CreateReservationDialog() {
   const [source, setSource] = useState("");
   const [pricePerNight, setPricePerNight] = useState<number | "">("");
   const [commissionRate, setCommissionRate] = useState<number>(10.00);
+  const [notes, setNotes] = useState("");
   
   // Units data
   const [allUnits, setAllUnits] = useState<Unit[]>([]);
@@ -430,7 +432,7 @@ export function CreateReservationDialog() {
         currency: "USD",
         contact_email: contactEmail,
         contact_phone: `${countryCode}${contactPhone}`,
-        notes: null,
+        notes: notes || null,
         guest_ages: [],
       };
 
@@ -1014,6 +1016,18 @@ export function CreateReservationDialog() {
               </SelectContent>
             </Select>
           </div>
+        </div>
+
+        {/* Notes / Special Requests */}
+        <div className="space-y-2">
+          <Label htmlFor="notes">Notes / Special Requests</Label>
+          <Textarea
+            id="notes"
+            value={notes}
+            onChange={(e) => setNotes(e.target.value)}
+            placeholder="Any special requests or notes about this reservation..."
+            rows={3}
+          />
         </div>
 
         {/* Footer Buttons */}
