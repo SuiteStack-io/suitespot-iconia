@@ -23,6 +23,7 @@ interface ReservationNotification {
   children: number;
   source: string;
   notes: string | null;
+  guestNationality: string | null;
 }
 
 const handler = async (req: Request): Promise<Response> => {
@@ -50,6 +51,7 @@ const handler = async (req: Request): Promise<Response> => {
       children,
       source,
       notes,
+      guestNationality,
     }: ReservationNotification = await req.json();
 
     console.log("Processing reservation notification:", reservationId);
@@ -247,7 +249,7 @@ const handler = async (req: Request): Promise<Response> => {
             </head>
             <body>
               <div class="header">
-                <h1 style="margin-bottom: 15px;">New Reservation in ICONIA Suitespot</h1>
+                <h1 style="margin-bottom: 15px;">New Reservation in Iconia Zamalek</h1>
                 <img src="https://phvduifvymozqiqwvajj.supabase.co/storage/v1/object/public/assets/suitespot-logo.png" alt="SuiteSpot Logo" style="max-width: 150px; height: auto;" />
               </div>
               
@@ -283,6 +285,13 @@ const handler = async (req: Request): Promise<Response> => {
                   <div class="detail-label">Guests:</div>
                   <div class="detail-value">${numberOfGuests} guest${numberOfGuests > 1 ? "s" : ""}</div>
                 </div>
+                
+                ${guestNationality ? `
+                <div class="detail-row">
+                  <div class="detail-label">Nationality:</div>
+                  <div class="detail-value">${guestNationality}</div>
+                </div>
+                ` : ''}
                 
                 <div class="detail-row">
                   <div class="detail-label">Adults:</div>

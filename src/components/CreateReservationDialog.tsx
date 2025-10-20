@@ -792,6 +792,7 @@ export function CreateReservationDialog() {
             children,
             source,
             notes: notes || null,
+            guestNationality: nationality || null,
           },
         });
         console.log('Email notification sent successfully');
