@@ -97,17 +97,36 @@ const handler = async (req: Request): Promise<Response> => {
       throw authError;
     }
 
+    console.log("Total auth users fetched:", authUsers.users.length);
+    console.log("User IDs we need emails for:", userIds);
+
     // Combine the data
     const users = userRoles.map((ur: any) => {
       const profile = profiles?.find((p: any) => p.id === ur.user_id);
       const authUser = authUsers.users.find((u: any) => u.id === ur.user_id);
+      
+      console.log(`Processing user ${ur.user_id}:`, {
+        hasProfile: !!profile,
+        hasAuthUser: !!authUser,
+        email: authUser?.email,
+        full_name: profile?.full_name
+      });
+      
       return {
         user_id: ur.user_id,
         email: authUser?.email,
         full_name: profile?.full_name,
         role: ur.role,
       };
-    }).filter((u: any) => u.email); // Only include users with emails
+    }).filter((u: any) => {
+      const hasEmail = !!u.email;
+      if (!hasEmail) {
+        console.log(`User ${u.user_id} filtered out - no email found`);
+      }
+      return hasEmail;
+    }); // Only include users with emails
+
+    console.log("Final users to notify:", users.map((u: any) => ({ email: u.email, name: u.full_name })));
 
     if (!users || users.length === 0) {
       console.log("No users found to notify");
