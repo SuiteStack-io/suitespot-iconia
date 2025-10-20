@@ -1,8 +1,17 @@
 import { useEffect, useState } from 'react';
+import { useNavigate } from 'react-router-dom';
 import { supabase } from '@/integrations/supabase/client';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Calendar, LogIn, LogOut, TrendingUp, DollarSign } from 'lucide-react';
 import { format } from 'date-fns';
+import {
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+} from '@/components/ui/dialog';
+import { Badge } from '@/components/ui/badge';
+import { Button } from '@/components/ui/button';
 
 interface DashboardStats {
   todayArrivals: number;
@@ -14,7 +23,26 @@ interface DashboardStats {
   totalCommission: number;
 }
 
+interface Reservation {
+  id: string;
+  booking_reference: string;
+  guest_names: string[];
+  check_in_date: string;
+  check_out_date: string;
+  status: string;
+  total_price: number;
+  units: { name: string } | null;
+}
+
+const statusColors = {
+  Upcoming: 'bg-blue-100 text-blue-800 hover:bg-blue-100',
+  'In-House': 'bg-green-100 text-green-800 hover:bg-green-100',
+  'Checked-Out': 'bg-gray-100 text-gray-800 hover:bg-gray-100',
+  Cancelled: 'bg-red-100 text-red-800 hover:bg-red-100',
+};
+
 export const Dashboard = () => {
+  const navigate = useNavigate();
   const [stats, setStats] = useState<DashboardStats>({
     todayArrivals: 0,
     todayDepartures: 0,
@@ -24,6 +52,9 @@ export const Dashboard = () => {
     netRevenue: 0,
     totalCommission: 0,
   });
+  const [dialogOpen, setDialogOpen] = useState(false);
+  const [dialogTitle, setDialogTitle] = useState('');
+  const [dialogReservations, setDialogReservations] = useState<Reservation[]>([]);
 
   useEffect(() => {
     fetchStats();
@@ -100,6 +131,38 @@ export const Dashboard = () => {
     });
   };
 
+  const handleCardClick = async (cardType: string) => {
+    const today = format(new Date(), 'yyyy-MM-dd');
+    const yesterday = format(new Date(Date.now() - 86400000), 'yyyy-MM-dd');
+    
+    let query = supabase
+      .from('reservations')
+      .select('id, booking_reference, guest_names, check_in_date, check_out_date, status, total_price, units(name)');
+    
+    switch (cardType) {
+      case 'arrivals':
+        setDialogTitle("Today's Arrivals");
+        query = query.eq('check_in_date', today).neq('status', 'Cancelled');
+        break;
+      case 'departures':
+        setDialogTitle("Today's Departures");
+        query = query.eq('check_out_date', today).neq('status', 'Cancelled');
+        break;
+      case 'inhouse':
+        setDialogTitle('In-House Now');
+        query = query.eq('status', 'In-House');
+        break;
+      case 'newbookings':
+        setDialogTitle('New Bookings (Last 24h)');
+        query = query.gte('created_at', yesterday);
+        break;
+    }
+    
+    const { data } = await query.order('check_in_date', { ascending: true });
+    setDialogReservations((data as any) || []);
+    setDialogOpen(true);
+  };
+
   const statCards = [
     {
       title: "Today's Arrivals",
@@ -107,6 +170,7 @@ export const Dashboard = () => {
       icon: LogIn,
       color: 'text-blue-600',
       isRevenue: false,
+      type: 'arrivals',
     },
     {
       title: "Today's Departures",
@@ -114,6 +178,7 @@ export const Dashboard = () => {
       icon: LogOut,
       color: 'text-orange-600',
       isRevenue: false,
+      type: 'departures',
     },
     {
       title: 'In-House Now',
@@ -121,6 +186,7 @@ export const Dashboard = () => {
       icon: Calendar,
       color: 'text-green-600',
       isRevenue: false,
+      type: 'inhouse',
     },
     {
       title: 'New Bookings (24h)',
@@ -128,27 +194,85 @@ export const Dashboard = () => {
       icon: TrendingUp,
       color: 'text-purple-600',
       isRevenue: false,
+      type: 'newbookings',
     },
   ];
 
   return (
-    <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-4">
-      {statCards.map((stat) => {
-        const Icon = stat.icon;
-        return (
-          <Card key={stat.title}>
-            <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-              <CardTitle className="text-sm font-medium">{stat.title}</CardTitle>
-              <Icon className={`h-4 w-4 ${stat.color}`} />
-            </CardHeader>
-            <CardContent>
-              <div className="text-2xl font-bold">
-                {stat.isRevenue ? `$${stat.value.toFixed(2)}` : stat.value}
-              </div>
-            </CardContent>
-          </Card>
-        );
-      })}
-    </div>
+    <>
+      <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-4">
+        {statCards.map((stat) => {
+          const Icon = stat.icon;
+          return (
+            <Card 
+              key={stat.title} 
+              className="cursor-pointer hover:bg-accent/50 transition-colors"
+              onClick={() => handleCardClick(stat.type)}
+            >
+              <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+                <CardTitle className="text-sm font-medium">{stat.title}</CardTitle>
+                <Icon className={`h-4 w-4 ${stat.color}`} />
+              </CardHeader>
+              <CardContent>
+                <div className="text-2xl font-bold">
+                  {stat.isRevenue ? `$${stat.value.toFixed(2)}` : stat.value}
+                </div>
+              </CardContent>
+            </Card>
+          );
+        })}
+      </div>
+
+      <Dialog open={dialogOpen} onOpenChange={setDialogOpen}>
+        <DialogContent className="max-w-3xl max-h-[80vh] overflow-y-auto">
+          <DialogHeader>
+            <DialogTitle>{dialogTitle}</DialogTitle>
+          </DialogHeader>
+          <div className="space-y-2">
+            {dialogReservations.length === 0 ? (
+              <p className="text-muted-foreground text-center py-8">No reservations found</p>
+            ) : (
+              dialogReservations.map((reservation) => (
+                <Card 
+                  key={reservation.id}
+                  className="cursor-pointer hover:bg-accent/50 transition-colors"
+                  onClick={() => {
+                    setDialogOpen(false);
+                    navigate(`/reservation/${reservation.id}`);
+                  }}
+                >
+                  <CardContent className="p-4">
+                    <div className="flex flex-col md:flex-row md:items-center justify-between gap-2">
+                      <div className="space-y-1">
+                        <div className="flex items-center gap-2">
+                          <p className="font-semibold">{reservation.booking_reference}</p>
+                          <Badge 
+                            variant="outline" 
+                            className={statusColors[reservation.status as keyof typeof statusColors]}
+                          >
+                            {reservation.status}
+                          </Badge>
+                        </div>
+                        <p className="text-sm text-muted-foreground">
+                          {reservation.guest_names.join(', ')}
+                        </p>
+                        <p className="text-sm">
+                          {reservation.units?.name || 'No unit assigned'}
+                        </p>
+                      </div>
+                      <div className="text-sm space-y-1">
+                        <p>Check-in: {format(new Date(reservation.check_in_date), 'MMM dd, yyyy')}</p>
+                        <p>Check-out: {format(new Date(reservation.check_out_date), 'MMM dd, yyyy')}</p>
+                        <p className="font-semibold">${reservation.total_price.toFixed(2)}</p>
+                      </div>
+                    </div>
+                  </CardContent>
+                </Card>
+              ))
+            )}
+          </div>
+        </DialogContent>
+      </Dialog>
+    </>
   );
 };
