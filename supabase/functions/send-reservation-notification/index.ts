@@ -46,15 +46,60 @@ const handler = async (req: Request): Promise<Response> => {
 
     console.log("Processing reservation notification:", reservationId);
 
-    // Fetch all admin and manager users
-    const { data: users, error: usersError } = await supabaseClient.rpc(
-      "get_all_users_with_emails"
-    );
+    // Fetch all admin and manager users directly using service role
+    const { data: userRoles, error: rolesError } = await supabaseClient
+      .from("user_roles")
+      .select("user_id, role")
+      .in("role", ["admin", "manager"]);
 
-    if (usersError) {
-      console.error("Error fetching users:", usersError);
-      throw usersError;
+    if (rolesError) {
+      console.error("Error fetching user roles:", rolesError);
+      throw rolesError;
     }
+
+    if (!userRoles || userRoles.length === 0) {
+      console.log("No admin or manager users found");
+      return new Response(
+        JSON.stringify({ message: "No users to notify" }),
+        {
+          status: 200,
+          headers: { "Content-Type": "application/json", ...corsHeaders },
+        }
+      );
+    }
+
+    // Fetch profiles and auth emails for these users
+    const userIds = userRoles.map((ur: any) => ur.user_id);
+    
+    const { data: profiles, error: profilesError } = await supabaseClient
+      .from("profiles")
+      .select("id, full_name")
+      .in("id", userIds);
+
+    if (profilesError) {
+      console.error("Error fetching profiles:", profilesError);
+      throw profilesError;
+    }
+
+    // Get emails from auth.users using service role
+    const { data: authUsers, error: authError } = await supabaseClient.auth.admin.listUsers();
+
+    if (authError) {
+      console.error("Error fetching auth users:", authError);
+      throw authError;
+    }
+
+    // Combine the data
+    const users = userRoles.map((ur: any) => {
+      const profile = profiles?.find((p: any) => p.id === ur.user_id);
+      const authUser = authUsers.users.find((u: any) => u.id === ur.user_id);
+      return {
+        user_id: ur.user_id,
+        email: authUser?.email,
+        full_name: profile?.full_name,
+        role: ur.role,
+      };
+    }).filter((u: any) => u.email); // Only include users with emails
 
     if (!users || users.length === 0) {
       console.log("No users found to notify");
