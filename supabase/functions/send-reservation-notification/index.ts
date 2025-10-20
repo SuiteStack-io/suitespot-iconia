@@ -171,7 +171,7 @@ const handler = async (req: Request): Promise<Response> => {
       
       try {
         const result = await resend.emails.send({
-          from: "SuiteSpot Bookings <onboarding@resend.dev>",
+          from: "SuiteSpot Bookings <reservations@bookings.suitespoteg.com>",
           to: [user.email],
           subject: `New Reservation: ${guestNames.join(", ")} - ${unitName}`,
         html: `
