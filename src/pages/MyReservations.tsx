@@ -6,7 +6,7 @@ import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { Badge } from '@/components/ui/badge';
-import { ArrowLeft, DollarSign, TrendingUp } from 'lucide-react';
+import { ArrowLeft, DollarSign, TrendingUp, Calendar } from 'lucide-react';
 import { format } from 'date-fns';
 
 interface Reservation {
@@ -33,7 +33,7 @@ const MyReservations = () => {
   const [monthlyStats, setMonthlyStats] = useState({
     totalReservations: 0,
     totalCommission: 0,
-    totalRevenue: 0,
+    totalNights: 0,
   });
 
   useEffect(() => {
@@ -85,12 +85,18 @@ const MyReservations = () => {
       });
 
       const stats = monthlyReservations.reduce(
-        (acc, res) => ({
-          totalReservations: acc.totalReservations + 1,
-          totalCommission: acc.totalCommission + (res.commission_amount || 0),
-          totalRevenue: acc.totalRevenue + (res.total_price || 0),
-        }),
-        { totalReservations: 0, totalCommission: 0, totalRevenue: 0 }
+        (acc, res) => {
+          const checkIn = new Date(res.check_in_date);
+          const checkOut = new Date(res.check_out_date);
+          const nights = Math.ceil((checkOut.getTime() - checkIn.getTime()) / (1000 * 60 * 60 * 24));
+          
+          return {
+            totalReservations: acc.totalReservations + 1,
+            totalCommission: acc.totalCommission + (res.commission_amount || 0),
+            totalNights: acc.totalNights + nights,
+          };
+        },
+        { totalReservations: 0, totalCommission: 0, totalNights: 0 }
       );
 
       setMonthlyStats(stats);
@@ -153,13 +159,13 @@ const MyReservations = () => {
 
           <Card>
             <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-              <CardTitle className="text-sm font-medium">Monthly Revenue</CardTitle>
-              <DollarSign className="h-4 w-4 text-muted-foreground" />
+              <CardTitle className="text-sm font-medium">Total Nights Booked</CardTitle>
+              <Calendar className="h-4 w-4 text-muted-foreground" />
             </CardHeader>
             <CardContent>
-              <div className="text-2xl font-bold">${monthlyStats.totalRevenue.toFixed(2)}</div>
+              <div className="text-2xl font-bold">{monthlyStats.totalNights}</div>
               <p className="text-xs text-muted-foreground">
-                Total bookings value
+                Across all rooms
               </p>
             </CardContent>
           </Card>
