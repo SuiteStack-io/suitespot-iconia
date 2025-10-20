@@ -80,9 +80,11 @@ export type Database = {
           created_at: string
           currency: string | null
           guest_ages: number[] | null
+          guest_genders: string[] | null
           guest_names: string[]
           guest_nationality: string | null
           id: string
+          marriage_certificate_url: string | null
           net_revenue: number | null
           nights: number | null
           notes: string | null
@@ -108,9 +110,11 @@ export type Database = {
           created_at?: string
           currency?: string | null
           guest_ages?: number[] | null
+          guest_genders?: string[] | null
           guest_names?: string[]
           guest_nationality?: string | null
           id?: string
+          marriage_certificate_url?: string | null
           net_revenue?: number | null
           nights?: number | null
           notes?: string | null
@@ -136,9 +140,11 @@ export type Database = {
           created_at?: string
           currency?: string | null
           guest_ages?: number[] | null
+          guest_genders?: string[] | null
           guest_names?: string[]
           guest_nationality?: string | null
           id?: string
+          marriage_certificate_url?: string | null
           net_revenue?: number | null
           nights?: number | null
           notes?: string | null

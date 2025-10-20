@@ -180,9 +180,11 @@ export function CreateReservationDialog() {
   const [numberOfGuests, setNumberOfGuests] = useState<number>(1);
   const [guestNames, setGuestNames] = useState<string[]>([""]);
   const [guestTypes, setGuestTypes] = useState<('adult' | 'child')[]>(["adult"]);
+  const [guestGenders, setGuestGenders] = useState<('male' | 'female' | '')[]>([""]);
   const [nationality, setNationality] = useState("");
   const [idPassportFile, setIdPassportFile] = useState<File | null>(null);
   const [idPassportType, setIdPassportType] = useState<'id' | 'passport'>('id');
+  const [marriageCertificateFile, setMarriageCertificateFile] = useState<File | null>(null);
   const [contactEmail, setContactEmail] = useState("");
   const [countryCode, setCountryCode] = useState("+20"); // Default to Egypt
   const [contactPhone, setContactPhone] = useState("");
@@ -219,6 +221,34 @@ export function CreateReservationDialog() {
     }
   }, [source]);
 
+  // Arab nationalities that require marriage certificate
+  const ARAB_NATIONALITIES = [
+    "Egyptian", "Saudi", "Emirati", "Kuwaiti", "Qatari", "Bahraini", "Omani", 
+    "Yemenite", "Jordanian", "Lebanese", "Syrian", "Iraqi", "Palestinian", 
+    "Libyan", "Tunisian", "Algerian", "Moroccan", "Sudanese", "Somali", 
+    "Djiboutian", "Mauritanian", "Comoran"
+  ];
+
+  // Check if marriage certificate is required
+  const isMarriageCertificateRequired = () => {
+    // Must have exactly 2 adults
+    if (adults !== 2) return false;
+    
+    // Must be Arab nationality
+    if (!ARAB_NATIONALITIES.includes(nationality)) return false;
+    
+    // Get genders of adult guests
+    const adultGenders = guestTypes
+      .map((type, index) => type === 'adult' ? guestGenders[index] : null)
+      .filter(gender => gender !== null && gender !== '');
+    
+    // Must have male and female
+    const hasMale = adultGenders.includes('male');
+    const hasFemale = adultGenders.includes('female');
+    
+    return hasMale && hasFemale;
+  };
+
   // Auto-sync guest names array when adults/children selectors change
   useEffect(() => {
     const totalGuests = adults + children;
@@ -232,9 +262,11 @@ export function CreateReservationDialog() {
       // Otherwise, assign based on position: first X are adults, rest are children
       return i < adults ? 'adult' : 'child';
     });
+    const newGuestGenders = Array(totalGuests).fill('').map((_, i) => guestGenders[i] || '');
     
     setGuestNames(newGuestNames);
     setGuestTypes(newGuestTypes);
+    setGuestGenders(newGuestGenders);
   }, [adults, children]);
 
   // Auto-sync number of guests with guest names count
@@ -321,6 +353,12 @@ export function CreateReservationDialog() {
     setGuestTypes(newGuestTypes);
   };
 
+  const updateGuestGender = (index: number, gender: 'male' | 'female') => {
+    const newGuestGenders = [...guestGenders];
+    newGuestGenders[index] = gender;
+    setGuestGenders(newGuestGenders);
+  };
+
   const validateForm = () => {
     if (!checkInDate) {
       toast.error("Please select a check-in date");
@@ -367,6 +405,21 @@ export function CreateReservationDialog() {
       toast.error("Please upload ID/Passport");
       return false;
     }
+    // Validate adult genders are selected
+    const adultIndices = guestTypes
+      .map((type, index) => type === 'adult' ? index : -1)
+      .filter(index => index !== -1);
+    
+    const hasEmptyGenders = adultIndices.some(index => !guestGenders[index]);
+    if (hasEmptyGenders) {
+      toast.error("Please select gender for all adult guests");
+      return false;
+    }
+    // Validate marriage certificate if required
+    if (isMarriageCertificateRequired() && !marriageCertificateFile) {
+      toast.error("Marriage certificate is required for Arab couples");
+      return false;
+    }
     if (!contactEmail.trim()) {
       toast.error("Please enter contact email");
       return false;
@@ -406,6 +459,31 @@ export function CreateReservationDialog() {
     setLoading(true);
 
     try {
+      // Upload marriage certificate if provided
+      let marriageCertificateUrl = null;
+      if (marriageCertificateFile) {
+        const fileExt = marriageCertificateFile.name.split('.').pop();
+        const fileName = `${Date.now()}-${Math.random().toString(36).substring(7)}.${fileExt}`;
+        const filePath = `${fileName}`;
+
+        const { error: uploadError } = await supabase.storage
+          .from('marriage-certificates')
+          .upload(filePath, marriageCertificateFile);
+
+        if (uploadError) {
+          console.error('Error uploading marriage certificate:', uploadError);
+          toast.error('Failed to upload marriage certificate');
+          setLoading(false);
+          return;
+        }
+
+        const { data: { publicUrl } } = supabase.storage
+          .from('marriage-certificates')
+          .getPublicUrl(filePath);
+        
+        marriageCertificateUrl = publicUrl;
+      }
+
       // Calculate pricing and commission
       const total = Number(pricePerNight) * nights;
       const commissionAmount = (total * commissionRate) / 100;
@@ -420,7 +498,9 @@ export function CreateReservationDialog() {
         adults: adults,
         children: children,
         guest_names: guestNames.filter(name => name.trim() !== ""),
+        guest_genders: guestGenders.filter((_, i) => guestNames[i]?.trim() !== ""),
         guest_nationality: nationality,
+        marriage_certificate_url: marriageCertificateUrl,
         source,
         status: "confirmed",
         channel: "Manual",
@@ -741,24 +821,54 @@ export function CreateReservationDialog() {
                     className="flex-1"
                   />
                 </div>
-                <RadioGroup
-                  value={guestTypes[index]}
-                  onValueChange={(value) => updateGuestType(index, value as 'adult' | 'child')}
-                  className="flex gap-4"
-                >
-                  <div className="flex items-center space-x-2">
-                    <RadioGroupItem value="adult" id={`adult-${index}`} />
-                    <Label htmlFor={`adult-${index}`} className="font-normal cursor-pointer">
-                      Adult
+                <div className="space-y-2">
+                  <Label className="text-sm text-muted-foreground">Guest Type</Label>
+                  <RadioGroup
+                    value={guestTypes[index]}
+                    onValueChange={(value) => updateGuestType(index, value as 'adult' | 'child')}
+                    className="flex gap-4"
+                  >
+                    <div className="flex items-center space-x-2">
+                      <RadioGroupItem value="adult" id={`adult-${index}`} />
+                      <Label htmlFor={`adult-${index}`} className="font-normal cursor-pointer">
+                        Adult
+                      </Label>
+                    </div>
+                    <div className="flex items-center space-x-2">
+                      <RadioGroupItem value="child" id={`child-${index}`} />
+                      <Label htmlFor={`child-${index}`} className="font-normal cursor-pointer">
+                        Child
+                      </Label>
+                    </div>
+                  </RadioGroup>
+                </div>
+                
+                {/* Gender selection for adults */}
+                {guestTypes[index] === 'adult' && (
+                  <div className="space-y-2">
+                    <Label className="text-sm text-muted-foreground">
+                      Gender <span className="text-destructive">*</span>
                     </Label>
+                    <RadioGroup
+                      value={guestGenders[index] || ""}
+                      onValueChange={(value) => updateGuestGender(index, value as 'male' | 'female')}
+                      className="flex gap-4"
+                    >
+                      <div className="flex items-center space-x-2">
+                        <RadioGroupItem value="male" id={`male-${index}`} />
+                        <Label htmlFor={`male-${index}`} className="font-normal cursor-pointer">
+                          Male
+                        </Label>
+                      </div>
+                      <div className="flex items-center space-x-2">
+                        <RadioGroupItem value="female" id={`female-${index}`} />
+                        <Label htmlFor={`female-${index}`} className="font-normal cursor-pointer">
+                          Female
+                        </Label>
+                      </div>
+                    </RadioGroup>
                   </div>
-                  <div className="flex items-center space-x-2">
-                    <RadioGroupItem value="child" id={`child-${index}`} />
-                    <Label htmlFor={`child-${index}`} className="font-normal cursor-pointer">
-                      Child
-                    </Label>
-                  </div>
-                </RadioGroup>
+                )}
               </div>
             ))}
           </div>
@@ -880,6 +990,54 @@ export function CreateReservationDialog() {
               )}
             </div>
           </div>
+
+          {/* Marriage Certificate Upload - Conditional */}
+          {isMarriageCertificateRequired() && (
+            <div className="space-y-2 p-4 border-2 border-amber-500 rounded-lg bg-amber-50 dark:bg-amber-950/20">
+              <div className="flex items-start gap-2">
+                <div className="flex-1">
+                  <Label htmlFor="marriage-certificate" className="text-base font-semibold">
+                    Marriage Certificate <span className="text-destructive">*</span>
+                  </Label>
+                  <p className="text-sm text-muted-foreground mt-1">
+                    Required for Arab couples (male + female adults)
+                  </p>
+                </div>
+              </div>
+              
+              {marriageCertificateFile ? (
+                <div className="flex items-center gap-2 p-2 bg-background rounded border">
+                  <span className="text-sm flex-1 truncate">{marriageCertificateFile.name}</span>
+                  <Button
+                    type="button"
+                    variant="ghost"
+                    size="sm"
+                    onClick={() => {
+                      setMarriageCertificateFile(null);
+                      const input = document.getElementById('marriage-certificate') as HTMLInputElement;
+                      if (input) input.value = '';
+                    }}
+                  >
+                    <X className="h-4 w-4" />
+                  </Button>
+                </div>
+              ) : (
+                <div className="flex items-center gap-2">
+                  <Input
+                    id="marriage-certificate"
+                    type="file"
+                    accept="image/*,.pdf"
+                    onChange={(e) => {
+                      const file = e.target.files?.[0];
+                      if (file) setMarriageCertificateFile(file);
+                    }}
+                    className="flex-1"
+                  />
+                  <Upload className="h-4 w-4 text-muted-foreground" />
+                </div>
+              )}
+            </div>
+          )}
 
           {/* Contact Email */}
           <div className="space-y-2">
