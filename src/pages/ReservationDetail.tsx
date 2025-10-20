@@ -367,7 +367,7 @@ const ReservationDetail = () => {
           <div className="flex md:hidden gap-2 mt-4 justify-center">
             <Button onClick={() => setIsEditMode(true)}>
               <Edit2 className="h-4 w-4 mr-2" />
-              Edit Reservation
+              Edit
             </Button>
             <Button 
               variant="destructive" 
@@ -375,7 +375,7 @@ const ReservationDetail = () => {
               onClick={() => setShowDeleteDialog(true)}
             >
               <Trash2 className="h-4 w-4 mr-2" />
-              Delete Reservation
+              Delete
             </Button>
           </div>
         )}
