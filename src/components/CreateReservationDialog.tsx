@@ -32,7 +32,7 @@ import {
   CommandItem,
   CommandList,
 } from "@/components/ui/command";
-import { CalendarIcon, Plus, X, Check, ChevronsUpDown } from "lucide-react";
+import { CalendarIcon, Plus, X, Check, ChevronsUpDown, Upload } from "lucide-react";
 import { format, differenceInDays, isBefore, isAfter, startOfDay } from "date-fns";
 import { cn } from "@/lib/utils";
 import { supabase } from "@/integrations/supabase/client";
@@ -179,6 +179,7 @@ export function CreateReservationDialog() {
   const [guestNames, setGuestNames] = useState<string[]>([""]);
   const [guestTypes, setGuestTypes] = useState<('adult' | 'child')[]>(["adult"]);
   const [nationality, setNationality] = useState("");
+  const [idPassportFile, setIdPassportFile] = useState<File | null>(null);
   const [contactEmail, setContactEmail] = useState("");
   const [countryCode, setCountryCode] = useState("+20"); // Default to Egypt
   const [contactPhone, setContactPhone] = useState("");
@@ -356,6 +357,10 @@ export function CreateReservationDialog() {
     }
     if (!nationality.trim()) {
       toast.error("Please enter guest nationality");
+      return false;
+    }
+    if (!idPassportFile) {
+      toast.error("Please upload ID/Passport");
       return false;
     }
     if (!contactEmail.trim()) {
@@ -800,6 +805,44 @@ export function CreateReservationDialog() {
                 </Command>
               </PopoverContent>
             </Popover>
+          </div>
+
+          {/* ID/Passport Upload */}
+          <div className="space-y-2">
+            <Label htmlFor="idPassport">
+              Upload ID/Passport <span className="text-destructive">*</span>
+            </Label>
+            <div className="flex items-center gap-2">
+              <Input
+                id="idPassport"
+                type="file"
+                accept="image/*"
+                onChange={(e) => {
+                  const file = e.target.files?.[0];
+                  if (file) {
+                    if (!file.type.startsWith('image/')) {
+                      toast.error("Only image files are supported");
+                      e.target.value = '';
+                      return;
+                    }
+                    setIdPassportFile(file);
+                  }
+                }}
+                className="hidden"
+              />
+              <Label
+                htmlFor="idPassport"
+                className="flex items-center gap-2 px-4 py-2 border rounded-md cursor-pointer hover:bg-accent transition-colors"
+              >
+                <Upload className="h-4 w-4" />
+                Upload
+              </Label>
+              {idPassportFile && (
+                <span className="text-sm text-muted-foreground">
+                  {idPassportFile.name}
+                </span>
+              )}
+            </div>
           </div>
 
           {/* Contact Email */}
