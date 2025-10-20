@@ -27,6 +27,7 @@ interface Reservation {
   id: string;
   booking_reference: string;
   guest_names: string[];
+  guest_types: string[] | null;
   guest_genders: string[] | null;
   check_in_date: string;
   check_out_date: string;
@@ -141,7 +142,7 @@ export const Dashboard = () => {
     
     let query = supabase
       .from('reservations')
-      .select('id, booking_reference, guest_names, guest_genders, check_in_date, check_out_date, status, total_price, number_of_guests, children, adults, units(name)');
+      .select('id, booking_reference, guest_names, guest_types, guest_genders, check_in_date, check_out_date, status, total_price, number_of_guests, children, adults, units(name)');
     
     switch (cardType) {
       case 'arrivals':
@@ -261,6 +262,11 @@ export const Dashboard = () => {
                           {reservation.guest_names.map((name, idx) => (
                             <div key={idx} className="flex items-center gap-2">
                               <p className="text-sm text-muted-foreground">{name}</p>
+                              {reservation.guest_types && reservation.guest_types[idx] && (
+                                <Badge variant="secondary" className="text-xs capitalize">
+                                  {reservation.guest_types[idx]}
+                                </Badge>
+                              )}
                               {reservation.guest_genders && reservation.guest_genders[idx] && (
                                 <Badge variant="outline" className="text-xs">
                                   {reservation.guest_genders[idx]}
