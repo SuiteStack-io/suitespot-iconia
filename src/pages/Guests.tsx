@@ -248,6 +248,7 @@ const Guests = () => {
       "Phone",
       "Check-in",
       "Check-out",
+      "Nights",
       "Unit",
       "Adults",
       "Children",
@@ -260,6 +261,10 @@ const Guests = () => {
     // Prepare CSV rows
     const rows = filteredGuests.map(guest => {
       const isAdult = guest.guestIndex < guest.adults;
+      const checkIn = new Date(guest.checkInDate);
+      const checkOut = new Date(guest.checkOutDate);
+      const nights = Math.ceil((checkOut.getTime() - checkIn.getTime()) / (1000 * 60 * 60 * 24));
+      
       return [
         guest.guestName,
         isAdult ? "Adult" : "Child",
@@ -268,6 +273,7 @@ const Guests = () => {
         guest.contactPhone || "-",
         format(new Date(guest.checkInDate), "MMM dd, yyyy"),
         format(new Date(guest.checkOutDate), "MMM dd, yyyy"),
+        nights.toString(),
         guest.unitName || "-",
         guest.adults.toString(),
         guest.children.toString(),
@@ -457,6 +463,7 @@ const Guests = () => {
                   <TableHead>Phone</TableHead>
                   <TableHead>Check-in</TableHead>
                   <TableHead>Check-out</TableHead>
+                  <TableHead>Nights</TableHead>
                   <TableHead>Room ID</TableHead>
                   <TableHead>Total Guests</TableHead>
                   <TableHead>Source</TableHead>
@@ -467,7 +474,7 @@ const Guests = () => {
               <TableBody>
                 {filteredGuests.length === 0 ? (
                   <TableRow>
-                    <TableCell colSpan={12} className="text-center text-muted-foreground">
+                    <TableCell colSpan={13} className="text-center text-muted-foreground">
                       No guests found for this {viewMode}
                     </TableCell>
                   </TableRow>
@@ -475,6 +482,9 @@ const Guests = () => {
                   filteredGuests.map((guest, index) => {
                     // Determine if this guest is an adult or child based on their position
                     const isAdult = guest.guestIndex < guest.adults;
+                    const checkIn = new Date(guest.checkInDate);
+                    const checkOut = new Date(guest.checkOutDate);
+                    const nights = Math.ceil((checkOut.getTime() - checkIn.getTime()) / (1000 * 60 * 60 * 24));
                     
                     return (
                       <TableRow key={`${guest.bookingReference}-${index}`}>
@@ -501,6 +511,7 @@ const Guests = () => {
                         <TableCell>{guest.contactPhone || "-"}</TableCell>
                         <TableCell>{format(new Date(guest.checkInDate), "MMM dd, yyyy")}</TableCell>
                         <TableCell>{format(new Date(guest.checkOutDate), "MMM dd, yyyy")}</TableCell>
+                        <TableCell className="font-medium">{nights}</TableCell>
                         <TableCell>{guest.unitName || "-"}</TableCell>
                         <TableCell>
                           <div className="text-sm">
