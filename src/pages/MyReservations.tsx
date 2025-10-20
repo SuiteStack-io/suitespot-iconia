@@ -64,11 +64,14 @@ const MyReservations = () => {
       const fullName = profile?.full_name || '';
       setUserName(fullName);
 
-      // Fetch reservations where source matches user's name
+      // Extract first name for matching
+      const firstName = fullName.split(' ')[0];
+
+      // Fetch reservations where source matches user's name (case-insensitive partial match)
       const { data, error } = await supabase
         .from('reservations')
         .select('id, booking_reference, guest_names, check_in_date, check_out_date, status, total_price, commission_rate, commission_amount, net_revenue, source, units(name)')
-        .eq('source', fullName)
+        .ilike('source', `%${firstName}%`)
         .order('check_in_date', { ascending: false });
 
       if (error) throw error;
