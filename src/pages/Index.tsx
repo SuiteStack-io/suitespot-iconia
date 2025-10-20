@@ -63,76 +63,55 @@ const Index = () => {
 
           {/* Right side - user info and action buttons */}
           <div className={isMobile ? "flex flex-col items-end gap-2" : "flex items-center gap-2"}>
-            {/* User info display with dropdown for admins */}
-            {userRole === 'admin' ? (
-              <DropdownMenu>
-                <DropdownMenuTrigger asChild>
-                  <button className="flex items-center gap-2 px-3 py-2 bg-accent/10 rounded-lg border border-accent/20 hover:bg-accent/20 transition-colors cursor-pointer">
-                    <div className="hidden md:flex flex-col items-end">
-                      <span className="text-sm font-medium">
-                        {user.user_metadata?.full_name || user.email?.split('@')[0] || 'User'}
-                      </span>
-                      <span className="text-xs text-muted-foreground capitalize">
-                        {userRole || 'No role'}
-                      </span>
-                    </div>
-                    <div className="w-8 h-8 rounded-full bg-accent/20 flex items-center justify-center">
-                      <span className="text-sm font-semibold text-accent">
-                        {(() => {
-                          const fullName = user.user_metadata?.full_name;
-                          if (fullName) {
-                            const names = fullName.split(' ');
-                            if (names.length > 1) {
-                              return (names[0][0] + names[names.length - 1][0]).toUpperCase();
-                            }
-                            return fullName.substring(0, 2).toUpperCase();
+            {/* User info display with dropdown */}
+            <DropdownMenu>
+              <DropdownMenuTrigger asChild>
+                <button className="flex items-center gap-2 px-3 py-2 bg-accent/10 rounded-lg border border-accent/20 hover:bg-accent/20 transition-colors cursor-pointer">
+                  <div className="hidden md:flex flex-col items-end">
+                    <span className="text-sm font-medium">
+                      {user.user_metadata?.full_name || user.email?.split('@')[0] || 'User'}
+                    </span>
+                    <span className="text-xs text-muted-foreground capitalize">
+                      {userRole || 'No role'}
+                    </span>
+                  </div>
+                  <div className="w-8 h-8 rounded-full bg-accent/20 flex items-center justify-center">
+                    <span className="text-sm font-semibold text-accent">
+                      {(() => {
+                        const fullName = user.user_metadata?.full_name;
+                        if (fullName) {
+                          const names = fullName.split(' ');
+                          if (names.length > 1) {
+                            return (names[0][0] + names[names.length - 1][0]).toUpperCase();
                           }
-                          return (user.email || 'U').substring(0, 2).toUpperCase();
-                        })()}
-                      </span>
-                    </div>
-                    <ChevronDown className="h-4 w-4 text-muted-foreground" />
-                  </button>
-                </DropdownMenuTrigger>
-                <DropdownMenuContent align="end" className="w-48">
-                  <DropdownMenuItem onClick={() => navigate('/users')}>
-                    Users
-                  </DropdownMenuItem>
-                  <DropdownMenuItem onClick={() => navigate('/guests')}>
-                    Guests
-                  </DropdownMenuItem>
-                  <DropdownMenuItem onClick={() => navigate('/analytics')}>
-                    Analytics
-                  </DropdownMenuItem>
-                </DropdownMenuContent>
-              </DropdownMenu>
-            ) : (
-              <div className="flex items-center gap-2 px-3 py-2 bg-accent/10 rounded-lg border border-accent/20">
-                <div className="hidden md:flex flex-col items-end">
-                  <span className="text-sm font-medium">
-                    {user.user_metadata?.full_name || user.email?.split('@')[0] || 'User'}
-                  </span>
-                  <span className="text-xs text-muted-foreground capitalize">
-                    {userRole || 'No role'}
-                  </span>
-                </div>
-                <div className="w-8 h-8 rounded-full bg-accent/20 flex items-center justify-center">
-                  <span className="text-sm font-semibold text-accent">
-                    {(() => {
-                      const fullName = user.user_metadata?.full_name;
-                      if (fullName) {
-                        const names = fullName.split(' ');
-                        if (names.length > 1) {
-                          return (names[0][0] + names[names.length - 1][0]).toUpperCase();
+                          return fullName.substring(0, 2).toUpperCase();
                         }
-                        return fullName.substring(0, 2).toUpperCase();
-                      }
-                      return (user.email || 'U').substring(0, 2).toUpperCase();
-                    })()}
-                  </span>
-                </div>
-              </div>
-            )}
+                        return (user.email || 'U').substring(0, 2).toUpperCase();
+                      })()}
+                    </span>
+                  </div>
+                  <ChevronDown className="h-4 w-4 text-muted-foreground" />
+                </button>
+              </DropdownMenuTrigger>
+              <DropdownMenuContent align="end" className="w-48">
+                <DropdownMenuItem onClick={() => navigate('/my-reservations')}>
+                  My Reservations
+                </DropdownMenuItem>
+                {userRole === 'admin' && (
+                  <>
+                    <DropdownMenuItem onClick={() => navigate('/users')}>
+                      Users
+                    </DropdownMenuItem>
+                    <DropdownMenuItem onClick={() => navigate('/guests')}>
+                      Guests
+                    </DropdownMenuItem>
+                    <DropdownMenuItem onClick={() => navigate('/analytics')}>
+                      Analytics
+                    </DropdownMenuItem>
+                  </>
+                )}
+              </DropdownMenuContent>
+            </DropdownMenu>
 
             {/* Action buttons - horizontal on desktop, stacked on mobile */}
             <div className={isMobile ? "flex flex-col gap-2 w-full" : "flex items-center gap-2"}>
