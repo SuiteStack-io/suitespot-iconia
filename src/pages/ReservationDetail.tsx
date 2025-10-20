@@ -146,22 +146,32 @@ const ReservationDetail = () => {
 
       // Generate signed URLs for documents
       const urls: any = {};
+      
+      // Helper function to extract file path from URL
+      const extractFilePath = (url: string) => {
+        const parts = url.split('/marriage-certificates/');
+        return parts.length > 1 ? parts[1] : url;
+      };
+      
       if (data.id_passport_url) {
+        const filePath = extractFilePath(data.id_passport_url);
         const { data: signedData } = await supabase.storage
           .from('marriage-certificates')
-          .createSignedUrl(data.id_passport_url, 3600);
+          .createSignedUrl(filePath, 3600);
         if (signedData) urls.id_passport_url = signedData.signedUrl;
       }
       if (data.id_passport_url_back) {
+        const filePath = extractFilePath(data.id_passport_url_back);
         const { data: signedData } = await supabase.storage
           .from('marriage-certificates')
-          .createSignedUrl(data.id_passport_url_back, 3600);
+          .createSignedUrl(filePath, 3600);
         if (signedData) urls.id_passport_url_back = signedData.signedUrl;
       }
       if (data.marriage_certificate_url) {
+        const filePath = extractFilePath(data.marriage_certificate_url);
         const { data: signedData } = await supabase.storage
           .from('marriage-certificates')
-          .createSignedUrl(data.marriage_certificate_url, 3600);
+          .createSignedUrl(filePath, 3600);
         if (signedData) urls.marriage_certificate_url = signedData.signedUrl;
       }
       setSignedUrls(urls);
