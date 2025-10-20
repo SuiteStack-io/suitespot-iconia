@@ -32,7 +32,6 @@ import {
   CommandList,
 } from "@/components/ui/command";
 import { CalendarIcon, Plus, X, Check, ChevronsUpDown } from "lucide-react";
-import { Switch } from "@/components/ui/switch";
 import { format, differenceInDays, isBefore, isAfter, startOfDay } from "date-fns";
 import { cn } from "@/lib/utils";
 import { supabase } from "@/integrations/supabase/client";
@@ -177,7 +176,6 @@ export function CreateReservationDialog() {
   const [children, setChildren] = useState<number>(0);
   const [numberOfGuests, setNumberOfGuests] = useState<number>(1);
   const [guestNames, setGuestNames] = useState<string[]>([""]);
-  const [guestTypes, setGuestTypes] = useState<('adult' | 'child')[]>(['adult']);
   const [nationality, setNationality] = useState("");
   const [contactEmail, setContactEmail] = useState("");
   const [countryCode, setCountryCode] = useState("+20"); // Default to Egypt
@@ -214,14 +212,10 @@ export function CreateReservationDialog() {
     }
   }, [source]);
 
-  // Auto-sync adults and children counts based on guest types
+  // Auto-sync number of guests with adults and children
   useEffect(() => {
-    const adultsCount = guestTypes.filter(type => type === 'adult').length;
-    const childrenCount = guestTypes.filter(type => type === 'child').length;
-    setAdults(adultsCount);
-    setChildren(childrenCount);
-    setNumberOfGuests(adultsCount + childrenCount);
-  }, [guestTypes]);
+    setNumberOfGuests(adults + children);
+  }, [adults, children]);
 
   // Auto-sync number of guests with guest names count
   useEffect(() => {
@@ -297,15 +291,12 @@ export function CreateReservationDialog() {
 
   const addGuestName = () => {
     setGuestNames([...guestNames, ""]);
-    setGuestTypes([...guestTypes, 'adult']);
   };
 
   const removeGuestName = (index: number) => {
     if (guestNames.length > 1) {
       const newGuestNames = guestNames.filter((_, i) => i !== index);
-      const newGuestTypes = guestTypes.filter((_, i) => i !== index);
       setGuestNames(newGuestNames);
-      setGuestTypes(newGuestTypes);
     }
   };
 
@@ -313,12 +304,6 @@ export function CreateReservationDialog() {
     const newGuestNames = [...guestNames];
     newGuestNames[index] = value;
     setGuestNames(newGuestNames);
-  };
-
-  const updateGuestType = (index: number, isAdult: boolean) => {
-    const newGuestTypes = [...guestTypes];
-    newGuestTypes[index] = isAdult ? 'adult' : 'child';
-    setGuestTypes(newGuestTypes);
   };
 
   const validateForm = () => {
@@ -516,7 +501,6 @@ export function CreateReservationDialog() {
     setUnitId("");
     setNumberOfGuests(1);
     setGuestNames([""]);
-    setGuestTypes(['adult']);
     setNationality("");
     setContactEmail("");
     setCountryCode("+20");
@@ -718,34 +702,22 @@ export function CreateReservationDialog() {
               Guest Names <span className="text-destructive">*</span>
             </Label>
             {guestNames.map((name, index) => (
-              <div key={index} className="space-y-2">
-                <div className="flex gap-2">
-                  <Input
-                    placeholder={`Guest ${index + 1} name`}
-                    value={name}
-                    onChange={(e) => updateGuestName(index, e.target.value)}
-                  />
-                  {index > 0 && (
-                    <Button
-                      type="button"
-                      variant="outline"
-                      size="icon"
-                      onClick={() => removeGuestName(index)}
-                    >
-                      <X className="h-4 w-4" />
-                    </Button>
-                  )}
-                </div>
-                <div className="flex items-center gap-2">
-                  <Switch
-                    id={`guest-type-${index}`}
-                    checked={guestTypes[index] === 'adult'}
-                    onCheckedChange={(checked) => updateGuestType(index, checked)}
-                  />
-                  <Label htmlFor={`guest-type-${index}`} className="text-sm font-normal cursor-pointer">
-                    {guestTypes[index] === 'adult' ? 'Adult' : 'Child'}
-                  </Label>
-                </div>
+              <div key={index} className="flex gap-2">
+                <Input
+                  placeholder={`Guest ${index + 1} name`}
+                  value={name}
+                  onChange={(e) => updateGuestName(index, e.target.value)}
+                />
+                {index > 0 && (
+                  <Button
+                    type="button"
+                    variant="outline"
+                    size="icon"
+                    onClick={() => removeGuestName(index)}
+                  >
+                    <X className="h-4 w-4" />
+                  </Button>
+                )}
               </div>
             ))}
             <Button
