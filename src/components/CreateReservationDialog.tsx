@@ -17,6 +17,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
+import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
 import { Calendar } from "@/components/ui/calendar";
 import {
   Popover,
@@ -176,6 +177,7 @@ export function CreateReservationDialog() {
   const [children, setChildren] = useState<number>(0);
   const [numberOfGuests, setNumberOfGuests] = useState<number>(1);
   const [guestNames, setGuestNames] = useState<string[]>([""]);
+  const [guestTypes, setGuestTypes] = useState<('adult' | 'child')[]>(["adult"]);
   const [nationality, setNationality] = useState("");
   const [contactEmail, setContactEmail] = useState("");
   const [countryCode, setCountryCode] = useState("+20"); // Default to Egypt
@@ -212,10 +214,14 @@ export function CreateReservationDialog() {
     }
   }, [source]);
 
-  // Auto-sync number of guests with adults and children
+  // Auto-calculate adults and children from guest types
   useEffect(() => {
-    setNumberOfGuests(adults + children);
-  }, [adults, children]);
+    const adultCount = guestTypes.filter(type => type === 'adult').length;
+    const childCount = guestTypes.filter(type => type === 'child').length;
+    setAdults(adultCount);
+    setChildren(childCount);
+    setNumberOfGuests(adultCount + childCount);
+  }, [guestTypes]);
 
   // Auto-sync number of guests with guest names count
   useEffect(() => {
@@ -291,12 +297,15 @@ export function CreateReservationDialog() {
 
   const addGuestName = () => {
     setGuestNames([...guestNames, ""]);
+    setGuestTypes([...guestTypes, "adult"]);
   };
 
   const removeGuestName = (index: number) => {
     if (guestNames.length > 1) {
       const newGuestNames = guestNames.filter((_, i) => i !== index);
+      const newGuestTypes = guestTypes.filter((_, i) => i !== index);
       setGuestNames(newGuestNames);
+      setGuestTypes(newGuestTypes);
     }
   };
 
@@ -304,6 +313,12 @@ export function CreateReservationDialog() {
     const newGuestNames = [...guestNames];
     newGuestNames[index] = value;
     setGuestNames(newGuestNames);
+  };
+
+  const updateGuestType = (index: number, type: 'adult' | 'child') => {
+    const newGuestTypes = [...guestTypes];
+    newGuestTypes[index] = type;
+    setGuestTypes(newGuestTypes);
   };
 
   const validateForm = () => {
@@ -333,6 +348,15 @@ export function CreateReservationDialog() {
     }
     if (!guestNames[0]?.trim()) {
       toast.error("Please enter at least one guest name");
+      return false;
+    }
+    // Validate that all guests have a type selected
+    const hasEmptyTypes = guestTypes.some((type, index) => {
+      // Only check for guests that have names entered
+      return guestNames[index]?.trim() !== "" && !type;
+    });
+    if (hasEmptyTypes) {
+      toast.error("Please select Adult or Child for all guests");
       return false;
     }
     if (!nationality.trim()) {
@@ -449,6 +473,7 @@ export function CreateReservationDialog() {
       setChildren(0);
       setNumberOfGuests(1);
       setGuestNames([""]);
+      setGuestTypes(["adult"]);
       setNationality("");
       setContactEmail("");
       setCountryCode("+20");
@@ -501,6 +526,7 @@ export function CreateReservationDialog() {
     setUnitId("");
     setNumberOfGuests(1);
     setGuestNames([""]);
+    setGuestTypes(["adult"]);
     setNationality("");
     setContactEmail("");
     setCountryCode("+20");
@@ -702,22 +728,43 @@ export function CreateReservationDialog() {
               Guest Names <span className="text-destructive">*</span>
             </Label>
             {guestNames.map((name, index) => (
-              <div key={index} className="flex gap-2">
-                <Input
-                  placeholder={`Guest ${index + 1} name`}
-                  value={name}
-                  onChange={(e) => updateGuestName(index, e.target.value)}
-                />
-                {index > 0 && (
-                  <Button
-                    type="button"
-                    variant="outline"
-                    size="icon"
-                    onClick={() => removeGuestName(index)}
-                  >
-                    <X className="h-4 w-4" />
-                  </Button>
-                )}
+              <div key={index} className="space-y-2 p-3 border rounded-lg">
+                <div className="flex gap-2">
+                  <Input
+                    placeholder={`Guest ${index + 1} name`}
+                    value={name}
+                    onChange={(e) => updateGuestName(index, e.target.value)}
+                    className="flex-1"
+                  />
+                  {index > 0 && (
+                    <Button
+                      type="button"
+                      variant="outline"
+                      size="icon"
+                      onClick={() => removeGuestName(index)}
+                    >
+                      <X className="h-4 w-4" />
+                    </Button>
+                  )}
+                </div>
+                <RadioGroup
+                  value={guestTypes[index]}
+                  onValueChange={(value) => updateGuestType(index, value as 'adult' | 'child')}
+                  className="flex gap-4"
+                >
+                  <div className="flex items-center space-x-2">
+                    <RadioGroupItem value="adult" id={`adult-${index}`} />
+                    <Label htmlFor={`adult-${index}`} className="font-normal cursor-pointer">
+                      Adult
+                    </Label>
+                  </div>
+                  <div className="flex items-center space-x-2">
+                    <RadioGroupItem value="child" id={`child-${index}`} />
+                    <Label htmlFor={`child-${index}`} className="font-normal cursor-pointer">
+                      Child
+                    </Label>
+                  </div>
+                </RadioGroup>
               </div>
             ))}
             <Button
