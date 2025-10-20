@@ -86,10 +86,10 @@ const ReservationDetail = () => {
   const [saving, setSaving] = useState(false);
   const [showDeleteDialog, setShowDeleteDialog] = useState(false);
   const [deleting, setDeleting] = useState(false);
-  const [signedUrls, setSignedUrls] = useState<{
-    id_passport_url?: string;
-    id_passport_url_back?: string;
-    marriage_certificate_url?: string;
+  const [downloading, setDownloading] = useState<{
+    id_passport_url?: boolean;
+    id_passport_url_back?: boolean;
+    marriage_certificate_url?: boolean;
   }>({});
   
   // Form state
@@ -99,6 +99,7 @@ const ReservationDetail = () => {
     check_out_date: new Date(),
     number_of_guests: 1,
     guest_names: [''],
+    guest_genders: [] as string[],
     guest_nationality: '',
     contact_email: '',
     contact_phone: '',
@@ -108,6 +109,7 @@ const ReservationDetail = () => {
     source: '',
     status: '',
     notes: '',
+    channel: '',
   });
 
   const canEdit = userRole === 'admin';
@@ -133,51 +135,18 @@ const ReservationDetail = () => {
         check_out_date: new Date(data.check_out_date),
         number_of_guests: data.number_of_guests,
         guest_names: data.guest_names,
+        guest_genders: data.guest_genders || [],
         guest_nationality: data.guest_nationality || '',
         contact_email: data.contact_email || '',
         contact_phone: data.contact_phone || '',
         price_per_night: data.price_per_night || 0,
-        total_price: data.total_price || 0,
+        total_price: data.total_price,
         commission_rate: data.commission_rate || 10,
-        source: data.source,
-        status: data.status,
         notes: data.notes || '',
+        status: data.status,
+        channel: data.channel,
+        source: data.source,
       });
-
-      // Generate signed URLs for documents
-      const urls: any = {};
-      
-      // Helper function to extract file path from URL
-      const extractFilePath = (url: string) => {
-        // Extract filename from storage URL
-        // URL format: https://.../storage/v1/object/public/marriage-certificates/filename
-        // or: https://.../storage/v1/object/sign/marriage-certificates/filename?token=...
-        const match = url.match(/marriage-certificates\/([^?]+)/);
-        return match ? match[1] : url;
-      };
-      
-      if (data.id_passport_url) {
-        const filePath = extractFilePath(data.id_passport_url);
-        const { data: signedData } = await supabase.storage
-          .from('marriage-certificates')
-          .createSignedUrl(filePath, 3600);
-        if (signedData) urls.id_passport_url = signedData.signedUrl;
-      }
-      if (data.id_passport_url_back) {
-        const filePath = extractFilePath(data.id_passport_url_back);
-        const { data: signedData } = await supabase.storage
-          .from('marriage-certificates')
-          .createSignedUrl(filePath, 3600);
-        if (signedData) urls.id_passport_url_back = signedData.signedUrl;
-      }
-      if (data.marriage_certificate_url) {
-        const filePath = extractFilePath(data.marriage_certificate_url);
-        const { data: signedData } = await supabase.storage
-          .from('marriage-certificates')
-          .createSignedUrl(filePath, 3600);
-        if (signedData) urls.marriage_certificate_url = signedData.signedUrl;
-      }
-      setSignedUrls(urls);
     }
   };
 
@@ -302,6 +271,50 @@ const ReservationDetail = () => {
     } else {
       toast.success('Reservation deleted successfully');
       navigate('/');
+    }
+  };
+
+  const handleDownloadDocument = async (url: string, docType: 'id_passport_url' | 'id_passport_url_back' | 'marriage_certificate_url') => {
+    setDownloading(prev => ({ ...prev, [docType]: true }));
+    
+    try {
+      // Extract file path from URL
+      const match = url.match(/marriage-certificates\/([^?]+)/);
+      if (!match) {
+        toast.error('Invalid document URL');
+        return;
+      }
+      
+      const filePath = match[1];
+      
+      // Download file from Supabase storage
+      const { data, error } = await supabase.storage
+        .from('marriage-certificates')
+        .download(filePath);
+      
+      if (error) {
+        console.error('Error downloading document:', error);
+        toast.error('Failed to download document');
+        return;
+      }
+      
+      // Create blob URL and trigger download
+      const blob = new Blob([data]);
+      const blobUrl = window.URL.createObjectURL(blob);
+      const link = document.createElement('a');
+      link.href = blobUrl;
+      link.download = filePath;
+      document.body.appendChild(link);
+      link.click();
+      document.body.removeChild(link);
+      window.URL.revokeObjectURL(blobUrl);
+      
+      toast.success('Document downloaded successfully');
+    } catch (error) {
+      console.error('Error downloading document:', error);
+      toast.error('Failed to download document');
+    } finally {
+      setDownloading(prev => ({ ...prev, [docType]: false }));
     }
   };
 
@@ -744,7 +757,7 @@ const ReservationDetail = () => {
             </CardHeader>
             <CardContent className="space-y-4">
               <div className="grid gap-4 md:grid-cols-2">
-                {reservation.id_passport_url && signedUrls.id_passport_url && (
+                {reservation.id_passport_url && (
                   <div className="p-4 border rounded-lg space-y-2">
                     <div className="flex items-center gap-2">
                       <FileText className="h-5 w-5 text-primary" />
@@ -754,14 +767,15 @@ const ReservationDetail = () => {
                       variant="outline"
                       size="sm"
                       className="w-full"
-                      onClick={() => window.open(signedUrls.id_passport_url!, '_blank')}
+                      onClick={() => handleDownloadDocument(reservation.id_passport_url!, 'id_passport_url')}
+                      disabled={downloading.id_passport_url}
                     >
                       <Download className="h-4 w-4 mr-2" />
-                      View/Download
+                      {downloading.id_passport_url ? 'Downloading...' : 'Download'}
                     </Button>
                   </div>
                 )}
-                {reservation.id_passport_url_back && signedUrls.id_passport_url_back && (
+                {reservation.id_passport_url_back && (
                   <div className="p-4 border rounded-lg space-y-2">
                     <div className="flex items-center gap-2">
                       <FileText className="h-5 w-5 text-primary" />
@@ -771,14 +785,15 @@ const ReservationDetail = () => {
                       variant="outline"
                       size="sm"
                       className="w-full"
-                      onClick={() => window.open(signedUrls.id_passport_url_back!, '_blank')}
+                      onClick={() => handleDownloadDocument(reservation.id_passport_url_back!, 'id_passport_url_back')}
+                      disabled={downloading.id_passport_url_back}
                     >
                       <Download className="h-4 w-4 mr-2" />
-                      View/Download
+                      {downloading.id_passport_url_back ? 'Downloading...' : 'Download'}
                     </Button>
                   </div>
                 )}
-                {reservation.marriage_certificate_url && signedUrls.marriage_certificate_url && (
+                {reservation.marriage_certificate_url && (
                   <div className="p-4 border rounded-lg space-y-2">
                     <div className="flex items-center gap-2">
                       <FileText className="h-5 w-5 text-primary" />
@@ -788,10 +803,11 @@ const ReservationDetail = () => {
                       variant="outline"
                       size="sm"
                       className="w-full"
-                      onClick={() => window.open(signedUrls.marriage_certificate_url!, '_blank')}
+                      onClick={() => handleDownloadDocument(reservation.marriage_certificate_url!, 'marriage_certificate_url')}
+                      disabled={downloading.marriage_certificate_url}
                     >
                       <Download className="h-4 w-4 mr-2" />
-                      View/Download
+                      {downloading.marriage_certificate_url ? 'Downloading...' : 'Download'}
                     </Button>
                   </div>
                 )}
