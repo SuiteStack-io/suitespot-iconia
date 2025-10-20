@@ -27,10 +27,14 @@ interface Reservation {
   id: string;
   booking_reference: string;
   guest_names: string[];
+  guest_genders: string[] | null;
   check_in_date: string;
   check_out_date: string;
   status: string;
   total_price: number;
+  number_of_guests: number;
+  children: number | null;
+  adults: number | null;
   units: { name: string } | null;
 }
 
@@ -137,7 +141,7 @@ export const Dashboard = () => {
     
     let query = supabase
       .from('reservations')
-      .select('id, booking_reference, guest_names, check_in_date, check_out_date, status, total_price, units(name)');
+      .select('id, booking_reference, guest_names, guest_genders, check_in_date, check_out_date, status, total_price, number_of_guests, children, adults, units(name)');
     
     switch (cardType) {
       case 'arrivals':
@@ -253,9 +257,27 @@ export const Dashboard = () => {
                             {reservation.status}
                           </Badge>
                         </div>
-                        <p className="text-sm text-muted-foreground">
-                          {reservation.guest_names.join(', ')}
-                        </p>
+                        <div className="space-y-1">
+                          {reservation.guest_names.map((name, idx) => (
+                            <div key={idx} className="flex items-center gap-2">
+                              <p className="text-sm text-muted-foreground">{name}</p>
+                              {reservation.guest_genders && reservation.guest_genders[idx] && (
+                                <Badge variant="outline" className="text-xs">
+                                  {reservation.guest_genders[idx]}
+                                </Badge>
+                              )}
+                            </div>
+                          ))}
+                        </div>
+                        <div className="flex items-center gap-2 text-sm">
+                          <span>{reservation.number_of_guests} {reservation.number_of_guests === 1 ? 'guest' : 'guests'}</span>
+                          {reservation.children !== null && reservation.children > 0 && (
+                            <>
+                              <span>•</span>
+                              <span>{reservation.children} {reservation.children === 1 ? 'child' : 'children'}</span>
+                            </>
+                          )}
+                        </div>
                         <p className="text-sm">
                           {reservation.units?.name || 'No unit assigned'}
                         </p>
