@@ -250,10 +250,17 @@ const handler = async (req: Request): Promise<Response> => {
             <body>
               <div class="header">
                 <h1 style="margin-bottom: 15px;">New Reservation in ICONIA Zamalek</h1>
-                <img src="https://phvduifvymozqiqwvajj.supabase.co/storage/v1/object/public/assets/suitespot-logo.png" alt="SuiteSpot Logo" style="max-width: 150px; height: auto;" />
+                <img src="https://phvduifvymozqiqwvajj.supabase.co/storage/v1/object/public/assets/suitespot-logo.png?t=${Date.now()}" alt="SuiteSpot Logo" style="max-width: 100px; height: auto;" />
               </div>
               
               <div class="content">
+                <p style="color: #333; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', 'Roboto', 'Oxygen', 'Ubuntu', 'Cantarell', 'Fira Sans', 'Droid Sans', 'Helvetica Neue', sans-serif; font-size: 14px; line-height: 1.6; margin-bottom: 20px;">
+                  Dear Team,
+                </p>
+                <p style="color: #333; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', 'Roboto', 'Oxygen', 'Ubuntu', 'Cantarell', 'Fira Sans', 'Droid Sans', 'Helvetica Neue', sans-serif; font-size: 14px; line-height: 1.6; margin-bottom: 30px;">
+                  A new reservation has been received. Please find the details below:
+                </p>
+                
                 <h2 style="color: #0f172a; margin-top: 0;">Reservation Details</h2>
                 
                 <div class="detail-row">
@@ -320,8 +327,14 @@ const handler = async (req: Request): Promise<Response> => {
                   <div style="font-size: 28px; font-weight: bold; color: #0f172a;">$${totalPrice.toFixed(2)}</div>
                 </div>
                 
-                <p style="color: #6b7280; margin-top: 20px;">
-                  This is an automated notification. The reservation has been added to your system.
+                <p style="color: #333; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', 'Roboto', 'Oxygen', 'Ubuntu', 'Cantarell', 'Fira Sans', 'Droid Sans', 'Helvetica Neue', sans-serif; font-size: 14px; line-height: 1.6; margin-top: 30px; margin-bottom: 10px;">
+                  Please ensure the room is prepared according to our standard arrival checklist.<br/>
+                  Front desk: kindly confirm the check-in time with the guest 24 hours before arrival.
+                </p>
+                
+                <p style="color: #333; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', 'Roboto', 'Oxygen', 'Ubuntu', 'Cantarell', 'Fira Sans', 'Droid Sans', 'Helvetica Neue', sans-serif; font-size: 14px; line-height: 1.6; margin-top: 20px;">
+                  Best,<br/>
+                  SuiteSpot Reservations System
                 </p>
               </div>
               
