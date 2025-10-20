@@ -555,95 +555,110 @@ export function CreateReservationDialog() {
   };
 
   const validateForm = () => {
+    const missingFields: string[] = [];
+    
+    // Date validations
     if (!checkInDate) {
-      toast.error("Please select a check-in date");
-      return false;
+      missingFields.push("Check-in date");
     }
     if (!checkOutDate) {
-      toast.error("Please select a check-out date");
-      return false;
+      missingFields.push("Check-out date");
     }
-    if (isBefore(startOfDay(checkInDate), startOfDay(new Date()))) {
+    if (checkInDate && isBefore(startOfDay(checkInDate), startOfDay(new Date()))) {
       toast.error("Check-in date cannot be in the past");
       return false;
     }
-    if (!isAfter(checkOutDate, checkInDate)) {
+    if (checkInDate && checkOutDate && !isAfter(checkOutDate, checkInDate)) {
       toast.error("Check-out date must be after check-in date");
       return false;
     }
+    
+    // Room selection
     if (!unitId) {
-      toast.error("Please select a room");
-      return false;
+      missingFields.push("Room selection");
     }
+    
+    // Guest validations
     if (numberOfGuests < 1) {
-      toast.error("Number of guests must be at least 1");
-      return false;
+      missingFields.push("Number of guests");
     }
     if (!guestNames[0]?.trim()) {
-      toast.error("Please enter at least one guest name");
-      return false;
+      missingFields.push("At least one guest name");
     }
+    
     // Validate that all guests have a type selected
     const hasEmptyTypes = guestTypes.some((type, index) => {
-      // Only check for guests that have names entered
       return guestNames[index]?.trim() !== "" && !type;
     });
     if (hasEmptyTypes) {
-      toast.error("Please select Adult or Child for all guests");
-      return false;
+      missingFields.push("Guest type (Adult/Child) for all guests");
     }
+    
+    // Nationality
     if (!nationality.trim()) {
-      toast.error("Please enter guest nationality");
-      return false;
+      missingFields.push("Guest nationality");
     }
+    
+    // ID/Passport validation
     if (!idPassportFile) {
-      toast.error("Please upload ID/Passport");
-      return false;
+      missingFields.push(idPassportType === 'id' ? "ID front image" : "Passport image");
     }
-    // For ID type, require back image as well
     if (idPassportType === 'id' && !idPassportFileBack) {
-      toast.error("Please upload both front and back of ID");
-      return false;
+      missingFields.push("ID back image");
     }
-    // Validate adult genders are selected
+    
+    // Gender validation for adults
     const adultIndices = guestTypes
       .map((type, index) => type === 'adult' ? index : -1)
       .filter(index => index !== -1);
     
     const hasEmptyGenders = adultIndices.some(index => !guestGenders[index]);
     if (hasEmptyGenders) {
-      toast.error("Please select gender for all adult guests");
-      return false;
+      missingFields.push("Gender selection for all adult guests");
     }
-    // Validate marriage certificate if required
+    
+    // Marriage certificate if required
     if (isMarriageCertificateRequired() && !marriageCertificateFile) {
-      toast.error("Marriage certificate is required for Arab couples");
-      return false;
+      missingFields.push("Marriage certificate (required for Arab couples)");
     }
+    
+    // Contact information
     if (!contactEmail.trim()) {
-      toast.error("Please enter contact email");
-      return false;
-    }
-    if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(contactEmail)) {
+      missingFields.push("Contact email");
+    } else if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(contactEmail)) {
       toast.error("Please enter a valid email address");
       return false;
     }
+    
     if (!contactPhone.trim()) {
-      toast.error("Please enter contact phone number");
-      return false;
+      missingFields.push("Contact phone number");
     }
+    
+    // Source
     if (!source) {
-      toast.error("Please select a source");
-      return false;
+      missingFields.push("Booking source");
     }
+    
+    // Price validation
     if (!pricePerNight || Number(pricePerNight) <= 0) {
-      toast.error("Please enter a valid price per night");
-      return false;
-    }
-    if (!Number.isInteger(Number(pricePerNight))) {
+      missingFields.push("Price per night");
+    } else if (!Number.isInteger(Number(pricePerNight))) {
       toast.error("Price per night must be a whole number");
       return false;
     }
+    
+    // Show all missing fields if any
+    if (missingFields.length > 0) {
+      const fieldsList = missingFields.join(", ");
+      toast.error(
+        `Please complete the following required fields: ${fieldsList}`,
+        {
+          duration: 6000,
+        }
+      );
+      return false;
+    }
+    
     return true;
   };
 
