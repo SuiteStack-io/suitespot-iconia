@@ -6,7 +6,7 @@ import { ReservationsList } from '@/components/ReservationsList';
 import { WeeklyCalendar } from '@/components/WeeklyCalendar';
 import { CreateReservationDialog } from '@/components/CreateReservationDialog';
 import { Button } from '@/components/ui/button';
-import { LogOut, CalendarDays, ChevronDown, Upload } from 'lucide-react';
+import { LogOut, CalendarDays, ChevronDown } from 'lucide-react';
 import suitespotLogo from '@/assets/suitespot-logo.png';
 import { useIsMobile } from '@/hooks/use-mobile';
 import {
@@ -15,24 +15,11 @@ import {
   DropdownMenuItem,
   DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu';
-import { uploadLogoToStorage } from '@/utils/uploadLogo';
-import { toast } from 'sonner';
 
 const Index = () => {
   const { user, loading, signOut, userRole } = useAuth();
   const navigate = useNavigate();
   const isMobile = useIsMobile();
-
-  const handleUploadLogo = async () => {
-    toast.loading('Uploading logo...');
-    const result = await uploadLogoToStorage();
-    if (result.success) {
-      toast.success('Logo uploaded successfully!');
-      console.log('Logo URL:', result.url);
-    } else {
-      toast.error('Failed to upload logo');
-    }
-  };
 
   useEffect(() => {
     if (!loading && !user) {
@@ -155,16 +142,6 @@ const Index = () => {
       </header>
 
       <main className="container mx-auto px-4 py-8 space-y-8">
-        {userRole === 'admin' && (
-          <div className="bg-yellow-50 dark:bg-yellow-900/20 border border-yellow-200 dark:border-yellow-800 rounded-lg p-4">
-            <p className="text-sm mb-2">One-time setup: Upload logo to storage for email notifications</p>
-            <Button onClick={handleUploadLogo} size="sm" variant="outline">
-              <Upload className="h-4 w-4 mr-2" />
-              Upload Logo to Storage
-            </Button>
-          </div>
-        )}
-        
         <section>
           <h2 className="text-2xl font-bold mb-4">Dashboard</h2>
           <Dashboard />
