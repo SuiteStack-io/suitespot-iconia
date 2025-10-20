@@ -292,10 +292,32 @@ export function CreateReservationDialog() {
     }
   }, [guestNames]);
 
-  // Fetch all units and users on mount
+  // Fetch all units and users on mount, and subscribe to real-time updates
   useEffect(() => {
     fetchUnits();
     fetchUsers();
+
+    // Subscribe to profile changes
+    const profilesChannel = supabase
+      .channel('profiles-changes')
+      .on(
+        'postgres_changes',
+        {
+          event: '*',
+          schema: 'public',
+          table: 'profiles'
+        },
+        () => {
+          // Refetch users when profiles table changes
+          fetchUsers();
+        }
+      )
+      .subscribe();
+
+    // Cleanup subscription on unmount
+    return () => {
+      supabase.removeChannel(profilesChannel);
+    };
   }, []);
 
   const fetchUsers = async () => {
