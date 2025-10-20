@@ -159,6 +159,7 @@ interface Unit {
   id: string;
   name: string;
   unit_number: string | null;
+  unit_type: string | null;
 }
 
 export function CreateReservationDialog() {
@@ -260,7 +261,7 @@ export function CreateReservationDialog() {
   const fetchUnits = async () => {
     const { data, error } = await supabase
       .from("units")
-      .select("id, name, unit_number")
+      .select("id, name, unit_number, unit_type")
       .order("name");
 
     if (error) {
@@ -660,7 +661,7 @@ export function CreateReservationDialog() {
               <SelectContent>
                 {availableUnits.map((unit) => (
                   <SelectItem key={unit.id} value={unit.id}>
-                    {unit.name}
+                    {unit.name}{unit.unit_type ? ` - ${unit.unit_type}` : ''}
                   </SelectItem>
                 ))}
               </SelectContent>
