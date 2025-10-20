@@ -184,11 +184,14 @@ export function CreateReservationDialog() {
   const [guestGenders, setGuestGenders] = useState<('male' | 'female' | '')[]>([""]);
   const [nationality, setNationality] = useState("");
   const [idPassportFile, setIdPassportFile] = useState<File | null>(null);
+  const [idPassportUrl, setIdPassportUrl] = useState<string | null>(null);
   const [idPassportType, setIdPassportType] = useState<'id' | 'passport'>('id');
+  const [idUploadProgress, setIdUploadProgress] = useState<number>(0);
+  const [isIdUploading, setIsIdUploading] = useState<boolean>(false);
   const [marriageCertificateFile, setMarriageCertificateFile] = useState<File | null>(null);
   const [marriageCertificateUrl, setMarriageCertificateUrl] = useState<string | null>(null);
-  const [uploadProgress, setUploadProgress] = useState<number>(0);
-  const [isUploading, setIsUploading] = useState<boolean>(false);
+  const [marriageUploadProgress, setMarriageUploadProgress] = useState<number>(0);
+  const [isMarriageUploading, setIsMarriageUploading] = useState<boolean>(false);
   const [contactEmail, setContactEmail] = useState("");
   const [countryCode, setCountryCode] = useState("+20"); // Default to Egypt
   const [contactPhone, setContactPhone] = useState("");
@@ -363,14 +366,81 @@ export function CreateReservationDialog() {
     setGuestGenders(newGuestGenders);
   };
 
-  const handleMarriageCertificateUpload = async (file: File) => {
-    setMarriageCertificateFile(file);
-    setIsUploading(true);
-    setUploadProgress(0);
+  const handleIdPassportUpload = async (file: File) => {
+    setIdPassportFile(file);
+    setIsIdUploading(true);
+    setIdUploadProgress(0);
     
     // Simulate upload progress
     const progressInterval = setInterval(() => {
-      setUploadProgress(prev => {
+      setIdUploadProgress(prev => {
+        if (prev >= 90) {
+          clearInterval(progressInterval);
+          return 90;
+        }
+        return prev + 10;
+      });
+    }, 100);
+    
+    try {
+      const fileExt = file.name.split('.').pop();
+      const fileName = `${Date.now()}-${Math.random().toString(36).substring(7)}.${fileExt}`;
+      const filePath = `${fileName}`;
+
+      const { error: uploadError } = await supabase.storage
+        .from('marriage-certificates') // Using same bucket for now
+        .upload(filePath, file);
+
+      clearInterval(progressInterval);
+      setIdUploadProgress(100);
+
+      if (uploadError) {
+        console.error('Error uploading ID/Passport:', uploadError);
+        toast.error('Failed to upload ID/Passport');
+        setIdPassportFile(null);
+        setIsIdUploading(false);
+        setIdUploadProgress(0);
+        return;
+      }
+
+      const { data: { publicUrl } } = supabase.storage
+        .from('marriage-certificates')
+        .getPublicUrl(filePath);
+      
+      setIdPassportUrl(publicUrl);
+      
+      // Keep progress bar at 100% for a moment before hiding
+      await new Promise(resolve => setTimeout(resolve, 500));
+      setIsIdUploading(false);
+      setIdUploadProgress(0);
+      toast.success('ID/Passport uploaded successfully');
+    } catch (error) {
+      clearInterval(progressInterval);
+      console.error('Upload error:', error);
+      toast.error('Failed to upload ID/Passport');
+      setIdPassportFile(null);
+      setIsIdUploading(false);
+      setIdUploadProgress(0);
+    }
+  };
+
+  const handleIdPassportDelete = () => {
+    setIdPassportFile(null);
+    setIdPassportUrl(null);
+    setIdUploadProgress(0);
+    setIsIdUploading(false);
+    const input = document.getElementById('idPassport') as HTMLInputElement;
+    if (input) input.value = '';
+  };
+
+  const handleMarriageCertificateUpload = async (file: File) => {
+    setMarriageCertificateFile(file);
+    setIsMarriageUploading(true);
+    setMarriageUploadProgress(0);
+    
+    // Simulate upload progress
+    const progressInterval = setInterval(() => {
+      setMarriageUploadProgress(prev => {
         if (prev >= 90) {
           clearInterval(progressInterval);
           return 90;
@@ -389,14 +459,14 @@ export function CreateReservationDialog() {
         .upload(filePath, file);
 
       clearInterval(progressInterval);
-      setUploadProgress(100);
+      setMarriageUploadProgress(100);
 
       if (uploadError) {
         console.error('Error uploading marriage certificate:', uploadError);
         toast.error('Failed to upload marriage certificate');
         setMarriageCertificateFile(null);
-        setIsUploading(false);
-        setUploadProgress(0);
+        setIsMarriageUploading(false);
+        setMarriageUploadProgress(0);
         return;
       }
 
@@ -408,24 +478,24 @@ export function CreateReservationDialog() {
       
       // Keep progress bar at 100% for a moment before hiding
       await new Promise(resolve => setTimeout(resolve, 500));
-      setIsUploading(false);
-      setUploadProgress(0);
+      setIsMarriageUploading(false);
+      setMarriageUploadProgress(0);
       toast.success('Marriage certificate uploaded successfully');
     } catch (error) {
       clearInterval(progressInterval);
       console.error('Upload error:', error);
       toast.error('Failed to upload marriage certificate');
       setMarriageCertificateFile(null);
-      setIsUploading(false);
-      setUploadProgress(0);
+      setIsMarriageUploading(false);
+      setMarriageUploadProgress(0);
     }
   };
 
   const handleMarriageCertificateDelete = () => {
     setMarriageCertificateFile(null);
     setMarriageCertificateUrl(null);
-    setUploadProgress(0);
-    setIsUploading(false);
+    setMarriageUploadProgress(0);
+    setIsMarriageUploading(false);
     const input = document.getElementById('marriage-certificate') as HTMLInputElement;
     if (input) input.value = '';
   };
@@ -992,51 +1062,63 @@ export function CreateReservationDialog() {
                 </Label>
               </div>
             </RadioGroup>
-            <div className="flex items-center gap-2">
-              <Input
-                id="idPassport"
-                type="file"
-                accept="image/*"
-                onChange={(e) => {
-                  const file = e.target.files?.[0];
-                  if (file) {
-                    if (!file.type.startsWith('image/')) {
-                      toast.error("Only image files are supported");
-                      e.target.value = '';
-                      return;
-                    }
-                    setIdPassportFile(file);
-                  }
-                }}
-                className="hidden"
-              />
-              <Label
-                htmlFor="idPassport"
-                className="flex items-center gap-2 px-4 py-2 border rounded-md cursor-pointer hover:bg-accent transition-colors"
-              >
-                <Upload className="h-4 w-4" />
-                Upload
-              </Label>
-              {idPassportFile && (
-                <div className="flex items-center gap-2 flex-1">
-                  <span className="text-sm text-muted-foreground">
-                    {idPassportFile.name}
-                  </span>
+            
+            {idPassportFile ? (
+              <div className="space-y-2">
+                <div className="flex items-center gap-2 p-2 bg-background rounded border">
+                  <span className="text-sm flex-1 truncate">{idPassportFile.name}</span>
                   <Button
                     type="button"
-                    variant="outline"
-                    size="icon"
-                    onClick={() => {
-                      setIdPassportFile(null);
-                      const input = document.getElementById('idPassport') as HTMLInputElement;
-                      if (input) input.value = '';
-                    }}
+                    variant="ghost"
+                    size="sm"
+                    onClick={handleIdPassportDelete}
+                    className="hover:text-destructive"
+                    disabled={isIdUploading}
                   >
                     <X className="h-4 w-4" />
                   </Button>
                 </div>
-              )}
-            </div>
+                {isIdUploading && (
+                  <div className="space-y-1">
+                    <Progress value={idUploadProgress} className="h-2 [&>div]:bg-blue-500" />
+                    <p className="text-xs text-muted-foreground text-center">{idUploadProgress}%</p>
+                  </div>
+                )}
+              </div>
+            ) : (
+              <div className="flex items-center gap-2">
+                <Input
+                  id="idPassport"
+                  type="file"
+                  accept="image/*"
+                  onChange={(e) => {
+                    const file = e.target.files?.[0];
+                    if (file) {
+                      if (!file.type.startsWith('image/')) {
+                        toast.error("Only image files are supported");
+                        e.target.value = '';
+                        return;
+                      }
+                      // Validate file size (10MB max)
+                      if (file.size > 10 * 1024 * 1024) {
+                        toast.error('File size must be less than 10MB');
+                        e.target.value = '';
+                        return;
+                      }
+                      handleIdPassportUpload(file);
+                    }
+                  }}
+                  className="hidden"
+                />
+                <Label
+                  htmlFor="idPassport"
+                  className="flex items-center gap-2 px-4 py-2 border rounded-md cursor-pointer hover:bg-accent transition-colors"
+                >
+                  <Upload className="h-4 w-4" />
+                  Upload
+                </Label>
+              </div>
+            )}
           </div>
 
           {/* Marriage Certificate Upload - Conditional */}
@@ -1063,15 +1145,15 @@ export function CreateReservationDialog() {
                       size="sm"
                       onClick={handleMarriageCertificateDelete}
                       className="hover:text-destructive"
-                      disabled={isUploading}
+                      disabled={isMarriageUploading}
                     >
                       <X className="h-4 w-4" />
                     </Button>
                   </div>
-                  {isUploading && (
+                  {isMarriageUploading && (
                     <div className="space-y-1">
-                      <Progress value={uploadProgress} className="h-2 [&>div]:bg-blue-500" />
-                      <p className="text-xs text-muted-foreground text-center">{uploadProgress}%</p>
+                      <Progress value={marriageUploadProgress} className="h-2 [&>div]:bg-blue-500" />
+                      <p className="text-xs text-muted-foreground text-center">{marriageUploadProgress}%</p>
                     </div>
                   )}
                 </div>
