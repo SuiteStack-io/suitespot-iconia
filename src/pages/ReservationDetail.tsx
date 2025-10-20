@@ -335,18 +335,36 @@ const ReservationDetail = () => {
 
   return (
     <div className="space-y-6">
-      <div className="flex items-center justify-between py-8">
-        <div className="flex items-center gap-4">
-          <Button variant="outline" size="icon" onClick={() => navigate('/')}>
-            <ArrowLeft className="h-4 w-4" />
-          </Button>
-          <div>
-            <h1 className="text-3xl font-bold">Reservation Details</h1>
-            <p className="text-muted-foreground">Booking Reference: {reservation.booking_reference}</p>
+      <div className="py-8">
+        <div className="flex items-center justify-between">
+          <div className="flex items-center gap-4">
+            <Button variant="outline" size="icon" onClick={() => navigate('/')}>
+              <ArrowLeft className="h-4 w-4" />
+            </Button>
+            <div>
+              <h1 className="text-3xl font-bold">Reservation Details</h1>
+              <p className="text-muted-foreground">Booking Reference: {reservation.booking_reference}</p>
+            </div>
           </div>
+          {canEdit && !isEditMode && (
+            <div className="hidden md:flex gap-2">
+              <Button onClick={() => setIsEditMode(true)}>
+                <Edit2 className="h-4 w-4 mr-2" />
+                Edit Reservation
+              </Button>
+              <Button 
+                variant="destructive" 
+                size="sm"
+                onClick={() => setShowDeleteDialog(true)}
+              >
+                <Trash2 className="h-4 w-4 mr-2" />
+                Delete Reservation
+              </Button>
+            </div>
+          )}
         </div>
         {canEdit && !isEditMode && (
-          <div className="flex gap-2">
+          <div className="flex md:hidden gap-2 mt-4">
             <Button onClick={() => setIsEditMode(true)}>
               <Edit2 className="h-4 w-4 mr-2" />
               Edit Reservation
