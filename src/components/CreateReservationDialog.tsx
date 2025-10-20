@@ -25,6 +25,7 @@ import {
   PopoverContent,
   PopoverTrigger,
 } from "@/components/ui/popover";
+import { Progress } from "@/components/ui/progress";
 import {
   Command,
   CommandEmpty,
@@ -185,6 +186,8 @@ export function CreateReservationDialog() {
   const [idPassportFile, setIdPassportFile] = useState<File | null>(null);
   const [idPassportType, setIdPassportType] = useState<'id' | 'passport'>('id');
   const [marriageCertificateFile, setMarriageCertificateFile] = useState<File | null>(null);
+  const [uploadProgress, setUploadProgress] = useState<number>(0);
+  const [isUploading, setIsUploading] = useState<boolean>(false);
   const [contactEmail, setContactEmail] = useState("");
   const [countryCode, setCountryCode] = useState("+20"); // Default to Egypt
   const [contactPhone, setContactPhone] = useState("");
@@ -462,6 +465,20 @@ export function CreateReservationDialog() {
       // Upload marriage certificate if provided
       let marriageCertificateUrl = null;
       if (marriageCertificateFile) {
+        setIsUploading(true);
+        setUploadProgress(0);
+        
+        // Simulate upload progress
+        const progressInterval = setInterval(() => {
+          setUploadProgress(prev => {
+            if (prev >= 90) {
+              clearInterval(progressInterval);
+              return 90;
+            }
+            return prev + 10;
+          });
+        }, 100);
+        
         const fileExt = marriageCertificateFile.name.split('.').pop();
         const fileName = `${Date.now()}-${Math.random().toString(36).substring(7)}.${fileExt}`;
         const filePath = `${fileName}`;
@@ -470,10 +487,15 @@ export function CreateReservationDialog() {
           .from('marriage-certificates')
           .upload(filePath, marriageCertificateFile);
 
+        clearInterval(progressInterval);
+        setUploadProgress(100);
+
         if (uploadError) {
           console.error('Error uploading marriage certificate:', uploadError);
           toast.error('Failed to upload marriage certificate');
           setLoading(false);
+          setIsUploading(false);
+          setUploadProgress(0);
           return;
         }
 
@@ -482,6 +504,11 @@ export function CreateReservationDialog() {
           .getPublicUrl(filePath);
         
         marriageCertificateUrl = publicUrl;
+        
+        // Keep progress bar at 100% for a moment before hiding
+        await new Promise(resolve => setTimeout(resolve, 500));
+        setIsUploading(false);
+        setUploadProgress(0);
       }
 
       // Calculate pricing and commission
@@ -1006,21 +1033,32 @@ export function CreateReservationDialog() {
               </div>
               
               {marriageCertificateFile ? (
-                <div className="flex items-center gap-2 p-2 bg-background rounded border">
-                  <span className="text-sm flex-1 truncate">{marriageCertificateFile.name}</span>
-                  <Button
-                    type="button"
-                    variant="ghost"
-                    size="sm"
-                    onClick={() => {
-                      setMarriageCertificateFile(null);
-                      const input = document.getElementById('marriage-certificate') as HTMLInputElement;
-                      if (input) input.value = '';
-                    }}
-                    className="hover:text-destructive"
-                  >
-                    <X className="h-4 w-4" />
-                  </Button>
+                <div className="space-y-2">
+                  <div className="flex items-center gap-2 p-2 bg-background rounded border">
+                    <span className="text-sm flex-1 truncate">{marriageCertificateFile.name}</span>
+                    <Button
+                      type="button"
+                      variant="ghost"
+                      size="sm"
+                      onClick={() => {
+                        setMarriageCertificateFile(null);
+                        setUploadProgress(0);
+                        setIsUploading(false);
+                        const input = document.getElementById('marriage-certificate') as HTMLInputElement;
+                        if (input) input.value = '';
+                      }}
+                      className="hover:text-destructive"
+                      disabled={isUploading}
+                    >
+                      <X className="h-4 w-4" />
+                    </Button>
+                  </div>
+                  {isUploading && (
+                    <div className="space-y-1">
+                      <Progress value={uploadProgress} className="h-2" />
+                      <p className="text-xs text-muted-foreground text-center">{uploadProgress}%</p>
+                    </div>
+                  )}
                 </div>
               ) : (
                 <div className="flex items-center gap-2">
