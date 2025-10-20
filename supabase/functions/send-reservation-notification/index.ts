@@ -161,9 +161,14 @@ const handler = async (req: Request): Promise<Response> => {
         (1000 * 60 * 60 * 24)
     );
 
-    // Send emails to all users
-    const emailPromises = users.map(async (user: any) => {
+    // Send emails to all users with rate limiting (max 2 per second for Resend free tier)
+    const results = [];
+    for (let i = 0; i < users.length; i++) {
+      const user = users[i];
+      if (!user.email) continue; // Skip if no email (should not happen due to filter above)
+      
       console.log(`Attempting to send email to: ${user.email}`);
+      
       try {
         const result = await resend.emails.send({
           from: "SuiteSpot Bookings <onboarding@resend.dev>",
@@ -321,15 +326,18 @@ const handler = async (req: Request): Promise<Response> => {
           </html>
         `,
         });
-        console.log(`Email sent to ${user.email}:`, result);
-        return result;
+        console.log(`Email sent successfully to ${user.email}:`, result);
+        results.push({ status: 'fulfilled', value: result });
       } catch (error) {
         console.error(`Failed to send email to ${user.email}:`, error);
-        throw error;
+        results.push({ status: 'rejected', reason: error });
       }
-    });
-
-    const results = await Promise.allSettled(emailPromises);
+      
+      // Add delay between emails to respect rate limit (2 emails/second = 500ms delay)
+      if (i < users.length - 1) {
+        await new Promise(resolve => setTimeout(resolve, 600));
+      }
+    }
 
     // Log results
     const successful = results.filter((r) => r.status === "fulfilled").length;
