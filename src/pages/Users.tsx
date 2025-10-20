@@ -91,6 +91,37 @@ const Users = () => {
     try {
       console.log('Updating user:', editingUser.id, 'with role:', editForm.role);
       
+      // Validate email format
+      const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+      if (!emailRegex.test(editForm.email)) {
+        toast({
+          title: 'Error',
+          description: 'Please enter a valid email address',
+          variant: 'destructive',
+        });
+        return;
+      }
+
+      // Update email if changed (using edge function)
+      if (editForm.email !== editingUser.email) {
+        const { data: emailData, error: emailError } = await supabase.functions.invoke(
+          'update-user-email',
+          {
+            body: {
+              userId: editingUser.id,
+              newEmail: editForm.email,
+            },
+          }
+        );
+
+        if (emailError) {
+          console.error('Email update error:', emailError);
+          throw new Error('Failed to update email');
+        }
+
+        console.log('Email updated:', emailData);
+      }
+      
       // Update profile
       const { error: profileError } = await supabase
         .from('profiles')
@@ -212,6 +243,15 @@ const Users = () => {
                                 id="name"
                                 value={editForm.full_name}
                                 onChange={(e) => setEditForm({ ...editForm, full_name: e.target.value })}
+                              />
+                            </div>
+                            <div className="space-y-2">
+                              <Label htmlFor="email">Email</Label>
+                              <Input
+                                id="email"
+                                type="email"
+                                value={editForm.email}
+                                onChange={(e) => setEditForm({ ...editForm, email: e.target.value })}
                               />
                             </div>
                             <div className="space-y-2">
