@@ -86,6 +86,11 @@ const ReservationDetail = () => {
   const [saving, setSaving] = useState(false);
   const [showDeleteDialog, setShowDeleteDialog] = useState(false);
   const [deleting, setDeleting] = useState(false);
+  const [signedUrls, setSignedUrls] = useState<{
+    id_passport_url?: string;
+    id_passport_url_back?: string;
+    marriage_certificate_url?: string;
+  }>({});
   
   // Form state
   const [formData, setFormData] = useState({
@@ -138,6 +143,28 @@ const ReservationDetail = () => {
         status: data.status,
         notes: data.notes || '',
       });
+
+      // Generate signed URLs for documents
+      const urls: any = {};
+      if (data.id_passport_url) {
+        const { data: signedData } = await supabase.storage
+          .from('marriage-certificates')
+          .createSignedUrl(data.id_passport_url, 3600);
+        if (signedData) urls.id_passport_url = signedData.signedUrl;
+      }
+      if (data.id_passport_url_back) {
+        const { data: signedData } = await supabase.storage
+          .from('marriage-certificates')
+          .createSignedUrl(data.id_passport_url_back, 3600);
+        if (signedData) urls.id_passport_url_back = signedData.signedUrl;
+      }
+      if (data.marriage_certificate_url) {
+        const { data: signedData } = await supabase.storage
+          .from('marriage-certificates')
+          .createSignedUrl(data.marriage_certificate_url, 3600);
+        if (signedData) urls.marriage_certificate_url = signedData.signedUrl;
+      }
+      setSignedUrls(urls);
     }
   };
 
@@ -687,7 +714,7 @@ const ReservationDetail = () => {
             </CardHeader>
             <CardContent className="space-y-4">
               <div className="grid gap-4 md:grid-cols-2">
-                {reservation.id_passport_url && (
+                {reservation.id_passport_url && signedUrls.id_passport_url && (
                   <div className="p-4 border rounded-lg space-y-2">
                     <div className="flex items-center gap-2">
                       <FileText className="h-5 w-5 text-primary" />
@@ -697,14 +724,14 @@ const ReservationDetail = () => {
                       variant="outline"
                       size="sm"
                       className="w-full"
-                      onClick={() => window.open(reservation.id_passport_url!, '_blank')}
+                      onClick={() => window.open(signedUrls.id_passport_url!, '_blank')}
                     >
                       <Download className="h-4 w-4 mr-2" />
                       View/Download
                     </Button>
                   </div>
                 )}
-                {reservation.id_passport_url_back && (
+                {reservation.id_passport_url_back && signedUrls.id_passport_url_back && (
                   <div className="p-4 border rounded-lg space-y-2">
                     <div className="flex items-center gap-2">
                       <FileText className="h-5 w-5 text-primary" />
@@ -714,14 +741,14 @@ const ReservationDetail = () => {
                       variant="outline"
                       size="sm"
                       className="w-full"
-                      onClick={() => window.open(reservation.id_passport_url_back!, '_blank')}
+                      onClick={() => window.open(signedUrls.id_passport_url_back!, '_blank')}
                     >
                       <Download className="h-4 w-4 mr-2" />
                       View/Download
                     </Button>
                   </div>
                 )}
-                {reservation.marriage_certificate_url && (
+                {reservation.marriage_certificate_url && signedUrls.marriage_certificate_url && (
                   <div className="p-4 border rounded-lg space-y-2">
                     <div className="flex items-center gap-2">
                       <FileText className="h-5 w-5 text-primary" />
@@ -731,7 +758,7 @@ const ReservationDetail = () => {
                       variant="outline"
                       size="sm"
                       className="w-full"
-                      onClick={() => window.open(reservation.marriage_certificate_url!, '_blank')}
+                      onClick={() => window.open(signedUrls.marriage_certificate_url!, '_blank')}
                     >
                       <Download className="h-4 w-4 mr-2" />
                       View/Download
