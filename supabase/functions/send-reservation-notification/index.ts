@@ -173,7 +173,7 @@ const handler = async (req: Request): Promise<Response> => {
         const result = await resend.emails.send({
           from: "SuiteSpot Bookings <reservations@bookings.suitespoteg.com>",
           to: [user.email],
-          subject: `New Reservation: ${guestNames.join(", ")} - ${unitName}`,
+          subject: `New Reservation: ${guestNames.join(", ")} - ${unitName.split(' ')[0]} ${unitName.split(' ')[1] || ''}`,
         html: `
           <!DOCTYPE html>
           <html>
@@ -247,8 +247,8 @@ const handler = async (req: Request): Promise<Response> => {
             </head>
             <body>
               <div class="header">
-                <h1>🏨 New Reservation</h1>
-                <p style="margin: 10px 0 0 0; opacity: 0.9;">SuiteSpot Bookings</p>
+                <h1 style="margin-bottom: 15px;">New Reservation in ICONIA Suitespot</h1>
+                <img src="https://phvduifvymozqiqwvajj.supabase.co/storage/v1/object/public/assets/suitespot-logo.png" alt="SuiteSpot Logo" style="max-width: 150px; height: auto;" />
               </div>
               
               <div class="content">
@@ -261,7 +261,7 @@ const handler = async (req: Request): Promise<Response> => {
                 
                 <div class="detail-row">
                   <div class="detail-label">Unit:</div>
-                  <div class="detail-value"><strong>${unitName}</strong> ${unitType ? `(${unitType})` : ''}</div>
+                  <div class="detail-value"><strong>${unitName.split(' ')[0]} ${unitName.split(' ')[1] || ''}</strong> ${unitType || ''}</div>
                 </div>
                 
                 <div class="detail-row">
@@ -286,12 +286,12 @@ const handler = async (req: Request): Promise<Response> => {
                 
                 <div class="detail-row">
                   <div class="detail-label">Adults:</div>
-                  <div class="detail-value">${adults}</div>
+                  <div class="detail-value">${adults || 0}</div>
                 </div>
                 
                 <div class="detail-row">
                   <div class="detail-label">Children:</div>
-                  <div class="detail-value">${children}</div>
+                  <div class="detail-value">${children || 0}</div>
                 </div>
                 
                 <div class="detail-row">
