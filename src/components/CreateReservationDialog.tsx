@@ -838,9 +838,23 @@ export function CreateReservationDialog() {
                 Upload
               </Label>
               {idPassportFile && (
-                <span className="text-sm text-muted-foreground">
-                  {idPassportFile.name}
-                </span>
+                <div className="flex items-center gap-2 flex-1">
+                  <span className="text-sm text-muted-foreground">
+                    {idPassportFile.name}
+                  </span>
+                  <Button
+                    type="button"
+                    variant="outline"
+                    size="icon"
+                    onClick={() => {
+                      setIdPassportFile(null);
+                      const input = document.getElementById('idPassport') as HTMLInputElement;
+                      if (input) input.value = '';
+                    }}
+                  >
+                    <X className="h-4 w-4" />
+                  </Button>
+                </div>
               )}
             </div>
           </div>
