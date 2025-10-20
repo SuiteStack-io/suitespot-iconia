@@ -149,8 +149,11 @@ const ReservationDetail = () => {
       
       // Helper function to extract file path from URL
       const extractFilePath = (url: string) => {
-        const parts = url.split('/marriage-certificates/');
-        return parts.length > 1 ? parts[1] : url;
+        // Extract filename from storage URL
+        // URL format: https://.../storage/v1/object/public/marriage-certificates/filename
+        // or: https://.../storage/v1/object/sign/marriage-certificates/filename?token=...
+        const match = url.match(/marriage-certificates\/([^?]+)/);
+        return match ? match[1] : url;
       };
       
       if (data.id_passport_url) {
