@@ -742,6 +742,7 @@ export function CreateReservationDialog() {
         adults: adults,
         children: children,
         guest_names: guestNames.filter(name => name.trim() !== ""),
+        guest_types: guestTypes.filter((_, i) => guestNames[i]?.trim() !== ""),
         guest_genders: guestGenders.filter((_, i) => guestNames[i]?.trim() !== ""),
         guest_nationality: nationality,
         marriage_certificate_url: marriageCertificateUrl || null,

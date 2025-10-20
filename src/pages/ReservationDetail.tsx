@@ -43,6 +43,7 @@ interface Reservation {
   nights: number;
   number_of_guests: number;
   guest_names: string[];
+  guest_types: string[] | null;
   guest_genders: string[] | null;
   guest_nationality: string | null;
   guest_ages: number[];
@@ -496,6 +497,11 @@ const ReservationDetail = () => {
                     {reservation.guest_names.map((name, idx) => (
                       <div key={idx} className="flex items-center gap-2">
                         <span className="font-medium">{name}</span>
+                        {reservation.guest_types && reservation.guest_types[idx] && (
+                          <Badge variant="secondary" className="text-xs capitalize">
+                            {reservation.guest_types[idx]}
+                          </Badge>
+                        )}
                         {reservation.guest_genders && reservation.guest_genders[idx] && (
                           <Badge variant="outline" className="text-xs">
                             {reservation.guest_genders[idx] === 'male' ? 'Male' : 'Female'}

@@ -83,6 +83,7 @@ export type Database = {
           guest_genders: string[] | null
           guest_names: string[]
           guest_nationality: string | null
+          guest_types: string[] | null
           id: string
           id_passport_url: string | null
           id_passport_url_back: string | null
@@ -115,6 +116,7 @@ export type Database = {
           guest_genders?: string[] | null
           guest_names?: string[]
           guest_nationality?: string | null
+          guest_types?: string[] | null
           id?: string
           id_passport_url?: string | null
           id_passport_url_back?: string | null
@@ -147,6 +149,7 @@ export type Database = {
           guest_genders?: string[] | null
           guest_names?: string[]
           guest_nationality?: string | null
+          guest_types?: string[] | null
           id?: string
           id_passport_url?: string | null
           id_passport_url_back?: string | null
