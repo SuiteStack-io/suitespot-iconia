@@ -214,14 +214,23 @@ export function CreateReservationDialog() {
     }
   }, [source]);
 
-  // Auto-calculate adults and children from guest types
+  // Auto-sync guest names array when adults/children selectors change
   useEffect(() => {
-    const adultCount = guestTypes.filter(type => type === 'adult').length;
-    const childCount = guestTypes.filter(type => type === 'child').length;
-    setAdults(adultCount);
-    setChildren(childCount);
-    setNumberOfGuests(adultCount + childCount);
-  }, [guestTypes]);
+    const totalGuests = adults + children;
+    setNumberOfGuests(totalGuests);
+    
+    // Create arrays for guest names and types based on adults/children counts
+    const newGuestNames = Array(totalGuests).fill('').map((_, i) => guestNames[i] || '');
+    const newGuestTypes = Array(totalGuests).fill('adult' as 'adult' | 'child').map((_, i) => {
+      // If we already have a type for this index, keep it
+      if (guestTypes[i]) return guestTypes[i];
+      // Otherwise, assign based on position: first X are adults, rest are children
+      return i < adults ? 'adult' : 'child';
+    });
+    
+    setGuestNames(newGuestNames);
+    setGuestTypes(newGuestTypes);
+  }, [adults, children]);
 
   // Auto-sync number of guests with guest names count
   useEffect(() => {
@@ -293,20 +302,6 @@ export function CreateReservationDialog() {
     }
     
     setCheckingAvailability(false);
-  };
-
-  const addGuestName = () => {
-    setGuestNames([...guestNames, ""]);
-    setGuestTypes([...guestTypes, "adult"]);
-  };
-
-  const removeGuestName = (index: number) => {
-    if (guestNames.length > 1) {
-      const newGuestNames = guestNames.filter((_, i) => i !== index);
-      const newGuestTypes = guestTypes.filter((_, i) => i !== index);
-      setGuestNames(newGuestNames);
-      setGuestTypes(newGuestTypes);
-    }
   };
 
   const updateGuestName = (index: number, value: string) => {
@@ -736,16 +731,6 @@ export function CreateReservationDialog() {
                     onChange={(e) => updateGuestName(index, e.target.value)}
                     className="flex-1"
                   />
-                  {index > 0 && (
-                    <Button
-                      type="button"
-                      variant="outline"
-                      size="icon"
-                      onClick={() => removeGuestName(index)}
-                    >
-                      <X className="h-4 w-4" />
-                    </Button>
-                  )}
                 </div>
                 <RadioGroup
                   value={guestTypes[index]}
@@ -767,16 +752,6 @@ export function CreateReservationDialog() {
                 </RadioGroup>
               </div>
             ))}
-            <Button
-              type="button"
-              variant="outline"
-              size="sm"
-              onClick={addGuestName}
-              className="w-full"
-            >
-              <Plus className="mr-2 h-4 w-4" />
-              Add Guest
-            </Button>
           </div>
 
           {/* Nationality */}
