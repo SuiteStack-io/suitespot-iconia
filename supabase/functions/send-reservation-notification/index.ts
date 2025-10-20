@@ -251,6 +251,7 @@ const handler = async (req: Request): Promise<Response> => {
               <div class="header">
                 <h1 style="margin-bottom: 15px;">New Reservation in ICONIA Zamalek</h1>
                 <img src="https://phvduifvymozqiqwvajj.supabase.co/storage/v1/object/public/assets/suitespot-logo.png?t=${Date.now()}" alt="SuiteSpot Logo" style="max-width: 100px; height: auto;" />
+                <p style="margin-top: 10px; margin-bottom: 0; font-size: 18px; font-weight: 400; color: white;">SuiteSpot Bookings</p>
               </div>
               
               <div class="content">
