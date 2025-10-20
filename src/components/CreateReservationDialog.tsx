@@ -619,6 +619,7 @@ export function CreateReservationDialog() {
         guest_genders: guestGenders.filter((_, i) => guestNames[i]?.trim() !== ""),
         guest_nationality: nationality,
         marriage_certificate_url: marriageCertificateUrl || null,
+        id_passport_url: idPassportUrl || null,
         source,
         status: "confirmed",
         channel: "Manual",

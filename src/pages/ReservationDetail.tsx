@@ -19,7 +19,7 @@ import { Calendar } from '@/components/ui/calendar';
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
 import { toast } from 'sonner';
 import { format } from 'date-fns';
-import { ArrowLeft, Edit2, X, CalendarIcon, Trash2 } from 'lucide-react';
+import { ArrowLeft, Edit2, X, CalendarIcon, Trash2, FileText, Download } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import {
   AlertDialog,
@@ -43,6 +43,7 @@ interface Reservation {
   nights: number;
   number_of_guests: number;
   guest_names: string[];
+  guest_genders: string[] | null;
   guest_nationality: string | null;
   guest_ages: number[];
   contact_email: string | null;
@@ -55,6 +56,8 @@ interface Reservation {
   currency: string;
   notes: string | null;
   status: string;
+  marriage_certificate_url: string | null;
+  id_passport_url: string | null;
   created_at: string;
   updated_at: string;
   units: { name: string } | null;
@@ -422,6 +425,11 @@ const ReservationDetail = () => {
                     {reservation.guest_names.map((name, idx) => (
                       <div key={idx} className="flex items-center gap-2">
                         <span className="font-medium">{name}</span>
+                        {reservation.guest_genders && reservation.guest_genders[idx] && (
+                          <Badge variant="outline" className="text-xs">
+                            {reservation.guest_genders[idx] === 'male' ? 'Male' : 'Female'}
+                          </Badge>
+                        )}
                       </div>
                     ))}
                   </div>
@@ -669,6 +677,53 @@ const ReservationDetail = () => {
             )}
           </CardContent>
         </Card>
+
+        {/* Documents Card */}
+        {(reservation.marriage_certificate_url || reservation.id_passport_url) && (
+          <Card className="md:col-span-2">
+            <CardHeader>
+              <CardTitle>Uploaded Documents</CardTitle>
+            </CardHeader>
+            <CardContent className="space-y-4">
+              <div className="grid gap-4 md:grid-cols-2">
+                {reservation.id_passport_url && (
+                  <div className="p-4 border rounded-lg space-y-2">
+                    <div className="flex items-center gap-2">
+                      <FileText className="h-5 w-5 text-primary" />
+                      <Label className="font-semibold">ID/Passport</Label>
+                    </div>
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      className="w-full"
+                      onClick={() => window.open(reservation.id_passport_url!, '_blank')}
+                    >
+                      <Download className="h-4 w-4 mr-2" />
+                      View/Download
+                    </Button>
+                  </div>
+                )}
+                {reservation.marriage_certificate_url && (
+                  <div className="p-4 border rounded-lg space-y-2">
+                    <div className="flex items-center gap-2">
+                      <FileText className="h-5 w-5 text-primary" />
+                      <Label className="font-semibold">Marriage Certificate</Label>
+                    </div>
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      className="w-full"
+                      onClick={() => window.open(reservation.marriage_certificate_url!, '_blank')}
+                    >
+                      <Download className="h-4 w-4 mr-2" />
+                      View/Download
+                    </Button>
+                  </div>
+                )}
+              </div>
+            </CardContent>
+          </Card>
+        )}
       </div>
 
       <AlertDialog open={showDeleteDialog} onOpenChange={setShowDeleteDialog}>
