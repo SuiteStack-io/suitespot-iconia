@@ -180,6 +180,7 @@ export function CreateReservationDialog() {
   const [guestTypes, setGuestTypes] = useState<('adult' | 'child')[]>(["adult"]);
   const [nationality, setNationality] = useState("");
   const [idPassportFile, setIdPassportFile] = useState<File | null>(null);
+  const [idPassportType, setIdPassportType] = useState<'id' | 'passport'>('id');
   const [contactEmail, setContactEmail] = useState("");
   const [countryCode, setCountryCode] = useState("+20"); // Default to Egypt
   const [contactPhone, setContactPhone] = useState("");
@@ -812,6 +813,24 @@ export function CreateReservationDialog() {
             <Label htmlFor="idPassport">
               Upload ID/Passport <span className="text-destructive">*</span>
             </Label>
+            <RadioGroup
+              value={idPassportType}
+              onValueChange={(value: 'id' | 'passport') => setIdPassportType(value)}
+              className="flex gap-4 mb-2"
+            >
+              <div className="flex items-center space-x-2">
+                <RadioGroupItem value="id" id="type-id" />
+                <Label htmlFor="type-id" className="font-normal cursor-pointer">
+                  ID
+                </Label>
+              </div>
+              <div className="flex items-center space-x-2">
+                <RadioGroupItem value="passport" id="type-passport" />
+                <Label htmlFor="type-passport" className="font-normal cursor-pointer">
+                  Passport
+                </Label>
+              </div>
+            </RadioGroup>
             <div className="flex items-center gap-2">
               <Input
                 id="idPassport"
