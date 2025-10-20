@@ -113,6 +113,13 @@ export const WeeklyCalendar = () => {
     return source.substring(0, 6);
   };
 
+  const getReservationColor = (source: string) => {
+    if (source.toLowerCase().includes('booking')) {
+      return 'bg-blue-500/80 text-white';
+    }
+    return 'bg-red-500/80 text-white';
+  };
+
   const navigatePreviousWeek = () => {
     setCurrentWeekStart(prev => subWeeks(prev, 1));
   };
@@ -198,7 +205,7 @@ export const WeeklyCalendar = () => {
                         key={index}
                         className={`border border-border p-2 text-center ${
                           reservation
-                            ? 'bg-red-500/80 text-white'
+                            ? getReservationColor(reservation.source)
                             : 'bg-background'
                         }`}
                       >
