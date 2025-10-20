@@ -22,6 +22,7 @@ interface ReservationNotification {
   adults: number;
   children: number;
   source: string;
+  notes: string | null;
 }
 
 const handler = async (req: Request): Promise<Response> => {
@@ -48,6 +49,7 @@ const handler = async (req: Request): Promise<Response> => {
       adults,
       children,
       source,
+      notes,
     }: ReservationNotification = await req.json();
 
     console.log("Processing reservation notification:", reservationId);
@@ -270,6 +272,13 @@ const handler = async (req: Request): Promise<Response> => {
                   <div class="detail-label">Source:</div>
                   <div class="detail-value">${source}</div>
                 </div>
+                
+                ${notes ? `
+                <div class="detail-row">
+                  <div class="detail-label">Notes:</div>
+                  <div class="detail-value">${notes}</div>
+                </div>
+                ` : ''}
                 
                 <div class="highlight">
                   <div style="font-size: 14px; color: #6b7280; margin-bottom: 5px;">Total Amount</div>
