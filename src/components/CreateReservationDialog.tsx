@@ -1017,6 +1017,7 @@ export function CreateReservationDialog() {
                       const input = document.getElementById('marriage-certificate') as HTMLInputElement;
                       if (input) input.value = '';
                     }}
+                    className="hover:text-destructive"
                   >
                     <X className="h-4 w-4" />
                   </Button>
@@ -1026,10 +1027,25 @@ export function CreateReservationDialog() {
                   <Input
                     id="marriage-certificate"
                     type="file"
-                    accept="image/*,.pdf"
+                    accept="image/*,application/pdf"
                     onChange={(e) => {
                       const file = e.target.files?.[0];
-                      if (file) setMarriageCertificateFile(file);
+                      if (file) {
+                        // Validate file type
+                        const validTypes = ['image/jpeg', 'image/jpg', 'image/png', 'image/gif', 'image/webp', 'application/pdf'];
+                        if (!validTypes.includes(file.type)) {
+                          toast.error('Please upload a valid image (JPG, PNG, GIF, WEBP) or PDF file');
+                          e.target.value = '';
+                          return;
+                        }
+                        // Validate file size (10MB max)
+                        if (file.size > 10 * 1024 * 1024) {
+                          toast.error('File size must be less than 10MB');
+                          e.target.value = '';
+                          return;
+                        }
+                        setMarriageCertificateFile(file);
+                      }
                     }}
                     className="flex-1"
                   />
