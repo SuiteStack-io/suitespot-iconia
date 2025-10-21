@@ -2,7 +2,7 @@ import { useEffect, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useAuth } from '@/lib/auth';
 import { Button } from '@/components/ui/button';
-import { ArrowLeft, DollarSign, TrendingUp, Calendar as CalendarIcon, BarChart3, Users } from 'lucide-react';
+import { ArrowLeft, DollarSign, TrendingUp, Calendar as CalendarIcon, BarChart3, Users, ChevronRight } from 'lucide-react';
 import { RevenueBySource } from '@/components/RevenueBySource';
 import { RevenueByRoom } from '@/components/RevenueByRoom';
 import { RevenueByGuests } from '@/components/RevenueByGuests';
@@ -15,6 +15,20 @@ import { DateRange } from 'react-day-picker';
 import { cn } from '@/lib/utils';
 import { format } from 'date-fns';
 import { Slider } from '@/components/ui/slider';
+import {
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+} from '@/components/ui/dialog';
+import {
+  Table,
+  TableBody,
+  TableCell,
+  TableHead,
+  TableHeader,
+  TableRow,
+} from '@/components/ui/table';
 
 type TimePeriod = 'week' | 'month' | 'quarter' | 'ytd';
 
@@ -37,6 +51,15 @@ const Analytics = () => {
   const [totalAvailableRooms, setTotalAvailableRooms] = useState(0);
   const [directCommission, setDirectCommission] = useState(0);
   const [bookingComCommission, setBookingComCommission] = useState(0);
+  const [showDirectDialog, setShowDirectDialog] = useState(false);
+  const [directSourceDetails, setDirectSourceDetails] = useState<Array<{
+    source: string;
+    count: number;
+    grossRevenue: number;
+    commissionRate: number;
+    commission: number;
+    netRevenue: number;
+  }>>([]);
 
   useEffect(() => {
     if (!loading && userRole !== 'admin') {
@@ -213,6 +236,60 @@ const Analytics = () => {
     
     setOccupancyRate(occupancy);
     setTotalAvailableRooms(totalAvailableNights);
+  };
+
+  const fetchDirectSourceDetails = async () => {
+    const { startDate, endDate } = getDateRange();
+    
+    const { data } = await supabase
+      .from('reservations')
+      .select('source, total_price, commission_amount, net_revenue')
+      .neq('status', 'Cancelled')
+      .gte('check_in_date', startDate)
+      .lte('check_in_date', endDate);
+
+    // Filter for direct bookings only
+    const directData = data?.filter(r => 
+      r.source?.toLowerCase() === 'direct' || 
+      r.source?.toLowerCase() !== 'booking.com'
+    ) || [];
+
+    // Group by source
+    const sourceMap: Record<string, any> = {};
+    
+    directData.forEach((reservation) => {
+      const source = reservation.source || 'Unknown';
+      
+      // Skip booking.com entries
+      if (source.toLowerCase().includes('booking')) return;
+      
+      if (!sourceMap[source]) {
+        sourceMap[source] = {
+          source,
+          count: 0,
+          grossRevenue: 0,
+          commissionRate: 10.0, // Default rate for direct bookings
+          commission: 0,
+          netRevenue: 0,
+        };
+      }
+      
+      sourceMap[source].count += 1;
+      sourceMap[source].grossRevenue += reservation.total_price || 0;
+      sourceMap[source].commission += reservation.commission_amount || 0;
+      sourceMap[source].netRevenue += reservation.net_revenue || 0;
+    });
+
+    const sourceArray = Object.values(sourceMap).sort(
+      (a: any, b: any) => b.grossRevenue - a.grossRevenue
+    );
+
+    setDirectSourceDetails(sourceArray);
+  };
+
+  const handleDirectClick = () => {
+    fetchDirectSourceDetails();
+    setShowDirectDialog(true);
   };
 
   if (loading || userRole !== 'admin') {
@@ -458,8 +535,14 @@ const Analytics = () => {
               </div>
               <p className="text-xs text-muted-foreground mt-1">Total commission</p>
               <div className="mt-3 pt-3 border-t space-y-1">
-                <div className="flex justify-between text-xs">
-                  <span className="text-muted-foreground">Direct</span>
+                <div className="flex justify-between text-xs group">
+                  <button 
+                    onClick={handleDirectClick}
+                    className="text-muted-foreground hover:text-foreground transition-colors flex items-center gap-1"
+                  >
+                    Direct
+                    <ChevronRight className="h-3 w-3 opacity-0 group-hover:opacity-100 transition-opacity" />
+                  </button>
                   <span className="font-semibold">
                     ${directCommission.toFixed(2)} ({revenueStats.totalCommission > 0 ? ((directCommission / revenueStats.totalCommission) * 100).toFixed(1) : 0}%)
                   </span>
@@ -481,6 +564,76 @@ const Analytics = () => {
           <RevenueByGuests />
         </section>
       </main>
+
+      <Dialog open={showDirectDialog} onOpenChange={setShowDirectDialog}>
+        <DialogContent className="max-w-4xl max-h-[80vh] overflow-y-auto">
+          <DialogHeader>
+            <DialogTitle>Direct Booking Sources</DialogTitle>
+          </DialogHeader>
+          <div className="border rounded-lg overflow-hidden">
+            <Table>
+              <TableHeader>
+                <TableRow>
+                  <TableHead>Source</TableHead>
+                  <TableHead className="text-right">Bookings</TableHead>
+                  <TableHead className="text-right">Gross Revenue</TableHead>
+                  <TableHead className="text-right">Commission Rate</TableHead>
+                  <TableHead className="text-right">Commission</TableHead>
+                  <TableHead className="text-right font-semibold">Net Revenue</TableHead>
+                </TableRow>
+              </TableHeader>
+              <TableBody>
+                {directSourceDetails.length === 0 ? (
+                  <TableRow>
+                    <TableCell colSpan={6} className="text-center text-muted-foreground py-8">
+                      No direct booking sources found for this period
+                    </TableCell>
+                  </TableRow>
+                ) : (
+                  <>
+                    {directSourceDetails.map((source) => (
+                      <TableRow key={source.source}>
+                        <TableCell className="font-medium">{source.source}</TableCell>
+                        <TableCell className="text-right">{source.count}</TableCell>
+                        <TableCell className="text-right">
+                          ${source.grossRevenue.toFixed(2)}
+                        </TableCell>
+                        <TableCell className="text-right">{source.commissionRate}%</TableCell>
+                        <TableCell className="text-right text-amber-600">
+                          ${source.commission.toFixed(2)}
+                        </TableCell>
+                        <TableCell className="text-right text-green-600 font-semibold">
+                          ${source.netRevenue.toFixed(2)}
+                        </TableCell>
+                      </TableRow>
+                    ))}
+                    <TableRow className="bg-muted/50 font-semibold">
+                      <TableCell>Total</TableCell>
+                      <TableCell className="text-right">
+                        {directSourceDetails.reduce((sum, s) => sum + s.count, 0)}
+                      </TableCell>
+                      <TableCell className="text-right">
+                        ${directSourceDetails.reduce((sum, s) => sum + s.grossRevenue, 0).toFixed(2)}
+                      </TableCell>
+                      <TableCell className="text-right">-</TableCell>
+                      <TableCell className="text-right text-amber-600">
+                        ${directSourceDetails.reduce((sum, s) => sum + s.commission, 0).toFixed(2)}
+                      </TableCell>
+                      <TableCell className="text-right text-green-600">
+                        ${directSourceDetails.reduce((sum, s) => sum + s.netRevenue, 0).toFixed(2)}
+                      </TableCell>
+                    </TableRow>
+                  </>
+                )}
+              </TableBody>
+            </Table>
+          </div>
+          <div className="mt-4 text-xs text-muted-foreground">
+            <p>* Commission rate: 10% for direct bookings</p>
+            <p>* Net Revenue = Gross Revenue - Commission</p>
+          </div>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 };
