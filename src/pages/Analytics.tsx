@@ -35,6 +35,8 @@ const Analytics = () => {
   const [landlordPercentage, setLandlordPercentage] = useState(70);
   const [totalNights, setTotalNights] = useState(0);
   const [totalAvailableRooms, setTotalAvailableRooms] = useState(0);
+  const [directCommission, setDirectCommission] = useState(0);
+  const [bookingComCommission, setBookingComCommission] = useState(0);
 
   useEffect(() => {
     if (!loading && userRole !== 'admin') {
@@ -126,7 +128,17 @@ const Analytics = () => {
     const netRevenue = revenueData?.reduce((sum, r) => sum + (r.net_revenue || 0), 0) || 0;
     const totalCommission = revenueData?.reduce((sum, r) => sum + (r.commission_amount || 0), 0) || 0;
 
+    // Calculate commission by source
+    const directCommissionAmount = revenueData
+      ?.filter(r => r.channel?.toLowerCase() === 'direct' || r.source?.toLowerCase() === 'direct')
+      .reduce((sum, r) => sum + (r.commission_amount || 0), 0) || 0;
+    const bookingComCommissionAmount = revenueData
+      ?.filter(r => r.channel?.toLowerCase() !== 'direct' && r.source?.toLowerCase() !== 'direct')
+      .reduce((sum, r) => sum + (r.commission_amount || 0), 0) || 0;
+
     setRevenueStats({ totalRevenue, netRevenue, totalCommission });
+    setDirectCommission(directCommissionAmount);
+    setBookingComCommission(bookingComCommissionAmount);
     
     // Fetch total bookings - using check_in_date
     const { data: bookingsData, count } = await supabase
@@ -445,6 +457,16 @@ const Analytics = () => {
                 ${revenueStats.totalCommission.toFixed(2)}
               </div>
               <p className="text-xs text-muted-foreground mt-1">Total commission</p>
+              <div className="mt-3 pt-3 border-t space-y-1">
+                <div className="flex justify-between text-xs">
+                  <span className="text-muted-foreground">Direct</span>
+                  <span className="font-semibold">${directCommission.toFixed(2)}</span>
+                </div>
+                <div className="flex justify-between text-xs">
+                  <span className="text-muted-foreground">Booking.com</span>
+                  <span className="font-semibold">${bookingComCommission.toFixed(2)}</span>
+                </div>
+              </div>
             </CardContent>
           </Card>
         </div>
