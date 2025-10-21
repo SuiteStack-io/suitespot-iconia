@@ -7,7 +7,7 @@ verify_jwt = false
 verify_jwt = false
 
 [functions.sync-booking-gmail]
-verify_jwt = true
+verify_jwt = false
 
 [functions.send-reservation-notification]
 verify_jwt = true
