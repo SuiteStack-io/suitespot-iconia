@@ -55,6 +55,16 @@ const handler = async (req: Request): Promise<Response> => {
     }: ReservationNotification = await req.json();
 
     console.log("Processing reservation notification:", reservationId);
+    
+    // Calculate proper adult/children counts if they're both 0 or undefined
+    let finalAdults = adults;
+    let finalChildren = children;
+    
+    if ((!adults || adults === 0) && (!children || children === 0) && numberOfGuests > 0) {
+      // If both are 0 but we have guests, assume all are adults
+      finalAdults = numberOfGuests;
+      finalChildren = 0;
+    }
 
     // Fetch all admin and manager users directly using service role
     const { data: userRoles, error: rolesError } = await supabaseClient
@@ -302,12 +312,12 @@ const handler = async (req: Request): Promise<Response> => {
                 
                 <div class="detail-row">
                   <div class="detail-label">Adults:</div>
-                  <div class="detail-value">${adults || 0}</div>
+                  <div class="detail-value">${finalAdults || 0}</div>
                 </div>
                 
                 <div class="detail-row">
                   <div class="detail-label">Children:</div>
-                  <div class="detail-value">${children || 0}</div>
+                  <div class="detail-value">${finalChildren || 0}</div>
                 </div>
                 
                 <div class="detail-row">
