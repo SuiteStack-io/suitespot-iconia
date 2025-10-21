@@ -211,6 +211,15 @@ const handler = async (req: Request): Promise<Response> => {
                   margin: 0;
                   font-size: 24px;
                 }
+                /* Explicitly define dark mode styles to prevent Gmail iOS auto-inversion */
+                @media (prefers-color-scheme: dark) {
+                  .header {
+                    background: linear-gradient(135deg, #0f172a 0%, #1e293b 100%) !important;
+                  }
+                  .header h1, .header p {
+                    color: #ffffff !important;
+                  }
+                }
                 .content {
                   background: #ffffff;
                   padding: 30px;
@@ -259,8 +268,8 @@ const handler = async (req: Request): Promise<Response> => {
             </head>
             <body>
               <div class="header">
-                <h1 style="margin-bottom: 10px;"><font color="#ffffff"><span style="color: #ffffff !important; -webkit-text-fill-color: #ffffff;">New Reservation in ICONIA Zamalek</span></font></h1>
-                <p style="margin-top: 0; margin-bottom: 0; font-size: 18px; font-weight: 400;"><font color="#ffffff"><span style="color: #ffffff !important; -webkit-text-fill-color: #ffffff;">SuiteSpot Bookings</span></font></p>
+                <h1>New Reservation in ICONIA Zamalek</h1>
+                <p style="margin-top: 0; margin-bottom: 0; font-size: 18px; font-weight: 400;">SuiteSpot Bookings</p>
               </div>
               
               <div class="content">
