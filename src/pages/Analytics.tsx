@@ -14,6 +14,7 @@ import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover
 import { DateRange } from 'react-day-picker';
 import { cn } from '@/lib/utils';
 import { format } from 'date-fns';
+import { Slider } from '@/components/ui/slider';
 
 type TimePeriod = 'week' | 'month' | 'quarter' | 'ytd';
 
@@ -31,6 +32,9 @@ const Analytics = () => {
   const [totalBookings, setTotalBookings] = useState(0);
   const [bookingSources, setBookingSources] = useState({ direct: 0, indirect: 0 });
   const [totalGuests, setTotalGuests] = useState(0);
+  const [landlordPercentage, setLandlordPercentage] = useState(70);
+  const [totalNights, setTotalNights] = useState(0);
+  const [totalAvailableRooms, setTotalAvailableRooms] = useState(0);
 
   useEffect(() => {
     if (!loading && userRole !== 'admin') {
@@ -168,6 +172,7 @@ const Analytics = () => {
       .lte('check_out_date', endDate);
     
     const totalNights = reservations?.reduce((sum, r) => sum + (r.nights || 0), 0) || 0;
+    setTotalNights(totalNights);
     
     let days = 1;
     if (customDateRange?.from && customDateRange?.to) {
@@ -195,6 +200,7 @@ const Analytics = () => {
     const occupancy = totalAvailableNights > 0 ? (totalNights / totalAvailableNights) * 100 : 0;
     
     setOccupancyRate(occupancy);
+    setTotalAvailableRooms(totalAvailableNights);
   };
 
   if (loading || userRole !== 'admin') {
@@ -342,6 +348,57 @@ const Analytics = () => {
                   </span>
                 </div>
               </div>
+            </CardContent>
+          </Card>
+        </div>
+
+        <div className="grid gap-4 md:grid-cols-3">
+          <Card>
+            <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+              <CardTitle className="text-sm font-medium">ADR</CardTitle>
+              <DollarSign className="h-4 w-4 text-blue-600" />
+            </CardHeader>
+            <CardContent>
+              <div className="text-2xl font-bold">
+                ${totalNights > 0 ? (revenueStats.totalRevenue / totalNights).toFixed(2) : '0.00'}
+              </div>
+              <p className="text-xs text-muted-foreground mt-1">Average Daily Rate</p>
+            </CardContent>
+          </Card>
+
+          <Card>
+            <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+              <CardTitle className="text-sm font-medium">RevPAR</CardTitle>
+              <DollarSign className="h-4 w-4 text-purple-600" />
+            </CardHeader>
+            <CardContent>
+              <div className="text-2xl font-bold">
+                ${totalAvailableRooms > 0 ? (revenueStats.totalRevenue / totalAvailableRooms).toFixed(2) : '0.00'}
+              </div>
+              <p className="text-xs text-muted-foreground mt-1">Revenue per Available Room</p>
+            </CardContent>
+          </Card>
+
+          <Card>
+            <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+              <CardTitle className="text-sm font-medium">Landlord Percentage</CardTitle>
+              <TrendingUp className="h-4 w-4 text-green-600" />
+            </CardHeader>
+            <CardContent>
+              <div className="text-2xl font-bold mb-3">
+                {landlordPercentage}%
+              </div>
+              <Slider
+                value={[landlordPercentage]}
+                onValueChange={(value) => setLandlordPercentage(value[0])}
+                min={0}
+                max={100}
+                step={1}
+                className="mb-2"
+              />
+              <p className="text-xs text-muted-foreground mt-1">
+                SuiteSpot Revenue % ({100 - landlordPercentage}%)
+              </p>
             </CardContent>
           </Card>
         </div>
