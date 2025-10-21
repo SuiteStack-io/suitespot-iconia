@@ -207,26 +207,11 @@ const Analytics = () => {
     return null;
   }
 
-  const revenueCards = [
-    {
-      title: 'Total Revenue',
-      value: revenueStats.totalRevenue,
-      subtitle: 'Gross revenue',
-      color: 'text-emerald-600',
-    },
-    {
-      title: 'Net Revenue',
-      value: revenueStats.netRevenue,
-      subtitle: 'After commission',
-      color: 'text-green-600',
-    },
-    {
-      title: 'Commission Paid',
-      value: revenueStats.totalCommission,
-      subtitle: 'Total commission',
-      color: 'text-amber-600',
-    },
-  ];
+  const landlordTotalRevenue = revenueStats.totalRevenue * (landlordPercentage / 100);
+  const suitespotTotalRevenue = revenueStats.totalRevenue * ((100 - landlordPercentage) / 100);
+  
+  const landlordNetRevenue = revenueStats.netRevenue * (landlordPercentage / 100);
+  const suitespotNetRevenue = revenueStats.netRevenue * ((100 - landlordPercentage) / 100);
 
   return (
     <div className="min-h-screen bg-background">
@@ -404,20 +389,64 @@ const Analytics = () => {
         </div>
 
         <div className="grid gap-4 md:grid-cols-3">
-          {revenueCards.map((stat) => (
-            <Card key={stat.title}>
-              <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-                <CardTitle className="text-sm font-medium">{stat.title}</CardTitle>
-                <DollarSign className={`h-4 w-4 ${stat.color}`} />
-              </CardHeader>
-              <CardContent>
-                <div className="text-2xl font-bold">
-                  ${stat.value.toFixed(2)}
+          <Card>
+            <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+              <CardTitle className="text-sm font-medium">Total Revenue</CardTitle>
+              <DollarSign className="h-4 w-4 text-emerald-600" />
+            </CardHeader>
+            <CardContent>
+              <div className="text-2xl font-bold">
+                ${revenueStats.totalRevenue.toFixed(2)}
+              </div>
+              <p className="text-xs text-muted-foreground mt-1">Gross revenue</p>
+              <div className="mt-3 pt-3 border-t space-y-1">
+                <div className="flex justify-between text-xs">
+                  <span className="text-muted-foreground">Landlord ({landlordPercentage}%)</span>
+                  <span className="font-semibold">${landlordTotalRevenue.toFixed(2)}</span>
                 </div>
-                <p className="text-xs text-muted-foreground mt-1">{stat.subtitle}</p>
-              </CardContent>
-            </Card>
-          ))}
+                <div className="flex justify-between text-xs">
+                  <span className="text-muted-foreground">SuiteSpot ({100 - landlordPercentage}%)</span>
+                  <span className="font-semibold">${suitespotTotalRevenue.toFixed(2)}</span>
+                </div>
+              </div>
+            </CardContent>
+          </Card>
+
+          <Card>
+            <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+              <CardTitle className="text-sm font-medium">Net Revenue</CardTitle>
+              <DollarSign className="h-4 w-4 text-green-600" />
+            </CardHeader>
+            <CardContent>
+              <div className="text-2xl font-bold">
+                ${revenueStats.netRevenue.toFixed(2)}
+              </div>
+              <p className="text-xs text-muted-foreground mt-1">After commission</p>
+              <div className="mt-3 pt-3 border-t space-y-1">
+                <div className="flex justify-between text-xs">
+                  <span className="text-muted-foreground">Landlord ({landlordPercentage}%)</span>
+                  <span className="font-semibold">${landlordNetRevenue.toFixed(2)}</span>
+                </div>
+                <div className="flex justify-between text-xs">
+                  <span className="text-muted-foreground">SuiteSpot ({100 - landlordPercentage}%)</span>
+                  <span className="font-semibold">${suitespotNetRevenue.toFixed(2)}</span>
+                </div>
+              </div>
+            </CardContent>
+          </Card>
+
+          <Card>
+            <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+              <CardTitle className="text-sm font-medium">Commission Paid</CardTitle>
+              <DollarSign className="h-4 w-4 text-amber-600" />
+            </CardHeader>
+            <CardContent>
+              <div className="text-2xl font-bold">
+                ${revenueStats.totalCommission.toFixed(2)}
+              </div>
+              <p className="text-xs text-muted-foreground mt-1">Total commission</p>
+            </CardContent>
+          </Card>
         </div>
 
         <section className="space-y-8">
