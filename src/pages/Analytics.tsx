@@ -460,11 +460,15 @@ const Analytics = () => {
               <div className="mt-3 pt-3 border-t space-y-1">
                 <div className="flex justify-between text-xs">
                   <span className="text-muted-foreground">Direct</span>
-                  <span className="font-semibold">${directCommission.toFixed(2)}</span>
+                  <span className="font-semibold">
+                    ${directCommission.toFixed(2)} ({revenueStats.totalCommission > 0 ? ((directCommission / revenueStats.totalCommission) * 100).toFixed(1) : 0}%)
+                  </span>
                 </div>
                 <div className="flex justify-between text-xs">
                   <span className="text-muted-foreground">Booking.com</span>
-                  <span className="font-semibold">${bookingComCommission.toFixed(2)}</span>
+                  <span className="font-semibold">
+                    ${bookingComCommission.toFixed(2)} ({revenueStats.totalCommission > 0 ? ((bookingComCommission / revenueStats.totalCommission) * 100).toFixed(1) : 0}%)
+                  </span>
                 </div>
               </div>
             </CardContent>
