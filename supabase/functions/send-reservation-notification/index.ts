@@ -259,8 +259,8 @@ const handler = async (req: Request): Promise<Response> => {
             </head>
             <body>
               <div class="header">
-                <h1 style="margin-bottom: 10px; color: white;">New Reservation in ICONIA Zamalek</h1>
-                <p style="margin-top: 0; margin-bottom: 0; font-size: 18px; font-weight: 400; color: white;">SuiteSpot Bookings</p>
+                <h1 style="margin-bottom: 10px; color: #ffffff !important; -webkit-text-fill-color: #ffffff;">New Reservation in ICONIA Zamalek</h1>
+                <p style="margin-top: 0; margin-bottom: 0; font-size: 18px; font-weight: 400; color: #ffffff !important; -webkit-text-fill-color: #ffffff;">SuiteSpot Bookings</p>
               </div>
               
               <div class="content">
