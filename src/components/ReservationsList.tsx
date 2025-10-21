@@ -40,7 +40,11 @@ interface Reservation {
   commission_amount: number | null;
   net_revenue: number | null;
   currency: string | null;
+  created_at: string;
 }
+
+type SortField = 'units' | 'guest_names' | 'check_in_date' | 'check_out_date' | 'nights' | 'number_of_guests' | 'guest_nationality' | 'status' | 'source' | 'price_per_night' | 'total_price' | 'booking_reference' | 'created_at';
+type SortOrder = 'asc' | 'desc';
 
 const statusColors = {
   confirmed: 'bg-blue-100 text-blue-800 hover:bg-blue-100',
@@ -57,6 +61,8 @@ export const ReservationsList = () => {
   const [statusFilter, setStatusFilter] = useState<string>('all');
   const [unitFilter, setUnitFilter] = useState<string>('all');
   const [units, setUnits] = useState<{ id: string; name: string }[]>([]);
+  const [sortField, setSortField] = useState<SortField>('created_at');
+  const [sortOrder, setSortOrder] = useState<SortOrder>('desc');
   const navigate = useNavigate();
 
   useEffect(() => {
@@ -89,7 +95,7 @@ export const ReservationsList = () => {
 
   useEffect(() => {
     filterReservations();
-  }, [reservations, searchQuery, statusFilter, unitFilter]);
+  }, [reservations, searchQuery, statusFilter, unitFilter, sortField, sortOrder]);
 
   const fetchReservations = async () => {
     const { data, error } = await supabase
@@ -132,7 +138,50 @@ export const ReservationsList = () => {
       filtered = filtered.filter((r) => r.units?.name === unitFilter);
     }
 
+    // Apply sorting
+    filtered.sort((a, b) => {
+      let aVal: any;
+      let bVal: any;
+
+      if (sortField === 'units') {
+        aVal = a.units?.name || '';
+        bVal = b.units?.name || '';
+      } else if (sortField === 'guest_names') {
+        aVal = a.guest_names.join(', ');
+        bVal = b.guest_names.join(', ');
+      } else {
+        aVal = a[sortField];
+        bVal = b[sortField];
+      }
+
+      if (typeof aVal === 'string') {
+        aVal = aVal.toLowerCase();
+        bVal = (bVal as string).toLowerCase();
+      }
+
+      if (aVal === null || aVal === undefined) aVal = '';
+      if (bVal === null || bVal === undefined) bVal = '';
+
+      if (aVal < bVal) return sortOrder === 'asc' ? -1 : 1;
+      if (aVal > bVal) return sortOrder === 'asc' ? 1 : -1;
+      return 0;
+    });
+
     setFilteredReservations(filtered);
+  };
+
+  const handleSort = (field: SortField) => {
+    if (sortField === field) {
+      setSortOrder(sortOrder === 'asc' ? 'desc' : 'asc');
+    } else {
+      setSortField(field);
+      setSortOrder('asc');
+    }
+  };
+
+  const getSortIcon = (field: SortField) => {
+    if (sortField !== field) return '';
+    return sortOrder === 'asc' ? ' ↑' : ' ↓';
   };
 
   return (
@@ -179,24 +228,90 @@ export const ReservationsList = () => {
         <Table>
           <TableHeader>
             <TableRow>
-              <TableHead>Room ID</TableHead>
-              <TableHead>Guest Name(s)</TableHead>
-              <TableHead>Check-in</TableHead>
-              <TableHead>Check-out</TableHead>
-              <TableHead>Nights</TableHead>
-              <TableHead>Guests</TableHead>
-              <TableHead>Nationality</TableHead>
-              <TableHead>Status</TableHead>
-              <TableHead>Source</TableHead>
-              <TableHead className="text-right">Price/Night</TableHead>
-              <TableHead className="text-right">Total</TableHead>
-              <TableHead>Reference</TableHead>
+              <TableHead 
+                className="cursor-pointer hover:bg-muted/50"
+                onClick={() => handleSort('units')}
+              >
+                Room ID {getSortIcon('units')}
+              </TableHead>
+              <TableHead 
+                className="cursor-pointer hover:bg-muted/50"
+                onClick={() => handleSort('guest_names')}
+              >
+                Guest Name(s) {getSortIcon('guest_names')}
+              </TableHead>
+              <TableHead 
+                className="cursor-pointer hover:bg-muted/50"
+                onClick={() => handleSort('check_in_date')}
+              >
+                Check-in {getSortIcon('check_in_date')}
+              </TableHead>
+              <TableHead 
+                className="cursor-pointer hover:bg-muted/50"
+                onClick={() => handleSort('check_out_date')}
+              >
+                Check-out {getSortIcon('check_out_date')}
+              </TableHead>
+              <TableHead 
+                className="cursor-pointer hover:bg-muted/50"
+                onClick={() => handleSort('nights')}
+              >
+                Nights {getSortIcon('nights')}
+              </TableHead>
+              <TableHead 
+                className="cursor-pointer hover:bg-muted/50"
+                onClick={() => handleSort('number_of_guests')}
+              >
+                Guests {getSortIcon('number_of_guests')}
+              </TableHead>
+              <TableHead 
+                className="cursor-pointer hover:bg-muted/50"
+                onClick={() => handleSort('guest_nationality')}
+              >
+                Nationality {getSortIcon('guest_nationality')}
+              </TableHead>
+              <TableHead 
+                className="cursor-pointer hover:bg-muted/50"
+                onClick={() => handleSort('status')}
+              >
+                Status {getSortIcon('status')}
+              </TableHead>
+              <TableHead 
+                className="cursor-pointer hover:bg-muted/50"
+                onClick={() => handleSort('source')}
+              >
+                Source {getSortIcon('source')}
+              </TableHead>
+              <TableHead 
+                className="cursor-pointer hover:bg-muted/50 text-right"
+                onClick={() => handleSort('price_per_night')}
+              >
+                Price/Night {getSortIcon('price_per_night')}
+              </TableHead>
+              <TableHead 
+                className="cursor-pointer hover:bg-muted/50 text-right"
+                onClick={() => handleSort('total_price')}
+              >
+                Total {getSortIcon('total_price')}
+              </TableHead>
+              <TableHead 
+                className="cursor-pointer hover:bg-muted/50"
+                onClick={() => handleSort('booking_reference')}
+              >
+                Reference {getSortIcon('booking_reference')}
+              </TableHead>
+              <TableHead 
+                className="cursor-pointer hover:bg-muted/50"
+                onClick={() => handleSort('created_at')}
+              >
+                Date Created {getSortIcon('created_at')}
+              </TableHead>
             </TableRow>
           </TableHeader>
           <TableBody>
             {filteredReservations.length === 0 ? (
               <TableRow>
-                <TableCell colSpan={12} className="text-center text-muted-foreground">
+                <TableCell colSpan={13} className="text-center text-muted-foreground">
                   No reservations found
                 </TableCell>
               </TableRow>
@@ -227,6 +342,7 @@ export const ReservationsList = () => {
                     {reservation.total_price ? `$${reservation.total_price}` : '-'}
                   </TableCell>
                   <TableCell className="font-mono text-sm">{reservation.booking_reference}</TableCell>
+                  <TableCell>{format(new Date(reservation.created_at), 'dd MMM yyyy')}</TableCell>
                 </TableRow>
               ))
             )}
