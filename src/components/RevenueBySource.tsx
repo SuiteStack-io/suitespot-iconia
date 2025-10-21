@@ -16,6 +16,8 @@ import {
   TableHeader,
   TableRow,
 } from '@/components/ui/table';
+import { ChevronDown, ChevronRight } from 'lucide-react';
+import { Button } from '@/components/ui/button';
 
 interface SourceRevenue {
   source: string;
@@ -41,6 +43,7 @@ export const RevenueBySource = () => {
   const [filteredRevenue, setFilteredRevenue] = useState<SourceRevenue[]>([]);
   const [loading, setLoading] = useState(true);
   const [selectedSource, setSelectedSource] = useState<string>('all');
+  const [isDirectExpanded, setIsDirectExpanded] = useState(false);
 
   useEffect(() => {
     fetchRevenueBySource();
@@ -147,7 +150,16 @@ export const RevenueBySource = () => {
     );
   }
 
-  const totals = filteredRevenue.reduce(
+  // Group sources into Direct and Booking.com
+  const directSources = filteredRevenue.filter(s => 
+    s.source.toLowerCase() !== 'booking.com'
+  );
+  
+  const bookingComSources = filteredRevenue.filter(s => 
+    s.source.toLowerCase() === 'booking.com'
+  );
+
+  const directTotal = directSources.reduce(
     (acc, source) => ({
       count: acc.count + source.count,
       grossRevenue: acc.grossRevenue + source.grossRevenue,
@@ -156,6 +168,23 @@ export const RevenueBySource = () => {
     }),
     { count: 0, grossRevenue: 0, commission: 0, netRevenue: 0 }
   );
+
+  const bookingComTotal = bookingComSources.reduce(
+    (acc, source) => ({
+      count: acc.count + source.count,
+      grossRevenue: acc.grossRevenue + source.grossRevenue,
+      commission: acc.commission + source.commission,
+      netRevenue: acc.netRevenue + source.netRevenue,
+    }),
+    { count: 0, grossRevenue: 0, commission: 0, netRevenue: 0 }
+  );
+
+  const totals = {
+    count: directTotal.count + bookingComTotal.count,
+    grossRevenue: directTotal.grossRevenue + bookingComTotal.grossRevenue,
+    commission: directTotal.commission + bookingComTotal.commission,
+    netRevenue: directTotal.netRevenue + bookingComTotal.netRevenue,
+  };
 
   return (
     <Card>
@@ -189,22 +218,78 @@ export const RevenueBySource = () => {
               </TableRow>
             </TableHeader>
             <TableBody>
-              {filteredRevenue.map((source) => (
-                <TableRow key={source.source}>
-                  <TableCell className="font-medium">{source.source}</TableCell>
-                  <TableCell className="text-right">{source.count}</TableCell>
+              {/* Direct Sources (Collapsible) */}
+              {directSources.length > 0 && (
+                <>
+                  <TableRow className="hover:bg-muted/50">
+                    <TableCell className="font-medium">
+                      <Button
+                        variant="ghost"
+                        size="sm"
+                        className="h-auto p-0 hover:bg-transparent"
+                        onClick={() => setIsDirectExpanded(!isDirectExpanded)}
+                      >
+                        {isDirectExpanded ? (
+                          <ChevronDown className="h-4 w-4 mr-2" />
+                        ) : (
+                          <ChevronRight className="h-4 w-4 mr-2" />
+                        )}
+                        Direct
+                      </Button>
+                    </TableCell>
+                    <TableCell className="text-right">{directTotal.count}</TableCell>
+                    <TableCell className="text-right">
+                      ${directTotal.grossRevenue.toFixed(2)}
+                    </TableCell>
+                    <TableCell className="text-right">10%</TableCell>
+                    <TableCell className="text-right text-amber-600">
+                      ${directTotal.commission.toFixed(2)}
+                    </TableCell>
+                    <TableCell className="text-right text-green-600 font-semibold">
+                      ${directTotal.netRevenue.toFixed(2)}
+                    </TableCell>
+                  </TableRow>
+                  
+                  {/* Individual Direct Sources */}
+                  {isDirectExpanded && directSources.map((source) => (
+                    <TableRow key={source.source} className="bg-muted/30">
+                      <TableCell className="pl-10 font-normal text-muted-foreground">
+                        {source.source}
+                      </TableCell>
+                      <TableCell className="text-right text-muted-foreground">{source.count}</TableCell>
+                      <TableCell className="text-right text-muted-foreground">
+                        ${source.grossRevenue.toFixed(2)}
+                      </TableCell>
+                      <TableCell className="text-right text-muted-foreground">{source.commissionRate}%</TableCell>
+                      <TableCell className="text-right text-amber-600/70">
+                        ${source.commission.toFixed(2)}
+                      </TableCell>
+                      <TableCell className="text-right text-green-600/70">
+                        ${source.netRevenue.toFixed(2)}
+                      </TableCell>
+                    </TableRow>
+                  ))}
+                </>
+              )}
+
+              {/* Booking.com Sources */}
+              {bookingComSources.length > 0 && (
+                <TableRow className="hover:bg-muted/50">
+                  <TableCell className="font-medium">Booking.com</TableCell>
+                  <TableCell className="text-right">{bookingComTotal.count}</TableCell>
                   <TableCell className="text-right">
-                    ${source.grossRevenue.toFixed(2)}
+                    ${bookingComTotal.grossRevenue.toFixed(2)}
                   </TableCell>
-                  <TableCell className="text-right">{source.commissionRate}%</TableCell>
+                  <TableCell className="text-right">17.4%</TableCell>
                   <TableCell className="text-right text-amber-600">
-                    ${source.commission.toFixed(2)}
+                    ${bookingComTotal.commission.toFixed(2)}
                   </TableCell>
                   <TableCell className="text-right text-green-600 font-semibold">
-                    ${source.netRevenue.toFixed(2)}
+                    ${bookingComTotal.netRevenue.toFixed(2)}
                   </TableCell>
                 </TableRow>
-              ))}
+              )}
+
               <TableRow className="bg-muted/50 font-semibold">
                 <TableCell>Total</TableCell>
                 <TableCell className="text-right">{totals.count}</TableCell>
