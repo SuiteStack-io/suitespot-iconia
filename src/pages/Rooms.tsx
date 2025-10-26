@@ -34,6 +34,8 @@ const Rooms = () => {
   const [editingId, setEditingId] = useState<string | null>(null);
   const [editedUnit, setEditedUnit] = useState<Partial<Unit>>({});
   const [isAdding, setIsAdding] = useState(false);
+  const [isBulkEdit, setIsBulkEdit] = useState(false);
+  const [bulkEditUnits, setBulkEditUnits] = useState<Record<string, Partial<Unit>>>({});
   const [newUnit, setNewUnit] = useState<Partial<Unit>>({
     name: '',
     unit_number: '',
@@ -54,6 +56,26 @@ const Rooms = () => {
     if (user) {
       fetchUnits();
     }
+
+    // Real-time updates for units
+    const channel = supabase
+      .channel('units-changes')
+      .on(
+        'postgres_changes',
+        {
+          event: '*',
+          schema: 'public',
+          table: 'units',
+        },
+        () => {
+          fetchUnits();
+        }
+      )
+      .subscribe();
+
+    return () => {
+      supabase.removeChannel(channel);
+    };
   }, [user]);
 
   const fetchUnits = async () => {
@@ -109,6 +131,60 @@ const Rooms = () => {
     setEditingId(null);
     setEditedUnit({});
     fetchUnits();
+  };
+
+  const handleBulkEdit = () => {
+    setIsBulkEdit(true);
+    const initialBulkEdit: Record<string, Partial<Unit>> = {};
+    units.forEach((unit) => {
+      initialBulkEdit[unit.id] = { ...unit };
+    });
+    setBulkEditUnits(initialBulkEdit);
+  };
+
+  const handleCancelBulkEdit = () => {
+    setIsBulkEdit(false);
+    setBulkEditUnits({});
+  };
+
+  const handleSaveBulkEdit = async () => {
+    const updates = Object.values(bulkEditUnits).map((unit) => 
+      supabase
+        .from('units')
+        .update(unit)
+        .eq('id', unit.id!)
+    );
+
+    const results = await Promise.all(updates);
+    const hasError = results.some((result) => result.error);
+
+    if (hasError) {
+      toast({
+        variant: 'destructive',
+        title: 'Error',
+        description: 'Failed to update some rooms',
+      });
+      return;
+    }
+
+    toast({
+      title: 'Success',
+      description: 'All rooms updated successfully',
+    });
+
+    setIsBulkEdit(false);
+    setBulkEditUnits({});
+    fetchUnits();
+  };
+
+  const handleBulkEditChange = (unitId: string, field: keyof Unit, value: any) => {
+    setBulkEditUnits((prev) => ({
+      ...prev,
+      [unitId]: {
+        ...prev[unitId],
+        [field]: value,
+      },
+    }));
   };
 
   const handleAddRoom = async () => {
@@ -185,10 +261,31 @@ const Rooms = () => {
               <h1 className="text-2xl font-bold">Rooms Management</h1>
             </div>
             {isAdmin && (
-              <Button onClick={() => setIsAdding(true)} disabled={isAdding}>
-                <Plus className="h-4 w-4 mr-2" />
-                Add Room
-              </Button>
+              <div className="flex gap-2">
+                {isBulkEdit ? (
+                  <>
+                    <Button onClick={handleSaveBulkEdit} variant="default">
+                      <Save className="h-4 w-4 mr-2" />
+                      Save All
+                    </Button>
+                    <Button onClick={handleCancelBulkEdit} variant="outline">
+                      <X className="h-4 w-4 mr-2" />
+                      Cancel
+                    </Button>
+                  </>
+                ) : (
+                  <>
+                    <Button onClick={handleBulkEdit} variant="outline">
+                      <Pencil className="h-4 w-4 mr-2" />
+                      Bulk Edit
+                    </Button>
+                    <Button onClick={() => setIsAdding(true)} disabled={isAdding}>
+                      <Plus className="h-4 w-4 mr-2" />
+                      Add Room
+                    </Button>
+                  </>
+                )}
+              </div>
             )}
           </div>
         </div>
@@ -199,14 +296,14 @@ const Rooms = () => {
           <Table>
             <TableHeader>
               <TableRow>
-                <TableHead>Room Name</TableHead>
+                <TableHead>Room ID</TableHead>
                 <TableHead>Unit Number</TableHead>
                 <TableHead>Type</TableHead>
                 <TableHead>Size</TableHead>
                 <TableHead>Status</TableHead>
                 <TableHead>Booking.com ID</TableHead>
                 <TableHead>Comments</TableHead>
-                {isAdmin && <TableHead>Actions</TableHead>}
+                {isAdmin && !isBulkEdit && <TableHead>Actions</TableHead>}
               </TableRow>
             </TableHeader>
             <TableBody>
@@ -288,99 +385,132 @@ const Rooms = () => {
                   </TableCell>
                 </TableRow>
               )}
-              {units.map((unit) => (
-                <TableRow key={unit.id}>
-                  <TableCell>
-                    {editingId === unit.id ? (
-                      <Input
-                        value={editedUnit.name}
-                        onChange={(e) => setEditedUnit({ ...editedUnit, name: e.target.value })}
-                      />
-                    ) : (
-                      unit.name
-                    )}
-                  </TableCell>
-                  <TableCell>
-                    {editingId === unit.id ? (
-                      <Input
-                        value={editedUnit.unit_number || ''}
-                        onChange={(e) => setEditedUnit({ ...editedUnit, unit_number: e.target.value })}
-                      />
-                    ) : (
-                      unit.unit_number || '-'
-                    )}
-                  </TableCell>
-                  <TableCell>
-                    {editingId === unit.id ? (
-                      <Input
-                        value={editedUnit.unit_type || ''}
-                        onChange={(e) => setEditedUnit({ ...editedUnit, unit_type: e.target.value })}
-                      />
-                    ) : (
-                      unit.unit_type || '-'
-                    )}
-                  </TableCell>
-                  <TableCell>
-                    {editingId === unit.id ? (
-                      <Input
-                        value={editedUnit.unit_size || ''}
-                        onChange={(e) => setEditedUnit({ ...editedUnit, unit_size: e.target.value })}
-                      />
-                    ) : (
-                      unit.unit_size || '-'
-                    )}
-                  </TableCell>
-                  <TableCell>
-                    {editingId === unit.id ? (
-                      <Input
-                        value={editedUnit.status}
-                        onChange={(e) => setEditedUnit({ ...editedUnit, status: e.target.value })}
-                      />
-                    ) : (
-                      <span className="capitalize">{unit.status}</span>
-                    )}
-                  </TableCell>
-                  <TableCell>
-                    {editingId === unit.id ? (
-                      <Input
-                        value={editedUnit.booking_com_id || ''}
-                        onChange={(e) => setEditedUnit({ ...editedUnit, booking_com_id: e.target.value })}
-                        placeholder="Enter Booking.com ID"
-                      />
-                    ) : (
-                      <span className="font-mono text-sm">{unit.booking_com_id || '-'}</span>
-                    )}
-                  </TableCell>
-                  <TableCell>
-                    {editingId === unit.id ? (
-                      <Input
-                        value={editedUnit.comments || ''}
-                        onChange={(e) => setEditedUnit({ ...editedUnit, comments: e.target.value })}
-                      />
-                    ) : (
-                      unit.comments || '-'
-                    )}
-                  </TableCell>
-                  {isAdmin && (
+              {units.map((unit) => {
+                const isEditing = isBulkEdit || editingId === unit.id;
+                const currentUnit = isBulkEdit ? bulkEditUnits[unit.id] : editedUnit;
+                
+                return (
+                  <TableRow key={unit.id}>
                     <TableCell>
-                      {editingId === unit.id ? (
-                        <div className="flex gap-2">
-                          <Button size="sm" onClick={handleSaveEdit}>
-                            <Save className="h-4 w-4" />
-                          </Button>
-                          <Button size="sm" variant="ghost" onClick={handleCancelEdit}>
-                            <X className="h-4 w-4" />
-                          </Button>
-                        </div>
+                      {isEditing ? (
+                        <Input
+                          value={isBulkEdit ? bulkEditUnits[unit.id]?.name : editedUnit.name}
+                          onChange={(e) => 
+                            isBulkEdit 
+                              ? handleBulkEditChange(unit.id, 'name', e.target.value)
+                              : setEditedUnit({ ...editedUnit, name: e.target.value })
+                          }
+                        />
                       ) : (
-                        <Button size="sm" variant="ghost" onClick={() => handleEdit(unit)}>
-                          <Pencil className="h-4 w-4" />
-                        </Button>
+                        unit.name
                       )}
                     </TableCell>
-                  )}
-                </TableRow>
-              ))}
+                    <TableCell>
+                      {isEditing ? (
+                        <Input
+                          value={isBulkEdit ? (bulkEditUnits[unit.id]?.unit_number || '') : (editedUnit.unit_number || '')}
+                          onChange={(e) =>
+                            isBulkEdit
+                              ? handleBulkEditChange(unit.id, 'unit_number', e.target.value)
+                              : setEditedUnit({ ...editedUnit, unit_number: e.target.value })
+                          }
+                        />
+                      ) : (
+                        unit.unit_number || '-'
+                      )}
+                    </TableCell>
+                    <TableCell>
+                      {isEditing ? (
+                        <Input
+                          value={isBulkEdit ? (bulkEditUnits[unit.id]?.unit_type || '') : (editedUnit.unit_type || '')}
+                          onChange={(e) =>
+                            isBulkEdit
+                              ? handleBulkEditChange(unit.id, 'unit_type', e.target.value)
+                              : setEditedUnit({ ...editedUnit, unit_type: e.target.value })
+                          }
+                        />
+                      ) : (
+                        unit.unit_type || '-'
+                      )}
+                    </TableCell>
+                    <TableCell>
+                      {isEditing ? (
+                        <Input
+                          value={isBulkEdit ? (bulkEditUnits[unit.id]?.unit_size || '') : (editedUnit.unit_size || '')}
+                          onChange={(e) =>
+                            isBulkEdit
+                              ? handleBulkEditChange(unit.id, 'unit_size', e.target.value)
+                              : setEditedUnit({ ...editedUnit, unit_size: e.target.value })
+                          }
+                        />
+                      ) : (
+                        unit.unit_size || '-'
+                      )}
+                    </TableCell>
+                    <TableCell>
+                      {isEditing ? (
+                        <Input
+                          value={isBulkEdit ? bulkEditUnits[unit.id]?.status : editedUnit.status}
+                          onChange={(e) =>
+                            isBulkEdit
+                              ? handleBulkEditChange(unit.id, 'status', e.target.value)
+                              : setEditedUnit({ ...editedUnit, status: e.target.value })
+                          }
+                        />
+                      ) : (
+                        <span className="capitalize">{unit.status}</span>
+                      )}
+                    </TableCell>
+                    <TableCell>
+                      {isEditing ? (
+                        <Input
+                          value={isBulkEdit ? (bulkEditUnits[unit.id]?.booking_com_id || '') : (editedUnit.booking_com_id || '')}
+                          onChange={(e) =>
+                            isBulkEdit
+                              ? handleBulkEditChange(unit.id, 'booking_com_id', e.target.value)
+                              : setEditedUnit({ ...editedUnit, booking_com_id: e.target.value })
+                          }
+                          placeholder="Enter Booking.com ID"
+                        />
+                      ) : (
+                        <span className="font-mono text-sm">{unit.booking_com_id || '-'}</span>
+                      )}
+                    </TableCell>
+                    <TableCell>
+                      {isEditing ? (
+                        <Input
+                          value={isBulkEdit ? (bulkEditUnits[unit.id]?.comments || '') : (editedUnit.comments || '')}
+                          onChange={(e) =>
+                            isBulkEdit
+                              ? handleBulkEditChange(unit.id, 'comments', e.target.value)
+                              : setEditedUnit({ ...editedUnit, comments: e.target.value })
+                          }
+                        />
+                      ) : (
+                        unit.comments || '-'
+                      )}
+                    </TableCell>
+                    {isAdmin && !isBulkEdit && (
+                      <TableCell>
+                        {editingId === unit.id ? (
+                          <div className="flex gap-2">
+                            <Button size="sm" onClick={handleSaveEdit}>
+                              <Save className="h-4 w-4" />
+                            </Button>
+                            <Button size="sm" variant="ghost" onClick={handleCancelEdit}>
+                              <X className="h-4 w-4" />
+                            </Button>
+                          </div>
+                        ) : (
+                          <Button size="sm" variant="ghost" onClick={() => handleEdit(unit)}>
+                            <Pencil className="h-4 w-4" />
+                          </Button>
+                        )}
+                      </TableCell>
+                    )}
+                  </TableRow>
+                );
+              })}
             </TableBody>
           </Table>
         </div>

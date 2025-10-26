@@ -69,8 +69,8 @@ export const ReservationsList = () => {
     fetchReservations();
     fetchUnits();
 
-    // Real-time updates
-    const channel = supabase
+    // Real-time updates for reservations
+    const reservationsChannel = supabase
       .channel('reservations-list')
       .on(
         'postgres_changes',
@@ -88,8 +88,25 @@ export const ReservationsList = () => {
         console.log('ReservationsList subscription status:', status);
       });
 
+    // Real-time updates for units
+    const unitsChannel = supabase
+      .channel('units-changes-list')
+      .on(
+        'postgres_changes',
+        {
+          event: '*',
+          schema: 'public',
+          table: 'units',
+        },
+        () => {
+          fetchUnits();
+        }
+      )
+      .subscribe();
+
     return () => {
-      supabase.removeChannel(channel);
+      supabase.removeChannel(reservationsChannel);
+      supabase.removeChannel(unitsChannel);
     };
   }, []);
 

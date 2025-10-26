@@ -64,8 +64,8 @@ export const Dashboard = () => {
   useEffect(() => {
     fetchStats();
     
-    // Real-time updates
-    const channel = supabase
+    // Real-time updates for reservations
+    const reservationsChannel = supabase
       .channel('reservations-changes')
       .on(
         'postgres_changes',
@@ -80,8 +80,25 @@ export const Dashboard = () => {
       )
       .subscribe();
 
+    // Real-time updates for units
+    const unitsChannel = supabase
+      .channel('units-changes-dashboard')
+      .on(
+        'postgres_changes',
+        {
+          event: '*',
+          schema: 'public',
+          table: 'units',
+        },
+        () => {
+          fetchStats();
+        }
+      )
+      .subscribe();
+
     return () => {
-      supabase.removeChannel(channel);
+      supabase.removeChannel(reservationsChannel);
+      supabase.removeChannel(unitsChannel);
     };
   }, []);
 
