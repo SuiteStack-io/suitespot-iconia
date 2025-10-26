@@ -211,6 +211,7 @@ export type Database = {
       units: {
         Row: {
           availability_date: string | null
+          booking_com_id: string | null
           comments: string | null
           created_at: string
           id: string
@@ -223,6 +224,7 @@ export type Database = {
         }
         Insert: {
           availability_date?: string | null
+          booking_com_id?: string | null
           comments?: string | null
           created_at?: string
           id?: string
@@ -235,6 +237,7 @@ export type Database = {
         }
         Update: {
           availability_date?: string | null
+          booking_com_id?: string | null
           comments?: string | null
           created_at?: string
           id?: string
@@ -274,7 +277,7 @@ export type Database = {
     }
     Functions: {
       get_all_users_with_emails: {
-        Args: Record<PropertyKey, never>
+        Args: never
         Returns: {
           email: string
           full_name: string

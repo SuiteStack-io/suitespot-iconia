@@ -6,7 +6,7 @@ import { ReservationsList } from '@/components/ReservationsList';
 import { WeeklyCalendar } from '@/components/WeeklyCalendar';
 import { CreateReservationDialog } from '@/components/CreateReservationDialog';
 import { Button } from '@/components/ui/button';
-import { LogOut, CalendarDays, ChevronDown } from 'lucide-react';
+import { LogOut, CalendarDays, ChevronDown, DoorOpen } from 'lucide-react';
 import suitespotLogo from '@/assets/suitespot-logo.png';
 import { useIsMobile } from '@/hooks/use-mobile';
 import {
@@ -126,6 +126,15 @@ const Index = () => {
                   {isMobile ? "Calendar" : "Calendar View"}
                 </span>
                 <span className={isMobile ? "hidden" : "md:hidden inline"}>Calendar</span>
+              </Button>
+              <Button 
+                variant="outline" 
+                size="sm" 
+                onClick={() => navigate('/rooms')} 
+                className={isMobile ? "w-full justify-start" : ""}
+              >
+                <DoorOpen className="h-4 w-4 mr-2" />
+                Rooms
               </Button>
               <Button 
                 variant="outline" 

@@ -18,6 +18,7 @@ interface ParsedReservation {
   contactPhone?: string;
   guestNationality?: string;
   notes?: string;
+  bookingComRoomId?: string;
 }
 
 function parseBookingEmail(emailBody: string, subject: string): ParsedReservation | null {
@@ -111,7 +112,7 @@ function parseBookingEmail(emailBody: string, subject: string): ParsedReservatio
       return null;
     }
     
-    // Extract unit/room name
+    // Extract unit/room name and Booking.com room ID
     const unitPatterns = [
       /(?:room|unit|apartment|property)[:\s]*([A-Z0-9][^\n<]{5,50})/i,
       /accommodation[:\s]*([A-Z0-9][^\n<]{5,50})/i,
@@ -122,6 +123,22 @@ function parseBookingEmail(emailBody: string, subject: string): ParsedReservatio
       const match = decodedBody.match(pattern);
       if (match) {
         unitName = match[1].trim().replace(/<[^>]*>/g, '').substring(0, 50);
+        break;
+      }
+    }
+    
+    // Extract Booking.com room ID
+    const roomIdPatterns = [
+      /room\s*(?:id|#|number)[:\s]*([0-9]+)/i,
+      /unit\s*(?:id|#|number)[:\s]*([0-9]+)/i,
+      /property\s*(?:id|#)[:\s]*([0-9]+)/i,
+    ];
+    
+    let bookingComRoomId: string | undefined;
+    for (const pattern of roomIdPatterns) {
+      const match = decodedBody.match(pattern);
+      if (match) {
+        bookingComRoomId = match[1].trim();
         break;
       }
     }
@@ -178,6 +195,7 @@ function parseBookingEmail(emailBody: string, subject: string): ParsedReservatio
       totalPrice,
       contactEmail,
       contactPhone,
+      bookingComRoomId,
     };
   } catch (error) {
     console.error('Error parsing email:', error);
@@ -348,13 +366,54 @@ serve(async (req) => {
           continue;
         }
         
-        // Find matching unit or use first available
-        const { data: units } = await supabase
-          .from('units')
-          .select('id, name')
-          .limit(1);
+        // Find matching unit by Booking.com ID, fallback to name matching, then first available
+        let unitId: string | null = null;
+        
+        if (parsed.bookingComRoomId) {
+          // Try exact match by Booking.com ID
+          const { data: unitByBookingId } = await supabase
+            .from('units')
+            .select('id, name')
+            .eq('booking_com_id', parsed.bookingComRoomId)
+            .limit(1)
+            .single();
           
-        const unitId = units?.[0]?.id || null;
+          if (unitByBookingId) {
+            unitId = unitByBookingId.id;
+            console.log(`Matched unit by Booking.com ID ${parsed.bookingComRoomId}: ${unitByBookingId.name}`);
+          }
+        }
+        
+        // If no match by Booking.com ID, try name matching
+        if (!unitId && parsed.unitName && parsed.unitName !== 'TBD') {
+          const { data: unitByName } = await supabase
+            .from('units')
+            .select('id, name')
+            .ilike('name', `%${parsed.unitName}%`)
+            .limit(1)
+            .single();
+            
+          if (unitByName) {
+            unitId = unitByName.id;
+            console.log(`Matched unit by name: ${unitByName.name}`);
+          }
+        }
+        
+        // Fallback to first available unit
+        if (!unitId) {
+          const { data: units } = await supabase
+            .from('units')
+            .select('id, name')
+            .limit(1);
+            
+          unitId = units?.[0]?.id || null;
+          console.log(`Using fallback unit: ${units?.[0]?.name || 'none'}`);
+        }
+        
+        const notesText = parsed.bookingComRoomId 
+          ? `Auto-synced from Gmail. Booking.com Room ID: ${parsed.bookingComRoomId}, Unit: ${parsed.unitName}`
+          : `Auto-synced from Gmail. Unit: ${parsed.unitName}`;
+        
         
         // Calculate nights
         const checkIn = new Date(parsed.checkInDate);
@@ -382,7 +441,7 @@ serve(async (req) => {
             contact_email: parsed.contactEmail,
             contact_phone: parsed.contactPhone,
             guest_nationality: parsed.guestNationality,
-            notes: `Auto-synced from Gmail. Unit: ${parsed.unitName}`,
+            notes: notesText,
           })
           .select()
           .single();
