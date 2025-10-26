@@ -1,6 +1,7 @@
 import { Button } from "@/components/ui/button";
 import { Link } from "react-router-dom";
 import { Calendar, MapPin, Sparkles } from "lucide-react";
+import heroImage from "@/assets/hero-lobby.jpg";
 
 const PublicHome = () => {
   return (
@@ -42,8 +43,8 @@ const PublicHome = () => {
         {/* Photo Background */}
         <div className="absolute inset-0">
           <img 
-            src="https://images.unsplash.com/photo-1582719508461-905c673771fd?w=1920&q=80" 
-            alt="SuiteSpot luxury interior"
+            src={heroImage} 
+            alt="SuiteSpot luxury lobby"
             className="w-full h-full object-cover"
           />
           <div className="absolute inset-0 bg-gradient-to-br from-black/60 to-black/40" />
