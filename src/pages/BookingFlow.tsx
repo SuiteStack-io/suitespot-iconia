@@ -11,6 +11,7 @@ import { supabase } from "@/integrations/supabase/client";
 import { useToast } from "@/hooks/use-toast";
 import { format } from "date-fns";
 import { Loader2 } from "lucide-react";
+import type { DateRange } from "react-day-picker";
 
 const BookingFlow = () => {
   const navigate = useNavigate();
@@ -19,8 +20,7 @@ const BookingFlow = () => {
   const [step, setStep] = useState(1);
   
   // Booking data
-  const [checkIn, setCheckIn] = useState<Date>();
-  const [checkOut, setCheckOut] = useState<Date>();
+  const [dateRange, setDateRange] = useState<DateRange | undefined>();
   const [selectedUnit, setSelectedUnit] = useState<string>("");
   const [guestNames, setGuestNames] = useState<string[]>([""]);
   const [adults, setAdults] = useState(1);
@@ -48,13 +48,13 @@ const BookingFlow = () => {
   };
 
   const calculateNights = () => {
-    if (!checkIn || !checkOut) return 0;
-    const diff = checkOut.getTime() - checkIn.getTime();
+    if (!dateRange?.from || !dateRange?.to) return 0;
+    const diff = dateRange.to.getTime() - dateRange.from.getTime();
     return Math.ceil(diff / (1000 * 60 * 60 * 24));
   };
 
   const handleSubmit = async () => {
-    if (!checkIn || !checkOut || !selectedUnit || guestNames.filter(n => n.trim()).length === 0) {
+    if (!dateRange?.from || !dateRange?.to || !selectedUnit || guestNames.filter(n => n.trim()).length === 0) {
       toast({
         title: "Missing Information",
         description: "Please fill in all required fields",
@@ -71,8 +71,8 @@ const BookingFlow = () => {
 
       const { error } = await supabase.from("reservations").insert({
         unit_id: selectedUnit,
-        check_in_date: format(checkIn, "yyyy-MM-dd"),
-        check_out_date: format(checkOut, "yyyy-MM-dd"),
+        check_in_date: format(dateRange.from, "yyyy-MM-dd"),
+        check_out_date: format(dateRange.to, "yyyy-MM-dd"),
         nights,
         guest_names: validGuestNames,
         adults,
@@ -159,30 +159,18 @@ const BookingFlow = () => {
               <div className="space-y-6">
                 <div>
                   <Label className="text-lg font-semibold mb-4 block">Select Your Dates</Label>
-                  <div className="grid md:grid-cols-2 gap-6">
-                    <div>
-                      <Label>Check-in Date</Label>
-                      <Calendar
-                        mode="single"
-                        selected={checkIn}
-                        onSelect={setCheckIn}
-                        disabled={(date) => date < new Date()}
-                        className="rounded-md border mt-2"
-                      />
-                    </div>
-                    <div>
-                      <Label>Check-out Date</Label>
-                      <Calendar
-                        mode="single"
-                        selected={checkOut}
-                        onSelect={setCheckOut}
-                        disabled={(date) => !checkIn || date <= checkIn}
-                        className="rounded-md border mt-2"
-                      />
-                    </div>
+                  <div className="flex justify-center">
+                    <Calendar
+                      mode="range"
+                      selected={dateRange}
+                      onSelect={setDateRange}
+                      disabled={(date) => date < new Date()}
+                      numberOfMonths={1}
+                      className="rounded-md border pointer-events-auto"
+                    />
                   </div>
-                  {checkIn && checkOut && (
-                    <p className="text-sm text-muted-foreground mt-4">
+                  {dateRange?.from && dateRange?.to && (
+                    <p className="text-sm text-muted-foreground mt-4 text-center">
                       {calculateNights()} night{calculateNights() !== 1 ? "s" : ""}
                     </p>
                   )}
@@ -227,7 +215,7 @@ const BookingFlow = () => {
 
                 <Button
                   onClick={() => setStep(2)}
-                  disabled={!checkIn || !checkOut || !selectedUnit}
+                  disabled={!dateRange?.from || !dateRange?.to || !selectedUnit}
                   className="w-full bg-accent hover:bg-accent/90"
                 >
                   Continue to Guest Details
@@ -340,7 +328,7 @@ const BookingFlow = () => {
                   <div>
                     <p className="text-sm text-muted-foreground">Dates</p>
                     <p className="font-medium">
-                      {checkIn && format(checkIn, "MMM dd, yyyy")} - {checkOut && format(checkOut, "MMM dd, yyyy")}
+                      {dateRange?.from && format(dateRange.from, "MMM dd, yyyy")} - {dateRange?.to && format(dateRange.to, "MMM dd, yyyy")}
                       <span className="text-muted-foreground ml-2">({calculateNights()} nights)</span>
                     </p>
                   </div>
