@@ -28,8 +28,8 @@ All colors MUST be HSL.
     --muted: 30 15% 92%;
     --muted-foreground: 30 8% 45%;
     
-    /* Accent - Terracotta */
-    --accent: 20 60% 55%;
+    /* Accent - Coral (matching logo) */
+    --accent: 12 85% 62%;
     --accent-foreground: 0 0% 100%;
     
     --destructive: 0 84.2% 60.2%;
@@ -86,7 +86,7 @@ All colors MUST be HSL.
     --secondary-foreground: 30 20% 95%;
     --muted: 30 8% 18%;
     --muted-foreground: 30 12% 65%;
-    --accent: 20 60% 55%;
+    --accent: 12 85% 62%;
     --accent-foreground: 0 0% 100%;
     --destructive: 0 62.8% 50%;
     --destructive-foreground: 210 40% 98%;
