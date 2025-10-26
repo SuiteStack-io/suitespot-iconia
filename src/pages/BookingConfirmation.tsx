@@ -2,6 +2,7 @@ import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
 import { Link } from "react-router-dom";
 import { CheckCircle2 } from "lucide-react";
+import logo from "@/assets/suitespot-logo.png";
 
 const BookingConfirmation = () => {
   return (
@@ -9,8 +10,9 @@ const BookingConfirmation = () => {
       {/* Navigation */}
       <nav className="border-b border-border bg-card">
         <div className="container mx-auto px-6 py-4 flex items-center justify-between">
-          <Link to="/" className="text-2xl font-serif font-bold text-foreground">
-            SuiteSpot
+          <Link to="/" className="flex items-center gap-2">
+            <img src={logo} alt="SuiteSpot logo" className="h-8 w-8" />
+            <span className="text-2xl font-serif font-bold text-foreground">SuiteSpot</span>
           </Link>
         </div>
       </nav>

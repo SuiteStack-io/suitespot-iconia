@@ -12,6 +12,7 @@ import { useToast } from "@/hooks/use-toast";
 import { format } from "date-fns";
 import { Loader2 } from "lucide-react";
 import type { DateRange } from "react-day-picker";
+import logo from "@/assets/suitespot-logo.png";
 
 interface Unit {
   id: string;
@@ -149,8 +150,9 @@ const BookingFlow = () => {
       {/* Navigation */}
       <nav className="border-b border-border bg-card">
         <div className="container mx-auto px-6 py-4 flex items-center justify-between">
-          <Link to="/" className="text-2xl font-serif font-bold text-foreground">
-            SuiteSpot
+          <Link to="/" className="flex items-center gap-2">
+            <img src={logo} alt="SuiteSpot logo" className="h-8 w-8" />
+            <span className="text-2xl font-serif font-bold text-foreground">SuiteSpot</span>
           </Link>
           <Link to="/" className="text-sm text-muted-foreground hover:text-foreground">
             Back to Home

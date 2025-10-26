@@ -2,6 +2,7 @@ import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
 import { Link } from "react-router-dom";
 import { MapPin } from "lucide-react";
+import logo from "@/assets/suitespot-logo.png";
 
 const Locations = () => {
   return (
@@ -9,8 +10,9 @@ const Locations = () => {
       {/* Navigation */}
       <nav className="fixed top-0 left-0 right-0 z-50 bg-background/80 backdrop-blur-md border-b border-border">
         <div className="container mx-auto px-6 py-4 flex items-center justify-between">
-          <Link to="/" className="text-2xl font-serif font-bold text-foreground">
-            SuiteSpot
+          <Link to="/" className="flex items-center gap-2">
+            <img src={logo} alt="SuiteSpot logo" className="h-8 w-8" />
+            <span className="text-2xl font-serif font-bold text-foreground">SuiteSpot</span>
           </Link>
           <Button asChild className="bg-accent hover:bg-accent/90">
             <Link to="/book">Book Now</Link>
