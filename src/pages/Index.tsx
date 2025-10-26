@@ -27,6 +27,13 @@ const Index = () => {
     }
   }, [user, loading, navigate]);
 
+  // Redirect to admin from root if logged in
+  useEffect(() => {
+    if (window.location.pathname === '/' && user) {
+      navigate('/admin');
+    }
+  }, [user, navigate]);
+
   if (loading) {
     return (
       <div className="flex min-h-screen items-center justify-center">
