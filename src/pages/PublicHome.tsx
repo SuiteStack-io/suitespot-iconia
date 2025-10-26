@@ -2,10 +2,8 @@ import { Button } from "@/components/ui/button";
 import { Link } from "react-router-dom";
 import { Calendar, MapPin, Sparkles } from "lucide-react";
 import heroImage from "@/assets/hero-lobby.jpg";
-
 const PublicHome = () => {
-  return (
-    <div className="min-h-screen">
+  return <div className="min-h-screen">
       {/* Navigation */}
       <nav className="fixed top-0 left-0 right-0 z-50 bg-background/80 backdrop-blur-md border-b border-border">
         <div className="container mx-auto px-6 py-4 flex items-center justify-between">
@@ -42,23 +40,19 @@ const PublicHome = () => {
       <section className="relative h-screen flex items-center justify-center overflow-hidden">
         {/* Photo Background */}
         <div className="absolute inset-0">
-          <img 
-            src={heroImage} 
-            alt="SuiteSpot luxury lobby"
-            className="w-full h-full object-cover"
-          />
+          <img src={heroImage} alt="SuiteSpot luxury lobby" className="w-full h-full object-cover" />
           <div className="absolute inset-0 bg-gradient-to-br from-black/60 to-black/40" />
         </div>
         
         {/* Hero Content */}
         <div className="relative z-10 text-center px-6 max-w-4xl">
-          <h1 className="text-5xl md:text-7xl font-serif font-bold text-white mb-6 animate-fade-in">
-            Blending the comfort of home with the service of a boutique hotel
-          </h1>
-          <p className="text-xl md:text-2xl text-white/90 mb-8 animate-fade-in" style={{ animationDelay: "0.2s" }}>
-            Discover wellness-focused, design-driven stays in architecturally unique spaces
-          </p>
-          <div className="flex flex-col sm:flex-row gap-4 justify-center animate-fade-in" style={{ animationDelay: "0.4s" }}>
+          <h1 className="text-5xl md:text-7xl font-serif font-bold text-white mb-6 animate-fade-in">SUITESPOT ICONIA</h1>
+          <p className="text-xl md:text-2xl text-white/90 mb-8 animate-fade-in" style={{
+          animationDelay: "0.2s"
+        }}>Blending the comfort of home with the service of a boutique hotel</p>
+          <div className="flex flex-col sm:flex-row gap-4 justify-center animate-fade-in" style={{
+          animationDelay: "0.4s"
+        }}>
             <Button asChild size="lg" className="bg-white text-primary hover:bg-white/90">
               <Link to="/book">Book Your Stay</Link>
             </Button>
@@ -191,8 +185,6 @@ const PublicHome = () => {
           </div>
         </div>
       </footer>
-    </div>
-  );
+    </div>;
 };
-
 export default PublicHome;
