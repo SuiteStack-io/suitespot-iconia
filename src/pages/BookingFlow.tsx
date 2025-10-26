@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
 import { Calendar } from "@/components/ui/calendar";
@@ -13,11 +13,21 @@ import { format } from "date-fns";
 import { Loader2 } from "lucide-react";
 import type { DateRange } from "react-day-picker";
 
+interface Unit {
+  id: string;
+  name: string;
+  unit_type: string | null;
+  unit_number: string | null;
+  status: string;
+}
+
 const BookingFlow = () => {
   const navigate = useNavigate();
   const { toast } = useToast();
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [step, setStep] = useState(1);
+  const [units, setUnits] = useState<Unit[]>([]);
+  const [isLoadingUnits, setIsLoadingUnits] = useState(true);
   
   // Booking data
   const [dateRange, setDateRange] = useState<DateRange | undefined>();
@@ -29,6 +39,32 @@ const BookingFlow = () => {
   const [phone, setPhone] = useState("");
   const [nationality, setNationality] = useState("");
   const [notes, setNotes] = useState("");
+
+  // Fetch available units
+  useEffect(() => {
+    const fetchUnits = async () => {
+      try {
+        const { data, error } = await supabase
+          .from("units")
+          .select("id, name, unit_type, unit_number, status")
+          .eq("status", "available")
+          .order("name");
+
+        if (error) throw error;
+        setUnits(data || []);
+      } catch (error: any) {
+        toast({
+          title: "Error loading suites",
+          description: error.message,
+          variant: "destructive",
+        });
+      } finally {
+        setIsLoadingUnits(false);
+      }
+    };
+
+    fetchUnits();
+  }, [toast]);
 
   const addGuest = () => {
     setGuestNames([...guestNames, ""]);
@@ -178,14 +214,21 @@ const BookingFlow = () => {
 
                 <div>
                   <Label htmlFor="unit">Select Suite Type</Label>
-                  <Select value={selectedUnit} onValueChange={setSelectedUnit}>
+                  <Select value={selectedUnit} onValueChange={setSelectedUnit} disabled={isLoadingUnits}>
                     <SelectTrigger id="unit">
-                      <SelectValue placeholder="Choose a suite" />
+                      <SelectValue placeholder={isLoadingUnits ? "Loading suites..." : "Choose a suite"} />
                     </SelectTrigger>
                     <SelectContent>
-                      <SelectItem value="studio">Studio Suite</SelectItem>
-                      <SelectItem value="one-bedroom">One Bedroom Suite</SelectItem>
-                      <SelectItem value="two-bedroom">Two Bedroom Suite</SelectItem>
+                      {units.length === 0 && !isLoadingUnits ? (
+                        <div className="p-2 text-sm text-muted-foreground">No suites available</div>
+                      ) : (
+                        units.map((unit) => (
+                          <SelectItem key={unit.id} value={unit.id}>
+                            {unit.name}
+                            {unit.unit_number && ` - Unit ${unit.unit_number}`}
+                          </SelectItem>
+                        ))
+                      )}
                     </SelectContent>
                   </Select>
                 </div>
@@ -335,7 +378,7 @@ const BookingFlow = () => {
                   
                   <div>
                     <p className="text-sm text-muted-foreground">Suite Type</p>
-                    <p className="font-medium capitalize">{selectedUnit.replace("-", " ")}</p>
+                    <p className="font-medium">{units.find(u => u.id === selectedUnit)?.name || selectedUnit}</p>
                   </div>
 
                   <div>
