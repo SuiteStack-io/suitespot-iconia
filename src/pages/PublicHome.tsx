@@ -37,12 +37,16 @@ const PublicHome = () => {
         </div>
       </nav>
 
-      {/* Hero Section with Video Background */}
+      {/* Hero Section with Photo Background */}
       <section className="relative h-screen flex items-center justify-center overflow-hidden">
-        {/* Video Background - Placeholder for now */}
-        <div className="absolute inset-0 bg-gradient-to-br from-primary/90 to-accent/80">
-          {/* User will need to add actual video */}
-          <div className="absolute inset-0 bg-[url('https://images.unsplash.com/photo-1582719508461-905c673771fd?w=1920')] bg-cover bg-center opacity-30" />
+        {/* Photo Background */}
+        <div className="absolute inset-0">
+          <img 
+            src="https://images.unsplash.com/photo-1582719508461-905c673771fd?w=1920&q=80" 
+            alt="SuiteSpot luxury interior"
+            className="w-full h-full object-cover"
+          />
+          <div className="absolute inset-0 bg-gradient-to-br from-black/60 to-black/40" />
         </div>
         
         {/* Hero Content */}
