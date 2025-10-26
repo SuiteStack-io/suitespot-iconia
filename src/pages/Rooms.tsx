@@ -14,6 +14,14 @@ import {
   TableHeader,
   TableRow,
 } from '@/components/ui/table';
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from '@/components/ui/select';
+import { format } from 'date-fns';
 
 interface Unit {
   id: string;
@@ -26,11 +34,22 @@ interface Unit {
   comments: string | null;
 }
 
+interface Reservation {
+  id: string;
+  unit_id: string | null;
+  check_in_date: string;
+  check_out_date: string;
+  status: string;
+}
+
+const STATUS_OPTIONS = ['available', 'occupied', 'maintenance', 'reserved'];
+
 const Rooms = () => {
   const { user, loading, userRole } = useAuth();
   const navigate = useNavigate();
   const { toast } = useToast();
   const [units, setUnits] = useState<Unit[]>([]);
+  const [reservations, setReservations] = useState<Reservation[]>([]);
   const [editingId, setEditingId] = useState<string | null>(null);
   const [editedUnit, setEditedUnit] = useState<Partial<Unit>>({});
   const [isAdding, setIsAdding] = useState(false);
@@ -55,10 +74,11 @@ const Rooms = () => {
   useEffect(() => {
     if (user) {
       fetchUnits();
+      fetchReservations();
     }
 
-    // Real-time updates for units
-    const channel = supabase
+    // Real-time updates for units and reservations
+    const unitsChannel = supabase
       .channel('units-changes')
       .on(
         'postgres_changes',
@@ -73,8 +93,24 @@ const Rooms = () => {
       )
       .subscribe();
 
+    const reservationsChannel = supabase
+      .channel('reservations-changes')
+      .on(
+        'postgres_changes',
+        {
+          event: '*',
+          schema: 'public',
+          table: 'reservations',
+        },
+        () => {
+          fetchReservations();
+        }
+      )
+      .subscribe();
+
     return () => {
-      supabase.removeChannel(channel);
+      supabase.removeChannel(unitsChannel);
+      supabase.removeChannel(reservationsChannel);
     };
   }, [user]);
 
@@ -94,6 +130,33 @@ const Rooms = () => {
     }
 
     setUnits(data || []);
+  };
+
+  const fetchReservations = async () => {
+    const today = new Date().toISOString().split('T')[0];
+    const { data, error } = await supabase
+      .from('reservations')
+      .select('id, unit_id, check_in_date, check_out_date, status')
+      .gte('check_in_date', today)
+      .order('check_in_date');
+
+    if (error) {
+      console.error('Failed to fetch reservations:', error);
+      return;
+    }
+
+    setReservations(data || []);
+  };
+
+  const getNextReservation = (unitId: string): string | null => {
+    const unitReservations = reservations.filter(
+      (res) => res.unit_id === unitId
+    );
+    
+    if (unitReservations.length === 0) return null;
+    
+    const nextRes = unitReservations[0];
+    return format(new Date(nextRes.check_in_date), 'MMM dd, yyyy');
   };
 
   const handleEdit = (unit: Unit) => {
@@ -302,7 +365,7 @@ const Rooms = () => {
                 <TableHead>Size</TableHead>
                 <TableHead>Status</TableHead>
                 <TableHead>Booking.com ID</TableHead>
-                <TableHead>Comments</TableHead>
+                <TableHead>Next Reservation</TableHead>
                 {isAdmin && !isBulkEdit && <TableHead>Actions</TableHead>}
               </TableRow>
             </TableHeader>
@@ -338,11 +401,21 @@ const Rooms = () => {
                     />
                   </TableCell>
                   <TableCell>
-                    <Input
+                    <Select
                       value={newUnit.status}
-                      onChange={(e) => setNewUnit({ ...newUnit, status: e.target.value })}
-                      placeholder="Status"
-                    />
+                      onValueChange={(value) => setNewUnit({ ...newUnit, status: value })}
+                    >
+                      <SelectTrigger>
+                        <SelectValue placeholder="Select status" />
+                      </SelectTrigger>
+                      <SelectContent>
+                        {STATUS_OPTIONS.map((status) => (
+                          <SelectItem key={status} value={status}>
+                            {status.charAt(0).toUpperCase() + status.slice(1)}
+                          </SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
                   </TableCell>
                   <TableCell>
                     <Input
@@ -352,11 +425,7 @@ const Rooms = () => {
                     />
                   </TableCell>
                   <TableCell>
-                    <Input
-                      value={newUnit.comments || ''}
-                      onChange={(e) => setNewUnit({ ...newUnit, comments: e.target.value })}
-                      placeholder="Comments"
-                    />
+                    <span className="text-muted-foreground">-</span>
                   </TableCell>
                   <TableCell>
                     <div className="flex gap-2">
@@ -449,14 +518,25 @@ const Rooms = () => {
                     </TableCell>
                     <TableCell>
                       {isEditing ? (
-                        <Input
+                        <Select
                           value={isBulkEdit ? bulkEditUnits[unit.id]?.status : editedUnit.status}
-                          onChange={(e) =>
+                          onValueChange={(value) =>
                             isBulkEdit
-                              ? handleBulkEditChange(unit.id, 'status', e.target.value)
-                              : setEditedUnit({ ...editedUnit, status: e.target.value })
+                              ? handleBulkEditChange(unit.id, 'status', value)
+                              : setEditedUnit({ ...editedUnit, status: value })
                           }
-                        />
+                        >
+                          <SelectTrigger>
+                            <SelectValue />
+                          </SelectTrigger>
+                          <SelectContent>
+                            {STATUS_OPTIONS.map((status) => (
+                              <SelectItem key={status} value={status}>
+                                {status.charAt(0).toUpperCase() + status.slice(1)}
+                              </SelectItem>
+                            ))}
+                          </SelectContent>
+                        </Select>
                       ) : (
                         <span className="capitalize">{unit.status}</span>
                       )}
@@ -477,18 +557,9 @@ const Rooms = () => {
                       )}
                     </TableCell>
                     <TableCell>
-                      {isEditing ? (
-                        <Input
-                          value={isBulkEdit ? (bulkEditUnits[unit.id]?.comments || '') : (editedUnit.comments || '')}
-                          onChange={(e) =>
-                            isBulkEdit
-                              ? handleBulkEditChange(unit.id, 'comments', e.target.value)
-                              : setEditedUnit({ ...editedUnit, comments: e.target.value })
-                          }
-                        />
-                      ) : (
-                        unit.comments || '-'
-                      )}
+                      <span className="text-sm">
+                        {getNextReservation(unit.id) || '-'}
+                      </span>
                     </TableCell>
                     {isAdmin && !isBulkEdit && (
                       <TableCell>
