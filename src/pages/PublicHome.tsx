@@ -97,7 +97,7 @@ const PublicHome = () => {
       <section className="w-full">
         <div className="grid md:grid-cols-3">
           {/* Suites */}
-          <Link to="/suites" className="relative h-[750px] overflow-hidden group cursor-pointer">
+          <Link to="/suites" className="relative h-[650px] overflow-hidden group cursor-pointer">
             <img 
               src={suitesFeature} 
               alt="Luxurious suites" 
@@ -116,7 +116,7 @@ const PublicHome = () => {
           </Link>
 
           {/* Wellness */}
-          <Link to="/wellness" className="relative h-[750px] overflow-hidden group cursor-pointer">
+          <Link to="/wellness" className="relative h-[650px] overflow-hidden group cursor-pointer">
             <img 
               src={wellnessFeature} 
               alt="Wellness and yoga" 
@@ -135,7 +135,7 @@ const PublicHome = () => {
           </Link>
 
           {/* Experiences */}
-          <Link to="/experiences" className="relative h-[750px] overflow-hidden group cursor-pointer">
+          <Link to="/experiences" className="relative h-[650px] overflow-hidden group cursor-pointer">
             <img 
               src={experiencesFeature} 
               alt="Egyptian experiences" 
