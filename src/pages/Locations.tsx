@@ -22,7 +22,7 @@ const Locations = () => {
 
       <div className="pt-20">
         {/* Hero Section */}
-        <section className="py-24 px-6 bg-gradient-to-br from-primary to-primary/80 text-primary-foreground">
+        <section className="py-24 px-6 bg-background/80 backdrop-blur-md">
           <div className="container mx-auto max-w-4xl text-center">
             <h1 className="text-5xl md:text-6xl font-serif font-bold mb-6">Our Locations</h1>
             <p className="text-xl opacity-90">
