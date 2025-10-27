@@ -156,12 +156,12 @@ const PublicHome = () => {
       </section>
 
       {/* CTA Section */}
-      <section className="py-24 px-6 bg-primary text-primary-foreground">
+      <section className="py-24 px-6 bg-background text-foreground">
         <div className="container mx-auto max-w-3xl text-center">
           <h2 className="text-4xl md:text-5xl font-serif font-bold mb-6">
             Ready to Experience SuiteSpot?
           </h2>
-          <p className="text-xl mb-8 opacity-90">
+          <p className="text-xl mb-8 text-muted-foreground">
             Book your stay today and discover a new way to experience Egypt
           </p>
           <Button asChild size="lg" className="bg-accent hover:bg-accent/90 text-white">
