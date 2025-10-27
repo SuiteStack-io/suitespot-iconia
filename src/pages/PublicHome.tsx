@@ -3,6 +3,9 @@ import { Link } from "react-router-dom";
 import { Calendar, MapPin, Sparkles } from "lucide-react";
 import heroImage from "@/assets/hero-lobby.jpg";
 import logo from "@/assets/suitespot-logo.png";
+import suitesFeature from "@/assets/suites-feature.jpg";
+import wellnessFeature from "@/assets/wellness-feature.jpg";
+import experiencesFeature from "@/assets/experiences-feature.jpg";
 const PublicHome = () => {
   return <div className="min-h-screen">
       {/* Navigation */}
@@ -91,48 +94,64 @@ const PublicHome = () => {
       </section>
 
       {/* Features Grid */}
-      <section className="py-24 px-6 bg-muted/30">
-        <div className="container mx-auto">
-          <div className="grid md:grid-cols-3 gap-12">
-            <div className="text-center">
-              <div className="w-16 h-16 bg-accent rounded-full flex items-center justify-center mx-auto mb-6">
-                <MapPin className="w-8 h-8 text-white" />
-              </div>
-              <h3 className="text-2xl font-serif font-bold text-foreground mb-4">
-                Prime Locations
+      <section className="w-full">
+        <div className="grid md:grid-cols-3">
+          {/* Suites */}
+          <Link to="/suites" className="relative h-[600px] overflow-hidden group cursor-pointer">
+            <img 
+              src={suitesFeature} 
+              alt="Luxurious suites" 
+              className="w-full h-full object-cover transition-transform duration-700 group-hover:scale-105" 
+            />
+            <div className="absolute inset-0 bg-black/40 transition-opacity duration-300 group-hover:bg-black/50" />
+            <div className="absolute inset-0 flex flex-col items-center justify-center text-white px-8 text-center">
+              <h3 className="text-4xl md:text-5xl font-serif font-bold mb-6 uppercase tracking-wider">
+                Suites
               </h3>
-              <p className="text-muted-foreground">
+              <p className="text-lg md:text-xl max-w-md opacity-90">
                 Architecturally unique properties in Cairo's most vibrant neighborhoods, 
                 starting with Iconia in Zamalek
               </p>
             </div>
-            
-            <div className="text-center">
-              <div className="w-16 h-16 bg-accent rounded-full flex items-center justify-center mx-auto mb-6">
-                <Sparkles className="w-8 h-8 text-white" />
-              </div>
-              <h3 className="text-2xl font-serif font-bold text-foreground mb-4">
-                Wellness-Focused
+          </Link>
+
+          {/* Wellness */}
+          <Link to="/wellness" className="relative h-[600px] overflow-hidden group cursor-pointer">
+            <img 
+              src={wellnessFeature} 
+              alt="Wellness and yoga" 
+              className="w-full h-full object-cover transition-transform duration-700 group-hover:scale-105" 
+            />
+            <div className="absolute inset-0 bg-black/40 transition-opacity duration-300 group-hover:bg-black/50" />
+            <div className="absolute inset-0 flex flex-col items-center justify-center text-white px-8 text-center">
+              <h3 className="text-4xl md:text-5xl font-serif font-bold mb-6 uppercase tracking-wider">
+                Wellness
               </h3>
-              <p className="text-muted-foreground">
+              <p className="text-lg md:text-xl max-w-md opacity-90">
                 Yoga, fitness classes, and mindfulness sessions designed to nourish 
                 your body and soul during your stay
               </p>
             </div>
-            
-            <div className="text-center">
-              <div className="w-16 h-16 bg-accent rounded-full flex items-center justify-center mx-auto mb-6">
-                <Calendar className="w-8 h-8 text-white" />
-              </div>
-              <h3 className="text-2xl font-serif font-bold text-foreground mb-4">
-                Curated Experiences
+          </Link>
+
+          {/* Experiences */}
+          <Link to="/experiences" className="relative h-[600px] overflow-hidden group cursor-pointer">
+            <img 
+              src={experiencesFeature} 
+              alt="Egyptian experiences" 
+              className="w-full h-full object-cover transition-transform duration-700 group-hover:scale-105" 
+            />
+            <div className="absolute inset-0 bg-black/40 transition-opacity duration-300 group-hover:bg-black/50" />
+            <div className="absolute inset-0 flex flex-col items-center justify-center text-white px-8 text-center">
+              <h3 className="text-4xl md:text-5xl font-serif font-bold mb-6 uppercase tracking-wider">
+                Experiences
               </h3>
-              <p className="text-muted-foreground">
+              <p className="text-lg md:text-xl max-w-md opacity-90">
                 From Pyramids tours to Nile cruises, explore Egypt's rich culture 
                 with our handpicked experiences
               </p>
             </div>
-          </div>
+          </Link>
         </div>
       </section>
 
