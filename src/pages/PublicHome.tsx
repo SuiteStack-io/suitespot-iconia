@@ -105,7 +105,7 @@ const PublicHome = () => {
             />
             <div className="absolute inset-0 bg-black/40 transition-opacity duration-300 group-hover:bg-black/50" />
             <div className="absolute inset-0 flex flex-col items-center justify-center text-white px-8 text-center">
-              <h3 className="text-4xl md:text-5xl font-serif font-bold mb-6 uppercase tracking-wider">
+              <h3 className="text-3xl md:text-4xl font-serif font-bold mb-6 uppercase tracking-wider">
                 Suites
               </h3>
               <p className="text-lg md:text-xl max-w-md opacity-90">
@@ -124,7 +124,7 @@ const PublicHome = () => {
             />
             <div className="absolute inset-0 bg-black/40 transition-opacity duration-300 group-hover:bg-black/50" />
             <div className="absolute inset-0 flex flex-col items-center justify-center text-white px-8 text-center">
-              <h3 className="text-4xl md:text-5xl font-serif font-bold mb-6 uppercase tracking-wider">
+              <h3 className="text-3xl md:text-4xl font-serif font-bold mb-6 uppercase tracking-wider">
                 Wellness
               </h3>
               <p className="text-lg md:text-xl max-w-md opacity-90">
@@ -146,7 +146,7 @@ const PublicHome = () => {
             />
             <div className="absolute inset-0 bg-black/40 transition-opacity duration-300 group-hover:bg-black/50" />
             <div className="absolute inset-0 flex flex-col items-center justify-center text-white px-8 text-center">
-              <h3 className="text-4xl md:text-5xl font-serif font-bold mb-6 uppercase tracking-wider">
+              <h3 className="text-3xl md:text-4xl font-serif font-bold mb-6 uppercase tracking-wider">
                 Experiences
               </h3>
               <p className="text-lg md:text-xl max-w-md opacity-90">
