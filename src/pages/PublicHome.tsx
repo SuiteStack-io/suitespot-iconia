@@ -51,7 +51,7 @@ const PublicHome = () => {
           <h1 className="text-5xl md:text-7xl font-serif font-bold text-white mb-6 animate-fade-in">Welcome Home</h1>
           <p className="text-xl md:text-2xl text-white/90 mb-8 animate-fade-in" style={{
           animationDelay: "0.2s"
-        }}>Blending the comfort of home with the service of a boutique hotel</p>
+        }}>Blending the comfort of home with the service of a boutique hotel in Zamalek</p>
           <div className="flex flex-col sm:flex-row gap-4 justify-center animate-fade-in" style={{
           animationDelay: "0.4s"
         }}>
