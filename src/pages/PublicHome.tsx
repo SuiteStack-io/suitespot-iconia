@@ -33,7 +33,7 @@ const PublicHome = () => {
               Experiences
             </Link>
             <Link to="/nearby" className="text-sm text-muted-foreground hover:text-foreground transition-colors">
-              Nearby
+              Nearby Amenities
             </Link>
             <Link to="/blog" className="text-sm text-muted-foreground hover:text-foreground transition-colors">
               Blog
@@ -204,7 +204,7 @@ const PublicHome = () => {
               <div className="space-y-2">
                 <Link to="/wellness" className="block text-sm text-muted-foreground hover:text-foreground">Wellness</Link>
                 <Link to="/experiences" className="block text-sm text-muted-foreground hover:text-foreground">Experiences</Link>
-                <Link to="/nearby" className="block text-sm text-muted-foreground hover:text-foreground">Nearby</Link>
+                <Link to="/nearby" className="block text-sm text-muted-foreground hover:text-foreground">Nearby Amenities</Link>
               </div>
             </div>
             <div>
