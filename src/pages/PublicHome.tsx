@@ -6,6 +6,7 @@ import logo from "@/assets/suitespot-logo.png";
 import suitesFeature from "@/assets/iconia-suites.jpg";
 import wellnessFeature from "@/assets/wellness-feature.jpg";
 import experiencesFeature from "@/assets/experiences-feature.jpg";
+import { BookingWidget } from "@/components/BookingWidget";
 const PublicHome = () => {
   return <div className="min-h-screen">
       {/* Navigation */}
@@ -58,7 +59,7 @@ const PublicHome = () => {
           <p className="text-xl md:text-2xl text-white/90 mb-8 animate-fade-in" style={{
           animationDelay: "0.2s"
         }}>Blending the comfort of home with the service of a boutique hotel in Zamalek</p>
-          <div className="flex flex-col sm:flex-row gap-4 justify-center animate-fade-in" style={{
+          <div className="flex flex-col sm:flex-row gap-4 justify-center animate-fade-in mb-8" style={{
           animationDelay: "0.4s"
         }}>
             <Button asChild size="lg" className="bg-white text-primary hover:bg-white/90">
@@ -67,6 +68,13 @@ const PublicHome = () => {
             <Button asChild size="lg" className="bg-white text-primary hover:bg-white/90">
               <Link to="/suites">Explore Suites</Link>
             </Button>
+          </div>
+          
+          {/* Booking Widget */}
+          <div className="animate-fade-in" style={{
+          animationDelay: "0.6s"
+        }}>
+            <BookingWidget />
           </div>
         </div>
 
