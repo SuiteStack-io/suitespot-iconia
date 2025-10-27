@@ -156,7 +156,7 @@ const PublicHome = () => {
       </section>
 
       {/* CTA Section */}
-      <section className="py-24 px-6 bg-background text-foreground">
+      <section className="py-24 px-6 bg-background/80 backdrop-blur-md text-foreground">
         <div className="container mx-auto max-w-3xl text-center">
           <h2 className="text-4xl md:text-5xl font-serif font-bold mb-6">
             Ready to Experience SuiteSpot?
