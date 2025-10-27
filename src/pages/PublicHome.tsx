@@ -168,7 +168,7 @@ const PublicHome = () => {
             Book your stay today and discover a new way to experience Egypt
           </p>
           <Button asChild size="lg" className="bg-accent hover:bg-accent/90 text-white">
-            <Link to="/book">Check Availability</Link>
+            <Link to="/book">Book your stay</Link>
           </Button>
         </div>
       </section>
