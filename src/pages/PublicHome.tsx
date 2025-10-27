@@ -3,7 +3,7 @@ import { Link } from "react-router-dom";
 import { Calendar, MapPin, Sparkles } from "lucide-react";
 import heroImage from "@/assets/hero-lobby.jpg";
 import logo from "@/assets/suitespot-logo.png";
-import suitesFeature from "@/assets/suites-feature.jpg";
+import suitesFeature from "@/assets/iconia-suites.jpg";
 import wellnessFeature from "@/assets/wellness-feature.jpg";
 import experiencesFeature from "@/assets/experiences-feature.jpg";
 const PublicHome = () => {
@@ -97,7 +97,7 @@ const PublicHome = () => {
       <section className="w-full">
         <div className="grid md:grid-cols-3">
           {/* Suites */}
-          <Link to="/suites" className="relative h-[600px] overflow-hidden group cursor-pointer">
+          <Link to="/suites" className="relative h-[750px] overflow-hidden group cursor-pointer">
             <img 
               src={suitesFeature} 
               alt="Luxurious suites" 
@@ -116,7 +116,7 @@ const PublicHome = () => {
           </Link>
 
           {/* Wellness */}
-          <Link to="/wellness" className="relative h-[600px] overflow-hidden group cursor-pointer">
+          <Link to="/wellness" className="relative h-[750px] overflow-hidden group cursor-pointer">
             <img 
               src={wellnessFeature} 
               alt="Wellness and yoga" 
@@ -135,7 +135,7 @@ const PublicHome = () => {
           </Link>
 
           {/* Experiences */}
-          <Link to="/experiences" className="relative h-[600px] overflow-hidden group cursor-pointer">
+          <Link to="/experiences" className="relative h-[750px] overflow-hidden group cursor-pointer">
             <img 
               src={experiencesFeature} 
               alt="Egyptian experiences" 
