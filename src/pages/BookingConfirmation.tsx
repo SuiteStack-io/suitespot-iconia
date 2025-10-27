@@ -8,7 +8,7 @@ const BookingConfirmation = () => {
   return (
     <div className="min-h-screen bg-background">
       {/* Navigation */}
-      <nav className="border-b border-border bg-card">
+      <nav className="fixed top-0 left-0 right-0 z-50 bg-background/80 backdrop-blur-md border-b border-border">
         <div className="container mx-auto px-6 py-4 flex items-center justify-between">
           <Link to="/" className="flex items-center gap-2">
             <img src={logo} alt="SuiteSpot logo" className="h-8 w-8" />
@@ -17,7 +17,7 @@ const BookingConfirmation = () => {
         </div>
       </nav>
 
-      <div className="container mx-auto px-6 py-24">
+      <div className="container mx-auto px-6 py-24 pt-32">
         <Card className="max-w-2xl mx-auto p-12 text-center">
           <div className="w-20 h-20 bg-success/10 rounded-full flex items-center justify-center mx-auto mb-6">
             <CheckCircle2 className="w-12 h-12 text-success" />

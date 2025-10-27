@@ -148,7 +148,7 @@ const BookingFlow = () => {
   return (
     <div className="min-h-screen bg-background">
       {/* Navigation */}
-      <nav className="border-b border-border bg-card">
+      <nav className="fixed top-0 left-0 right-0 z-50 bg-background/80 backdrop-blur-md border-b border-border">
         <div className="container mx-auto px-6 py-4 flex items-center justify-between">
           <Link to="/" className="flex items-center gap-2">
             <img src={logo} alt="SuiteSpot logo" className="h-8 w-8" />
@@ -160,7 +160,7 @@ const BookingFlow = () => {
         </div>
       </nav>
 
-      <div className="container mx-auto px-6 py-12">
+      <div className="container mx-auto px-6 py-12 pt-24">
         <div className="max-w-4xl mx-auto">
           <h1 className="text-4xl font-serif font-bold text-foreground mb-2">Book Your Stay</h1>
           <p className="text-muted-foreground mb-8">Complete the form below to reserve your suite</p>
