@@ -128,7 +128,7 @@ const PublicHome = () => {
                 Wellness
               </h3>
               <p className="text-lg md:text-xl max-w-md opacity-90">
-                Yoga, Group fitness classes, and a 24/7 gym designed to nourish 
+                Yoga, fitness classes, and mindfulness sessions designed to nourish 
                 your body and soul during your stay
               </p>
             </div>
