@@ -82,7 +82,7 @@ const PublicHome = () => {
       <section className="py-24 px-6 bg-background">
         <div className="container mx-auto max-w-4xl text-center">
           <h2 className="text-4xl md:text-5xl font-serif font-bold text-foreground mb-6">
-            A New Standard in Serviced Living
+            A New Standard in Serviced Living in Zamalek
           </h2>
           <p className="text-lg text-muted-foreground leading-relaxed">
             SuiteSpot Hospitality redefines serviced apartment living in Egypt. We blend local culture, 
