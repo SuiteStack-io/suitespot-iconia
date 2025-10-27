@@ -24,6 +24,7 @@ import Suites from "./pages/Suites";
 import Wellness from "./pages/Wellness";
 import Experiences from "./pages/Experiences";
 import Nearby from "./pages/Nearby";
+import Blog from "./pages/Blog";
 
 const queryClient = new QueryClient();
 
@@ -45,6 +46,7 @@ const App = () => (
             <Route path="/wellness" element={<Wellness />} />
             <Route path="/experiences" element={<Experiences />} />
             <Route path="/nearby" element={<Nearby />} />
+            <Route path="/blog" element={<Blog />} />
             
             {/* Admin Routes - For internal management */}
             <Route path="/admin" element={<ProtectedRoute><Index /></ProtectedRoute>} />

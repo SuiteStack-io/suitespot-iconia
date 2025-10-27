@@ -31,6 +31,9 @@ const PublicHome = () => {
             <Link to="/nearby" className="text-sm text-muted-foreground hover:text-foreground transition-colors">
               Nearby
             </Link>
+            <Link to="/blog" className="text-sm text-muted-foreground hover:text-foreground transition-colors">
+              Blog
+            </Link>
           </div>
           <Button asChild className="bg-accent hover:bg-accent/90">
             <Link to="/book">Book Now</Link>
