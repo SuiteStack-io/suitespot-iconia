@@ -19,15 +19,15 @@ export const BookingWidget = () => {
   };
 
   return (
-    <div className="bg-background/95 backdrop-blur-sm rounded-lg shadow-lg border border-border p-4 max-w-4xl mx-auto">
-      <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
+    <div className="bg-background/30 backdrop-blur-sm rounded-lg border border-border/50 p-2 max-w-4xl mx-auto">
+      <div className="grid grid-cols-1 md:grid-cols-4 gap-2">
         {/* Check In */}
         <div>
           <Popover>
             <PopoverTrigger asChild>
               <Button
                 variant="outline"
-                className="w-full justify-start text-left font-normal h-auto py-3 px-4"
+                className="w-full justify-start text-left font-normal h-auto py-2 px-3"
               >
                 <div className="flex items-start gap-3 w-full">
                   <CalendarIcon className="h-5 w-5 text-muted-foreground mt-0.5" />
@@ -59,9 +59,9 @@ export const BookingWidget = () => {
             <PopoverTrigger asChild>
               <Button
                 variant="outline"
-                className="w-full justify-start text-left font-normal h-auto py-3 px-4"
+                className="w-full justify-start text-left font-normal h-auto py-2 px-3"
               >
-                <div className="flex items-start gap-3 w-full">
+                <div className="flex items-start gap-2 w-full">
                   <CalendarIcon className="h-5 w-5 text-muted-foreground mt-0.5" />
                   <div className="flex flex-col">
                     <span className="text-sm font-semibold text-foreground">Check out</span>
@@ -89,10 +89,10 @@ export const BookingWidget = () => {
         <div>
           <Button
             variant="outline"
-            className="w-full justify-start text-left font-normal h-auto py-3 px-4"
+            className="w-full justify-start text-left font-normal h-auto py-2 px-3"
             onClick={(e) => e.preventDefault()}
           >
-            <div className="flex items-start gap-3 w-full">
+            <div className="flex items-start gap-2 w-full">
               <Users className="h-5 w-5 text-muted-foreground mt-0.5" />
               <div className="flex flex-col w-full">
                 <span className="text-sm font-semibold text-foreground">Guests</span>
