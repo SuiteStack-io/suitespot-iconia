@@ -132,6 +132,9 @@ const PublicHome = () => {
                 your body and soul during your stay
               </p>
             </div>
+            <div className="absolute bottom-6 left-0 right-0 flex justify-center">
+              <p className="text-sm text-white/80">powered by OnTrack</p>
+            </div>
           </Link>
 
           {/* Experiences */}
