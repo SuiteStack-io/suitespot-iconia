@@ -1,6 +1,6 @@
 import { Button } from "@/components/ui/button";
 import { Link } from "react-router-dom";
-import { Calendar, MapPin, Sparkles } from "lucide-react";
+import { Calendar, MapPin, Sparkles, User } from "lucide-react";
 import heroImage from "@/assets/hero-lobby.jpg";
 import logo from "@/assets/suitespot-logo.png";
 import suitesFeature from "@/assets/iconia-suites.jpg";
@@ -39,9 +39,18 @@ const PublicHome = () => {
               Blog
             </Link>
           </div>
-          <Button asChild className="bg-accent hover:bg-accent/90">
-            <Link to="/book">Book Now</Link>
-          </Button>
+          <div className="flex items-center gap-4">
+            <Link 
+              to="/admin" 
+              className="p-2 rounded-full bg-muted hover:bg-accent transition-colors"
+              aria-label="Admin Dashboard"
+            >
+              <User className="h-5 w-5 text-foreground" />
+            </Link>
+            <Button asChild className="bg-accent hover:bg-accent/90">
+              <Link to="/book">Book Now</Link>
+            </Button>
+          </div>
         </div>
       </nav>
 
