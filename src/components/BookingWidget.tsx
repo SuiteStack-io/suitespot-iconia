@@ -19,15 +19,15 @@ export const BookingWidget = () => {
   };
 
   return (
-    <div className="bg-background/30 backdrop-blur-sm rounded-lg border border-border/50 p-2 max-w-4xl mx-auto">
-      <div className="grid grid-cols-1 md:grid-cols-4 gap-2">
+    <div className="bg-background/30 backdrop-blur-sm rounded-lg border border-border/50 p-1.5 max-w-4xl mx-auto">
+      <div className="grid grid-cols-1 md:grid-cols-4 gap-1.5">
         {/* Check In */}
         <div>
           <Popover>
             <PopoverTrigger asChild>
               <Button
                 variant="outline"
-                className="w-full justify-start text-left font-normal h-auto py-2 px-3"
+                className="w-full justify-start text-left font-normal h-auto py-1.5 px-3"
               >
                 <div className="flex items-start gap-3 w-full">
                   <CalendarIcon className="h-5 w-5 text-muted-foreground mt-0.5" />
@@ -59,7 +59,7 @@ export const BookingWidget = () => {
             <PopoverTrigger asChild>
               <Button
                 variant="outline"
-                className="w-full justify-start text-left font-normal h-auto py-2 px-3"
+                className="w-full justify-start text-left font-normal h-auto py-1.5 px-3"
               >
                 <div className="flex items-start gap-2 w-full">
                   <CalendarIcon className="h-5 w-5 text-muted-foreground mt-0.5" />
@@ -89,7 +89,7 @@ export const BookingWidget = () => {
         <div>
           <Button
             variant="outline"
-            className="w-full justify-start text-left font-normal h-auto py-2 px-3"
+            className="w-full justify-start text-left font-normal h-auto py-1.5 px-3"
             onClick={(e) => e.preventDefault()}
           >
             <div className="flex items-start gap-2 w-full">
