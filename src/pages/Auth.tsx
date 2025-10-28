@@ -19,7 +19,8 @@ const Auth = () => {
   const { signIn, signUp, user } = useAuth();
   const navigate = useNavigate();
   const location = useLocation();
-  const from = (location.state as any)?.from || '/';
+  const searchParams = new URLSearchParams(location.search);
+  const from = searchParams.get('redirect') || (location.state as any)?.from || '/';
 
   // Redirect if already logged in
   if (user) {

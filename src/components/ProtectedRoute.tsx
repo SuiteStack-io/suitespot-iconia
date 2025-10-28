@@ -13,7 +13,7 @@ export const ProtectedRoute = ({ children }: ProtectedRouteProps) => {
 
   useEffect(() => {
     if (!loading && !user) {
-      navigate("/auth", { replace: true, state: { from: location.pathname } });
+      navigate(`/auth?redirect=${encodeURIComponent(location.pathname)}`, { replace: true });
     }
   }, [user, loading, navigate, location]);
 
