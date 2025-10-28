@@ -42,6 +42,8 @@ const PublicHome = () => {
           <div className="flex items-center gap-4">
             <Link 
               to="/admin" 
+              target="_blank"
+              rel="noopener noreferrer"
               className="p-2 rounded-full bg-muted hover:bg-accent transition-colors"
               aria-label="Admin Dashboard"
             >
