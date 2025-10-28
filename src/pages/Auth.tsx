@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { useNavigate } from 'react-router-dom';
+import { useNavigate, useLocation } from 'react-router-dom';
 import { useAuth } from '@/lib/auth';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -18,10 +18,12 @@ const Auth = () => {
   const [loading, setLoading] = useState(false);
   const { signIn, signUp, user } = useAuth();
   const navigate = useNavigate();
+  const location = useLocation();
+  const from = (location.state as any)?.from || '/';
 
   // Redirect if already logged in
   if (user) {
-    navigate('/');
+    navigate(from);
     return null;
   }
 
@@ -40,7 +42,7 @@ const Auth = () => {
           }
         } else {
           toast.success('Welcome back!');
-          navigate('/');
+          navigate(from);
         }
       } else {
         const { error } = await signUp(email, password, fullName);
@@ -52,7 +54,7 @@ const Auth = () => {
           }
         } else {
           toast.success('Account created! You can now sign in.');
-          navigate('/');
+          navigate(from);
         }
       }
     } catch (error: any) {
