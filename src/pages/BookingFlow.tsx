@@ -10,7 +10,7 @@ import { Link, useNavigate, useSearchParams } from "react-router-dom";
 import { supabase } from "@/integrations/supabase/client";
 import { useToast } from "@/hooks/use-toast";
 import { format, parseISO } from "date-fns";
-import { Loader2, Bed, Bath, Users, Maximize2 } from "lucide-react";
+import { Loader2, Bed, Bath, Users, Maximize2, Sofa } from "lucide-react";
 import type { DateRange } from "react-day-picker";
 import logo from "@/assets/suitespot-logo.png";
 
@@ -24,6 +24,7 @@ interface Unit {
   baths: number | null;
   max_guests: number | null;
   unit_size: string | null;
+  sofa_bed: boolean | null;
 }
 
 const BookingFlow = () => {
@@ -74,7 +75,7 @@ const BookingFlow = () => {
         // First get all units
         const { data: allUnits, error: unitsError } = await supabase
           .from("units")
-          .select("id, name, unit_type, unit_number, status, beds, baths, max_guests, unit_size")
+          .select("id, name, unit_type, unit_number, status, beds, baths, max_guests, unit_size, sofa_bed")
           .eq("status", "available")
           .order("name");
 
@@ -389,6 +390,12 @@ const BookingFlow = () => {
                         <Users className="h-4 w-4 text-muted-foreground" />
                         <span className="text-sm">
                           <span className="font-semibold">Max guests:</span> {units.find(u => u.id === selectedUnit)?.max_guests || 'N/A'}
+                        </span>
+                      </div>
+                      <div className="flex items-center gap-2">
+                        <Sofa className="h-4 w-4 text-muted-foreground" />
+                        <span className="text-sm">
+                          <span className="font-semibold">Sofa bed:</span> {units.find(u => u.id === selectedUnit)?.sofa_bed ? 'Yes' : 'No'}
                         </span>
                       </div>
                       <div className="flex items-center gap-2">
