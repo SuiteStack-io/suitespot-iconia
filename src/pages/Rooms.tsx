@@ -84,7 +84,15 @@ const Rooms = () => {
     if (!loading && !user) {
       navigate('/auth');
     }
-  }, [user, loading, navigate]);
+    if (!loading && user && userRole && userRole !== 'admin') {
+      toast({
+        variant: 'destructive',
+        title: 'Access Denied',
+        description: 'Only administrators can access room management',
+      });
+      navigate('/');
+    }
+  }, [user, loading, userRole, navigate, toast]);
 
   useEffect(() => {
     if (user) {
