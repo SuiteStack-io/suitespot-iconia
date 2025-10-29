@@ -80,7 +80,7 @@ const PublicHome = () => {
             <img 
               src={suitesFeature} 
               alt="Luxurious suites" 
-              className="w-full h-full object-cover object-top md:object-[50%_20%] transition-transform duration-700 group-hover:scale-105" 
+              className="w-full h-full object-contain md:object-cover md:object-[50%_20%] transition-transform duration-700 group-hover:scale-105" 
             />
             <div className="absolute inset-0 bg-black/40 transition-opacity duration-300 group-hover:bg-black/50" />
             <div className="absolute inset-0 flex flex-col items-center justify-center text-white px-8 text-center">
