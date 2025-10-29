@@ -219,6 +219,7 @@ export type Database = {
           id: string
           max_guests: number | null
           name: string
+          photos: string[] | null
           sofa_bed: boolean | null
           status: string
           unit_number: string | null
@@ -236,6 +237,7 @@ export type Database = {
           id?: string
           max_guests?: number | null
           name: string
+          photos?: string[] | null
           sofa_bed?: boolean | null
           status: string
           unit_number?: string | null
@@ -253,6 +255,7 @@ export type Database = {
           id?: string
           max_guests?: number | null
           name?: string
+          photos?: string[] | null
           sofa_bed?: boolean | null
           status?: string
           unit_number?: string | null

@@ -36,6 +36,7 @@ interface Unit {
   baths: number | null;
   max_guests: number | null;
   sofa_bed: boolean | null;
+  photos: string[] | null;
 }
 
 interface Reservation {
@@ -71,6 +72,7 @@ const Rooms = () => {
     baths: null,
     max_guests: null,
     sofa_bed: false,
+    photos: [],
   });
 
   useEffect(() => {
@@ -309,6 +311,7 @@ const Rooms = () => {
       baths: null,
       max_guests: null,
       sofa_bed: false,
+      photos: [],
     });
     fetchUnits();
   };
@@ -383,6 +386,7 @@ const Rooms = () => {
                 <TableHead>Baths</TableHead>
                 <TableHead>Max Guests</TableHead>
                 <TableHead>Sofa Bed</TableHead>
+                <TableHead>Photos</TableHead>
                 <TableHead>Status</TableHead>
                 <TableHead>Booking.com ID</TableHead>
                 <TableHead>Next Reservation</TableHead>
@@ -457,6 +461,13 @@ const Rooms = () => {
                         <SelectItem value="false">No</SelectItem>
                       </SelectContent>
                     </Select>
+                  </TableCell>
+                  <TableCell>
+                    <Input
+                      value={newUnit.photos?.join(', ') || ''}
+                      onChange={(e) => setNewUnit({ ...newUnit, photos: e.target.value.split(',').map(url => url.trim()).filter(Boolean) })}
+                      placeholder="Image URLs (comma-separated)"
+                    />
                   </TableCell>
                   <TableCell>
                     <Select
@@ -646,6 +657,24 @@ const Rooms = () => {
                         </Select>
                       ) : (
                         unit.sofa_bed ? 'Yes' : 'No'
+                      )}
+                    </TableCell>
+                    <TableCell>
+                      {isEditing ? (
+                        <Input
+                          value={isBulkEdit ? (bulkEditUnits[unit.id]?.photos?.join(', ') || '') : (editedUnit.photos?.join(', ') || '')}
+                          onChange={(e) => {
+                            const photos = e.target.value.split(',').map(url => url.trim()).filter(Boolean);
+                            if (isBulkEdit) {
+                              handleBulkEditChange(unit.id, 'photos', photos);
+                            } else {
+                              setEditedUnit({ ...editedUnit, photos });
+                            }
+                          }}
+                          placeholder="Image URLs (comma-separated)"
+                        />
+                      ) : (
+                        <span className="text-sm">{unit.photos?.length || 0} photo(s)</span>
                       )}
                     </TableCell>
                     <TableCell>

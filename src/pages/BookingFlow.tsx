@@ -10,7 +10,8 @@ import { Link, useNavigate, useSearchParams } from "react-router-dom";
 import { supabase } from "@/integrations/supabase/client";
 import { useToast } from "@/hooks/use-toast";
 import { format, parseISO } from "date-fns";
-import { Loader2, Bed, Bath, Users, Maximize2, Sofa } from "lucide-react";
+import { Dialog, DialogContent, DialogClose } from "@/components/ui/dialog";
+import { Loader2, Bed, Bath, Users, Maximize2, Sofa, X } from "lucide-react";
 import type { DateRange } from "react-day-picker";
 import logo from "@/assets/suitespot-logo.png";
 
@@ -25,6 +26,7 @@ interface Unit {
   max_guests: number | null;
   unit_size: string | null;
   sofa_bed: boolean | null;
+  photos: string[] | null;
 }
 
 const BookingFlow = () => {
@@ -47,6 +49,8 @@ const BookingFlow = () => {
   const [phone, setPhone] = useState("");
   const [nationality, setNationality] = useState("");
   const [notes, setNotes] = useState("");
+  const [selectedPhotoIndex, setSelectedPhotoIndex] = useState<number | null>(null);
+  const [isPhotoModalOpen, setIsPhotoModalOpen] = useState(false);
 
   // Initialize from URL parameters
   useEffect(() => {
@@ -75,7 +79,7 @@ const BookingFlow = () => {
         // First get all units
         const { data: allUnits, error: unitsError } = await supabase
           .from("units")
-          .select("id, name, unit_type, unit_number, status, beds, baths, max_guests, unit_size, sofa_bed")
+          .select("id, name, unit_type, unit_number, status, beds, baths, max_guests, unit_size, sofa_bed, photos")
           .eq("status", "available")
           .order("name");
 
@@ -408,6 +412,31 @@ const BookingFlow = () => {
                   </div>
                 )}
 
+                {/* Photo Gallery */}
+                {selectedUnit && units.find(u => u.id === selectedUnit)?.photos && units.find(u => u.id === selectedUnit)!.photos!.length > 0 && (
+                  <div className="space-y-2">
+                    <Label>Suite Gallery</Label>
+                    <div className="grid grid-cols-3 gap-2">
+                      {units.find(u => u.id === selectedUnit)!.photos!.map((photo, index) => (
+                        <div 
+                          key={index}
+                          className="aspect-square rounded-lg overflow-hidden cursor-pointer hover:opacity-80 transition-opacity border"
+                          onClick={() => {
+                            setSelectedPhotoIndex(index);
+                            setIsPhotoModalOpen(true);
+                          }}
+                        >
+                          <img 
+                            src={photo} 
+                            alt={`Suite photo ${index + 1}`}
+                            className="w-full h-full object-cover"
+                          />
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                )}
+
                 <div className="grid md:grid-cols-2 gap-4">
                   <div>
                     <Label htmlFor="adults">Adults</Label>
@@ -606,6 +635,28 @@ const BookingFlow = () => {
           </Card>
         </div>
       </div>
+
+      {/* Photo Modal */}
+      <Dialog open={isPhotoModalOpen} onOpenChange={setIsPhotoModalOpen}>
+        <DialogContent className="max-w-4xl p-0">
+          <DialogClose className="absolute right-4 top-4 z-50 rounded-sm opacity-70 ring-offset-background transition-opacity hover:opacity-100 focus:outline-none focus:ring-2 focus:ring-ring focus:ring-offset-2 disabled:pointer-events-none data-[state=open]:bg-accent data-[state=open]:text-muted-foreground">
+            <X className="h-6 w-6 text-white" />
+            <span className="sr-only">Close</span>
+          </DialogClose>
+          {selectedPhotoIndex !== null && selectedUnit && units.find(u => u.id === selectedUnit)?.photos && (
+            <div className="relative">
+              <img 
+                src={units.find(u => u.id === selectedUnit)!.photos![selectedPhotoIndex]} 
+                alt={`Suite photo ${selectedPhotoIndex + 1}`}
+                className="w-full h-auto max-h-[80vh] object-contain"
+              />
+              <div className="absolute bottom-4 left-1/2 -translate-x-1/2 bg-black/50 text-white px-3 py-1 rounded-full text-sm">
+                {selectedPhotoIndex + 1} / {units.find(u => u.id === selectedUnit)!.photos!.length}
+              </div>
+            </div>
+          )}
+        </DialogContent>
+      </Dialog>
     </div>
   );
 };
