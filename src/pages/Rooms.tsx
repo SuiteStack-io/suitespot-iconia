@@ -37,6 +37,7 @@ interface Unit {
   baths: number | null;
   max_guests: number | null;
   sofa_bed: boolean | null;
+  price_per_night: number | null;
   photos: string[] | null;
 }
 
@@ -73,6 +74,7 @@ const Rooms = () => {
     baths: null,
     max_guests: null,
     sofa_bed: false,
+    price_per_night: null,
     photos: [],
   });
   const [uploadingPhotos, setUploadingPhotos] = useState<string | null>(null);
@@ -422,6 +424,7 @@ const Rooms = () => {
       baths: newUnit.baths || null,
       max_guests: newUnit.max_guests || null,
       sofa_bed: newUnit.sofa_bed || false,
+      price_per_night: newUnit.price_per_night || null,
     }]);
 
     if (error) {
@@ -451,6 +454,7 @@ const Rooms = () => {
       baths: null,
       max_guests: null,
       sofa_bed: false,
+      price_per_night: null,
       photos: [],
     });
     fetchUnits();
@@ -526,6 +530,7 @@ const Rooms = () => {
                 <TableHead>Baths</TableHead>
                 <TableHead>Max Guests</TableHead>
                 <TableHead>Sofa Bed</TableHead>
+                <TableHead>Price/Night</TableHead>
                 <TableHead>Photos</TableHead>
                 <TableHead>Status</TableHead>
                 <TableHead>Booking.com ID</TableHead>
@@ -601,6 +606,15 @@ const Rooms = () => {
                         <SelectItem value="false">No</SelectItem>
                       </SelectContent>
                     </Select>
+                  </TableCell>
+                  <TableCell>
+                    <Input
+                      type="number"
+                      step="0.01"
+                      value={newUnit.price_per_night || ''}
+                      onChange={(e) => setNewUnit({ ...newUnit, price_per_night: e.target.value ? parseFloat(e.target.value) : null })}
+                      placeholder="Price"
+                    />
                   </TableCell>
                   <TableCell>
                     <div className="text-muted-foreground text-sm">Add room first, then upload photos</div>
@@ -793,6 +807,23 @@ const Rooms = () => {
                         </Select>
                       ) : (
                         unit.sofa_bed ? 'Yes' : 'No'
+                      )}
+                    </TableCell>
+                    <TableCell>
+                      {isEditing ? (
+                        <Input
+                          type="number"
+                          step="0.01"
+                          value={isBulkEdit ? (bulkEditUnits[unit.id]?.price_per_night ?? '') : (editedUnit.price_per_night ?? '')}
+                          onChange={(e) =>
+                            isBulkEdit
+                              ? handleBulkEditChange(unit.id, 'price_per_night', e.target.value ? parseFloat(e.target.value) : null)
+                              : setEditedUnit({ ...editedUnit, price_per_night: e.target.value ? parseFloat(e.target.value) : null })
+                          }
+                          placeholder="Price"
+                        />
+                      ) : (
+                        unit.price_per_night ? `$${unit.price_per_night}` : '-'
                       )}
                     </TableCell>
                     <TableCell>

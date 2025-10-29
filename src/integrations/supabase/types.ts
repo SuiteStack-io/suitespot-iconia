@@ -220,6 +220,7 @@ export type Database = {
           max_guests: number | null
           name: string
           photos: string[] | null
+          price_per_night: number | null
           sofa_bed: boolean | null
           status: string
           unit_number: string | null
@@ -238,6 +239,7 @@ export type Database = {
           max_guests?: number | null
           name: string
           photos?: string[] | null
+          price_per_night?: number | null
           sofa_bed?: boolean | null
           status: string
           unit_number?: string | null
@@ -256,6 +258,7 @@ export type Database = {
           max_guests?: number | null
           name?: string
           photos?: string[] | null
+          price_per_night?: number | null
           sofa_bed?: boolean | null
           status?: string
           unit_number?: string | null

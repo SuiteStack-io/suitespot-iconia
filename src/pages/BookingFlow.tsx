@@ -107,6 +107,7 @@ interface Unit {
   max_guests: number | null;
   unit_size: string | null;
   sofa_bed: boolean | null;
+  price_per_night: number | null;
   photos: string[] | null;
 }
 
@@ -181,7 +182,7 @@ const BookingFlow = () => {
         // First get all units
         const { data: allUnits, error: unitsError } = await supabase
           .from("units")
-          .select("id, name, unit_type, unit_number, status, beds, baths, max_guests, unit_size, sofa_bed, photos")
+          .select("id, name, unit_type, unit_number, status, beds, baths, max_guests, unit_size, sofa_bed, price_per_night, photos")
           .eq("status", "available")
           .order("name");
 
@@ -506,6 +507,13 @@ const BookingFlow = () => {
     return Math.ceil(diff / (1000 * 60 * 60 * 24));
   };
 
+  const calculateTotalPrice = () => {
+    const unit = units.find(u => u.id === selectedUnit);
+    if (!unit?.price_per_night) return 0;
+    const nights = calculateNights();
+    return unit.price_per_night * nights;
+  };
+
   const navigatePhoto = (direction: 'prev' | 'next') => {
     if (selectedPhotoIndex === null || !selectedUnit) return;
     
@@ -612,14 +620,14 @@ const BookingFlow = () => {
         marriage_certificate_url: marriageCertificateUrl,
         notes,
         status: "confirmed",
-        source: "Direct Website",
+        source: "direct website",
         booking_reference: `WEB-${Date.now()}`,
-        channel: "Website",
-        price_per_night: 0,
-        total_price: 0,
+        channel: "Direct Website",
+        price_per_night: units.find(u => u.id === selectedUnit)?.price_per_night || 0,
+        total_price: calculateTotalPrice(),
         commission_rate: 0,
         commission_amount: 0,
-        net_revenue: 0,
+        net_revenue: calculateTotalPrice(),
         currency: "USD",
       }).select().single();
 
@@ -635,11 +643,11 @@ const BookingFlow = () => {
             checkOut: format(dateRange.to, "yyyy-MM-dd"),
             unitName,
             unitType,
-            totalPrice: 0,
+            totalPrice: calculateTotalPrice(),
             numberOfGuests: adults + children,
             adults,
             children,
-            source: "Direct Website",
+            source: "direct website",
             notes: notes || null,
             guestNationality: nationality || null,
           },
@@ -825,6 +833,26 @@ const BookingFlow = () => {
                         <span className="text-sm">
                           <span className="font-semibold">Size:</span> {units.find(u => u.id === selectedUnit)?.unit_size || 'N/A'}
                         </span>
+                      </div>
+                    </div>
+                  </div>
+                )}
+
+                {/* Pricing Information */}
+                {selectedUnit && units.find(u => u.id === selectedUnit)?.price_per_night && dateRange?.from && dateRange?.to && (
+                  <div className="p-4 border rounded-lg bg-accent/5">
+                    <div className="space-y-2">
+                      <div className="flex justify-between items-center">
+                        <span className="text-sm text-muted-foreground">Price per night:</span>
+                        <span className="text-lg font-semibold">${units.find(u => u.id === selectedUnit)?.price_per_night}</span>
+                      </div>
+                      <div className="flex justify-between items-center">
+                        <span className="text-sm text-muted-foreground">{calculateNights()} night{calculateNights() !== 1 ? "s" : ""}:</span>
+                        <span className="text-sm">${units.find(u => u.id === selectedUnit)?.price_per_night} × {calculateNights()}</span>
+                      </div>
+                      <div className="border-t pt-2 flex justify-between items-center">
+                        <span className="font-semibold">Total Price:</span>
+                        <span className="text-2xl font-bold text-accent">${calculateTotalPrice()}</span>
                       </div>
                     </div>
                   </div>
@@ -1407,6 +1435,25 @@ const BookingFlow = () => {
                     <div>
                       <p className="text-sm text-muted-foreground">Special Requests</p>
                       <p className="text-sm">{notes}</p>
+                    </div>
+                  )}
+
+                  {units.find(u => u.id === selectedUnit)?.price_per_night && (
+                    <div className="border-t pt-4">
+                      <div className="space-y-2">
+                        <div className="flex justify-between">
+                          <span className="text-sm text-muted-foreground">Price per night:</span>
+                          <span className="font-medium">${units.find(u => u.id === selectedUnit)?.price_per_night}</span>
+                        </div>
+                        <div className="flex justify-between">
+                          <span className="text-sm text-muted-foreground">{calculateNights()} nights:</span>
+                          <span className="text-sm">${units.find(u => u.id === selectedUnit)?.price_per_night} × {calculateNights()}</span>
+                        </div>
+                        <div className="flex justify-between items-center border-t pt-2">
+                          <span className="font-semibold text-lg">Total Price:</span>
+                          <span className="text-2xl font-bold text-accent">${calculateTotalPrice()}</span>
+                        </div>
+                      </div>
                     </div>
                   )}
                 </div>
