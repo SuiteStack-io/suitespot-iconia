@@ -20,9 +20,8 @@ export const BookingWidget = () => {
 
   return (
     <div className="bg-background/30 backdrop-blur-sm rounded-lg border border-border/50 p-1.5 max-w-4xl mx-auto">
-      <div className="grid grid-cols-1 md:grid-cols-3 gap-1.5">
-        {/* Check In & Check Out - Side by Side on Mobile, Separate on Desktop */}
-        <div className="grid grid-cols-2 gap-1.5 md:contents">
+      <div className="grid grid-cols-2 md:grid-cols-4 gap-1.5">
+        {/* Check In & Check Out */}
           <Popover>
             <PopoverTrigger asChild>
               <Button
@@ -82,10 +81,8 @@ export const BookingWidget = () => {
               />
             </PopoverContent>
           </Popover>
-        </div>
 
-        {/* Guests & Search Button */}
-        <div className="grid grid-cols-2 gap-1.5 md:contents">
+        {/* Guests */}
           <Button
             variant="outline"
             className="w-full justify-start text-left font-normal h-auto py-1.5 px-3"
@@ -111,13 +108,13 @@ export const BookingWidget = () => {
             </div>
           </Button>
 
-          <Button 
-            onClick={handleSearch}
-            className="w-full bg-accent hover:bg-accent/90 h-full"
-          >
-            Search
-          </Button>
-        </div>
+        {/* Search Button */}
+        <Button 
+          onClick={handleSearch}
+          className="w-full bg-accent hover:bg-accent/90 h-full col-span-2 md:col-span-1"
+        >
+          Search
+        </Button>
       </div>
     </div>
   );
