@@ -55,9 +55,9 @@ const PublicHome = () => {
       </section>
 
       {/* Introduction Section */}
-      <section className="py-24 px-6 bg-background">
+      <section className="py-24 px-4 bg-background">
         <div className="container mx-auto max-w-4xl text-center">
-          <h2 className="text-2xl md:text-5xl font-serif font-bold text-foreground mb-6">
+          <h2 className="text-3xl md:text-5xl font-serif font-bold text-foreground mb-6">
             A New Standard<br className="md:hidden" /> in Serviced Living<br className="md:hidden" /> in Zamalek
           </h2>
           <p className="text-lg text-muted-foreground leading-relaxed mb-8">
