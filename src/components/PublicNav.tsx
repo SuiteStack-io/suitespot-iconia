@@ -55,21 +55,19 @@ export const PublicNav = () => {
       
       {/* Mobile Menu Button - Only visible on mobile */}
       <div className="md:hidden border-t border-border">
-        <div className="container mx-auto px-6">
-          <button
-            onClick={() => setMobileMenuOpen(!mobileMenuOpen)}
-            className="py-3 flex flex-col items-center justify-center gap-1 bg-[#5D4E37] text-white hover:bg-[#4a3e2c] transition-colors"
-            aria-label="Toggle menu"
-          >
-            <Menu className="h-6 w-6" strokeWidth={2.5} />
-            <span className="text-xs font-medium tracking-wider">MENU</span>
-          </button>
-        </div>
+        <button
+          onClick={() => setMobileMenuOpen(!mobileMenuOpen)}
+          className="w-full py-3 flex flex-col items-center justify-center gap-1 bg-[#5D4E37] text-white hover:bg-[#4a3e2c] transition-colors"
+          aria-label="Toggle menu"
+        >
+          <Menu className="h-6 w-6" strokeWidth={2.5} />
+          <span className="text-xs font-medium tracking-wider">MENU</span>
+        </button>
       </div>
 
       {/* Mobile Dropdown Menu */}
       {mobileMenuOpen && (
-        <div className="md:hidden absolute top-full left-0 right-0 bg-background/70 backdrop-blur-md border-b border-border shadow-lg animate-fade-in z-50">
+        <div className="md:hidden absolute top-full left-0 right-0 bg-background border-b border-border shadow-lg animate-fade-in z-50">
           <div className="container mx-auto px-6 py-4 space-y-3">
             <Link 
               to="/our-story" 
