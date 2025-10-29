@@ -1421,7 +1421,7 @@ const BookingFlow = () => {
                   <div>
                     <p className="text-sm text-muted-foreground">Contact</p>
                     <p className="font-medium">{email}</p>
-                    {phone && <p className="text-sm">{phone}</p>}
+                    {phone && <p className="text-sm">{countryCode}{phone}</p>}
                   </div>
 
                   {nationality && (
