@@ -6,10 +6,10 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Textarea } from "@/components/ui/textarea";
-import { Link, useNavigate } from "react-router-dom";
+import { Link, useNavigate, useSearchParams } from "react-router-dom";
 import { supabase } from "@/integrations/supabase/client";
 import { useToast } from "@/hooks/use-toast";
-import { format } from "date-fns";
+import { format, parseISO } from "date-fns";
 import { Loader2 } from "lucide-react";
 import type { DateRange } from "react-day-picker";
 import logo from "@/assets/suitespot-logo.png";
@@ -25,10 +25,12 @@ interface Unit {
 const BookingFlow = () => {
   const navigate = useNavigate();
   const { toast } = useToast();
+  const [searchParams] = useSearchParams();
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [step, setStep] = useState(1);
   const [units, setUnits] = useState<Unit[]>([]);
   const [isLoadingUnits, setIsLoadingUnits] = useState(true);
+  const [bookedDates, setBookedDates] = useState<Date[]>([]);
   
   // Booking data
   const [dateRange, setDateRange] = useState<DateRange | undefined>();
@@ -41,18 +43,57 @@ const BookingFlow = () => {
   const [nationality, setNationality] = useState("");
   const [notes, setNotes] = useState("");
 
-  // Fetch available units
+  // Initialize from URL parameters
   useEffect(() => {
-    const fetchUnits = async () => {
+    const checkIn = searchParams.get("checkIn");
+    const checkOut = searchParams.get("checkOut");
+    const guestsParam = searchParams.get("guests");
+
+    if (checkIn && checkOut) {
+      setDateRange({
+        from: parseISO(checkIn),
+        to: parseISO(checkOut),
+      });
+    }
+
+    if (guestsParam) {
+      const numGuests = parseInt(guestsParam);
+      setAdults(numGuests);
+    }
+  }, [searchParams]);
+
+  // Fetch available units based on selected dates
+  useEffect(() => {
+    const fetchAvailableUnits = async () => {
+      setIsLoadingUnits(true);
       try {
-        const { data, error } = await supabase
+        // First get all units
+        const { data: allUnits, error: unitsError } = await supabase
           .from("units")
           .select("id, name, unit_type, unit_number, status")
           .eq("status", "available")
           .order("name");
 
-        if (error) throw error;
-        setUnits(data || []);
+        if (unitsError) throw unitsError;
+
+        // If dates are selected, filter by availability
+        if (dateRange?.from && dateRange?.to) {
+          const { data: reservations, error: reservationsError } = await supabase
+            .from("reservations")
+            .select("unit_id, check_in_date, check_out_date")
+            .gte("check_out_date", format(dateRange.from, "yyyy-MM-dd"))
+            .lte("check_in_date", format(dateRange.to, "yyyy-MM-dd"))
+            .neq("status", "cancelled");
+
+          if (reservationsError) throw reservationsError;
+
+          // Filter out units that have conflicting reservations
+          const bookedUnitIds = new Set(reservations?.map(r => r.unit_id) || []);
+          const availableUnits = allUnits?.filter(unit => !bookedUnitIds.has(unit.id)) || [];
+          setUnits(availableUnits);
+        } else {
+          setUnits(allUnits || []);
+        }
       } catch (error: any) {
         toast({
           title: "Error loading suites",
@@ -64,8 +105,61 @@ const BookingFlow = () => {
       }
     };
 
-    fetchUnits();
-  }, [toast]);
+    fetchAvailableUnits();
+  }, [toast, dateRange]);
+
+  // Fetch booked dates for calendar display
+  useEffect(() => {
+    const fetchBookedDates = async () => {
+      try {
+        const { data: reservations, error } = await supabase
+          .from("reservations")
+          .select("check_in_date, check_out_date, unit_id")
+          .neq("status", "cancelled");
+
+        if (error) throw error;
+
+        // Get all dates that are fully booked (all units booked)
+        const { data: allUnits } = await supabase
+          .from("units")
+          .select("id")
+          .eq("status", "available");
+
+        const totalUnits = allUnits?.length || 0;
+        if (totalUnits === 0) return;
+
+        // Group reservations by date
+        const dateBookings = new Map<string, Set<string>>();
+        
+        reservations?.forEach(res => {
+          const start = parseISO(res.check_in_date);
+          const end = parseISO(res.check_out_date);
+          
+          for (let d = new Date(start); d < end; d.setDate(d.getDate() + 1)) {
+            const dateStr = format(d, "yyyy-MM-dd");
+            if (!dateBookings.has(dateStr)) {
+              dateBookings.set(dateStr, new Set());
+            }
+            dateBookings.get(dateStr)?.add(res.unit_id);
+          }
+        });
+
+        // Find dates where all units are booked
+        const fullyBookedDates: Date[] = [];
+        dateBookings.forEach((unitIds, dateStr) => {
+          if (unitIds.size >= totalUnits) {
+            fullyBookedDates.push(parseISO(dateStr));
+          }
+        });
+
+        setBookedDates(fullyBookedDates);
+      } catch (error: any) {
+        console.error("Error fetching booked dates:", error);
+      }
+    };
+
+    fetchBookedDates();
+  }, []);
 
   const addGuest = () => {
     setGuestNames([...guestNames, ""]);
@@ -195,44 +289,81 @@ const BookingFlow = () => {
             {/* Step 1: Dates & Suite Selection */}
             {step === 1 && (
               <div className="space-y-6">
-                <div>
-                  <Label className="text-lg font-semibold mb-4 block">Select Your Dates</Label>
-                  <div className="flex justify-center">
-                    <Calendar
-                      mode="range"
-                      selected={dateRange}
-                      onSelect={setDateRange}
-                      disabled={(date) => date < new Date()}
-                      numberOfMonths={1}
-                      className="rounded-md border pointer-events-auto"
-                    />
-                  </div>
-                  {dateRange?.from && dateRange?.to && (
-                    <p className="text-sm text-muted-foreground mt-4 text-center">
+                {dateRange?.from && dateRange?.to ? (
+                  // Show selected dates and nights
+                  <div className="bg-muted/30 p-4 rounded-lg">
+                    <Label className="text-lg font-semibold block mb-2">Selected Dates</Label>
+                    <p className="text-foreground">
+                      {format(dateRange.from, "MMM dd, yyyy")} - {format(dateRange.to, "MMM dd, yyyy")}
+                    </p>
+                    <p className="text-sm text-muted-foreground mt-1">
                       {calculateNights()} night{calculateNights() !== 1 ? "s" : ""}
                     </p>
-                  )}
-                </div>
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      onClick={() => setDateRange(undefined)}
+                      className="mt-3"
+                    >
+                      Change Dates
+                    </Button>
+                  </div>
+                ) : (
+                  <div>
+                    <Label className="text-lg font-semibold mb-4 block">Select Your Dates</Label>
+                    <div className="flex justify-center">
+                      <Calendar
+                        mode="range"
+                        selected={dateRange}
+                        onSelect={setDateRange}
+                        disabled={(date) => {
+                          const isPast = date < new Date();
+                          const isFullyBooked = bookedDates.some(
+                            bookedDate => format(bookedDate, "yyyy-MM-dd") === format(date, "yyyy-MM-dd")
+                          );
+                          return isPast || isFullyBooked;
+                        }}
+                        numberOfMonths={1}
+                        className="rounded-md border pointer-events-auto"
+                        modifiers={{
+                          booked: bookedDates
+                        }}
+                        modifiersStyles={{
+                          booked: {
+                            textDecoration: 'line-through',
+                            opacity: 0.5
+                          }
+                        }}
+                      />
+                    </div>
+                  </div>
+                )}
 
                 <div>
                   <Label htmlFor="unit">Select Suite Type</Label>
-                  <Select value={selectedUnit} onValueChange={setSelectedUnit} disabled={isLoadingUnits}>
-                    <SelectTrigger id="unit">
-                      <SelectValue placeholder={isLoadingUnits ? "Loading suites..." : "Choose a suite"} />
-                    </SelectTrigger>
-                    <SelectContent>
-                      {units.length === 0 && !isLoadingUnits ? (
-                        <div className="p-2 text-sm text-muted-foreground">No suites available</div>
-                      ) : (
-                        units.map((unit) => (
-                          <SelectItem key={unit.id} value={unit.id}>
-                            {unit.name}
-                            {unit.unit_number && ` - Unit ${unit.unit_number}`}
-                          </SelectItem>
-                        ))
-                      )}
-                    </SelectContent>
-                  </Select>
+                  {dateRange?.from && dateRange?.to ? (
+                    <Select value={selectedUnit} onValueChange={setSelectedUnit} disabled={isLoadingUnits}>
+                      <SelectTrigger id="unit">
+                        <SelectValue placeholder={isLoadingUnits ? "Loading available suites..." : units.length === 0 ? "No suites available for these dates" : "Choose a suite"} />
+                      </SelectTrigger>
+                      <SelectContent>
+                        {units.length === 0 && !isLoadingUnits ? (
+                          <div className="p-2 text-sm text-muted-foreground">No suites available for selected dates</div>
+                        ) : (
+                          units.map((unit) => (
+                            <SelectItem key={unit.id} value={unit.id}>
+                              {unit.name}
+                              {unit.unit_number && ` - Unit ${unit.unit_number}`}
+                            </SelectItem>
+                          ))
+                        )}
+                      </SelectContent>
+                    </Select>
+                  ) : (
+                    <div className="p-3 border border-dashed rounded-md text-sm text-muted-foreground text-center">
+                      Please select dates first to see available suites
+                    </div>
+                  )}
                 </div>
 
                 <div className="grid md:grid-cols-2 gap-4">

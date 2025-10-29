@@ -15,7 +15,16 @@ export const BookingWidget = () => {
   const [guests, setGuests] = useState<string>("2");
 
   const handleSearch = () => {
-    navigate("/book");
+    if (dateRange?.from && dateRange?.to) {
+      const params = new URLSearchParams({
+        checkIn: format(dateRange.from, "yyyy-MM-dd"),
+        checkOut: format(dateRange.to, "yyyy-MM-dd"),
+        guests: guests,
+      });
+      navigate(`/book?${params.toString()}`);
+    } else {
+      navigate("/book");
+    }
   };
 
   return (
