@@ -127,7 +127,7 @@ const BookingFlow = () => {
   const [guestNames, setGuestNames] = useState<string[]>([""]);
   const [guestTypes, setGuestTypes] = useState<('adult' | 'child')[]>(["adult"]);
   const [guestGenders, setGuestGenders] = useState<('male' | 'female' | '')[]>([""]);
-  const [adults, setAdults] = useState(1);
+  const [adults, setAdults] = useState(0);
   const [children, setChildren] = useState(0);
   const [email, setEmail] = useState("");
   const [phone, setPhone] = useState("");
@@ -770,9 +770,9 @@ const BookingFlow = () => {
                     <Input
                       id="adults"
                       type="number"
-                      min="1"
+                      min="0"
                       value={adults}
-                      onChange={(e) => setAdults(parseInt(e.target.value) || 1)}
+                      onChange={(e) => setAdults(parseInt(e.target.value) || 0)}
                     />
                   </div>
                   <div>
