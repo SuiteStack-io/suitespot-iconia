@@ -629,15 +629,16 @@ const BookingFlow = () => {
         commission_amount: 0,
         net_revenue: calculateTotalPrice(),
         currency: "USD",
-      }).select().single();
+      });
 
       if (error) throw error;
 
       // Send email notification
+      const bookingReference = `WEB-${Date.now()}`;
       try {
         await supabase.functions.invoke('send-reservation-notification', {
           body: {
-            reservationId: insertedReservation.id,
+            reservationId: bookingReference,
             guestNames: validGuestNames,
             checkIn: format(dateRange.from, "yyyy-MM-dd"),
             checkOut: format(dateRange.to, "yyyy-MM-dd"),
