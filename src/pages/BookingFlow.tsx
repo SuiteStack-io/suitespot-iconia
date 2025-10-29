@@ -22,18 +22,18 @@ import logo from "@/assets/suitespot-logo.png";
 
 const NATIONALITIES = [
   "Afghanistan", "Albania", "Algeria", "United States", "Andorra", "Angola", "Antigua and Barbuda", "Argentina", "Armenia", "Australia",
-  "Austria", "Azerbaijan", "Bahamas", "Bahrain", "Bangladesh", "Barbados", "Barbuda", "Botswana", "Belarus", "Belgium",
+  "Austria", "Azerbaijan", "Bahamas", "Bahrain", "Bangladesh", "Barbados", "Belarus", "Belgium",
   "Belize", "Benin", "Bhutan", "Bolivia", "Bosnia and Herzegovina", "Brazil", "United Kingdom", "Brunei", "Bulgaria", "Burkina Faso",
   "Myanmar", "Burundi", "Cambodia", "Cameroon", "Canada", "Cape Verde", "Central African Republic", "Chad", "Chile", "China",
   "Colombia", "Comoros", "Congo", "Costa Rica", "Croatia", "Cuba", "Cyprus", "Czech Republic", "Denmark", "Djibouti",
   "Dominican Republic", "Netherlands", "East Timor", "Ecuador", "Egypt", "United Arab Emirates", "Equatorial Guinea", "Eritrea", "Estonia", "Ethiopia",
   "Fiji", "Philippines", "Finland", "France", "Gabon", "Gambia", "Georgia", "Germany", "Ghana", "Greece",
-  "Grenada", "Guatemala", "Guinea-Bissau", "Guinea", "Guyana", "Haiti", "Herzegovina", "Honduras", "Hungary", "Kiribati",
+  "Grenada", "Guatemala", "Guinea-Bissau", "Guinea", "Guyana", "Haiti", "Honduras", "Hungary", "Kiribati",
   "Iceland", "India", "Indonesia", "Iran", "Iraq", "Ireland", "Israel", "Italy", "Ivory Coast", "Jamaica",
   "Japan", "Jordan", "Kazakhstan", "Kenya", "Saint Kitts and Nevis", "Kuwait", "Kyrgyzstan", "Laos", "Latvia", "Lebanon",
   "Liberia", "Libya", "Liechtenstein", "Lithuania", "Luxembourg", "North Macedonia", "Madagascar", "Malawi", "Malaysia", "Maldives",
   "Mali", "Malta", "Marshall Islands", "Mauritania", "Mauritius", "Mexico", "Micronesia", "Moldova", "Monaco", "Mongolia",
-  "Morocco", "Lesotho", "Botswana", "Mozambique", "Namibia", "Nauru", "Nepal", "New Zealand", "Nicaragua", "Nigeria",
+  "Morocco", "Lesotho", "Mozambique", "Namibia", "Nauru", "Nepal", "New Zealand", "Nicaragua", "Nigeria",
   "Niger", "North Korea", "Northern Ireland", "Norway", "Oman", "Pakistan", "Palau", "Panama", "Papua New Guinea", "Paraguay",
   "Peru", "Poland", "Portugal", "Qatar", "Romania", "Russia", "Rwanda", "Saint Lucia", "El Salvador", "Samoa",
   "San Marino", "São Tomé and Príncipe", "Saudi Arabia", "Scotland", "Senegal", "Serbia", "Seychelles", "Sierra Leone", "Singapore", "Slovakia",
@@ -587,14 +587,17 @@ const BookingFlow = () => {
     setIsSubmitting(true);
 
     try {
-      const nights = calculateNights();
       const validGuestNames = guestNames.filter(n => n.trim());
+      
+      // Get unit details for email
+      const selectedUnitDetails = units.find(u => u.id === selectedUnit);
+      const unitName = selectedUnitDetails ? `${selectedUnitDetails.name} ${selectedUnitDetails.unit_number || ''}`.trim() : 'Unit';
+      const unitType = selectedUnitDetails?.unit_type || '';
 
-      const { error } = await supabase.from("reservations").insert({
+      const { data: insertedReservation, error } = await supabase.from("reservations").insert({
         unit_id: selectedUnit,
         check_in_date: format(dateRange.from, "yyyy-MM-dd"),
         check_out_date: format(dateRange.to, "yyyy-MM-dd"),
-        nights,
         guest_names: validGuestNames,
         guest_types: guestTypes.slice(0, validGuestNames.length),
         guest_genders: guestGenders.slice(0, validGuestNames.length),
@@ -612,16 +615,45 @@ const BookingFlow = () => {
         source: "Direct Website",
         booking_reference: `WEB-${Date.now()}`,
         channel: "Website",
-      });
+        price_per_night: 0,
+        total_price: 0,
+        commission_rate: 0,
+        commission_amount: 0,
+        net_revenue: 0,
+        currency: "USD",
+      }).select().single();
 
       if (error) throw error;
+
+      // Send email notification
+      try {
+        await supabase.functions.invoke('send-reservation-notification', {
+          body: {
+            reservationId: insertedReservation.id,
+            guestNames: validGuestNames,
+            checkIn: format(dateRange.from, "yyyy-MM-dd"),
+            checkOut: format(dateRange.to, "yyyy-MM-dd"),
+            unitName,
+            unitType,
+            totalPrice: 0,
+            numberOfGuests: adults + children,
+            adults,
+            children,
+            source: "Direct Website",
+            notes: notes || null,
+            guestNationality: nationality || null,
+          },
+        });
+        console.log('Email notification sent successfully');
+      } catch (emailError) {
+        console.error('Failed to send email notification:', emailError);
+      }
 
       toast({
         title: "Booking Confirmed!",
         description: "We've received your reservation. Check your email for confirmation.",
       });
 
-      // Reset form or redirect
       navigate("/booking-confirmation");
     } catch (error: any) {
       toast({
