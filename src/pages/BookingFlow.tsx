@@ -1463,7 +1463,7 @@ const BookingFlow = () => {
                     className="flex-1 bg-accent hover:bg-accent/90"
                   >
                     {isSubmitting && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
-                    Confirm Booking
+                    Confirm and pay
                   </Button>
                 </div>
               </div>
