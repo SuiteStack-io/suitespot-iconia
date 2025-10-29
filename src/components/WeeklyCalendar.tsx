@@ -115,12 +115,11 @@ export const WeeklyCalendar = () => {
 
   const getReservationColor = (source: string) => {
     const lowerSource = source.toLowerCase();
-    // Check admin/manager first before checking booking
-    if (lowerSource.includes('admin') || lowerSource.includes('manager')) {
-      return 'bg-green-500/80 text-white'; // Admin bookings green
-    }
     if (lowerSource.includes('booking')) {
       return 'bg-[#003580] text-white'; // Booking.com brand blue
+    }
+    if (lowerSource.includes('admin') || lowerSource.includes('manager')) {
+      return 'bg-green-500/80 text-white'; // Admin bookings green
     }
     return 'bg-red-500/80 text-white'; // Direct website and other sources red
   };
