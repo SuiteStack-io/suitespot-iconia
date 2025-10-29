@@ -60,12 +60,15 @@ const PublicHome = () => {
           <h2 className="text-4xl md:text-5xl font-serif font-bold text-foreground mb-6">
             A New Standard in Serviced Living in Zamalek
           </h2>
-          <p className="text-lg text-muted-foreground leading-relaxed">
+          <p className="text-lg text-muted-foreground leading-relaxed mb-8">
             SuiteSpot Hospitality redefines serviced apartment living in Egypt. We blend local culture, 
             modern design, and hotel-level service to create spaces that feel like home but offer so much more. 
             Perfect for both short escapes and extended stays, each property reflects our commitment to 
             wellness, style, and authentic Egyptian hospitality.
           </p>
+          <Button asChild size="lg" className="bg-accent hover:bg-accent/90 text-white">
+            <Link to="/our-story">Our Story</Link>
+          </Button>
         </div>
       </section>
 
