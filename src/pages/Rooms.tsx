@@ -4,7 +4,7 @@ import { useAuth } from '@/lib/auth';
 import { supabase } from '@/integrations/supabase/client';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
-import { ArrowLeft, Save, Plus, Pencil, X } from 'lucide-react';
+import { ArrowLeft, Save, Plus, Pencil, X, Upload, Trash2 } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
 import {
   Table,
@@ -74,6 +74,7 @@ const Rooms = () => {
     sofa_bed: false,
     photos: [],
   });
+  const [uploadingPhotos, setUploadingPhotos] = useState<string | null>(null);
 
   useEffect(() => {
     if (!loading && !user) {
@@ -156,6 +157,135 @@ const Rooms = () => {
     }
 
     setReservations(data || []);
+  };
+
+  const handlePhotoUpload = async (unitId: string, files: FileList) => {
+    const MAX_FILE_SIZE = 3 * 1024 * 1024; // 3MB in bytes
+    const validFiles: File[] = [];
+    const invalidFiles: string[] = [];
+
+    // Validate file sizes
+    Array.from(files).forEach(file => {
+      if (file.size > MAX_FILE_SIZE) {
+        invalidFiles.push(`${file.name} (${(file.size / 1024 / 1024).toFixed(2)}MB)`);
+      } else if (file.type.startsWith('image/')) {
+        validFiles.push(file);
+      } else {
+        invalidFiles.push(`${file.name} (not an image)`);
+      }
+    });
+
+    if (invalidFiles.length > 0) {
+      toast({
+        title: 'Some files were skipped',
+        description: `Files exceeding 3MB or invalid formats: ${invalidFiles.join(', ')}`,
+        variant: 'destructive',
+      });
+    }
+
+    if (validFiles.length === 0) {
+      return;
+    }
+
+    setUploadingPhotos(unitId);
+
+    try {
+      const uploadedUrls: string[] = [];
+
+      for (const file of validFiles) {
+        const fileExt = file.name.split('.').pop();
+        const fileName = `${unitId}/${Date.now()}-${Math.random().toString(36).substring(2)}.${fileExt}`;
+
+        const { error: uploadError, data } = await supabase.storage
+          .from('assets')
+          .upload(fileName, file, {
+            cacheControl: '3600',
+            upsert: false
+          });
+
+        if (uploadError) throw uploadError;
+
+        const { data: { publicUrl } } = supabase.storage
+          .from('assets')
+          .getPublicUrl(fileName);
+
+        uploadedUrls.push(publicUrl);
+      }
+
+      // Get current photos and append new ones
+      const { data: currentUnit } = await supabase
+        .from('units')
+        .select('photos')
+        .eq('id', unitId)
+        .single();
+
+      const currentPhotos = currentUnit?.photos || [];
+      const updatedPhotos = [...currentPhotos, ...uploadedUrls];
+
+      // Update database with new photo URLs
+      const { error: updateError } = await supabase
+        .from('units')
+        .update({ photos: updatedPhotos })
+        .eq('id', unitId);
+
+      if (updateError) throw updateError;
+
+      toast({
+        title: 'Success',
+        description: `${validFiles.length} photo(s) uploaded successfully`,
+      });
+
+      fetchUnits();
+    } catch (error: any) {
+      toast({
+        title: 'Upload failed',
+        description: error.message,
+        variant: 'destructive',
+      });
+    } finally {
+      setUploadingPhotos(null);
+    }
+  };
+
+  const handleDeletePhoto = async (unitId: string, photoUrl: string) => {
+    try {
+      // Get current photos
+      const { data: currentUnit } = await supabase
+        .from('units')
+        .select('photos')
+        .eq('id', unitId)
+        .single();
+
+      const currentPhotos = currentUnit?.photos || [];
+      const updatedPhotos = currentPhotos.filter((url: string) => url !== photoUrl);
+
+      // Update database
+      const { error: updateError } = await supabase
+        .from('units')
+        .update({ photos: updatedPhotos })
+        .eq('id', unitId);
+
+      if (updateError) throw updateError;
+
+      // Delete from storage
+      const fileName = photoUrl.split('/assets/')[1];
+      if (fileName) {
+        await supabase.storage.from('assets').remove([fileName]);
+      }
+
+      toast({
+        title: 'Success',
+        description: 'Photo deleted successfully',
+      });
+
+      fetchUnits();
+    } catch (error: any) {
+      toast({
+        title: 'Delete failed',
+        description: error.message,
+        variant: 'destructive',
+      });
+    }
   };
 
   const getNextReservation = (unitId: string): string | null => {
@@ -463,11 +593,7 @@ const Rooms = () => {
                     </Select>
                   </TableCell>
                   <TableCell>
-                    <Input
-                      value={newUnit.photos?.join(', ') || ''}
-                      onChange={(e) => setNewUnit({ ...newUnit, photos: e.target.value.split(',').map(url => url.trim()).filter(Boolean) })}
-                      placeholder="Image URLs (comma-separated)"
-                    />
+                    <div className="text-muted-foreground text-sm">Add room first, then upload photos</div>
                   </TableCell>
                   <TableCell>
                     <Select
@@ -661,20 +787,49 @@ const Rooms = () => {
                     </TableCell>
                     <TableCell>
                       {isEditing ? (
-                        <Input
-                          value={isBulkEdit ? (bulkEditUnits[unit.id]?.photos?.join(', ') || '') : (editedUnit.photos?.join(', ') || '')}
-                          onChange={(e) => {
-                            const photos = e.target.value.split(',').map(url => url.trim()).filter(Boolean);
-                            if (isBulkEdit) {
-                              handleBulkEditChange(unit.id, 'photos', photos);
-                            } else {
-                              setEditedUnit({ ...editedUnit, photos });
-                            }
-                          }}
-                          placeholder="Image URLs (comma-separated)"
-                        />
+                        <div className="text-muted-foreground text-sm">Use upload button in Actions column</div>
                       ) : (
-                        <span className="text-sm">{unit.photos?.length || 0} photo(s)</span>
+                        <div className="space-y-2">
+                          <div className="flex items-center gap-2">
+                            <span className="text-sm font-medium">{unit.photos?.length || 0} photo(s)</span>
+                            <input
+                              type="file"
+                              id={`photo-upload-${unit.id}`}
+                              multiple
+                              accept="image/*"
+                              className="hidden"
+                              onChange={(e) => {
+                                if (e.target.files && e.target.files.length > 0) {
+                                  handlePhotoUpload(unit.id, e.target.files);
+                                }
+                              }}
+                            />
+                            <Button
+                              size="sm"
+                              variant="outline"
+                              onClick={() => document.getElementById(`photo-upload-${unit.id}`)?.click()}
+                              disabled={uploadingPhotos === unit.id}
+                            >
+                              <Upload className="h-3 w-3 mr-1" />
+                              {uploadingPhotos === unit.id ? 'Uploading...' : 'Upload'}
+                            </Button>
+                          </div>
+                          {unit.photos && unit.photos.length > 0 && (
+                            <div className="flex flex-wrap gap-1">
+                              {unit.photos.map((photo, idx) => (
+                                <div key={idx} className="relative group w-12 h-12 rounded overflow-hidden border">
+                                  <img src={photo} alt={`Photo ${idx + 1}`} className="w-full h-full object-cover" />
+                                  <button
+                                    onClick={() => handleDeletePhoto(unit.id, photo)}
+                                    className="absolute inset-0 bg-black/50 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center"
+                                  >
+                                    <Trash2 className="h-3 w-3 text-white" />
+                                  </button>
+                                </div>
+                              ))}
+                            </div>
+                          )}
+                        </div>
                       )}
                     </TableCell>
                     <TableCell>
