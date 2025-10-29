@@ -11,7 +11,7 @@ import { supabase } from "@/integrations/supabase/client";
 import { useToast } from "@/hooks/use-toast";
 import { format, parseISO } from "date-fns";
 import { Dialog, DialogContent, DialogClose } from "@/components/ui/dialog";
-import { Loader2, Bed, Bath, Users, Maximize2, Sofa, X } from "lucide-react";
+import { Loader2, Bed, Bath, Users, Maximize2, Sofa, X, ChevronLeft, ChevronRight } from "lucide-react";
 import type { DateRange } from "react-day-picker";
 import logo from "@/assets/suitespot-logo.png";
 
@@ -51,6 +51,9 @@ const BookingFlow = () => {
   const [notes, setNotes] = useState("");
   const [selectedPhotoIndex, setSelectedPhotoIndex] = useState<number | null>(null);
   const [isPhotoModalOpen, setIsPhotoModalOpen] = useState(false);
+  const [imageScale, setImageScale] = useState(1);
+  const [touchStart, setTouchStart] = useState<{ x: number; y: number } | null>(null);
+  const [initialPinchDistance, setInitialPinchDistance] = useState<number | null>(null);
 
   // Initialize from URL parameters
   useEffect(() => {
@@ -191,6 +194,74 @@ const BookingFlow = () => {
     if (!dateRange?.from || !dateRange?.to) return 0;
     const diff = dateRange.to.getTime() - dateRange.from.getTime();
     return Math.ceil(diff / (1000 * 60 * 60 * 24));
+  };
+
+  const navigatePhoto = (direction: 'prev' | 'next') => {
+    if (selectedPhotoIndex === null || !selectedUnit) return;
+    
+    const photos = units.find(u => u.id === selectedUnit)?.photos;
+    if (!photos || photos.length === 0) return;
+
+    if (direction === 'prev') {
+      setSelectedPhotoIndex(selectedPhotoIndex === 0 ? photos.length - 1 : selectedPhotoIndex - 1);
+    } else {
+      setSelectedPhotoIndex(selectedPhotoIndex === photos.length - 1 ? 0 : selectedPhotoIndex + 1);
+    }
+    setImageScale(1);
+  };
+
+  const handleTouchStart = (e: React.TouchEvent) => {
+    if (e.touches.length === 1) {
+      setTouchStart({ x: e.touches[0].clientX, y: e.touches[0].clientY });
+    } else if (e.touches.length === 2) {
+      const distance = Math.hypot(
+        e.touches[0].clientX - e.touches[1].clientX,
+        e.touches[0].clientY - e.touches[1].clientY
+      );
+      setInitialPinchDistance(distance);
+    }
+  };
+
+  const handleTouchMove = (e: React.TouchEvent) => {
+    if (e.touches.length === 2 && initialPinchDistance) {
+      const distance = Math.hypot(
+        e.touches[0].clientX - e.touches[1].clientX,
+        e.touches[0].clientY - e.touches[1].clientY
+      );
+      const scale = distance / initialPinchDistance;
+      setImageScale(Math.min(Math.max(1, imageScale * scale), 4));
+      setInitialPinchDistance(distance);
+    }
+  };
+
+  const handleTouchEnd = (e: React.TouchEvent) => {
+    if (e.changedTouches.length === 1 && touchStart && !initialPinchDistance) {
+      const touchEnd = { x: e.changedTouches[0].clientX, y: e.changedTouches[0].clientY };
+      const deltaX = touchEnd.x - touchStart.x;
+      const deltaY = touchEnd.y - touchStart.y;
+      
+      // Swipe threshold
+      if (Math.abs(deltaX) > 50 && Math.abs(deltaX) > Math.abs(deltaY)) {
+        if (deltaX > 0) {
+          navigatePhoto('prev');
+        } else {
+          navigatePhoto('next');
+        }
+      }
+    }
+    setTouchStart(null);
+    setInitialPinchDistance(null);
+  };
+
+  const handleWheel = (e: React.WheelEvent) => {
+    e.preventDefault();
+    const delta = e.deltaY > 0 ? 0.9 : 1.1;
+    setImageScale(Math.min(Math.max(1, imageScale * delta), 4));
+  };
+
+  const handleModalClose = () => {
+    setIsPhotoModalOpen(false);
+    setImageScale(1);
   };
 
   const handleSubmit = async () => {
@@ -637,22 +708,66 @@ const BookingFlow = () => {
       </div>
 
       {/* Photo Modal */}
-      <Dialog open={isPhotoModalOpen} onOpenChange={setIsPhotoModalOpen}>
-        <DialogContent className="max-w-4xl p-0">
-          <DialogClose className="absolute right-4 top-4 z-50 rounded-sm opacity-70 ring-offset-background transition-opacity hover:opacity-100 focus:outline-none focus:ring-2 focus:ring-ring focus:ring-offset-2 disabled:pointer-events-none data-[state=open]:bg-accent data-[state=open]:text-muted-foreground">
-            <X className="h-6 w-6 text-white" />
+      <Dialog open={isPhotoModalOpen} onOpenChange={(open) => {
+        if (!open) handleModalClose();
+        else setIsPhotoModalOpen(open);
+      }}>
+        <DialogContent className="max-w-4xl p-0 overflow-hidden">
+          <DialogClose className="absolute right-4 top-4 z-50 rounded-sm opacity-70 ring-offset-background transition-opacity hover:opacity-100 focus:outline-none focus:ring-2 focus:ring-ring focus:ring-offset-2 disabled:pointer-events-none">
+            <X className="h-6 w-6 text-white drop-shadow-lg" />
             <span className="sr-only">Close</span>
           </DialogClose>
+          
           {selectedPhotoIndex !== null && selectedUnit && units.find(u => u.id === selectedUnit)?.photos && (
-            <div className="relative">
-              <img 
-                src={units.find(u => u.id === selectedUnit)!.photos![selectedPhotoIndex]} 
-                alt={`Suite photo ${selectedPhotoIndex + 1}`}
-                className="w-full h-auto max-h-[80vh] object-contain"
-              />
+            <div 
+              className="relative select-none"
+              onTouchStart={handleTouchStart}
+              onTouchMove={handleTouchMove}
+              onTouchEnd={handleTouchEnd}
+              onWheel={handleWheel}
+            >
+              {/* Navigation Arrows */}
+              {units.find(u => u.id === selectedUnit)!.photos!.length > 1 && (
+                <>
+                  <button
+                    onClick={() => navigatePhoto('prev')}
+                    className="absolute left-4 top-1/2 -translate-y-1/2 z-50 bg-black/50 hover:bg-black/70 text-white p-2 rounded-full transition-all hover:scale-110"
+                    aria-label="Previous photo"
+                  >
+                    <ChevronLeft className="h-6 w-6" />
+                  </button>
+                  <button
+                    onClick={() => navigatePhoto('next')}
+                    className="absolute right-4 top-1/2 -translate-y-1/2 z-50 bg-black/50 hover:bg-black/70 text-white p-2 rounded-full transition-all hover:scale-110"
+                    aria-label="Next photo"
+                  >
+                    <ChevronRight className="h-6 w-6" />
+                  </button>
+                </>
+              )}
+              
+              {/* Image */}
+              <div className="overflow-auto max-h-[80vh]">
+                <img 
+                  src={units.find(u => u.id === selectedUnit)!.photos![selectedPhotoIndex]} 
+                  alt={`Suite photo ${selectedPhotoIndex + 1}`}
+                  className="w-full h-auto object-contain transition-transform duration-200"
+                  style={{ transform: `scale(${imageScale})`, transformOrigin: 'center' }}
+                  draggable={false}
+                />
+              </div>
+              
+              {/* Photo Counter */}
               <div className="absolute bottom-4 left-1/2 -translate-x-1/2 bg-black/50 text-white px-3 py-1 rounded-full text-sm">
                 {selectedPhotoIndex + 1} / {units.find(u => u.id === selectedUnit)!.photos!.length}
               </div>
+              
+              {/* Zoom Indicator */}
+              {imageScale > 1 && (
+                <div className="absolute top-4 left-4 bg-black/50 text-white px-3 py-1 rounded-full text-sm">
+                  {Math.round(imageScale * 100)}%
+                </div>
+              )}
             </div>
           )}
         </DialogContent>
