@@ -10,7 +10,7 @@ import { Link, useNavigate, useSearchParams } from "react-router-dom";
 import { supabase } from "@/integrations/supabase/client";
 import { useToast } from "@/hooks/use-toast";
 import { format, parseISO } from "date-fns";
-import { Loader2 } from "lucide-react";
+import { Loader2, Bed, Bath, Users, Maximize2 } from "lucide-react";
 import type { DateRange } from "react-day-picker";
 import logo from "@/assets/suitespot-logo.png";
 
@@ -20,6 +20,10 @@ interface Unit {
   unit_type: string | null;
   unit_number: string | null;
   status: string;
+  beds: number | null;
+  baths: number | null;
+  max_guests: number | null;
+  unit_size: string | null;
 }
 
 const BookingFlow = () => {
@@ -70,7 +74,7 @@ const BookingFlow = () => {
         // First get all units
         const { data: allUnits, error: unitsError } = await supabase
           .from("units")
-          .select("id, name, unit_type, unit_number, status")
+          .select("id, name, unit_type, unit_number, status, beds, baths, max_guests, unit_size")
           .eq("status", "available")
           .order("name");
 
@@ -365,6 +369,37 @@ const BookingFlow = () => {
                     </div>
                   )}
                 </div>
+
+                {selectedUnit && units.length > 0 && (
+                  <div className="p-4 border rounded-lg bg-muted/50">
+                    <div className="flex flex-wrap gap-4 items-center justify-between">
+                      <div className="flex items-center gap-2">
+                        <Bed className="h-4 w-4 text-muted-foreground" />
+                        <span className="text-sm">
+                          <span className="font-semibold">Bedrooms:</span> {units.find(u => u.id === selectedUnit)?.beds || 'N/A'}
+                        </span>
+                      </div>
+                      <div className="flex items-center gap-2">
+                        <Bath className="h-4 w-4 text-muted-foreground" />
+                        <span className="text-sm">
+                          <span className="font-semibold">Bathrooms:</span> {units.find(u => u.id === selectedUnit)?.baths || 'N/A'}
+                        </span>
+                      </div>
+                      <div className="flex items-center gap-2">
+                        <Users className="h-4 w-4 text-muted-foreground" />
+                        <span className="text-sm">
+                          <span className="font-semibold">Max guests:</span> {units.find(u => u.id === selectedUnit)?.max_guests || 'N/A'}
+                        </span>
+                      </div>
+                      <div className="flex items-center gap-2">
+                        <Maximize2 className="h-4 w-4 text-muted-foreground" />
+                        <span className="text-sm">
+                          <span className="font-semibold">Size:</span> {units.find(u => u.id === selectedUnit)?.unit_size || 'N/A'}
+                        </span>
+                      </div>
+                    </div>
+                  </div>
+                )}
 
                 <div className="grid md:grid-cols-2 gap-4">
                   <div>

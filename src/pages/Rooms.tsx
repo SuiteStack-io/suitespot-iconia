@@ -32,6 +32,10 @@ interface Unit {
   status: string;
   booking_com_id: string | null;
   comments: string | null;
+  beds: number | null;
+  baths: number | null;
+  max_guests: number | null;
+  sofa_bed: boolean | null;
 }
 
 interface Reservation {
@@ -63,6 +67,10 @@ const Rooms = () => {
     status: 'available',
     booking_com_id: '',
     comments: '',
+    beds: null,
+    baths: null,
+    max_guests: null,
+    sofa_bed: false,
   });
 
   useEffect(() => {
@@ -268,6 +276,10 @@ const Rooms = () => {
       status: newUnit.status || 'available',
       booking_com_id: newUnit.booking_com_id || null,
       comments: newUnit.comments || null,
+      beds: newUnit.beds || null,
+      baths: newUnit.baths || null,
+      max_guests: newUnit.max_guests || null,
+      sofa_bed: newUnit.sofa_bed || false,
     }]);
 
     if (error) {
@@ -293,6 +305,10 @@ const Rooms = () => {
       status: 'available',
       booking_com_id: '',
       comments: '',
+      beds: null,
+      baths: null,
+      max_guests: null,
+      sofa_bed: false,
     });
     fetchUnits();
   };
@@ -363,6 +379,10 @@ const Rooms = () => {
                 <TableHead>Unit Number</TableHead>
                 <TableHead>Type</TableHead>
                 <TableHead>Size</TableHead>
+                <TableHead>Beds</TableHead>
+                <TableHead>Baths</TableHead>
+                <TableHead>Max Guests</TableHead>
+                <TableHead>Sofa Bed</TableHead>
                 <TableHead>Status</TableHead>
                 <TableHead>Booking.com ID</TableHead>
                 <TableHead>Next Reservation</TableHead>
@@ -399,6 +419,44 @@ const Rooms = () => {
                       onChange={(e) => setNewUnit({ ...newUnit, unit_size: e.target.value })}
                       placeholder="Size"
                     />
+                  </TableCell>
+                  <TableCell>
+                    <Input
+                      type="number"
+                      value={newUnit.beds || ''}
+                      onChange={(e) => setNewUnit({ ...newUnit, beds: e.target.value ? parseInt(e.target.value) : null })}
+                      placeholder="Beds"
+                    />
+                  </TableCell>
+                  <TableCell>
+                    <Input
+                      type="number"
+                      value={newUnit.baths || ''}
+                      onChange={(e) => setNewUnit({ ...newUnit, baths: e.target.value ? parseInt(e.target.value) : null })}
+                      placeholder="Baths"
+                    />
+                  </TableCell>
+                  <TableCell>
+                    <Input
+                      type="number"
+                      value={newUnit.max_guests || ''}
+                      onChange={(e) => setNewUnit({ ...newUnit, max_guests: e.target.value ? parseInt(e.target.value) : null })}
+                      placeholder="Max"
+                    />
+                  </TableCell>
+                  <TableCell>
+                    <Select
+                      value={newUnit.sofa_bed ? 'true' : 'false'}
+                      onValueChange={(value) => setNewUnit({ ...newUnit, sofa_bed: value === 'true' })}
+                    >
+                      <SelectTrigger>
+                        <SelectValue />
+                      </SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="true">Yes</SelectItem>
+                        <SelectItem value="false">No</SelectItem>
+                      </SelectContent>
+                    </Select>
                   </TableCell>
                   <TableCell>
                     <Select
@@ -445,6 +503,10 @@ const Rooms = () => {
                             status: 'available',
                             booking_com_id: '',
                             comments: '',
+                            beds: null,
+                            baths: null,
+                            max_guests: null,
+                            sofa_bed: false,
                           });
                         }}
                       >
@@ -514,6 +576,76 @@ const Rooms = () => {
                         />
                       ) : (
                         unit.unit_size || '-'
+                      )}
+                    </TableCell>
+                    <TableCell>
+                      {isEditing ? (
+                        <Input
+                          type="number"
+                          value={isBulkEdit ? (bulkEditUnits[unit.id]?.beds ?? '') : (editedUnit.beds ?? '')}
+                          onChange={(e) =>
+                            isBulkEdit
+                              ? handleBulkEditChange(unit.id, 'beds', e.target.value ? parseInt(e.target.value) : null)
+                              : setEditedUnit({ ...editedUnit, beds: e.target.value ? parseInt(e.target.value) : null })
+                          }
+                          placeholder="Beds"
+                        />
+                      ) : (
+                        unit.beds || '-'
+                      )}
+                    </TableCell>
+                    <TableCell>
+                      {isEditing ? (
+                        <Input
+                          type="number"
+                          value={isBulkEdit ? (bulkEditUnits[unit.id]?.baths ?? '') : (editedUnit.baths ?? '')}
+                          onChange={(e) =>
+                            isBulkEdit
+                              ? handleBulkEditChange(unit.id, 'baths', e.target.value ? parseInt(e.target.value) : null)
+                              : setEditedUnit({ ...editedUnit, baths: e.target.value ? parseInt(e.target.value) : null })
+                          }
+                          placeholder="Baths"
+                        />
+                      ) : (
+                        unit.baths || '-'
+                      )}
+                    </TableCell>
+                    <TableCell>
+                      {isEditing ? (
+                        <Input
+                          type="number"
+                          value={isBulkEdit ? (bulkEditUnits[unit.id]?.max_guests ?? '') : (editedUnit.max_guests ?? '')}
+                          onChange={(e) =>
+                            isBulkEdit
+                              ? handleBulkEditChange(unit.id, 'max_guests', e.target.value ? parseInt(e.target.value) : null)
+                              : setEditedUnit({ ...editedUnit, max_guests: e.target.value ? parseInt(e.target.value) : null })
+                          }
+                          placeholder="Max"
+                        />
+                      ) : (
+                        unit.max_guests || '-'
+                      )}
+                    </TableCell>
+                    <TableCell>
+                      {isEditing ? (
+                        <Select
+                          value={isBulkEdit ? (bulkEditUnits[unit.id]?.sofa_bed ? 'true' : 'false') : (editedUnit.sofa_bed ? 'true' : 'false')}
+                          onValueChange={(value) =>
+                            isBulkEdit
+                              ? handleBulkEditChange(unit.id, 'sofa_bed', value === 'true')
+                              : setEditedUnit({ ...editedUnit, sofa_bed: value === 'true' })
+                          }
+                        >
+                          <SelectTrigger>
+                            <SelectValue />
+                          </SelectTrigger>
+                          <SelectContent>
+                            <SelectItem value="true">Yes</SelectItem>
+                            <SelectItem value="false">No</SelectItem>
+                          </SelectContent>
+                        </Select>
+                      ) : (
+                        unit.sofa_bed ? 'Yes' : 'No'
                       )}
                     </TableCell>
                     <TableCell>

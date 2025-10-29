@@ -211,11 +211,15 @@ export type Database = {
       units: {
         Row: {
           availability_date: string | null
+          baths: number | null
+          beds: number | null
           booking_com_id: string | null
           comments: string | null
           created_at: string
           id: string
+          max_guests: number | null
           name: string
+          sofa_bed: boolean | null
           status: string
           unit_number: string | null
           unit_size: string | null
@@ -224,11 +228,15 @@ export type Database = {
         }
         Insert: {
           availability_date?: string | null
+          baths?: number | null
+          beds?: number | null
           booking_com_id?: string | null
           comments?: string | null
           created_at?: string
           id?: string
+          max_guests?: number | null
           name: string
+          sofa_bed?: boolean | null
           status: string
           unit_number?: string | null
           unit_size?: string | null
@@ -237,11 +245,15 @@ export type Database = {
         }
         Update: {
           availability_date?: string | null
+          baths?: number | null
+          beds?: number | null
           booking_com_id?: string | null
           comments?: string | null
           created_at?: string
           id?: string
+          max_guests?: number | null
           name?: string
+          sofa_bed?: boolean | null
           status?: string
           unit_number?: string | null
           unit_size?: string | null
