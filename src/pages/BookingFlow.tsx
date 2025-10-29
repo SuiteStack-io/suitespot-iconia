@@ -6,14 +6,95 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Textarea } from "@/components/ui/textarea";
+import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
+import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
+import { Command, CommandEmpty, CommandGroup, CommandInput, CommandItem, CommandList } from "@/components/ui/command";
+import { Progress } from "@/components/ui/progress";
 import { Link, useNavigate, useSearchParams } from "react-router-dom";
 import { supabase } from "@/integrations/supabase/client";
 import { useToast } from "@/hooks/use-toast";
 import { format, parseISO } from "date-fns";
 import { Dialog, DialogContent, DialogClose } from "@/components/ui/dialog";
-import { Loader2, Bed, Bath, Users, Maximize2, Sofa, X, ChevronLeft, ChevronRight } from "lucide-react";
+import { Loader2, Bed, Bath, Users, Maximize2, Sofa, X, ChevronLeft, ChevronRight, Upload, Check, ChevronsUpDown } from "lucide-react";
+import { cn } from "@/lib/utils";
 import type { DateRange } from "react-day-picker";
 import logo from "@/assets/suitespot-logo.png";
+
+const NATIONALITIES = [
+  "Afghan", "Albanian", "Algerian", "American", "Andorran", "Angolan", "Antiguans", "Argentinean", "Armenian", "Australian",
+  "Austrian", "Azerbaijani", "Bahamian", "Bahraini", "Bangladeshi", "Barbadian", "Barbudans", "Batswana", "Belarusian", "Belgian",
+  "Belizean", "Beninese", "Bhutanese", "Bolivian", "Bosnian", "Brazilian", "British", "Bruneian", "Bulgarian", "Burkinabe",
+  "Burmese", "Burundian", "Cambodian", "Cameroonian", "Canadian", "Cape Verdean", "Central African", "Chadian", "Chilean", "Chinese",
+  "Colombian", "Comoran", "Congolese", "Costa Rican", "Croatian", "Cuban", "Cypriot", "Czech", "Danish", "Djibouti",
+  "Dominican", "Dutch", "East Timorese", "Ecuadorean", "Egyptian", "Emirian", "Equatorial Guinean", "Eritrean", "Estonian", "Ethiopian",
+  "Fijian", "Filipino", "Finnish", "French", "Gabonese", "Gambian", "Georgian", "German", "Ghanaian", "Greek",
+  "Grenadian", "Guatemalan", "Guinea-Bissauan", "Guinean", "Guyanese", "Haitian", "Herzegovinian", "Honduran", "Hungarian", "I-Kiribati",
+  "Icelander", "Indian", "Indonesian", "Iranian", "Iraqi", "Irish", "Israeli", "Italian", "Ivorian", "Jamaican",
+  "Japanese", "Jordanian", "Kazakhstani", "Kenyan", "Kittian and Nevisian", "Kuwaiti", "Kyrgyz", "Laotian", "Latvian", "Lebanese",
+  "Liberian", "Libyan", "Liechtensteiner", "Lithuanian", "Luxembourger", "Macedonian", "Malagasy", "Malawian", "Malaysian", "Maldivan",
+  "Malian", "Maltese", "Marshallese", "Mauritanian", "Mauritian", "Mexican", "Micronesian", "Moldovan", "Monacan", "Mongolian",
+  "Moroccan", "Mosotho", "Motswana", "Mozambican", "Namibian", "Nauruan", "Nepalese", "New Zealander", "Nicaraguan", "Nigerian",
+  "Nigerien", "North Korean", "Northern Irish", "Norwegian", "Omani", "Pakistani", "Palauan", "Panamanian", "Papua New Guinean", "Paraguayan",
+  "Peruvian", "Polish", "Portuguese", "Qatari", "Romanian", "Russian", "Rwandan", "Saint Lucian", "Salvadoran", "Samoan",
+  "San Marinese", "Sao Tomean", "Saudi", "Scottish", "Senegalese", "Serbian", "Seychellois", "Sierra Leonean", "Singaporean", "Slovakian",
+  "Slovenian", "Solomon Islander", "Somali", "South African", "South Korean", "Spanish", "Sri Lankan", "Sudanese", "Surinamer", "Swazi",
+  "Swedish", "Swiss", "Syrian", "Taiwanese", "Tajik", "Tanzanian", "Thai", "Togolese", "Tongan", "Trinidadian or Tobagonian",
+  "Tunisian", "Turkish", "Tuvaluan", "Ugandan", "Ukrainian", "Uruguayan", "Uzbekistani", "Venezuelan", "Vietnamese", "Welsh",
+  "Yemenite", "Zambian", "Zimbabwean"
+];
+
+const COUNTRY_CODES = [
+  { code: "+1", country: "US", flag: "🇺🇸", name: "United States" },
+  { code: "+1", country: "CA", flag: "🇨🇦", name: "Canada" },
+  { code: "+20", country: "EG", flag: "🇪🇬", name: "Egypt" },
+  { code: "+27", country: "ZA", flag: "🇿🇦", name: "South Africa" },
+  { code: "+30", country: "GR", flag: "🇬🇷", name: "Greece" },
+  { code: "+31", country: "NL", flag: "🇳🇱", name: "Netherlands" },
+  { code: "+32", country: "BE", flag: "🇧🇪", name: "Belgium" },
+  { code: "+33", country: "FR", flag: "🇫🇷", name: "France" },
+  { code: "+34", country: "ES", flag: "🇪🇸", name: "Spain" },
+  { code: "+39", country: "IT", flag: "🇮🇹", name: "Italy" },
+  { code: "+40", country: "RO", flag: "🇷🇴", name: "Romania" },
+  { code: "+41", country: "CH", flag: "🇨🇭", name: "Switzerland" },
+  { code: "+43", country: "AT", flag: "🇦🇹", name: "Austria" },
+  { code: "+44", country: "GB", flag: "🇬🇧", name: "United Kingdom" },
+  { code: "+45", country: "DK", flag: "🇩🇰", name: "Denmark" },
+  { code: "+46", country: "SE", flag: "🇸🇪", name: "Sweden" },
+  { code: "+47", country: "NO", flag: "🇳🇴", name: "Norway" },
+  { code: "+48", country: "PL", flag: "🇵🇱", name: "Poland" },
+  { code: "+49", country: "DE", flag: "🇩🇪", name: "Germany" },
+  { code: "+51", country: "PE", flag: "🇵🇪", name: "Peru" },
+  { code: "+52", country: "MX", flag: "🇲🇽", name: "Mexico" },
+  { code: "+53", country: "CU", flag: "🇨🇺", name: "Cuba" },
+  { code: "+54", country: "AR", flag: "🇦🇷", name: "Argentina" },
+  { code: "+55", country: "BR", flag: "🇧🇷", name: "Brazil" },
+  { code: "+56", country: "CL", flag: "🇨🇱", name: "Chile" },
+  { code: "+57", country: "CO", flag: "🇨🇴", name: "Colombia" },
+  { code: "+58", country: "VE", flag: "🇻🇪", name: "Venezuela" },
+  { code: "+60", country: "MY", flag: "🇲🇾", name: "Malaysia" },
+  { code: "+61", country: "AU", flag: "🇦🇺", name: "Australia" },
+  { code: "+62", country: "ID", flag: "🇮🇩", name: "Indonesia" },
+  { code: "+63", country: "PH", flag: "🇵🇭", name: "Philippines" },
+  { code: "+64", country: "NZ", flag: "🇳🇿", name: "New Zealand" },
+  { code: "+65", country: "SG", flag: "🇸🇬", name: "Singapore" },
+  { code: "+66", country: "TH", flag: "🇹🇭", name: "Thailand" },
+  { code: "+81", country: "JP", flag: "🇯🇵", name: "Japan" },
+  { code: "+82", country: "KR", flag: "🇰🇷", name: "South Korea" },
+  { code: "+84", country: "VN", flag: "🇻🇳", name: "Vietnam" },
+  { code: "+86", country: "CN", flag: "🇨🇳", name: "China" },
+  { code: "+90", country: "TR", flag: "🇹🇷", name: "Turkey" },
+  { code: "+91", country: "IN", flag: "🇮🇳", name: "India" },
+  { code: "+92", country: "PK", flag: "🇵🇰", name: "Pakistan" },
+  { code: "+966", country: "SA", flag: "🇸🇦", name: "Saudi Arabia" },
+  { code: "+971", country: "AE", flag: "🇦🇪", name: "UAE" },
+];
+
+const ARAB_NATIONALITIES = [
+  "Egyptian", "Saudi", "Emirati", "Kuwaiti", "Qatari", "Bahraini", "Omani", 
+  "Yemenite", "Jordanian", "Lebanese", "Syrian", "Iraqi", "Palestinian", 
+  "Libyan", "Tunisian", "Algerian", "Moroccan", "Sudanese", "Somali", 
+  "Djiboutian", "Mauritanian", "Comoran"
+];
 
 interface Unit {
   id: string;
@@ -43,11 +124,29 @@ const BookingFlow = () => {
   const [dateRange, setDateRange] = useState<DateRange | undefined>();
   const [selectedUnit, setSelectedUnit] = useState<string>("");
   const [guestNames, setGuestNames] = useState<string[]>([""]);
+  const [guestTypes, setGuestTypes] = useState<('adult' | 'child')[]>(["adult"]);
+  const [guestGenders, setGuestGenders] = useState<('male' | 'female' | '')[]>([""]);
   const [adults, setAdults] = useState(1);
   const [children, setChildren] = useState(0);
   const [email, setEmail] = useState("");
   const [phone, setPhone] = useState("");
+  const [countryCode, setCountryCode] = useState("+20");
   const [nationality, setNationality] = useState("");
+  const [nationalityOpen, setNationalityOpen] = useState(false);
+  const [countryCodeOpen, setCountryCodeOpen] = useState(false);
+  const [idPassportType, setIdPassportType] = useState<'id' | 'passport'>('id');
+  const [idPassportFile, setIdPassportFile] = useState<File | null>(null);
+  const [idPassportUrl, setIdPassportUrl] = useState<string | null>(null);
+  const [idPassportFileBack, setIdPassportFileBack] = useState<File | null>(null);
+  const [idPassportUrlBack, setIdPassportUrlBack] = useState<string | null>(null);
+  const [idUploadProgress, setIdUploadProgress] = useState<number>(0);
+  const [idUploadProgressBack, setIdUploadProgressBack] = useState<number>(0);
+  const [isIdUploading, setIsIdUploading] = useState<boolean>(false);
+  const [isIdUploadingBack, setIsIdUploadingBack] = useState<boolean>(false);
+  const [marriageCertificateFile, setMarriageCertificateFile] = useState<File | null>(null);
+  const [marriageCertificateUrl, setMarriageCertificateUrl] = useState<string | null>(null);
+  const [marriageUploadProgress, setMarriageUploadProgress] = useState<number>(0);
+  const [isMarriageUploading, setIsMarriageUploading] = useState<boolean>(false);
   const [notes, setNotes] = useState("");
   const [selectedPhotoIndex, setSelectedPhotoIndex] = useState<number | null>(null);
   const [isPhotoModalOpen, setIsPhotoModalOpen] = useState(false);
@@ -173,9 +272,21 @@ const BookingFlow = () => {
     fetchBookedDates();
   }, []);
 
-  const addGuest = () => {
-    setGuestNames([...guestNames, ""]);
-  };
+  // Auto-sync guest names array when adults/children selectors change
+  useEffect(() => {
+    const totalGuests = adults + children;
+    
+    const newGuestNames = Array(totalGuests).fill('').map((_, i) => guestNames[i] || '');
+    const newGuestTypes = Array(totalGuests).fill('adult' as 'adult' | 'child').map((_, i) => {
+      if (guestTypes[i]) return guestTypes[i];
+      return i < adults ? 'adult' : 'child';
+    });
+    const newGuestGenders = Array(totalGuests).fill('').map((_, i) => guestGenders[i] || '');
+    
+    setGuestNames(newGuestNames);
+    setGuestTypes(newGuestTypes);
+    setGuestGenders(newGuestGenders);
+  }, [adults, children]);
 
   const updateGuestName = (index: number, value: string) => {
     const updated = [...guestNames];
@@ -183,11 +294,210 @@ const BookingFlow = () => {
     setGuestNames(updated);
   };
 
-  const removeGuest = (index: number) => {
-    if (guestNames.length > 1) {
-      const updated = guestNames.filter((_, i) => i !== index);
-      setGuestNames(updated);
+  const updateGuestType = (index: number, type: 'adult' | 'child') => {
+    const newGuestTypes = [...guestTypes];
+    newGuestTypes[index] = type;
+    setGuestTypes(newGuestTypes);
+  };
+
+  const updateGuestGender = (index: number, gender: 'male' | 'female') => {
+    const newGuestGenders = [...guestGenders];
+    newGuestGenders[index] = gender;
+    setGuestGenders(newGuestGenders);
+  };
+
+  const isMarriageCertificateRequired = () => {
+    if (adults !== 2) return false;
+    if (!ARAB_NATIONALITIES.includes(nationality)) return false;
+    
+    const adultGenders = guestTypes
+      .map((type, index) => type === 'adult' ? guestGenders[index] : null)
+      .filter(gender => gender !== null && gender !== '');
+    
+    const hasMale = adultGenders.includes('male');
+    const hasFemale = adultGenders.includes('female');
+    
+    return hasMale && hasFemale;
+  };
+
+  const handleIdPassportUpload = async (file: File, isBack: boolean = false) => {
+    if (isBack) {
+      setIdPassportFileBack(file);
+      setIsIdUploadingBack(true);
+      setIdUploadProgressBack(0);
+    } else {
+      setIdPassportFile(file);
+      setIsIdUploading(true);
+      setIdUploadProgress(0);
     }
+    
+    const progressInterval = setInterval(() => {
+      if (isBack) {
+        setIdUploadProgressBack(prev => prev >= 90 ? 90 : prev + 10);
+      } else {
+        setIdUploadProgress(prev => prev >= 90 ? 90 : prev + 10);
+      }
+    }, 100);
+    
+    try {
+      const fileExt = file.name.split('.').pop();
+      const fileName = `${Date.now()}-${Math.random().toString(36).substring(7)}.${fileExt}`;
+      const filePath = `${fileName}`;
+
+      const { error: uploadError } = await supabase.storage
+        .from('marriage-certificates')
+        .upload(filePath, file);
+
+      clearInterval(progressInterval);
+      if (isBack) {
+        setIdUploadProgressBack(100);
+      } else {
+        setIdUploadProgress(100);
+      }
+
+      if (uploadError) {
+        toast({
+          title: "Upload Failed",
+          description: "Failed to upload ID/Passport",
+          variant: "destructive",
+        });
+        if (isBack) {
+          setIdPassportFileBack(null);
+          setIsIdUploadingBack(false);
+          setIdUploadProgressBack(0);
+        } else {
+          setIdPassportFile(null);
+          setIsIdUploading(false);
+          setIdUploadProgress(0);
+        }
+        return;
+      }
+
+      const { data: { publicUrl } } = supabase.storage
+        .from('marriage-certificates')
+        .getPublicUrl(filePath);
+      
+      if (isBack) {
+        setIdPassportUrlBack(publicUrl);
+      } else {
+        setIdPassportUrl(publicUrl);
+      }
+      
+      await new Promise(resolve => setTimeout(resolve, 500));
+      if (isBack) {
+        setIsIdUploadingBack(false);
+        setIdUploadProgressBack(0);
+      } else {
+        setIsIdUploading(false);
+        setIdUploadProgress(0);
+      }
+      toast({
+        title: "Upload Successful",
+        description: `ID/Passport ${isBack ? 'back' : 'front'} uploaded successfully`,
+      });
+    } catch (error) {
+      clearInterval(progressInterval);
+      toast({
+        title: "Upload Failed",
+        description: "Failed to upload ID/Passport",
+        variant: "destructive",
+      });
+      if (isBack) {
+        setIdPassportFileBack(null);
+        setIsIdUploadingBack(false);
+        setIdUploadProgressBack(0);
+      } else {
+        setIdPassportFile(null);
+        setIsIdUploading(false);
+        setIdUploadProgress(0);
+      }
+    }
+  };
+
+  const handleIdPassportDelete = (isBack: boolean = false) => {
+    if (isBack) {
+      setIdPassportFileBack(null);
+      setIdPassportUrlBack(null);
+      setIdUploadProgressBack(0);
+      setIsIdUploadingBack(false);
+      const input = document.getElementById('idPassportBack') as HTMLInputElement;
+      if (input) input.value = '';
+    } else {
+      setIdPassportFile(null);
+      setIdPassportUrl(null);
+      setIdUploadProgress(0);
+      setIsIdUploading(false);
+      const input = document.getElementById('idPassport') as HTMLInputElement;
+      if (input) input.value = '';
+    }
+  };
+
+  const handleMarriageCertificateUpload = async (file: File) => {
+    setMarriageCertificateFile(file);
+    setIsMarriageUploading(true);
+    setMarriageUploadProgress(0);
+    
+    const progressInterval = setInterval(() => {
+      setMarriageUploadProgress(prev => prev >= 90 ? 90 : prev + 10);
+    }, 100);
+    
+    try {
+      const fileExt = file.name.split('.').pop();
+      const fileName = `${Date.now()}-${Math.random().toString(36).substring(7)}.${fileExt}`;
+      const filePath = `${fileName}`;
+
+      const { error: uploadError } = await supabase.storage
+        .from('marriage-certificates')
+        .upload(filePath, file);
+
+      clearInterval(progressInterval);
+      setMarriageUploadProgress(100);
+
+      if (uploadError) {
+        toast({
+          title: "Upload Failed",
+          description: "Failed to upload marriage certificate",
+          variant: "destructive",
+        });
+        setMarriageCertificateFile(null);
+        setIsMarriageUploading(false);
+        setMarriageUploadProgress(0);
+        return;
+      }
+
+      const { data: { publicUrl } } = supabase.storage
+        .from('marriage-certificates')
+        .getPublicUrl(filePath);
+      
+      setMarriageCertificateUrl(publicUrl);
+      
+      await new Promise(resolve => setTimeout(resolve, 500));
+      setIsMarriageUploading(false);
+      setMarriageUploadProgress(0);
+      toast({
+        title: "Upload Successful",
+        description: "Marriage certificate uploaded successfully",
+      });
+    } catch (error) {
+      clearInterval(progressInterval);
+      toast({
+        title: "Upload Failed",
+        description: "Failed to upload marriage certificate",
+        variant: "destructive",
+      });
+      setMarriageCertificateFile(null);
+      setIsMarriageUploading(false);
+      setMarriageUploadProgress(0);
+    }
+  };
+
+  const handleMarriageCertificateDelete = () => {
+    setMarriageCertificateFile(null);
+    setMarriageCertificateUrl(null);
+    setMarriageUploadProgress(0);
+    setIsMarriageUploading(false);
+    const input = document.getElementById('marriage-certificate') as HTMLInputElement;
+    if (input) input.value = '';
   };
 
   const calculateNights = () => {
@@ -286,12 +596,17 @@ const BookingFlow = () => {
         check_out_date: format(dateRange.to, "yyyy-MM-dd"),
         nights,
         guest_names: validGuestNames,
+        guest_types: guestTypes.slice(0, validGuestNames.length),
+        guest_genders: guestGenders.slice(0, validGuestNames.length),
         adults,
         children,
         number_of_guests: adults + children,
         contact_email: email,
-        contact_phone: phone,
+        contact_phone: `${countryCode}${phone}`,
         guest_nationality: nationality,
+        id_passport_url: idPassportUrl,
+        id_passport_url_back: idPassportUrlBack,
+        marriage_certificate_url: marriageCertificateUrl,
         notes,
         status: "confirmed",
         source: "Direct Website",
@@ -544,69 +859,442 @@ const BookingFlow = () => {
             {/* Step 2: Guest Details */}
             {step === 2 && (
               <div className="space-y-6">
-                <div>
-                  <Label className="text-lg font-semibold mb-4 block">Guest Information</Label>
-                  
+                <Label className="text-lg font-semibold">Guest Information</Label>
+                
+                {/* Guest Names with Types and Genders */}
+                <div className="space-y-4">
                   {guestNames.map((name, index) => (
-                    <div key={index} className="flex gap-2 mb-3">
-                      <Input
-                        placeholder={`Guest ${index + 1} Full Name`}
-                        value={name}
-                        onChange={(e) => updateGuestName(index, e.target.value)}
-                      />
-                      {guestNames.length > 1 && (
-                        <Button
-                          type="button"
-                          variant="outline"
-                          onClick={() => removeGuest(index)}
+                    <div key={index} className="space-y-3 p-4 border rounded-lg">
+                      <div>
+                        <Label>Guest {index + 1} Name <span className="text-destructive">*</span></Label>
+                        <Input
+                          placeholder={`Guest ${index + 1} name`}
+                          value={name}
+                          onChange={(e) => updateGuestName(index, e.target.value)}
+                        />
+                      </div>
+                      
+                      <div>
+                        <Label className="text-sm text-muted-foreground">
+                          Guest Type <span className="text-destructive">*</span>
+                        </Label>
+                        <RadioGroup
+                          value={guestTypes[index]}
+                          onValueChange={(value) => updateGuestType(index, value as 'adult' | 'child')}
+                          className="flex gap-4 mt-2"
                         >
-                          Remove
-                        </Button>
+                          <div className="flex items-center space-x-2">
+                            <RadioGroupItem value="adult" id={`adult-${index}`} />
+                            <Label htmlFor={`adult-${index}`} className="font-normal cursor-pointer">
+                              Adult
+                            </Label>
+                          </div>
+                          <div className="flex items-center space-x-2">
+                            <RadioGroupItem value="child" id={`child-${index}`} />
+                            <Label htmlFor={`child-${index}`} className="font-normal cursor-pointer">
+                              Child
+                            </Label>
+                          </div>
+                        </RadioGroup>
+                      </div>
+                      
+                      {guestTypes[index] === 'adult' && (
+                        <div>
+                          <Label className="text-sm text-muted-foreground">
+                            Gender <span className="text-destructive">*</span>
+                          </Label>
+                          <RadioGroup
+                            value={guestGenders[index] || ""}
+                            onValueChange={(value) => updateGuestGender(index, value as 'male' | 'female')}
+                            className="flex gap-4 mt-2"
+                          >
+                            <div className="flex items-center space-x-2">
+                              <RadioGroupItem value="male" id={`male-${index}`} />
+                              <Label htmlFor={`male-${index}`} className="font-normal cursor-pointer">
+                                Male
+                              </Label>
+                            </div>
+                            <div className="flex items-center space-x-2">
+                              <RadioGroupItem value="female" id={`female-${index}`} />
+                              <Label htmlFor={`female-${index}`} className="font-normal cursor-pointer">
+                                Female
+                              </Label>
+                            </div>
+                          </RadioGroup>
+                        </div>
                       )}
                     </div>
                   ))}
-                  
-                  <Button
-                    type="button"
-                    variant="outline"
-                    onClick={addGuest}
-                    className="w-full mt-2"
-                  >
-                    + Add Another Guest
-                  </Button>
                 </div>
 
-                <div className="grid md:grid-cols-2 gap-4">
-                  <div>
-                    <Label htmlFor="email">Email Address *</Label>
-                    <Input
-                      id="email"
-                      type="email"
-                      value={email}
-                      onChange={(e) => setEmail(e.target.value)}
-                      required
-                    />
-                  </div>
-                  <div>
-                    <Label htmlFor="phone">Phone Number</Label>
-                    <Input
-                      id="phone"
-                      type="tel"
-                      value={phone}
-                      onChange={(e) => setPhone(e.target.value)}
-                    />
-                  </div>
-                </div>
-
+                {/* Nationality */}
                 <div>
-                  <Label htmlFor="nationality">Nationality</Label>
+                  <Label>Nationality <span className="text-destructive">*</span></Label>
+                  <Popover open={nationalityOpen} onOpenChange={setNationalityOpen}>
+                    <PopoverTrigger asChild>
+                      <Button
+                        variant="outline"
+                        role="combobox"
+                        aria-expanded={nationalityOpen}
+                        className="w-full justify-between"
+                      >
+                        {nationality || "Select nationality..."}
+                        <ChevronsUpDown className="ml-2 h-4 w-4 shrink-0 opacity-50" />
+                      </Button>
+                    </PopoverTrigger>
+                    <PopoverContent className="w-full p-0" align="start">
+                      <Command>
+                        <CommandInput placeholder="Search nationality..." />
+                        <CommandList>
+                          <CommandEmpty>No nationality found.</CommandEmpty>
+                          <CommandGroup>
+                            {NATIONALITIES.map((nat) => (
+                              <CommandItem
+                                key={nat}
+                                value={nat}
+                                onSelect={(currentValue) => {
+                                  setNationality(currentValue === nationality ? "" : currentValue);
+                                  setNationalityOpen(false);
+                                }}
+                              >
+                                <Check
+                                  className={cn(
+                                    "mr-2 h-4 w-4",
+                                    nationality === nat ? "opacity-100" : "opacity-0"
+                                  )}
+                                />
+                                {nat}
+                              </CommandItem>
+                            ))}
+                          </CommandGroup>
+                        </CommandList>
+                      </Command>
+                    </PopoverContent>
+                  </Popover>
+                </div>
+
+                {/* ID/Passport Upload */}
+                <div className="space-y-3">
+                  <Label>Upload ID/Passport <span className="text-destructive">*</span></Label>
+                  <RadioGroup
+                    value={idPassportType}
+                    onValueChange={(value: 'id' | 'passport') => {
+                      setIdPassportType(value);
+                      if (value === 'passport') {
+                        setIdPassportFileBack(null);
+                        setIdPassportUrlBack(null);
+                        setIdUploadProgressBack(0);
+                        setIsIdUploadingBack(false);
+                      }
+                    }}
+                    className="flex gap-4"
+                  >
+                    <div className="flex items-center space-x-2">
+                      <RadioGroupItem value="id" id="type-id" />
+                      <Label htmlFor="type-id" className="font-normal cursor-pointer">
+                        ID
+                      </Label>
+                    </div>
+                    <div className="flex items-center space-x-2">
+                      <RadioGroupItem value="passport" id="type-passport" />
+                      <Label htmlFor="type-passport" className="font-normal cursor-pointer">
+                        Passport
+                      </Label>
+                    </div>
+                  </RadioGroup>
+                  
+                  {/* Front Image */}
+                  <div>
+                    <Label className="text-sm text-muted-foreground">
+                      {idPassportType === 'id' ? 'Front' : 'Image'}
+                    </Label>
+                    {idPassportFile ? (
+                      <div className="space-y-2">
+                        <div className="flex items-center gap-2 p-2 bg-muted rounded border">
+                          <span className="text-sm flex-1 truncate">{idPassportFile.name}</span>
+                          <Button
+                            type="button"
+                            variant="ghost"
+                            size="sm"
+                            onClick={() => handleIdPassportDelete(false)}
+                            className="hover:text-destructive"
+                            disabled={isIdUploading}
+                          >
+                            <X className="h-4 w-4" />
+                          </Button>
+                        </div>
+                        {isIdUploading && (
+                          <div className="space-y-1">
+                            <Progress value={idUploadProgress} className="h-2" />
+                            <p className="text-xs text-muted-foreground text-center">{idUploadProgress}%</p>
+                          </div>
+                        )}
+                      </div>
+                    ) : (
+                      <div className="flex items-center gap-2 mt-2">
+                        <Input
+                          id="idPassport"
+                          type="file"
+                          accept="image/*"
+                          onChange={(e) => {
+                            const file = e.target.files?.[0];
+                            if (file) {
+                              if (!file.type.startsWith('image/')) {
+                                toast({
+                                  title: "Invalid File",
+                                  description: "Only image files are supported",
+                                  variant: "destructive",
+                                });
+                                e.target.value = '';
+                                return;
+                              }
+                              if (file.size > 10 * 1024 * 1024) {
+                                toast({
+                                  title: "File Too Large",
+                                  description: "File size must be less than 10MB",
+                                  variant: "destructive",
+                                });
+                                e.target.value = '';
+                                return;
+                              }
+                              handleIdPassportUpload(file, false);
+                            }
+                          }}
+                          className="hidden"
+                        />
+                        <Label
+                          htmlFor="idPassport"
+                          className="flex items-center gap-2 px-4 py-2 border rounded-md cursor-pointer hover:bg-accent transition-colors"
+                        >
+                          <Upload className="h-4 w-4" />
+                          Upload
+                        </Label>
+                      </div>
+                    )}
+                  </div>
+
+                  {/* Back Image (only for ID) */}
+                  {idPassportType === 'id' && (
+                    <div>
+                      <Label className="text-sm text-muted-foreground">
+                        Back <span className="text-destructive">*</span>
+                      </Label>
+                      {idPassportFileBack ? (
+                        <div className="space-y-2">
+                          <div className="flex items-center gap-2 p-2 bg-muted rounded border">
+                            <span className="text-sm flex-1 truncate">{idPassportFileBack.name}</span>
+                            <Button
+                              type="button"
+                              variant="ghost"
+                              size="sm"
+                              onClick={() => handleIdPassportDelete(true)}
+                              className="hover:text-destructive"
+                              disabled={isIdUploadingBack}
+                            >
+                              <X className="h-4 w-4" />
+                            </Button>
+                          </div>
+                          {isIdUploadingBack && (
+                            <div className="space-y-1">
+                              <Progress value={idUploadProgressBack} className="h-2" />
+                              <p className="text-xs text-muted-foreground text-center">{idUploadProgressBack}%</p>
+                            </div>
+                          )}
+                        </div>
+                      ) : (
+                        <div className="flex items-center gap-2 mt-2">
+                          <Input
+                            id="idPassportBack"
+                            type="file"
+                            accept="image/*"
+                            onChange={(e) => {
+                              const file = e.target.files?.[0];
+                              if (file) {
+                                if (!file.type.startsWith('image/')) {
+                                  toast({
+                                    title: "Invalid File",
+                                    description: "Only image files are supported",
+                                    variant: "destructive",
+                                  });
+                                  e.target.value = '';
+                                  return;
+                                }
+                                if (file.size > 10 * 1024 * 1024) {
+                                  toast({
+                                    title: "File Too Large",
+                                    description: "File size must be less than 10MB",
+                                    variant: "destructive",
+                                  });
+                                  e.target.value = '';
+                                  return;
+                                }
+                                handleIdPassportUpload(file, true);
+                              }
+                            }}
+                            className="hidden"
+                          />
+                          <Label
+                            htmlFor="idPassportBack"
+                            className="flex items-center gap-2 px-4 py-2 border rounded-md cursor-pointer hover:bg-accent transition-colors"
+                          >
+                            <Upload className="h-4 w-4" />
+                            Upload
+                          </Label>
+                        </div>
+                      )}
+                    </div>
+                  )}
+                </div>
+
+                {/* Marriage Certificate - Conditional */}
+                {isMarriageCertificateRequired() && (
+                  <div className="space-y-3 p-4 border-2 border-amber-500 rounded-lg bg-amber-50 dark:bg-amber-950/20">
+                    <div>
+                      <Label className="text-base font-semibold">
+                        Marriage Certificate <span className="text-destructive">*</span>
+                      </Label>
+                      <p className="text-sm text-muted-foreground mt-1">
+                        Required for Arab couples (male + female adults)
+                      </p>
+                    </div>
+                    
+                    {marriageCertificateFile ? (
+                      <div className="space-y-2">
+                        <div className="flex items-center gap-2 p-2 bg-background rounded border">
+                          <span className="text-sm flex-1 truncate">{marriageCertificateFile.name}</span>
+                          <Button
+                            type="button"
+                            variant="ghost"
+                            size="sm"
+                            onClick={handleMarriageCertificateDelete}
+                            className="hover:text-destructive"
+                            disabled={isMarriageUploading}
+                          >
+                            <X className="h-4 w-4" />
+                          </Button>
+                        </div>
+                        {isMarriageUploading && (
+                          <div className="space-y-1">
+                            <Progress value={marriageUploadProgress} className="h-2" />
+                            <p className="text-xs text-muted-foreground text-center">{marriageUploadProgress}%</p>
+                          </div>
+                        )}
+                      </div>
+                    ) : (
+                      <div className="flex items-center gap-2">
+                        <Input
+                          id="marriage-certificate"
+                          type="file"
+                          accept="image/*,application/pdf"
+                          onChange={(e) => {
+                            const file = e.target.files?.[0];
+                            if (file) {
+                              const validTypes = ['image/jpeg', 'image/jpg', 'image/png', 'image/gif', 'image/webp', 'application/pdf'];
+                              if (!validTypes.includes(file.type)) {
+                                toast({
+                                  title: "Invalid File",
+                                  description: "Please upload a valid image or PDF file",
+                                  variant: "destructive",
+                                });
+                                e.target.value = '';
+                                return;
+                              }
+                              if (file.size > 10 * 1024 * 1024) {
+                                toast({
+                                  title: "File Too Large",
+                                  description: "File size must be less than 10MB",
+                                  variant: "destructive",
+                                });
+                                e.target.value = '';
+                                return;
+                              }
+                              handleMarriageCertificateUpload(file);
+                            }
+                          }}
+                          className="flex-1"
+                        />
+                        <Upload className="h-4 w-4 text-muted-foreground" />
+                      </div>
+                    )}
+                  </div>
+                )}
+
+                {/* Contact Email */}
+                <div>
+                  <Label htmlFor="email">Contact Email <span className="text-destructive">*</span></Label>
                   <Input
-                    id="nationality"
-                    value={nationality}
-                    onChange={(e) => setNationality(e.target.value)}
+                    id="email"
+                    type="email"
+                    placeholder="guest@example.com"
+                    value={email}
+                    onChange={(e) => setEmail(e.target.value)}
                   />
                 </div>
 
+                {/* Contact Phone */}
+                <div>
+                  <Label>Contact Phone <span className="text-destructive">*</span></Label>
+                  <div className="flex gap-2">
+                    <Popover open={countryCodeOpen} onOpenChange={setCountryCodeOpen}>
+                      <PopoverTrigger asChild>
+                        <Button
+                          variant="outline"
+                          role="combobox"
+                          aria-expanded={countryCodeOpen}
+                          className="w-[140px] justify-between"
+                        >
+                          <span className="flex items-center gap-2">
+                            {COUNTRY_CODES.find((c) => c.code === countryCode)?.flag || "🏳️"}
+                            {countryCode}
+                          </span>
+                          <ChevronsUpDown className="ml-2 h-4 w-4 shrink-0 opacity-50" />
+                        </Button>
+                      </PopoverTrigger>
+                      <PopoverContent className="w-[300px] p-0" align="start">
+                        <Command>
+                          <CommandInput placeholder="Search country..." />
+                          <CommandList>
+                            <CommandEmpty>No country found.</CommandEmpty>
+                            <CommandGroup>
+                              {COUNTRY_CODES.map((country) => (
+                                <CommandItem
+                                  key={`${country.code}-${country.country}`}
+                                  value={`${country.name} ${country.code}`}
+                                  onSelect={() => {
+                                    setCountryCode(country.code);
+                                    setCountryCodeOpen(false);
+                                  }}
+                                >
+                                  <Check
+                                    className={cn(
+                                      "mr-2 h-4 w-4",
+                                      countryCode === country.code ? "opacity-100" : "opacity-0"
+                                    )}
+                                  />
+                                  <span className="flex items-center gap-2">
+                                    <span className="text-lg">{country.flag}</span>
+                                    <span>{country.name}</span>
+                                    <span className="text-muted-foreground">{country.code}</span>
+                                  </span>
+                                </CommandItem>
+                              ))}
+                            </CommandGroup>
+                          </CommandList>
+                        </Command>
+                      </PopoverContent>
+                    </Popover>
+                    <Input
+                      id="phone"
+                      type="tel"
+                      placeholder="1234567890"
+                      value={phone}
+                      onChange={(e) => setPhone(e.target.value.replace(/[^0-9]/g, ''))}
+                      className="flex-1"
+                    />
+                  </div>
+                </div>
+
+                {/* Special Requests */}
                 <div>
                   <Label htmlFor="notes">Special Requests (Optional)</Label>
                   <Textarea
@@ -628,7 +1316,15 @@ const BookingFlow = () => {
                   </Button>
                   <Button
                     onClick={() => setStep(3)}
-                    disabled={!email || guestNames.filter(n => n.trim()).length === 0}
+                    disabled={
+                      !email || 
+                      !phone ||
+                      !nationality ||
+                      guestNames.filter(n => n.trim()).length === 0 ||
+                      !idPassportFile ||
+                      (idPassportType === 'id' && !idPassportFileBack) ||
+                      (isMarriageCertificateRequired() && !marriageCertificateFile)
+                    }
                     className="flex-1 bg-accent hover:bg-accent/90"
                   >
                     Review Booking
