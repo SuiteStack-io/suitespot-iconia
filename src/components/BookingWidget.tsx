@@ -7,11 +7,11 @@ import { CalendarIcon, Users } from "lucide-react";
 import { format } from "date-fns";
 import { useNavigate } from "react-router-dom";
 import { cn } from "@/lib/utils";
+import type { DateRange } from "react-day-picker";
 
 export const BookingWidget = () => {
   const navigate = useNavigate();
-  const [checkIn, setCheckIn] = useState<Date>();
-  const [checkOut, setCheckOut] = useState<Date>();
+  const [dateRange, setDateRange] = useState<DateRange | undefined>();
   const [guests, setGuests] = useState<string>("2");
 
   const handleSearch = () => {
@@ -20,41 +20,9 @@ export const BookingWidget = () => {
 
   return (
     <div className="bg-background/30 backdrop-blur-sm rounded-lg border border-border/50 p-1.5 max-w-4xl mx-auto">
-      <div className="grid grid-cols-1 md:grid-cols-4 gap-1.5">
-        {/* Check In */}
-        <div>
-          <Popover>
-            <PopoverTrigger asChild>
-              <Button
-                variant="outline"
-                className="w-full justify-start text-left font-normal h-auto py-1.5 px-3"
-              >
-                <div className="flex items-start gap-3 w-full">
-                  <CalendarIcon className="h-5 w-5 text-muted-foreground mt-0.5" />
-                  <div className="flex flex-col">
-                    <span className="text-sm font-semibold text-foreground">Check in</span>
-                    <span className={cn("text-sm", !checkIn && "text-muted-foreground")}>
-                      {checkIn ? format(checkIn, "MMM dd, yyyy") : "Add date"}
-                    </span>
-                  </div>
-                </div>
-              </Button>
-            </PopoverTrigger>
-            <PopoverContent className="w-auto p-0" align="start">
-              <Calendar
-                mode="single"
-                selected={checkIn}
-                onSelect={setCheckIn}
-                disabled={(date) => date < new Date()}
-                initialFocus
-                className="pointer-events-auto"
-              />
-            </PopoverContent>
-          </Popover>
-        </div>
-
-        {/* Check Out */}
-        <div>
+      <div className="grid grid-cols-1 md:grid-cols-3 gap-1.5">
+        {/* Check In & Check Out - Side by Side on Mobile */}
+        <div className="grid grid-cols-2 gap-1.5 md:col-span-2">
           <Popover>
             <PopoverTrigger asChild>
               <Button
@@ -62,11 +30,11 @@ export const BookingWidget = () => {
                 className="w-full justify-start text-left font-normal h-auto py-1.5 px-3"
               >
                 <div className="flex items-start gap-2 w-full">
-                  <CalendarIcon className="h-5 w-5 text-muted-foreground mt-0.5" />
-                  <div className="flex flex-col">
-                    <span className="text-sm font-semibold text-foreground">Check out</span>
-                    <span className={cn("text-sm", !checkOut && "text-muted-foreground")}>
-                      {checkOut ? format(checkOut, "MMM dd, yyyy") : "Add date"}
+                  <CalendarIcon className="h-5 w-5 text-muted-foreground mt-0.5 flex-shrink-0" />
+                  <div className="flex flex-col min-w-0">
+                    <span className="text-xs md:text-sm font-semibold text-foreground">Check in</span>
+                    <span className={cn("text-xs md:text-sm truncate", !dateRange?.from && "text-muted-foreground")}>
+                      {dateRange?.from ? format(dateRange.from, "MMM dd") : "Add date"}
                     </span>
                   </div>
                 </div>
@@ -74,30 +42,61 @@ export const BookingWidget = () => {
             </PopoverTrigger>
             <PopoverContent className="w-auto p-0" align="start">
               <Calendar
-                mode="single"
-                selected={checkOut}
-                onSelect={setCheckOut}
-                disabled={(date) => date < (checkIn || new Date())}
+                mode="range"
+                selected={dateRange}
+                onSelect={setDateRange}
+                disabled={(date) => date < new Date()}
                 initialFocus
+                numberOfMonths={1}
+                className="pointer-events-auto"
+              />
+            </PopoverContent>
+          </Popover>
+
+          <Popover>
+            <PopoverTrigger asChild>
+              <Button
+                variant="outline"
+                className="w-full justify-start text-left font-normal h-auto py-1.5 px-3"
+              >
+                <div className="flex items-start gap-2 w-full">
+                  <CalendarIcon className="h-5 w-5 text-muted-foreground mt-0.5 flex-shrink-0" />
+                  <div className="flex flex-col min-w-0">
+                    <span className="text-xs md:text-sm font-semibold text-foreground">Check out</span>
+                    <span className={cn("text-xs md:text-sm truncate", !dateRange?.to && "text-muted-foreground")}>
+                      {dateRange?.to ? format(dateRange.to, "MMM dd") : "Add date"}
+                    </span>
+                  </div>
+                </div>
+              </Button>
+            </PopoverTrigger>
+            <PopoverContent className="w-auto p-0" align="start">
+              <Calendar
+                mode="range"
+                selected={dateRange}
+                onSelect={setDateRange}
+                disabled={(date) => date < new Date()}
+                initialFocus
+                numberOfMonths={1}
                 className="pointer-events-auto"
               />
             </PopoverContent>
           </Popover>
         </div>
 
-        {/* Guests */}
-        <div>
+        {/* Guests & Search Button */}
+        <div className="grid grid-cols-2 gap-1.5 md:grid-cols-1">
           <Button
             variant="outline"
             className="w-full justify-start text-left font-normal h-auto py-1.5 px-3"
             onClick={(e) => e.preventDefault()}
           >
             <div className="flex items-start gap-2 w-full">
-              <Users className="h-5 w-5 text-muted-foreground mt-0.5" />
-              <div className="flex flex-col w-full">
-                <span className="text-sm font-semibold text-foreground">Guests</span>
+              <Users className="h-5 w-5 text-muted-foreground mt-0.5 flex-shrink-0" />
+              <div className="flex flex-col w-full min-w-0">
+                <span className="text-xs md:text-sm font-semibold text-foreground">Guests</span>
                 <Select value={guests} onValueChange={setGuests}>
-                  <SelectTrigger className="h-auto p-0 border-0 focus:ring-0 text-sm text-muted-foreground">
+                  <SelectTrigger className="h-auto p-0 border-0 focus:ring-0 text-xs md:text-sm text-muted-foreground">
                     <SelectValue />
                   </SelectTrigger>
                   <SelectContent>
@@ -111,10 +110,7 @@ export const BookingWidget = () => {
               </div>
             </div>
           </Button>
-        </div>
 
-        {/* Search Button */}
-        <div className="flex items-center">
           <Button 
             onClick={handleSearch}
             className="w-full bg-accent hover:bg-accent/90 h-full"
