@@ -30,7 +30,9 @@ export const BookingWidget = () => {
   return (
     <div className="bg-background/30 backdrop-blur-sm rounded-lg border border-border/50 p-1.5 max-w-4xl mx-auto">
       <div className="grid grid-cols-2 md:grid-cols-4 gap-1.5">
-        {/* Check In & Check Out */}
+        {/* Check In & Check Out Combined - Mobile: col-span-1, Desktop: col-span-2 */}
+        <div className="col-span-1 md:col-span-2 grid grid-cols-1 md:grid-cols-2 gap-1.5">
+          {/* Combined Date Picker for Mobile, Separate Check In for Desktop */}
           <Popover>
             <PopoverTrigger asChild>
               <Button
@@ -40,9 +42,19 @@ export const BookingWidget = () => {
                 <div className="flex items-start gap-2 w-full">
                   <CalendarIcon className="h-5 w-5 text-muted-foreground mt-0.5 flex-shrink-0" />
                   <div className="flex flex-col min-w-0">
-                    <span className="text-xs md:text-sm font-semibold text-foreground">Check in</span>
+                    <span className="text-xs md:text-sm font-semibold text-foreground md:hidden">Dates</span>
+                    <span className="text-xs md:text-sm font-semibold text-foreground hidden md:block">Check in</span>
                     <span className={cn("text-xs md:text-sm truncate", !dateRange?.from && "text-muted-foreground")}>
-                      {dateRange?.from ? format(dateRange.from, "MMM dd") : "Add date"}
+                      {dateRange?.from ? (
+                        <span className="md:hidden">
+                          {format(dateRange.from, "MMM dd")} - {dateRange?.to ? format(dateRange.to, "MMM dd") : "..."}
+                        </span>
+                      ) : (
+                        <span className="md:hidden">Add dates</span>
+                      )}
+                      <span className="hidden md:inline">
+                        {dateRange?.from ? format(dateRange.from, "MMM dd") : "Add date"}
+                      </span>
                     </span>
                   </div>
                 </div>
@@ -61,11 +73,12 @@ export const BookingWidget = () => {
             </PopoverContent>
           </Popover>
 
+          {/* Check Out - Desktop Only */}
           <Popover>
             <PopoverTrigger asChild>
               <Button
                 variant="outline"
-                className="w-full justify-start text-left font-normal h-auto py-1.5 px-3"
+                className="hidden md:flex w-full justify-start text-left font-normal h-auto py-1.5 px-3"
               >
                 <div className="flex items-start gap-2 w-full">
                   <CalendarIcon className="h-5 w-5 text-muted-foreground mt-0.5 flex-shrink-0" />
@@ -90,32 +103,33 @@ export const BookingWidget = () => {
               />
             </PopoverContent>
           </Popover>
+        </div>
 
         {/* Guests */}
-          <Button
-            variant="outline"
-            className="w-full justify-start text-left font-normal h-auto py-1.5 px-3"
-            onClick={(e) => e.preventDefault()}
-          >
-            <div className="flex items-start gap-2 w-full">
-              <Users className="h-5 w-5 text-muted-foreground mt-0.5 flex-shrink-0" />
-              <div className="flex flex-col w-full min-w-0">
-                <span className="text-xs md:text-sm font-semibold text-foreground">Guests</span>
-                <Select value={guests} onValueChange={setGuests}>
-                  <SelectTrigger className="h-auto p-0 border-0 focus:ring-0 text-xs md:text-sm text-muted-foreground">
-                    <SelectValue />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="1">1 guest</SelectItem>
-                    <SelectItem value="2">2 guests</SelectItem>
-                    <SelectItem value="3">3 guests</SelectItem>
-                    <SelectItem value="4">4 guests</SelectItem>
-                    <SelectItem value="5">5+ guests</SelectItem>
-                  </SelectContent>
-                </Select>
-              </div>
+        <Button
+          variant="outline"
+          className="w-full justify-start text-left font-normal h-auto py-1.5 px-3"
+          onClick={(e) => e.preventDefault()}
+        >
+          <div className="flex items-start gap-2 w-full">
+            <Users className="h-5 w-5 text-muted-foreground mt-0.5 flex-shrink-0" />
+            <div className="flex flex-col w-full min-w-0">
+              <span className="text-xs md:text-sm font-semibold text-foreground">Guests</span>
+              <Select value={guests} onValueChange={setGuests}>
+                <SelectTrigger className="h-auto p-0 border-0 focus:ring-0 text-xs md:text-sm text-muted-foreground">
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="1">1 guest</SelectItem>
+                  <SelectItem value="2">2 guests</SelectItem>
+                  <SelectItem value="3">3 guests</SelectItem>
+                  <SelectItem value="4">4 guests</SelectItem>
+                  <SelectItem value="5">5+ guests</SelectItem>
+                </SelectContent>
+              </Select>
             </div>
-          </Button>
+          </div>
+        </Button>
 
         {/* Search Button */}
         <Button 
