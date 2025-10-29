@@ -897,7 +897,17 @@ const BookingFlow = () => {
                 )}
 
                 <Button
-                  onClick={() => setStep(2)}
+                  onClick={() => {
+                    if (adults === 0) {
+                      toast({
+                        title: "Missing Information",
+                        description: "Please specify the number of adults",
+                        variant: "destructive",
+                      });
+                      return;
+                    }
+                    setStep(2);
+                  }}
                   disabled={!dateRange?.from || !dateRange?.to || !selectedUnit}
                   className="w-full bg-accent hover:bg-accent/90"
                 >
