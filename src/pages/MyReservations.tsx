@@ -119,7 +119,7 @@ const MyReservations = () => {
     <div className="min-h-screen bg-background">
       <header className="border-b bg-card">
         <div className="container mx-auto px-4 py-4">
-          <Button variant="ghost" onClick={() => navigate('/')} className="mb-2">
+          <Button variant="ghost" onClick={() => navigate('/admin')} className="mb-2">
             <ArrowLeft className="h-4 w-4 mr-2" />
             Back to Dashboard
           </Button>

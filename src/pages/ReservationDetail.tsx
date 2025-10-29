@@ -271,7 +271,7 @@ const ReservationDetail = () => {
       setDeleting(false);
     } else {
       toast.success('Reservation deleted successfully');
-      navigate('/');
+      navigate('/admin');
     }
   };
 
@@ -365,7 +365,7 @@ const ReservationDetail = () => {
       <div className="py-8">
         <div className="flex items-center justify-between">
           <div className="flex items-center gap-4">
-            <Button variant="outline" size="icon" onClick={() => navigate('/')}>
+            <Button variant="outline" size="icon" onClick={() => navigate('/admin')}>
               <ArrowLeft className="h-4 w-4" />
             </Button>
             <div>

@@ -90,7 +90,7 @@ const Rooms = () => {
         title: 'Access Denied',
         description: 'Only administrators can access room management',
       });
-      navigate('/');
+      navigate('/admin');
     }
   }, [user, loading, userRole, navigate, toast]);
 
@@ -488,7 +488,7 @@ const Rooms = () => {
         <div className="container mx-auto px-4 py-4">
           <div className="flex items-center justify-between">
             <div className="flex items-center gap-4">
-              <Button variant="ghost" size="sm" onClick={() => navigate('/')}>
+              <Button variant="ghost" size="sm" onClick={() => navigate('/admin')}>
                 <ArrowLeft className="h-4 w-4 mr-2" />
                 Back
               </Button>
