@@ -345,7 +345,7 @@ const BookingFlow = () => {
       const filePath = `${fileName}`;
 
       const { error: uploadError } = await supabase.storage
-        .from('marriage-certificates')
+        .from('id-passports')
         .upload(filePath, file);
 
       clearInterval(progressInterval);
@@ -374,7 +374,7 @@ const BookingFlow = () => {
       }
 
       const { data: { publicUrl } } = supabase.storage
-        .from('marriage-certificates')
+        .from('id-passports')
         .getPublicUrl(filePath);
       
       if (isBack) {
