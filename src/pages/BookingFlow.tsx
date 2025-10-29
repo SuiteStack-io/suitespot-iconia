@@ -764,6 +764,29 @@ const BookingFlow = () => {
                   </div>
                 )}
 
+                <div className="grid md:grid-cols-2 gap-4">
+                  <div>
+                    <Label htmlFor="adults">Adults</Label>
+                    <Input
+                      id="adults"
+                      type="number"
+                      min="1"
+                      value={adults}
+                      onChange={(e) => setAdults(parseInt(e.target.value) || 1)}
+                    />
+                  </div>
+                  <div>
+                    <Label htmlFor="children">Children</Label>
+                    <Input
+                      id="children"
+                      type="number"
+                      min="0"
+                      value={children}
+                      onChange={(e) => setChildren(parseInt(e.target.value) || 0)}
+                    />
+                  </div>
+                </div>
+
                 <div>
                   <Label htmlFor="unit">Select Suite Type</Label>
                   {dateRange?.from && dateRange?.to ? (
@@ -872,29 +895,6 @@ const BookingFlow = () => {
                     </div>
                   </div>
                 )}
-
-                <div className="grid md:grid-cols-2 gap-4">
-                  <div>
-                    <Label htmlFor="adults">Adults</Label>
-                    <Input
-                      id="adults"
-                      type="number"
-                      min="1"
-                      value={adults}
-                      onChange={(e) => setAdults(parseInt(e.target.value) || 1)}
-                    />
-                  </div>
-                  <div>
-                    <Label htmlFor="children">Children</Label>
-                    <Input
-                      id="children"
-                      type="number"
-                      min="0"
-                      value={children}
-                      onChange={(e) => setChildren(parseInt(e.target.value) || 0)}
-                    />
-                  </div>
-                </div>
 
                 <Button
                   onClick={() => setStep(2)}
