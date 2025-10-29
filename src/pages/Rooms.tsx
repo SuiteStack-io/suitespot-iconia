@@ -6,6 +6,7 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { ArrowLeft, Save, Plus, Pencil, X, Upload, Trash2 } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
+import { Progress } from '@/components/ui/progress';
 import {
   Table,
   TableBody,
@@ -75,6 +76,7 @@ const Rooms = () => {
     photos: [],
   });
   const [uploadingPhotos, setUploadingPhotos] = useState<string | null>(null);
+  const [uploadProgress, setUploadProgress] = useState<{ [key: string]: number }>({});
 
   useEffect(() => {
     if (!loading && !user) {
@@ -188,11 +190,14 @@ const Rooms = () => {
     }
 
     setUploadingPhotos(unitId);
+    setUploadProgress({ [unitId]: 0 });
 
     try {
       const uploadedUrls: string[] = [];
+      const totalFiles = validFiles.length;
 
-      for (const file of validFiles) {
+      for (let i = 0; i < validFiles.length; i++) {
+        const file = validFiles[i];
         const fileExt = file.name.split('.').pop();
         const fileName = `${unitId}/${Date.now()}-${Math.random().toString(36).substring(2)}.${fileExt}`;
 
@@ -210,6 +215,10 @@ const Rooms = () => {
           .getPublicUrl(fileName);
 
         uploadedUrls.push(publicUrl);
+        
+        // Update progress
+        const progress = Math.round(((i + 1) / totalFiles) * 100);
+        setUploadProgress({ [unitId]: progress });
       }
 
       // Get current photos and append new ones
@@ -244,6 +253,7 @@ const Rooms = () => {
       });
     } finally {
       setUploadingPhotos(null);
+      setUploadProgress({});
     }
   };
 
@@ -814,6 +824,12 @@ const Rooms = () => {
                               {uploadingPhotos === unit.id ? 'Uploading...' : 'Upload'}
                             </Button>
                           </div>
+                          {uploadingPhotos === unit.id && uploadProgress[unit.id] !== undefined && (
+                            <div className="space-y-1">
+                              <Progress value={uploadProgress[unit.id]} className="h-2 [&>div]:bg-blue-500" />
+                              <p className="text-xs text-muted-foreground text-center">{uploadProgress[unit.id]}%</p>
+                            </div>
+                          )}
                           {unit.photos && unit.photos.length > 0 && (
                             <div className="flex flex-wrap gap-1">
                               {unit.photos.map((photo, idx) => (
