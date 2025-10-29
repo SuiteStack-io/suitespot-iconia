@@ -104,10 +104,15 @@ export const RoomCalendar = () => {
   };
 
   const getReservationColor = (source: string) => {
-    if (source.toLowerCase().includes('booking')) {
+    const lowerSource = source.toLowerCase();
+    // Check admin/manager first before checking booking
+    if (lowerSource.includes('admin') || lowerSource.includes('manager')) {
+      return 'bg-green-500/80 text-white'; // Admin bookings green
+    }
+    if (lowerSource.includes('booking')) {
       return 'bg-[#003580] text-white'; // Booking.com brand blue
     }
-    return 'bg-red-500/80 text-white';
+    return 'bg-red-500/80 text-white'; // Direct website and other sources red
   };
 
   const navigatePrevious = () => {
@@ -227,14 +232,18 @@ export const RoomCalendar = () => {
         </table>
       </Card>
 
-      <div className="flex items-center gap-4 text-sm">
+      <div className="flex items-center gap-4 text-sm flex-wrap">
         <div className="flex items-center gap-2">
           <div className="w-16 h-6 bg-[#003580] border rounded flex items-center justify-center text-white text-xs">B.com</div>
           <span>= Booking.com</span>
         </div>
         <div className="flex items-center gap-2">
-          <div className="w-16 h-6 bg-red-500/80 border rounded flex items-center justify-center text-white text-xs">Other</div>
-          <span>= Other Sources</span>
+          <div className="w-16 h-6 bg-green-500/80 border rounded flex items-center justify-center text-white text-xs">Admin</div>
+          <span>= Admin Booking</span>
+        </div>
+        <div className="flex items-center gap-2">
+          <div className="w-16 h-6 bg-red-500/80 border rounded flex items-center justify-center text-white text-xs">Direct</div>
+          <span>= Direct Website</span>
         </div>
         <div className="flex items-center gap-2">
           <span className="text-muted-foreground">—</span>
