@@ -76,11 +76,11 @@ const PublicHome = () => {
       <section className="w-full">
         <div className="grid md:grid-cols-3">
           {/* Suites */}
-          <Link to="/suites" className="relative h-[650px] overflow-hidden group cursor-pointer">
+          <Link to="/suites" className="relative h-[500px] md:h-[650px] overflow-hidden group cursor-pointer">
             <img 
               src={suitesFeature} 
               alt="Luxurious suites" 
-              className="w-full h-full object-contain md:object-cover md:object-[50%_20%] transition-transform duration-700 group-hover:scale-105" 
+              className="w-full h-full object-cover object-[50%_10%] md:object-[50%_20%] transition-transform duration-700 group-hover:scale-105" 
             />
             <div className="absolute inset-0 bg-black/40 transition-opacity duration-300 group-hover:bg-black/50" />
             <div className="absolute inset-0 flex flex-col items-center justify-center text-white px-8 text-center">
@@ -95,7 +95,7 @@ const PublicHome = () => {
           </Link>
 
           {/* Wellness */}
-          <Link to="/wellness" className="relative h-[650px] overflow-hidden group cursor-pointer">
+          <Link to="/wellness" className="relative h-[500px] md:h-[650px] overflow-hidden group cursor-pointer">
             <img 
               src={wellnessFeature} 
               alt="Wellness and yoga" 
@@ -117,7 +117,7 @@ const PublicHome = () => {
           </Link>
 
           {/* Experiences */}
-          <Link to="/experiences" className="relative h-[650px] overflow-hidden group cursor-pointer">
+          <Link to="/experiences" className="relative h-[500px] md:h-[650px] overflow-hidden group cursor-pointer">
             <img 
               src={experiencesFeature} 
               alt="Egyptian experiences" 
