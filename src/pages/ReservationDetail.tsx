@@ -279,8 +279,18 @@ const ReservationDetail = () => {
     setDownloading(prev => ({ ...prev, [docType]: true }));
     
     try {
-      // Extract file path from URL
-      const match = url.match(/marriage-certificates\/([^?]+)/);
+      // Determine bucket and extract file path from URL
+      let bucket = '';
+      let match = null;
+      
+      if (docType === 'marriage_certificate_url') {
+        bucket = 'marriage-certificates';
+        match = url.match(/marriage-certificates\/([^?]+)/);
+      } else {
+        bucket = 'id-passports';
+        match = url.match(/id-passports\/([^?]+)/);
+      }
+      
       if (!match) {
         toast.error('Invalid document URL');
         return;
@@ -290,7 +300,7 @@ const ReservationDetail = () => {
       
       // Download file from Supabase storage
       const { data, error } = await supabase.storage
-        .from('marriage-certificates')
+        .from(bucket)
         .download(filePath);
       
       if (error) {
