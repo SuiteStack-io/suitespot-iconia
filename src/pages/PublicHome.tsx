@@ -3,7 +3,7 @@ import { Link } from "react-router-dom";
 import { Calendar, MapPin, Sparkles, User } from "lucide-react";
 import heroImage from "@/assets/hero-lobby.jpg";
 import logo from "@/assets/suitespot-logo.png";
-import suitesFeature from "@/assets/iconia-suites.jpg";
+import suitesFeature from "@/assets/iconia-zamalek-building.jpg";
 import wellnessFeature from "@/assets/wellness-feature.jpg";
 import experiencesFeature from "@/assets/experiences-feature.jpg";
 import { BookingWidget } from "@/components/BookingWidget";
