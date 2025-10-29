@@ -651,6 +651,8 @@ const BookingFlow = () => {
             source: "direct website",
             notes: notes || null,
             guestNationality: nationality || null,
+            customerEmail: email,
+            customerPhone: phone,
           },
         });
         console.log('Email notification sent successfully');

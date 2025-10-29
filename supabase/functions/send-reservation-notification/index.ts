@@ -24,6 +24,8 @@ interface ReservationNotification {
   source: string;
   notes: string | null;
   guestNationality: string | null;
+  customerEmail?: string;
+  customerPhone?: string;
 }
 
 const handler = async (req: Request): Promise<Response> => {
@@ -52,6 +54,8 @@ const handler = async (req: Request): Promise<Response> => {
       source,
       notes,
       guestNationality,
+      customerEmail,
+      customerPhone,
     }: ReservationNotification = await req.json();
 
     console.log("Processing reservation notification:", reservationId);
@@ -64,6 +68,222 @@ const handler = async (req: Request): Promise<Response> => {
       // If both are 0 but we have guests, assume all are adults
       finalAdults = numberOfGuests;
       finalChildren = 0;
+    }
+
+    // Format the dates nicely
+    const checkInDate = new Date(checkIn).toLocaleDateString("en-US", {
+      weekday: "long",
+      year: "numeric",
+      month: "long",
+      day: "numeric",
+    });
+    const checkOutDate = new Date(checkOut).toLocaleDateString("en-US", {
+      weekday: "long",
+      year: "numeric",
+      month: "long",
+      day: "numeric",
+    });
+
+    // Calculate nights
+    const nights = Math.ceil(
+      (new Date(checkOut).getTime() - new Date(checkIn).getTime()) /
+        (1000 * 60 * 60 * 24)
+    );
+
+    // Send customer confirmation email first
+    if (customerEmail) {
+      console.log(`Sending customer confirmation to: ${customerEmail}`);
+      try {
+        const customerResult = await resend.emails.send({
+          from: "SuiteSpot Reservations <reservations@bookings.suitespoteg.com>",
+          to: [customerEmail],
+          subject: `Booking Confirmation - ${unitName.split(' ')[0]} ${unitName.split(' ')[1] || ''} at ICONIA Zamalek`,
+          html: `
+            <!DOCTYPE html>
+            <html>
+              <head>
+                <meta charset="utf-8">
+                <style>
+                  body {
+                    font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif;
+                    line-height: 1.6;
+                    color: #333;
+                    max-width: 600px;
+                    margin: 0 auto;
+                    padding: 20px;
+                  }
+                  .header {
+                    background: linear-gradient(135deg, #0f172a 0%, #1e293b 100%);
+                    color: white;
+                    padding: 40px 30px;
+                    border-radius: 10px 10px 0 0;
+                    text-align: center;
+                  }
+                  .header h1 {
+                    margin: 0;
+                    font-size: 28px;
+                  }
+                  .check-icon {
+                    font-size: 48px;
+                    margin-bottom: 10px;
+                  }
+                  @media (prefers-color-scheme: dark) {
+                    .header {
+                      background: linear-gradient(135deg, #0f172a 0%, #1e293b 100%) !important;
+                    }
+                    .header h1, .header p {
+                      color: #ffffff !important;
+                    }
+                  }
+                  .content {
+                    background: #ffffff;
+                    padding: 30px;
+                    border: 1px solid #e5e7eb;
+                    border-top: none;
+                  }
+                  .detail-row {
+                    display: flex;
+                    padding: 12px 0;
+                    border-bottom: 1px solid #f3f4f6;
+                  }
+                  .detail-label {
+                    font-weight: 600;
+                    width: 150px;
+                    color: #6b7280;
+                  }
+                  .detail-value {
+                    flex: 1;
+                    color: #111827;
+                  }
+                  .highlight {
+                    background: #f0fdf4;
+                    padding: 20px;
+                    border-radius: 8px;
+                    margin: 20px 0;
+                    border-left: 4px solid #22c55e;
+                  }
+                  .info-box {
+                    background: #eff6ff;
+                    padding: 20px;
+                    border-radius: 8px;
+                    margin: 20px 0;
+                    border-left: 4px solid #3b82f6;
+                  }
+                  .footer {
+                    text-align: center;
+                    margin-top: 30px;
+                    padding-top: 20px;
+                    border-top: 1px solid #e5e7eb;
+                    color: #6b7280;
+                    font-size: 14px;
+                  }
+                </style>
+              </head>
+              <body>
+                <div class="header">
+                  <div class="check-icon">✓</div>
+                  <h1>Booking Confirmed!</h1>
+                  <p style="margin-top: 10px; margin-bottom: 0; font-size: 16px;">Your reservation at ICONIA Zamalek</p>
+                </div>
+                
+                <div class="content">
+                  <p style="color: #333; font-size: 16px; margin-bottom: 20px;">
+                    Dear ${guestNames[0] || 'Guest'},
+                  </p>
+                  <p style="color: #333; font-size: 14px; line-height: 1.6; margin-bottom: 30px;">
+                    Thank you for choosing SuiteSpot! We're delighted to confirm your reservation. We look forward to welcoming you to ICONIA Zamalek.
+                  </p>
+                  
+                  <h2 style="color: #0f172a; margin-top: 0;">Your Booking Details</h2>
+                  
+                  <div class="detail-row">
+                    <div class="detail-label">Confirmation:</div>
+                    <div class="detail-value"><strong>${reservationId}</strong></div>
+                  </div>
+                  
+                  <div class="detail-row">
+                    <div class="detail-label">Guest(s):</div>
+                    <div class="detail-value">${guestNames.join(", ")}</div>
+                  </div>
+                  
+                  <div class="detail-row">
+                    <div class="detail-label">Accommodation:</div>
+                    <div class="detail-value"><strong>${unitName.split(' ')[0]} ${unitName.split(' ')[1] || ''}</strong></div>
+                  </div>
+                  
+                  <div class="detail-row">
+                    <div class="detail-label">Check-in:</div>
+                    <div class="detail-value">${checkInDate} at 3:00 PM</div>
+                  </div>
+                  
+                  <div class="detail-row">
+                    <div class="detail-label">Check-out:</div>
+                    <div class="detail-value">${checkOutDate} by 12:00 PM</div>
+                  </div>
+                  
+                  <div class="detail-row">
+                    <div class="detail-label">Duration:</div>
+                    <div class="detail-value">${nights} night${nights > 1 ? "s" : ""}</div>
+                  </div>
+                  
+                  <div class="detail-row">
+                    <div class="detail-label">Guests:</div>
+                    <div class="detail-value">${numberOfGuests} guest${numberOfGuests > 1 ? "s" : ""} (${finalAdults || 0} adult${(finalAdults || 0) > 1 ? "s" : ""}, ${finalChildren || 0} child${(finalChildren || 0) !== 1 ? "ren" : ""})</div>
+                  </div>
+                  
+                  <div class="highlight">
+                    <div style="font-size: 14px; color: #6b7280; margin-bottom: 5px;">Total Amount</div>
+                    <div style="font-size: 32px; font-weight: bold; color: #0f172a;">$${totalPrice.toFixed(2)}</div>
+                  </div>
+
+                  <div class="info-box">
+                    <h3 style="color: #1e40af; margin-top: 0; font-size: 18px;">Important Information</h3>
+                    <p style="margin: 10px 0; color: #1e3a8a; font-size: 14px;">
+                      <strong>Check-in Time:</strong> From 3:00 PM<br/>
+                      <strong>Check-out Time:</strong> By 12:00 PM<br/>
+                      <strong>Location:</strong> ICONIA Zamalek, Cairo, Egypt
+                    </p>
+                    <p style="margin: 15px 0 0 0; color: #1e3a8a; font-size: 14px;">
+                      Please bring a valid ID or passport for check-in. Early check-in and late check-out may be available upon request, subject to availability.
+                    </p>
+                  </div>
+
+                  <h3 style="color: #0f172a; margin-top: 30px;">Need Assistance?</h3>
+                  <p style="color: #333; font-size: 14px; line-height: 1.6;">
+                    Our team is here to help! If you have any questions or special requests, please don't hesitate to contact us:
+                  </p>
+                  <p style="color: #333; font-size: 14px; margin: 10px 0;">
+                    📧 Email: <a href="mailto:reservations@bookings.suitespoteg.com" style="color: #0f172a;">reservations@bookings.suitespoteg.com</a><br/>
+                    📱 Phone: ${customerPhone || '+20 123 456 7890'}
+                  </p>
+                  
+                  <p style="color: #333; font-size: 14px; line-height: 1.6; margin-top: 30px;">
+                    We're excited to host you and ensure you have a wonderful stay!
+                  </p>
+                  
+                  <p style="color: #333; font-size: 14px; margin-top: 20px;">
+                    Warm regards,<br/>
+                    <strong>The SuiteSpot Team</strong>
+                  </p>
+                </div>
+                
+                <div class="footer">
+                  <p>SuiteSpot - Your Home Away From Home</p>
+                  <p style="font-size: 12px; margin-top: 10px; color: #9ca3af;">
+                    ICONIA Zamalek, Cairo, Egypt
+                  </p>
+                </div>
+              </body>
+            </html>
+          `,
+        });
+        console.log(`Customer confirmation sent successfully:`, customerResult);
+      } catch (error) {
+        console.error(`Failed to send customer confirmation:`, error);
+      }
+      
+      // Add delay before sending internal notifications
+      await new Promise(resolve => setTimeout(resolve, 600));
     }
 
     // Fetch all admin and manager users directly using service role
@@ -151,29 +371,9 @@ const handler = async (req: Request): Promise<Response> => {
       );
     }
 
-    console.log(`Sending notifications to ${users.length} users`);
+    console.log(`Sending internal notifications to ${users.length} team members`);
 
-    // Format the dates nicely
-    const checkInDate = new Date(checkIn).toLocaleDateString("en-US", {
-      weekday: "long",
-      year: "numeric",
-      month: "long",
-      day: "numeric",
-    });
-    const checkOutDate = new Date(checkOut).toLocaleDateString("en-US", {
-      weekday: "long",
-      year: "numeric",
-      month: "long",
-      day: "numeric",
-    });
-
-    // Calculate nights
-    const nights = Math.ceil(
-      (new Date(checkOut).getTime() - new Date(checkIn).getTime()) /
-        (1000 * 60 * 60 * 24)
-    );
-
-    // Send emails to all users with rate limiting (max 2 per second for Resend free tier)
+    // Send internal notification emails to all users with rate limiting (max 2 per second for Resend free tier)
     const results = [];
     for (let i = 0; i < users.length; i++) {
       const user = users[i];
