@@ -26,6 +26,7 @@ interface SourceRevenue {
   commissionRate: number;
   commission: number;
   netRevenue: number;
+  guestNames?: string[];
 }
 
 const COMMISSION_RATES: Record<string, number> = {
@@ -43,7 +44,7 @@ export const RevenueBySource = () => {
   const [filteredRevenue, setFilteredRevenue] = useState<SourceRevenue[]>([]);
   const [loading, setLoading] = useState(true);
   const [selectedSource, setSelectedSource] = useState<string>('all');
-  const [isDirectExpanded, setIsDirectExpanded] = useState(false);
+  const [isAdminExpanded, setIsAdminExpanded] = useState(false);
 
   useEffect(() => {
     fetchRevenueBySource();
@@ -80,7 +81,7 @@ export const RevenueBySource = () => {
   const fetchRevenueBySource = async () => {
     const { data, error } = await supabase
       .from('reservations')
-      .select('source, total_price, commission_amount, net_revenue')
+      .select('source, total_price, commission_amount, net_revenue, guest_names')
       .neq('status', 'Cancelled');
 
     if (error) {
@@ -89,7 +90,7 @@ export const RevenueBySource = () => {
       return;
     }
 
-    // Group by source
+    // Group by source with guest names for admin bookings
     const sourceMap: Record<string, SourceRevenue> = {};
     
     data?.forEach((reservation) => {
@@ -103,6 +104,7 @@ export const RevenueBySource = () => {
           commissionRate: getCommissionRate(source),
           commission: 0,
           netRevenue: 0,
+          guestNames: [],
         };
       }
       
@@ -110,6 +112,11 @@ export const RevenueBySource = () => {
       sourceMap[source].grossRevenue += reservation.total_price || 0;
       sourceMap[source].commission += reservation.commission_amount || 0;
       sourceMap[source].netRevenue += reservation.net_revenue || 0;
+      
+      // Store guest names for admin bookings
+      if (source.toLowerCase().includes('admin') && reservation.guest_names?.[0]) {
+        sourceMap[source].guestNames?.push(reservation.guest_names[0]);
+      }
     });
 
     // Convert to array and sort by gross revenue (descending)
@@ -150,23 +157,21 @@ export const RevenueBySource = () => {
     );
   }
 
-  // Group sources into Direct and Booking.com
-  const directSources = filteredRevenue.filter(s => 
-    s.source.toLowerCase() !== 'booking.com'
+  // Group sources into 4 categories: Booking.com, Direct Website, Admin, KSS
+  const bookingComSources = filteredRevenue.filter(s => 
+    s.source.toLowerCase().includes('booking.com')
   );
   
-  const bookingComSources = filteredRevenue.filter(s => 
-    s.source.toLowerCase() === 'booking.com'
+  const directWebsiteSources = filteredRevenue.filter(s => 
+    s.source.toLowerCase().includes('direct website')
   );
-
-  const directTotal = directSources.reduce(
-    (acc, source) => ({
-      count: acc.count + source.count,
-      grossRevenue: acc.grossRevenue + source.grossRevenue,
-      commission: acc.commission + source.commission,
-      netRevenue: acc.netRevenue + source.netRevenue,
-    }),
-    { count: 0, grossRevenue: 0, commission: 0, netRevenue: 0 }
+  
+  const adminSources = filteredRevenue.filter(s => 
+    s.source.toLowerCase().includes('admin')
+  );
+  
+  const kssSources = filteredRevenue.filter(s => 
+    s.source.toLowerCase().includes('kss')
   );
 
   const bookingComTotal = bookingComSources.reduce(
@@ -179,11 +184,42 @@ export const RevenueBySource = () => {
     { count: 0, grossRevenue: 0, commission: 0, netRevenue: 0 }
   );
 
+  const directWebsiteTotal = directWebsiteSources.reduce(
+    (acc, source) => ({
+      count: acc.count + source.count,
+      grossRevenue: acc.grossRevenue + source.grossRevenue,
+      commission: acc.commission + source.commission,
+      netRevenue: acc.netRevenue + source.netRevenue,
+    }),
+    { count: 0, grossRevenue: 0, commission: 0, netRevenue: 0 }
+  );
+
+  const adminTotal = adminSources.reduce(
+    (acc, source) => ({
+      count: acc.count + source.count,
+      grossRevenue: acc.grossRevenue + source.grossRevenue,
+      commission: acc.commission + source.commission,
+      netRevenue: acc.netRevenue + source.netRevenue,
+      guestNames: [...(acc.guestNames || []), ...(source.guestNames || [])],
+    }),
+    { count: 0, grossRevenue: 0, commission: 0, netRevenue: 0, guestNames: [] as string[] }
+  );
+
+  const kssTotal = kssSources.reduce(
+    (acc, source) => ({
+      count: acc.count + source.count,
+      grossRevenue: acc.grossRevenue + source.grossRevenue,
+      commission: acc.commission + source.commission,
+      netRevenue: acc.netRevenue + source.netRevenue,
+    }),
+    { count: 0, grossRevenue: 0, commission: 0, netRevenue: 0 }
+  );
+
   const totals = {
-    count: directTotal.count + bookingComTotal.count,
-    grossRevenue: directTotal.grossRevenue + bookingComTotal.grossRevenue,
-    commission: directTotal.commission + bookingComTotal.commission,
-    netRevenue: directTotal.netRevenue + bookingComTotal.netRevenue,
+    count: bookingComTotal.count + directWebsiteTotal.count + adminTotal.count + kssTotal.count,
+    grossRevenue: bookingComTotal.grossRevenue + directWebsiteTotal.grossRevenue + adminTotal.grossRevenue + kssTotal.grossRevenue,
+    commission: bookingComTotal.commission + directWebsiteTotal.commission + adminTotal.commission + kssTotal.commission,
+    netRevenue: bookingComTotal.netRevenue + directWebsiteTotal.netRevenue + adminTotal.netRevenue + kssTotal.netRevenue,
   };
 
   return (
@@ -218,61 +254,7 @@ export const RevenueBySource = () => {
               </TableRow>
             </TableHeader>
             <TableBody>
-              {/* Direct Sources (Collapsible) */}
-              {directSources.length > 0 && (
-                <>
-                  <TableRow className="hover:bg-muted/50">
-                    <TableCell className="font-medium">
-                      <Button
-                        variant="ghost"
-                        size="sm"
-                        className="h-auto p-0 hover:bg-transparent"
-                        onClick={() => setIsDirectExpanded(!isDirectExpanded)}
-                      >
-                        {isDirectExpanded ? (
-                          <ChevronDown className="h-4 w-4 mr-2" />
-                        ) : (
-                          <ChevronRight className="h-4 w-4 mr-2" />
-                        )}
-                        Direct
-                      </Button>
-                    </TableCell>
-                    <TableCell className="text-right">{directTotal.count}</TableCell>
-                    <TableCell className="text-right">
-                      ${directTotal.grossRevenue.toFixed(2)}
-                    </TableCell>
-                    <TableCell className="text-right">10%</TableCell>
-                    <TableCell className="text-right text-amber-600">
-                      ${directTotal.commission.toFixed(2)}
-                    </TableCell>
-                    <TableCell className="text-right text-green-600 font-semibold">
-                      ${directTotal.netRevenue.toFixed(2)}
-                    </TableCell>
-                  </TableRow>
-                  
-                  {/* Individual Direct Sources */}
-                  {isDirectExpanded && directSources.map((source) => (
-                    <TableRow key={source.source} className="bg-muted/30">
-                      <TableCell className="pl-10 font-normal text-muted-foreground">
-                        {source.source}
-                      </TableCell>
-                      <TableCell className="text-right text-muted-foreground">{source.count}</TableCell>
-                      <TableCell className="text-right text-muted-foreground">
-                        ${source.grossRevenue.toFixed(2)}
-                      </TableCell>
-                      <TableCell className="text-right text-muted-foreground">{source.commissionRate}%</TableCell>
-                      <TableCell className="text-right text-amber-600/70">
-                        ${source.commission.toFixed(2)}
-                      </TableCell>
-                      <TableCell className="text-right text-green-600/70">
-                        ${source.netRevenue.toFixed(2)}
-                      </TableCell>
-                    </TableRow>
-                  ))}
-                </>
-              )}
-
-              {/* Booking.com Sources */}
+              {/* Booking.com */}
               {bookingComSources.length > 0 && (
                 <TableRow className="hover:bg-muted/50">
                   <TableCell className="font-medium">Booking.com</TableCell>
@@ -286,6 +268,90 @@ export const RevenueBySource = () => {
                   </TableCell>
                   <TableCell className="text-right text-green-600 font-semibold">
                     ${bookingComTotal.netRevenue.toFixed(2)}
+                  </TableCell>
+                </TableRow>
+              )}
+
+              {/* Direct Website */}
+              {directWebsiteSources.length > 0 && (
+                <TableRow className="hover:bg-muted/50">
+                  <TableCell className="font-medium">Direct Website</TableCell>
+                  <TableCell className="text-right">{directWebsiteTotal.count}</TableCell>
+                  <TableCell className="text-right">
+                    ${directWebsiteTotal.grossRevenue.toFixed(2)}
+                  </TableCell>
+                  <TableCell className="text-right">10%</TableCell>
+                  <TableCell className="text-right text-amber-600">
+                    ${directWebsiteTotal.commission.toFixed(2)}
+                  </TableCell>
+                  <TableCell className="text-right text-green-600 font-semibold">
+                    ${directWebsiteTotal.netRevenue.toFixed(2)}
+                  </TableCell>
+                </TableRow>
+              )}
+
+              {/* Admin (Collapsible) */}
+              {adminSources.length > 0 && (
+                <>
+                  <TableRow className="hover:bg-muted/50">
+                    <TableCell className="font-medium">
+                      <Button
+                        variant="ghost"
+                        size="sm"
+                        className="h-auto p-0 hover:bg-transparent"
+                        onClick={() => setIsAdminExpanded(!isAdminExpanded)}
+                      >
+                        {isAdminExpanded ? (
+                          <ChevronDown className="h-4 w-4 mr-2" />
+                        ) : (
+                          <ChevronRight className="h-4 w-4 mr-2" />
+                        )}
+                        Admin
+                      </Button>
+                    </TableCell>
+                    <TableCell className="text-right">{adminTotal.count}</TableCell>
+                    <TableCell className="text-right">
+                      ${adminTotal.grossRevenue.toFixed(2)}
+                    </TableCell>
+                    <TableCell className="text-right">10%</TableCell>
+                    <TableCell className="text-right text-amber-600">
+                      ${adminTotal.commission.toFixed(2)}
+                    </TableCell>
+                    <TableCell className="text-right text-green-600 font-semibold">
+                      ${adminTotal.netRevenue.toFixed(2)}
+                    </TableCell>
+                  </TableRow>
+                  
+                  {/* Individual Admin Bookings by Guest */}
+                  {isAdminExpanded && adminTotal.guestNames.map((guestName, index) => (
+                    <TableRow key={`admin-${index}`} className="bg-muted/30">
+                      <TableCell className="pl-10 font-normal text-muted-foreground">
+                        {guestName}
+                      </TableCell>
+                      <TableCell className="text-right text-muted-foreground">1</TableCell>
+                      <TableCell className="text-right text-muted-foreground">-</TableCell>
+                      <TableCell className="text-right text-muted-foreground">-</TableCell>
+                      <TableCell className="text-right text-muted-foreground">-</TableCell>
+                      <TableCell className="text-right text-muted-foreground">-</TableCell>
+                    </TableRow>
+                  ))}
+                </>
+              )}
+
+              {/* KSS */}
+              {kssSources.length > 0 && (
+                <TableRow className="hover:bg-muted/50">
+                  <TableCell className="font-medium">KSS</TableCell>
+                  <TableCell className="text-right">{kssTotal.count}</TableCell>
+                  <TableCell className="text-right">
+                    ${kssTotal.grossRevenue.toFixed(2)}
+                  </TableCell>
+                  <TableCell className="text-right">10%</TableCell>
+                  <TableCell className="text-right text-amber-600">
+                    ${kssTotal.commission.toFixed(2)}
+                  </TableCell>
+                  <TableCell className="text-right text-green-600 font-semibold">
+                    ${kssTotal.netRevenue.toFixed(2)}
                   </TableCell>
                 </TableRow>
               )}
