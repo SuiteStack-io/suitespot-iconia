@@ -114,10 +114,14 @@ export const WeeklyCalendar = () => {
   };
 
   const getReservationColor = (source: string) => {
-    if (source.toLowerCase().includes('booking')) {
+    const lowerSource = source.toLowerCase();
+    if (lowerSource.includes('booking')) {
       return 'bg-[#003580] text-white'; // Booking.com brand blue
     }
-    return 'bg-red-500/80 text-white';
+    if (lowerSource.includes('admin') || lowerSource.includes('manager')) {
+      return 'bg-green-500/80 text-white'; // Admin bookings green
+    }
+    return 'bg-red-500/80 text-white'; // Direct website and other sources red
   };
 
   const navigatePreviousWeek = () => {
@@ -224,6 +228,23 @@ export const WeeklyCalendar = () => {
           </table>
         </div>
       </CardContent>
+      
+      <div className="px-6 pb-6">
+        <div className="flex items-center gap-4 text-sm flex-wrap">
+          <div className="flex items-center gap-2">
+            <div className="w-16 h-6 bg-[#003580] border rounded flex items-center justify-center text-white text-xs">B.com</div>
+            <span>= Booking.com</span>
+          </div>
+          <div className="flex items-center gap-2">
+            <div className="w-16 h-6 bg-green-500/80 border rounded flex items-center justify-center text-white text-xs">Admin</div>
+            <span>= Admin Booking</span>
+          </div>
+          <div className="flex items-center gap-2">
+            <div className="w-16 h-6 bg-red-500/80 border rounded flex items-center justify-center text-white text-xs">Direct</div>
+            <span>= Direct Website</span>
+          </div>
+        </div>
+      </div>
     </Card>
   );
 };
