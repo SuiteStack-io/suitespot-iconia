@@ -3,7 +3,7 @@ import { useNavigate } from 'react-router-dom';
 import { supabase } from '@/integrations/supabase/client';
 import { Button } from '@/components/ui/button';
 import { useToast } from '@/hooks/use-toast';
-import { ArrowLeft, Upload, Trash2, GripVertical } from 'lucide-react';
+import { ArrowLeft, Upload, Trash2, GripVertical, X } from 'lucide-react';
 import { Progress } from '@/components/ui/progress';
 import { Card } from '@/components/ui/card';
 import {
@@ -14,6 +14,12 @@ import {
   TableHeader,
   TableRow,
 } from '@/components/ui/table';
+import {
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+} from '@/components/ui/dialog';
 
 interface SlideshowImage {
   id: string;
@@ -29,6 +35,7 @@ export default function HomepageManagement() {
   const [uploading, setUploading] = useState(false);
   const [uploadProgress, setUploadProgress] = useState(0);
   const [draggedIndex, setDraggedIndex] = useState<number | null>(null);
+  const [selectedImage, setSelectedImage] = useState<string | null>(null);
 
   useEffect(() => {
     fetchImages();
@@ -334,7 +341,8 @@ export default function HomepageManagement() {
                       <img
                         src={image.image_url}
                         alt={`Slide ${index + 1}`}
-                        className="w-20 h-12 object-cover rounded"
+                        className="w-20 h-12 object-cover rounded cursor-pointer hover:opacity-80 transition-opacity"
+                        onClick={() => setSelectedImage(image.image_url)}
                       />
                     </TableCell>
                     <TableCell className="max-w-md truncate">
@@ -356,6 +364,22 @@ export default function HomepageManagement() {
             </TableBody>
           </Table>
         </Card>
+
+        {/* Image Preview Modal */}
+        <Dialog open={!!selectedImage} onOpenChange={() => setSelectedImage(null)}>
+          <DialogContent className="max-w-4xl">
+            <DialogHeader>
+              <DialogTitle>Image Preview</DialogTitle>
+            </DialogHeader>
+            <div className="relative w-full">
+              <img
+                src={selectedImage || ''}
+                alt="Preview"
+                className="w-full h-auto max-h-[70vh] object-contain rounded"
+              />
+            </div>
+          </DialogContent>
+        </Dialog>
       </div>
     </div>
   );
