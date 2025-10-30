@@ -8,32 +8,32 @@ export const PublicNav = () => {
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
 
   return (
-    <nav className="fixed top-0 left-0 right-0 z-50 bg-background/80 backdrop-blur-md border-b border-border">
-      <div className="container mx-auto px-6 py-4 flex items-center justify-between">
+    <nav className="fixed top-0 left-0 right-0 z-50 bg-transparent border-b border-white/20">
+      <div className="container mx-auto px-6 py-4 flex items-center justify-between bg-white/10 backdrop-blur-md">
         <Link to="/" className="flex items-center gap-2">
           <img src={logo} alt="SuiteSpot logo" className="h-8 w-8" />
           <span className="text-2xl font-serif font-bold text-foreground">SuiteSpot</span>
         </Link>
         <div className="hidden md:flex items-center gap-8">
-          <Link to="/our-story" className="text-sm text-muted-foreground hover:text-foreground transition-colors">
+          <Link to="/our-story" className="text-sm text-white hover:text-white/80 transition-colors">
             Our Story
           </Link>
-          <Link to="/locations" className="text-sm text-muted-foreground hover:text-foreground transition-colors">
+          <Link to="/locations" className="text-sm text-white hover:text-white/80 transition-colors">
             Locations
           </Link>
-          <Link to="/suites" className="text-sm text-muted-foreground hover:text-foreground transition-colors">
+          <Link to="/suites" className="text-sm text-white hover:text-white/80 transition-colors">
             Suites
           </Link>
-          <Link to="/wellness" className="text-sm text-muted-foreground hover:text-foreground transition-colors">
+          <Link to="/wellness" className="text-sm text-white hover:text-white/80 transition-colors">
             Wellness
           </Link>
-          <Link to="/experiences" className="text-sm text-muted-foreground hover:text-foreground transition-colors">
+          <Link to="/experiences" className="text-sm text-white hover:text-white/80 transition-colors">
             Experiences
           </Link>
-          <Link to="/nearby" className="text-sm text-muted-foreground hover:text-foreground transition-colors">
+          <Link to="/nearby" className="text-sm text-white hover:text-white/80 transition-colors">
             Nearby Amenities
           </Link>
-          <Link to="/blog" className="text-sm text-muted-foreground hover:text-foreground transition-colors">
+          <Link to="/blog" className="text-sm text-white hover:text-white/80 transition-colors">
             Blog
           </Link>
         </div>
@@ -54,10 +54,10 @@ export const PublicNav = () => {
       </div>
       
       {/* Mobile Menu Button - Only visible on mobile */}
-      <div className="md:hidden border-t border-border">
+      <div className="md:hidden border-t border-border/30">
         <button
           onClick={() => setMobileMenuOpen(!mobileMenuOpen)}
-          className="w-full py-3 flex flex-col items-center justify-center gap-1 bg-[#5D4E37] text-white hover:bg-[#4a3e2c] transition-colors"
+          className="w-full py-3 flex flex-col items-center justify-center gap-1 bg-white/20 backdrop-blur-md text-[#5D4E37] hover:bg-white/30 transition-all border-t border-white/30"
           aria-label="Toggle menu"
         >
           <Menu className="h-6 w-6" strokeWidth={2.5} />
