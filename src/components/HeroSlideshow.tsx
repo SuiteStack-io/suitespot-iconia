@@ -9,6 +9,10 @@ import samcrete8 from '@/assets/hero-slideshow/samcrete-8.jpg';
 import samcrete15 from '@/assets/hero-slideshow/samcrete-15.jpg';
 import samcrete17 from '@/assets/hero-slideshow/samcrete-17.jpg';
 import samcrete18 from '@/assets/hero-slideshow/samcrete-18.jpg';
+import pool from '@/assets/hero-slideshow/pool.jpg';
+import livingRoom from '@/assets/hero-slideshow/living-room.jpg';
+import bedroom from '@/assets/hero-slideshow/bedroom.jpg';
+import rooftop from '@/assets/hero-slideshow/rooftop.jpg';
 
 const images = [
   iconiaZamalek,
@@ -19,6 +23,10 @@ const images = [
   samcrete15,
   samcrete17,
   samcrete18,
+  pool,
+  livingRoom,
+  bedroom,
+  rooftop,
 ];
 
 export const HeroSlideshow = () => {
