@@ -84,20 +84,32 @@ export const HeroSlideshow = () => {
   return (
     <div className="absolute inset-0 w-full h-full overflow-hidden">
       {/* Slideshow images */}
-      {images.map((image, index) => (
-        <div
-          key={image.id}
-          className={`absolute inset-0 w-full h-full transition-opacity duration-1000 ${
-            index === currentIndex ? 'opacity-100' : 'opacity-0'
-          }`}
-        >
-          <img
-            src={image.image_url}
-            alt={`SuiteSpot hero ${index + 1}`}
-            className="w-full h-full object-cover"
-          />
-        </div>
-      ))}
+      {images.map((image, index) => {
+        // Only render current, previous, and next images to improve performance
+        const isPrevious = index === (currentIndex - 1 + images.length) % images.length;
+        const isCurrent = index === currentIndex;
+        const isNext = index === (currentIndex + 1) % images.length;
+        const shouldRender = isPrevious || isCurrent || isNext;
+
+        if (!shouldRender) return null;
+
+        return (
+          <div
+            key={image.id}
+            className={`absolute inset-0 w-full h-full transition-opacity duration-1000 ${
+              isCurrent ? 'opacity-100' : 'opacity-0'
+            }`}
+          >
+            <img
+              src={image.image_url}
+              alt={`SuiteSpot hero ${index + 1}`}
+              className="w-full h-full object-cover"
+              loading={isCurrent ? 'eager' : 'lazy'}
+              decoding="async"
+            />
+          </div>
+        );
+      })}
 
       {/* Gradient overlay */}
       <div className="absolute inset-0 bg-gradient-to-br from-black/60 to-black/40" />
