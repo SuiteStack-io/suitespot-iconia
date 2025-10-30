@@ -143,10 +143,19 @@ export default function HomepageManagement() {
 
   const handleDelete = async (id: string, imageUrl: string) => {
     try {
-      // Extract file path from URL
-      const url = new URL(imageUrl);
-      const pathParts = url.pathname.split('/');
-      const filePath = pathParts[pathParts.length - 1];
+      // Extract file path from URL or relative path
+      let filePath: string;
+      
+      if (imageUrl.startsWith('http')) {
+        // Full URL - extract filename from URL
+        const url = new URL(imageUrl);
+        const pathParts = url.pathname.split('/');
+        filePath = pathParts[pathParts.length - 1];
+      } else {
+        // Relative path - extract filename directly
+        const pathParts = imageUrl.split('/');
+        filePath = pathParts[pathParts.length - 1];
+      }
 
       // Delete from storage
       const { error: storageError } = await supabase.storage
