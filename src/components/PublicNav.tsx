@@ -9,7 +9,7 @@ export const PublicNav = () => {
 
   return (
     <nav className="fixed top-0 left-0 right-0 z-50 bg-transparent border-b border-white/20">
-      <div className="container mx-auto px-6 py-4 flex items-center justify-between bg-white/10 backdrop-blur-md">
+      <div className="container mx-auto px-6 py-4 flex items-center justify-between bg-white/25 backdrop-blur-md">
         <Link to="/" className="flex items-center gap-2">
           <img src={logo} alt="SuiteSpot logo" className="h-8 w-8" />
           <span className="text-2xl font-serif font-bold text-foreground">SuiteSpot</span>
@@ -57,7 +57,7 @@ export const PublicNav = () => {
       <div className="md:hidden border-t border-border/30">
         <button
           onClick={() => setMobileMenuOpen(!mobileMenuOpen)}
-          className="w-full py-3 flex flex-col items-center justify-center gap-1 bg-white/20 backdrop-blur-md text-[#5D4E37] hover:bg-white/30 transition-all border-t border-white/30"
+          className="w-full py-3 flex flex-col items-center justify-center gap-1 bg-white/35 backdrop-blur-md text-[#5D4E37] hover:bg-white/45 transition-all border-t border-white/30"
           aria-label="Toggle menu"
         >
           <Menu className="h-6 w-6" strokeWidth={2.5} />
