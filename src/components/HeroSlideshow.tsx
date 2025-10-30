@@ -12,6 +12,7 @@ export const HeroSlideshow = () => {
   const [isTransitioning, setIsTransitioning] = useState(false);
   const [images, setImages] = useState<SlideshowImage[]>([]);
   const [loading, setLoading] = useState(true);
+  const [loadedImages, setLoadedImages] = useState<Set<number>>(new Set([0]));
 
   useEffect(() => {
     fetchImages();
@@ -59,13 +60,34 @@ export const HeroSlideshow = () => {
     const interval = setInterval(() => {
       setIsTransitioning(true);
       setTimeout(() => {
-        setCurrentIndex((prevIndex) => (prevIndex + 1) % images.length);
+        setCurrentIndex((prevIndex) => {
+          const nextIndex = (prevIndex + 1) % images.length;
+          // Preload next image
+          setLoadedImages(prev => new Set(prev).add(nextIndex));
+          return nextIndex;
+        });
         setIsTransitioning(false);
       }, 1000);
     }, 5000);
 
     return () => clearInterval(interval);
   }, [images.length]);
+
+  // Preload adjacent images when current index changes
+  useEffect(() => {
+    if (images.length === 0) return;
+    
+    const nextIndex = (currentIndex + 1) % images.length;
+    const prevIndex = (currentIndex - 1 + images.length) % images.length;
+    
+    setLoadedImages(prev => {
+      const newSet = new Set(prev);
+      newSet.add(currentIndex);
+      newSet.add(nextIndex);
+      newSet.add(prevIndex);
+      return newSet;
+    });
+  }, [currentIndex, images.length]);
 
   const goToSlide = (index: number) => {
     setIsTransitioning(true);
@@ -77,7 +99,11 @@ export const HeroSlideshow = () => {
 
   if (loading || images.length === 0) {
     return (
-      <div className="absolute inset-0 w-full h-full overflow-hidden bg-gradient-to-br from-black/60 to-black/40" />
+      <div className="absolute inset-0 w-full h-full overflow-hidden bg-gradient-to-br from-black/60 to-black/40">
+        <div className="absolute inset-0 flex items-center justify-center">
+          <div className="w-8 h-8 border-2 border-white/30 border-t-white rounded-full animate-spin" />
+        </div>
+      </div>
     );
   }
 
@@ -85,27 +111,26 @@ export const HeroSlideshow = () => {
     <div className="absolute inset-0 w-full h-full overflow-hidden">
       {/* Slideshow images */}
       {images.map((image, index) => {
-        // Only render current, previous, and next images to improve performance
-        const isPrevious = index === (currentIndex - 1 + images.length) % images.length;
         const isCurrent = index === currentIndex;
-        const isNext = index === (currentIndex + 1) % images.length;
-        const shouldRender = isPrevious || isCurrent || isNext;
+        const shouldLoad = loadedImages.has(index);
 
-        if (!shouldRender) return null;
+        // Only render images that should be loaded
+        if (!shouldLoad) return null;
 
         return (
           <div
             key={image.id}
             className={`absolute inset-0 w-full h-full transition-opacity duration-1000 ${
-              isCurrent ? 'opacity-100' : 'opacity-0'
+              isCurrent ? 'opacity-100 z-10' : 'opacity-0 z-0'
             }`}
           >
             <img
               src={image.image_url}
               alt={`SuiteSpot hero ${index + 1}`}
               className="w-full h-full object-cover"
-              loading={isCurrent ? 'eager' : 'lazy'}
+              loading={index === 0 ? 'eager' : 'lazy'}
               decoding="async"
+              fetchPriority={index === 0 ? 'high' : 'low'}
             />
           </div>
         );
