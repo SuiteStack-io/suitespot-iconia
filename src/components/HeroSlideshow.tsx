@@ -15,6 +15,26 @@ export const HeroSlideshow = () => {
 
   useEffect(() => {
     fetchImages();
+
+    // Set up real-time subscription for slideshow updates
+    const channel = supabase
+      .channel('slideshow-changes')
+      .on(
+        'postgres_changes',
+        {
+          event: '*',
+          schema: 'public',
+          table: 'slideshow_images',
+        },
+        () => {
+          fetchImages();
+        }
+      )
+      .subscribe();
+
+    return () => {
+      supabase.removeChannel(channel);
+    };
   }, []);
 
   const fetchImages = async () => {
