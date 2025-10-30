@@ -1,39 +1,41 @@
 import { useState, useEffect } from 'react';
+import { supabase } from '@/integrations/supabase/client';
 
-// Import all slideshow images
-import iconiaZamalek from '@/assets/hero-slideshow/iconia-zamalek.jpg';
-import samcrete1 from '@/assets/hero-slideshow/samcrete-1.jpg';
-import samcrete2 from '@/assets/hero-slideshow/samcrete-2.jpg';
-import samcrete5 from '@/assets/hero-slideshow/samcrete-5.jpg';
-import samcrete8 from '@/assets/hero-slideshow/samcrete-8.jpg';
-import samcrete15 from '@/assets/hero-slideshow/samcrete-15.jpg';
-import samcrete17 from '@/assets/hero-slideshow/samcrete-17.jpg';
-import samcrete18 from '@/assets/hero-slideshow/samcrete-18.jpg';
-import pool from '@/assets/hero-slideshow/pool.jpg';
-import livingRoom from '@/assets/hero-slideshow/living-room.jpg';
-import bedroom from '@/assets/hero-slideshow/bedroom.jpg';
-import rooftop from '@/assets/hero-slideshow/rooftop.jpg';
-
-const images = [
-  iconiaZamalek,
-  samcrete1,
-  samcrete2,
-  samcrete5,
-  samcrete8,
-  samcrete15,
-  samcrete17,
-  samcrete18,
-  pool,
-  livingRoom,
-  bedroom,
-  rooftop,
-];
+interface SlideshowImage {
+  id: string;
+  image_url: string;
+  sequence_order: number;
+}
 
 export const HeroSlideshow = () => {
   const [currentIndex, setCurrentIndex] = useState(0);
   const [isTransitioning, setIsTransitioning] = useState(false);
+  const [images, setImages] = useState<SlideshowImage[]>([]);
+  const [loading, setLoading] = useState(true);
 
   useEffect(() => {
+    fetchImages();
+  }, []);
+
+  const fetchImages = async () => {
+    try {
+      const { data, error } = await supabase
+        .from('slideshow_images')
+        .select('*')
+        .order('sequence_order', { ascending: true });
+
+      if (error) throw error;
+      setImages(data || []);
+    } catch (error) {
+      console.error('Error fetching slideshow images:', error);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  useEffect(() => {
+    if (images.length === 0) return;
+
     const interval = setInterval(() => {
       setIsTransitioning(true);
       setTimeout(() => {
@@ -43,7 +45,7 @@ export const HeroSlideshow = () => {
     }, 5000);
 
     return () => clearInterval(interval);
-  }, []);
+  }, [images.length]);
 
   const goToSlide = (index: number) => {
     setIsTransitioning(true);
@@ -53,18 +55,24 @@ export const HeroSlideshow = () => {
     }, 1000);
   };
 
+  if (loading || images.length === 0) {
+    return (
+      <div className="absolute inset-0 w-full h-full overflow-hidden bg-gradient-to-br from-black/60 to-black/40" />
+    );
+  }
+
   return (
     <div className="absolute inset-0 w-full h-full overflow-hidden">
       {/* Slideshow images */}
       {images.map((image, index) => (
         <div
-          key={index}
+          key={image.id}
           className={`absolute inset-0 w-full h-full transition-opacity duration-1000 ${
             index === currentIndex ? 'opacity-100' : 'opacity-0'
           }`}
         >
           <img
-            src={image}
+            src={image.image_url}
             alt={`SuiteSpot hero ${index + 1}`}
             className="w-full h-full object-cover"
           />

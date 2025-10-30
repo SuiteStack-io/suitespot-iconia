@@ -175,6 +175,30 @@ export type Database = {
           },
         ]
       }
+      slideshow_images: {
+        Row: {
+          created_at: string
+          id: string
+          image_url: string
+          sequence_order: number
+          updated_at: string
+        }
+        Insert: {
+          created_at?: string
+          id?: string
+          image_url: string
+          sequence_order: number
+          updated_at?: string
+        }
+        Update: {
+          created_at?: string
+          id?: string
+          image_url?: string
+          sequence_order?: number
+          updated_at?: string
+        }
+        Relationships: []
+      }
       sync_status: {
         Row: {
           created_at: string

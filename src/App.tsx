@@ -25,6 +25,7 @@ import Wellness from "./pages/Wellness";
 import Experiences from "./pages/Experiences";
 import Nearby from "./pages/Nearby";
 import Blog from "./pages/Blog";
+import HomepageManagement from "./pages/HomepageManagement";
 
 const queryClient = new QueryClient();
 
@@ -58,6 +59,7 @@ const App = () => (
             <Route path="/guests" element={<ProtectedRoute><Guests /></ProtectedRoute>} />
             <Route path="/my-reservations" element={<ProtectedRoute><MyReservations /></ProtectedRoute>} />
             <Route path="/rooms" element={<ProtectedRoute><Rooms /></ProtectedRoute>} />
+            <Route path="/homepage-management" element={<ProtectedRoute><HomepageManagement /></ProtectedRoute>} />
             
             {/* ADD ALL CUSTOM ROUTES ABOVE THE CATCH-ALL "*" ROUTE */}
             <Route path="*" element={<NotFound />} />
