@@ -57,7 +57,7 @@ export const PublicNav = () => {
       <div className="md:hidden border-t border-border">
         <button
           onClick={() => setMobileMenuOpen(!mobileMenuOpen)}
-          className="w-full py-3 flex flex-col items-center justify-center gap-1 bg-[#D4C4A8] text-[#5D4E37] hover:bg-[#C4B498] transition-colors"
+          className="w-full py-3 flex flex-col items-center justify-center gap-1 bg-[#D4C4A8]/30 text-[#5D4E37] hover:bg-[#C4B498]/40 transition-colors"
           aria-label="Toggle menu"
         >
           <Menu className="h-6 w-6" strokeWidth={2.5} />
