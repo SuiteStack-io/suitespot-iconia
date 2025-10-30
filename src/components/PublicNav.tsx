@@ -15,25 +15,25 @@ export const PublicNav = () => {
           <span className="text-2xl font-serif font-bold text-foreground">SuiteSpot</span>
         </Link>
         <div className="hidden md:flex items-center gap-8">
-          <Link to="/our-story" className="text-sm text-muted-foreground hover:text-foreground transition-colors">
+          <Link to="/our-story" className="text-sm text-white hover:text-white/80 transition-colors">
             Our Story
           </Link>
-          <Link to="/locations" className="text-sm text-muted-foreground hover:text-foreground transition-colors">
+          <Link to="/locations" className="text-sm text-white hover:text-white/80 transition-colors">
             Locations
           </Link>
-          <Link to="/suites" className="text-sm text-muted-foreground hover:text-foreground transition-colors">
+          <Link to="/suites" className="text-sm text-white hover:text-white/80 transition-colors">
             Suites
           </Link>
-          <Link to="/wellness" className="text-sm text-muted-foreground hover:text-foreground transition-colors">
+          <Link to="/wellness" className="text-sm text-white hover:text-white/80 transition-colors">
             Wellness
           </Link>
-          <Link to="/experiences" className="text-sm text-muted-foreground hover:text-foreground transition-colors">
+          <Link to="/experiences" className="text-sm text-white hover:text-white/80 transition-colors">
             Experiences
           </Link>
-          <Link to="/nearby" className="text-sm text-muted-foreground hover:text-foreground transition-colors">
+          <Link to="/nearby" className="text-sm text-white hover:text-white/80 transition-colors">
             Nearby Amenities
           </Link>
-          <Link to="/blog" className="text-sm text-muted-foreground hover:text-foreground transition-colors">
+          <Link to="/blog" className="text-sm text-white hover:text-white/80 transition-colors">
             Blog
           </Link>
         </div>
