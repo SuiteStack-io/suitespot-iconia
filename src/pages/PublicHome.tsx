@@ -21,10 +21,12 @@ const PublicHome = () => {
         {/* Hero Content */}
         <div className="relative z-10 text-center px-6 max-w-4xl">
           <h1 className="text-3xl md:text-7xl font-serif font-bold text-white mb-6 animate-fade-in">Welcome Home</h1>
-          <p className="text-xl md:text-2xl text-white/90 mb-8 animate-fade-in" style={{
+          <p className="text-xl md:text-2xl text-white/90 mb-16 md:mb-8 animate-fade-in" style={{
           animationDelay: "0.2s"
         }}>Blending the comfort of home with the service of a boutique hotel in Zamalek</p>
-          <div className="flex flex-col sm:flex-row gap-4 justify-center animate-fade-in mb-8" style={{
+          
+          {/* Desktop buttons only */}
+          <div className="hidden sm:flex gap-4 justify-center animate-fade-in mb-8" style={{
           animationDelay: "0.4s"
         }}>
             <Button asChild size="lg" className="bg-white text-primary hover:bg-white/90">
@@ -40,6 +42,15 @@ const PublicHome = () => {
           animationDelay: "0.6s"
         }}>
             <BookingWidget />
+          </div>
+
+          {/* Mobile Explore Suites button - below search */}
+          <div className="sm:hidden mt-4 animate-fade-in" style={{
+          animationDelay: "0.8s"
+        }}>
+            <Button asChild size="lg" className="bg-white text-primary hover:bg-white/90 w-full max-w-sm mx-auto">
+              <Link to="/suites">Explore Suites</Link>
+            </Button>
           </div>
         </div>
 
