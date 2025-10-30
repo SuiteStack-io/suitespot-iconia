@@ -60,12 +60,12 @@ export default function HomepageManagement() {
 
     const file = files[0];
     
-    // Check file size (2MB max)
-    const MAX_SIZE = 2 * 1024 * 1024; // 2MB in bytes
+    // Check file size (3MB max)
+    const MAX_SIZE = 3 * 1024 * 1024; // 3MB in bytes
     if (file.size > MAX_SIZE) {
       toast({
         title: 'File too large',
-        description: 'Please upload an image smaller than 2MB',
+        description: 'Please upload an image smaller than 3MB',
         variant: 'destructive',
       });
       return;
@@ -276,7 +276,7 @@ export default function HomepageManagement() {
               </Button>
             </label>
             <span className="text-sm text-muted-foreground">
-              Max size: 2MB
+              Max size: 3MB
             </span>
           </div>
 
