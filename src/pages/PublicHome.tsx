@@ -26,7 +26,7 @@ const PublicHome = () => {
         }}>Blending the comfort of home with the service of a boutique hotel in Zamalek</p>
           
           {/* Desktop buttons only */}
-          <div className="hidden sm:flex gap-4 justify-center animate-fade-in mb-8 mt-16" style={{
+          <div className="hidden sm:flex gap-4 justify-center animate-fade-in mb-8" style={{
           animationDelay: "0.4s"
         }}>
             <Button asChild size="lg" className="bg-white text-primary hover:bg-white/90">
