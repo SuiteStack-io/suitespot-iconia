@@ -65,7 +65,7 @@ const Auth = () => {
           </div>
           <CardTitle className="text-2xl">SuiteSpot Bookings</CardTitle>
           <CardDescription>
-            Sign in to manage your reservations
+            sign in if you work in SuitSpot
           </CardDescription>
         </CardHeader>
         <CardContent>
