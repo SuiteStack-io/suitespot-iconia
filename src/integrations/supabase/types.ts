@@ -247,6 +247,7 @@ export type Database = {
           price_per_night: number | null
           sofa_bed: boolean | null
           status: string
+          tax_percentage: number | null
           unit_number: string | null
           unit_size: string | null
           unit_type: string | null
@@ -266,6 +267,7 @@ export type Database = {
           price_per_night?: number | null
           sofa_bed?: boolean | null
           status: string
+          tax_percentage?: number | null
           unit_number?: string | null
           unit_size?: string | null
           unit_type?: string | null
@@ -285,6 +287,7 @@ export type Database = {
           price_per_night?: number | null
           sofa_bed?: boolean | null
           status?: string
+          tax_percentage?: number | null
           unit_number?: string | null
           unit_size?: string | null
           unit_type?: string | null

@@ -108,6 +108,7 @@ interface Unit {
   unit_size: string | null;
   sofa_bed: boolean | null;
   price_per_night: number | null;
+  tax_percentage: number | null;
   photos: string[] | null;
 }
 
@@ -170,7 +171,7 @@ const BookingFlow = () => {
         // First get all units
         const { data: allUnits, error: unitsError } = await supabase
           .from("units")
-          .select("id, name, unit_type, unit_number, status, beds, baths, max_guests, unit_size, sofa_bed, price_per_night, photos")
+          .select("id, name, unit_type, unit_number, status, beds, baths, max_guests, unit_size, sofa_bed, price_per_night, tax_percentage, photos")
           .eq("status", "available")
           .order("name");
 
@@ -362,11 +363,22 @@ const BookingFlow = () => {
     return Math.ceil(diff / (1000 * 60 * 60 * 24));
   };
 
-  const calculateTotalPrice = () => {
+  const calculateSubtotal = () => {
     const unit = units.find(u => u.id === selectedUnit);
     if (!unit?.price_per_night) return 0;
     const nights = calculateNights();
     return unit.price_per_night * nights;
+  };
+
+  const calculateTax = () => {
+    const unit = units.find(u => u.id === selectedUnit);
+    const subtotal = calculateSubtotal();
+    const taxRate = unit?.tax_percentage || 14;
+    return subtotal * (taxRate / 100);
+  };
+
+  const calculateTotalPrice = () => {
+    return calculateSubtotal() + calculateTax();
   };
 
   const navigatePhoto = (direction: 'prev' | 'next') => {
@@ -720,12 +732,19 @@ const BookingFlow = () => {
                         <span className="text-sm text-muted-foreground">{calculateNights()} night{calculateNights() !== 1 ? "s" : ""}:</span>
                         <span className="text-sm">${units.find(u => u.id === selectedUnit)?.price_per_night} × {calculateNights()}</span>
                       </div>
-                      <div className="border-t pt-2 flex justify-between items-center">
-                        <span className="font-semibold">Total Price:</span>
-                        <span className="text-2xl font-bold text-accent">${calculateTotalPrice()}</span>
-                      </div>
-                      <div className="mt-1">
-                        <span className="text-xs text-muted-foreground">Price includes taxes</span>
+                      <div className="border-t pt-2 mt-2 space-y-1">
+                        <div className="flex justify-between items-center">
+                          <span className="font-semibold text-sm uppercase">Price:</span>
+                          <span className="font-bold">${calculateSubtotal().toFixed(2)}</span>
+                        </div>
+                        <div className="flex justify-between items-center">
+                          <span className="font-semibold text-sm uppercase">Tax ({units.find(u => u.id === selectedUnit)?.tax_percentage || 14}%):</span>
+                          <span className="font-bold">${calculateTax().toFixed(2)}</span>
+                        </div>
+                        <div className="flex justify-between items-center pt-2 border-t">
+                          <span className="font-semibold uppercase">Grand Total:</span>
+                          <span className="text-2xl font-bold text-accent">${calculateTotalPrice().toFixed(2)}</span>
+                        </div>
                       </div>
                     </div>
                   </div>
@@ -1103,12 +1122,19 @@ const BookingFlow = () => {
                           <span className="text-sm text-muted-foreground">{calculateNights()} nights:</span>
                           <span className="text-sm">${units.find(u => u.id === selectedUnit)?.price_per_night} × {calculateNights()}</span>
                         </div>
-                        <div className="flex justify-between items-center border-t pt-2">
-                          <span className="font-semibold text-lg">Total Price:</span>
-                          <span className="text-2xl font-bold text-accent">${calculateTotalPrice()}</span>
-                        </div>
-                        <div className="mt-1">
-                          <span className="text-xs text-muted-foreground">Price includes taxes</span>
+                        <div className="border-t pt-3 mt-3 space-y-2">
+                          <div className="flex justify-between items-center">
+                            <span className="font-bold uppercase">Price:</span>
+                            <span className="font-bold text-lg">${calculateSubtotal().toFixed(2)}</span>
+                          </div>
+                          <div className="flex justify-between items-center">
+                            <span className="font-bold uppercase">Tax ({units.find(u => u.id === selectedUnit)?.tax_percentage || 14}%):</span>
+                            <span className="font-bold text-lg">${calculateTax().toFixed(2)}</span>
+                          </div>
+                          <div className="flex justify-between items-center border-t pt-3 mt-2">
+                            <span className="font-bold text-lg uppercase">Grand Total:</span>
+                            <span className="text-3xl font-bold text-accent">${calculateTotalPrice().toFixed(2)}</span>
+                          </div>
                         </div>
                       </div>
                     </div>

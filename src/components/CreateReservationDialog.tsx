@@ -162,6 +162,8 @@ interface Unit {
   name: string;
   unit_number: string | null;
   unit_type: string | null;
+  price_per_night: number | null;
+  tax_percentage: number | null;
 }
 
 export function CreateReservationDialog() {
@@ -224,10 +226,20 @@ export function CreateReservationDialog() {
     ? differenceInDays(checkOutDate, checkInDate) 
     : 0;
 
-  // Calculate total price
-  const totalPrice = pricePerNight && nights > 0 
+  // Get selected unit for tax calculation
+  const selectedUnitData = availableUnits.find(u => u.id === unitId);
+  const taxPercentage = selectedUnitData?.tax_percentage || 14;
+
+  // Calculate subtotal (before tax)
+  const subtotal = pricePerNight && nights > 0 
     ? Number(pricePerNight) * nights 
     : 0;
+
+  // Calculate tax amount
+  const taxAmount = subtotal * (taxPercentage / 100);
+
+  // Calculate total price (including tax)
+  const totalPrice = subtotal + taxAmount;
 
   // Auto-set commission rate based on source
   useEffect(() => {
@@ -435,7 +447,7 @@ export function CreateReservationDialog() {
   const fetchUnits = async () => {
     const { data, error } = await supabase
       .from("units")
-      .select("id, name, unit_number, unit_type")
+      .select("id, name, unit_number, unit_type, price_per_night, tax_percentage")
       .order("name");
 
     if (error) {
@@ -1637,8 +1649,14 @@ export function CreateReservationDialog() {
             </p>
             {pricePerNight && nights > 0 && (
               <div className="text-sm space-y-1 pt-2 border-t">
+                <p className="text-xs text-muted-foreground">
+                  Subtotal (before tax): ${subtotal.toFixed(2)}
+                </p>
+                <p className="text-xs text-muted-foreground">
+                  Tax ({taxPercentage}%): ${taxAmount.toFixed(2)}
+                </p>
                 <p className="font-medium text-primary">
-                  Total Price: ${totalPrice.toFixed(0)}
+                  Grand Total (incl. tax): ${totalPrice.toFixed(2)}
                 </p>
                 <p className="text-xs text-muted-foreground">
                   Commission ({commissionRate}%): ${((totalPrice * commissionRate) / 100).toFixed(2)}

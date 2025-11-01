@@ -38,6 +38,7 @@ interface Unit {
   max_guests: number | null;
   sofa_bed: boolean | null;
   price_per_night: number | null;
+  tax_percentage: number | null;
   photos: string[] | null;
 }
 
@@ -75,6 +76,7 @@ const Rooms = () => {
     max_guests: null,
     sofa_bed: false,
     price_per_night: null,
+    tax_percentage: 14.00,
     photos: [],
   });
   const [uploadingPhotos, setUploadingPhotos] = useState<string | null>(null);
@@ -433,6 +435,7 @@ const Rooms = () => {
       max_guests: newUnit.max_guests || null,
       sofa_bed: newUnit.sofa_bed || false,
       price_per_night: newUnit.price_per_night || null,
+      tax_percentage: newUnit.tax_percentage || 14.00,
     }]);
 
     if (error) {
@@ -463,6 +466,7 @@ const Rooms = () => {
       max_guests: null,
       sofa_bed: false,
       price_per_night: null,
+      tax_percentage: 14.00,
       photos: [],
     });
     fetchUnits();
@@ -539,6 +543,7 @@ const Rooms = () => {
                 <TableHead>Max Guests</TableHead>
                 <TableHead>Sofa Bed</TableHead>
                 <TableHead>Price/Night</TableHead>
+                <TableHead>Tax %</TableHead>
                 <TableHead>Photos</TableHead>
                 <TableHead>Status</TableHead>
                 <TableHead>Booking.com ID</TableHead>
@@ -625,6 +630,17 @@ const Rooms = () => {
                     />
                   </TableCell>
                   <TableCell>
+                    <Input
+                      type="number"
+                      step="0.01"
+                      min="0"
+                      max="100"
+                      value={newUnit.tax_percentage ?? ''}
+                      onChange={(e) => setNewUnit({ ...newUnit, tax_percentage: e.target.value ? parseFloat(e.target.value) : null })}
+                      placeholder="14"
+                    />
+                  </TableCell>
+                  <TableCell>
                     <div className="text-muted-foreground text-sm">Add room first, then upload photos</div>
                   </TableCell>
                   <TableCell>
@@ -676,6 +692,9 @@ const Rooms = () => {
                             baths: null,
                             max_guests: null,
                             sofa_bed: false,
+                            price_per_night: null,
+                            tax_percentage: 14.00,
+                            photos: [],
                           });
                         }}
                       >
@@ -832,6 +851,25 @@ const Rooms = () => {
                         />
                       ) : (
                         unit.price_per_night ? `$${unit.price_per_night}` : '-'
+                      )}
+                    </TableCell>
+                    <TableCell>
+                      {isEditing ? (
+                        <Input
+                          type="number"
+                          step="0.01"
+                          min="0"
+                          max="100"
+                          value={isBulkEdit ? (bulkEditUnits[unit.id]?.tax_percentage ?? '') : (editedUnit.tax_percentage ?? '')}
+                          onChange={(e) =>
+                            isBulkEdit
+                              ? handleBulkEditChange(unit.id, 'tax_percentage', e.target.value ? parseFloat(e.target.value) : null)
+                              : setEditedUnit({ ...editedUnit, tax_percentage: e.target.value ? parseFloat(e.target.value) : null })
+                          }
+                          placeholder="14"
+                        />
+                      ) : (
+                        unit.tax_percentage ? `${unit.tax_percentage}%` : '14%'
                       )}
                     </TableCell>
                     <TableCell>
