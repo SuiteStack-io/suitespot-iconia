@@ -289,6 +289,30 @@ const BookingFlow = () => {
     setGuestGenders(newGuestGenders);
   }, [adults, children]);
 
+  // Check if a date range contains any fully booked dates
+  const isRangeValid = (range: DateRange | undefined) => {
+    if (!range?.from || !range?.to) return true;
+    
+    const start = new Date(range.from);
+    const end = new Date(range.to);
+    
+    // Check each date in the range (excluding checkout date)
+    for (let d = new Date(start); d < end; d.setDate(d.getDate() + 1)) {
+      const isBlocked = bookedDates.some(bookedDate => 
+        format(bookedDate, 'yyyy-MM-dd') === format(d, 'yyyy-MM-dd')
+      );
+      if (isBlocked) return false;
+    }
+    return true;
+  };
+
+  const handleDateSelect = (range: DateRange | undefined) => {
+    // Only set the range if it's valid (doesn't contain blocked dates)
+    if (isRangeValid(range)) {
+      setDateRange(range);
+    }
+  };
+
   const updateGuestName = (index: number, value: string) => {
     const updated = [...guestNames];
     updated[index] = value;
@@ -743,7 +767,7 @@ const BookingFlow = () => {
                       <Calendar
                         mode="range"
                         selected={dateRange}
-                        onSelect={setDateRange}
+                        onSelect={handleDateSelect}
                         disabled={(date) => {
                           const isPast = date < new Date();
                           const isFullyBooked = bookedDates.some(
