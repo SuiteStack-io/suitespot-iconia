@@ -1,18 +1,72 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { Button } from "@/components/ui/button";
 import { Calendar } from "@/components/ui/calendar";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { CalendarIcon, Users } from "lucide-react";
-import { format } from "date-fns";
+import { format, parseISO } from "date-fns";
 import { useNavigate } from "react-router-dom";
 import { cn } from "@/lib/utils";
 import type { DateRange } from "react-day-picker";
+import { supabase } from "@/integrations/supabase/client";
 
 export const BookingWidget = () => {
   const navigate = useNavigate();
   const [dateRange, setDateRange] = useState<DateRange | undefined>();
   const [guests, setGuests] = useState<string>("2");
+  const [bookedDates, setBookedDates] = useState<Date[]>([]);
+
+  useEffect(() => {
+    const fetchBookedDates = async () => {
+      try {
+        const { data: reservations, error } = await supabase
+          .from("reservations")
+          .select("check_in_date, check_out_date, unit_id")
+          .neq("status", "cancelled");
+
+        if (error) throw error;
+
+        // Get all dates that are fully booked (all units booked)
+        const { data: allUnits } = await supabase
+          .from("units")
+          .select("id")
+          .eq("status", "available");
+
+        const totalUnits = allUnits?.length || 0;
+        if (totalUnits === 0) return;
+
+        // Group reservations by date
+        const dateBookings = new Map<string, Set<string>>();
+        
+        reservations?.forEach(res => {
+          const start = parseISO(res.check_in_date);
+          const end = parseISO(res.check_out_date);
+          
+          for (let d = new Date(start); d < end; d.setDate(d.getDate() + 1)) {
+            const dateStr = format(d, "yyyy-MM-dd");
+            if (!dateBookings.has(dateStr)) {
+              dateBookings.set(dateStr, new Set());
+            }
+            dateBookings.get(dateStr)?.add(res.unit_id);
+          }
+        });
+
+        // Find dates where all units are booked
+        const fullyBookedDates: Date[] = [];
+        dateBookings.forEach((unitIds, dateStr) => {
+          if (unitIds.size >= totalUnits) {
+            fullyBookedDates.push(parseISO(dateStr));
+          }
+        });
+
+        setBookedDates(fullyBookedDates);
+      } catch (error: any) {
+        console.error("Error fetching booked dates:", error);
+      }
+    };
+
+    fetchBookedDates();
+  }, []);
 
   const handleSearch = () => {
     if (dateRange?.from && dateRange?.to) {
@@ -65,10 +119,22 @@ export const BookingWidget = () => {
                 mode="range"
                 selected={dateRange}
                 onSelect={setDateRange}
-                disabled={(date) => date < new Date()}
+                disabled={(date) => {
+                  const isPast = date < new Date();
+                  const isBooked = bookedDates.some(bookedDate => 
+                    format(bookedDate, 'yyyy-MM-dd') === format(date, 'yyyy-MM-dd')
+                  );
+                  return isPast || isBooked;
+                }}
                 initialFocus
                 numberOfMonths={1}
                 className="pointer-events-auto"
+                modifiers={{
+                  booked: bookedDates,
+                }}
+                modifiersClassNames={{
+                  booked: "bg-white text-muted-foreground opacity-60 cursor-not-allowed",
+                }}
               />
             </PopoverContent>
           </Popover>
@@ -96,10 +162,22 @@ export const BookingWidget = () => {
                 mode="range"
                 selected={dateRange}
                 onSelect={setDateRange}
-                disabled={(date) => date < new Date()}
+                disabled={(date) => {
+                  const isPast = date < new Date();
+                  const isBooked = bookedDates.some(bookedDate => 
+                    format(bookedDate, 'yyyy-MM-dd') === format(date, 'yyyy-MM-dd')
+                  );
+                  return isPast || isBooked;
+                }}
                 initialFocus
                 numberOfMonths={1}
                 className="pointer-events-auto"
+                modifiers={{
+                  booked: bookedDates,
+                }}
+                modifiersClassNames={{
+                  booked: "bg-white text-muted-foreground opacity-60 cursor-not-allowed",
+                }}
               />
             </PopoverContent>
           </Popover>

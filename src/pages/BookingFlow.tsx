@@ -756,11 +756,8 @@ const BookingFlow = () => {
                         modifiers={{
                           booked: bookedDates
                         }}
-                        modifiersStyles={{
-                          booked: {
-                            textDecoration: 'line-through',
-                            opacity: 0.5
-                          }
+                        modifiersClassNames={{
+                          booked: "bg-white text-muted-foreground opacity-60 cursor-not-allowed"
                         }}
                       />
                     </div>
