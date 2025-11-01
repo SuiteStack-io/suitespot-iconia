@@ -124,7 +124,8 @@ const BookingFlow = () => {
   // Booking data
   const [dateRange, setDateRange] = useState<DateRange | undefined>();
   const [selectedUnit, setSelectedUnit] = useState<string>("");
-  const [guestNames, setGuestNames] = useState<string[]>([""]);
+  const [guestFirstNames, setGuestFirstNames] = useState<string[]>([""]);
+  const [guestLastNames, setGuestLastNames] = useState<string[]>([""]);
   const [guestTypes, setGuestTypes] = useState<('adult' | 'child')[]>(["adult"]);
   const [guestGenders, setGuestGenders] = useState<('male' | 'female' | '')[]>([""]);
   const [adults, setAdults] = useState(0);
@@ -277,14 +278,16 @@ const BookingFlow = () => {
   useEffect(() => {
     const totalGuests = adults + children;
     
-    const newGuestNames = Array(totalGuests).fill('').map((_, i) => guestNames[i] || '');
+    const newGuestFirstNames = Array(totalGuests).fill('').map((_, i) => guestFirstNames[i] || '');
+    const newGuestLastNames = Array(totalGuests).fill('').map((_, i) => guestLastNames[i] || '');
     const newGuestTypes = Array(totalGuests).fill('adult' as 'adult' | 'child').map((_, i) => {
       if (guestTypes[i]) return guestTypes[i];
       return i < adults ? 'adult' : 'child';
     });
     const newGuestGenders = Array(totalGuests).fill('').map((_, i) => guestGenders[i] || '');
     
-    setGuestNames(newGuestNames);
+    setGuestFirstNames(newGuestFirstNames);
+    setGuestLastNames(newGuestLastNames);
     setGuestTypes(newGuestTypes);
     setGuestGenders(newGuestGenders);
   }, [adults, children]);
@@ -313,10 +316,16 @@ const BookingFlow = () => {
     }
   };
 
-  const updateGuestName = (index: number, value: string) => {
-    const updated = [...guestNames];
+  const updateGuestFirstName = (index: number, value: string) => {
+    const updated = [...guestFirstNames];
     updated[index] = value;
-    setGuestNames(updated);
+    setGuestFirstNames(updated);
+  };
+
+  const updateGuestLastName = (index: number, value: string) => {
+    const updated = [...guestLastNames];
+    updated[index] = value;
+    setGuestLastNames(updated);
   };
 
   const updateGuestType = (index: number, type: 'adult' | 'child') => {
@@ -607,7 +616,12 @@ const BookingFlow = () => {
   };
 
   const handleSubmit = async () => {
-    if (!dateRange?.from || !dateRange?.to || !selectedUnit || guestNames.filter(n => n.trim()).length === 0) {
+    // Combine first and last names for validation and submission
+    const combinedNames = guestFirstNames.map((firstName, i) => 
+      `${firstName.trim()} ${guestLastNames[i]?.trim() || ''}`.trim()
+    );
+    
+    if (!dateRange?.from || !dateRange?.to || !selectedUnit || combinedNames.filter(n => n.trim()).length === 0) {
       toast({
         title: "Missing Information",
         description: "Please fill in all required fields",
@@ -619,7 +633,7 @@ const BookingFlow = () => {
     setIsSubmitting(true);
 
     try {
-      const validGuestNames = guestNames.filter(n => n.trim());
+      const validGuestNames = combinedNames.filter(n => n.trim());
       
       // Get unit details for email
       const selectedUnitDetails = units.find(u => u.id === selectedUnit);
@@ -950,15 +964,25 @@ const BookingFlow = () => {
                 
                 {/* Guest Names with Types and Genders */}
                 <div className="space-y-4">
-                  {guestNames.map((name, index) => (
+                  {guestFirstNames.map((firstName, index) => (
                     <div key={index} className="space-y-3 p-4 border rounded-lg">
-                      <div>
-                        <Label>Guest {index + 1} Name <span className="text-destructive">*</span></Label>
-                        <Input
-                          placeholder={`Guest ${index + 1} name`}
-                          value={name}
-                          onChange={(e) => updateGuestName(index, e.target.value)}
-                        />
+                      <div className="grid grid-cols-2 gap-3">
+                        <div>
+                          <Label>First Name <span className="text-destructive">*</span></Label>
+                          <Input
+                            placeholder="First name"
+                            value={firstName}
+                            onChange={(e) => updateGuestFirstName(index, e.target.value)}
+                          />
+                        </div>
+                        <div>
+                          <Label>Last Name <span className="text-destructive">*</span></Label>
+                          <Input
+                            placeholder="Last name"
+                            value={guestLastNames[index] || ''}
+                            onChange={(e) => updateGuestLastName(index, e.target.value)}
+                          />
+                        </div>
                       </div>
                       
                       <div>
@@ -1407,7 +1431,7 @@ const BookingFlow = () => {
                       !email || 
                       !phone ||
                       !nationality ||
-                      guestNames.filter(n => n.trim()).length === 0 ||
+                      guestFirstNames.filter((fn, i) => fn.trim() && guestLastNames[i]?.trim()).length === 0 ||
                       !idPassportFile ||
                       (idPassportType === 'id' && !idPassportFileBack) ||
                       (isMarriageCertificateRequired() && !marriageCertificateFile)
@@ -1442,7 +1466,11 @@ const BookingFlow = () => {
                   <div>
                     <p className="text-sm text-muted-foreground">Guests</p>
                     <p className="font-medium">{adults} Adult{adults > 1 ? "s" : ""}, {children} Child{children !== 1 ? "ren" : ""}</p>
-                    <p className="text-sm mt-1">{guestNames.filter(n => n.trim()).join(", ")}</p>
+                    <p className="text-sm mt-1">
+                      {guestFirstNames.map((firstName, i) => 
+                        `${firstName.trim()} ${guestLastNames[i]?.trim() || ''}`.trim()
+                      ).filter(n => n).join(", ")}
+                    </p>
                   </div>
 
                   <div>
