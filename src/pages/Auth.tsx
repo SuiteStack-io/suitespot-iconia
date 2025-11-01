@@ -10,13 +10,11 @@ import { toast } from 'sonner';
 import suitespotLogo from '@/assets/suitespot-logo.png';
 
 const Auth = () => {
-  const [isLogin, setIsLogin] = useState(true);
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
-  const [fullName, setFullName] = useState('');
   const [rememberMe, setRememberMe] = useState(true);
   const [loading, setLoading] = useState(false);
-  const { signIn, signUp, user } = useAuth();
+  const { signIn, user } = useAuth();
   const navigate = useNavigate();
   const location = useLocation();
   const searchParams = new URLSearchParams(location.search);
@@ -33,30 +31,16 @@ const Auth = () => {
     setLoading(true);
 
     try {
-      if (isLogin) {
-        const { error } = await signIn(email, password);
-        if (error) {
-          if (error.message.includes('Invalid login credentials')) {
-            toast.error('Invalid email or password');
-          } else {
-            toast.error(error.message);
-          }
+      const { error } = await signIn(email, password);
+      if (error) {
+        if (error.message.includes('Invalid login credentials')) {
+          toast.error('Invalid email or password');
         } else {
-          toast.success('Welcome back!');
-          navigate(from);
+          toast.error(error.message);
         }
       } else {
-        const { error } = await signUp(email, password, fullName);
-        if (error) {
-          if (error.message.includes('already registered')) {
-            toast.error('This email is already registered');
-          } else {
-            toast.error(error.message);
-          }
-        } else {
-          toast.success('Account created! You can now sign in.');
-          navigate(from);
-        }
+        toast.success('Welcome back!');
+        navigate(from);
       }
     } catch (error: any) {
       toast.error('An unexpected error occurred');
@@ -81,24 +65,11 @@ const Auth = () => {
           </div>
           <CardTitle className="text-2xl">SuiteSpot Bookings</CardTitle>
           <CardDescription>
-            {isLogin ? 'Sign in to manage your reservations' : 'Create an account to get started'}
+            Sign in to manage your reservations
           </CardDescription>
         </CardHeader>
         <CardContent>
           <form onSubmit={handleSubmit} className="space-y-4">
-            {!isLogin && (
-              <div className="space-y-2">
-                <Label htmlFor="fullName">Full Name</Label>
-                <Input
-                  id="fullName"
-                  type="text"
-                  placeholder="John Doe"
-                  value={fullName}
-                  onChange={(e) => setFullName(e.target.value)}
-                  required
-                />
-              </div>
-            )}
             <div className="space-y-2">
               <Label htmlFor="email">Email</Label>
               <Input
@@ -122,35 +93,23 @@ const Auth = () => {
                 minLength={6}
               />
             </div>
-            {isLogin && (
-              <div className="flex items-center space-x-2">
-                <Checkbox 
-                  id="remember" 
-                  checked={rememberMe}
-                  onCheckedChange={(checked) => setRememberMe(checked as boolean)}
-                />
-                <Label 
-                  htmlFor="remember" 
-                  className="text-sm font-normal cursor-pointer"
-                >
-                  Stay signed in
-                </Label>
-              </div>
-            )}
+            <div className="flex items-center space-x-2">
+              <Checkbox 
+                id="remember" 
+                checked={rememberMe}
+                onCheckedChange={(checked) => setRememberMe(checked as boolean)}
+              />
+              <Label 
+                htmlFor="remember" 
+                className="text-sm font-normal cursor-pointer"
+              >
+                Stay signed in
+              </Label>
+            </div>
             <Button type="submit" className="w-full bg-slate-900 hover:bg-slate-800 text-white" disabled={loading}>
-              {loading ? 'Please wait...' : isLogin ? 'Sign In' : 'Sign Up'}
+              {loading ? 'Please wait...' : 'Sign In'}
             </Button>
           </form>
-          <div className="mt-4 text-center text-sm">
-            {isLogin ? "Don't have an account? " : 'Already have an account? '}
-            <button
-              type="button"
-              onClick={() => setIsLogin(!isLogin)}
-              className="text-accent hover:underline font-medium"
-            >
-              {isLogin ? 'Sign up' : 'Sign in'}
-            </button>
-          </div>
         </CardContent>
       </Card>
     </div>
