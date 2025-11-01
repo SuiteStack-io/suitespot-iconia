@@ -870,6 +870,9 @@ const BookingFlow = () => {
                         <span className="font-semibold">Total Price:</span>
                         <span className="text-2xl font-bold text-accent">${calculateTotalPrice()}</span>
                       </div>
+                      <div className="mt-1">
+                        <span className="text-xs text-muted-foreground">Price includes taxes</span>
+                      </div>
                     </div>
                   </div>
                 )}
@@ -1455,6 +1458,9 @@ const BookingFlow = () => {
                         <div className="flex justify-between items-center border-t pt-2">
                           <span className="font-semibold text-lg">Total Price:</span>
                           <span className="text-2xl font-bold text-accent">${calculateTotalPrice()}</span>
+                        </div>
+                        <div className="mt-1">
+                          <span className="text-xs text-muted-foreground">Price includes taxes</span>
                         </div>
                       </div>
                     </div>
