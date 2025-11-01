@@ -1,9 +1,8 @@
 import { Button } from "@/components/ui/button";
 import { Link } from "react-router-dom";
-import { User } from "lucide-react";
+import { User, Menu } from "lucide-react";
 import { useState } from "react";
 import logo from "@/assets/suitespot-logo.png";
-import menuIcon from "@/assets/menu-icon.png";
 
 export const PublicNav = () => {
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
@@ -21,7 +20,7 @@ export const PublicNav = () => {
             className="md:hidden p-2 rounded-full bg-muted hover:bg-accent transition-colors"
             aria-label="Toggle menu"
           >
-            <img src={menuIcon} alt="Menu" className="h-5 w-5" />
+            <Menu className="h-5 w-5 text-foreground" />
           </button>
         </div>
         <div className="hidden md:flex items-center gap-8">
