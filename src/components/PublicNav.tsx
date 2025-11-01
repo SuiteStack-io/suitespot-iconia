@@ -119,6 +119,15 @@ export const PublicNav = () => {
             >
               Blog
             </Link>
+            <a 
+              href="/auth" 
+              target="_blank"
+              rel="noopener noreferrer"
+              className="block py-3 text-foreground hover:text-accent transition-colors border-b border-border"
+              onClick={() => setMobileMenuOpen(false)}
+            >
+              Admin
+            </a>
             <Button asChild className="w-full bg-accent hover:bg-accent/90 mt-4">
               <Link to="/book" onClick={() => setMobileMenuOpen(false)}>Book Now</Link>
             </Button>
