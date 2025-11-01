@@ -19,13 +19,6 @@ export const PublicNav = () => {
             <img src={logo} alt="SuiteSpot logo" className="h-8 w-8" />
             <span className="text-2xl font-serif font-bold text-foreground">SuiteSpot</span>
           </Link>
-          <button
-            onClick={() => setMobileMenuOpen(!mobileMenuOpen)}
-            className="md:hidden p-2 rounded-full bg-muted hover:bg-accent transition-colors"
-            aria-label="Toggle menu"
-          >
-            <img src={menuIcon} alt="Menu" className="h-5 w-5" />
-          </button>
         </div>
         <div className="hidden md:flex items-center gap-8">
           <Link to="/our-story" className="text-sm text-white hover:text-white/80 transition-colors">
@@ -51,11 +44,18 @@ export const PublicNav = () => {
           </Link>
         </div>
         <div className="flex items-center gap-4">
+          <button
+            onClick={() => setMobileMenuOpen(!mobileMenuOpen)}
+            className="md:hidden p-2 rounded-full bg-muted hover:bg-accent transition-colors"
+            aria-label="Toggle menu"
+          >
+            <img src={menuIcon} alt="Menu" className="h-5 w-5" />
+          </button>
           <Link 
             to="/admin" 
             target="_blank"
             rel="noopener noreferrer"
-            className="p-2 rounded-full bg-muted hover:bg-accent transition-colors"
+            className="hidden md:flex p-2 rounded-full bg-muted hover:bg-accent transition-colors"
             aria-label="Admin Dashboard"
           >
             <User className="h-5 w-5 text-foreground" />
