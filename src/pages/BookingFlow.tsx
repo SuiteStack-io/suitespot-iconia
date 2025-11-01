@@ -136,10 +136,6 @@ const BookingFlow = () => {
   const [nationality, setNationality] = useState("");
   const [nationalityOpen, setNationalityOpen] = useState(false);
   const [countryCodeOpen, setCountryCodeOpen] = useState(false);
-  const [marriageCertificateFile, setMarriageCertificateFile] = useState<File | null>(null);
-  const [marriageCertificateUrl, setMarriageCertificateUrl] = useState<string | null>(null);
-  const [marriageUploadProgress, setMarriageUploadProgress] = useState<number>(0);
-  const [isMarriageUploading, setIsMarriageUploading] = useState<boolean>(false);
   const [notes, setNotes] = useState("");
   const [selectedPhotoIndex, setSelectedPhotoIndex] = useState<number | null>(null);
   const [isPhotoModalOpen, setIsPhotoModalOpen] = useState(false);
@@ -345,74 +341,6 @@ const BookingFlow = () => {
     return hasMale && hasFemale;
   };
 
-  const handleMarriageCertificateUpload = async (file: File) => {
-    setMarriageCertificateFile(file);
-    setIsMarriageUploading(true);
-    setMarriageUploadProgress(0);
-    
-    const progressInterval = setInterval(() => {
-      setMarriageUploadProgress(prev => prev >= 90 ? 90 : prev + 10);
-    }, 100);
-    
-    try {
-      const fileExt = file.name.split('.').pop();
-      const fileName = `${Date.now()}-${Math.random().toString(36).substring(7)}.${fileExt}`;
-      const filePath = `${fileName}`;
-
-      const { error: uploadError } = await supabase.storage
-        .from('marriage-certificates')
-        .upload(filePath, file);
-
-      clearInterval(progressInterval);
-      setMarriageUploadProgress(100);
-
-      if (uploadError) {
-        toast({
-          title: "Upload Failed",
-          description: "Failed to upload marriage certificate",
-          variant: "destructive",
-        });
-        setMarriageCertificateFile(null);
-        setIsMarriageUploading(false);
-        setMarriageUploadProgress(0);
-        return;
-      }
-
-      const { data: { publicUrl } } = supabase.storage
-        .from('marriage-certificates')
-        .getPublicUrl(filePath);
-      
-      setMarriageCertificateUrl(publicUrl);
-      
-      await new Promise(resolve => setTimeout(resolve, 500));
-      setIsMarriageUploading(false);
-      setMarriageUploadProgress(0);
-      toast({
-        title: "Upload Successful",
-        description: "Marriage certificate uploaded successfully",
-      });
-    } catch (error) {
-      clearInterval(progressInterval);
-      toast({
-        title: "Upload Failed",
-        description: "Failed to upload marriage certificate",
-        variant: "destructive",
-      });
-      setMarriageCertificateFile(null);
-      setIsMarriageUploading(false);
-      setMarriageUploadProgress(0);
-    }
-  };
-
-  const handleMarriageCertificateDelete = () => {
-    setMarriageCertificateFile(null);
-    setMarriageCertificateUrl(null);
-    setMarriageUploadProgress(0);
-    setIsMarriageUploading(false);
-    const input = document.getElementById('marriage-certificate') as HTMLInputElement;
-    if (input) input.value = '';
-  };
-
   const calculateNights = () => {
     if (!dateRange?.from || !dateRange?.to) return 0;
     const diff = dateRange.to.getTime() - dateRange.from.getTime();
@@ -532,7 +460,6 @@ const BookingFlow = () => {
         contact_email: email,
         contact_phone: `${countryCode}${phone}`,
         guest_nationality: nationality,
-        marriage_certificate_url: marriageCertificateUrl,
         notes,
         status: "confirmed",
         source: "direct website",
@@ -961,76 +888,32 @@ const BookingFlow = () => {
                   </Popover>
                 </div>
 
-                {/* Marriage Certificate - Conditional */}
+                {/* Marriage Certificate Notice - Conditional */}
                 {isMarriageCertificateRequired() && (
-                  <div className="space-y-3 p-4 border-2 border-amber-500 rounded-lg bg-amber-50 dark:bg-amber-950/20">
-                    <div>
-                      <Label className="text-base font-semibold">
-                        Marriage Certificate <span className="text-destructive">*</span>
-                      </Label>
-                      <p className="text-sm text-muted-foreground mt-1">
-                        Required for Arab couples (male + female adults)
-                      </p>
+                  <div className="p-4 border-2 border-amber-500/50 rounded-lg bg-amber-50 dark:bg-amber-950/20">
+                    <div className="flex gap-3">
+                      <div className="flex-shrink-0">
+                        <svg 
+                          className="w-6 h-6 text-amber-600 dark:text-amber-500" 
+                          fill="currentColor" 
+                          viewBox="0 0 20 20"
+                        >
+                          <path 
+                            fillRule="evenodd" 
+                            d="M8.257 3.099c.765-1.36 2.722-1.36 3.486 0l5.58 9.92c.75 1.334-.213 2.98-1.742 2.98H4.42c-1.53 0-2.493-1.646-1.743-2.98l5.58-9.92zM11 13a1 1 0 11-2 0 1 1 0 012 0zm-1-8a1 1 0 00-1 1v3a1 1 0 002 0V6a1 1 0 00-1-1z" 
+                            clipRule="evenodd" 
+                          />
+                        </svg>
+                      </div>
+                      <div className="flex-1">
+                        <h4 className="text-base font-semibold text-amber-900 dark:text-amber-100 mb-1">
+                          Marriage certificate is required for Egyptian and Arab couples/groups
+                        </h4>
+                        <p className="text-sm text-amber-800 dark:text-amber-200">
+                          Following the Egyptian Law, if any couple are Egyptians or holds an Arab passport, a marriage certificate will be required upon check-in to stay together.
+                        </p>
+                      </div>
                     </div>
-                    
-                    {marriageCertificateFile ? (
-                      <div className="space-y-2">
-                        <div className="flex items-center gap-2 p-2 bg-background rounded border">
-                          <span className="text-sm flex-1 truncate">{marriageCertificateFile.name}</span>
-                          <Button
-                            type="button"
-                            variant="ghost"
-                            size="sm"
-                            onClick={handleMarriageCertificateDelete}
-                            className="hover:text-destructive"
-                            disabled={isMarriageUploading}
-                          >
-                            <X className="h-4 w-4" />
-                          </Button>
-                        </div>
-                        {isMarriageUploading && (
-                          <div className="space-y-1">
-                            <Progress value={marriageUploadProgress} className="h-2" />
-                            <p className="text-xs text-muted-foreground text-center">{marriageUploadProgress}%</p>
-                          </div>
-                        )}
-                      </div>
-                    ) : (
-                      <div className="flex items-center gap-2">
-                        <Input
-                          id="marriage-certificate"
-                          type="file"
-                          accept="image/*,application/pdf"
-                          onChange={(e) => {
-                            const file = e.target.files?.[0];
-                            if (file) {
-                              const validTypes = ['image/jpeg', 'image/jpg', 'image/png', 'image/gif', 'image/webp', 'application/pdf'];
-                              if (!validTypes.includes(file.type)) {
-                                toast({
-                                  title: "Invalid File",
-                                  description: "Please upload a valid image or PDF file",
-                                  variant: "destructive",
-                                });
-                                e.target.value = '';
-                                return;
-                              }
-                              if (file.size > 10 * 1024 * 1024) {
-                                toast({
-                                  title: "File Too Large",
-                                  description: "File size must be less than 10MB",
-                                  variant: "destructive",
-                                });
-                                e.target.value = '';
-                                return;
-                              }
-                              handleMarriageCertificateUpload(file);
-                            }
-                          }}
-                          className="flex-1"
-                        />
-                        <Upload className="h-4 w-4 text-muted-foreground" />
-                      </div>
-                    )}
                   </div>
                 )}
 
@@ -1135,8 +1018,7 @@ const BookingFlow = () => {
                       !email || 
                       !phone ||
                       !nationality ||
-                      guestFirstNames.filter((fn, i) => fn.trim() && guestLastNames[i]?.trim()).length === 0 ||
-                      (isMarriageCertificateRequired() && !marriageCertificateFile)
+                      guestFirstNames.filter((fn, i) => fn.trim() && guestLastNames[i]?.trim()).length === 0
                     }
                     className="flex-1 bg-accent hover:bg-accent/90"
                   >
