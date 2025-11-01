@@ -519,6 +519,13 @@ const handler = async (req: Request): Promise<Response> => {
                 </div>
                 ` : ''}
                 
+                ${customerPhone ? `
+                <div class="detail-row">
+                  <div class="detail-label">Mobile Number:</div>
+                  <div class="detail-value">${customerPhone}</div>
+                </div>
+                ` : ''}
+                
                 <div class="detail-row">
                   <div class="detail-label">Adults:</div>
                   <div class="detail-value">${finalAdults || 0}</div>
