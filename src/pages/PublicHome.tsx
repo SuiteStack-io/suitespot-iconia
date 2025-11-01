@@ -20,8 +20,8 @@ const PublicHome = () => {
         
         {/* Hero Content */}
         <div className="relative z-10 text-center px-6 max-w-4xl mt-16 md:mt-0">
-          <h1 className="text-3xl md:text-7xl font-serif font-bold text-white mb-6 animate-fade-in">Welcome Home</h1>
-          <p className="text-xl md:text-2xl text-white/90 mb-48 md:mb-8 animate-fade-in" style={{
+          <h1 className="text-3xl md:text-7xl font-serif font-bold text-black mb-6 animate-fade-in">Welcome Home</h1>
+          <p className="text-xl md:text-2xl text-black mb-48 md:mb-8 animate-fade-in" style={{
           animationDelay: "0.2s"
         }}>Blending the comfort of home with the service of a boutique hotel in Zamalek</p>
           
