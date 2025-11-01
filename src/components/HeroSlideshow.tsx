@@ -112,7 +112,7 @@ export const HeroSlideshow = () => {
       })}
 
       {/* Gradient overlay */}
-      <div className="absolute inset-0 bg-gradient-to-br from-black/60 to-black/40" />
+      <div className="absolute inset-0 bg-gradient-to-br from-black/10 to-black/5" />
 
       {/* Navigation dots */}
       <div className="absolute bottom-8 left-1/2 -translate-x-1/2 flex gap-2 z-10">
