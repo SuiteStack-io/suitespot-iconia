@@ -10,10 +10,19 @@ export const PublicNav = () => {
   return (
     <nav className="fixed top-0 left-0 right-0 z-50 bg-transparent border-b border-white/20">
       <div className="container mx-auto px-6 py-4 flex items-center justify-between bg-white/25 backdrop-blur-md">
-        <Link to="/" className="flex items-center gap-2">
-          <img src={logo} alt="SuiteSpot logo" className="h-8 w-8" />
-          <span className="text-2xl font-serif font-bold text-foreground">SuiteSpot</span>
-        </Link>
+        <div className="flex items-center gap-4">
+          <Link to="/" className="flex items-center gap-2">
+            <img src={logo} alt="SuiteSpot logo" className="h-8 w-8" />
+            <span className="text-2xl font-serif font-bold text-foreground">SuiteSpot</span>
+          </Link>
+          <button
+            onClick={() => setMobileMenuOpen(!mobileMenuOpen)}
+            className="md:hidden p-2 rounded-full bg-muted hover:bg-accent transition-colors"
+            aria-label="Toggle menu"
+          >
+            <Menu className="h-5 w-5 text-foreground" />
+          </button>
+        </div>
         <div className="hidden md:flex items-center gap-8">
           <Link to="/our-story" className="text-sm text-white hover:text-white/80 transition-colors">
             Our Story
@@ -51,18 +60,6 @@ export const PublicNav = () => {
             <Link to="/book">Book Now</Link>
           </Button>
         </div>
-      </div>
-      
-      {/* Mobile Menu Button - Only visible on mobile */}
-      <div className="md:hidden border-t border-border/30">
-        <button
-          onClick={() => setMobileMenuOpen(!mobileMenuOpen)}
-          className="w-full py-3 flex flex-col items-center justify-center gap-1 bg-white/35 backdrop-blur-md text-[#5D4E37] hover:bg-white/45 transition-all border-t border-white/30"
-          aria-label="Toggle menu"
-        >
-          <Menu className="h-6 w-6" strokeWidth={2.5} />
-          <span className="text-xs font-medium tracking-wider">MENU</span>
-        </button>
       </div>
 
       {/* Mobile Dropdown Menu */}
