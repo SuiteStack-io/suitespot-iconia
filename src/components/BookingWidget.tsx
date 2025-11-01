@@ -25,8 +25,6 @@ export const BookingWidget = () => {
           .eq("status", "confirmed");
 
         if (error) throw error;
-        
-        console.log("📅 Fetched reservations:", reservations);
 
         // Get all dates that are fully booked (all units booked)
         const { data: allUnits } = await supabase
@@ -44,8 +42,6 @@ export const BookingWidget = () => {
           const start = parseISO(res.check_in_date);
           const end = parseISO(res.check_out_date);
           
-          console.log(`Processing reservation: ${res.check_in_date} to ${res.check_out_date}, unit: ${res.unit_id}`);
-          
           for (let d = new Date(start); d < end; d.setDate(d.getDate() + 1)) {
             const dateStr = format(d, "yyyy-MM-dd");
             if (!dateBookings.has(dateStr)) {
@@ -58,14 +54,11 @@ export const BookingWidget = () => {
         // Find dates where all units are booked
         const fullyBookedDates: Date[] = [];
         dateBookings.forEach((unitIds, dateStr) => {
-          console.log(`Date: ${dateStr}, Booked units: ${unitIds.size}/${totalUnits}`, Array.from(unitIds));
           if (unitIds.size >= totalUnits) {
             fullyBookedDates.push(parseISO(dateStr));
           }
         });
 
-        console.log("Total units:", totalUnits);
-        console.log("Fully booked dates:", fullyBookedDates.map(d => format(d, "yyyy-MM-dd")));
         setBookedDates(fullyBookedDates);
       } catch (error: any) {
         console.error("Error fetching booked dates:", error);

@@ -209,6 +209,7 @@ export function CreateReservationDialog() {
   const [allUnits, setAllUnits] = useState<Unit[]>([]);
   const [availableUnits, setAvailableUnits] = useState<Unit[]>([]);
   const [checkingAvailability, setCheckingAvailability] = useState(false);
+  const [bookedDates, setBookedDates] = useState<Date[]>([]);
   
   // Users for source selection
   const [userSources, setUserSources] = useState<string[]>([]);
@@ -291,6 +292,89 @@ export function CreateReservationDialog() {
       setNumberOfGuests(validGuestCount);
     }
   }, [guestNames]);
+
+  // Fetch booked dates for calendar display
+  useEffect(() => {
+    const fetchBookedDates = async () => {
+      try {
+        const { data: reservations, error } = await supabase
+          .from("reservations")
+          .select("check_in_date, check_out_date, unit_id")
+          .eq("status", "confirmed");
+
+        if (error) throw error;
+
+        // Get all dates that are fully booked (all units booked)
+        const { data: allUnitsData } = await supabase
+          .from("units")
+          .select("id")
+          .eq("status", "available");
+
+        const totalUnits = allUnitsData?.length || 0;
+        if (totalUnits === 0) return;
+
+        // Group reservations by date
+        const dateBookings = new Map<string, Set<string>>();
+        
+        reservations?.forEach(res => {
+          const start = new Date(res.check_in_date);
+          const end = new Date(res.check_out_date);
+          
+          for (let d = new Date(start); d < end; d.setDate(d.getDate() + 1)) {
+            const dateStr = format(d, "yyyy-MM-dd");
+            if (!dateBookings.has(dateStr)) {
+              dateBookings.set(dateStr, new Set());
+            }
+            dateBookings.get(dateStr)?.add(res.unit_id);
+          }
+        });
+
+        // Find dates where all units are booked
+        const fullyBookedDates: Date[] = [];
+        dateBookings.forEach((unitIds, dateStr) => {
+          if (unitIds.size >= totalUnits) {
+            fullyBookedDates.push(new Date(dateStr));
+          }
+        });
+
+        setBookedDates(fullyBookedDates);
+      } catch (error: any) {
+        console.error("Error fetching booked dates:", error);
+      }
+    };
+
+    fetchBookedDates();
+  }, []);
+
+  // Check if a date range contains any fully booked dates
+  const isRangeValid = (range: DateRange | undefined) => {
+    if (!range?.from || !range?.to) return true;
+    
+    const start = new Date(range.from);
+    const end = new Date(range.to);
+    
+    // Check each date in the range (excluding checkout date)
+    for (let d = new Date(start); d < end; d.setDate(d.getDate() + 1)) {
+      const isBlocked = bookedDates.some(bookedDate => 
+        format(bookedDate, 'yyyy-MM-dd') === format(d, 'yyyy-MM-dd')
+      );
+      if (isBlocked) return false;
+    }
+    return true;
+  };
+
+  const handleDateSelect = (range: DateRange | undefined) => {
+    // Only set the range if it's valid (doesn't contain blocked dates)
+    if (isRangeValid(range)) {
+      setDateRange(range);
+      // Auto-close on mobile after selecting both dates
+      if (isMobile && range?.from && range?.to) {
+        setDatePickerOpen(false);
+      }
+    } else {
+      toast.error("Selected date range contains fully booked dates. Please select different dates.");
+    }
+  };
 
   // Fetch all units and users on mount, and subscribe to real-time updates
   useEffect(() => {
@@ -942,16 +1026,22 @@ export function CreateReservationDialog() {
                   <Calendar
                     mode="range"
                     selected={dateRange}
-                    onSelect={(range) => {
-                      setDateRange(range);
-                      // Auto-close on mobile after selecting both dates
-                      if (isMobile && range?.from && range?.to) {
-                        setDatePickerOpen(false);
-                      }
-                    }}
+                    onSelect={handleDateSelect}
                     numberOfMonths={2}
-                    disabled={(date) => date < startOfDay(new Date())}
+                    disabled={(date) => {
+                      const isPast = date < startOfDay(new Date());
+                      const isFullyBooked = bookedDates.some(
+                        bookedDate => format(bookedDate, "yyyy-MM-dd") === format(date, "yyyy-MM-dd")
+                      );
+                      return isPast || isFullyBooked;
+                    }}
                     className={cn("pointer-events-auto")}
+                    modifiers={{
+                      booked: bookedDates,
+                    }}
+                    modifiersClassNames={{
+                      booked: "bg-white text-muted-foreground opacity-60 cursor-not-allowed",
+                    }}
                   />
                   {!isMobile && (
                     <div className="flex justify-end gap-2 pt-2 border-t">
