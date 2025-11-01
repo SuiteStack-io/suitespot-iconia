@@ -254,7 +254,7 @@ const handler = async (req: Request): Promise<Response> => {
                   </p>
                   <p style="color: #333; font-size: 14px; margin: 10px 0;">
                     📧 Email: <a href="mailto:reservations@bookings.suitespoteg.com" style="color: #0f172a;">reservations@bookings.suitespoteg.com</a><br/>
-                    📱 Phone: ${customerPhone || '+20 123 456 7890'}
+                    📱 Phone: +201003901516
                   </p>
                   
                   <p style="color: #333; font-size: 14px; line-height: 1.6; margin-top: 30px;">
