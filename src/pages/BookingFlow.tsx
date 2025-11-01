@@ -188,7 +188,22 @@ const BookingFlow = () => {
           if (reservationsError) throw reservationsError;
 
           // Filter out units that have conflicting reservations
-          const bookedUnitIds = new Set(reservations?.map(r => r.unit_id) || []);
+          // A reservation conflicts if it overlaps with the selected dates
+          // Note: Check-out date doesn't block same-day check-in (standard hotel practice)
+          const requestedCheckIn = format(dateRange.from, "yyyy-MM-dd");
+          const requestedCheckOut = format(dateRange.to, "yyyy-MM-dd");
+          
+          const bookedUnitIds = new Set(
+            reservations
+              ?.filter(r => {
+                // A reservation conflicts if:
+                // - Its check-in is before our check-out AND
+                // - Its check-out is after our check-in (same-day checkout/checkin is allowed)
+                return r.check_in_date < requestedCheckOut && r.check_out_date > requestedCheckIn;
+              })
+              .map(r => r.unit_id) || []
+          );
+          
           const availableUnits = allUnits?.filter(unit => !bookedUnitIds.has(unit.id)) || [];
           setUnits(availableUnits);
         } else {
