@@ -21,7 +21,7 @@ const PublicHome = () => {
         {/* Hero Content */}
         <div className="relative z-10 text-center px-6 max-w-4xl mt-16 md:mt-0">
           <h1 className="text-3xl md:text-7xl font-serif font-bold text-white mb-6 animate-fade-in" style={{
-            textShadow: "2px 2px 4px rgba(0,0,0,0.8), 0 0 20px rgba(0,0,0,0.6)"
+            textShadow: "1px 1px 3px rgba(0,0,0,0.6), 0 0 15px rgba(0,0,0,0.4)"
           }}>Welcome Home</h1>
           <p className="text-xl md:text-2xl text-white/90 mb-48 md:mb-8 animate-fade-in" style={{
             animationDelay: "0.2s",
