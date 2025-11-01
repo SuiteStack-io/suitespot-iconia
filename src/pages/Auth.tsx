@@ -18,7 +18,7 @@ const Auth = () => {
   const navigate = useNavigate();
   const location = useLocation();
   const searchParams = new URLSearchParams(location.search);
-  const from = searchParams.get('redirect') || (location.state as any)?.from || '/';
+  const from = searchParams.get('redirect') || (location.state as any)?.from || '/admin';
 
   // Redirect if already logged in
   if (user) {
