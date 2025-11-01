@@ -17,11 +17,10 @@ export const PublicNav = () => {
           </Link>
           <button
             onClick={() => setMobileMenuOpen(!mobileMenuOpen)}
-            className="md:hidden px-3 py-2 flex flex-col items-center justify-center gap-1 bg-muted hover:bg-accent transition-colors rounded-lg"
+            className="md:hidden p-2 rounded-full bg-muted hover:bg-accent transition-colors"
             aria-label="Toggle menu"
           >
-            <Menu className="h-5 w-5 text-foreground" strokeWidth={2.5} />
-            <span className="text-xs font-medium tracking-wider text-foreground">MENU</span>
+            <Menu className="h-5 w-5 text-foreground" />
           </button>
         </div>
         <div className="hidden md:flex items-center gap-8">
