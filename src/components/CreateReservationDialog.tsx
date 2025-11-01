@@ -179,7 +179,8 @@ export function CreateReservationDialog() {
   const [adults, setAdults] = useState<number>(1);
   const [children, setChildren] = useState<number>(0);
   const [numberOfGuests, setNumberOfGuests] = useState<number>(1);
-  const [guestNames, setGuestNames] = useState<string[]>([""]);
+  const [guestFirstNames, setGuestFirstNames] = useState<string[]>([""]);
+  const [guestLastNames, setGuestLastNames] = useState<string[]>([""]);
   const [guestTypes, setGuestTypes] = useState<('adult' | 'child')[]>(["adult"]);
   const [guestGenders, setGuestGenders] = useState<('male' | 'female' | '')[]>([""]);
   const [nationality, setNationality] = useState("");
@@ -271,7 +272,8 @@ export function CreateReservationDialog() {
     setNumberOfGuests(totalGuests);
     
     // Create arrays for guest names and types based on adults/children counts
-    const newGuestNames = Array(totalGuests).fill('').map((_, i) => guestNames[i] || '');
+    const newGuestFirstNames = Array(totalGuests).fill('').map((_, i) => guestFirstNames[i] || '');
+    const newGuestLastNames = Array(totalGuests).fill('').map((_, i) => guestLastNames[i] || '');
     const newGuestTypes = Array(totalGuests).fill('adult' as 'adult' | 'child').map((_, i) => {
       // If we already have a type for this index, keep it
       if (guestTypes[i]) return guestTypes[i];
@@ -280,18 +282,19 @@ export function CreateReservationDialog() {
     });
     const newGuestGenders = Array(totalGuests).fill('').map((_, i) => guestGenders[i] || '');
     
-    setGuestNames(newGuestNames);
+    setGuestFirstNames(newGuestFirstNames);
+    setGuestLastNames(newGuestLastNames);
     setGuestTypes(newGuestTypes);
     setGuestGenders(newGuestGenders);
   }, [adults, children]);
 
   // Auto-sync number of guests with guest names count
   useEffect(() => {
-    const validGuestCount = guestNames.filter(name => name.trim() !== '').length;
+    const validGuestCount = guestFirstNames.filter((fn, i) => fn.trim() !== '' && guestLastNames[i]?.trim() !== '').length;
     if (validGuestCount > 0) {
       setNumberOfGuests(validGuestCount);
     }
-  }, [guestNames]);
+  }, [guestFirstNames, guestLastNames]);
 
   // Fetch booked dates for calendar display
   useEffect(() => {
@@ -478,10 +481,16 @@ export function CreateReservationDialog() {
     setCheckingAvailability(false);
   };
 
-  const updateGuestName = (index: number, value: string) => {
-    const newGuestNames = [...guestNames];
-    newGuestNames[index] = value;
-    setGuestNames(newGuestNames);
+  const updateGuestFirstName = (index: number, value: string) => {
+    const newGuestFirstNames = [...guestFirstNames];
+    newGuestFirstNames[index] = value;
+    setGuestFirstNames(newGuestFirstNames);
+  };
+
+  const updateGuestLastName = (index: number, value: string) => {
+    const newGuestLastNames = [...guestLastNames];
+    newGuestLastNames[index] = value;
+    setGuestLastNames(newGuestLastNames);
   };
 
   const updateGuestType = (index: number, type: 'adult' | 'child') => {
@@ -708,13 +717,13 @@ export function CreateReservationDialog() {
     if (numberOfGuests < 1) {
       missingFields.push("Number of guests");
     }
-    if (!guestNames[0]?.trim()) {
-      missingFields.push("At least one guest name");
+    if (!guestFirstNames[0]?.trim() || !guestLastNames[0]?.trim()) {
+      missingFields.push("At least one guest's first and last name");
     }
     
     // Validate that all guests have a type selected
     const hasEmptyTypes = guestTypes.some((type, index) => {
-      return guestNames[index]?.trim() !== "" && !type;
+      return (guestFirstNames[index]?.trim() !== "" || guestLastNames[index]?.trim() !== "") && !type;
     });
     if (hasEmptyTypes) {
       missingFields.push("Guest type (Adult/Child) for all guests");
@@ -805,6 +814,11 @@ export function CreateReservationDialog() {
     setLoading(true);
 
     try {
+      // Combine first and last names for submission
+      const combinedNames = guestFirstNames.map((firstName, i) => 
+        `${firstName.trim()} ${guestLastNames[i]?.trim() || ''}`.trim()
+      ).filter(n => n);
+
       // Marriage certificate URL is already set from immediate upload
 
       // Calculate pricing and commission
@@ -825,9 +839,9 @@ export function CreateReservationDialog() {
         number_of_guests: numberOfGuests,
         adults: adults,
         children: children,
-        guest_names: guestNames.filter(name => name.trim() !== ""),
-        guest_types: guestTypes.filter((_, i) => guestNames[i]?.trim() !== ""),
-        guest_genders: guestGenders.filter((_, i) => guestNames[i]?.trim() !== ""),
+        guest_names: combinedNames,
+        guest_types: guestTypes.filter((_, i) => combinedNames[i]),
+        guest_genders: guestGenders.filter((_, i) => combinedNames[i]),
         guest_nationality: nationality,
         marriage_certificate_url: marriageCertificateUrl || null,
         id_passport_url: idPassportUrl || null,
@@ -865,7 +879,7 @@ export function CreateReservationDialog() {
         await supabase.functions.invoke('send-reservation-notification', {
           body: {
             reservationId: insertedReservation.id,
-            guestNames: guestNames.filter(name => name.trim() !== ""),
+            guestNames: combinedNames,
             checkIn: format(checkInDate!, "yyyy-MM-dd"),
             checkOut: format(checkOutDate!, "yyyy-MM-dd"),
             unitName,
@@ -893,7 +907,8 @@ export function CreateReservationDialog() {
       setAdults(1);
       setChildren(0);
       setNumberOfGuests(1);
-      setGuestNames([""]);
+      setGuestFirstNames([""]);
+      setGuestLastNames([""]);
       setGuestTypes(["adult"]);
       setNationality("");
       setIdPassportFile(null);
@@ -940,7 +955,8 @@ export function CreateReservationDialog() {
     checkOutDate &&
     unitId &&
     numberOfGuests > 0 &&
-    guestNames[0]?.trim() !== "" &&
+    guestFirstNames[0]?.trim() !== "" &&
+    guestLastNames[0]?.trim() !== "" &&
     nationality.trim() !== "" &&
     contactEmail.trim() !== "" &&
     contactPhone.trim() !== "" &&
@@ -954,7 +970,8 @@ export function CreateReservationDialog() {
     setDateRange(undefined);
     setUnitId("");
     setNumberOfGuests(1);
-    setGuestNames([""]);
+    setGuestFirstNames([""]);
+    setGuestLastNames([""]);
     setGuestTypes(["adult"]);
     setNationality("");
     setContactEmail("");
@@ -1163,15 +1180,25 @@ export function CreateReservationDialog() {
             <Label>
               Guest Names <span className="text-destructive">*</span>
             </Label>
-            {guestNames.map((name, index) => (
+            {guestFirstNames.map((firstName, index) => (
               <div key={index} className="space-y-2 p-3 border rounded-lg">
-                <div className="flex gap-2">
-                  <Input
-                    placeholder={`Guest ${index + 1} name`}
-                    value={name}
-                    onChange={(e) => updateGuestName(index, e.target.value)}
-                    className="flex-1"
-                  />
+                <div className="grid grid-cols-2 gap-2">
+                  <div>
+                    <Label className="text-sm">First Name</Label>
+                    <Input
+                      placeholder="First name"
+                      value={firstName}
+                      onChange={(e) => updateGuestFirstName(index, e.target.value)}
+                    />
+                  </div>
+                  <div>
+                    <Label className="text-sm">Last Name</Label>
+                    <Input
+                      placeholder="Last name"
+                      value={guestLastNames[index] || ''}
+                      onChange={(e) => updateGuestLastName(index, e.target.value)}
+                    />
+                  </div>
                 </div>
                 <div className="space-y-2">
                   <Label className="text-sm text-muted-foreground">
