@@ -261,7 +261,7 @@ export default function HomepageManagement() {
             <Button
               variant="outline"
               size="icon"
-              onClick={() => navigate('/')}
+              onClick={() => navigate('/admin')}
             >
               <ArrowLeft className="h-4 w-4" />
             </Button>
