@@ -22,9 +22,11 @@ export const BookingWidget = () => {
         const { data: reservations, error } = await supabase
           .from("reservations")
           .select("check_in_date, check_out_date, unit_id")
-          .neq("status", "cancelled");
+          .eq("status", "confirmed");
 
         if (error) throw error;
+        
+        console.log("📅 Fetched reservations:", reservations);
 
         // Get all dates that are fully booked (all units booked)
         const { data: allUnits } = await supabase
@@ -41,6 +43,8 @@ export const BookingWidget = () => {
         reservations?.forEach(res => {
           const start = parseISO(res.check_in_date);
           const end = parseISO(res.check_out_date);
+          
+          console.log(`Processing reservation: ${res.check_in_date} to ${res.check_out_date}, unit: ${res.unit_id}`);
           
           for (let d = new Date(start); d < end; d.setDate(d.getDate() + 1)) {
             const dateStr = format(d, "yyyy-MM-dd");
