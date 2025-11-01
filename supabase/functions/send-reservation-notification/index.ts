@@ -246,6 +246,11 @@ const handler = async (req: Request): Promise<Response> => {
                     <p style="margin: 15px 0 0 0; color: #1e3a8a; font-size: 14px;">
                       Please bring a valid ID or passport for check-in. Early check-in and late check-out may be available upon request, subject to availability.
                     </p>
+                    ${guestNationality && ['Egypt', 'Saudi Arabia', 'United Arab Emirates', 'Kuwait', 'Qatar', 'Bahrain', 'Oman', 'Yemen', 'Jordan', 'Lebanon', 'Syria', 'Iraq', 'Palestine', 'Libya', 'Tunisia', 'Algeria', 'Morocco', 'Sudan', 'Somalia', 'Djibouti', 'Mauritania', 'Comoros'].includes(guestNationality) ? `
+                    <p style="margin: 15px 0 0 0; color: #dc2626; font-size: 14px; font-weight: 600;">
+                      <strong>⚠️ Marriage Certificate Required:</strong> Egyptian and Arab couples/groups must present a valid marriage certificate upon check-in as per local regulations.
+                    </p>
+                    ` : ''}
                   </div>
 
                   <h3 style="color: #0f172a; margin-top: 30px;">Need Assistance?</h3>
