@@ -28,39 +28,25 @@ export const PublicNav = () => {
           </button>
         </div>
         <div className="hidden md:flex items-center gap-8">
-          <Link to="/our-story" className="text-sm text-white hover:text-white/80 transition-colors" style={{
-            textShadow: "1px 1px 3px rgba(0,0,0,0.6)"
-          }}>
+          <Link to="/our-story" className="text-sm text-white hover:text-white/80 transition-colors">
             Our Story
           </Link>
-          <Link to="/locations" className="text-sm text-white hover:text-white/80 transition-colors" style={{
-            textShadow: "1px 1px 3px rgba(0,0,0,0.6)"
-          }}>
+          <Link to="/locations" className="text-sm text-white hover:text-white/80 transition-colors">
             Locations
           </Link>
-          <Link to="/suites" className="text-sm text-white hover:text-white/80 transition-colors" style={{
-            textShadow: "1px 1px 3px rgba(0,0,0,0.6)"
-          }}>
+          <Link to="/suites" className="text-sm text-white hover:text-white/80 transition-colors">
             Suites
           </Link>
-          <Link to="/wellness" className="text-sm text-white hover:text-white/80 transition-colors" style={{
-            textShadow: "1px 1px 3px rgba(0,0,0,0.6)"
-          }}>
+          <Link to="/wellness" className="text-sm text-white hover:text-white/80 transition-colors">
             Wellness
           </Link>
-          <Link to="/experiences" className="text-sm text-white hover:text-white/80 transition-colors" style={{
-            textShadow: "1px 1px 3px rgba(0,0,0,0.6)"
-          }}>
+          <Link to="/experiences" className="text-sm text-white hover:text-white/80 transition-colors">
             Experiences
           </Link>
-          <Link to="/nearby" className="text-sm text-white hover:text-white/80 transition-colors" style={{
-            textShadow: "1px 1px 3px rgba(0,0,0,0.6)"
-          }}>
+          <Link to="/nearby" className="text-sm text-white hover:text-white/80 transition-colors">
             Nearby Amenities
           </Link>
-          <Link to="/blog" className="text-sm text-white hover:text-white/80 transition-colors" style={{
-            textShadow: "1px 1px 3px rgba(0,0,0,0.6)"
-          }}>
+          <Link to="/blog" className="text-sm text-white hover:text-white/80 transition-colors">
             Blog
           </Link>
         </div>
