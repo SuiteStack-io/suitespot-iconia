@@ -28,7 +28,6 @@ const Suites = () => {
         const { data, error } = await supabase
           .from("units")
           .select("*")
-          .eq("status", "available")
           .order("name");
 
         if (error) throw error;
@@ -73,6 +72,19 @@ const Suites = () => {
     if (unitType?.toLowerCase().includes("one bedroom")) return "1 King Bed + Sofa Bed";
     if (unitType?.toLowerCase().includes("two bedroom")) return "1 King + 2 Twin Beds";
     return "1 Queen Bed";
+  };
+
+  const getUnitDescription = (unit: Unit) => {
+    const type = unit.unit_type?.toLowerCase() || "";
+    
+    if (type.includes("studio")) {
+      return "Modern studio suite with kitchenette, perfect for solo travelers or couples seeking a comfortable stay with all essential amenities.";
+    } else if (type.includes("one bedroom")) {
+      return "Spacious one-bedroom suite with separate living area and full kitchen. Ideal for extended stays or small families looking for home-like comfort.";
+    } else if (type.includes("two bedroom")) {
+      return "Luxurious two-bedroom suite with expansive living space, two bathrooms, and full kitchen. Perfect for families or groups seeking premium accommodation.";
+    }
+    return "Experience comfort and style in our beautifully appointed suite with modern amenities and thoughtful design.";
   };
 
   return (
@@ -136,7 +148,7 @@ const Suites = () => {
                             <p className="text-sm text-muted-foreground mb-2">Unit {unit.unit_number}</p>
                           )}
                           <p className="text-muted-foreground mb-6">
-                            {unit.comments || `Experience comfort and style in our ${unit.unit_type || 'suite'}.`}
+                            {getUnitDescription(unit)}
                           </p>
                           
                           <div className="grid grid-cols-3 gap-4 mb-6">
