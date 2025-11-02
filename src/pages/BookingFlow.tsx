@@ -121,6 +121,7 @@ const BookingFlow = () => {
   const [units, setUnits] = useState<Unit[]>([]);
   const [isLoadingUnits, setIsLoadingUnits] = useState(true);
   const [bookedDates, setBookedDates] = useState<Date[]>([]);
+  const [preSelectedUnitId, setPreSelectedUnitId] = useState<string | null>(null);
   
   // Booking data
   const [dateRange, setDateRange] = useState<DateRange | undefined>();
@@ -149,6 +150,7 @@ const BookingFlow = () => {
     const checkIn = searchParams.get("checkIn");
     const checkOut = searchParams.get("checkOut");
     const guestsParam = searchParams.get("guests");
+    const unitId = searchParams.get("unitId");
 
     if (checkIn && checkOut) {
       setDateRange({
@@ -161,6 +163,11 @@ const BookingFlow = () => {
       const numGuests = parseInt(guestsParam);
       setAdults(numGuests);
     }
+
+    if (unitId) {
+      setPreSelectedUnitId(unitId);
+      setSelectedUnit(unitId);
+    }
   }, [searchParams]);
 
   // Fetch available units based on selected dates
@@ -168,47 +175,57 @@ const BookingFlow = () => {
     const fetchAvailableUnits = async () => {
       setIsLoadingUnits(true);
       try {
-        // First get all units
-        const { data: allUnits, error: unitsError } = await supabase
-          .from("units")
-          .select("id, name, unit_type, unit_number, status, beds, baths, max_guests, unit_size, sofa_bed, price_per_night, tax_percentage, photos")
-          .eq("status", "available")
-          .order("name");
+        // If a specific unit is pre-selected, fetch only that unit
+        if (preSelectedUnitId) {
+          const { data: unit, error: unitError } = await supabase
+            .from("units")
+            .select("id, name, unit_type, unit_number, status, beds, baths, max_guests, unit_size, sofa_bed, price_per_night, tax_percentage, photos")
+            .eq("id", preSelectedUnitId)
+            .single();
 
-        if (unitsError) throw unitsError;
-
-        // If dates are selected, filter by availability
-        if (dateRange?.from && dateRange?.to) {
-          const { data: reservations, error: reservationsError } = await supabase
-            .from("reservations")
-            .select("unit_id, check_in_date, check_out_date")
-            .gte("check_out_date", format(dateRange.from, "yyyy-MM-dd"))
-            .lte("check_in_date", format(dateRange.to, "yyyy-MM-dd"))
-            .neq("status", "cancelled");
-
-          if (reservationsError) throw reservationsError;
-
-          // Filter out units that have conflicting reservations
-          // A reservation conflicts if it overlaps with the selected dates
-          // Note: Check-out date doesn't block same-day check-in (standard hotel practice)
-          const requestedCheckIn = format(dateRange.from, "yyyy-MM-dd");
-          const requestedCheckOut = format(dateRange.to, "yyyy-MM-dd");
-          
-          const bookedUnitIds = new Set(
-            reservations
-              ?.filter(r => {
-                // A reservation conflicts if:
-                // - Its check-in is before our check-out AND
-                // - Its check-out is after our check-in (same-day checkout/checkin is allowed)
-                return r.check_in_date < requestedCheckOut && r.check_out_date > requestedCheckIn;
-              })
-              .map(r => r.unit_id) || []
-          );
-          
-          const availableUnits = allUnits?.filter(unit => !bookedUnitIds.has(unit.id)) || [];
-          setUnits(availableUnits);
+          if (unitError) throw unitError;
+          setUnits(unit ? [unit] : []);
         } else {
-          setUnits(allUnits || []);
+          // Get all units if no pre-selection
+          const { data: allUnits, error: unitsError } = await supabase
+            .from("units")
+            .select("id, name, unit_type, unit_number, status, beds, baths, max_guests, unit_size, sofa_bed, price_per_night, tax_percentage, photos")
+            .eq("status", "available")
+            .order("name");
+
+          if (unitsError) throw unitsError;
+
+          // If dates are selected, filter by availability
+          if (dateRange?.from && dateRange?.to) {
+            const { data: reservations, error: reservationsError } = await supabase
+              .from("reservations")
+              .select("unit_id, check_in_date, check_out_date")
+              .gte("check_out_date", format(dateRange.from, "yyyy-MM-dd"))
+              .lte("check_in_date", format(dateRange.to, "yyyy-MM-dd"))
+              .neq("status", "cancelled");
+
+            if (reservationsError) throw reservationsError;
+
+            // Filter out units that have conflicting reservations
+            const requestedCheckIn = format(dateRange.from, "yyyy-MM-dd");
+            const requestedCheckOut = format(dateRange.to, "yyyy-MM-dd");
+            
+            const bookedUnitIds = new Set(
+              reservations
+                ?.filter(r => {
+                  // A reservation conflicts if:
+                  // - Its check-in is before our check-out AND
+                  // - Its check-out is after our check-in (same-day checkout/checkin is allowed)
+                  return r.check_in_date < requestedCheckOut && r.check_out_date > requestedCheckIn;
+                })
+                .map(r => r.unit_id) || []
+            );
+            
+            const availableUnits = allUnits?.filter(unit => !bookedUnitIds.has(unit.id)) || [];
+            setUnits(availableUnits);
+          } else {
+            setUnits(allUnits || []);
+          }
         }
       } catch (error: any) {
         toast({
@@ -222,60 +239,86 @@ const BookingFlow = () => {
     };
 
     fetchAvailableUnits();
-  }, [toast, dateRange]);
+  }, [toast, dateRange, preSelectedUnitId]);
 
   // Fetch booked dates for calendar display
   useEffect(() => {
     const fetchBookedDates = async () => {
       try {
-        const { data: reservations, error } = await supabase
-          .from("reservations")
-          .select("check_in_date, check_out_date, unit_id")
-          .neq("status", "cancelled");
+        // If we have a pre-selected unit, only show blocked dates for that unit
+        if (preSelectedUnitId) {
+          const { data: reservations, error } = await supabase
+            .from("reservations")
+            .select("check_in_date, check_out_date")
+            .eq("unit_id", preSelectedUnitId)
+            .neq("status", "cancelled");
 
-        if (error) throw error;
+          if (error) throw error;
 
-        // Get all dates that are fully booked (all units booked)
-        const { data: allUnits } = await supabase
-          .from("units")
-          .select("id")
-          .eq("status", "available");
-
-        const totalUnits = allUnits?.length || 0;
-        if (totalUnits === 0) return;
-
-        // Group reservations by date
-        const dateBookings = new Map<string, Set<string>>();
-        
-        reservations?.forEach(res => {
-          const start = parseISO(res.check_in_date);
-          const end = parseISO(res.check_out_date);
+          // Get all dates that are booked for this specific unit
+          const blockedDates: Date[] = [];
           
-          for (let d = new Date(start); d < end; d.setDate(d.getDate() + 1)) {
-            const dateStr = format(d, "yyyy-MM-dd");
-            if (!dateBookings.has(dateStr)) {
-              dateBookings.set(dateStr, new Set());
+          reservations?.forEach(res => {
+            const start = parseISO(res.check_in_date);
+            const end = parseISO(res.check_out_date);
+            
+            // Block all dates except the checkout date (checkout day is available)
+            for (let d = new Date(start); d < end; d.setDate(d.getDate() + 1)) {
+              blockedDates.push(new Date(d));
             }
-            dateBookings.get(dateStr)?.add(res.unit_id);
-          }
-        });
+          });
 
-        // Find dates where all units are booked
-        const fullyBookedDates: Date[] = [];
-        dateBookings.forEach((unitIds, dateStr) => {
-          if (unitIds.size >= totalUnits) {
-            fullyBookedDates.push(parseISO(dateStr));
-          }
-        });
+          setBookedDates(blockedDates);
+        } else {
+          // Get all dates that are fully booked (all units booked)
+          const { data: reservations, error } = await supabase
+            .from("reservations")
+            .select("check_in_date, check_out_date, unit_id")
+            .neq("status", "cancelled");
 
-        setBookedDates(fullyBookedDates);
+          if (error) throw error;
+
+          const { data: allUnits } = await supabase
+            .from("units")
+            .select("id")
+            .eq("status", "available");
+
+          const totalUnits = allUnits?.length || 0;
+          if (totalUnits === 0) return;
+
+          // Group reservations by date
+          const dateBookings = new Map<string, Set<string>>();
+          
+          reservations?.forEach(res => {
+            const start = parseISO(res.check_in_date);
+            const end = parseISO(res.check_out_date);
+            
+            for (let d = new Date(start); d < end; d.setDate(d.getDate() + 1)) {
+              const dateStr = format(d, "yyyy-MM-dd");
+              if (!dateBookings.has(dateStr)) {
+                dateBookings.set(dateStr, new Set());
+              }
+              dateBookings.get(dateStr)?.add(res.unit_id);
+            }
+          });
+
+          // Find dates where all units are booked
+          const fullyBookedDates: Date[] = [];
+          dateBookings.forEach((unitIds, dateStr) => {
+            if (unitIds.size >= totalUnits) {
+              fullyBookedDates.push(parseISO(dateStr));
+            }
+          });
+
+          setBookedDates(fullyBookedDates);
+        }
       } catch (error: any) {
         console.error("Error fetching booked dates:", error);
       }
     };
 
     fetchBookedDates();
-  }, []);
+  }, [preSelectedUnitId]);
 
   // Auto-sync guest names array when adults/children selectors change
   useEffect(() => {
@@ -586,6 +629,83 @@ const BookingFlow = () => {
             {/* Step 1: Dates & Suite Selection */}
             {step === 1 && (
               <div className="space-y-6">
+                {/* Show pre-selected unit details prominently */}
+                {preSelectedUnitId && units.length > 0 && (
+                  <div className="p-6 border-2 rounded-lg bg-muted/30 space-y-4">
+                    <div className="flex items-center justify-between">
+                      <div>
+                        <h2 className="text-2xl font-serif font-bold text-foreground">
+                          {units[0].name}
+                        </h2>
+                        {units[0].unit_number && (
+                          <p className="text-sm text-muted-foreground">Room {units[0].unit_number}</p>
+                        )}
+                      </div>
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        asChild
+                      >
+                        <Link to="/suites">View All Suites</Link>
+                      </Button>
+                    </div>
+
+                    {/* Unit specs */}
+                    <div className="grid grid-cols-2 md:grid-cols-5 gap-3">
+                      <div className="flex flex-col items-center p-3 bg-background rounded-lg">
+                        <Bed className="h-5 w-5 text-accent mb-1" />
+                        <span className="text-sm font-semibold">{units[0].beds || 'N/A'}</span>
+                        <span className="text-xs text-muted-foreground">Beds</span>
+                      </div>
+                      <div className="flex flex-col items-center p-3 bg-background rounded-lg">
+                        <Bath className="h-5 w-5 text-accent mb-1" />
+                        <span className="text-sm font-semibold">{units[0].baths || 'N/A'}</span>
+                        <span className="text-xs text-muted-foreground">Baths</span>
+                      </div>
+                      <div className="flex flex-col items-center p-3 bg-background rounded-lg">
+                        <Users className="h-5 w-5 text-accent mb-1" />
+                        <span className="text-sm font-semibold">{units[0].max_guests || 'N/A'}</span>
+                        <span className="text-xs text-muted-foreground">Guests</span>
+                      </div>
+                      <div className="flex flex-col items-center p-3 bg-background rounded-lg">
+                        <Sofa className="h-5 w-5 text-accent mb-1" />
+                        <span className="text-sm font-semibold">{units[0].sofa_bed ? 'Yes' : 'No'}</span>
+                        <span className="text-xs text-muted-foreground">Sofa Bed</span>
+                      </div>
+                      <div className="flex flex-col items-center p-3 bg-background rounded-lg">
+                        <Maximize2 className="h-5 w-5 text-accent mb-1" />
+                        <span className="text-sm font-semibold">{units[0].unit_size || 'N/A'}</span>
+                        <span className="text-xs text-muted-foreground">Size</span>
+                      </div>
+                    </div>
+
+                    {/* Photo Gallery */}
+                    {units[0].photos && units[0].photos.length > 0 && (
+                      <div className="space-y-2">
+                        <Label>Suite Gallery</Label>
+                        <div className="grid grid-cols-3 md:grid-cols-4 gap-2">
+                          {units[0].photos.map((photo, index) => (
+                            <div 
+                              key={index}
+                              className="aspect-square rounded-lg overflow-hidden cursor-pointer hover:opacity-80 transition-opacity border"
+                              onClick={() => {
+                                setSelectedPhotoIndex(index);
+                                setIsPhotoModalOpen(true);
+                              }}
+                            >
+                              <img 
+                                src={photo} 
+                                alt={`Suite photo ${index + 1}`}
+                                className="w-full h-full object-cover"
+                              />
+                            </div>
+                          ))}
+                        </div>
+                      </div>
+                    )}
+                  </div>
+                )}
+
                 {dateRange?.from && dateRange?.to ? (
                   // Show selected dates and nights
                   <div className="bg-muted/30 p-4 rounded-lg">
@@ -656,68 +776,73 @@ const BookingFlow = () => {
                   </div>
                 </div>
 
-                <div>
-                  <Label htmlFor="unit">Select Suite Type</Label>
-                  {dateRange?.from && dateRange?.to ? (
-                    <Select value={selectedUnit} onValueChange={setSelectedUnit} disabled={isLoadingUnits}>
-                      <SelectTrigger id="unit">
-                        <SelectValue placeholder={isLoadingUnits ? "Loading available suites..." : units.length === 0 ? "No suites available for these dates" : "Choose a suite"} />
-                      </SelectTrigger>
-                      <SelectContent>
-                        {units.length === 0 && !isLoadingUnits ? (
-                          <div className="p-2 text-sm text-muted-foreground">No suites available for selected dates</div>
-                        ) : (
-                          units.map((unit) => (
-                            <SelectItem key={unit.id} value={unit.id}>
-                              {unit.unit_type || unit.name}
-                              {unit.unit_number && ` - Room ${unit.unit_number}`}
-                            </SelectItem>
-                          ))
-                        )}
-                      </SelectContent>
-                    </Select>
-                  ) : (
-                    <div className="p-3 border border-dashed rounded-md text-sm text-muted-foreground text-center">
-                      Please select dates first to see available suites
+                {/* Only show dropdown if no pre-selected unit */}
+                {!preSelectedUnitId && (
+                  <>
+                    <div>
+                      <Label htmlFor="unit">Select Suite Type</Label>
+                      {dateRange?.from && dateRange?.to ? (
+                        <Select value={selectedUnit} onValueChange={setSelectedUnit} disabled={isLoadingUnits}>
+                          <SelectTrigger id="unit">
+                            <SelectValue placeholder={isLoadingUnits ? "Loading available suites..." : units.length === 0 ? "No suites available for these dates" : "Choose a suite"} />
+                          </SelectTrigger>
+                          <SelectContent>
+                            {units.length === 0 && !isLoadingUnits ? (
+                              <div className="p-2 text-sm text-muted-foreground">No suites available for selected dates</div>
+                            ) : (
+                              units.map((unit) => (
+                                <SelectItem key={unit.id} value={unit.id}>
+                                  {unit.unit_type || unit.name}
+                                  {unit.unit_number && ` - Room ${unit.unit_number}`}
+                                </SelectItem>
+                              ))
+                            )}
+                          </SelectContent>
+                        </Select>
+                      ) : (
+                        <div className="p-3 border border-dashed rounded-md text-sm text-muted-foreground text-center">
+                          Please select dates first to see available suites
+                        </div>
+                      )}
                     </div>
-                  )}
-                </div>
 
-                {selectedUnit && units.length > 0 && (
-                  <div className="p-4 border rounded-lg bg-muted/50">
-                    <div className="flex flex-wrap gap-4 items-center justify-between">
-                      <div className="flex items-center gap-2">
-                        <Bed className="h-4 w-4 text-muted-foreground" />
-                        <span className="text-sm">
-                          <span className="font-semibold">Bedrooms:</span> {units.find(u => u.id === selectedUnit)?.beds || 'N/A'}
-                        </span>
+                    {selectedUnit && units.length > 0 && (
+                      <div className="p-4 border rounded-lg bg-muted/50">
+                        <div className="flex flex-wrap gap-4 items-center justify-between">
+                          <div className="flex items-center gap-2">
+                            <Bed className="h-4 w-4 text-muted-foreground" />
+                            <span className="text-sm">
+                              <span className="font-semibold">Bedrooms:</span> {units.find(u => u.id === selectedUnit)?.beds || 'N/A'}
+                            </span>
+                          </div>
+                          <div className="flex items-center gap-2">
+                            <Bath className="h-4 w-4 text-muted-foreground" />
+                            <span className="text-sm">
+                              <span className="font-semibold">Bathrooms:</span> {units.find(u => u.id === selectedUnit)?.baths || 'N/A'}
+                            </span>
+                          </div>
+                          <div className="flex items-center gap-2">
+                            <Users className="h-4 w-4 text-muted-foreground" />
+                            <span className="text-sm">
+                              <span className="font-semibold">Max guests:</span> {units.find(u => u.id === selectedUnit)?.max_guests || 'N/A'}
+                            </span>
+                          </div>
+                          <div className="flex items-center gap-2">
+                            <Sofa className="h-4 w-4 text-muted-foreground" />
+                            <span className="text-sm">
+                              <span className="font-semibold">Sofa bed:</span> {units.find(u => u.id === selectedUnit)?.sofa_bed ? 'Yes' : 'No'}
+                            </span>
+                          </div>
+                          <div className="flex items-center gap-2">
+                            <Maximize2 className="h-4 w-4 text-muted-foreground" />
+                            <span className="text-sm">
+                              <span className="font-semibold">Size:</span> {units.find(u => u.id === selectedUnit)?.unit_size || 'N/A'}
+                            </span>
+                          </div>
+                        </div>
                       </div>
-                      <div className="flex items-center gap-2">
-                        <Bath className="h-4 w-4 text-muted-foreground" />
-                        <span className="text-sm">
-                          <span className="font-semibold">Bathrooms:</span> {units.find(u => u.id === selectedUnit)?.baths || 'N/A'}
-                        </span>
-                      </div>
-                      <div className="flex items-center gap-2">
-                        <Users className="h-4 w-4 text-muted-foreground" />
-                        <span className="text-sm">
-                          <span className="font-semibold">Max guests:</span> {units.find(u => u.id === selectedUnit)?.max_guests || 'N/A'}
-                        </span>
-                      </div>
-                      <div className="flex items-center gap-2">
-                        <Sofa className="h-4 w-4 text-muted-foreground" />
-                        <span className="text-sm">
-                          <span className="font-semibold">Sofa bed:</span> {units.find(u => u.id === selectedUnit)?.sofa_bed ? 'Yes' : 'No'}
-                        </span>
-                      </div>
-                      <div className="flex items-center gap-2">
-                        <Maximize2 className="h-4 w-4 text-muted-foreground" />
-                        <span className="text-sm">
-                          <span className="font-semibold">Size:</span> {units.find(u => u.id === selectedUnit)?.unit_size || 'N/A'}
-                        </span>
-                      </div>
-                    </div>
-                  </div>
+                    )}
+                  </>
                 )}
 
                 {/* Pricing Information */}
@@ -750,8 +875,8 @@ const BookingFlow = () => {
                   </div>
                 )}
 
-                {/* Photo Gallery */}
-                {selectedUnit && units.find(u => u.id === selectedUnit)?.photos && units.find(u => u.id === selectedUnit)!.photos!.length > 0 && (
+                {/* Photo Gallery - Only show for non-preselected units (already shown above for preselected) */}
+                {!preSelectedUnitId && selectedUnit && units.find(u => u.id === selectedUnit)?.photos && units.find(u => u.id === selectedUnit)!.photos!.length > 0 && (
                   <div className="space-y-2">
                     <Label>Suite Gallery</Label>
                     <div className="grid grid-cols-3 gap-2">

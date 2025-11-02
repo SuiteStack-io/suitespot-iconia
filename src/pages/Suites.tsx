@@ -188,7 +188,7 @@ const Suites = () => {
                           </div>
 
                           <Button asChild className="w-full bg-accent hover:bg-accent/90">
-                            <Link to="/book">Check Availability</Link>
+                            <Link to={`/book?unitId=${unit.id}`}>Check Availability</Link>
                           </Button>
                         </div>
                       </div>
