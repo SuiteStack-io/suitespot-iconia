@@ -93,17 +93,28 @@ export const WeeklyCalendar = () => {
     return Array.from({ length: 7 }, (_, i) => addDays(currentWeekStart, i));
   };
 
-  const getReservationForDate = (date: Date, unitId: string) => {
-    return reservations.find(reservation => {
+  const getReservationsForDate = (date: Date, unitId: string) => {
+    const checkingOut = reservations.find(reservation => {
       if (reservation.unit_id !== unitId) return false;
-      
+      const checkOut = new Date(reservation.check_out_date);
+      return isSameDay(date, checkOut);
+    });
+
+    const checkingIn = reservations.find(reservation => {
+      if (reservation.unit_id !== unitId) return false;
+      const checkIn = new Date(reservation.check_in_date);
+      return isSameDay(date, checkIn);
+    });
+
+    const staying = reservations.find(reservation => {
+      if (reservation.unit_id !== unitId) return false;
       const checkIn = new Date(reservation.check_in_date);
       const checkOut = new Date(reservation.check_out_date);
-      
-      return isWithinInterval(date, { start: checkIn, end: checkOut }) || 
-             isSameDay(date, checkIn) || 
-             isSameDay(date, checkOut);
+      // Staying if date is between check-in and check-out (exclusive)
+      return date > checkIn && date < checkOut;
     });
+
+    return { checkingOut, checkingIn, staying };
   };
 
   const getSourceAbbreviation = (source: string) => {
@@ -204,22 +215,57 @@ export const WeeklyCalendar = () => {
                     </div>
                   </td>
                   {weekDays.map((day, index) => {
-                    const reservation = getReservationForDate(day, unit.id);
+                    const { checkingOut, checkingIn, staying } = getReservationsForDate(day, unit.id);
+                    const hasBothCheckOutAndIn = checkingOut && checkingIn;
+                    
                     return (
                       <td
                         key={index}
-                        className={`border border-border p-2 text-center ${
-                          reservation
-                            ? getReservationColor(reservation.source)
-                            : 'bg-background'
+                        className={`border border-border p-0 ${
+                          !checkingOut && !checkingIn && !staying ? 'bg-background' : ''
                         }`}
                       >
-                        {reservation && (
-                          <div className="text-xs space-y-1 break-words">
-                            <div>Reserved</div>
-                            <div className="text-[10px] opacity-90 font-medium">{reservation.guest_names[0] || 'Guest'}</div>
+                        {hasBothCheckOutAndIn ? (
+                          // Split cell: top half for checkout, bottom half for check-in
+                          <div className="flex flex-col h-full min-h-[60px]">
+                            <div className={`flex-1 ${getReservationColor(checkingOut.source)} p-1 text-center border-b border-border/50`}>
+                              <div className="text-xs space-y-0.5 break-words">
+                                <div className="text-[10px] opacity-75">Check-out</div>
+                                <div className="text-[10px] font-medium">{checkingOut.guest_names[0] || 'Guest'}</div>
+                              </div>
+                            </div>
+                            <div className={`flex-1 ${getReservationColor(checkingIn.source)} p-1 text-center`}>
+                              <div className="text-xs space-y-0.5 break-words">
+                                <div className="text-[10px] opacity-75">Check-in</div>
+                                <div className="text-[10px] font-medium">{checkingIn.guest_names[0] || 'Guest'}</div>
+                              </div>
+                            </div>
                           </div>
-                        )}
+                        ) : checkingOut ? (
+                          // Just checkout
+                          <div className={`${getReservationColor(checkingOut.source)} p-2 text-center min-h-[60px] flex items-center justify-center`}>
+                            <div className="text-xs space-y-1 break-words">
+                              <div>Reserved</div>
+                              <div className="text-[10px] opacity-90 font-medium">{checkingOut.guest_names[0] || 'Guest'}</div>
+                            </div>
+                          </div>
+                        ) : checkingIn ? (
+                          // Just check-in
+                          <div className={`${getReservationColor(checkingIn.source)} p-2 text-center min-h-[60px] flex items-center justify-center`}>
+                            <div className="text-xs space-y-1 break-words">
+                              <div>Reserved</div>
+                              <div className="text-[10px] opacity-90 font-medium">{checkingIn.guest_names[0] || 'Guest'}</div>
+                            </div>
+                          </div>
+                        ) : staying ? (
+                          // Staying (between check-in and checkout)
+                          <div className={`${getReservationColor(staying.source)} p-2 text-center min-h-[60px] flex items-center justify-center`}>
+                            <div className="text-xs space-y-1 break-words">
+                              <div>Reserved</div>
+                              <div className="text-[10px] opacity-90 font-medium">{staying.guest_names[0] || 'Guest'}</div>
+                            </div>
+                          </div>
+                        ) : null}
                       </td>
                     );
                   })}
