@@ -4,7 +4,7 @@ import { useAuth } from '@/lib/auth';
 import { supabase } from '@/integrations/supabase/client';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
-import { ArrowLeft, Save, Plus, Pencil, X, Upload, Trash2 } from 'lucide-react';
+import { ArrowLeft, Save, Plus, Pencil, X, Upload, Trash2, Eye } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
 import { Progress } from '@/components/ui/progress';
 import {
@@ -548,6 +548,7 @@ const Rooms = () => {
                 <TableHead>Status</TableHead>
                 <TableHead>Booking.com ID</TableHead>
                 <TableHead>Next Reservation</TableHead>
+                <TableHead>View</TableHead>
                 {isAdmin && !isBulkEdit && <TableHead>Actions</TableHead>}
               </TableRow>
             </TableHeader>
@@ -666,6 +667,9 @@ const Rooms = () => {
                       onChange={(e) => setNewUnit({ ...newUnit, booking_com_id: e.target.value })}
                       placeholder="Booking.com ID"
                     />
+                  </TableCell>
+                  <TableCell>
+                    <span className="text-muted-foreground">-</span>
                   </TableCell>
                   <TableCell>
                     <span className="text-muted-foreground">-</span>
@@ -969,6 +973,18 @@ const Rooms = () => {
                       <span className="text-sm">
                         {getNextReservation(unit.id) || '-'}
                       </span>
+                    </TableCell>
+                    <TableCell>
+                      <Button 
+                        size="sm" 
+                        variant="ghost"
+                        onClick={() => {
+                          // Navigate to room details or show modal
+                          console.log('View room:', unit.id);
+                        }}
+                      >
+                        <Eye className="h-4 w-4" />
+                      </Button>
                     </TableCell>
                     {isAdmin && !isBulkEdit && (
                       <TableCell>
