@@ -259,12 +259,15 @@ const BookingFlow = () => {
           const blockedDates: Date[] = [];
           
           reservations?.forEach(res => {
-            const start = parseISO(res.check_in_date);
-            const end = parseISO(res.check_out_date);
+            const start = new Date(res.check_in_date + 'T00:00:00');
+            const end = new Date(res.check_out_date + 'T00:00:00');
             
-            // Block all dates except the checkout date (checkout day is available)
-            for (let d = new Date(start); d < end; d.setDate(d.getDate() + 1)) {
-              blockedDates.push(new Date(d));
+            // Block all dates from check-in through the day before checkout
+            // Checkout day is available for new check-ins
+            const current = new Date(start);
+            while (current < end) {
+              blockedDates.push(new Date(current));
+              current.setDate(current.getDate() + 1);
             }
           });
 
