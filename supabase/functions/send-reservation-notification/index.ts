@@ -527,7 +527,7 @@ const handler = async (req: Request): Promise<Response> => {
                 ${customerPhone ? `
                 <div class="detail-row">
                   <div class="detail-label">Mobile Number:</div>
-                  <div class="detail-value">${customerPhone}</div>
+                  <div class="detail-value">+20 ${customerPhone}</div>
                 </div>
                 ` : ''}
                 
