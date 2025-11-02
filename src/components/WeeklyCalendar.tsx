@@ -242,19 +242,29 @@ export const WeeklyCalendar = () => {
                             </div>
                           </div>
                         ) : checkingOut ? (
-                          // Just checkout
-                          <div className={`${getReservationColor(checkingOut.source)} p-2 text-center min-h-[60px] flex items-center justify-center`}>
-                            <div className="text-xs space-y-1 break-words">
-                              <div>Reserved</div>
-                              <div className="text-[10px] opacity-90 font-medium">{checkingOut.guest_names[0] || 'Guest'}</div>
+                          // Just checkout - split cell showing occupied until checkout
+                          <div className="flex flex-col h-full min-h-[60px]">
+                            <div className={`flex-1 ${getReservationColor(checkingOut.source)} p-1 text-center border-b border-border/50`}>
+                              <div className="text-xs space-y-0.5 break-words">
+                                <div>Reserved</div>
+                                <div className="text-[10px] font-medium">{checkingOut.guest_names[0] || 'Guest'}</div>
+                              </div>
+                            </div>
+                            <div className="flex-1 bg-background p-1 text-center">
+                              <div className="text-xs opacity-50">Available</div>
                             </div>
                           </div>
                         ) : checkingIn ? (
-                          // Just check-in
-                          <div className={`${getReservationColor(checkingIn.source)} p-2 text-center min-h-[60px] flex items-center justify-center`}>
-                            <div className="text-xs space-y-1 break-words">
-                              <div>Reserved</div>
-                              <div className="text-[10px] opacity-90 font-medium">{checkingIn.guest_names[0] || 'Guest'}</div>
+                          // Just check-in - split cell showing available until check-in
+                          <div className="flex flex-col h-full min-h-[60px]">
+                            <div className="flex-1 bg-background p-1 text-center border-b border-border/50">
+                              <div className="text-xs opacity-50">Available</div>
+                            </div>
+                            <div className={`flex-1 ${getReservationColor(checkingIn.source)} p-1 text-center`}>
+                              <div className="text-xs space-y-0.5 break-words">
+                                <div>Reserved</div>
+                                <div className="text-[10px] font-medium">{checkingIn.guest_names[0] || 'Guest'}</div>
+                              </div>
                             </div>
                           </div>
                         ) : staying ? (
