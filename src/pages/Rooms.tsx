@@ -4,9 +4,15 @@ import { useAuth } from '@/lib/auth';
 import { supabase } from '@/integrations/supabase/client';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
-import { ArrowLeft, Save, Plus, Pencil, X, Upload, Trash2, Eye } from 'lucide-react';
+import { ArrowLeft, Save, Plus, Pencil, X, Upload, Trash2, Eye, ChevronDown } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
 import { Progress } from '@/components/ui/progress';
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu";
 import {
   Table,
   TableBody,
@@ -975,16 +981,25 @@ const Rooms = () => {
                       </span>
                     </TableCell>
                     <TableCell>
-                      <Button 
-                        size="sm" 
-                        variant="ghost"
-                        onClick={() => {
-                          // Navigate to room details or show modal
-                          console.log('View room:', unit.id);
-                        }}
-                      >
-                        <Eye className="h-4 w-4" />
-                      </Button>
+                      <DropdownMenu>
+                        <DropdownMenuTrigger asChild>
+                          <Button 
+                            size="sm" 
+                            variant="ghost"
+                          >
+                            <Eye className="h-4 w-4 mr-1" />
+                            <ChevronDown className="h-3 w-3" />
+                          </Button>
+                        </DropdownMenuTrigger>
+                        <DropdownMenuContent align="end">
+                          <DropdownMenuItem onClick={() => console.log('View Main street:', unit.id)}>
+                            Main street
+                          </DropdownMenuItem>
+                          <DropdownMenuItem onClick={() => console.log('View Courtyard:', unit.id)}>
+                            Courtyard
+                          </DropdownMenuItem>
+                        </DropdownMenuContent>
+                      </DropdownMenu>
                     </TableCell>
                     {isAdmin && !isBulkEdit && (
                       <TableCell>
