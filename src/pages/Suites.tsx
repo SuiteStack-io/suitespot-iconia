@@ -2,9 +2,10 @@ import { useState, useEffect } from "react";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
 import { Link } from "react-router-dom";
-import { Wifi, Tv, Coffee, Wind, Users, Bed, Loader2 } from "lucide-react";
+import { Wifi, Tv, Coffee, Wind, Users, Bed, Loader2, Calendar } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { useToast } from "@/hooks/use-toast";
+import { format, parseISO, isWithinInterval, isBefore, startOfDay } from "date-fns";
 import logo from "@/assets/suitespot-logo.png";
 
 interface Unit {
@@ -17,21 +18,34 @@ interface Unit {
   comments: string | null;
 }
 
+interface Reservation {
+  check_in_date: string;
+  check_out_date: string;
+  unit_id: string;
+}
+
 const Suites = () => {
   const { toast } = useToast();
   const [units, setUnits] = useState<Unit[]>([]);
+  const [reservations, setReservations] = useState<Reservation[]>([]);
   const [isLoading, setIsLoading] = useState(true);
 
   useEffect(() => {
-    const fetchUnits = async () => {
+    const fetchData = async () => {
       try {
-        const { data, error } = await supabase
-          .from("units")
-          .select("*")
-          .order("name");
+        const [unitsRes, reservationsRes] = await Promise.all([
+          supabase.from("units").select("*").order("name"),
+          supabase
+            .from("reservations")
+            .select("check_in_date, check_out_date, unit_id")
+            .neq("status", "cancelled")
+        ]);
 
-        if (error) throw error;
-        setUnits(data || []);
+        if (unitsRes.error) throw unitsRes.error;
+        if (reservationsRes.error) throw reservationsRes.error;
+
+        setUnits(unitsRes.data || []);
+        setReservations(reservationsRes.data || []);
       } catch (error: any) {
         toast({
           title: "Error loading suites",
@@ -43,7 +57,7 @@ const Suites = () => {
       }
     };
 
-    fetchUnits();
+    fetchData();
   }, [toast]);
 
   // Default amenities based on unit type
@@ -87,6 +101,45 @@ const Suites = () => {
     return "Experience comfort and style in our beautifully appointed suite with modern amenities and thoughtful design.";
   };
 
+  const getUnitAvailability = (unitId: string) => {
+    const today = startOfDay(new Date());
+    const unitReservations = reservations.filter(r => r.unit_id === unitId);
+    
+    // Check if currently occupied
+    const currentReservation = unitReservations.find(r => {
+      const checkIn = startOfDay(parseISO(r.check_in_date));
+      const checkOut = startOfDay(parseISO(r.check_out_date));
+      return isWithinInterval(today, { start: checkIn, end: checkOut }) || 
+             (isBefore(today, checkOut) && !isBefore(today, checkIn));
+    });
+
+    if (currentReservation) {
+      const checkOutDate = parseISO(currentReservation.check_out_date);
+      return {
+        available: false,
+        message: `Occupied until ${format(checkOutDate, 'MMM d, yyyy')}`,
+      };
+    }
+
+    // Check next upcoming reservation
+    const upcomingReservations = unitReservations
+      .filter(r => isBefore(today, parseISO(r.check_in_date)))
+      .sort((a, b) => parseISO(a.check_in_date).getTime() - parseISO(b.check_in_date).getTime());
+
+    if (upcomingReservations.length > 0) {
+      const nextCheckIn = parseISO(upcomingReservations[0].check_in_date);
+      return {
+        available: true,
+        message: `Available until ${format(nextCheckIn, 'MMM d, yyyy')}`,
+      };
+    }
+
+    return {
+      available: true,
+      message: 'Available',
+    };
+  };
+
   return (
     <div className="min-h-screen bg-background">
       {/* Navigation */}
@@ -125,11 +178,12 @@ const Suites = () => {
                 <p className="text-muted-foreground text-lg">No suites available at the moment.</p>
               </div>
             ) : (
-              <div className="space-y-12">
+                <div className="space-y-12">
                 {units.map((unit) => {
                   const amenities = getDefaultAmenities(unit.unit_type);
                   const guests = getDefaultGuests(unit.unit_type);
                   const beds = getDefaultBeds(unit.unit_type);
+                  const availability = getUnitAvailability(unit.id);
                   
                   return (
                     <Card key={unit.id} className="overflow-hidden">
@@ -141,9 +195,19 @@ const Suites = () => {
                           </div>
                         </div>
                         <div className="p-8">
-                          <h3 className="text-3xl font-serif font-bold text-foreground mb-2">
-                            {unit.name}
-                          </h3>
+                          <div className="flex items-start justify-between mb-2">
+                            <h3 className="text-3xl font-serif font-bold text-foreground">
+                              {unit.name}
+                            </h3>
+                            <div className={`flex items-center gap-2 px-3 py-1 rounded-full text-sm font-medium ${
+                              availability.available 
+                                ? 'bg-green-100 text-green-800 dark:bg-green-900/30 dark:text-green-400' 
+                                : 'bg-red-100 text-red-800 dark:bg-red-900/30 dark:text-red-400'
+                            }`}>
+                              <Calendar className="w-4 h-4" />
+                              <span>{availability.message}</span>
+                            </div>
+                          </div>
                           {unit.unit_number && (
                             <p className="text-sm text-muted-foreground mb-2">Unit {unit.unit_number}</p>
                           )}
