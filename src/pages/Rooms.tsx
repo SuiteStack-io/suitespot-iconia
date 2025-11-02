@@ -46,6 +46,7 @@ interface Unit {
   price_per_night: number | null;
   tax_percentage: number | null;
   photos: string[] | null;
+  view: string | null;
 }
 
 interface Reservation {
@@ -84,6 +85,7 @@ const Rooms = () => {
     price_per_night: null,
     tax_percentage: 14.00,
     photos: [],
+    view: null,
   });
   const [uploadingPhotos, setUploadingPhotos] = useState<string | null>(null);
   const [uploadProgress, setUploadProgress] = useState<{ [key: string]: number }>({});
@@ -988,14 +990,53 @@ const Rooms = () => {
                             variant="ghost"
                           >
                             <Eye className="h-4 w-4 mr-1" />
-                            <ChevronDown className="h-3 w-3" />
+                            <span className="text-xs">{unit.view || 'Select'}</span>
+                            <ChevronDown className="h-3 w-3 ml-1" />
                           </Button>
                         </DropdownMenuTrigger>
                         <DropdownMenuContent align="end">
-                          <DropdownMenuItem onClick={() => console.log('View Main street:', unit.id)}>
+                          <DropdownMenuItem onClick={async () => {
+                            const { error } = await supabase
+                              .from('units')
+                              .update({ view: 'Main street' })
+                              .eq('id', unit.id);
+                            
+                            if (error) {
+                              toast({
+                                variant: 'destructive',
+                                title: 'Error',
+                                description: 'Failed to update room view',
+                              });
+                            } else {
+                              fetchUnits();
+                              toast({
+                                title: 'Success',
+                                description: 'Room view updated',
+                              });
+                            }
+                          }}>
                             Main street
                           </DropdownMenuItem>
-                          <DropdownMenuItem onClick={() => console.log('View Courtyard:', unit.id)}>
+                          <DropdownMenuItem onClick={async () => {
+                            const { error } = await supabase
+                              .from('units')
+                              .update({ view: 'Courtyard' })
+                              .eq('id', unit.id);
+                            
+                            if (error) {
+                              toast({
+                                variant: 'destructive',
+                                title: 'Error',
+                                description: 'Failed to update room view',
+                              });
+                            } else {
+                              fetchUnits();
+                              toast({
+                                title: 'Success',
+                                description: 'Room view updated',
+                              });
+                            }
+                          }}>
                             Courtyard
                           </DropdownMenuItem>
                         </DropdownMenuContent>

@@ -252,6 +252,7 @@ export type Database = {
           unit_size: string | null
           unit_type: string | null
           updated_at: string
+          view: string | null
         }
         Insert: {
           availability_date?: string | null
@@ -272,6 +273,7 @@ export type Database = {
           unit_size?: string | null
           unit_type?: string | null
           updated_at?: string
+          view?: string | null
         }
         Update: {
           availability_date?: string | null
@@ -292,6 +294,7 @@ export type Database = {
           unit_size?: string | null
           unit_type?: string | null
           updated_at?: string
+          view?: string | null
         }
         Relationships: []
       }
