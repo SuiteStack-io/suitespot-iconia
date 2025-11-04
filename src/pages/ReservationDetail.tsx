@@ -279,18 +279,7 @@ const ReservationDetail = () => {
     setDownloading(prev => ({ ...prev, [docType]: true }));
     
     try {
-      // Determine bucket and extract file path from URL
-      let bucket = '';
-      let filePath = '';
-      
-      if (docType === 'marriage_certificate_url') {
-        bucket = 'marriage-certificates';
-      } else {
-        bucket = 'id-passports';
-      }
-      
-      // Extract filename from URL (supports both old and new formats)
-      // Format: https://[project].supabase.co/storage/v1/object/public/[bucket]/[filename]
+      // Extract filename from URL
       const urlParts = url.split('/');
       const filename = urlParts[urlParts.length - 1];
       
@@ -299,14 +288,34 @@ const ReservationDetail = () => {
         return;
       }
       
-      filePath = filename;
+      // Determine primary and fallback buckets
+      let primaryBucket = '';
+      let fallbackBucket = '';
       
-      // Download file from Supabase storage
-      const { data, error } = await supabase.storage
-        .from(bucket)
-        .download(filePath);
+      if (docType === 'marriage_certificate_url') {
+        primaryBucket = 'marriage-certificates';
+        fallbackBucket = 'id-passports';
+      } else {
+        primaryBucket = 'id-passports';
+        fallbackBucket = 'marriage-certificates'; // Fallback for legacy documents
+      }
       
-      if (error) {
+      // Try downloading from primary bucket
+      let { data, error } = await supabase.storage
+        .from(primaryBucket)
+        .download(filename);
+      
+      // If failed, try fallback bucket (for legacy documents in wrong bucket)
+      if (error && fallbackBucket) {
+        console.log('Trying fallback bucket:', fallbackBucket);
+        const fallbackResult = await supabase.storage
+          .from(fallbackBucket)
+          .download(filename);
+        data = fallbackResult.data;
+        error = fallbackResult.error;
+      }
+      
+      if (error || !data) {
         console.error('Error downloading document:', error);
         toast.error('Failed to download document');
         return;
@@ -317,7 +326,7 @@ const ReservationDetail = () => {
       const blobUrl = window.URL.createObjectURL(blob);
       const link = document.createElement('a');
       link.href = blobUrl;
-      link.download = filePath;
+      link.download = filename;
       document.body.appendChild(link);
       link.click();
       document.body.removeChild(link);
