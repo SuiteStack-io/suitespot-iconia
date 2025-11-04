@@ -555,7 +555,7 @@ export function CreateReservationDialog() {
       const filePath = `${fileName}`;
 
       const { error: uploadError } = await supabase.storage
-        .from('marriage-certificates') // Using same bucket for now
+        .from('id-passports')
         .upload(filePath, file);
 
       clearInterval(progressInterval);
@@ -581,7 +581,7 @@ export function CreateReservationDialog() {
       }
 
       const { data: { publicUrl } } = supabase.storage
-        .from('marriage-certificates')
+        .from('id-passports')
         .getPublicUrl(filePath);
       
       if (isBack) {

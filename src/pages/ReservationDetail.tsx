@@ -281,22 +281,25 @@ const ReservationDetail = () => {
     try {
       // Determine bucket and extract file path from URL
       let bucket = '';
-      let match = null;
+      let filePath = '';
       
       if (docType === 'marriage_certificate_url') {
         bucket = 'marriage-certificates';
-        match = url.match(/marriage-certificates\/([^?]+)/);
       } else {
         bucket = 'id-passports';
-        match = url.match(/id-passports\/([^?]+)/);
       }
       
-      if (!match) {
+      // Extract filename from URL (supports both old and new formats)
+      // Format: https://[project].supabase.co/storage/v1/object/public/[bucket]/[filename]
+      const urlParts = url.split('/');
+      const filename = urlParts[urlParts.length - 1];
+      
+      if (!filename) {
         toast.error('Invalid document URL');
         return;
       }
       
-      const filePath = match[1];
+      filePath = filename;
       
       // Download file from Supabase storage
       const { data, error } = await supabase.storage
