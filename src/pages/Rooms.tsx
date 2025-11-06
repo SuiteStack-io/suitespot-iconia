@@ -14,6 +14,14 @@ import {
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
 import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+} from "@/components/ui/dialog";
+import {
   Table,
   TableBody,
   TableCell,
@@ -91,6 +99,8 @@ const Rooms = () => {
   const [uploadProgress, setUploadProgress] = useState<{ [key: string]: number }>({});
   const [cloningRoomId, setCloningRoomId] = useState<string | null>(null);
   const [cloneRoomNumber, setCloneRoomNumber] = useState<string>('');
+  const [deleteDialogOpen, setDeleteDialogOpen] = useState(false);
+  const [roomToDelete, setRoomToDelete] = useState<Unit | null>(null);
 
   useEffect(() => {
     if (!loading && !user) {
@@ -581,6 +591,72 @@ const Rooms = () => {
         variant: 'destructive',
         title: 'Error',
         description: error.message || 'Failed to clone room',
+      });
+    }
+  };
+
+  const handleDeleteClick = (unit: Unit) => {
+    setRoomToDelete(unit);
+    setDeleteDialogOpen(true);
+  };
+
+  const handleConfirmDelete = async () => {
+    if (!roomToDelete) return;
+
+    try {
+      // Check if room has any reservations
+      const { data: reservations, error: resError } = await supabase
+        .from('reservations')
+        .select('id')
+        .eq('unit_id', roomToDelete.id)
+        .limit(1);
+
+      if (resError) throw resError;
+
+      if (reservations && reservations.length > 0) {
+        toast({
+          variant: 'destructive',
+          title: 'Cannot Delete',
+          description: 'This room has existing reservations and cannot be deleted.',
+        });
+        setDeleteDialogOpen(false);
+        setRoomToDelete(null);
+        return;
+      }
+
+      // Delete room photos from storage
+      if (roomToDelete.photos && roomToDelete.photos.length > 0) {
+        const photoFilenames = roomToDelete.photos.map(url => {
+          const parts = url.split('/assets/');
+          return parts.length > 1 ? parts[1] : null;
+        }).filter(Boolean);
+
+        if (photoFilenames.length > 0) {
+          await supabase.storage.from('assets').remove(photoFilenames as string[]);
+        }
+      }
+
+      // Delete the room
+      const { error } = await supabase
+        .from('units')
+        .delete()
+        .eq('id', roomToDelete.id);
+
+      if (error) throw error;
+
+      toast({
+        title: 'Success',
+        description: `Room ${roomToDelete.unit_number || roomToDelete.name} deleted successfully`,
+      });
+
+      setDeleteDialogOpen(false);
+      setRoomToDelete(null);
+      fetchUnits();
+    } catch (error: any) {
+      toast({
+        variant: 'destructive',
+        title: 'Error',
+        description: error.message || 'Failed to delete room',
       });
     }
   };
@@ -1188,6 +1264,15 @@ const Rooms = () => {
                             >
                               <Copy className="h-4 w-4" />
                             </Button>
+                            <Button 
+                              size="sm" 
+                              variant="ghost" 
+                              onClick={() => handleDeleteClick(unit)}
+                              title="Delete room"
+                              className="hover:bg-destructive/10"
+                            >
+                              <Trash2 className="h-4 w-4 text-destructive" />
+                            </Button>
                           </div>
                         )}
                       </TableCell>
@@ -1199,6 +1284,42 @@ const Rooms = () => {
           </Table>
         </div>
       </main>
+
+      {/* Delete Confirmation Dialog */}
+      <Dialog open={deleteDialogOpen} onOpenChange={setDeleteDialogOpen}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Delete Room</DialogTitle>
+            <DialogDescription>
+              Are you sure you want to delete this room? This action cannot be undone.
+            </DialogDescription>
+          </DialogHeader>
+          <div className="py-4">
+            <div className="space-y-2 text-sm">
+              <p><strong>Suite Name:</strong> {roomToDelete?.name}</p>
+              <p><strong>Room Number:</strong> {roomToDelete?.unit_number || 'N/A'}</p>
+              <p><strong>Type:</strong> {roomToDelete?.unit_type || 'N/A'}</p>
+            </div>
+          </div>
+          <DialogFooter>
+            <Button
+              variant="outline"
+              onClick={() => {
+                setDeleteDialogOpen(false);
+                setRoomToDelete(null);
+              }}
+            >
+              Cancel
+            </Button>
+            <Button
+              variant="destructive"
+              onClick={handleConfirmDelete}
+            >
+              Delete Room
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 };
