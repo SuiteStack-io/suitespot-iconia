@@ -928,6 +928,11 @@ const BookingFlow = () => {
                           <span className="font-semibold uppercase">Grand Total:</span>
                           <span className="text-2xl font-bold text-accent">${calculateTotalPrice().toFixed(2)}</span>
                         </div>
+                        <div className="mt-3 pt-3 border-t">
+                          <p className="text-xs text-muted-foreground leading-relaxed">
+                            All rates are based on double occupancy, with a maximum room capacity of 3 people. A third guest (age 18+) may stay in room, based on availability, for $50 USD (including taxes).
+                          </p>
+                        </div>
                       </div>
                     </div>
                   </div>
@@ -1317,6 +1322,11 @@ const BookingFlow = () => {
                           <div className="flex justify-between items-center border-t pt-3 mt-2">
                             <span className="font-bold text-lg uppercase">Grand Total:</span>
                             <span className="text-3xl font-bold text-accent">${calculateTotalPrice().toFixed(2)}</span>
+                          </div>
+                          <div className="mt-3 pt-3 border-t">
+                            <p className="text-xs text-muted-foreground leading-relaxed">
+                              All rates are based on double occupancy, with a maximum room capacity of 3 people. A third guest (age 18+) may stay in room, based on availability, for $50 USD (including taxes).
+                            </p>
                           </div>
                         </div>
                       </div>
