@@ -19,6 +19,16 @@ export const BookingWidget = () => {
   useEffect(() => {
     const fetchBookedDates = async () => {
       try {
+        // Fetch manually blocked dates
+        const { data: blockedDatesData, error: blockedError } = await supabase
+          .from("blocked_dates")
+          .select("blocked_date");
+
+        if (blockedError) throw blockedError;
+
+        const manuallyBlockedDates = blockedDatesData?.map(d => parseISO(d.blocked_date)) || [];
+
+        // Fetch reservation dates
         const { data: reservations, error } = await supabase
           .from("reservations")
           .select("check_in_date, check_out_date, unit_id")
@@ -59,7 +69,9 @@ export const BookingWidget = () => {
           }
         });
 
-        setBookedDates(fullyBookedDates);
+        // Combine fully booked dates with manually blocked dates
+        const allBlockedDates = [...fullyBookedDates, ...manuallyBlockedDates];
+        setBookedDates(allBlockedDates);
       } catch (error: any) {
         console.error("Error fetching booked dates:", error);
       }
