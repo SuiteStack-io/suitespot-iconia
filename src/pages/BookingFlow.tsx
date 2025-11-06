@@ -468,7 +468,22 @@ const BookingFlow = () => {
     const unit = units.find(u => u.id === selectedUnit);
     if (!unit?.price_per_night) return 0;
     const nights = calculateNights();
-    return unit.price_per_night * nights;
+    let subtotal = unit.price_per_night * nights;
+    
+    // Add $50 per night for third adult guest
+    if (adults === 3) {
+      subtotal += 50 * nights;
+    }
+    
+    return subtotal;
+  };
+
+  const calculateThirdGuestFee = () => {
+    if (adults === 3) {
+      const nights = calculateNights();
+      return 50 * nights;
+    }
+    return 0;
   };
 
   const calculateTax = () => {
@@ -915,6 +930,12 @@ const BookingFlow = () => {
                         <span className="text-sm text-muted-foreground">{calculateNights()} night{calculateNights() !== 1 ? "s" : ""}:</span>
                         <span className="text-sm">${units.find(u => u.id === selectedUnit)?.price_per_night} × {calculateNights()}</span>
                       </div>
+                      {adults === 3 && (
+                        <div className="flex justify-between items-center">
+                          <span className="text-sm text-muted-foreground">Third guest fee:</span>
+                          <span className="text-sm">$50 × {calculateNights()}</span>
+                        </div>
+                      )}
                       <div className="border-t pt-2 mt-2 space-y-1">
                         <div className="flex justify-between items-center">
                           <span className="font-semibold text-sm uppercase">Price:</span>
@@ -1310,6 +1331,12 @@ const BookingFlow = () => {
                           <span className="text-sm text-muted-foreground">{calculateNights()} nights:</span>
                           <span className="text-sm">${units.find(u => u.id === selectedUnit)?.price_per_night} × {calculateNights()}</span>
                         </div>
+                        {adults === 3 && (
+                          <div className="flex justify-between">
+                            <span className="text-sm text-muted-foreground">Third guest fee:</span>
+                            <span className="text-sm">$50 × {calculateNights()}</span>
+                          </div>
+                        )}
                         <div className="border-t pt-3 mt-3 space-y-2">
                           <div className="flex justify-between items-center">
                             <span className="font-bold uppercase">Price:</span>
