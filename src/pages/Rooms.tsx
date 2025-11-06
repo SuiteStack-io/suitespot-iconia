@@ -538,26 +538,33 @@ const Rooms = () => {
       </header>
 
       <main className="container mx-auto px-4 py-8">
-        <div className="rounded-md border">
-          <Table>
+        {isBulkEdit && (
+          <div className="mb-4 p-4 bg-primary/10 border border-primary/20 rounded-lg">
+            <p className="text-sm font-medium">
+              💡 Bulk Edit Mode: The table can be scrolled horizontally to see all fields. All changes will be saved when you click "Save All".
+            </p>
+          </div>
+        )}
+        <div className="rounded-md border overflow-x-auto">
+          <Table className="min-w-[1800px]">
             <TableHeader>
               <TableRow>
-                <TableHead>Suite Name</TableHead>
-                <TableHead>Room #</TableHead>
-                <TableHead>Type</TableHead>
-                <TableHead>Size</TableHead>
-                <TableHead>Beds</TableHead>
-                <TableHead>Baths</TableHead>
-                <TableHead>Max Guests</TableHead>
-                <TableHead>Sofa Bed</TableHead>
-                <TableHead>Price/Night</TableHead>
-                <TableHead>Tax %</TableHead>
-                <TableHead>Photos</TableHead>
-                <TableHead>Status</TableHead>
-                <TableHead>Booking.com ID</TableHead>
-                <TableHead>Next Reservation</TableHead>
-                <TableHead>View</TableHead>
-                {isAdmin && !isBulkEdit && <TableHead>Actions</TableHead>}
+                <TableHead className="min-w-[200px]">Suite Name</TableHead>
+                <TableHead className="min-w-[100px]">Room #</TableHead>
+                <TableHead className="min-w-[140px]">Type</TableHead>
+                <TableHead className="min-w-[120px]">Size</TableHead>
+                <TableHead className="min-w-[80px]">Beds</TableHead>
+                <TableHead className="min-w-[80px]">Baths</TableHead>
+                <TableHead className="min-w-[100px]">Max Guests</TableHead>
+                <TableHead className="min-w-[100px]">Sofa Bed</TableHead>
+                <TableHead className="min-w-[110px]">Price/Night</TableHead>
+                <TableHead className="min-w-[80px]">Tax %</TableHead>
+                <TableHead className="min-w-[160px]">Photos</TableHead>
+                <TableHead className="min-w-[120px]">Status</TableHead>
+                <TableHead className="min-w-[140px]">Booking.com ID</TableHead>
+                <TableHead className="min-w-[130px]">Next Reservation</TableHead>
+                <TableHead className="min-w-[140px]">View</TableHead>
+                {isAdmin && !isBulkEdit && <TableHead className="min-w-[100px]">Actions</TableHead>}
               </TableRow>
             </TableHeader>
             <TableBody>
@@ -722,9 +729,10 @@ const Rooms = () => {
                 
                 return (
                   <TableRow key={unit.id}>
-                    <TableCell>
+                    <TableCell className="min-w-[200px]">
                       {isEditing ? (
                         <Input
+                          className="w-full min-w-[180px]"
                           value={isBulkEdit ? bulkEditUnits[unit.id]?.name : editedUnit.name}
                           onChange={(e) => 
                             isBulkEdit 
@@ -736,9 +744,10 @@ const Rooms = () => {
                         unit.name
                       )}
                     </TableCell>
-                    <TableCell>
+                    <TableCell className="min-w-[100px]">
                       {isEditing ? (
                         <Input
+                          className="w-full min-w-[80px]"
                           value={isBulkEdit ? (bulkEditUnits[unit.id]?.unit_number || '') : (editedUnit.unit_number || '')}
                           onChange={(e) =>
                             isBulkEdit
@@ -750,9 +759,10 @@ const Rooms = () => {
                         unit.unit_number || '-'
                       )}
                     </TableCell>
-                    <TableCell>
+                    <TableCell className="min-w-[140px]">
                       {isEditing ? (
                         <Input
+                          className="w-full min-w-[120px]"
                           value={isBulkEdit ? (bulkEditUnits[unit.id]?.unit_type || '') : (editedUnit.unit_type || '')}
                           onChange={(e) =>
                             isBulkEdit
@@ -764,9 +774,10 @@ const Rooms = () => {
                         unit.unit_type || '-'
                       )}
                     </TableCell>
-                    <TableCell>
+                    <TableCell className="min-w-[120px]">
                       {isEditing ? (
                         <Input
+                          className="w-full min-w-[100px]"
                           value={isBulkEdit ? (bulkEditUnits[unit.id]?.unit_size || '') : (editedUnit.unit_size || '')}
                           onChange={(e) =>
                             isBulkEdit
@@ -778,9 +789,10 @@ const Rooms = () => {
                         unit.unit_size || '-'
                       )}
                     </TableCell>
-                    <TableCell>
+                    <TableCell className="min-w-[80px]">
                       {isEditing ? (
                         <Input
+                          className="w-full min-w-[60px]"
                           type="number"
                           value={isBulkEdit ? (bulkEditUnits[unit.id]?.beds ?? '') : (editedUnit.beds ?? '')}
                           onChange={(e) =>
@@ -794,9 +806,10 @@ const Rooms = () => {
                         unit.beds || '-'
                       )}
                     </TableCell>
-                    <TableCell>
+                    <TableCell className="min-w-[80px]">
                       {isEditing ? (
                         <Input
+                          className="w-full min-w-[60px]"
                           type="number"
                           value={isBulkEdit ? (bulkEditUnits[unit.id]?.baths ?? '') : (editedUnit.baths ?? '')}
                           onChange={(e) =>
@@ -810,9 +823,10 @@ const Rooms = () => {
                         unit.baths || '-'
                       )}
                     </TableCell>
-                    <TableCell>
+                    <TableCell className="min-w-[100px]">
                       {isEditing ? (
                         <Input
+                          className="w-full min-w-[80px]"
                           type="number"
                           value={isBulkEdit ? (bulkEditUnits[unit.id]?.max_guests ?? '') : (editedUnit.max_guests ?? '')}
                           onChange={(e) =>
@@ -826,7 +840,7 @@ const Rooms = () => {
                         unit.max_guests || '-'
                       )}
                     </TableCell>
-                    <TableCell>
+                    <TableCell className="min-w-[100px]">
                       {isEditing ? (
                         <Select
                           value={isBulkEdit ? (bulkEditUnits[unit.id]?.sofa_bed ? 'true' : 'false') : (editedUnit.sofa_bed ? 'true' : 'false')}
@@ -836,7 +850,7 @@ const Rooms = () => {
                               : setEditedUnit({ ...editedUnit, sofa_bed: value === 'true' })
                           }
                         >
-                          <SelectTrigger>
+                          <SelectTrigger className="w-full min-w-[80px]">
                             <SelectValue />
                           </SelectTrigger>
                           <SelectContent>
@@ -848,9 +862,10 @@ const Rooms = () => {
                         unit.sofa_bed ? 'Yes' : 'No'
                       )}
                     </TableCell>
-                    <TableCell>
+                    <TableCell className="min-w-[110px]">
                       {isEditing ? (
                         <Input
+                          className="w-full min-w-[90px]"
                           type="number"
                           step="0.01"
                           value={isBulkEdit ? (bulkEditUnits[unit.id]?.price_per_night ?? '') : (editedUnit.price_per_night ?? '')}
@@ -865,9 +880,10 @@ const Rooms = () => {
                         unit.price_per_night ? `$${unit.price_per_night}` : '-'
                       )}
                     </TableCell>
-                    <TableCell>
+                    <TableCell className="min-w-[80px]">
                       {isEditing ? (
                         <Input
+                          className="w-full min-w-[60px]"
                           type="number"
                           step="0.01"
                           min="0"
@@ -884,9 +900,9 @@ const Rooms = () => {
                         unit.tax_percentage ? `${unit.tax_percentage}%` : '14%'
                       )}
                     </TableCell>
-                    <TableCell>
+                    <TableCell className="min-w-[160px]">
                       {isEditing ? (
-                        <div className="text-muted-foreground text-sm">Use upload button in Actions column</div>
+                        <div className="text-muted-foreground text-sm whitespace-normal">Use upload button in Actions column</div>
                       ) : (
                         <div className="space-y-2">
                           <div className="flex items-center gap-2">
@@ -937,7 +953,7 @@ const Rooms = () => {
                         </div>
                       )}
                     </TableCell>
-                    <TableCell>
+                    <TableCell className="min-w-[120px]">
                       {isEditing ? (
                         <Select
                           value={isBulkEdit ? bulkEditUnits[unit.id]?.status : editedUnit.status}
@@ -947,7 +963,7 @@ const Rooms = () => {
                               : setEditedUnit({ ...editedUnit, status: value })
                           }
                         >
-                          <SelectTrigger>
+                          <SelectTrigger className="w-full min-w-[100px]">
                             <SelectValue />
                           </SelectTrigger>
                           <SelectContent>
@@ -962,9 +978,10 @@ const Rooms = () => {
                         <span className="capitalize">{unit.status}</span>
                       )}
                     </TableCell>
-                    <TableCell>
+                    <TableCell className="min-w-[140px]">
                       {isEditing ? (
                         <Input
+                          className="w-full min-w-[120px]"
                           value={isBulkEdit ? (bulkEditUnits[unit.id]?.booking_com_id || '') : (editedUnit.booking_com_id || '')}
                           onChange={(e) =>
                             isBulkEdit
@@ -977,12 +994,12 @@ const Rooms = () => {
                         <span className="font-mono text-sm">{unit.booking_com_id || '-'}</span>
                       )}
                     </TableCell>
-                    <TableCell>
+                    <TableCell className="min-w-[130px]">
                       <span className="text-sm">
                         {getNextReservation(unit.id) || '-'}
                       </span>
                     </TableCell>
-                    <TableCell>
+                    <TableCell className="min-w-[140px]">
                       <DropdownMenu>
                         <DropdownMenuTrigger asChild>
                           <Button 
