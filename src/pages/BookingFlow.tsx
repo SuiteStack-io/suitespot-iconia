@@ -206,6 +206,15 @@ const BookingFlow = () => {
 
             if (reservationsError) throw reservationsError;
 
+            // Also fetch blocked dates that overlap with the requested range
+            const { data: blockedDatesData, error: blocksError } = await supabase
+              .from("blocked_dates")
+              .select("blocked_date, unit_id")
+              .gte("blocked_date", format(dateRange.from, "yyyy-MM-dd"))
+              .lt("blocked_date", format(dateRange.to, "yyyy-MM-dd"));
+
+            if (blocksError) throw blocksError;
+
             // Filter out units that have conflicting reservations
             const requestedCheckIn = format(dateRange.from, "yyyy-MM-dd");
             const requestedCheckOut = format(dateRange.to, "yyyy-MM-dd");
@@ -220,6 +229,16 @@ const BookingFlow = () => {
                 })
                 .map(r => r.unit_id) || []
             );
+
+            // Add units that are manually blocked during the requested dates
+            blockedDatesData?.forEach(block => {
+              // If unit_id is null, block all units
+              if (block.unit_id === null) {
+                allUnits?.forEach(unit => bookedUnitIds.add(unit.id));
+              } else {
+                bookedUnitIds.add(block.unit_id);
+              }
+            });
             
             const availableUnits = allUnits?.filter(unit => !bookedUnitIds.has(unit.id)) || [];
             setUnits(availableUnits);
@@ -255,6 +274,14 @@ const BookingFlow = () => {
 
           if (error) throw error;
 
+          // Also fetch manually blocked dates for this unit
+          const { data: manualBlocks, error: blocksError } = await supabase
+            .from("blocked_dates")
+            .select("blocked_date")
+            .eq("unit_id", preSelectedUnitId);
+
+          if (blocksError) throw blocksError;
+
           // Get all dates that are booked for this specific unit
           const blockedDates: Date[] = [];
           
@@ -271,6 +298,11 @@ const BookingFlow = () => {
             }
           });
 
+          // Add manually blocked dates
+          manualBlocks?.forEach(block => {
+            blockedDates.push(new Date(block.blocked_date + 'T00:00:00'));
+          });
+
           setBookedDates(blockedDates);
         } else {
           // Get all dates that are fully booked (all units booked)
@@ -280,6 +312,13 @@ const BookingFlow = () => {
             .neq("status", "cancelled");
 
           if (error) throw error;
+
+          // Fetch manually blocked dates
+          const { data: blockedDatesData, error: blocksError } = await supabase
+            .from("blocked_dates")
+            .select("blocked_date, unit_id");
+
+          if (blocksError) throw blocksError;
 
           const { data: allUnits } = await supabase
             .from("units")
@@ -302,6 +341,22 @@ const BookingFlow = () => {
                 dateBookings.set(dateStr, new Set());
               }
               dateBookings.get(dateStr)?.add(res.unit_id);
+            }
+          });
+
+          // Add manually blocked dates
+          blockedDatesData?.forEach(block => {
+            const dateStr = block.blocked_date;
+            if (!dateBookings.has(dateStr)) {
+              dateBookings.set(dateStr, new Set());
+            }
+            // If unit_id is null, it means all units are blocked for this date
+            if (block.unit_id === null) {
+              allUnits?.forEach(unit => {
+                dateBookings.get(dateStr)?.add(unit.id);
+              });
+            } else {
+              dateBookings.get(dateStr)?.add(block.unit_id);
             }
           });
 
