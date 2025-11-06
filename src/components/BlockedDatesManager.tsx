@@ -6,10 +6,11 @@ import { Label } from "@/components/ui/label";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { supabase } from "@/integrations/supabase/client";
 import { format, parseISO, eachDayOfInterval } from "date-fns";
 import { toast } from "sonner";
-import { CalendarX, Plus, Trash2 } from "lucide-react";
+import { CalendarX, Plus, Trash2, CalendarIcon } from "lucide-react";
 import { cn } from "@/lib/utils";
 import type { DateRange } from "react-day-picker";
 
@@ -198,31 +199,88 @@ export const BlockedDatesManager = () => {
                     </SelectContent>
                   </Select>
                 </div>
-                <div className="space-y-2">
-                  <Label>Date Range</Label>
-                  {dateRange?.from && (
-                    <div className="text-sm text-muted-foreground">
-                      {format(dateRange.from, "MMM dd, yyyy")}
-                      {dateRange.to && ` - ${format(dateRange.to, "MMM dd, yyyy")}`}
-                    </div>
-                  )}
+
+                {/* Date Range Selection - Matching BookingWidget Style */}
+                <div className="grid grid-cols-2 gap-2">
+                  {/* Check In Date */}
+                  <div className="space-y-2">
+                    <Label>Start Date</Label>
+                    <Popover>
+                      <PopoverTrigger asChild>
+                        <Button
+                          variant="outline"
+                          className="w-full justify-start text-left font-normal h-auto py-2 px-3"
+                        >
+                          <div className="flex items-start gap-2 w-full">
+                            <CalendarIcon className="h-4 w-4 text-muted-foreground mt-0.5 flex-shrink-0" />
+                            <div className="flex flex-col min-w-0">
+                              <span className={cn("text-sm truncate", !dateRange?.from && "text-muted-foreground")}>
+                                {dateRange?.from ? format(dateRange.from, "MMM dd, yyyy") : "Add date"}
+                              </span>
+                            </div>
+                          </div>
+                        </Button>
+                      </PopoverTrigger>
+                      <PopoverContent className="w-auto p-0" align="start">
+                        <Calendar
+                          mode="range"
+                          selected={dateRange}
+                          onSelect={setDateRange}
+                          disabled={(date) => date < new Date()}
+                          initialFocus
+                          numberOfMonths={1}
+                          className="pointer-events-auto"
+                          modifiers={{
+                            blocked: blockedDateObjects,
+                          }}
+                          modifiersClassNames={{
+                            blocked: "bg-destructive text-destructive-foreground opacity-60",
+                          }}
+                        />
+                      </PopoverContent>
+                    </Popover>
+                  </div>
+
+                  {/* Check Out Date */}
+                  <div className="space-y-2">
+                    <Label>End Date</Label>
+                    <Popover>
+                      <PopoverTrigger asChild>
+                        <Button
+                          variant="outline"
+                          className="w-full justify-start text-left font-normal h-auto py-2 px-3"
+                        >
+                          <div className="flex items-start gap-2 w-full">
+                            <CalendarIcon className="h-4 w-4 text-muted-foreground mt-0.5 flex-shrink-0" />
+                            <div className="flex flex-col min-w-0">
+                              <span className={cn("text-sm truncate", !dateRange?.to && "text-muted-foreground")}>
+                                {dateRange?.to ? format(dateRange.to, "MMM dd, yyyy") : "Add date"}
+                              </span>
+                            </div>
+                          </div>
+                        </Button>
+                      </PopoverTrigger>
+                      <PopoverContent className="w-auto p-0" align="start">
+                        <Calendar
+                          mode="range"
+                          selected={dateRange}
+                          onSelect={setDateRange}
+                          disabled={(date) => date < new Date()}
+                          initialFocus
+                          numberOfMonths={1}
+                          className="pointer-events-auto"
+                          modifiers={{
+                            blocked: blockedDateObjects,
+                          }}
+                          modifiersClassNames={{
+                            blocked: "bg-destructive text-destructive-foreground opacity-60",
+                          }}
+                        />
+                      </PopoverContent>
+                    </Popover>
+                  </div>
                 </div>
-                <div className="flex justify-center">
-                  <Calendar
-                    mode="range"
-                    selected={dateRange}
-                    onSelect={setDateRange}
-                    disabled={(date) => date < new Date()}
-                    className={cn("rounded-md border pointer-events-auto")}
-                    numberOfMonths={1}
-                    modifiers={{
-                      blocked: blockedDateObjects,
-                    }}
-                    modifiersClassNames={{
-                      blocked: "bg-destructive text-destructive-foreground opacity-60",
-                    }}
-                  />
-                </div>
+
                 <div className="space-y-2">
                   <Label htmlFor="reason">Reason (Optional)</Label>
                   <Input
