@@ -236,11 +236,7 @@ export const BookingWidget = () => {
         </div>
 
         {/* Guests */}
-        <Button
-          variant="outline"
-          className="w-full justify-start text-left font-normal h-auto py-1.5 px-3"
-          onClick={(e) => e.preventDefault()}
-        >
+        <div className="w-full border border-border rounded-md px-3 py-1.5 bg-background hover:bg-accent/50 transition-colors">
           <div className="flex items-start gap-2 w-full">
             <Users className="h-5 w-5 text-muted-foreground mt-0.5 flex-shrink-0" />
             <div className="flex flex-col w-full min-w-0">
@@ -259,7 +255,7 @@ export const BookingWidget = () => {
               </Select>
             </div>
           </div>
-        </Button>
+        </div>
 
         {/* Search Button */}
         <Button 

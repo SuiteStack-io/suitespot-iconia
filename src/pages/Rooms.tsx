@@ -4,7 +4,7 @@ import { useAuth } from '@/lib/auth';
 import { supabase } from '@/integrations/supabase/client';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
-import { ArrowLeft, Save, Plus, Pencil, X, Upload, Trash2, Eye, ChevronDown } from 'lucide-react';
+import { ArrowLeft, Save, Plus, Pencil, X, Upload, Trash2, Eye, ChevronDown, Copy } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
 import { Progress } from '@/components/ui/progress';
 import {
@@ -89,6 +89,8 @@ const Rooms = () => {
   });
   const [uploadingPhotos, setUploadingPhotos] = useState<string | null>(null);
   const [uploadProgress, setUploadProgress] = useState<{ [key: string]: number }>({});
+  const [cloningRoomId, setCloningRoomId] = useState<string | null>(null);
+  const [cloneRoomNumber, setCloneRoomNumber] = useState<string>('');
 
   useEffect(() => {
     if (!loading && !user) {
@@ -381,33 +383,76 @@ const Rooms = () => {
   };
 
   const handleSaveBulkEdit = async () => {
-    const updates = Object.values(bulkEditUnits).map((unit) => 
-      supabase
-        .from('units')
-        .update(unit)
-        .eq('id', unit.id!)
-    );
+    try {
+      const updates = Object.values(bulkEditUnits).map((unit) => {
+        // Only include fields that should be updated, exclude photos array and other non-updatable fields
+        const {
+          name,
+          unit_number,
+          unit_type,
+          unit_size,
+          status,
+          booking_com_id,
+          comments,
+          beds,
+          baths,
+          max_guests,
+          sofa_bed,
+          price_per_night,
+          tax_percentage,
+          view
+        } = unit;
+        
+        return supabase
+          .from('units')
+          .update({
+            name,
+            unit_number,
+            unit_type,
+            unit_size,
+            status,
+            booking_com_id,
+            comments,
+            beds,
+            baths,
+            max_guests,
+            sofa_bed,
+            price_per_night,
+            tax_percentage,
+            view
+          })
+          .eq('id', unit.id!);
+      });
 
-    const results = await Promise.all(updates);
-    const hasError = results.some((result) => result.error);
+      const results = await Promise.all(updates);
+      const errors = results.filter((result) => result.error);
 
-    if (hasError) {
+      if (errors.length > 0) {
+        console.error('Bulk update errors:', errors);
+        toast({
+          variant: 'destructive',
+          title: 'Error',
+          description: `Failed to update ${errors.length} room(s). Check console for details.`,
+        });
+        return;
+      }
+
+      toast({
+        title: 'Success',
+        description: `Successfully updated ${results.length} room(s)`,
+      });
+
+      setIsBulkEdit(false);
+      setBulkEditUnits({});
+      fetchUnits();
+    } catch (error) {
+      console.error('Bulk save error:', error);
       toast({
         variant: 'destructive',
         title: 'Error',
-        description: 'Failed to update some rooms',
+        description: error instanceof Error ? error.message : 'Failed to save changes',
       });
-      return;
     }
-
-    toast({
-      title: 'Success',
-      description: 'All rooms updated successfully',
-    });
-
-    setIsBulkEdit(false);
-    setBulkEditUnits({});
-    fetchUnits();
   };
 
   const handleBulkEditChange = (unitId: string, field: keyof Unit, value: any) => {
@@ -478,6 +523,66 @@ const Rooms = () => {
       photos: [],
     });
     fetchUnits();
+  };
+
+  const handleCloneRoom = async (sourceUnit: Unit) => {
+    // Prompt for new room number
+    const newRoomNumber = prompt('Enter room number for the cloned room:', '');
+    
+    if (!newRoomNumber || !newRoomNumber.trim()) {
+      toast({
+        title: 'Cancelled',
+        description: 'Room cloning cancelled',
+      });
+      return;
+    }
+
+    // Check if room number already exists
+    const existingRoom = units.find(u => u.unit_number === newRoomNumber.trim());
+    if (existingRoom) {
+      toast({
+        variant: 'destructive',
+        title: 'Error',
+        description: 'A room with this number already exists',
+      });
+      return;
+    }
+
+    try {
+      // Clone the room with all specifications except id and unit_number
+      const { error } = await supabase.from('units').insert([{
+        name: sourceUnit.name,
+        unit_number: newRoomNumber.trim(),
+        unit_type: sourceUnit.unit_type,
+        unit_size: sourceUnit.unit_size,
+        status: 'available', // New cloned rooms are available by default
+        booking_com_id: null, // Don't clone booking.com ID
+        comments: sourceUnit.comments,
+        beds: sourceUnit.beds,
+        baths: sourceUnit.baths,
+        max_guests: sourceUnit.max_guests,
+        sofa_bed: sourceUnit.sofa_bed,
+        price_per_night: sourceUnit.price_per_night,
+        tax_percentage: sourceUnit.tax_percentage,
+        photos: sourceUnit.photos || [],
+        view: sourceUnit.view,
+      }]);
+
+      if (error) throw error;
+
+      toast({
+        title: 'Success',
+        description: `Room ${newRoomNumber} created successfully`,
+      });
+
+      fetchUnits();
+    } catch (error: any) {
+      toast({
+        variant: 'destructive',
+        title: 'Error',
+        description: error.message || 'Failed to clone room',
+      });
+    }
   };
 
   if (loading) {
@@ -1071,9 +1176,19 @@ const Rooms = () => {
                             </Button>
                           </div>
                         ) : (
-                          <Button size="sm" variant="ghost" onClick={() => handleEdit(unit)}>
-                            <Pencil className="h-4 w-4" />
-                          </Button>
+                          <div className="flex gap-2">
+                            <Button size="sm" variant="ghost" onClick={() => handleEdit(unit)}>
+                              <Pencil className="h-4 w-4" />
+                            </Button>
+                            <Button 
+                              size="sm" 
+                              variant="ghost" 
+                              onClick={() => handleCloneRoom(unit)}
+                              title="Clone this room"
+                            >
+                              <Copy className="h-4 w-4" />
+                            </Button>
+                          </div>
                         )}
                       </TableCell>
                     )}
