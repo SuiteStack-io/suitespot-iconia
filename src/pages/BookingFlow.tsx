@@ -951,7 +951,7 @@ const BookingFlow = () => {
                         </div>
                         <div className="mt-3 pt-3 border-t">
                           <p className="text-xs text-foreground leading-relaxed text-center italic">
-                            All rates are based on double occupancy, with a maximum room capacity of 3 people. A third guest (age 18+) may stay in room, based on availability, for $50 USD (including taxes).
+                            All rates are based on double occupancy, with a maximum room capacity of 3 people. A third guest (age 18+) may stay in room, based on availability, for $50 USD (including taxes). Children are free of charge.
                           </p>
                         </div>
                       </div>
@@ -1352,7 +1352,7 @@ const BookingFlow = () => {
                           </div>
                           <div className="mt-3 pt-3 border-t">
                             <p className="text-xs text-foreground leading-relaxed text-center italic">
-                              All rates are based on double occupancy, with a maximum room capacity of 3 people. A third guest (age 18+) may stay in room, based on availability, for $50 USD (including taxes).
+                              All rates are based on double occupancy, with a maximum room capacity of 3 people. A third guest (age 18+) may stay in room, based on availability, for $50 USD (including taxes). Children are free of charge.
                             </p>
                           </div>
                         </div>
