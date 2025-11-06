@@ -5,35 +5,69 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { supabase } from "@/integrations/supabase/client";
 import { format, parseISO } from "date-fns";
 import { toast } from "sonner";
 import { CalendarX, Plus, Trash2 } from "lucide-react";
 import { cn } from "@/lib/utils";
 
+interface Unit {
+  id: string;
+  name: string;
+}
+
 interface BlockedDate {
   id: string;
   blocked_date: string;
   reason: string | null;
   created_at: string;
+  unit_id: string | null;
+  units?: {
+    name: string;
+  } | null;
 }
 
 export const BlockedDatesManager = () => {
   const [blockedDates, setBlockedDates] = useState<BlockedDate[]>([]);
+  const [units, setUnits] = useState<Unit[]>([]);
   const [selectedDate, setSelectedDate] = useState<Date | undefined>();
+  const [selectedUnitId, setSelectedUnitId] = useState<string>("all");
   const [reason, setReason] = useState("");
   const [loading, setLoading] = useState(false);
   const [dialogOpen, setDialogOpen] = useState(false);
 
   useEffect(() => {
     fetchBlockedDates();
+    fetchUnits();
   }, []);
+
+  const fetchUnits = async () => {
+    try {
+      const { data, error } = await supabase
+        .from("units")
+        .select("id, name")
+        .eq("status", "available")
+        .order("name", { ascending: true });
+
+      if (error) throw error;
+      setUnits(data || []);
+    } catch (error: any) {
+      console.error("Error fetching units:", error);
+      toast.error("Failed to fetch units");
+    }
+  };
 
   const fetchBlockedDates = async () => {
     try {
       const { data, error } = await supabase
         .from("blocked_dates")
-        .select("*")
+        .select(`
+          *,
+          units (
+            name
+          )
+        `)
         .order("blocked_date", { ascending: true });
 
       if (error) throw error;
@@ -56,20 +90,25 @@ export const BlockedDatesManager = () => {
         .from("blocked_dates")
         .insert({
           blocked_date: format(selectedDate, "yyyy-MM-dd"),
+          unit_id: selectedUnitId === "all" ? null : selectedUnitId,
           reason: reason.trim() || null,
         });
 
       if (error) {
         if (error.code === "23505") {
-          toast.error("This date is already blocked");
+          toast.error("This date is already blocked for the selected room");
         } else {
           throw error;
         }
         return;
       }
 
-      toast.success("Date blocked successfully");
+      const unitName = selectedUnitId === "all" 
+        ? "all rooms" 
+        : units.find(u => u.id === selectedUnitId)?.name || "selected room";
+      toast.success(`Date blocked successfully for ${unitName}`);
       setSelectedDate(undefined);
+      setSelectedUnitId("all");
       setReason("");
       setDialogOpen(false);
       fetchBlockedDates();
@@ -124,10 +163,26 @@ export const BlockedDatesManager = () => {
               <DialogHeader>
                 <DialogTitle>Block a Date</DialogTitle>
                 <DialogDescription>
-                  Select a date to block from public booking
+                  Select a date and room to block from public booking
                 </DialogDescription>
               </DialogHeader>
               <div className="space-y-4">
+                <div className="space-y-2">
+                  <Label htmlFor="unit-select">Room</Label>
+                  <Select value={selectedUnitId} onValueChange={setSelectedUnitId}>
+                    <SelectTrigger id="unit-select">
+                      <SelectValue />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="all">All Rooms</SelectItem>
+                      {units.map((unit) => (
+                        <SelectItem key={unit.id} value={unit.id}>
+                          {unit.name}
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                </div>
                 <div className="flex justify-center">
                   <Calendar
                     mode="single"
@@ -179,6 +234,13 @@ export const BlockedDatesManager = () => {
                 <div className="flex-1">
                   <div className="font-medium">
                     {format(parseISO(blockedDate.blocked_date), "EEEE, MMMM d, yyyy")}
+                  </div>
+                  <div className="text-sm text-muted-foreground">
+                    {blockedDate.unit_id ? (
+                      <span>Room: {blockedDate.units?.name || "Unknown"}</span>
+                    ) : (
+                      <span>All Rooms</span>
+                    )}
                   </div>
                   {blockedDate.reason && (
                     <div className="text-sm text-muted-foreground">

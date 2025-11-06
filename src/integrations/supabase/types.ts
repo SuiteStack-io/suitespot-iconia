@@ -51,6 +51,7 @@ export type Database = {
           created_by: string | null
           id: string
           reason: string | null
+          unit_id: string | null
         }
         Insert: {
           blocked_date: string
@@ -58,6 +59,7 @@ export type Database = {
           created_by?: string | null
           id?: string
           reason?: string | null
+          unit_id?: string | null
         }
         Update: {
           blocked_date?: string
@@ -65,8 +67,17 @@ export type Database = {
           created_by?: string | null
           id?: string
           reason?: string | null
+          unit_id?: string | null
         }
-        Relationships: []
+        Relationships: [
+          {
+            foreignKeyName: "blocked_dates_unit_id_fkey"
+            columns: ["unit_id"]
+            isOneToOne: false
+            referencedRelation: "units"
+            referencedColumns: ["id"]
+          },
+        ]
       }
       profiles: {
         Row: {

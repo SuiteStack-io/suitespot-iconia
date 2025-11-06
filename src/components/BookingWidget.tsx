@@ -22,11 +22,18 @@ export const BookingWidget = () => {
         // Fetch manually blocked dates
         const { data: blockedDatesData, error: blockedError } = await supabase
           .from("blocked_dates")
-          .select("blocked_date");
+          .select("blocked_date, unit_id");
 
         if (blockedError) throw blockedError;
 
-        const manuallyBlockedDates = blockedDatesData?.map(d => parseISO(d.blocked_date)) || [];
+        // Get all available units
+        const { data: allUnits } = await supabase
+          .from("units")
+          .select("id")
+          .eq("status", "available");
+
+        const totalUnits = allUnits?.length || 0;
+        if (totalUnits === 0) return;
 
         // Fetch reservation dates
         const { data: reservations, error } = await supabase
@@ -36,42 +43,51 @@ export const BookingWidget = () => {
 
         if (error) throw error;
 
-        // Get all dates that are fully booked (all units booked)
-        const { data: allUnits } = await supabase
-          .from("units")
-          .select("id")
-          .eq("status", "available");
-
-        const totalUnits = allUnits?.length || 0;
-        if (totalUnits === 0) return;
-
-        // Group reservations by date
-        const dateBookings = new Map<string, Set<string>>();
+        // Group reservations and blocks by date
+        const dateUnavailability = new Map<string, Set<string>>();
         
+        // Add reservations to unavailability map
         reservations?.forEach(res => {
           const start = parseISO(res.check_in_date);
           const end = parseISO(res.check_out_date);
           
           for (let d = new Date(start); d < end; d.setDate(d.getDate() + 1)) {
             const dateStr = format(d, "yyyy-MM-dd");
-            if (!dateBookings.has(dateStr)) {
-              dateBookings.set(dateStr, new Set());
+            if (!dateUnavailability.has(dateStr)) {
+              dateUnavailability.set(dateStr, new Set());
             }
-            dateBookings.get(dateStr)?.add(res.unit_id);
+            dateUnavailability.get(dateStr)?.add(res.unit_id);
           }
         });
 
-        // Find dates where all units are booked
-        const fullyBookedDates: Date[] = [];
-        dateBookings.forEach((unitIds, dateStr) => {
+        // Add blocked dates to unavailability map
+        blockedDatesData?.forEach(block => {
+          const dateStr = block.blocked_date;
+          
+          if (!dateUnavailability.has(dateStr)) {
+            dateUnavailability.set(dateStr, new Set());
+          }
+          
+          if (block.unit_id === null) {
+            // If unit_id is null, block all units for this date
+            allUnits?.forEach(unit => {
+              dateUnavailability.get(dateStr)?.add(unit.id);
+            });
+          } else {
+            // Block specific unit
+            dateUnavailability.get(dateStr)?.add(block.unit_id);
+          }
+        });
+
+        // Find dates where all units are unavailable (booked or blocked)
+        const fullyUnavailableDates: Date[] = [];
+        dateUnavailability.forEach((unitIds, dateStr) => {
           if (unitIds.size >= totalUnits) {
-            fullyBookedDates.push(parseISO(dateStr));
+            fullyUnavailableDates.push(parseISO(dateStr));
           }
         });
 
-        // Combine fully booked dates with manually blocked dates
-        const allBlockedDates = [...fullyBookedDates, ...manuallyBlockedDates];
-        setBookedDates(allBlockedDates);
+        setBookedDates(fullyUnavailableDates);
       } catch (error: any) {
         console.error("Error fetching booked dates:", error);
       }
