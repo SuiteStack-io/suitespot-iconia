@@ -23,15 +23,24 @@ interface Reservation {
   guest_names: string[];
 }
 
+interface BlockedDate {
+  id: string;
+  blocked_date: string;
+  unit_id: string | null;
+  reason: string | null;
+}
+
 export const WeeklyCalendar = () => {
   const isMobile = useIsMobile();
   const [currentWeekStart, setCurrentWeekStart] = useState(() => startOfWeek(new Date(), { weekStartsOn: 0 }));
   const [units, setUnits] = useState<Unit[]>([]);
   const [reservations, setReservations] = useState<Reservation[]>([]);
+  const [blockedDates, setBlockedDates] = useState<BlockedDate[]>([]);
 
   useEffect(() => {
     fetchUnits();
     fetchReservations();
+    fetchBlockedDates();
 
     // Set up real-time subscription for reservations
     const channel = supabase
@@ -46,6 +55,18 @@ export const WeeklyCalendar = () => {
         (payload) => {
           console.log('WeeklyCalendar real-time update received:', payload);
           fetchReservations();
+        }
+      )
+      .on(
+        'postgres_changes',
+        {
+          event: '*',
+          schema: 'public',
+          table: 'blocked_dates'
+        },
+        (payload) => {
+          console.log('WeeklyCalendar blocked dates update:', payload);
+          fetchBlockedDates();
         }
       )
       .subscribe((status, err) => {
@@ -89,8 +110,27 @@ export const WeeklyCalendar = () => {
     setReservations(data || []);
   };
 
+  const fetchBlockedDates = async () => {
+    const { data, error } = await supabase
+      .from('blocked_dates')
+      .select('*');
+    
+    if (error) {
+      console.error('Error fetching blocked dates:', error);
+      return;
+    }
+    setBlockedDates(data || []);
+  };
+
   const getWeekDays = () => {
     return Array.from({ length: 7 }, (_, i) => addDays(currentWeekStart, i));
+  };
+
+  const isDateBlocked = (date: Date, unitId: string) => {
+    return blockedDates.some(blocked => {
+      const blockedDate = new Date(blocked.blocked_date);
+      return isSameDay(date, blockedDate) && (blocked.unit_id === null || blocked.unit_id === unitId);
+    });
   };
 
   const getReservationsForDate = (date: Date, unitId: string) => {
@@ -216,16 +256,23 @@ export const WeeklyCalendar = () => {
                   </td>
                   {weekDays.map((day, index) => {
                     const { checkingOut, checkingIn, staying } = getReservationsForDate(day, unit.id);
+                    const blocked = isDateBlocked(day, unit.id);
                     const hasBothCheckOutAndIn = checkingOut && checkingIn;
                     
                     return (
                       <td
                         key={index}
                         className={`border border-border p-0 ${
-                          !checkingOut && !checkingIn && !staying ? 'bg-background' : ''
+                          blocked ? 'bg-black text-white' : !checkingOut && !checkingIn && !staying ? 'bg-background' : ''
                         }`}
                       >
-                        {hasBothCheckOutAndIn ? (
+                        {blocked ? (
+                          <div className="p-2 text-center min-h-[60px] flex items-center justify-center">
+                            <div className="text-xs space-y-1">
+                              <div>Blocked</div>
+                            </div>
+                          </div>
+                        ) : hasBothCheckOutAndIn ? (
                           // Split cell: top half for checkout, bottom half for check-in
                           <div className="flex flex-col h-full min-h-[60px]">
                             <div className={`flex-1 ${getReservationColor(checkingOut.source)} p-1 text-center border-b border-border/50`}>
@@ -299,6 +346,10 @@ export const WeeklyCalendar = () => {
           <div className="flex items-center gap-2">
             <div className="w-16 h-6 bg-red-500/80 border rounded flex items-center justify-center text-white text-xs">Direct</div>
             <span>= Direct Website</span>
+          </div>
+          <div className="flex items-center gap-2">
+            <div className="w-16 h-6 bg-black border rounded flex items-center justify-center text-white text-xs">Block</div>
+            <span>= Blocked</span>
           </div>
         </div>
       </div>

@@ -24,15 +24,24 @@ interface Reservation {
   source: string;
 }
 
+interface BlockedDate {
+  id: string;
+  blocked_date: string;
+  unit_id: string | null;
+  reason: string | null;
+}
+
 export const RoomCalendar = () => {
   const [currentDate, setCurrentDate] = useState(new Date());
   const [units, setUnits] = useState<Unit[]>([]);
   const [reservations, setReservations] = useState<Reservation[]>([]);
+  const [blockedDates, setBlockedDates] = useState<BlockedDate[]>([]);
   const [viewMode, setViewMode] = useState<'week' | 'month'>('week');
 
   useEffect(() => {
     fetchUnits();
     fetchReservations();
+    fetchBlockedDates();
 
     // Set up real-time subscription for reservations
     const channel = supabase
@@ -47,6 +56,18 @@ export const RoomCalendar = () => {
         (payload) => {
           console.log('RoomCalendar real-time update:', payload);
           fetchReservations();
+        }
+      )
+      .on(
+        'postgres_changes',
+        {
+          event: '*',
+          schema: 'public',
+          table: 'blocked_dates'
+        },
+        (payload) => {
+          console.log('RoomCalendar blocked dates update:', payload);
+          fetchBlockedDates();
         }
       )
       .subscribe((status) => {
@@ -76,6 +97,14 @@ export const RoomCalendar = () => {
     if (data) setReservations(data);
   };
 
+  const fetchBlockedDates = async () => {
+    const { data } = await supabase
+      .from('blocked_dates')
+      .select('*');
+    
+    if (data) setBlockedDates(data);
+  };
+
   const getDaysInView = () => {
     if (viewMode === 'week') {
       const start = startOfWeek(currentDate, { weekStartsOn: 1 });
@@ -93,6 +122,13 @@ export const RoomCalendar = () => {
       const checkIn = new Date(res.check_in_date);
       const checkOut = new Date(res.check_out_date);
       return res.unit_id === unitId && date >= checkIn && date < checkOut;
+    });
+  };
+
+  const isDateBlocked = (date: Date, unitId: string) => {
+    return blockedDates.some(blocked => {
+      const blockedDate = new Date(blocked.blocked_date);
+      return isSameDay(date, blockedDate) && (blocked.unit_id === null || blocked.unit_id === unitId);
     });
   };
 
@@ -201,19 +237,26 @@ export const RoomCalendar = () => {
                 </td>
                 {days.map((day) => {
                   const reservation = getReservationForDateAndUnit(day, unit.id);
+                  const blocked = isDateBlocked(day, unit.id);
                   
                   return (
                     <td 
                       key={day.toISOString()} 
                       className={`border border-border p-2 text-center ${
-                        reservation
+                        blocked
+                          ? 'bg-black text-white'
+                          : reservation
                           ? getReservationColor(reservation.source)
                           : isSameDay(day, new Date()) 
                           ? 'bg-primary/5' 
                           : 'bg-background'
                       }`}
                     >
-                      {reservation ? (
+                      {blocked ? (
+                        <div className="text-xs space-y-1 break-words">
+                          <div>Blocked</div>
+                        </div>
+                      ) : reservation ? (
                         <div className="text-xs space-y-1 break-words">
                           <div>Reserved</div>
                           <div className="text-[10px] opacity-90 font-medium">
@@ -244,6 +287,10 @@ export const RoomCalendar = () => {
         <div className="flex items-center gap-2">
           <div className="w-16 h-6 bg-red-500/80 border rounded flex items-center justify-center text-white text-xs">Direct</div>
           <span>= Direct Website</span>
+        </div>
+        <div className="flex items-center gap-2">
+          <div className="w-16 h-6 bg-black border rounded flex items-center justify-center text-white text-xs">Block</div>
+          <span>= Blocked</span>
         </div>
         <div className="flex items-center gap-2">
           <span className="text-muted-foreground">—</span>
