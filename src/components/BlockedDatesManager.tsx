@@ -7,10 +7,11 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/com
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { supabase } from "@/integrations/supabase/client";
-import { format, parseISO } from "date-fns";
+import { format, parseISO, eachDayOfInterval } from "date-fns";
 import { toast } from "sonner";
 import { CalendarX, Plus, Trash2 } from "lucide-react";
 import { cn } from "@/lib/utils";
+import type { DateRange } from "react-day-picker";
 
 interface Unit {
   id: string;
@@ -31,7 +32,7 @@ interface BlockedDate {
 export const BlockedDatesManager = () => {
   const [blockedDates, setBlockedDates] = useState<BlockedDate[]>([]);
   const [units, setUnits] = useState<Unit[]>([]);
-  const [selectedDate, setSelectedDate] = useState<Date | undefined>();
+  const [dateRange, setDateRange] = useState<DateRange | undefined>();
   const [selectedUnitId, setSelectedUnitId] = useState<string>("all");
   const [reason, setReason] = useState("");
   const [loading, setLoading] = useState(false);
@@ -79,24 +80,34 @@ export const BlockedDatesManager = () => {
   };
 
   const handleAddBlockedDate = async () => {
-    if (!selectedDate) {
-      toast.error("Please select a date");
+    if (!dateRange?.from) {
+      toast.error("Please select at least a start date");
       return;
     }
 
     setLoading(true);
     try {
+      // Get all dates in the range
+      const endDate = dateRange.to || dateRange.from;
+      const datesInRange = eachDayOfInterval({
+        start: dateRange.from,
+        end: endDate,
+      });
+
+      // Create insert records for each date
+      const insertRecords = datesInRange.map(date => ({
+        blocked_date: format(date, "yyyy-MM-dd"),
+        unit_id: selectedUnitId === "all" ? null : selectedUnitId,
+        reason: reason.trim() || null,
+      }));
+
       const { error } = await supabase
         .from("blocked_dates")
-        .insert({
-          blocked_date: format(selectedDate, "yyyy-MM-dd"),
-          unit_id: selectedUnitId === "all" ? null : selectedUnitId,
-          reason: reason.trim() || null,
-        });
+        .insert(insertRecords);
 
       if (error) {
         if (error.code === "23505") {
-          toast.error("This date is already blocked for the selected room");
+          toast.error("Some dates are already blocked for the selected room");
         } else {
           throw error;
         }
@@ -106,15 +117,19 @@ export const BlockedDatesManager = () => {
       const unitName = selectedUnitId === "all" 
         ? "all rooms" 
         : units.find(u => u.id === selectedUnitId)?.name || "selected room";
-      toast.success(`Date blocked successfully for ${unitName}`);
-      setSelectedDate(undefined);
+      
+      const dateCount = datesInRange.length;
+      const dateText = dateCount === 1 ? "date" : "dates";
+      toast.success(`${dateCount} ${dateText} blocked successfully for ${unitName}`);
+      
+      setDateRange(undefined);
       setSelectedUnitId("all");
       setReason("");
       setDialogOpen(false);
       fetchBlockedDates();
     } catch (error: any) {
       console.error("Error adding blocked date:", error);
-      toast.error("Failed to block date");
+      toast.error("Failed to block dates");
     } finally {
       setLoading(false);
     }
@@ -161,9 +176,9 @@ export const BlockedDatesManager = () => {
             </DialogTrigger>
             <DialogContent>
               <DialogHeader>
-                <DialogTitle>Block a Date</DialogTitle>
+                <DialogTitle>Block Dates</DialogTitle>
                 <DialogDescription>
-                  Select a date and room to block from public booking
+                  Select a date range and room to block from public booking
                 </DialogDescription>
               </DialogHeader>
               <div className="space-y-4">
@@ -183,13 +198,23 @@ export const BlockedDatesManager = () => {
                     </SelectContent>
                   </Select>
                 </div>
+                <div className="space-y-2">
+                  <Label>Date Range</Label>
+                  {dateRange?.from && (
+                    <div className="text-sm text-muted-foreground">
+                      {format(dateRange.from, "MMM dd, yyyy")}
+                      {dateRange.to && ` - ${format(dateRange.to, "MMM dd, yyyy")}`}
+                    </div>
+                  )}
+                </div>
                 <div className="flex justify-center">
                   <Calendar
-                    mode="single"
-                    selected={selectedDate}
-                    onSelect={setSelectedDate}
+                    mode="range"
+                    selected={dateRange}
+                    onSelect={setDateRange}
                     disabled={(date) => date < new Date()}
                     className={cn("rounded-md border pointer-events-auto")}
+                    numberOfMonths={1}
                     modifiers={{
                       blocked: blockedDateObjects,
                     }}
@@ -209,10 +234,10 @@ export const BlockedDatesManager = () => {
                 </div>
                 <Button
                   onClick={handleAddBlockedDate}
-                  disabled={!selectedDate || loading}
+                  disabled={!dateRange?.from || loading}
                   className="w-full"
                 >
-                  {loading ? "Blocking..." : "Block Date"}
+                  {loading ? "Blocking..." : "Block Dates"}
                 </Button>
               </div>
             </DialogContent>
