@@ -542,8 +542,8 @@ const Rooms = () => {
           <Table>
             <TableHeader>
               <TableRow>
-                <TableHead>Room ID</TableHead>
-                <TableHead>Unit Number</TableHead>
+                <TableHead>Suite Name</TableHead>
+                <TableHead>Room #</TableHead>
                 <TableHead>Type</TableHead>
                 <TableHead>Size</TableHead>
                 <TableHead>Beds</TableHead>

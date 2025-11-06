@@ -865,8 +865,7 @@ const BookingFlow = () => {
                             ) : (
                               units.map((unit) => (
                                 <SelectItem key={unit.id} value={unit.id}>
-                                  {unit.unit_type || unit.name}
-                                  {unit.unit_number && ` - Room ${unit.unit_number}`}
+                                  {unit.name}
                                 </SelectItem>
                               ))
                             )}

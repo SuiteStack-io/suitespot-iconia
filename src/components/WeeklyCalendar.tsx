@@ -250,7 +250,7 @@ export const WeeklyCalendar = () => {
                 <tr key={unit.id}>
                   <td className="sticky left-0 z-10 bg-card border border-border p-3">
                     <div>
-                      <div className="font-semibold">{unit.unit_number || unit.name}</div>
+                      <div className="font-semibold">{unit.name} {unit.unit_number && `(${unit.unit_number})`}</div>
                       <div className="text-sm text-muted-foreground">{unit.unit_type}</div>
                     </div>
                   </td>

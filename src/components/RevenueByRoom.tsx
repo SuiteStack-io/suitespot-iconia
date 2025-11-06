@@ -140,9 +140,9 @@ export const RevenueByRoom = () => {
       }
 
       roomRevenueMap[unit.id] = {
-        roomId: unit.unit_number || unit.id.substring(0, 8),
+        roomId: unit.id,
         roomName: unit.name,
-        roomType,
+        roomType: unit.unit_number ? `${unit.unit_number}` : roomType,
         area,
         terrace,
         bookings: unitReservations.length,
@@ -228,8 +228,8 @@ export const RevenueByRoom = () => {
           <Table>
             <TableHeader>
               <TableRow>
-                <TableHead>Room ID</TableHead>
-                <TableHead className="text-center">Room Type</TableHead>
+                <TableHead>Suite Name</TableHead>
+                <TableHead className="text-center">Room #</TableHead>
                 <TableHead className="text-center">Area</TableHead>
                 <TableHead className="text-center">Terrace</TableHead>
                 <TableHead className="text-right">Occupancy</TableHead>
@@ -240,7 +240,7 @@ export const RevenueByRoom = () => {
             <TableBody>
               {revenueByRoom.map((room) => (
                 <TableRow key={room.roomId}>
-                  <TableCell className="font-medium">{room.roomId}</TableCell>
+                  <TableCell className="font-medium">{room.roomName}</TableCell>
                   <TableCell className="text-center">{room.roomType}</TableCell>
                   <TableCell className="text-center">{room.area}</TableCell>
                   <TableCell className="text-center">{room.terrace}</TableCell>
@@ -256,7 +256,7 @@ export const RevenueByRoom = () => {
                 </TableRow>
               ))}
               <TableRow className="bg-muted/50 font-semibold">
-                <TableCell colSpan={5}>Total</TableCell>
+                <TableCell colSpan={6}>Total</TableCell>
                 <TableCell className="text-right">{totals.bookings}</TableCell>
                 <TableCell className="text-right text-green-600">
                   ${totals.revenue.toFixed(2)}

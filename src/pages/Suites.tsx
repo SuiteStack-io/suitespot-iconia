@@ -144,9 +144,6 @@ const Suites = () => {
                           <h3 className="text-3xl font-serif font-bold text-foreground mb-2">
                             {unit.name}
                           </h3>
-                          {unit.unit_number && (
-                            <p className="text-sm text-muted-foreground mb-2">Unit {unit.unit_number}</p>
-                          )}
                           <p className="text-muted-foreground mb-6">
                             {getUnitDescription(unit)}
                           </p>

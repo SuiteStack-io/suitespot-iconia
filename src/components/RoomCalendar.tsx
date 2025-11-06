@@ -231,7 +231,7 @@ export const RoomCalendar = () => {
               <tr key={unit.id} className="hover:bg-muted/30 transition-colors">
                 <td className="border border-border p-3 bg-background sticky left-0 z-10">
                   <div>
-                    <div className="font-semibold">{unit.unit_number}</div>
+                    <div className="font-semibold">{unit.name} {unit.unit_number && `(${unit.unit_number})`}</div>
                     <div className="text-sm text-muted-foreground">{unit.unit_type}</div>
                   </div>
                 </td>
