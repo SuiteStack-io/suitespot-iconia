@@ -178,6 +178,7 @@ export function CreateReservationDialog() {
   // Form state
   const [dateRange, setDateRange] = useState<DateRange | undefined>();
   const [unitId, setUnitId] = useState("");
+  const [roomNumber, setRoomNumber] = useState<string>("");
   const [adults, setAdults] = useState<number>(1);
   const [children, setChildren] = useState<number>(0);
   const [numberOfGuests, setNumberOfGuests] = useState<number>(1);
@@ -229,6 +230,15 @@ export function CreateReservationDialog() {
   // Get selected unit for tax calculation
   const selectedUnitData = availableUnits.find(u => u.id === unitId);
   const taxPercentage = selectedUnitData?.tax_percentage || 14;
+
+  // Update room number when unit changes
+  useEffect(() => {
+    if (selectedUnitData) {
+      setRoomNumber(selectedUnitData.unit_number || '');
+    } else {
+      setRoomNumber('');
+    }
+  }, [selectedUnitData]);
 
   // Calculate subtotal (before tax)
   const subtotal = pricePerNight && nights > 0 
@@ -1104,36 +1114,52 @@ export function CreateReservationDialog() {
             </p>
           )}
 
-          {/* Suite Name */}
-          <div className="space-y-2">
-            <Label htmlFor="unitId">
-              Suite Name <span className="text-destructive">*</span>
-            </Label>
-            <Select value={unitId} onValueChange={setUnitId} disabled={checkingAvailability}>
-              <SelectTrigger>
-                <SelectValue placeholder={
-                  checkingAvailability 
-                    ? "Checking availability..." 
-                    : !checkInDate || !checkOutDate
-                    ? "Select dates first"
-                    : availableUnits.length === 0
-                    ? "No units available for selected dates"
-                    : "Select a room"
-                } />
-              </SelectTrigger>
-              <SelectContent>
-                {availableUnits.map((unit) => (
-                  <SelectItem key={unit.id} value={unit.id}>
-                    {unit.name}{unit.unit_type ? ` - ${unit.unit_type}` : ''}
-                  </SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
-            {checkInDate && checkOutDate && availableUnits.length === 0 && (
-              <p className="text-xs text-destructive">
-                All rooms are booked for these dates
-              </p>
-            )}
+          {/* Suite Name and Room # */}
+          <div className="grid grid-cols-2 gap-4">
+            <div className="space-y-2">
+              <Label htmlFor="unitId">
+                Suite Name <span className="text-destructive">*</span>
+              </Label>
+              <Select value={unitId} onValueChange={setUnitId} disabled={checkingAvailability}>
+                <SelectTrigger>
+                  <SelectValue placeholder={
+                    checkingAvailability 
+                      ? "Checking availability..." 
+                      : !checkInDate || !checkOutDate
+                      ? "Select dates first"
+                      : availableUnits.length === 0
+                      ? "No units available for selected dates"
+                      : "Select a room"
+                  } />
+                </SelectTrigger>
+                <SelectContent>
+                  {availableUnits.map((unit) => (
+                    <SelectItem key={unit.id} value={unit.id}>
+                      {unit.name}{unit.unit_type ? ` - ${unit.unit_type}` : ''}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+              {checkInDate && checkOutDate && availableUnits.length === 0 && (
+                <p className="text-xs text-destructive">
+                  All rooms are booked for these dates
+                </p>
+              )}
+            </div>
+
+            <div className="space-y-2">
+              <Label htmlFor="roomNumber">
+                Room #
+              </Label>
+              <Input 
+                id="roomNumber"
+                value={roomNumber}
+                readOnly
+                disabled
+                placeholder="Auto-filled"
+                className="bg-muted"
+              />
+            </div>
           </div>
 
           {/* Number of Guests */}
