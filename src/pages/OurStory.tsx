@@ -46,10 +46,12 @@ const OurStory = () => {
                 <h2 className="text-3xl font-serif font-bold text-foreground mb-4">
                   A Vision Born from Experience
                 </h2>
+                <p className="text-lg text-muted-foreground leading-relaxed mb-6">
+                  SuiteSpot Hospitality was founded on a simple belief: travelers deserve more than just a place to stay.
+                  Positioned at the sweet spot between a hotel and a serviced apartment, SuiteSpot transforms iconic buildings into wellness-focused, design-driven stays. Every space reflects a balance of warmth and modernity, curated for today's traveler who values comfort, authenticity, and connection.
+                </p>
                 <p className="text-lg text-muted-foreground leading-relaxed">
-                  SuiteSpot Hospitality was founded on a simple belief: travelers deserve more than just a place to stay. 
-                  They deserve a home away from home, enhanced with the sophistication and service of a boutique hotel. 
-                  Our vision is to blend comfort, design, and authentic hospitality to create unforgettable experiences in Egypt.
+                  With over 50 years of combined experience across real estate, technology, and hospitality, our team brings the expertise to deliver consistent, high-quality experiences while celebrating the individuality of each location. At SuiteSpot, we're reimagining how modern travelers experience Egypt — one meaningful stay at a time.
                 </p>
               </div>
 
