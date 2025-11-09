@@ -1104,10 +1104,10 @@ export function CreateReservationDialog() {
             </p>
           )}
 
-          {/* Room ID */}
+          {/* Suite Name */}
           <div className="space-y-2">
             <Label htmlFor="unitId">
-              Room ID <span className="text-destructive">*</span>
+              Suite Name <span className="text-destructive">*</span>
             </Label>
             <Select value={unitId} onValueChange={setUnitId} disabled={checkingAvailability}>
               <SelectTrigger>

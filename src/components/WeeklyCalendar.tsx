@@ -225,7 +225,7 @@ export const WeeklyCalendar = () => {
             <thead>
               <tr>
                 <th className="sticky left-0 z-10 bg-card border border-border p-3 text-left font-semibold min-w-[120px]">
-                  Room ID
+                  Suite Name
                 </th>
                 {weekDays.map((day, index) => {
                   const isToday = isSameDay(day, new Date());

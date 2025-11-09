@@ -249,7 +249,7 @@ export const ReservationsList = () => {
                 className="cursor-pointer hover:bg-muted/50"
                 onClick={() => handleSort('units')}
               >
-                Room ID {getSortIcon('units')}
+                Suite Name {getSortIcon('units')}
               </TableHead>
               <TableHead>
                 Room #

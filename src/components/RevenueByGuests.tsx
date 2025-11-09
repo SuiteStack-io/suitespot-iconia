@@ -188,7 +188,7 @@ export const RevenueByGuests = () => {
                   className="cursor-pointer hover:bg-muted/50"
                   onClick={() => handleSort('roomId')}
                 >
-                  Room ID {getSortIcon('roomId')}
+                  Suite Name {getSortIcon('roomId')}
                 </TableHead>
                 <TableHead 
                   className="cursor-pointer hover:bg-muted/50"
