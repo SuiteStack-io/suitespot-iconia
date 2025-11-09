@@ -57,7 +57,7 @@ export const OurStorySlideshow = () => {
 
   const scroll = (direction: 'left' | 'right') => {
     if (!scrollContainerRef.current) return;
-    const scrollAmount = scrollContainerRef.current.offsetWidth * 0.8;
+    const scrollAmount = scrollContainerRef.current.offsetWidth;
     const newScrollLeft = scrollContainerRef.current.scrollLeft + (direction === 'left' ? -scrollAmount : scrollAmount);
     scrollContainerRef.current.scrollTo({
       left: newScrollLeft,
@@ -70,44 +70,42 @@ export const OurStorySlideshow = () => {
   }
 
   return (
-    <section className="py-12 px-6 bg-muted/30">
-      <div className="container mx-auto relative">
+    <section className="relative w-full h-screen">
+      <div className="relative w-full h-full">
         <div 
           ref={scrollContainerRef}
-          className="flex gap-4 overflow-x-auto scrollbar-hide scroll-smooth snap-x snap-mandatory"
+          className="flex overflow-x-auto scrollbar-hide scroll-smooth snap-x snap-mandatory h-full"
           style={{ scrollbarWidth: 'none', msOverflowStyle: 'none' }}
         >
           {images.map((image) => (
             <div 
               key={image.id} 
-              className="flex-none w-full md:w-1/2 lg:w-1/3 snap-start"
+              className="flex-none w-full h-full snap-start"
             >
-              <div className="aspect-[4/3] overflow-hidden rounded-lg">
-                <img
-                  src={image.image_url}
-                  alt={`Our Story ${image.sequence_order + 1}`}
-                  className="w-full h-full object-cover"
-                  loading="lazy"
-                />
-              </div>
+              <img
+                src={image.image_url}
+                alt={`Our Story ${image.sequence_order + 1}`}
+                className="w-full h-full object-cover"
+                loading="lazy"
+              />
             </div>
           ))}
         </div>
         
         {/* Desktop Navigation Arrows */}
-        {!isMobile && images.length > 3 && (
+        {!isMobile && images.length > 1 && (
           <>
             <button
               onClick={() => scroll('left')}
-              className="absolute left-4 top-1/2 -translate-y-1/2 bg-background/60 hover:bg-background/80 backdrop-blur-sm rounded-full p-2 transition-all"
-              aria-label="Previous images"
+              className="absolute left-4 top-1/2 -translate-y-1/2 bg-background/60 hover:bg-background/80 backdrop-blur-sm rounded-full p-3 transition-all z-10"
+              aria-label="Previous image"
             >
               <ChevronLeft className="w-6 h-6" />
             </button>
             <button
               onClick={() => scroll('right')}
-              className="absolute right-4 top-1/2 -translate-y-1/2 bg-background/60 hover:bg-background/80 backdrop-blur-sm rounded-full p-2 transition-all"
-              aria-label="Next images"
+              className="absolute right-4 top-1/2 -translate-y-1/2 bg-background/60 hover:bg-background/80 backdrop-blur-sm rounded-full p-3 transition-all z-10"
+              aria-label="Next image"
             >
               <ChevronRight className="w-6 h-6" />
             </button>
