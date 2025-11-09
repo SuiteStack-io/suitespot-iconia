@@ -990,11 +990,8 @@ const BookingFlow = () => {
                 {/* Show availability message for pre-selected unit type */}
                 {preSelectedUnitType && units.length > 0 && (
                   <div className="p-4 bg-accent/10 border border-accent/20 rounded-lg">
-                    <p className="text-sm text-foreground mb-2">
+                    <p className="text-sm text-foreground">
                       <span className="font-semibold">{units.length} unit{units.length > 1 ? 's' : ''}</span> of this type {units.length > 1 ? 'are' : 'is'} available for your dates
-                    </p>
-                    <p className="text-xs text-muted-foreground">
-                      We'll automatically assign you the best available unit
                     </p>
                   </div>
                 )}
