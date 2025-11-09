@@ -1,6 +1,7 @@
 import { Button } from "@/components/ui/button";
 import { Link } from "react-router-dom";
 import logo from "@/assets/suitespot-logo.png";
+import { OurStorySlideshow } from "@/components/OurStorySlideshow";
 const OurStory = () => {
   return <div className="min-h-screen bg-background">
       {/* Navigation */}
@@ -24,6 +25,9 @@ const OurStory = () => {
             <p className="text-xl opacity-90">Transforming iconic spaces into wellness-focused, design-driven stays.</p>
           </div>
         </section>
+
+        {/* Slideshow Section */}
+        <OurStorySlideshow />
 
         {/* Story Content */}
         <section className="py-24 px-6">

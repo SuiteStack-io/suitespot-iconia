@@ -79,6 +79,30 @@ export type Database = {
           },
         ]
       }
+      our_story_slideshow: {
+        Row: {
+          created_at: string
+          id: string
+          image_url: string
+          sequence_order: number
+          updated_at: string
+        }
+        Insert: {
+          created_at?: string
+          id?: string
+          image_url: string
+          sequence_order?: number
+          updated_at?: string
+        }
+        Update: {
+          created_at?: string
+          id?: string
+          image_url?: string
+          sequence_order?: number
+          updated_at?: string
+        }
+        Relationships: []
+      }
       profiles: {
         Row: {
           created_at: string
