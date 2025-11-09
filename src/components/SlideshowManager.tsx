@@ -40,6 +40,7 @@ export function SlideshowManager({ tableName, bucketName, title }: SlideshowMana
   const [uploadProgress, setUploadProgress] = useState(0);
   const [draggedIndex, setDraggedIndex] = useState<number | null>(null);
   const [selectedImage, setSelectedImage] = useState<string | null>(null);
+  const [isDragging, setIsDragging] = useState(false);
 
   useEffect(() => {
     fetchImages();
@@ -65,12 +66,7 @@ export function SlideshowManager({ tableName, bucketName, title }: SlideshowMana
     }
   };
 
-  const handleFileUpload = async (event: React.ChangeEvent<HTMLInputElement>) => {
-    const files = event.target.files;
-    if (!files || files.length === 0) return;
-
-    const file = files[0];
-    
+  const uploadFile = async (file: File) => {
     const MAX_SIZE = 3 * 1024 * 1024;
     if (file.size > MAX_SIZE) {
       toast({
@@ -144,8 +140,43 @@ export function SlideshowManager({ tableName, bucketName, title }: SlideshowMana
     } finally {
       setUploading(false);
       setUploadProgress(0);
-      event.target.value = '';
     }
+  };
+
+  const handleFileUpload = async (event: React.ChangeEvent<HTMLInputElement>) => {
+    const files = event.target.files;
+    if (!files || files.length === 0) return;
+
+    await uploadFile(files[0]);
+    event.target.value = '';
+  };
+
+  const handleDrop = async (e: React.DragEvent) => {
+    e.preventDefault();
+    setIsDragging(false);
+
+    const files = Array.from(e.dataTransfer.files);
+    if (files.length === 0) return;
+
+    for (const file of files) {
+      await uploadFile(file);
+    }
+  };
+
+  const handleDragEnter = (e: React.DragEvent) => {
+    e.preventDefault();
+    setIsDragging(true);
+  };
+
+  const handleDragLeave = (e: React.DragEvent) => {
+    e.preventDefault();
+    if (e.currentTarget === e.target) {
+      setIsDragging(false);
+    }
+  };
+
+  const handleDragOverUpload = (e: React.DragEvent) => {
+    e.preventDefault();
   };
 
   const handleDelete = async (id: string, imageUrl: string) => {
@@ -254,29 +285,51 @@ export function SlideshowManager({ tableName, bucketName, title }: SlideshowMana
         <Button onClick={handleSave}>Save Order</Button>
       </div>
 
-      <Card className="p-6">
-        <div className="flex items-center gap-4">
-          <input
-            type="file"
-            accept="image/*"
-            onChange={handleFileUpload}
-            disabled={uploading}
-            className="hidden"
-            id={`image-upload-${tableName}`}
-          />
-          <label htmlFor={`image-upload-${tableName}`}>
-            <Button
+      <Card 
+        className={`p-6 transition-colors ${
+          isDragging ? 'border-primary bg-primary/5 border-2 border-dashed' : ''
+        }`}
+        onDrop={handleDrop}
+        onDragOver={handleDragOverUpload}
+        onDragEnter={handleDragEnter}
+        onDragLeave={handleDragLeave}
+      >
+        <div className="flex flex-col items-center justify-center gap-4 py-8">
+          <div className={`transition-transform ${isDragging ? 'scale-110' : ''}`}>
+            <Upload className={`h-12 w-12 ${isDragging ? 'text-primary' : 'text-muted-foreground'}`} />
+          </div>
+          <div className="text-center">
+            <p className="text-lg font-medium mb-1">
+              {isDragging ? 'Drop images here' : 'Drag and drop images here'}
+            </p>
+            <p className="text-sm text-muted-foreground">
+              or click the button below to browse
+            </p>
+          </div>
+          <div className="flex items-center gap-4">
+            <input
+              type="file"
+              accept="image/*"
+              onChange={handleFileUpload}
               disabled={uploading}
-              asChild
-            >
-              <span>
-                <Upload className="mr-2 h-4 w-4" />
-                Upload Image
-              </span>
-            </Button>
-          </label>
-          <span className="text-sm text-muted-foreground">
-            Max size: 3MB
+              className="hidden"
+              id={`image-upload-${tableName}`}
+              multiple
+            />
+            <label htmlFor={`image-upload-${tableName}`}>
+              <Button
+                disabled={uploading}
+                asChild
+              >
+                <span>
+                  <Upload className="mr-2 h-4 w-4" />
+                  Browse Files
+                </span>
+              </Button>
+            </label>
+          </div>
+          <span className="text-xs text-muted-foreground">
+            Max size: 3MB per image • Supports JPG, PNG, WEBP
           </span>
         </div>
 
