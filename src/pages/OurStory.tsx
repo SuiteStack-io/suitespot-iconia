@@ -1,10 +1,8 @@
 import { Button } from "@/components/ui/button";
 import { Link } from "react-router-dom";
 import logo from "@/assets/suitespot-logo.png";
-
 const OurStory = () => {
-  return (
-    <div className="min-h-screen bg-background">
+  return <div className="min-h-screen bg-background">
       {/* Navigation */}
       <nav className="fixed top-0 left-0 right-0 z-50 bg-background/80 backdrop-blur-md border-b border-border">
         <div className="container mx-auto px-6 py-4 flex items-center justify-between">
@@ -23,9 +21,7 @@ const OurStory = () => {
         <section className="py-24 px-6 bg-background/80 backdrop-blur-md">
           <div className="container mx-auto max-w-4xl text-center">
             <h1 className="text-5xl md:text-6xl font-serif font-bold mb-6">Our Story</h1>
-            <p className="text-xl opacity-90">
-              Redefining serviced apartment living in Egypt
-            </p>
+            <p className="text-xl opacity-90">Transforming iconic spaces into wellness-focused, design-driven stays.</p>
           </div>
         </section>
 
@@ -34,9 +30,7 @@ const OurStory = () => {
           <div className="container mx-auto max-w-4xl">
           <div className="space-y-12">
               <div>
-                <h2 className="text-3xl font-serif font-bold text-foreground mb-4">
-                  How it started?
-                </h2>
+                <h2 className="text-3xl font-serif font-bold text-foreground mb-4">We started back in 2018.</h2>
                 <p className="text-lg text-muted-foreground leading-relaxed mb-6">
                   ICONIA began in 2018 with a simple yet ambitious vision — to breathe new life into one of Zamalek's most iconic buildings. What was once the AUC dormitory was reimagined as Egypt's first-of-its-kind mixed-use development — a vibrant space blending residences, offices, and retail under one roof.
                 </p>
@@ -111,8 +105,6 @@ const OurStory = () => {
           </div>
         </section>
       </div>
-    </div>
-  );
+    </div>;
 };
-
 export default OurStory;
