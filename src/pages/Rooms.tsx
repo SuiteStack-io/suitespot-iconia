@@ -4,6 +4,7 @@ import { useAuth } from '@/lib/auth';
 import { supabase } from '@/integrations/supabase/client';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
+import { Label } from '@/components/ui/label';
 import { ArrowLeft, Save, Plus, Pencil, X, Upload, Trash2, Eye, ChevronDown, Copy } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
 import { Progress } from '@/components/ui/progress';
@@ -97,7 +98,8 @@ const Rooms = () => {
   });
   const [uploadingPhotos, setUploadingPhotos] = useState<string | null>(null);
   const [uploadProgress, setUploadProgress] = useState<{ [key: string]: number }>({});
-  const [cloningRoomId, setCloningRoomId] = useState<string | null>(null);
+  const [cloneDialogOpen, setCloneDialogOpen] = useState(false);
+  const [roomToClone, setRoomToClone] = useState<Unit | null>(null);
   const [cloneRoomNumber, setCloneRoomNumber] = useState<string>('');
   const [deleteDialogOpen, setDeleteDialogOpen] = useState(false);
   const [roomToDelete, setRoomToDelete] = useState<Unit | null>(null);
@@ -535,20 +537,28 @@ const Rooms = () => {
     fetchUnits();
   };
 
-  const handleCloneRoom = async (sourceUnit: Unit) => {
-    // Prompt for new room number
-    const newRoomNumber = prompt('Enter room number for the cloned room:', '');
+  const handleCloneClick = (unit: Unit) => {
+    setRoomToClone(unit);
+    setCloneRoomNumber('');
+    setCloneDialogOpen(true);
+  };
+
+  const handleConfirmClone = async () => {
+    if (!roomToClone) return;
+
+    const newRoomNumber = cloneRoomNumber.trim();
     
-    if (!newRoomNumber || !newRoomNumber.trim()) {
+    if (!newRoomNumber) {
       toast({
-        title: 'Cancelled',
-        description: 'Room cloning cancelled',
+        variant: 'destructive',
+        title: 'Error',
+        description: 'Please enter a room number',
       });
       return;
     }
 
     // Check if room number already exists
-    const existingRoom = units.find(u => u.unit_number === newRoomNumber.trim());
+    const existingRoom = units.find(u => u.unit_number === newRoomNumber);
     if (existingRoom) {
       toast({
         variant: 'destructive',
@@ -559,25 +569,25 @@ const Rooms = () => {
     }
 
     try {
-      console.log('Cloning room with source data:', sourceUnit);
+      console.log('Cloning room with source data:', roomToClone);
       
       // Clone the room with all specifications except id and unit_number
       const clonedData = {
-        name: sourceUnit.name,
-        unit_number: newRoomNumber.trim(),
-        unit_type: sourceUnit.unit_type,
-        unit_size: sourceUnit.unit_size,
+        name: roomToClone.name,
+        unit_number: newRoomNumber,
+        unit_type: roomToClone.unit_type,
+        unit_size: roomToClone.unit_size,
         status: 'available', // New cloned rooms are available by default
         booking_com_id: null, // Don't clone booking.com ID
-        comments: sourceUnit.comments,
-        beds: sourceUnit.beds,
-        baths: sourceUnit.baths,
-        max_guests: sourceUnit.max_guests,
-        sofa_bed: sourceUnit.sofa_bed,
-        price_per_night: sourceUnit.price_per_night,
-        tax_percentage: sourceUnit.tax_percentage,
-        photos: sourceUnit.photos || [],
-        view: sourceUnit.view,
+        comments: roomToClone.comments,
+        beds: roomToClone.beds,
+        baths: roomToClone.baths,
+        max_guests: roomToClone.max_guests,
+        sofa_bed: roomToClone.sofa_bed,
+        price_per_night: roomToClone.price_per_night,
+        tax_percentage: roomToClone.tax_percentage,
+        photos: roomToClone.photos || [],
+        view: roomToClone.view,
       };
       
       console.log('Inserting cloned data:', clonedData);
@@ -590,6 +600,10 @@ const Rooms = () => {
       }
 
       console.log('Clone successful:', data);
+
+      setCloneDialogOpen(false);
+      setRoomToClone(null);
+      setCloneRoomNumber('');
 
       toast({
         title: 'Success',
@@ -1271,7 +1285,7 @@ const Rooms = () => {
                             <Button 
                               size="sm" 
                               variant="ghost" 
-                              onClick={() => handleCloneRoom(unit)}
+                              onClick={() => handleCloneClick(unit)}
                               title="Clone this room"
                             >
                               <Copy className="h-4 w-4" />
@@ -1296,6 +1310,55 @@ const Rooms = () => {
           </Table>
         </div>
       </main>
+
+      {/* Clone Confirmation Dialog */}
+      <Dialog open={cloneDialogOpen} onOpenChange={setCloneDialogOpen}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Clone Room</DialogTitle>
+            <DialogDescription>
+              Create a copy of this room with all its specifications.
+            </DialogDescription>
+          </DialogHeader>
+          <div className="py-4 space-y-4">
+            <div className="space-y-2 text-sm bg-muted p-4 rounded-lg">
+              <p><strong>Suite Name:</strong> {roomToClone?.name}</p>
+              <p><strong>Current Room #:</strong> {roomToClone?.unit_number || 'N/A'}</p>
+              <p><strong>Type:</strong> {roomToClone?.unit_type || 'N/A'}</p>
+              <p><strong>Price:</strong> ${roomToClone?.price_per_night || 'N/A'}/night</p>
+            </div>
+            <div className="space-y-2">
+              <Label htmlFor="cloneRoomNumber">
+                New Room Number <span className="text-destructive">*</span>
+              </Label>
+              <Input
+                id="cloneRoomNumber"
+                value={cloneRoomNumber}
+                onChange={(e) => setCloneRoomNumber(e.target.value)}
+                placeholder="Enter room number (e.g., 509)"
+                autoFocus
+              />
+            </div>
+          </div>
+          <DialogFooter>
+            <Button
+              variant="outline"
+              onClick={() => {
+                setCloneDialogOpen(false);
+                setRoomToClone(null);
+                setCloneRoomNumber('');
+              }}
+            >
+              Cancel
+            </Button>
+            <Button
+              onClick={handleConfirmClone}
+            >
+              Clone Room
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
 
       {/* Delete Confirmation Dialog */}
       <Dialog open={deleteDialogOpen} onOpenChange={setDeleteDialogOpen}>
