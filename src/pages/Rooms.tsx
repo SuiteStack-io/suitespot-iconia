@@ -559,8 +559,10 @@ const Rooms = () => {
     }
 
     try {
+      console.log('Cloning room with source data:', sourceUnit);
+      
       // Clone the room with all specifications except id and unit_number
-      const { error } = await supabase.from('units').insert([{
+      const clonedData = {
         name: sourceUnit.name,
         unit_number: newRoomNumber.trim(),
         unit_type: sourceUnit.unit_type,
@@ -576,9 +578,18 @@ const Rooms = () => {
         tax_percentage: sourceUnit.tax_percentage,
         photos: sourceUnit.photos || [],
         view: sourceUnit.view,
-      }]);
+      };
+      
+      console.log('Inserting cloned data:', clonedData);
+      
+      const { error, data } = await supabase.from('units').insert([clonedData]).select();
 
-      if (error) throw error;
+      if (error) {
+        console.error('Clone error details:', error);
+        throw error;
+      }
+
+      console.log('Clone successful:', data);
 
       toast({
         title: 'Success',
@@ -587,6 +598,7 @@ const Rooms = () => {
 
       fetchUnits();
     } catch (error: any) {
+      console.error('Failed to clone room:', error);
       toast({
         variant: 'destructive',
         title: 'Error',
