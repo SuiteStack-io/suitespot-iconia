@@ -32,7 +32,22 @@ const OurStory = () => {
         {/* Story Content */}
         <section className="py-24 px-6">
           <div className="container mx-auto max-w-4xl">
-            <div className="space-y-12">
+          <div className="space-y-12">
+              <div>
+                <h2 className="text-3xl font-serif font-bold text-foreground mb-4">
+                  How it started?
+                </h2>
+                <p className="text-lg text-muted-foreground leading-relaxed mb-6">
+                  ICONIA began in 2018 with a simple yet ambitious vision — to breathe new life into one of Zamalek's most iconic buildings. What was once the AUC dormitory was reimagined as Egypt's first-of-its-kind mixed-use development — a vibrant space blending residences, offices, and retail under one roof.
+                </p>
+                <p className="text-lg text-muted-foreground leading-relaxed mb-6">
+                  After 18 months of transformation, ICONIA opened its doors in June 2019, welcoming Egypt's leading firms and long-stay guests seeking comfort, design, and community in the heart of the city.
+                </p>
+                <p className="text-lg text-muted-foreground leading-relaxed">
+                  Today, as we look toward the future, ICONIA is evolving once again — giving rise to SuiteSpot, a hospitality brand redefining modern living. Rooted in design, wellness, and local culture, SuiteSpot continues ICONIA's journey of turning exceptional spaces into meaningful experiences.
+                </p>
+              </div>
+
               <div>
                 <h2 className="text-3xl font-serif font-bold text-foreground mb-4">
                   A Vision Born from Experience
