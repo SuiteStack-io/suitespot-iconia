@@ -32,7 +32,7 @@ interface Reservation {
   guest_names: string[];
   guest_nationality: string | null;
   status: string;
-  units: { name: string } | null;
+  units: { name: string; unit_number: string | null } | null;
   source: string;
   price_per_night: number | null;
   total_price: number | null;
@@ -117,7 +117,7 @@ export const ReservationsList = () => {
   const fetchReservations = async () => {
     const { data, error } = await supabase
       .from('reservations')
-      .select('*, units(name)')
+      .select('*, units(name, unit_number)')
       .order('check_in_date', { ascending: false });
 
     if (!error && data) {
@@ -251,6 +251,9 @@ export const ReservationsList = () => {
               >
                 Room ID {getSortIcon('units')}
               </TableHead>
+              <TableHead>
+                Room #
+              </TableHead>
               <TableHead 
                 className="cursor-pointer hover:bg-muted/50"
                 onClick={() => handleSort('guest_names')}
@@ -328,7 +331,7 @@ export const ReservationsList = () => {
           <TableBody>
             {filteredReservations.length === 0 ? (
               <TableRow>
-                <TableCell colSpan={13} className="text-center text-muted-foreground">
+                <TableCell colSpan={14} className="text-center text-muted-foreground">
                   No reservations found
                 </TableCell>
               </TableRow>
@@ -340,6 +343,7 @@ export const ReservationsList = () => {
                   onClick={() => navigate(`/reservation/${reservation.id}`)}
                 >
                   <TableCell className="font-medium">{reservation.units?.name || 'N/A'}</TableCell>
+                  <TableCell>{reservation.units?.unit_number || '-'}</TableCell>
                   <TableCell>{reservation.guest_names.join(', ')}</TableCell>
                   <TableCell>{format(new Date(reservation.check_in_date), 'dd MMM yyyy')}</TableCell>
                   <TableCell>{format(new Date(reservation.check_out_date), 'dd MMM yyyy')}</TableCell>
