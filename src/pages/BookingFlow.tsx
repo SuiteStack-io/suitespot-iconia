@@ -122,6 +122,7 @@ const BookingFlow = () => {
   const [isLoadingUnits, setIsLoadingUnits] = useState(true);
   const [bookedDates, setBookedDates] = useState<Date[]>([]);
   const [preSelectedUnitId, setPreSelectedUnitId] = useState<string | null>(null);
+  const [preSelectedUnitType, setPreSelectedUnitType] = useState<string | null>(null);
   
   // Booking data
   const [dateRange, setDateRange] = useState<DateRange | undefined>();
@@ -151,6 +152,7 @@ const BookingFlow = () => {
     const checkOut = searchParams.get("checkOut");
     const guestsParam = searchParams.get("guests");
     const unitId = searchParams.get("unitId");
+    const unitType = searchParams.get("unitType");
 
     if (checkIn && checkOut) {
       setDateRange({
@@ -167,6 +169,10 @@ const BookingFlow = () => {
     if (unitId) {
       setPreSelectedUnitId(unitId);
       setSelectedUnit(unitId);
+    }
+
+    if (unitType) {
+      setPreSelectedUnitType(unitType);
     }
   }, [searchParams]);
 
@@ -185,6 +191,70 @@ const BookingFlow = () => {
 
           if (unitError) throw unitError;
           setUnits(unit ? [unit] : []);
+        } else if (preSelectedUnitType) {
+          // If a unit type is pre-selected, fetch all units of that type
+          let query = supabase
+            .from("units")
+            .select("id, name, unit_type, unit_number, status, beds, baths, max_guests, unit_size, sofa_bed, price_per_night, tax_percentage, photos")
+            .eq("status", "available")
+            .eq("unit_type", preSelectedUnitType)
+            .order("unit_number");
+
+          const { data: typeUnits, error: unitsError } = await query;
+          if (unitsError) throw unitsError;
+
+          // If dates are selected, filter by availability
+          if (dateRange?.from && dateRange?.to) {
+            const { data: reservations, error: reservationsError } = await supabase
+              .from("reservations")
+              .select("unit_id, check_in_date, check_out_date")
+              .gte("check_out_date", format(dateRange.from, "yyyy-MM-dd"))
+              .lte("check_in_date", format(dateRange.to, "yyyy-MM-dd"))
+              .neq("status", "cancelled");
+
+            if (reservationsError) throw reservationsError;
+
+            const { data: blockedDatesData, error: blocksError } = await supabase
+              .from("blocked_dates")
+              .select("blocked_date, unit_id")
+              .gte("blocked_date", format(dateRange.from, "yyyy-MM-dd"))
+              .lt("blocked_date", format(dateRange.to, "yyyy-MM-dd"));
+
+            if (blocksError) throw blocksError;
+
+            const requestedCheckIn = format(dateRange.from, "yyyy-MM-dd");
+            const requestedCheckOut = format(dateRange.to, "yyyy-MM-dd");
+            
+            const bookedUnitIds = new Set(
+              reservations
+                ?.filter(r => {
+                  return r.check_in_date < requestedCheckOut && r.check_out_date > requestedCheckIn;
+                })
+                .map(r => r.unit_id) || []
+            );
+
+            blockedDatesData?.forEach(block => {
+              if (block.unit_id === null) {
+                typeUnits?.forEach(unit => bookedUnitIds.add(unit.id));
+              } else {
+                bookedUnitIds.add(block.unit_id);
+              }
+            });
+            
+            const availableUnits = typeUnits?.filter(unit => !bookedUnitIds.has(unit.id)) || [];
+            setUnits(availableUnits);
+            
+            // Auto-select first available unit of this type
+            if (availableUnits.length > 0) {
+              setSelectedUnit(availableUnits[0].id);
+            }
+          } else {
+            setUnits(typeUnits || []);
+            // Auto-select first unit of this type
+            if (typeUnits && typeUnits.length > 0) {
+              setSelectedUnit(typeUnits[0].id);
+            }
+          }
         } else {
           // Get all units if no pre-selection
           const { data: allUnits, error: unitsError } = await supabase
@@ -258,7 +328,7 @@ const BookingFlow = () => {
     };
 
     fetchAvailableUnits();
-  }, [toast, dateRange, preSelectedUnitId]);
+  }, [toast, dateRange, preSelectedUnitId, preSelectedUnitType]);
 
   // Fetch booked dates for calendar display
   useEffect(() => {
@@ -850,7 +920,7 @@ const BookingFlow = () => {
                 </div>
 
                 {/* Only show dropdown if no pre-selected unit */}
-                {!preSelectedUnitId && (
+                {!preSelectedUnitId && !preSelectedUnitType && (
                   <>
                     <div>
                       <Label htmlFor="unit">Select Suite Type</Label>
@@ -915,6 +985,18 @@ const BookingFlow = () => {
                       </div>
                     )}
                   </>
+                )}
+
+                {/* Show availability message for pre-selected unit type */}
+                {preSelectedUnitType && units.length > 0 && (
+                  <div className="p-4 bg-accent/10 border border-accent/20 rounded-lg">
+                    <p className="text-sm text-foreground mb-2">
+                      <span className="font-semibold">{units.length} unit{units.length > 1 ? 's' : ''}</span> of this type {units.length > 1 ? 'are' : 'is'} available for your dates
+                    </p>
+                    <p className="text-xs text-muted-foreground">
+                      We'll automatically assign you the best available unit
+                    </p>
+                  </div>
                 )}
 
                 {/* Pricing Information */}
@@ -1286,7 +1368,11 @@ const BookingFlow = () => {
                   
                   <div>
                     <p className="text-sm text-muted-foreground">Suite Type</p>
-                    <p className="font-medium">{units.find(u => u.id === selectedUnit)?.name || selectedUnit}</p>
+                    <p className="font-medium">
+                      {units.find(u => u.id === selectedUnit)?.name || selectedUnit}
+                      {units.find(u => u.id === selectedUnit)?.unit_number && 
+                        ` (Unit ${units.find(u => u.id === selectedUnit)?.unit_number})`}
+                    </p>
                   </div>
 
                   <div>

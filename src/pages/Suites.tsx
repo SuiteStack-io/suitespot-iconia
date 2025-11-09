@@ -15,6 +15,7 @@ interface Unit {
   unit_size: string | null;
   status: string;
   comments: string | null;
+  availableCount?: number; // Add count of available units of this type
 }
 
 const Suites = () => {
@@ -28,10 +29,28 @@ const Suites = () => {
         const { data, error } = await supabase
           .from("units")
           .select("*")
+          .eq("status", "available")
           .order("name");
 
         if (error) throw error;
-        setUnits(data || []);
+        
+        // Group units by unit_type
+        const grouped = (data || []).reduce((acc, unit) => {
+          const type = unit.unit_type || "Other";
+          if (!acc[type]) {
+            acc[type] = [];
+          }
+          acc[type].push(unit);
+          return acc;
+        }, {} as Record<string, Unit[]>);
+
+        // Create one representative unit per type with count
+        const uniqueUnits = Object.entries(grouped).map(([type, unitsOfType]) => ({
+          ...unitsOfType[0], // Use first unit as representative
+          availableCount: unitsOfType.length, // Add count of available units
+        }));
+
+        setUnits(uniqueUnits);
       } catch (error: any) {
         toast({
           title: "Error loading suites",
@@ -133,6 +152,11 @@ const Suites = () => {
                           <h3 className="text-3xl font-serif font-bold text-foreground mb-2">
                             {unit.name}
                           </h3>
+                          {unit.availableCount && unit.availableCount > 1 && (
+                            <p className="text-sm text-accent font-medium mb-2">
+                              {unit.availableCount} units available
+                            </p>
+                          )}
                           <p className="text-muted-foreground mb-6">
                             {getUnitDescription(unit)}
                           </p>
@@ -174,7 +198,7 @@ const Suites = () => {
                           </div>
 
                           <Button asChild className="w-full bg-accent hover:bg-accent/90">
-                            <Link to={`/book?unitId=${unit.id}`}>Check Availability</Link>
+                            <Link to={`/book?unitType=${encodeURIComponent(unit.unit_type || '')}`}>Check Availability</Link>
                           </Button>
                         </div>
                       </div>
