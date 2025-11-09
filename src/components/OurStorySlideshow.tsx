@@ -57,12 +57,31 @@ export const OurStorySlideshow = () => {
 
   const scroll = (direction: 'left' | 'right') => {
     if (!scrollContainerRef.current) return;
-    const scrollAmount = scrollContainerRef.current.offsetWidth;
-    const newScrollLeft = scrollContainerRef.current.scrollLeft + (direction === 'left' ? -scrollAmount : scrollAmount);
-    scrollContainerRef.current.scrollTo({
-      left: newScrollLeft,
-      behavior: 'smooth'
-    });
+    const container = scrollContainerRef.current;
+    const scrollAmount = container.offsetWidth;
+    const maxScroll = container.scrollWidth - container.offsetWidth;
+    
+    if (direction === 'right') {
+      // If at the end, wrap to beginning
+      if (container.scrollLeft >= maxScroll - 10) {
+        container.scrollTo({ left: 0, behavior: 'smooth' });
+      } else {
+        container.scrollTo({ 
+          left: container.scrollLeft + scrollAmount, 
+          behavior: 'smooth' 
+        });
+      }
+    } else {
+      // If at the beginning, wrap to end
+      if (container.scrollLeft <= 10) {
+        container.scrollTo({ left: maxScroll, behavior: 'smooth' });
+      } else {
+        container.scrollTo({ 
+          left: container.scrollLeft - scrollAmount, 
+          behavior: 'smooth' 
+        });
+      }
+    }
   };
 
   if (loading || images.length === 0) {
