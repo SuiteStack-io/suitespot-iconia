@@ -112,6 +112,14 @@ interface Unit {
   photos: string[] | null;
 }
 
+interface GroupedUnitType {
+  unit_type: string;
+  name: string;
+  available_count: number;
+  available_unit_ids: string[];
+  sample_unit: Unit;
+}
+
 const BookingFlow = () => {
   const navigate = useNavigate();
   const { toast } = useToast();
@@ -119,10 +127,12 @@ const BookingFlow = () => {
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [step, setStep] = useState(1);
   const [units, setUnits] = useState<Unit[]>([]);
+  const [groupedUnitTypes, setGroupedUnitTypes] = useState<GroupedUnitType[]>([]);
   const [isLoadingUnits, setIsLoadingUnits] = useState(true);
   const [bookedDates, setBookedDates] = useState<Date[]>([]);
   const [preSelectedUnitId, setPreSelectedUnitId] = useState<string | null>(null);
   const [preSelectedUnitType, setPreSelectedUnitType] = useState<string | null>(null);
+  const [selectedUnitType, setSelectedUnitType] = useState<string>("");
   
   // Booking data
   const [dateRange, setDateRange] = useState<DateRange | undefined>();
@@ -312,8 +322,16 @@ const BookingFlow = () => {
             
             const availableUnits = allUnits?.filter(unit => !bookedUnitIds.has(unit.id)) || [];
             setUnits(availableUnits);
+            
+            // Group units by type for the dropdown
+            const grouped = groupUnitsByType(availableUnits);
+            setGroupedUnitTypes(grouped);
           } else {
             setUnits(allUnits || []);
+            
+            // Group units by type for the dropdown
+            const grouped = groupUnitsByType(allUnits || []);
+            setGroupedUnitTypes(grouped);
           }
         }
       } catch (error: any) {
@@ -329,6 +347,31 @@ const BookingFlow = () => {
 
     fetchAvailableUnits();
   }, [toast, dateRange, preSelectedUnitId, preSelectedUnitType]);
+  
+  // Helper function to group units by type
+  const groupUnitsByType = (unitsList: Unit[]): GroupedUnitType[] => {
+    const groupMap = new Map<string, GroupedUnitType>();
+    
+    unitsList.forEach(unit => {
+      if (!unit.unit_type) return;
+      
+      if (!groupMap.has(unit.unit_type)) {
+        groupMap.set(unit.unit_type, {
+          unit_type: unit.unit_type,
+          name: unit.name,
+          available_count: 1,
+          available_unit_ids: [unit.id],
+          sample_unit: unit,
+        });
+      } else {
+        const existing = groupMap.get(unit.unit_type)!;
+        existing.available_count++;
+        existing.available_unit_ids.push(unit.id);
+      }
+    });
+    
+    return Array.from(groupMap.values());
+  };
 
   // Fetch booked dates for calendar display
   useEffect(() => {
@@ -925,17 +968,28 @@ const BookingFlow = () => {
                     <div>
                       <Label htmlFor="unit">Select Suite Type</Label>
                       {dateRange?.from && dateRange?.to ? (
-                        <Select value={selectedUnit} onValueChange={setSelectedUnit} disabled={isLoadingUnits}>
+                        <Select 
+                          value={selectedUnitType} 
+                          onValueChange={(unitType) => {
+                            setSelectedUnitType(unitType);
+                            // Auto-select first available unit of this type
+                            const group = groupedUnitTypes.find(g => g.unit_type === unitType);
+                            if (group && group.available_unit_ids.length > 0) {
+                              setSelectedUnit(group.available_unit_ids[0]);
+                            }
+                          }} 
+                          disabled={isLoadingUnits}
+                        >
                           <SelectTrigger id="unit">
-                            <SelectValue placeholder={isLoadingUnits ? "Loading available suites..." : units.length === 0 ? "No suites available for these dates" : "Choose a suite"} />
+                            <SelectValue placeholder={isLoadingUnits ? "Loading available suites..." : groupedUnitTypes.length === 0 ? "No suites available for these dates" : "Choose a suite"} />
                           </SelectTrigger>
                           <SelectContent>
-                            {units.length === 0 && !isLoadingUnits ? (
+                            {groupedUnitTypes.length === 0 && !isLoadingUnits ? (
                               <div className="p-2 text-sm text-muted-foreground">No suites available for selected dates</div>
                             ) : (
-                              units.map((unit) => (
-                                <SelectItem key={unit.id} value={unit.id}>
-                                  {unit.name}
+                              groupedUnitTypes.map((group) => (
+                                <SelectItem key={group.unit_type} value={group.unit_type}>
+                                  {group.name} ({group.available_count} available)
                                 </SelectItem>
                               ))
                             )}
@@ -947,6 +1001,15 @@ const BookingFlow = () => {
                         </div>
                       )}
                     </div>
+
+                    {/* Show availability message when a unit type is selected */}
+                    {selectedUnitType && groupedUnitTypes.length > 0 && (
+                      <div className="p-4 bg-accent/10 border border-accent/20 rounded-lg">
+                        <p className="text-sm text-foreground">
+                          <span className="font-semibold">{groupedUnitTypes.find(g => g.unit_type === selectedUnitType)?.available_count || 0} unit{(groupedUnitTypes.find(g => g.unit_type === selectedUnitType)?.available_count || 0) > 1 ? 's' : ''}</span> of this type {(groupedUnitTypes.find(g => g.unit_type === selectedUnitType)?.available_count || 0) > 1 ? 'are' : 'is'} available for your dates
+                        </p>
+                      </div>
+                    )}
 
                     {selectedUnit && units.length > 0 && (
                       <div className="p-4 border rounded-lg bg-muted/50">
