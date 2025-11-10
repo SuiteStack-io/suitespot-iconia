@@ -29,7 +29,7 @@ const Map = () => {
     );
 
     // Add marker at the exact location
-    new mapboxgl.Marker({ color: '#D4AF37' })
+    new mapboxgl.Marker({ color: '#DC2626' })
       .setLngLat([31.2175, 30.0626])
       .setPopup(
         new mapboxgl.Popup({ offset: 25 })
