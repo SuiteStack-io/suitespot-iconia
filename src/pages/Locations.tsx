@@ -3,6 +3,7 @@ import { Card } from "@/components/ui/card";
 import { Link } from "react-router-dom";
 import { MapPin } from "lucide-react";
 import { PublicNav } from "@/components/PublicNav";
+import northCoast from "@/assets/north-coast.webp";
 
 const Locations = () => {
   return (
@@ -67,24 +68,46 @@ const Locations = () => {
                 </div>
               </Card>
 
-              {/* Coming Soon Location */}
-              <Card className="overflow-hidden opacity-75">
-                <div className="h-64 bg-muted relative overflow-hidden">
-                  <div className="absolute inset-0 flex items-center justify-center">
-                    <div className="text-center">
-                      <p className="text-2xl font-serif font-bold text-foreground mb-2">Coming Soon</p>
-                      <p className="text-muted-foreground">New locations in development</p>
-                    </div>
-                  </div>
+              {/* North Coast Location */}
+              <Card className="overflow-hidden group cursor-pointer hover:shadow-xl transition-shadow">
+                <div className="h-64 relative overflow-hidden">
+                  <img 
+                    src={northCoast} 
+                    alt="North Coast - Beautiful beachfront luxury coming soon" 
+                    className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-500"
+                  />
+                  <div className="absolute inset-0 bg-gradient-to-t from-black/50 to-transparent"></div>
                 </div>
                 <div className="p-6">
+                  <div className="flex items-center gap-2 text-primary mb-2">
+                    <MapPin className="w-4 h-4" />
+                    <span className="text-sm font-medium">Coming Soon</span>
+                  </div>
                   <h3 className="text-2xl font-serif font-bold text-foreground mb-3">
-                    Expanding Across Egypt
+                    North Coast
                   </h3>
-                  <p className="text-muted-foreground">
-                    We're scouting new locations in Cairo and beyond. Each property will bring the same 
-                    commitment to design, wellness, and authentic hospitality that defines SuiteSpot.
+                  <p className="text-muted-foreground mb-4">
+                    Experience beachfront luxury on Egypt's stunning Mediterranean coastline. 
+                    Our North Coast property will offer pristine beaches, crystal-clear waters, 
+                    and the same exceptional hospitality that defines SuiteSpot.
                   </p>
+                  <div className="space-y-2 mb-6">
+                    <div className="flex items-center gap-2 text-sm text-muted-foreground">
+                      <span className="w-1 h-1 bg-primary rounded-full"></span>
+                      <span>Beachfront Access</span>
+                    </div>
+                    <div className="flex items-center gap-2 text-sm text-muted-foreground">
+                      <span className="w-1 h-1 bg-primary rounded-full"></span>
+                      <span>Luxury Suites with Sea Views</span>
+                    </div>
+                    <div className="flex items-center gap-2 text-sm text-muted-foreground">
+                      <span className="w-1 h-1 bg-primary rounded-full"></span>
+                      <span>Premium Amenities & Dining</span>
+                    </div>
+                  </div>
+                  <Button disabled className="w-full">
+                    Coming Soon
+                  </Button>
                 </div>
               </Card>
             </div>
