@@ -12,7 +12,7 @@ const Locations = () => {
 
       <div className="pt-20">
         {/* Hero Section */}
-        <section className="py-24 px-6 bg-background/80 backdrop-blur-md">
+        <section className="py-24 pb-12 px-6 bg-background/80 backdrop-blur-md">
           <div className="container mx-auto max-w-4xl text-center">
             <h1 className="text-5xl md:text-6xl font-serif font-bold mb-6">Our Locations</h1>
             <p className="text-xl opacity-90">
@@ -22,7 +22,7 @@ const Locations = () => {
         </section>
 
         {/* Locations Grid */}
-        <section className="py-24 px-6">
+        <section className="py-12 px-6">
           <div className="container mx-auto">
             <div className="grid md:grid-cols-2 gap-8 max-w-6xl mx-auto">
               {/* Iconia Zamalek */}
