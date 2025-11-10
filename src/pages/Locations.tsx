@@ -3,7 +3,6 @@ import { Card } from "@/components/ui/card";
 import { Link } from "react-router-dom";
 import { MapPin } from "lucide-react";
 import { PublicNav } from "@/components/PublicNav";
-import iconiaBuilding from "@/assets/iconia-zamalek-building.jpg";
 
 const Locations = () => {
   return (
@@ -29,7 +28,7 @@ const Locations = () => {
               <Card className="overflow-hidden group cursor-pointer hover:shadow-xl transition-shadow">
                 <div className="h-64 relative overflow-hidden">
                   <img 
-                    src={iconiaBuilding} 
+                    src="/slideshow/iconia-zamalek.jpg" 
                     alt="ICONIA Zamalek - Modern luxury suites in the heart of Zamalek" 
                     className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-500"
                   />
