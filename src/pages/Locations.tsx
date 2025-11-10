@@ -84,7 +84,7 @@ const Locations = () => {
                     <span className="text-sm font-medium">Coming Soon</span>
                   </div>
                   <h3 className="text-2xl font-serif font-bold text-foreground mb-3">
-                    North Coast
+                    North Coast <span className="text-lg text-muted-foreground font-normal">Summer 2026</span>
                   </h3>
                   <p className="text-muted-foreground mb-4">
                     Experience beachfront luxury on Egypt's stunning Mediterranean coastline. 
