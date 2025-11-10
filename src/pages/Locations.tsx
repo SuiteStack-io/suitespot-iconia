@@ -46,7 +46,7 @@ const Locations = () => {
                   <p className="text-muted-foreground mb-4">
                     Our flagship property in the heart of Zamalek, Cairo's most prestigious island neighborhood. 
                     Experience modern luxury in an architecturally unique building surrounded by art galleries, 
-                    cafes, and the Nile.
+                    cafes, Zamalek's hidden gems, and the Nile.
                   </p>
                   <div className="grid grid-cols-2 gap-x-4 gap-y-2 mb-6">
                     <div className="flex items-center gap-2 text-sm text-muted-foreground">
