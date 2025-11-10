@@ -16,7 +16,7 @@ const Map = () => {
     map.current = new mapboxgl.Map({
       container: mapContainer.current,
       style: 'mapbox://styles/mapbox/streets-v12',
-      center: [31.2175, 30.0626], // Zamalek coordinates [longitude, latitude]
+      center: [31.218, 30.069], // Zamalek coordinates [longitude, latitude]
       zoom: 15,
     });
 
@@ -30,7 +30,7 @@ const Map = () => {
 
     // Add marker at the exact location
     new mapboxgl.Marker({ color: '#DC2626' })
-      .setLngLat([31.2175, 30.0626])
+      .setLngLat([31.218, 30.069])
       .setPopup(
         new mapboxgl.Popup({ offset: 25 })
           .setHTML(
