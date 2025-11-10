@@ -3,6 +3,7 @@ import { Card } from "@/components/ui/card";
 import { Link } from "react-router-dom";
 import { MapPin } from "lucide-react";
 import { PublicNav } from "@/components/PublicNav";
+import iconiaBuilding from "@/assets/iconia-zamalek-building.jpg";
 
 const Locations = () => {
   return (
@@ -26,11 +27,13 @@ const Locations = () => {
             <div className="grid md:grid-cols-2 gap-8 max-w-6xl mx-auto">
               {/* Iconia Zamalek */}
               <Card className="overflow-hidden group cursor-pointer hover:shadow-xl transition-shadow">
-                <div className="h-64 bg-gradient-to-br from-accent/20 to-primary/20 relative overflow-hidden">
-                  {/* Placeholder for image */}
-                  <div className="absolute inset-0 flex items-center justify-center">
-                    <p className="text-muted-foreground">[Image: Iconia Zamalek]</p>
-                  </div>
+                <div className="h-64 relative overflow-hidden">
+                  <img 
+                    src={iconiaBuilding} 
+                    alt="ICONIA Zamalek - Modern luxury suites in the heart of Zamalek" 
+                    className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-500"
+                  />
+                  <div className="absolute inset-0 bg-gradient-to-t from-black/50 to-transparent"></div>
                 </div>
                 <div className="p-6">
                   <div className="flex items-center gap-2 text-accent mb-2">
