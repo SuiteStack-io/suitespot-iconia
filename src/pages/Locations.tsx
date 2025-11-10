@@ -1,7 +1,7 @@
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
 import { Link } from "react-router-dom";
-import { MapPin } from "lucide-react";
+import { MapPin, Home, Waves, Dumbbell, Lock, Tv, Wifi, Wind, Package, Sparkles } from "lucide-react";
 import { PublicNav } from "@/components/PublicNav";
 import northCoast from "@/assets/north-coast.webp";
 
@@ -48,18 +48,42 @@ const Locations = () => {
                     Experience modern luxury in an architecturally unique building surrounded by art galleries, 
                     cafes, and the Nile.
                   </p>
-                  <div className="space-y-2 mb-6">
+                  <div className="grid grid-cols-2 gap-x-4 gap-y-2 mb-6">
                     <div className="flex items-center gap-2 text-sm text-muted-foreground">
-                      <span className="w-1 h-1 bg-accent rounded-full"></span>
+                      <Home className="w-4 h-4 text-accent flex-shrink-0" />
                       <span>Studio, 1BR & 2BR Suites</span>
                     </div>
                     <div className="flex items-center gap-2 text-sm text-muted-foreground">
-                      <span className="w-1 h-1 bg-accent rounded-full"></span>
-                      <span>Rooftop Wellness Center</span>
+                      <Waves className="w-4 h-4 text-accent flex-shrink-0" />
+                      <span>Outdoor Pool</span>
                     </div>
                     <div className="flex items-center gap-2 text-sm text-muted-foreground">
-                      <span className="w-1 h-1 bg-accent rounded-full"></span>
-                      <span>Walking Distance to Museums & Galleries</span>
+                      <Dumbbell className="w-4 h-4 text-accent flex-shrink-0" />
+                      <span>Group Fitness Classes & Wellness sessions (powered by OnTrack)</span>
+                    </div>
+                    <div className="flex items-center gap-2 text-sm text-muted-foreground">
+                      <Lock className="w-4 h-4 text-accent flex-shrink-0" />
+                      <span>In-room safe</span>
+                    </div>
+                    <div className="flex items-center gap-2 text-sm text-muted-foreground">
+                      <Tv className="w-4 h-4 text-accent flex-shrink-0" />
+                      <span>55-inch flat-screen television with streaming and casting options</span>
+                    </div>
+                    <div className="flex items-center gap-2 text-sm text-muted-foreground">
+                      <Wifi className="w-4 h-4 text-accent flex-shrink-0" />
+                      <span>Free Wifi</span>
+                    </div>
+                    <div className="flex items-center gap-2 text-sm text-muted-foreground">
+                      <Wind className="w-4 h-4 text-accent flex-shrink-0" />
+                      <span>Iron and ironing board</span>
+                    </div>
+                    <div className="flex items-center gap-2 text-sm text-muted-foreground">
+                      <Package className="w-4 h-4 text-accent flex-shrink-0" />
+                      <span>Walk-in closet</span>
+                    </div>
+                    <div className="flex items-center gap-2 text-sm text-muted-foreground col-span-2">
+                      <Sparkles className="w-4 h-4 text-accent flex-shrink-0" />
+                      <span>Deluxe toiletries</span>
                     </div>
                   </div>
                   <Button asChild className="w-full bg-accent hover:bg-accent/90">
