@@ -3,6 +3,7 @@ import { Card } from "@/components/ui/card";
 import { Link } from "react-router-dom";
 import { MapPin, Home, Waves, Dumbbell, Lock, Tv, Wifi, Wind, Package, Sparkles } from "lucide-react";
 import { PublicNav } from "@/components/PublicNav";
+import Map from "@/components/Map";
 import northCoast from "@/assets/north-coast.webp";
 
 const Locations = () => {
@@ -144,12 +145,11 @@ const Locations = () => {
             <div className="text-center mb-12">
               <h2 className="text-4xl font-serif font-bold text-foreground mb-4">Find Us</h2>
               <p className="text-lg text-muted-foreground">
-                Strategically located in Cairo's most desirable neighborhoods
+                ICONIA Zamalek - 16 Mohammed Thakeb St, Zamalek, Cairo
               </p>
             </div>
-            <div className="h-96 bg-background rounded-lg border border-border flex items-center justify-center">
-              {/* Placeholder for map */}
-              <p className="text-muted-foreground">[Interactive Map - Zamalek, Cairo]</p>
+            <div className="h-[500px]">
+              <Map />
             </div>
           </div>
         </section>
