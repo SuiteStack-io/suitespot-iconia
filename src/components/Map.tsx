@@ -26,9 +26,7 @@ const Map = () => {
     fullscreenControl: true,
   };
 
-  const handleGetDirections = () => {
-    window.open(`https://www.google.com/maps/dir/?api=1&destination=${center.lat},${center.lng}`, '_blank');
-  };
+  const directionsUrl = `https://www.google.com/maps/dir/?api=1&destination=${center.lat},${center.lng}`;
 
   return (
     <div className="relative w-full h-full flex flex-col gap-4">
@@ -61,12 +59,18 @@ const Map = () => {
       </div>
       
       <Button 
-        onClick={handleGetDirections}
+        asChild
         className="w-full"
         size="lg"
       >
-        <Navigation className="mr-2 h-5 w-5" />
-        Get Directions
+        <a 
+          href={directionsUrl}
+          target="_blank"
+          rel="noopener noreferrer"
+        >
+          <Navigation className="mr-2 h-5 w-5" />
+          Get Directions
+        </a>
       </Button>
     </div>
   );
