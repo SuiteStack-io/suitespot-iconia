@@ -6,8 +6,8 @@ const Map = () => {
   const [showInfo, setShowInfo] = useState(false);
   
   const center = {
-    lat: 30.0666,
-    lng: 31.2155
+    lat: 30.0668,
+    lng: 31.2162
   };
 
   const mapContainerStyle = {
