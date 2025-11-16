@@ -79,6 +79,39 @@ export type Database = {
           },
         ]
       }
+      notifications: {
+        Row: {
+          created_at: string | null
+          id: string
+          message: string
+          metadata: Json | null
+          read: boolean | null
+          title: string
+          type: string
+          user_id: string | null
+        }
+        Insert: {
+          created_at?: string | null
+          id?: string
+          message: string
+          metadata?: Json | null
+          read?: boolean | null
+          title: string
+          type: string
+          user_id?: string | null
+        }
+        Update: {
+          created_at?: string | null
+          id?: string
+          message?: string
+          metadata?: Json | null
+          read?: boolean | null
+          title?: string
+          type?: string
+          user_id?: string | null
+        }
+        Relationships: []
+      }
       our_story_slideshow: {
         Row: {
           created_at: string
@@ -258,12 +291,49 @@ export type Database = {
         }
         Relationships: []
       }
+      sync_logs: {
+        Row: {
+          bookings_created: number | null
+          bookings_skipped: number | null
+          created_at: string | null
+          created_by: string | null
+          error_message: string | null
+          id: string
+          status: string
+          sync_type: string
+          trigger_type: string
+        }
+        Insert: {
+          bookings_created?: number | null
+          bookings_skipped?: number | null
+          created_at?: string | null
+          created_by?: string | null
+          error_message?: string | null
+          id?: string
+          status: string
+          sync_type: string
+          trigger_type: string
+        }
+        Update: {
+          bookings_created?: number | null
+          bookings_skipped?: number | null
+          created_at?: string | null
+          created_by?: string | null
+          error_message?: string | null
+          id?: string
+          status?: string
+          sync_type?: string
+          trigger_type?: string
+        }
+        Relationships: []
+      }
       sync_status: {
         Row: {
           created_at: string
           error_message: string | null
           id: string
           last_sync_at: string | null
+          refresh_token: string | null
           status: string
           sync_interval_minutes: number
           sync_type: string
@@ -274,6 +344,7 @@ export type Database = {
           error_message?: string | null
           id?: string
           last_sync_at?: string | null
+          refresh_token?: string | null
           status?: string
           sync_interval_minutes?: number
           sync_type: string
@@ -284,6 +355,7 @@ export type Database = {
           error_message?: string | null
           id?: string
           last_sync_at?: string | null
+          refresh_token?: string | null
           status?: string
           sync_interval_minutes?: number
           sync_type?: string
