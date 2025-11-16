@@ -196,7 +196,7 @@ export const HeroSlideshow = () => {
 
       {/* Image Indicators - Hidden on desktop, shown on mobile */}
       {images.length > 1 && (
-        <div className="absolute bottom-24 left-1/2 -translate-x-1/2 flex gap-2 z-10 sm:hidden">
+        <div className="absolute bottom-16 left-1/2 -translate-x-1/2 flex gap-2 z-10 sm:hidden">
           {images.map((_, index) => (
             <div
               key={index}
