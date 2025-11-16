@@ -26,6 +26,7 @@ import Experiences from "./pages/Experiences";
 import Nearby from "./pages/Nearby";
 import Blog from "./pages/Blog";
 import HomepageManagement from "./pages/HomepageManagement";
+import Settings from "./pages/Settings";
 
 const queryClient = new QueryClient();
 
@@ -60,6 +61,7 @@ const App = () => (
             <Route path="/my-reservations" element={<ProtectedRoute><MyReservations /></ProtectedRoute>} />
             <Route path="/rooms" element={<ProtectedRoute><Rooms /></ProtectedRoute>} />
             <Route path="/homepage-management" element={<ProtectedRoute><HomepageManagement /></ProtectedRoute>} />
+            <Route path="/settings" element={<ProtectedRoute><Settings /></ProtectedRoute>} />
             
             {/* ADD ALL CUSTOM ROUTES ABOVE THE CATCH-ALL "*" ROUTE */}
             <Route path="*" element={<NotFound />} />

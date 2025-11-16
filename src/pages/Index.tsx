@@ -6,7 +6,9 @@ import { ReservationsList } from '@/components/ReservationsList';
 import { WeeklyCalendar } from '@/components/WeeklyCalendar';
 import { CreateReservationDialog } from '@/components/CreateReservationDialog';
 import { Button } from '@/components/ui/button';
-import { LogOut, CalendarDays, ChevronDown, DoorOpen, Home } from 'lucide-react';
+import { LogOut, CalendarDays, ChevronDown, DoorOpen, Home, Settings as SettingsIcon } from 'lucide-react';
+import { NotificationCenter } from '@/components/NotificationCenter';
+import { SyncButton } from '@/components/SyncButton';
 import suitespotLogo from '@/assets/suitespot-logo.png';
 import { useIsMobile } from '@/hooks/use-mobile';
 import {
@@ -46,6 +48,8 @@ const Index = () => {
     return null;
   }
 
+  const isAdmin = userRole === 'admin';
+
   return (
     <div className="min-h-screen bg-background">
       <header className="border-b bg-card">
@@ -70,6 +74,14 @@ const Index = () => {
 
           {/* Right side - user info and action buttons */}
           <div className={isMobile ? "flex flex-col items-end gap-2" : "flex items-center gap-2"}>
+            {/* Admin tools */}
+            {isAdmin && (
+              <div className="flex items-center gap-2">
+                <SyncButton />
+                <NotificationCenter />
+              </div>
+            )}
+            
             {/* User info display with dropdown */}
             <DropdownMenu>
               <DropdownMenuTrigger asChild>
@@ -104,7 +116,7 @@ const Index = () => {
                 <DropdownMenuItem onClick={() => navigate('/my-reservations')}>
                   My Reservations
                 </DropdownMenuItem>
-                {userRole === 'admin' && (
+              {userRole === 'admin' && (
                   <>
                     <DropdownMenuItem onClick={() => navigate('/users')}>
                       Users
@@ -114,6 +126,10 @@ const Index = () => {
                     </DropdownMenuItem>
                     <DropdownMenuItem onClick={() => navigate('/analytics')}>
                       Analytics
+                    </DropdownMenuItem>
+                    <DropdownMenuItem onClick={() => navigate('/settings')}>
+                      <SettingsIcon className="h-4 w-4 mr-2" />
+                      Settings
                     </DropdownMenuItem>
                   </>
                 )}

@@ -59,8 +59,9 @@ serve(async (req) => {
     const { error: updateError } = await supabase
       .from('sync_status')
       .update({
-        error_message: tokens.refresh_token, // Store refresh token temporarily here
+        refresh_token: tokens.refresh_token,
         status: 'authenticated',
+        error_message: null,
         updated_at: new Date().toISOString(),
       })
       .eq('sync_type', 'booking_com_gmail');
