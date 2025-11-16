@@ -369,6 +369,7 @@ export type Database = {
           baths: number | null
           beds: number | null
           booking_com_id: string | null
+          booking_com_name: string | null
           comments: string | null
           created_at: string
           id: string
@@ -390,6 +391,7 @@ export type Database = {
           baths?: number | null
           beds?: number | null
           booking_com_id?: string | null
+          booking_com_name?: string | null
           comments?: string | null
           created_at?: string
           id?: string
@@ -411,6 +413,7 @@ export type Database = {
           baths?: number | null
           beds?: number | null
           booking_com_id?: string | null
+          booking_com_name?: string | null
           comments?: string | null
           created_at?: string
           id?: string

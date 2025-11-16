@@ -47,6 +47,7 @@ interface Unit {
   unit_size: string | null;
   status: string;
   booking_com_id: string | null;
+  booking_com_name: string | null;
   comments: string | null;
   beds: number | null;
   baths: number | null;
@@ -86,6 +87,7 @@ const Rooms = () => {
     unit_size: '',
     status: 'available',
     booking_com_id: '',
+    booking_com_name: '',
     comments: '',
     beds: null,
     baths: null,
@@ -769,6 +771,7 @@ const Rooms = () => {
                 <TableHead className="min-w-[160px]">Photos</TableHead>
                 <TableHead className="min-w-[120px]">Status</TableHead>
                 <TableHead className="min-w-[140px]">Booking.com ID</TableHead>
+                <TableHead className="min-w-[160px]">Booking.com Name</TableHead>
                 <TableHead className="min-w-[130px]">Next Reservation</TableHead>
                 <TableHead className="min-w-[140px]">View</TableHead>
                 {isAdmin && !isBulkEdit && <TableHead className="min-w-[100px]">Actions</TableHead>}
@@ -891,6 +894,13 @@ const Rooms = () => {
                     />
                   </TableCell>
                   <TableCell>
+                    <Input
+                      value={newUnit.booking_com_name || ''}
+                      onChange={(e) => setNewUnit({ ...newUnit, booking_com_name: e.target.value })}
+                      placeholder="Booking.com Name"
+                    />
+                  </TableCell>
+                  <TableCell>
                     <span className="text-muted-foreground">-</span>
                   </TableCell>
                   <TableCell>
@@ -913,6 +923,7 @@ const Rooms = () => {
                             unit_size: '',
                             status: 'available',
                             booking_com_id: '',
+                            booking_com_name: '',
                             comments: '',
                             beds: null,
                             baths: null,
@@ -1199,6 +1210,22 @@ const Rooms = () => {
                         />
                       ) : (
                         <span className="font-mono text-sm">{unit.booking_com_id || '-'}</span>
+                      )}
+                    </TableCell>
+                    <TableCell className="min-w-[160px]">
+                      {isEditing ? (
+                        <Input
+                          className="w-full min-w-[140px]"
+                          value={isBulkEdit ? (bulkEditUnits[unit.id]?.booking_com_name || '') : (editedUnit.booking_com_name || '')}
+                          onChange={(e) =>
+                            isBulkEdit
+                              ? handleBulkEditChange(unit.id, 'booking_com_name', e.target.value)
+                              : setEditedUnit({ ...editedUnit, booking_com_name: e.target.value })
+                          }
+                          placeholder="Enter Booking.com Name"
+                        />
+                      ) : (
+                        <span className="text-sm">{unit.booking_com_name || '-'}</span>
                       )}
                     </TableCell>
                     <TableCell className="min-w-[130px]">
