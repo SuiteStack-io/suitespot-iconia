@@ -176,7 +176,7 @@ export const HeroSlideshow = () => {
               e.stopPropagation();
               scroll('left');
             }}
-            className="absolute left-4 top-1/2 -translate-y-1/2 bg-background/60 hover:bg-background/80 backdrop-blur-sm rounded-full p-3 transition-all z-10 touch-none"
+            className="absolute left-4 top-1/2 -translate-y-1/2 bg-background/60 hover:bg-background/80 backdrop-blur-sm rounded-full p-3 transition-all z-10"
             aria-label="Previous image"
           >
             <ChevronLeft className="w-6 h-6" />
@@ -186,7 +186,7 @@ export const HeroSlideshow = () => {
               e.stopPropagation();
               scroll('right');
             }}
-            className="absolute right-4 top-1/2 -translate-y-1/2 bg-background/60 hover:bg-background/80 backdrop-blur-sm rounded-full p-3 transition-all z-10 touch-none"
+            className="absolute right-4 top-1/2 -translate-y-1/2 bg-background/60 hover:bg-background/80 backdrop-blur-sm rounded-full p-3 transition-all z-10"
             aria-label="Next image"
           >
             <ChevronRight className="w-6 h-6" />
