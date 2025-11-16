@@ -23,7 +23,7 @@ export const GmailSyncStatus = () => {
     const { data, error } = await supabase
       .from('sync_status')
       .select('*')
-      .eq('sync_type', 'booking.com')
+      .eq('sync_type', 'booking_com_gmail')
       .single();
 
     if (error) {
@@ -103,7 +103,7 @@ export const GmailSyncStatus = () => {
           status: 'disconnected',
           error_message: null
         })
-        .eq('sync_type', 'booking.com');
+        .eq('sync_type', 'booking_com_gmail');
 
       if (error) throw error;
 

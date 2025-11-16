@@ -25,7 +25,7 @@ export const SyncButton = () => {
     const { data } = await supabase
       .from('sync_status')
       .select('last_sync_at')
-      .eq('sync_type', 'booking.com')
+      .eq('sync_type', 'booking_com_gmail')
       .single();
 
     if (data?.last_sync_at) {
