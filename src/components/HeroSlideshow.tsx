@@ -1,5 +1,6 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import { supabase } from '@/integrations/supabase/client';
+import { ChevronLeft, ChevronRight } from 'lucide-react';
 
 interface SlideshowImage {
   id: string;
@@ -8,10 +9,9 @@ interface SlideshowImage {
 }
 
 export const HeroSlideshow = () => {
-  const [currentIndex, setCurrentIndex] = useState(0);
-  const [isTransitioning, setIsTransitioning] = useState(false);
   const [images, setImages] = useState<SlideshowImage[]>([]);
   const [loading, setLoading] = useState(true);
+  const scrollContainerRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
     fetchImages();
@@ -53,26 +53,33 @@ export const HeroSlideshow = () => {
     }
   };
 
-  useEffect(() => {
-    if (images.length === 0) return;
-
-    const interval = setInterval(() => {
-      setIsTransitioning(true);
-      setTimeout(() => {
-        setCurrentIndex((prevIndex) => (prevIndex + 1) % images.length);
-        setIsTransitioning(false);
-      }, 1000);
-    }, 5000);
-
-    return () => clearInterval(interval);
-  }, [images.length]);
-
-  const goToSlide = (index: number) => {
-    setIsTransitioning(true);
-    setTimeout(() => {
-      setCurrentIndex(index);
-      setIsTransitioning(false);
-    }, 1000);
+  const scroll = (direction: 'left' | 'right') => {
+    if (!scrollContainerRef.current) return;
+    const container = scrollContainerRef.current;
+    const scrollAmount = container.offsetWidth;
+    const maxScroll = container.scrollWidth - container.offsetWidth;
+    
+    if (direction === 'right') {
+      // If at the end, wrap to beginning
+      if (container.scrollLeft >= maxScroll - 10) {
+        container.scrollTo({ left: 0, behavior: 'smooth' });
+      } else {
+        container.scrollTo({ 
+          left: container.scrollLeft + scrollAmount, 
+          behavior: 'smooth' 
+        });
+      }
+    } else {
+      // If at the beginning, wrap to end
+      if (container.scrollLeft <= 10) {
+        container.scrollTo({ left: maxScroll, behavior: 'smooth' });
+      } else {
+        container.scrollTo({ 
+          left: container.scrollLeft - scrollAmount, 
+          behavior: 'smooth' 
+        });
+      }
+    }
   };
 
   if (loading || images.length === 0) {
@@ -83,52 +90,48 @@ export const HeroSlideshow = () => {
 
   return (
     <div className="absolute inset-0 w-full h-full overflow-hidden">
-      {/* Slideshow images */}
-      {images.map((image, index) => {
-        // Only render current, previous, and next images to improve performance
-        const isPrevious = index === (currentIndex - 1 + images.length) % images.length;
-        const isCurrent = index === currentIndex;
-        const isNext = index === (currentIndex + 1) % images.length;
-        const shouldRender = isPrevious || isCurrent || isNext;
-
-        if (!shouldRender) return null;
-
-        return (
-          <div
-            key={image.id}
-            className={`absolute inset-0 w-full h-full transition-opacity duration-1000 ${
-              isCurrent ? 'opacity-100' : 'opacity-0'
-            }`}
+      <div 
+        ref={scrollContainerRef}
+        className="flex overflow-x-auto scrollbar-hide scroll-smooth snap-x snap-mandatory h-full"
+        style={{ scrollbarWidth: 'none', msOverflowStyle: 'none' }}
+      >
+        {images.map((image) => (
+          <div 
+            key={image.id} 
+            className="flex-none w-full h-full snap-start"
           >
             <img
               src={image.image_url}
-              alt={`SuiteSpot hero ${index + 1}`}
+              alt={`SuiteSpot hero ${image.sequence_order + 1}`}
               className="w-full h-full object-cover"
-              loading={isCurrent ? 'eager' : 'lazy'}
-              decoding="async"
+              loading="lazy"
             />
           </div>
-        );
-      })}
-
-      {/* Gradient overlay */}
-      <div className="absolute inset-0 bg-gradient-to-br from-black/10 to-black/5" />
-
-      {/* Navigation dots */}
-      <div className="absolute bottom-8 left-1/2 -translate-x-1/2 flex gap-2 z-10">
-        {images.map((_, index) => (
-          <button
-            key={index}
-            onClick={() => goToSlide(index)}
-            className={`w-2 h-2 rounded-full transition-all duration-300 ${
-              index === currentIndex
-                ? 'bg-white w-8'
-                : 'bg-white/50 hover:bg-white/75'
-            }`}
-            aria-label={`Go to slide ${index + 1}`}
-          />
         ))}
       </div>
+      
+      {/* Gradient overlay */}
+      <div className="absolute inset-0 bg-gradient-to-br from-black/10 to-black/5 pointer-events-none" />
+      
+      {/* Navigation Arrows */}
+      {images.length > 1 && (
+        <>
+          <button
+            onClick={() => scroll('left')}
+            className="absolute left-4 top-1/2 -translate-y-1/2 bg-background/60 hover:bg-background/80 backdrop-blur-sm rounded-full p-3 transition-all z-10"
+            aria-label="Previous image"
+          >
+            <ChevronLeft className="w-6 h-6" />
+          </button>
+          <button
+            onClick={() => scroll('right')}
+            className="absolute right-4 top-1/2 -translate-y-1/2 bg-background/60 hover:bg-background/80 backdrop-blur-sm rounded-full p-3 transition-all z-10"
+            aria-label="Next image"
+          >
+            <ChevronRight className="w-6 h-6" />
+          </button>
+        </>
+      )}
     </div>
   );
 };
