@@ -1,7 +1,6 @@
 import { useState, useEffect, useRef } from 'react';
 import { supabase } from '@/integrations/supabase/client';
 import { ChevronLeft, ChevronRight } from 'lucide-react';
-import { useIsMobile } from '@/hooks/use-mobile';
 
 interface SlideshowImage {
   id: string;
@@ -13,7 +12,8 @@ export const HeroSlideshow = () => {
   const [images, setImages] = useState<SlideshowImage[]>([]);
   const [loading, setLoading] = useState(true);
   const scrollContainerRef = useRef<HTMLDivElement>(null);
-  const isMobile = useIsMobile();
+  const touchStartX = useRef<number>(0);
+  const touchEndX = useRef<number>(0);
 
   useEffect(() => {
     fetchImages();
@@ -84,6 +84,27 @@ export const HeroSlideshow = () => {
     }
   };
 
+  const handleTouchStart = (e: React.TouchEvent) => {
+    touchStartX.current = e.touches[0].clientX;
+  };
+
+  const handleTouchMove = (e: React.TouchEvent) => {
+    touchEndX.current = e.touches[0].clientX;
+  };
+
+  const handleTouchEnd = () => {
+    const swipeThreshold = 50;
+    const diff = touchStartX.current - touchEndX.current;
+    
+    if (Math.abs(diff) > swipeThreshold) {
+      if (diff > 0) {
+        scroll('right');
+      } else {
+        scroll('left');
+      }
+    }
+  };
+
   if (loading || images.length === 0) {
     return (
       <div className="absolute inset-0 w-full h-full overflow-hidden bg-gradient-to-br from-black/60 to-black/40" />
@@ -91,7 +112,12 @@ export const HeroSlideshow = () => {
   }
 
   return (
-    <div className="absolute inset-0 w-full h-full overflow-hidden">
+    <div 
+      className="absolute inset-0 w-full h-full overflow-hidden"
+      onTouchStart={handleTouchStart}
+      onTouchMove={handleTouchMove}
+      onTouchEnd={handleTouchEnd}
+    >
       <div 
         ref={scrollContainerRef}
         className="flex overflow-x-auto scrollbar-hide scroll-smooth snap-x snap-mandatory h-full"
@@ -115,8 +141,8 @@ export const HeroSlideshow = () => {
       {/* Gradient overlay */}
       <div className="absolute inset-0 bg-gradient-to-br from-black/10 to-black/5 pointer-events-none" />
       
-      {/* Desktop Navigation Arrows */}
-      {!isMobile && images.length > 1 && (
+      {/* Navigation Arrows */}
+      {images.length > 1 && (
         <>
           <button
             onClick={() => scroll('left')}
