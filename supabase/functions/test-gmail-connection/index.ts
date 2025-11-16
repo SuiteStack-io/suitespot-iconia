@@ -22,7 +22,7 @@ serve(async (req) => {
     const { data: syncStatus, error: syncError } = await supabase
       .from('sync_status')
       .select('*')
-      .eq('sync_type', 'booking.com')
+      .eq('sync_type', 'booking_com_gmail')
       .single();
 
     if (syncError) {
