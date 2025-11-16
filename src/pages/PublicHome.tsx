@@ -7,8 +7,32 @@ import experiencesFeature from "@/assets/experiences-feature.jpg";
 import { BookingWidget } from "@/components/BookingWidget";
 import { PublicNav } from "@/components/PublicNav";
 import { HeroSlideshow } from "@/components/HeroSlideshow";
+import { useRef } from "react";
 
 const PublicHome = () => {
+  const touchStartX = useRef<number>(0);
+  const touchEndX = useRef<number>(0);
+
+  const handleHeroTouchStart = (e: React.TouchEvent) => {
+    touchStartX.current = e.touches[0].clientX;
+  };
+
+  const handleHeroTouchMove = (e: React.TouchEvent) => {
+    touchEndX.current = e.touches[0].clientX;
+  };
+
+  const handleHeroTouchEnd = () => {
+    const swipeThreshold = 50;
+    const diff = touchStartX.current - touchEndX.current;
+    
+    if (Math.abs(diff) > swipeThreshold) {
+      // Trigger slideshow navigation by dispatching a custom event
+      const direction = diff > 0 ? 'right' : 'left';
+      const event = new CustomEvent('hero-swipe', { detail: { direction } });
+      window.dispatchEvent(event);
+    }
+  };
+
   return <div className="min-h-screen">
       {/* Navigation */}
       <PublicNav />
@@ -19,7 +43,12 @@ const PublicHome = () => {
         <HeroSlideshow />
         
         {/* Hero Content */}
-        <div className="relative z-10 text-center px-6 max-w-4xl mt-16 md:mt-0">
+        <div 
+          className="relative z-10 text-center px-6 max-w-4xl mt-16 md:mt-0"
+          onTouchStart={handleHeroTouchStart}
+          onTouchMove={handleHeroTouchMove}
+          onTouchEnd={handleHeroTouchEnd}
+        >
           <h1 className="text-3xl md:text-7xl font-serif font-bold text-white mb-6 animate-fade-in" style={{
             textShadow: "1px 1px 3px rgba(0,0,0,0.6), 0 0 15px rgba(0,0,0,0.4)"
           }}>Welcome Home</h1>

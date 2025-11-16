@@ -1,4 +1,4 @@
-import { useState, useEffect, useRef } from 'react';
+import { useState, useEffect, useRef, useCallback } from 'react';
 import { supabase } from '@/integrations/supabase/client';
 import { ChevronLeft, ChevronRight } from 'lucide-react';
 
@@ -11,6 +11,7 @@ interface SlideshowImage {
 export const HeroSlideshow = () => {
   const [images, setImages] = useState<SlideshowImage[]>([]);
   const [loading, setLoading] = useState(true);
+  const [currentIndex, setCurrentIndex] = useState(0);
   const scrollContainerRef = useRef<HTMLDivElement>(null);
   const touchStartX = useRef<number>(0);
   const touchEndX = useRef<number>(0);
@@ -55,7 +56,7 @@ export const HeroSlideshow = () => {
     }
   };
 
-  const scroll = (direction: 'left' | 'right') => {
+  const scroll = useCallback((direction: 'left' | 'right') => {
     if (!scrollContainerRef.current) return;
     const container = scrollContainerRef.current;
     const scrollAmount = container.offsetWidth;
@@ -82,7 +83,7 @@ export const HeroSlideshow = () => {
         });
       }
     }
-  };
+  }, []);
 
   const handleTouchStart = (e: React.TouchEvent) => {
     touchStartX.current = e.touches[0].clientX;
@@ -104,6 +105,32 @@ export const HeroSlideshow = () => {
       }
     }
   };
+
+  // Track current slide index
+  useEffect(() => {
+    const handleScroll = () => {
+      if (!scrollContainerRef.current) return;
+      const container = scrollContainerRef.current;
+      const index = Math.round(container.scrollLeft / container.offsetWidth);
+      setCurrentIndex(index);
+    };
+
+    const container = scrollContainerRef.current;
+    if (container) {
+      container.addEventListener('scroll', handleScroll);
+      return () => container.removeEventListener('scroll', handleScroll);
+    }
+  }, []);
+
+  // Listen for swipe events from hero content
+  useEffect(() => {
+    const handleHeroSwipe = (e: CustomEvent<{ direction: 'left' | 'right' }>) => {
+      scroll(e.detail.direction);
+    };
+
+    window.addEventListener('hero-swipe', handleHeroSwipe as EventListener);
+    return () => window.removeEventListener('hero-swipe', handleHeroSwipe as EventListener);
+  }, [scroll]);
 
   if (loading || images.length === 0) {
     return (
@@ -145,21 +172,46 @@ export const HeroSlideshow = () => {
       {images.length > 1 && (
         <>
           <button
-            onClick={() => scroll('left')}
-            className="absolute left-4 top-1/2 -translate-y-1/2 bg-background/60 hover:bg-background/80 backdrop-blur-sm rounded-full p-3 transition-all z-10"
+            onClick={(e) => {
+              e.stopPropagation();
+              scroll('left');
+            }}
+            className="absolute left-4 top-1/2 -translate-y-1/2 bg-background/60 hover:bg-background/80 backdrop-blur-sm rounded-full p-3 transition-all z-10 touch-none"
             aria-label="Previous image"
           >
             <ChevronLeft className="w-6 h-6" />
           </button>
           <button
-            onClick={() => scroll('right')}
-            className="absolute right-4 top-1/2 -translate-y-1/2 bg-background/60 hover:bg-background/80 backdrop-blur-sm rounded-full p-3 transition-all z-10"
+            onClick={(e) => {
+              e.stopPropagation();
+              scroll('right');
+            }}
+            className="absolute right-4 top-1/2 -translate-y-1/2 bg-background/60 hover:bg-background/80 backdrop-blur-sm rounded-full p-3 transition-all z-10 touch-none"
             aria-label="Next image"
           >
             <ChevronRight className="w-6 h-6" />
           </button>
         </>
       )}
+
+      {/* Image Indicators - Hidden on desktop, shown on mobile */}
+      {images.length > 1 && (
+        <div className="absolute bottom-24 left-1/2 -translate-x-1/2 flex gap-2 z-10 sm:hidden">
+          {images.map((_, index) => (
+            <div
+              key={index}
+              className={`w-2 h-2 rounded-full transition-all ${
+                index === currentIndex 
+                  ? 'bg-white w-6' 
+                  : 'bg-white/50'
+              }`}
+            />
+          ))}
+        </div>
+      )}
     </div>
   );
 };
+
+// Export current index for parent components to use
+export type { SlideshowImage };
