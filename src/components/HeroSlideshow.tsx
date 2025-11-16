@@ -1,6 +1,7 @@
 import { useState, useEffect, useRef } from 'react';
 import { supabase } from '@/integrations/supabase/client';
 import { ChevronLeft, ChevronRight } from 'lucide-react';
+import { useIsMobile } from '@/hooks/use-mobile';
 
 interface SlideshowImage {
   id: string;
@@ -12,6 +13,7 @@ export const HeroSlideshow = () => {
   const [images, setImages] = useState<SlideshowImage[]>([]);
   const [loading, setLoading] = useState(true);
   const scrollContainerRef = useRef<HTMLDivElement>(null);
+  const isMobile = useIsMobile();
 
   useEffect(() => {
     fetchImages();
@@ -113,8 +115,8 @@ export const HeroSlideshow = () => {
       {/* Gradient overlay */}
       <div className="absolute inset-0 bg-gradient-to-br from-black/10 to-black/5 pointer-events-none" />
       
-      {/* Navigation Arrows */}
-      {images.length > 1 && (
+      {/* Desktop Navigation Arrows */}
+      {!isMobile && images.length > 1 && (
         <>
           <button
             onClick={() => scroll('left')}
