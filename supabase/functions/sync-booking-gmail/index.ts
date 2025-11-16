@@ -236,18 +236,22 @@ serve(async (req) => {
     const supabaseKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!;
     const supabase = createClient(supabaseUrl, supabaseKey);
 
-    // Get stored refresh token
+    // Get the trigger type from request body
+    const { trigger_type = 'automatic' } = await req.json().catch(() => ({}));
+
+    // Get stored refresh token from new column
     const { data: syncStatus, error: fetchError } = await supabase
       .from('sync_status')
-      .select('error_message')
+      .select('*')
       .eq('sync_type', 'booking_com_gmail')
       .single();
 
-    if (fetchError || !syncStatus?.error_message) {
+    if (fetchError || !syncStatus?.refresh_token) {
+      await logSync(supabase, trigger_type, 'error', 0, 0, 'Gmail not authenticated', null);
       throw new Error('Gmail not authenticated. Please connect Gmail first.');
     }
 
-    const refreshToken = syncStatus.error_message;
+    const refreshToken = syncStatus.refresh_token;
     const clientId = Deno.env.get('GMAIL_CLIENT_ID');
     const clientSecret = Deno.env.get('GMAIL_CLIENT_SECRET');
 
@@ -492,12 +496,15 @@ serve(async (req) => {
       }
     }
 
-    // Update last sync time
+    // Update last sync time and log success
+    await logSync(supabase, trigger_type, 'success', createdCount, skippedCount, null, null);
+    
     await supabase
       .from('sync_status')
       .update({
         last_sync_at: new Date().toISOString(),
         status: 'idle',
+        error_message: null
       })
       .eq('sync_type', 'booking_com_gmail');
 
@@ -506,9 +513,9 @@ serve(async (req) => {
     return new Response(
       JSON.stringify({ 
         message: 'Sync completed', 
-        processedCount,
-        createdCount,
-        skippedCount 
+        bookingsCreated: createdCount,
+        bookingsSkipped: skippedCount,
+        processed: processedCount
       }),
       {
         headers: { ...corsHeaders, 'Content-Type': 'application/json' },
@@ -524,11 +531,14 @@ serve(async (req) => {
     const supabaseKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!;
     const supabase = createClient(supabaseUrl, supabaseKey);
     
+    await logSync(supabase, 'automatic', 'error', 0, 0, errorMessage, null);
+    
     await supabase
       .from('sync_status')
       .update({
         status: 'error',
         last_sync_at: new Date().toISOString(),
+        error_message: errorMessage
       })
       .eq('sync_type', 'booking_com_gmail');
 
@@ -541,3 +551,30 @@ serve(async (req) => {
     );
   }
 });
+
+// Helper function to log sync activity
+async function logSync(
+  supabase: any,
+  triggerType: string,
+  status: string,
+  bookingsCreated: number,
+  bookingsSkipped: number,
+  errorMessage: string | null,
+  userId: string | null
+) {
+  try {
+    await supabase
+      .from('sync_logs')
+      .insert({
+        sync_type: 'booking_com_gmail',
+        trigger_type: triggerType,
+        status,
+        bookings_created: bookingsCreated,
+        bookings_skipped: bookingsSkipped,
+        error_message: errorMessage,
+        created_by: userId
+      });
+  } catch (error) {
+    console.error('Failed to log sync:', error);
+  }
+}
