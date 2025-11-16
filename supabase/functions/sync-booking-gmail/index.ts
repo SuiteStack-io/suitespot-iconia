@@ -370,7 +370,7 @@ serve(async (req) => {
           continue;
         }
         
-        // Find matching unit by Booking.com ID, fallback to name matching, then first available
+        // Find matching unit by Booking.com ID, then Booking.com name, fallback to internal name, then first available
         let unitId: string | null = null;
         
         if (parsed.bookingComRoomId) {
@@ -388,7 +388,36 @@ serve(async (req) => {
           }
         }
         
-        // If no match by Booking.com ID, try name matching
+        // If no match by Booking.com ID, try Booking.com name matching
+        if (!unitId && parsed.unitName && parsed.unitName !== 'TBD') {
+          // Try exact match first
+          const { data: unitByBookingName } = await supabase
+            .from('units')
+            .select('id, name, booking_com_name')
+            .eq('booking_com_name', parsed.unitName)
+            .limit(1)
+            .single();
+            
+          if (unitByBookingName) {
+            unitId = unitByBookingName.id;
+            console.log(`Matched unit by Booking.com name (exact): ${unitByBookingName.name}`);
+          } else {
+            // Try partial match
+            const { data: unitByBookingNamePartial } = await supabase
+              .from('units')
+              .select('id, name, booking_com_name')
+              .ilike('booking_com_name', `%${parsed.unitName}%`)
+              .limit(1)
+              .single();
+              
+            if (unitByBookingNamePartial) {
+              unitId = unitByBookingNamePartial.id;
+              console.log(`Matched unit by Booking.com name (partial): ${unitByBookingNamePartial.name}`);
+            }
+          }
+        }
+        
+        // If still no match, try internal name matching
         if (!unitId && parsed.unitName && parsed.unitName !== 'TBD') {
           const { data: unitByName } = await supabase
             .from('units')
@@ -399,7 +428,7 @@ serve(async (req) => {
             
           if (unitByName) {
             unitId = unitByName.id;
-            console.log(`Matched unit by name: ${unitByName.name}`);
+            console.log(`Matched unit by internal name: ${unitByName.name}`);
           }
         }
         
