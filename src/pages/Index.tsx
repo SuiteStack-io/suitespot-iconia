@@ -1,4 +1,4 @@
-import { useEffect } from 'react';
+import { useEffect, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useAuth } from '@/lib/auth';
 import { Dashboard } from '@/components/Dashboard';
@@ -6,11 +6,13 @@ import { ReservationsList } from '@/components/ReservationsList';
 import { WeeklyCalendar } from '@/components/WeeklyCalendar';
 import { CreateReservationDialog } from '@/components/CreateReservationDialog';
 import { Button } from '@/components/ui/button';
-import { LogOut, CalendarDays, ChevronDown, DoorOpen, Home, Settings as SettingsIcon } from 'lucide-react';
+import { LogOut, CalendarDays, ChevronDown, DoorOpen, Home, Settings as SettingsIcon, RefreshCw } from 'lucide-react';
 import { NotificationCenter } from '@/components/NotificationCenter';
 import { SyncButton } from '@/components/SyncButton';
 import suitespotLogo from '@/assets/suitespot-logo.png';
 import { useIsMobile } from '@/hooks/use-mobile';
+import { useToast } from '@/hooks/use-toast';
+import { supabase } from '@/integrations/supabase/client';
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -22,6 +24,51 @@ const Index = () => {
   const { user, loading, signOut, userRole } = useAuth();
   const navigate = useNavigate();
   const isMobile = useIsMobile();
+  const { toast } = useToast();
+  const [syncing, setSyncing] = useState(false);
+
+  const handleSync = async () => {
+    setSyncing(true);
+    try {
+      const { data, error } = await supabase.functions.invoke('sync-booking-gmail', {
+        body: { trigger_type: 'manual' }
+      });
+
+      if (error) throw error;
+
+      const bookingsCreated = data?.bookingsCreated || 0;
+      const bookingsSkipped = data?.bookingsSkipped || 0;
+
+      if (bookingsCreated > 0) {
+        toast({
+          title: "Sync Complete",
+          description: `Created ${bookingsCreated} new booking${bookingsCreated > 1 ? 's' : ''}, skipped ${bookingsSkipped}`,
+        });
+      } else if (bookingsSkipped > 0) {
+        toast({
+          title: "Sync Complete",
+          description: `No new bookings found (${bookingsSkipped} existing)`,
+        });
+      } else {
+        toast({
+          title: "Sync Complete",
+          description: "No new bookings found",
+        });
+      }
+
+      // Refresh the page to show new bookings
+      window.location.reload();
+    } catch (error: any) {
+      console.error('Sync error:', error);
+      toast({
+        title: "Sync Failed",
+        description: error.message || "Failed to sync bookings",
+        variant: "destructive",
+      });
+    } finally {
+      setSyncing(false);
+    }
+  };
 
   useEffect(() => {
     if (!loading && !user) {
@@ -77,7 +124,8 @@ const Index = () => {
             {/* Admin tools */}
             {isAdmin && (
               <div className="flex items-center gap-2">
-                <SyncButton />
+                {/* Show sync button in header only on mobile */}
+                {isMobile && <SyncButton />}
                 <NotificationCenter />
               </div>
             )}
@@ -118,6 +166,13 @@ const Index = () => {
                 </DropdownMenuItem>
               {userRole === 'admin' && (
                   <>
+                    {/* Sync Bookings menu item - only on desktop */}
+                    {!isMobile && (
+                      <DropdownMenuItem onClick={handleSync} disabled={syncing}>
+                        <RefreshCw className={`h-4 w-4 mr-2 ${syncing ? 'animate-spin' : ''}`} />
+                        {syncing ? 'Syncing...' : 'Sync Bookings'}
+                      </DropdownMenuItem>
+                    )}
                     <DropdownMenuItem onClick={() => navigate('/users')}>
                       Users
                     </DropdownMenuItem>
