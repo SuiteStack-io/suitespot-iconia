@@ -17,13 +17,6 @@ import {
   DialogHeader,
   DialogTitle,
 } from '@/components/ui/dialog';
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from '@/components/ui/select';
 import suitespotLogo from '@/assets/suitespot-logo.png';
 
 interface ParsedReservation {
@@ -49,7 +42,7 @@ interface ParsedReservation {
 }
 
 const BookingComReservations = () => {
-  const { user } = useAuth();
+  const { user, loading } = useAuth();
   const navigate = useNavigate();
   const { toast } = useToast();
   const [uploading, setUploading] = useState(false);
@@ -61,8 +54,12 @@ const BookingComReservations = () => {
   const [uploadProgress, setUploadProgress] = useState(0);
   const [uploadComplete, setUploadComplete] = useState(false);
   const [screenshotFile, setScreenshotFile] = useState<File | null>(null);
-  const [manualUnitId, setManualUnitId] = useState<string>('');
-  const [availableUnits, setAvailableUnits] = useState<any[]>([]);
+
+  useEffect(() => {
+    if (!loading && !user) {
+      navigate('/auth');
+    }
+  }, [user, loading, navigate]);
 
   useEffect(() => {
     fetchUnits();
@@ -78,50 +75,6 @@ const BookingComReservations = () => {
       console.error('Error fetching units:', error);
     } else {
       setUnits(data || []);
-    }
-  };
-
-  const fetchAvailableUnits = async (checkInDate: string, checkOutDate: string) => {
-    try {
-      // Fetch all units
-      const { data: allUnits, error: unitsError } = await supabase
-        .from('units')
-        .select('*')
-        .eq('status', 'available')
-        .order('name');
-
-      if (unitsError) throw unitsError;
-
-      // Fetch reservations that overlap with the date range
-      const { data: reservations, error: reservationsError } = await supabase
-        .from('reservations')
-        .select('unit_id')
-        .eq('status', 'confirmed')
-        .or(`and(check_in_date.lte.${checkOutDate},check_out_date.gte.${checkInDate})`);
-
-      if (reservationsError) throw reservationsError;
-
-      // Fetch blocked dates that overlap with the date range
-      const { data: blockedDates, error: blockedError } = await supabase
-        .from('blocked_dates')
-        .select('unit_id')
-        .gte('blocked_date', checkInDate)
-        .lte('blocked_date', checkOutDate);
-
-      if (blockedError) throw blockedError;
-
-      // Get unit IDs that are unavailable
-      const unavailableUnitIds = new Set([
-        ...reservations.map(r => r.unit_id).filter(Boolean),
-        ...blockedDates.map(b => b.unit_id).filter(Boolean)
-      ]);
-
-      // Filter out unavailable units
-      const available = allUnits?.filter(unit => !unavailableUnitIds.has(unit.id)) || [];
-      setAvailableUnits(available);
-    } catch (error) {
-      console.error('Error fetching available units:', error);
-      setAvailableUnits([]);
     }
   };
 
@@ -170,11 +123,6 @@ const BookingComReservations = () => {
             
             setTimeout(() => {
               setParsedData(data.data);
-              setManualUnitId(''); // Reset manual selection
-              // Fetch available units for the date range
-              if (data.data.checkInDate && data.data.checkOutDate) {
-                fetchAvailableUnits(data.data.checkInDate, data.data.checkOutDate);
-              }
               setShowPreview(true);
               setUploadComplete(false);
               setUploading(false);
@@ -295,9 +243,6 @@ const BookingComReservations = () => {
         ? (parsedData.commissionAmount / parsedData.totalPrice) * 100 
         : null;
 
-      // Use manual unit selection if available, otherwise use parsed unit
-      const selectedUnitId = manualUnitId || parsedData.unitId;
-
       // Create reservation (nights will be calculated automatically by database)
       const { data: reservation, error: reservationError } = await supabase
         .from('reservations')
@@ -307,7 +252,7 @@ const BookingComReservations = () => {
           guest_nationality: parsedData.nationality || null,
           check_in_date: parsedData.checkInDate,
           check_out_date: parsedData.checkOutDate,
-          unit_id: selectedUnitId,
+          unit_id: parsedData.unitId,
           number_of_guests: parsedData.numberOfGuests,
           contact_email: parsedData.contactEmail,
           contact_phone: parsedData.contactPhone,
@@ -384,6 +329,17 @@ const BookingComReservations = () => {
     }
   };
 
+  if (loading) {
+    return (
+      <div className="flex items-center justify-center min-h-screen">
+        <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary"></div>
+      </div>
+    );
+  }
+
+  if (!user) {
+    return null;
+  }
 
   const getUnitName = (unitId?: string) => {
     if (!unitId) return 'No room matched';
@@ -421,26 +377,23 @@ const BookingComReservations = () => {
                 onDragLeave={handleDragLeave}
                 onDragOver={handleDragOver}
                 onDrop={handleDrop}
-                onClick={() => {
-                  if (!uploading) {
-                    document.getElementById('screenshot-upload')?.click();
-                  }
-                }}
-                className={`border-2 border-dashed rounded-lg p-8 text-center transition-colors cursor-pointer ${
+                className={`border-2 border-dashed rounded-lg p-8 text-center transition-colors ${
                   isDragging 
                     ? 'border-primary bg-primary/5' 
                     : 'border-border hover:border-primary/50'
-                } ${uploading ? 'opacity-50 pointer-events-none cursor-not-allowed' : ''}`}
+                } ${uploading ? 'opacity-50 pointer-events-none' : ''}`}
               >
                 <Upload className="h-12 w-12 mx-auto mb-4 text-muted-foreground" />
-                <div className="space-y-2">
-                  <p className="text-sm font-medium">
-                    Drop your screenshot here or click to browse
-                  </p>
-                  <p className="text-xs text-muted-foreground">
-                    Supports: PNG, JPG, JPEG
-                  </p>
-                </div>
+                <Label htmlFor="screenshot-upload" className="cursor-pointer">
+                  <div className="space-y-2">
+                    <p className="text-sm font-medium">
+                      Drop your screenshot here or click to browse
+                    </p>
+                    <p className="text-xs text-muted-foreground">
+                      Supports: PNG, JPG, JPEG
+                    </p>
+                  </div>
+                </Label>
                 <Input
                   id="screenshot-upload"
                   type="file"
@@ -512,43 +465,12 @@ const BookingComReservations = () => {
                   <p className="font-medium">{parsedData.bookingReference}</p>
                 </div>
                 <div>
-                  <Label className="text-xs text-muted-foreground">Room from Screenshot</Label>
+                  <Label className="text-xs text-muted-foreground">Room</Label>
                   <p className="font-medium">{parsedData.roomName}</p>
                   <p className={`text-sm ${parsedData.unitId ? 'text-green-600' : 'text-yellow-600'}`}>
-                    {parsedData.unitId ? `✓ Auto-matched: ${getUnitName(parsedData.unitId)}` : '⚠ Not auto-matched'}
+                    {parsedData.unitId ? `✓ Matched: ${getUnitName(parsedData.unitId)}` : '⚠ No room matched'}
                   </p>
                 </div>
-              </div>
-
-              {/* Manual Room Selection */}
-              <div>
-                <Label className="text-sm font-medium">Select Room</Label>
-                <p className="text-xs text-muted-foreground mb-2">
-                  {parsedData.unitId 
-                    ? 'Room was auto-matched, but you can change it below if needed.' 
-                    : 'Please manually select a room for this reservation.'}
-                </p>
-                <Select 
-                  value={manualUnitId || parsedData.unitId || ''} 
-                  onValueChange={setManualUnitId}
-                >
-                  <SelectTrigger className="w-full">
-                    <SelectValue placeholder="Select a room..." />
-                  </SelectTrigger>
-                  <SelectContent>
-                    {availableUnits.length === 0 ? (
-                      <SelectItem value="none" disabled>
-                        No available rooms for these dates
-                      </SelectItem>
-                    ) : (
-                      availableUnits.map((unit) => (
-                        <SelectItem key={unit.id} value={unit.id}>
-                          {unit.name} {unit.unit_number && `(${unit.unit_number})`}
-                        </SelectItem>
-                      ))
-                    )}
-                  </SelectContent>
-                </Select>
               </div>
 
               <div className="grid grid-cols-2 gap-4">
@@ -585,7 +507,7 @@ const BookingComReservations = () => {
                 </div>
               )}
 
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+              <div className="grid grid-cols-2 gap-4">
                 <div className="space-y-4">
                   {parsedData.preferredLanguage && (
                     <div>
@@ -597,7 +519,7 @@ const BookingComReservations = () => {
                   {parsedData.contactEmail && (
                     <div>
                       <Label className="text-xs text-muted-foreground">Email</Label>
-                      <p className="font-medium break-all">{parsedData.contactEmail}</p>
+                      <p className="font-medium">{parsedData.contactEmail}</p>
                     </div>
                   )}
 
@@ -646,10 +568,10 @@ const BookingComReservations = () => {
                 </div>
               )}
 
-              {!parsedData.unitId && !manualUnitId && (
-                <div className="bg-red-50 border border-red-200 rounded-md p-4">
-                  <p className="text-sm text-red-800 font-medium">
-                    ⚠ Error: No room selected. Please select a room from the dropdown above to continue.
+              {!parsedData.unitId && (
+                <div className="bg-yellow-50 border border-yellow-200 rounded-md p-4">
+                  <p className="text-sm text-yellow-800">
+                    ⚠ Warning: Could not automatically match the room. The reservation will be created without a room assignment.
                   </p>
                 </div>
               )}
@@ -660,10 +582,7 @@ const BookingComReservations = () => {
             <Button variant="outline" onClick={() => setShowPreview(false)} disabled={creating}>
               Cancel
             </Button>
-            <Button 
-              onClick={handleConfirmReservation} 
-              disabled={creating || (!parsedData.unitId && !manualUnitId)}
-            >
+            <Button onClick={handleConfirmReservation} disabled={creating}>
               {creating ? (
                 <>
                   <Loader2 className="h-4 w-4 mr-2 animate-spin" />
