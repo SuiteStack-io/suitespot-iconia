@@ -12,10 +12,18 @@ export const ProtectedRoute = ({ children }: ProtectedRouteProps) => {
   const location = useLocation();
 
   useEffect(() => {
+    console.log('ProtectedRoute check:', { 
+      pathname: location.pathname, 
+      loading, 
+      hasUser: !!user,
+      userId: user?.id 
+    });
+    
     if (!loading && !user) {
+      console.log('Redirecting to auth from:', location.pathname);
       navigate(`/auth?redirect=${encodeURIComponent(location.pathname)}`, { replace: true });
     }
-  }, [user, loading, navigate, location]);
+  }, [user, loading, navigate, location.pathname]);
 
   if (loading) {
     return (
