@@ -166,6 +166,11 @@ const BookingComReservations = () => {
     setCreating(true);
 
     try {
+      // Calculate nights from check-in and check-out dates
+      const checkIn = new Date(parsedData.checkInDate);
+      const checkOut = new Date(parsedData.checkOutDate);
+      const nights = Math.ceil((checkOut.getTime() - checkIn.getTime()) / (1000 * 60 * 60 * 24));
+
       // Create reservation
       const { data: reservation, error: reservationError } = await supabase
         .from('reservations')
@@ -182,7 +187,7 @@ const BookingComReservations = () => {
           currency: parsedData.currency || 'USD',
           adults: parsedData.adults || parsedData.numberOfGuests,
           children: parsedData.children || 0,
-          nights: parsedData.nights,
+          nights: nights,
           notes: parsedData.notes,
           status: 'confirmed',
           source: 'booking.com',
