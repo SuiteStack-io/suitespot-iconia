@@ -344,7 +344,10 @@ const BookingComReservations = () => {
 
               {uploading && (
                 <div className="space-y-3">
-                  <Progress value={uploadProgress} className="h-2 [&>div]:bg-blue-600" />
+                  <div className="space-y-2">
+                    <Progress value={uploadProgress} className="h-3 bg-secondary" />
+                    <p className="text-xs text-center text-muted-foreground font-medium">{uploadProgress}%</p>
+                  </div>
                   <div className="flex items-center justify-center gap-2 text-sm text-muted-foreground">
                     {uploadComplete ? (
                       <>
@@ -354,7 +357,7 @@ const BookingComReservations = () => {
                     ) : (
                       <>
                         <Loader2 className="h-4 w-4 animate-spin" />
-                        <span>Uploading and analyzing screenshot... {uploadProgress}%</span>
+                        <span>Uploading and analyzing screenshot...</span>
                       </>
                     )}
                   </div>
