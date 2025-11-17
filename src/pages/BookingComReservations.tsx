@@ -438,23 +438,26 @@ const BookingComReservations = () => {
                 onDragLeave={handleDragLeave}
                 onDragOver={handleDragOver}
                 onDrop={handleDrop}
-                className={`border-2 border-dashed rounded-lg p-8 text-center transition-colors ${
+                onClick={() => {
+                  if (!uploading) {
+                    document.getElementById('screenshot-upload')?.click();
+                  }
+                }}
+                className={`border-2 border-dashed rounded-lg p-8 text-center transition-colors cursor-pointer ${
                   isDragging 
                     ? 'border-primary bg-primary/5' 
                     : 'border-border hover:border-primary/50'
-                } ${uploading ? 'opacity-50 pointer-events-none' : ''}`}
+                } ${uploading ? 'opacity-50 pointer-events-none cursor-not-allowed' : ''}`}
               >
                 <Upload className="h-12 w-12 mx-auto mb-4 text-muted-foreground" />
-                <Label htmlFor="screenshot-upload" className="cursor-pointer">
-                  <div className="space-y-2">
-                    <p className="text-sm font-medium">
-                      Drop your screenshot here or click to browse
-                    </p>
-                    <p className="text-xs text-muted-foreground">
-                      Supports: PNG, JPG, JPEG
-                    </p>
-                  </div>
-                </Label>
+                <div className="space-y-2">
+                  <p className="text-sm font-medium">
+                    Drop your screenshot here or click to browse
+                  </p>
+                  <p className="text-xs text-muted-foreground">
+                    Supports: PNG, JPG, JPEG
+                  </p>
+                </div>
                 <Input
                   id="screenshot-upload"
                   type="file"
