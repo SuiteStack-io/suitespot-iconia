@@ -45,6 +45,7 @@ const BookingComReservations = () => {
   const [showPreview, setShowPreview] = useState(false);
   const [creating, setCreating] = useState(false);
   const [units, setUnits] = useState<any[]>([]);
+  const [isDragging, setIsDragging] = useState(false);
 
   useEffect(() => {
     if (!loading && !user) {
@@ -69,10 +70,7 @@ const BookingComReservations = () => {
     }
   };
 
-  const handleFileUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
-    const file = e.target.files?.[0];
-    if (!file) return;
-
+  const processFile = async (file: File) => {
     // Validate file type
     if (!file.type.startsWith('image/')) {
       toast({
@@ -126,6 +124,40 @@ const BookingComReservations = () => {
     } finally {
       setUploading(false);
     }
+  };
+
+  const handleFileUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    await processFile(file);
+  };
+
+  const handleDragEnter = (e: React.DragEvent) => {
+    e.preventDefault();
+    e.stopPropagation();
+    setIsDragging(true);
+  };
+
+  const handleDragLeave = (e: React.DragEvent) => {
+    e.preventDefault();
+    e.stopPropagation();
+    setIsDragging(false);
+  };
+
+  const handleDragOver = (e: React.DragEvent) => {
+    e.preventDefault();
+    e.stopPropagation();
+  };
+
+  const handleDrop = async (e: React.DragEvent) => {
+    e.preventDefault();
+    e.stopPropagation();
+    setIsDragging(false);
+
+    const file = e.dataTransfer.files?.[0];
+    if (!file) return;
+    
+    await processFile(file);
   };
 
   const handleConfirmReservation = async () => {
@@ -246,21 +278,40 @@ const BookingComReservations = () => {
           </CardHeader>
           <CardContent>
             <div className="space-y-4">
-              <div>
-                <Label htmlFor="screenshot-upload">Reservation Screenshot</Label>
-                <div className="mt-2">
-                  <Input
-                    id="screenshot-upload"
-                    type="file"
-                    accept="image/*"
-                    onChange={handleFileUpload}
-                    disabled={uploading}
-                  />
-                </div>
+              <div
+                onDragEnter={handleDragEnter}
+                onDragLeave={handleDragLeave}
+                onDragOver={handleDragOver}
+                onDrop={handleDrop}
+                className={`border-2 border-dashed rounded-lg p-8 text-center transition-colors ${
+                  isDragging 
+                    ? 'border-primary bg-primary/5' 
+                    : 'border-border hover:border-primary/50'
+                } ${uploading ? 'opacity-50 pointer-events-none' : ''}`}
+              >
+                <Upload className="h-12 w-12 mx-auto mb-4 text-muted-foreground" />
+                <Label htmlFor="screenshot-upload" className="cursor-pointer">
+                  <div className="space-y-2">
+                    <p className="text-sm font-medium">
+                      Drop your screenshot here or click to browse
+                    </p>
+                    <p className="text-xs text-muted-foreground">
+                      Supports: PNG, JPG, JPEG
+                    </p>
+                  </div>
+                </Label>
+                <Input
+                  id="screenshot-upload"
+                  type="file"
+                  accept="image/*"
+                  onChange={handleFileUpload}
+                  disabled={uploading}
+                  className="hidden"
+                />
               </div>
 
               {uploading && (
-                <div className="flex items-center gap-2 text-sm text-muted-foreground">
+                <div className="flex items-center justify-center gap-2 text-sm text-muted-foreground">
                   <Loader2 className="h-4 w-4 animate-spin" />
                   <span>Analyzing screenshot with AI...</span>
                 </div>
