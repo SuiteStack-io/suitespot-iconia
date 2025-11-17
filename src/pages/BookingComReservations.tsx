@@ -213,6 +213,11 @@ const BookingComReservations = () => {
       const checkOut = new Date(parsedData.checkOutDate);
       const nights = Math.ceil((checkOut.getTime() - checkIn.getTime()) / (1000 * 60 * 60 * 24));
       const pricePerNight = parsedData.totalPrice && nights > 0 ? parsedData.totalPrice / nights : null;
+      
+      // Calculate commission rate
+      const commissionRate = parsedData.commissionAmount && parsedData.totalPrice 
+        ? (parsedData.commissionAmount / parsedData.totalPrice) * 100 
+        : null;
 
       // Create reservation (nights will be calculated automatically by database)
       const { data: reservation, error: reservationError } = await supabase
@@ -232,6 +237,7 @@ const BookingComReservations = () => {
           currency: parsedData.currency || 'USD',
           adults: parsedData.adults || parsedData.numberOfGuests,
           children: parsedData.children || 0,
+          commission_rate: commissionRate,
           commission_amount: parsedData.commissionAmount,
           net_revenue: parsedData.commissionableAmount,
           notes: parsedData.notes,
