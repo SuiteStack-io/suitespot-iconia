@@ -258,17 +258,6 @@ const Index = () => {
                 <CalendarDays className="h-4 w-4 mr-2" />
                 Calendar
               </Button>
-              {userRole === 'admin' && (
-                <Button 
-                  variant="outline" 
-                  size="sm" 
-                  onClick={() => navigate('/rooms')} 
-                  className="w-full justify-start"
-                >
-                  <DoorOpen className="h-4 w-4 mr-2" />
-                  Rooms
-                </Button>
-              )}
               <Button 
                 variant="outline" 
                 size="sm" 
