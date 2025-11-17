@@ -144,20 +144,39 @@ const Index = () => {
                 </div>
               )}
               
-              {/* Admin tools */}
-              {isAdmin && (
-                <div className="flex items-center gap-2">
-                  <Button
-                    variant="outline"
-                    size="sm"
-                    onClick={() => navigate('/booking-com-reservations')}
-                  >
-                    <DoorOpen className="h-4 w-4 mr-2" />
-                    Booking.com Import
-                  </Button>
-                  <NotificationCenter />
-                </div>
-              )}
+              {/* Navigation and Admin tools */}
+              <div className="flex items-center gap-2">
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={() => navigate('/calendar')}
+                >
+                  <CalendarDays className="h-4 w-4 mr-2" />
+                  Calendar
+                </Button>
+                
+                {isAdmin && (
+                  <>
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      onClick={() => navigate('/rooms')}
+                    >
+                      <DoorOpen className="h-4 w-4 mr-2" />
+                      Rooms
+                    </Button>
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      onClick={() => navigate('/booking-com-reservations')}
+                    >
+                      <DoorOpen className="h-4 w-4 mr-2" />
+                      Booking.com Import
+                    </Button>
+                    <NotificationCenter />
+                  </>
+                )}
+              </div>
               
               {/* User info display with dropdown */}
               <DropdownMenu>
