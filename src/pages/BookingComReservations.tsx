@@ -17,6 +17,13 @@ import {
   DialogHeader,
   DialogTitle,
 } from '@/components/ui/dialog';
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from '@/components/ui/select';
 import suitespotLogo from '@/assets/suitespot-logo.png';
 
 interface ParsedReservation {
@@ -54,6 +61,8 @@ const BookingComReservations = () => {
   const [uploadProgress, setUploadProgress] = useState(0);
   const [uploadComplete, setUploadComplete] = useState(false);
   const [screenshotFile, setScreenshotFile] = useState<File | null>(null);
+  const [manualUnitId, setManualUnitId] = useState<string>('');
+  const [availableUnits, setAvailableUnits] = useState<any[]>([]);
 
   useEffect(() => {
     if (!loading && !user) {
@@ -75,6 +84,50 @@ const BookingComReservations = () => {
       console.error('Error fetching units:', error);
     } else {
       setUnits(data || []);
+    }
+  };
+
+  const fetchAvailableUnits = async (checkInDate: string, checkOutDate: string) => {
+    try {
+      // Fetch all units
+      const { data: allUnits, error: unitsError } = await supabase
+        .from('units')
+        .select('*')
+        .eq('status', 'available')
+        .order('name');
+
+      if (unitsError) throw unitsError;
+
+      // Fetch reservations that overlap with the date range
+      const { data: reservations, error: reservationsError } = await supabase
+        .from('reservations')
+        .select('unit_id')
+        .eq('status', 'confirmed')
+        .or(`and(check_in_date.lte.${checkOutDate},check_out_date.gte.${checkInDate})`);
+
+      if (reservationsError) throw reservationsError;
+
+      // Fetch blocked dates that overlap with the date range
+      const { data: blockedDates, error: blockedError } = await supabase
+        .from('blocked_dates')
+        .select('unit_id')
+        .gte('blocked_date', checkInDate)
+        .lte('blocked_date', checkOutDate);
+
+      if (blockedError) throw blockedError;
+
+      // Get unit IDs that are unavailable
+      const unavailableUnitIds = new Set([
+        ...reservations.map(r => r.unit_id).filter(Boolean),
+        ...blockedDates.map(b => b.unit_id).filter(Boolean)
+      ]);
+
+      // Filter out unavailable units
+      const available = allUnits?.filter(unit => !unavailableUnitIds.has(unit.id)) || [];
+      setAvailableUnits(available);
+    } catch (error) {
+      console.error('Error fetching available units:', error);
+      setAvailableUnits([]);
     }
   };
 
@@ -123,6 +176,11 @@ const BookingComReservations = () => {
             
             setTimeout(() => {
               setParsedData(data.data);
+              setManualUnitId(''); // Reset manual selection
+              // Fetch available units for the date range
+              if (data.data.checkInDate && data.data.checkOutDate) {
+                fetchAvailableUnits(data.data.checkInDate, data.data.checkOutDate);
+              }
               setShowPreview(true);
               setUploadComplete(false);
               setUploading(false);
@@ -243,6 +301,9 @@ const BookingComReservations = () => {
         ? (parsedData.commissionAmount / parsedData.totalPrice) * 100 
         : null;
 
+      // Use manual unit selection if available, otherwise use parsed unit
+      const selectedUnitId = manualUnitId || parsedData.unitId;
+
       // Create reservation (nights will be calculated automatically by database)
       const { data: reservation, error: reservationError } = await supabase
         .from('reservations')
@@ -252,7 +313,7 @@ const BookingComReservations = () => {
           guest_nationality: parsedData.nationality || null,
           check_in_date: parsedData.checkInDate,
           check_out_date: parsedData.checkOutDate,
-          unit_id: parsedData.unitId,
+          unit_id: selectedUnitId,
           number_of_guests: parsedData.numberOfGuests,
           contact_email: parsedData.contactEmail,
           contact_phone: parsedData.contactPhone,
@@ -465,12 +526,43 @@ const BookingComReservations = () => {
                   <p className="font-medium">{parsedData.bookingReference}</p>
                 </div>
                 <div>
-                  <Label className="text-xs text-muted-foreground">Room</Label>
+                  <Label className="text-xs text-muted-foreground">Room from Screenshot</Label>
                   <p className="font-medium">{parsedData.roomName}</p>
                   <p className={`text-sm ${parsedData.unitId ? 'text-green-600' : 'text-yellow-600'}`}>
-                    {parsedData.unitId ? `✓ Matched: ${getUnitName(parsedData.unitId)}` : '⚠ No room matched'}
+                    {parsedData.unitId ? `✓ Auto-matched: ${getUnitName(parsedData.unitId)}` : '⚠ Not auto-matched'}
                   </p>
                 </div>
+              </div>
+
+              {/* Manual Room Selection */}
+              <div>
+                <Label className="text-sm font-medium">Select Room</Label>
+                <p className="text-xs text-muted-foreground mb-2">
+                  {parsedData.unitId 
+                    ? 'Room was auto-matched, but you can change it below if needed.' 
+                    : 'Please manually select a room for this reservation.'}
+                </p>
+                <Select 
+                  value={manualUnitId || parsedData.unitId || ''} 
+                  onValueChange={setManualUnitId}
+                >
+                  <SelectTrigger className="w-full">
+                    <SelectValue placeholder="Select a room..." />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {availableUnits.length === 0 ? (
+                      <SelectItem value="none" disabled>
+                        No available rooms for these dates
+                      </SelectItem>
+                    ) : (
+                      availableUnits.map((unit) => (
+                        <SelectItem key={unit.id} value={unit.id}>
+                          {unit.name} {unit.unit_number && `(${unit.unit_number})`}
+                        </SelectItem>
+                      ))
+                    )}
+                  </SelectContent>
+                </Select>
               </div>
 
               <div className="grid grid-cols-2 gap-4">
@@ -568,10 +660,10 @@ const BookingComReservations = () => {
                 </div>
               )}
 
-              {!parsedData.unitId && (
-                <div className="bg-yellow-50 border border-yellow-200 rounded-md p-4">
-                  <p className="text-sm text-yellow-800">
-                    ⚠ Warning: Could not automatically match the room. The reservation will be created without a room assignment.
+              {!parsedData.unitId && !manualUnitId && (
+                <div className="bg-red-50 border border-red-200 rounded-md p-4">
+                  <p className="text-sm text-red-800 font-medium">
+                    ⚠ Error: No room selected. Please select a room from the dropdown above to continue.
                   </p>
                 </div>
               )}
@@ -582,7 +674,10 @@ const BookingComReservations = () => {
             <Button variant="outline" onClick={() => setShowPreview(false)} disabled={creating}>
               Cancel
             </Button>
-            <Button onClick={handleConfirmReservation} disabled={creating}>
+            <Button 
+              onClick={handleConfirmReservation} 
+              disabled={creating || (!parsedData.unitId && !manualUnitId)}
+            >
               {creating ? (
                 <>
                   <Loader2 className="h-4 w-4 mr-2 animate-spin" />
