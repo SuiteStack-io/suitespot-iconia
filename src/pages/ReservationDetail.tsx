@@ -93,7 +93,7 @@ interface Reservation {
   id_passport_url_back: string | null;
   created_at: string;
   updated_at: string;
-  units: { name: string } | null;
+  units: { name: string; unit_number: string | null } | null;
 }
 
 interface Unit {
@@ -157,7 +157,7 @@ const ReservationDetail = () => {
   const fetchReservation = async () => {
     const { data, error } = await supabase
       .from('reservations')
-      .select('*, units(name)')
+      .select('*, units(name, unit_number)')
       .eq('id', id)
       .single();
 
@@ -636,21 +636,25 @@ const ReservationDetail = () => {
                 <div>
                   <Label className="text-muted-foreground">Guest Names</Label>
                   <div className="mt-1 space-y-1">
-                    {reservation.guest_names.map((name, idx) => (
-                      <div key={idx} className="flex items-center gap-2">
-                        <span className="font-medium">{name}</span>
-                        {reservation.guest_types && reservation.guest_types[idx] && (
-                          <Badge variant="secondary" className="text-xs capitalize">
-                            {reservation.guest_types[idx]}
-                          </Badge>
-                        )}
-                        {reservation.guest_genders && reservation.guest_genders[idx] && (
-                          <Badge variant="outline" className="text-xs">
-                            {reservation.guest_genders[idx] === 'male' ? 'Male' : 'Female'}
-                          </Badge>
-                        )}
-                      </div>
-                    ))}
+                    {reservation.guest_names && reservation.guest_names.length > 0 ? (
+                      reservation.guest_names.map((name, idx) => (
+                        <div key={idx} className="flex items-center gap-2">
+                          <span className="font-medium">{name}</span>
+                          {reservation.guest_types && reservation.guest_types[idx] && (
+                            <Badge variant="secondary" className="text-xs capitalize">
+                              {reservation.guest_types[idx]}
+                            </Badge>
+                          )}
+                          {reservation.guest_genders && reservation.guest_genders[idx] && (
+                            <Badge variant="outline" className="text-xs">
+                              {reservation.guest_genders[idx] === 'male' ? 'Male' : 'Female'}
+                            </Badge>
+                          )}
+                        </div>
+                      ))
+                    ) : (
+                      <p className="font-medium">N/A</p>
+                    )}
                   </div>
                 </div>
                 <div>
@@ -826,8 +830,12 @@ const ReservationDetail = () => {
             ) : (
               <>
                 <div>
-                  <Label className="text-muted-foreground">Unit Number</Label>
+                  <Label className="text-muted-foreground">Suite Name</Label>
                   <p className="mt-1 text-2xl font-bold">{reservation.units?.name || 'N/A'}</p>
+                </div>
+                <div>
+                  <Label className="text-muted-foreground">Unit Number</Label>
+                  <p className="mt-1 font-medium">{reservation.units?.unit_number || 'N/A'}</p>
                 </div>
                 <div>
                   <Label className="text-muted-foreground">Check-in Date</Label>
@@ -843,7 +851,9 @@ const ReservationDetail = () => {
                 </div>
                 <div>
                   <Label className="text-muted-foreground">Price per Night</Label>
-                  <p className="mt-1 font-medium">${reservation.price_per_night || 'N/A'}</p>
+                  <p className="mt-1 font-medium">
+                    ${reservation.price_per_night ? Number(reservation.price_per_night).toFixed(2) : 'N/A'}
+                  </p>
                 </div>
                 <div>
                   <Label className="text-muted-foreground">Total Price</Label>
