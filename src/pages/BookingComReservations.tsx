@@ -49,7 +49,7 @@ interface ParsedReservation {
 }
 
 const BookingComReservations = () => {
-  const { user, loading } = useAuth();
+  const { user } = useAuth();
   const navigate = useNavigate();
   const { toast } = useToast();
   const [uploading, setUploading] = useState(false);
@@ -63,12 +63,6 @@ const BookingComReservations = () => {
   const [screenshotFile, setScreenshotFile] = useState<File | null>(null);
   const [manualUnitId, setManualUnitId] = useState<string>('');
   const [availableUnits, setAvailableUnits] = useState<any[]>([]);
-
-  useEffect(() => {
-    if (!loading && !user) {
-      navigate('/auth');
-    }
-  }, [user, loading, navigate]);
 
   useEffect(() => {
     fetchUnits();
@@ -390,17 +384,6 @@ const BookingComReservations = () => {
     }
   };
 
-  if (loading) {
-    return (
-      <div className="flex items-center justify-center min-h-screen">
-        <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary"></div>
-      </div>
-    );
-  }
-
-  if (!user) {
-    return null;
-  }
 
   const getUnitName = (unitId?: string) => {
     if (!unitId) return 'No room matched';
