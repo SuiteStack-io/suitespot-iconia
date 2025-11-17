@@ -97,7 +97,7 @@ const handler = async (req: Request): Promise<Response> => {
         const customerResult = await resend.emails.send({
           from: "SuiteSpot Reservations <reservations@bookings.suitespoteg.com>",
           to: [customerEmail],
-          subject: `Booking Confirmation - ${unitName.split(' ')[0]} ${unitName.split(' ')[1] || ''} at ICONIA Zamalek`,
+          subject: `Booking Confirmation - ${unitName} at ICONIA Zamalek`,
           html: `
             <!DOCTYPE html>
             <html>
@@ -208,7 +208,7 @@ const handler = async (req: Request): Promise<Response> => {
                   
                   <div class="detail-row">
                     <div class="detail-label">Accommodation:</div>
-                    <div class="detail-value"><strong>${unitName.split(' ')[0]} ${unitName.split(' ')[1] || ''}</strong></div>
+                    <div class="detail-value"><strong>${unitName}</strong></div>
                   </div>
                   
                   <div class="detail-row">
@@ -258,7 +258,7 @@ const handler = async (req: Request): Promise<Response> => {
                     Our team is here to help! If you have any questions or special requests, please don't hesitate to contact us:
                   </p>
                   <p style="color: #333; font-size: 14px; margin: 10px 0;">
-                    📧 Email: <a href="mailto:reservations@bookings.suitespoteg.com" style="color: #0f172a;">reservations@bookings.suitespoteg.com</a><br/>
+                    📧 Email: <a href="mailto:youssef@suitespotegypt.com" style="color: #0f172a;">youssef@suitespotegypt.com</a><br/>
                     📱 Phone: +201003901516
                   </p>
                   
