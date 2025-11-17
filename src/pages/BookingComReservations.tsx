@@ -219,6 +219,7 @@ const BookingComReservations = () => {
         .from('reservations')
         .insert({
           booking_reference: parsedData.bookingReference,
+          guest_names: parsedData.guestNames || [],
           guest_nationality: parsedData.nationality || null,
           check_in_date: parsedData.checkInDate,
           check_out_date: parsedData.checkOutDate,
