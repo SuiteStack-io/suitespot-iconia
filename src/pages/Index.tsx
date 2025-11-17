@@ -90,9 +90,9 @@ const Index = () => {
                   onClick={() => navigate('/booking-com-reservations')}
                 >
                   <DoorOpen className="h-4 w-4 mr-2" />
-                  Booking.com Import
+                  {isMobile ? "Booking.com" : "Booking.com Import"}
                 </Button>
-                <NotificationCenter />
+                {!isMobile && <NotificationCenter />}
               </div>
             )}
             
@@ -188,15 +188,17 @@ const Index = () => {
                     <DoorOpen className="h-4 w-4 mr-2" />
                     Rooms
                   </Button>
-                  <Button 
-                    variant="outline" 
-                    size="sm" 
-                    onClick={() => navigate('/homepage-management')} 
-                    className={isMobile ? "w-full justify-start" : ""}
-                  >
-                    <Home className="h-4 w-4 mr-2" />
-                    Home Page
-                  </Button>
+                  {!isMobile && (
+                    <Button 
+                      variant="outline" 
+                      size="sm" 
+                      onClick={() => navigate('/homepage-management')} 
+                      className={isMobile ? "w-full justify-start" : ""}
+                    >
+                      <Home className="h-4 w-4 mr-2" />
+                      Home Page
+                    </Button>
+                  )}
                 </>
               )}
               <Button 
