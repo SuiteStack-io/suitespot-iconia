@@ -6,7 +6,7 @@ import { ReservationsList } from '@/components/ReservationsList';
 import { WeeklyCalendar } from '@/components/WeeklyCalendar';
 import { CreateReservationDialog } from '@/components/CreateReservationDialog';
 import { Button } from '@/components/ui/button';
-import { LogOut, CalendarDays, ChevronDown, DoorOpen, Home, Settings as SettingsIcon, RefreshCw } from 'lucide-react';
+import { LogOut, CalendarDays, ChevronDown, DoorOpen, Home, Settings as SettingsIcon, RefreshCw, Upload } from 'lucide-react';
 import { NotificationCenter } from '@/components/NotificationCenter';
 import { SyncButton } from '@/components/SyncButton';
 import suitespotLogo from '@/assets/suitespot-logo.png';
@@ -178,9 +178,6 @@ const Index = () => {
                     <DropdownMenuItem onClick={() => navigate('/analytics')}>
                       Analytics
                     </DropdownMenuItem>
-                    <DropdownMenuItem onClick={() => navigate('/booking-com-reservations')}>
-                      Booking.com Import
-                    </DropdownMenuItem>
                     <DropdownMenuItem onClick={() => navigate('/settings')}>
                       <SettingsIcon className="h-4 w-4 mr-2" />
                       Settings
@@ -223,6 +220,15 @@ const Index = () => {
                   >
                     <Home className="h-4 w-4 mr-2" />
                     Content
+                  </Button>
+                  <Button 
+                    variant="outline" 
+                    size="sm" 
+                    onClick={() => navigate('/booking-com-reservations')} 
+                    className={isMobile ? "w-full justify-start" : ""}
+                  >
+                    <Upload className="h-4 w-4 mr-2" />
+                    Booking.com
                   </Button>
                 </>
               )}
