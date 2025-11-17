@@ -507,7 +507,7 @@ const BookingComReservations = () => {
                 </div>
               )}
 
-              <div className="grid grid-cols-2 gap-4">
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                 <div className="space-y-4">
                   {parsedData.preferredLanguage && (
                     <div>
@@ -519,7 +519,7 @@ const BookingComReservations = () => {
                   {parsedData.contactEmail && (
                     <div>
                       <Label className="text-xs text-muted-foreground">Email</Label>
-                      <p className="font-medium">{parsedData.contactEmail}</p>
+                      <p className="font-medium break-all">{parsedData.contactEmail}</p>
                     </div>
                   )}
 
