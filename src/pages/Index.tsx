@@ -152,7 +152,7 @@ const Index = () => {
                   onClick={() => navigate('/homepage-management')}
                 >
                   <Home className="h-4 w-4 mr-2" />
-                  Homepage
+                  Content
                 </Button>
                 <Button
                   variant="outline"
