@@ -171,7 +171,7 @@ const Index = () => {
                     className={isMobile ? "w-full justify-start" : ""}
                   >
                     <Home className="h-4 w-4 mr-2" />
-                    Home Page
+                    Content
                   </Button>
                 </>
               )}
