@@ -124,8 +124,6 @@ const Index = () => {
             {/* Admin tools */}
             {isAdmin && (
               <div className="flex items-center gap-2">
-                {/* Show sync button in header only on mobile */}
-                {isMobile && <SyncButton />}
                 <NotificationCenter />
               </div>
             )}
@@ -166,13 +164,11 @@ const Index = () => {
                 </DropdownMenuItem>
               {userRole === 'admin' && (
                   <>
-                    {/* Sync Bookings menu item - only on desktop */}
-                    {!isMobile && (
-                      <DropdownMenuItem onClick={handleSync} disabled={syncing}>
-                        <RefreshCw className={`h-4 w-4 mr-2 ${syncing ? 'animate-spin' : ''}`} />
-                        {syncing ? 'Syncing...' : 'Sync Bookings'}
-                      </DropdownMenuItem>
-                    )}
+                    {/* Sync Bookings menu item - on both desktop and mobile */}
+                    <DropdownMenuItem onClick={handleSync} disabled={syncing}>
+                      <RefreshCw className={`h-4 w-4 mr-2 ${syncing ? 'animate-spin' : ''}`} />
+                      {syncing ? 'Syncing...' : 'Sync Bookings'}
+                    </DropdownMenuItem>
                     <DropdownMenuItem onClick={() => navigate('/users')}>
                       Users
                     </DropdownMenuItem>
