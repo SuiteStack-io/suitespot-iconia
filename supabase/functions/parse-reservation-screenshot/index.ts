@@ -22,6 +22,7 @@ interface ParsedReservation {
   notes?: string;
   commissionableAmount?: number;
   commissionAmount?: number;
+  nationality?: string;
 }
 
 serve(async (req) => {
@@ -69,7 +70,8 @@ serve(async (req) => {
   "children": number or null,
   "notes": "string or null",
   "commissionableAmount": number or null (look for "Commissionable amount" - this is the net revenue),
-  "commissionAmount": number or null (look for "Commission and charges" - this is the commission amount)
+  "commissionAmount": number or null (look for "Commission and charges" - this is the commission amount),
+  "nationality": "string or null (extract full country name from country code like 'Kw' = 'Kuwait', 'Us' = 'United States', etc)"
 }
 
 Important:
@@ -79,6 +81,7 @@ Important:
 - For numberOfGuests, count ALL guests (adults + children), not just adults
 - Look for "Commissionable amount" field and extract that as commissionableAmount (this represents net revenue)
 - Look for "Commission and charges" field and extract that as commissionAmount
+- For nationality, convert country codes to full country names (e.g., 'Kw' → 'Kuwait', 'Us' → 'United States', 'Eg' → 'Egypt')
 - Extract numeric values only (remove currency symbols)
 - Return ONLY the JSON, no markdown or extra text`
               },

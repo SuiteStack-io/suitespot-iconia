@@ -139,6 +139,8 @@ const ReservationDetail = () => {
     price_per_night: 0,
     total_price: 0,
     commission_rate: 10,
+    commission_amount: 0,
+    net_revenue: 0,
     source: '',
     status: '',
     notes: '',
@@ -175,6 +177,8 @@ const ReservationDetail = () => {
         price_per_night: data.price_per_night || 0,
         total_price: data.total_price,
         commission_rate: data.commission_rate || 10,
+        commission_amount: data.commission_amount || 0,
+        net_revenue: data.net_revenue || 0,
         notes: data.notes || '',
         status: data.status,
         channel: data.channel,
@@ -208,14 +212,65 @@ const ReservationDetail = () => {
     setFormData(prev => ({
       ...prev,
       total_price: total,
+      commission_amount: commission,
+      net_revenue: net,
     }));
+  };
+
+  const calculatePricePerNight = () => {
+    const nights = calculateNights();
+    if (nights > 0 && formData.total_price > 0) {
+      const pricePerNight = formData.total_price / nights;
+      setFormData(prev => ({
+        ...prev,
+        price_per_night: pricePerNight,
+      }));
+    }
+  };
+
+  const calculateCommissionFromRate = () => {
+    const commission = (formData.total_price * formData.commission_rate) / 100;
+    const net = formData.total_price - commission;
+    setFormData(prev => ({
+      ...prev,
+      commission_amount: commission,
+      net_revenue: net,
+    }));
+  };
+
+  const calculateRateFromCommission = () => {
+    if (formData.total_price > 0) {
+      const rate = (formData.commission_amount / formData.total_price) * 100;
+      const net = formData.total_price - formData.commission_amount;
+      setFormData(prev => ({
+        ...prev,
+        commission_rate: rate,
+        net_revenue: net,
+      }));
+    }
   };
 
   useEffect(() => {
     if (isEditMode) {
       calculateTotals();
     }
-  }, [formData.price_per_night, formData.check_in_date, formData.check_out_date, formData.commission_rate]);
+  }, [formData.price_per_night, formData.check_in_date, formData.check_out_date]);
+
+  // Auto-calculate price per night when total price changes
+  useEffect(() => {
+    if (isEditMode && formData.total_price > 0) {
+      const nights = calculateNights();
+      if (nights > 0) {
+        const pricePerNight = formData.total_price / nights;
+        if (Math.abs(formData.price_per_night - pricePerNight) > 0.01) {
+          setFormData(prev => ({
+            ...prev,
+            price_per_night: pricePerNight,
+          }));
+        }
+      }
+    }
+  }, [formData.total_price, formData.check_in_date, formData.check_out_date]);
 
   // Auto-set commission rate based on source
   useEffect(() => {
@@ -227,18 +282,16 @@ const ReservationDetail = () => {
     }
   }, [formData.source]);
 
-  // Auto-sync number of guests with guest names count
+  // Auto-sync number of guests with guest names count on initial load
   useEffect(() => {
-    if (isEditMode) {
-      const validGuestCount = formData.guest_names.filter(name => name.trim() !== '').length;
-      if (validGuestCount > 0 && validGuestCount !== formData.number_of_guests) {
-        setFormData(prev => ({
-          ...prev,
-          number_of_guests: validGuestCount,
-        }));
-      }
+    const validGuestCount = formData.guest_names.filter(name => name.trim() !== '').length;
+    if (validGuestCount > 0 && validGuestCount !== formData.number_of_guests) {
+      setFormData(prev => ({
+        ...prev,
+        number_of_guests: validGuestCount,
+      }));
     }
-  }, [formData.guest_names, isEditMode]);
+  }, [formData.guest_names]);
 
   const handleSave = async () => {
     if (!canEdit) {
@@ -703,8 +756,36 @@ const ReservationDetail = () => {
                   />
                 </div>
                 <div>
-                  <Label className="text-muted-foreground">Total Price</Label>
-                  <p className="mt-1 font-medium">${formData.total_price.toFixed(2)}</p>
+                  <Label>Total Price</Label>
+                  <Input
+                    type="number"
+                    min="0"
+                    step="0.01"
+                    value={formData.total_price}
+                    onChange={(e) => setFormData(prev => ({ ...prev, total_price: parseFloat(e.target.value) || 0 }))}
+                    className="mt-2"
+                  />
+                </div>
+                <div>
+                  <Label>Commission Amount</Label>
+                  <Input
+                    type="number"
+                    min="0"
+                    step="0.01"
+                    value={formData.commission_amount}
+                    onChange={(e) => {
+                      const newAmount = parseFloat(e.target.value) || 0;
+                      setFormData(prev => ({ ...prev, commission_amount: newAmount }));
+                      // Auto-calculate commission rate
+                      if (formData.total_price > 0) {
+                        const rate = (newAmount / formData.total_price) * 100;
+                        setTimeout(() => {
+                          setFormData(prev => ({ ...prev, commission_rate: rate }));
+                        }, 0);
+                      }
+                    }}
+                    className="mt-2"
+                  />
                 </div>
                 <div>
                   <Label>Commission Rate (%)</Label>
@@ -714,7 +795,15 @@ const ReservationDetail = () => {
                     max="100"
                     step="0.1"
                     value={formData.commission_rate}
-                    onChange={(e) => setFormData(prev => ({ ...prev, commission_rate: parseFloat(e.target.value) || 0 }))}
+                    onChange={(e) => {
+                      const newRate = parseFloat(e.target.value) || 0;
+                      setFormData(prev => ({ ...prev, commission_rate: newRate }));
+                      // Auto-calculate commission amount
+                      const commission = (formData.total_price * newRate) / 100;
+                      setTimeout(() => {
+                        setFormData(prev => ({ ...prev, commission_amount: commission }));
+                      }, 0);
+                    }}
                     className="mt-2"
                   />
                 </div>

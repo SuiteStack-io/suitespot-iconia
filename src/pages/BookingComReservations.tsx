@@ -37,6 +37,7 @@ interface ParsedReservation {
   nights?: number;
   commissionableAmount?: number;
   commissionAmount?: number;
+  nationality?: string;
 }
 
 const BookingComReservations = () => {
@@ -198,7 +199,7 @@ const BookingComReservations = () => {
         .from('reservations')
         .insert({
           booking_reference: parsedData.bookingReference,
-          guest_names: parsedData.guestNames,
+          guest_nationality: parsedData.nationality || null,
           check_in_date: parsedData.checkInDate,
           check_out_date: parsedData.checkOutDate,
           unit_id: parsedData.unitId,
@@ -431,6 +432,13 @@ const BookingComReservations = () => {
                   <p className="font-medium">{parsedData.nights}</p>
                 </div>
               </div>
+
+              {parsedData.nationality && (
+                <div>
+                  <Label className="text-xs text-muted-foreground">Nationality</Label>
+                  <p className="font-medium">{parsedData.nationality}</p>
+                </div>
+              )}
 
               {parsedData.contactEmail && (
                 <div>
