@@ -35,8 +35,8 @@ interface ParsedReservation {
   notes?: string;
   unitId?: string;
   nights?: number;
+  commissionableAmount?: number;
   commissionAmount?: number;
-  chargesAmount?: number;
 }
 
 const BookingComReservations = () => {
@@ -211,6 +211,7 @@ const BookingComReservations = () => {
           adults: parsedData.adults || parsedData.numberOfGuests,
           children: parsedData.children || 0,
           commission_amount: parsedData.commissionAmount,
+          net_revenue: parsedData.commissionableAmount,
           notes: parsedData.notes,
           status: 'confirmed',
           source: 'booking.com',
@@ -454,9 +455,18 @@ const BookingComReservations = () => {
                 </div>
               )}
 
+              {parsedData.commissionableAmount && (
+                <div>
+                  <Label className="text-xs text-muted-foreground">Net Revenue (Commissionable Amount)</Label>
+                  <p className="font-medium">
+                    {parsedData.currency} {parsedData.commissionableAmount}
+                  </p>
+                </div>
+              )}
+
               {parsedData.commissionAmount && (
                 <div>
-                  <Label className="text-xs text-muted-foreground">Commission Amount</Label>
+                  <Label className="text-xs text-muted-foreground">Commission & Charges</Label>
                   <p className="font-medium">
                     {parsedData.currency} {parsedData.commissionAmount}
                   </p>
