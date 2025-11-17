@@ -149,7 +149,7 @@ const Index = () => {
                 <Button
                   variant="outline"
                   size="sm"
-                  onClick={() => window.open('/', '_blank')}
+                  onClick={() => navigate('/homepage-management')}
                 >
                   <Home className="h-4 w-4 mr-2" />
                   Homepage
