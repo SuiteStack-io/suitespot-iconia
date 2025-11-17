@@ -20,8 +20,8 @@ interface ParsedReservation {
   adults?: number;
   children?: number;
   notes?: string;
+  commissionableAmount?: number;
   commissionAmount?: number;
-  chargesAmount?: number;
 }
 
 serve(async (req) => {
@@ -68,8 +68,8 @@ serve(async (req) => {
   "adults": number or null,
   "children": number or null,
   "notes": "string or null",
-  "commissionAmount": number or null (commission charged by Booking.com),
-  "chargesAmount": number or null (any additional charges or fees)
+  "commissionableAmount": number or null (look for "Commissionable amount" - this is the net revenue),
+  "commissionAmount": number or null (look for "Commission and charges" - this is the commission amount)
 }
 
 Important:
@@ -77,7 +77,9 @@ Important:
 - Extract the exact room/property name as shown
 - Include all guest names if visible
 - For numberOfGuests, count ALL guests (adults + children), not just adults
-- Extract commission amount if visible on the screenshot
+- Look for "Commissionable amount" field and extract that as commissionableAmount (this represents net revenue)
+- Look for "Commission and charges" field and extract that as commissionAmount
+- Extract numeric values only (remove currency symbols)
 - Return ONLY the JSON, no markdown or extra text`
               },
               {
