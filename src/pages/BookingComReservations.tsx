@@ -17,6 +17,13 @@ import {
   DialogHeader,
   DialogTitle,
 } from '@/components/ui/dialog';
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from '@/components/ui/select';
 import suitespotLogo from '@/assets/suitespot-logo.png';
 
 interface ParsedReservation {
@@ -50,10 +57,12 @@ const BookingComReservations = () => {
   const [showPreview, setShowPreview] = useState(false);
   const [creating, setCreating] = useState(false);
   const [units, setUnits] = useState<any[]>([]);
+  const [availableUnits, setAvailableUnits] = useState<any[]>([]);
   const [isDragging, setIsDragging] = useState(false);
   const [uploadProgress, setUploadProgress] = useState(0);
   const [uploadComplete, setUploadComplete] = useState(false);
   const [screenshotFile, setScreenshotFile] = useState<File | null>(null);
+  const [manuallySelectedUnitId, setManuallySelectedUnitId] = useState<string>('');
 
   useEffect(() => {
     if (!loading && !user) {
@@ -64,6 +73,12 @@ const BookingComReservations = () => {
   useEffect(() => {
     fetchUnits();
   }, []);
+
+  useEffect(() => {
+    if (parsedData && parsedData.checkInDate && parsedData.checkOutDate) {
+      checkAvailability();
+    }
+  }, [parsedData]);
 
   const fetchUnits = async () => {
     const { data, error } = await supabase
@@ -76,6 +91,31 @@ const BookingComReservations = () => {
     } else {
       setUnits(data || []);
     }
+  };
+
+  const checkAvailability = async () => {
+    if (!parsedData || !parsedData.checkInDate || !parsedData.checkOutDate) return;
+
+    const checkIn = parsedData.checkInDate;
+    const checkOut = parsedData.checkOutDate;
+
+    // Get conflicting reservations
+    const { data: conflictingReservations, error } = await supabase
+      .from('reservations')
+      .select('unit_id')
+      .eq('status', 'confirmed')
+      .or(`and(check_in_date.lte.${checkOut},check_out_date.gte.${checkIn})`);
+
+    if (error) {
+      console.error('Error checking availability:', error);
+      setAvailableUnits(units);
+      return;
+    }
+
+    const unavailableUnitIds = conflictingReservations?.map((r) => r.unit_id) || [];
+    const available = units.filter((unit) => !unavailableUnitIds.includes(unit.id));
+    
+    setAvailableUnits(available);
   };
 
   const processFile = async (file: File) => {
@@ -123,6 +163,7 @@ const BookingComReservations = () => {
             
             setTimeout(() => {
               setParsedData(data.data);
+              setManuallySelectedUnitId(''); // Reset manual selection
               setShowPreview(true);
               setUploadComplete(false);
               setUploading(false);
@@ -250,7 +291,7 @@ const BookingComReservations = () => {
           guest_nationality: parsedData.nationality || null,
           check_in_date: parsedData.checkInDate,
           check_out_date: parsedData.checkOutDate,
-          unit_id: parsedData.unitId,
+          unit_id: manuallySelectedUnitId || parsedData.unitId,
           number_of_guests: parsedData.numberOfGuests,
           contact_email: parsedData.contactEmail,
           contact_phone: parsedData.contactPhone,
@@ -310,6 +351,7 @@ const BookingComReservations = () => {
       setShowPreview(false);
       setParsedData(null);
       setScreenshotFile(null);
+      setManuallySelectedUnitId('');
       
       // Reset file input
       const fileInput = document.getElementById('screenshot-upload') as HTMLInputElement;
@@ -565,21 +607,52 @@ const BookingComReservations = () => {
                 </div>
               )}
 
-              {!parsedData.unitId && (
-                <div className="bg-yellow-50 border border-yellow-200 rounded-md p-4">
-                  <p className="text-sm text-yellow-800">
-                    ⚠ Warning: Could not automatically match the room. The reservation will be created without a room assignment.
+              {!parsedData.unitId && !manuallySelectedUnitId && (
+                <div className="bg-yellow-50 border border-yellow-200 rounded-md p-4 space-y-3">
+                  <p className="text-sm text-yellow-800 font-medium">
+                    ⚠ No room automatically matched
                   </p>
+                  <div className="space-y-2">
+                    <Label htmlFor="manual-unit-select" className="text-sm text-muted-foreground">
+                      Select a room manually
+                    </Label>
+                    <Select value={manuallySelectedUnitId} onValueChange={setManuallySelectedUnitId}>
+                      <SelectTrigger id="manual-unit-select">
+                        <SelectValue placeholder={
+                          availableUnits.length === 0
+                            ? "No units available for selected dates"
+                            : "Choose a room..."
+                        } />
+                      </SelectTrigger>
+                      <SelectContent>
+                        {availableUnits.map((unit) => (
+                          <SelectItem key={unit.id} value={unit.id}>
+                            {unit.name}
+                          </SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                  </div>
                 </div>
               )}
             </div>
           )}
 
           <DialogFooter>
-            <Button variant="outline" onClick={() => setShowPreview(false)} disabled={creating}>
+            <Button 
+              variant="outline" 
+              onClick={() => {
+                setShowPreview(false);
+                setManuallySelectedUnitId('');
+              }} 
+              disabled={creating}
+            >
               Cancel
             </Button>
-            <Button onClick={handleConfirmReservation} disabled={creating}>
+            <Button 
+              onClick={handleConfirmReservation} 
+              disabled={creating || (!parsedData.unitId && !manuallySelectedUnitId)}
+            >
               {creating ? (
                 <>
                   <Loader2 className="h-4 w-4 mr-2 animate-spin" />
