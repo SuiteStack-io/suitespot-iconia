@@ -6,7 +6,8 @@ import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
-import { ArrowLeft, Upload, Loader2 } from 'lucide-react';
+import { Progress } from '@/components/ui/progress';
+import { ArrowLeft, Upload, Loader2, CheckCircle } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
 import {
   Dialog,
@@ -46,6 +47,8 @@ const BookingComReservations = () => {
   const [creating, setCreating] = useState(false);
   const [units, setUnits] = useState<any[]>([]);
   const [isDragging, setIsDragging] = useState(false);
+  const [uploadProgress, setUploadProgress] = useState(0);
+  const [uploadComplete, setUploadComplete] = useState(false);
 
   useEffect(() => {
     if (!loading && !user) {
@@ -82,27 +85,40 @@ const BookingComReservations = () => {
     }
 
     setUploading(true);
+    setUploadProgress(0);
+    setUploadComplete(false);
 
     try {
       // Convert to base64
       const reader = new FileReader();
       reader.onload = async (event) => {
+        setUploadProgress(30);
         const base64 = event.target?.result?.toString().split(',')[1];
         
         if (!base64) {
           throw new Error('Failed to read file');
         }
 
+        setUploadProgress(50);
+        
         // Call edge function to parse
         const { data, error } = await supabase.functions.invoke('parse-reservation-screenshot', {
           body: { imageBase64: base64 }
         });
 
+        setUploadProgress(80);
+
         if (error) throw error;
 
         if (data.success) {
-          setParsedData(data.data);
-          setShowPreview(true);
+          setUploadProgress(100);
+          setUploadComplete(true);
+          
+          setTimeout(() => {
+            setParsedData(data.data);
+            setShowPreview(true);
+            setUploadComplete(false);
+          }, 1000);
         } else {
           throw new Error(data.error || 'Failed to parse reservation');
         }
@@ -112,10 +128,13 @@ const BookingComReservations = () => {
         throw new Error('Failed to read file');
       };
 
+      setUploadProgress(10);
       reader.readAsDataURL(file);
 
     } catch (error: any) {
       console.error('Error parsing screenshot:', error);
+      setUploadProgress(0);
+      setUploadComplete(false);
       toast({
         title: 'Error',
         description: error.message || 'Failed to parse reservation screenshot',
@@ -316,9 +335,21 @@ const BookingComReservations = () => {
               </div>
 
               {uploading && (
-                <div className="flex items-center justify-center gap-2 text-sm text-muted-foreground">
-                  <Loader2 className="h-4 w-4 animate-spin" />
-                  <span>Analyzing screenshot with AI...</span>
+                <div className="space-y-3">
+                  <Progress value={uploadProgress} className="h-2 [&>div]:bg-blue-600" />
+                  <div className="flex items-center justify-center gap-2 text-sm text-muted-foreground">
+                    {uploadComplete ? (
+                      <>
+                        <CheckCircle className="h-4 w-4 text-green-600" />
+                        <span className="text-green-600">Upload complete! Processing reservation...</span>
+                      </>
+                    ) : (
+                      <>
+                        <Loader2 className="h-4 w-4 animate-spin" />
+                        <span>Uploading and analyzing screenshot... {uploadProgress}%</span>
+                      </>
+                    )}
+                  </div>
                 </div>
               )}
             </div>
