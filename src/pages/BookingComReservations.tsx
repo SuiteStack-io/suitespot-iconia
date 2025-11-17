@@ -225,10 +225,8 @@ const BookingComReservations = () => {
           console.error('Error uploading screenshot:', uploadError);
           // Continue anyway, screenshot is not critical
         } else {
-          const { data: urlData } = supabase.storage
-            .from('booking-screenshots')
-            .getPublicUrl(filePath);
-          screenshotUrl = urlData.publicUrl;
+          // Store just the file path, not the public URL (bucket is private)
+          screenshotUrl = filePath;
         }
       }
 
