@@ -451,12 +451,44 @@ const BookingComReservations = () => {
                   <Label className="text-xs text-muted-foreground">Number of Guests</Label>
                   <p className="font-medium">{parsedData.numberOfGuests}</p>
                 </div>
+                <div>
+                  <Label className="text-xs text-muted-foreground">Nights</Label>
+                  <p className="font-medium">{parsedData.nights}</p>
+                </div>
+              </div>
+
+              {parsedData.nationality && (
+                <div>
+                  <Label className="text-xs text-muted-foreground">Nationality</Label>
+                  <p className="font-medium">{parsedData.nationality}</p>
+                </div>
+              )}
+
+              <div className="grid grid-cols-2 gap-4">
                 <div className="space-y-4">
-                  <div>
-                    <Label className="text-xs text-muted-foreground">Nights</Label>
-                    <p className="font-medium">{parsedData.nights}</p>
-                  </div>
-                  
+                  {parsedData.preferredLanguage && (
+                    <div>
+                      <Label className="text-xs text-muted-foreground">Preferred Language</Label>
+                      <p className="font-medium">{parsedData.preferredLanguage}</p>
+                    </div>
+                  )}
+
+                  {parsedData.contactEmail && (
+                    <div>
+                      <Label className="text-xs text-muted-foreground">Email</Label>
+                      <p className="font-medium">{parsedData.contactEmail}</p>
+                    </div>
+                  )}
+
+                  {parsedData.contactPhone && (
+                    <div>
+                      <Label className="text-xs text-muted-foreground">Phone</Label>
+                      <p className="font-medium">{parsedData.contactPhone}</p>
+                    </div>
+                  )}
+                </div>
+
+                <div className="space-y-4">
                   {parsedData.totalPrice && (
                     <div>
                       <Label className="text-xs text-muted-foreground">Total Price</Label>
@@ -485,34 +517,6 @@ const BookingComReservations = () => {
                   )}
                 </div>
               </div>
-
-              {parsedData.nationality && (
-                <div>
-                  <Label className="text-xs text-muted-foreground">Nationality</Label>
-                  <p className="font-medium">{parsedData.nationality}</p>
-                </div>
-              )}
-
-              {parsedData.preferredLanguage && (
-                <div>
-                  <Label className="text-xs text-muted-foreground">Preferred Language</Label>
-                  <p className="font-medium">{parsedData.preferredLanguage}</p>
-                </div>
-              )}
-
-              {parsedData.contactEmail && (
-                <div>
-                  <Label className="text-xs text-muted-foreground">Email</Label>
-                  <p className="font-medium">{parsedData.contactEmail}</p>
-                </div>
-              )}
-
-              {parsedData.contactPhone && (
-                <div>
-                  <Label className="text-xs text-muted-foreground">Phone</Label>
-                  <p className="font-medium">{parsedData.contactPhone}</p>
-                </div>
-              )}
 
               {parsedData.notes && (
                 <div>
