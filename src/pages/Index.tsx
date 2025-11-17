@@ -23,12 +23,6 @@ const Index = () => {
   const navigate = useNavigate();
   const isMobile = useIsMobile();
 
-  useEffect(() => {
-    if (!loading && !user) {
-      navigate('/auth');
-    }
-  }, [user, loading, navigate]);
-
   // Redirect to admin from root if logged in
   useEffect(() => {
     if (window.location.pathname === '/' && user) {
