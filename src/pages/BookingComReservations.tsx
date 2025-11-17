@@ -432,9 +432,38 @@ const BookingComReservations = () => {
                   <Label className="text-xs text-muted-foreground">Number of Guests</Label>
                   <p className="font-medium">{parsedData.numberOfGuests}</p>
                 </div>
-                <div>
-                  <Label className="text-xs text-muted-foreground">Nights</Label>
-                  <p className="font-medium">{parsedData.nights}</p>
+                <div className="space-y-4">
+                  <div>
+                    <Label className="text-xs text-muted-foreground">Nights</Label>
+                    <p className="font-medium">{parsedData.nights}</p>
+                  </div>
+                  
+                  {parsedData.totalPrice && (
+                    <div>
+                      <Label className="text-xs text-muted-foreground">Total Price</Label>
+                      <p className="font-medium">
+                        {parsedData.currency} {parsedData.totalPrice}
+                      </p>
+                    </div>
+                  )}
+
+                  {parsedData.commissionableAmount && (
+                    <div>
+                      <Label className="text-xs text-muted-foreground">Net Revenue (Commissionable Amount)</Label>
+                      <p className="font-medium">
+                        {parsedData.currency} {parsedData.commissionableAmount}
+                      </p>
+                    </div>
+                  )}
+
+                  {parsedData.commissionAmount && (
+                    <div>
+                      <Label className="text-xs text-muted-foreground">Commission & Charges</Label>
+                      <p className="font-medium">
+                        {parsedData.currency} {parsedData.commissionAmount}
+                      </p>
+                    </div>
+                  )}
                 </div>
               </div>
 
@@ -463,33 +492,6 @@ const BookingComReservations = () => {
                 <div>
                   <Label className="text-xs text-muted-foreground">Phone</Label>
                   <p className="font-medium">{parsedData.contactPhone}</p>
-                </div>
-              )}
-
-              {parsedData.totalPrice && (
-                <div>
-                  <Label className="text-xs text-muted-foreground">Total Price</Label>
-                  <p className="font-medium">
-                    {parsedData.currency} {parsedData.totalPrice}
-                  </p>
-                </div>
-              )}
-
-              {parsedData.commissionableAmount && (
-                <div>
-                  <Label className="text-xs text-muted-foreground">Net Revenue (Commissionable Amount)</Label>
-                  <p className="font-medium">
-                    {parsedData.currency} {parsedData.commissionableAmount}
-                  </p>
-                </div>
-              )}
-
-              {parsedData.commissionAmount && (
-                <div>
-                  <Label className="text-xs text-muted-foreground">Commission & Charges</Label>
-                  <p className="font-medium">
-                    {parsedData.currency} {parsedData.commissionAmount}
-                  </p>
                 </div>
               )}
 
