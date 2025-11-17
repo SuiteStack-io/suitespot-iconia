@@ -127,6 +127,10 @@ const Index = () => {
                         <SettingsIcon className="h-4 w-4 mr-2" />
                         Settings
                       </DropdownMenuItem>
+                      <DropdownMenuItem onClick={signOut} className="text-destructive focus:text-destructive">
+                        <LogOut className="h-4 w-4 mr-2" />
+                        Sign Out
+                      </DropdownMenuItem>
                     </>
                   )}
                 </DropdownMenuContent>
@@ -246,6 +250,10 @@ const Index = () => {
                       <DropdownMenuItem onClick={() => navigate('/settings')}>
                         <SettingsIcon className="h-4 w-4 mr-2" />
                         Settings
+                      </DropdownMenuItem>
+                      <DropdownMenuItem onClick={signOut} className="text-destructive focus:text-destructive">
+                        <LogOut className="h-4 w-4 mr-2" />
+                        Sign Out
                       </DropdownMenuItem>
                     </>
                   )}
