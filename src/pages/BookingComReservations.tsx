@@ -35,6 +35,8 @@ interface ParsedReservation {
   notes?: string;
   unitId?: string;
   nights?: number;
+  commissionAmount?: number;
+  chargesAmount?: number;
 }
 
 const BookingComReservations = () => {
@@ -185,6 +187,12 @@ const BookingComReservations = () => {
     setCreating(true);
 
     try {
+      // Calculate price per night
+      const checkIn = new Date(parsedData.checkInDate);
+      const checkOut = new Date(parsedData.checkOutDate);
+      const nights = Math.ceil((checkOut.getTime() - checkIn.getTime()) / (1000 * 60 * 60 * 24));
+      const pricePerNight = parsedData.totalPrice && nights > 0 ? parsedData.totalPrice / nights : null;
+
       // Create reservation (nights will be calculated automatically by database)
       const { data: reservation, error: reservationError } = await supabase
         .from('reservations')
@@ -198,9 +206,11 @@ const BookingComReservations = () => {
           contact_email: parsedData.contactEmail,
           contact_phone: parsedData.contactPhone,
           total_price: parsedData.totalPrice,
+          price_per_night: pricePerNight,
           currency: parsedData.currency || 'USD',
           adults: parsedData.adults || parsedData.numberOfGuests,
           children: parsedData.children || 0,
+          commission_amount: parsedData.commissionAmount,
           notes: parsedData.notes,
           status: 'confirmed',
           source: 'booking.com',
@@ -440,6 +450,15 @@ const BookingComReservations = () => {
                   <Label className="text-xs text-muted-foreground">Total Price</Label>
                   <p className="font-medium">
                     {parsedData.currency} {parsedData.totalPrice}
+                  </p>
+                </div>
+              )}
+
+              {parsedData.commissionAmount && (
+                <div>
+                  <Label className="text-xs text-muted-foreground">Commission Amount</Label>
+                  <p className="font-medium">
+                    {parsedData.currency} {parsedData.commissionAmount}
                   </p>
                 </div>
               )}
