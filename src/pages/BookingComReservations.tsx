@@ -53,6 +53,7 @@ const BookingComReservations = () => {
   const [isDragging, setIsDragging] = useState(false);
   const [uploadProgress, setUploadProgress] = useState(0);
   const [uploadComplete, setUploadComplete] = useState(false);
+  const [screenshotFile, setScreenshotFile] = useState<File | null>(null);
 
   useEffect(() => {
     if (!loading && !user) {
@@ -91,6 +92,7 @@ const BookingComReservations = () => {
     setUploading(true);
     setUploadProgress(0);
     setUploadComplete(false);
+    setScreenshotFile(file); // Store the file for later upload
 
     try {
       // Convert to base64
@@ -208,6 +210,28 @@ const BookingComReservations = () => {
     setCreating(true);
 
     try {
+      // Upload screenshot to storage first
+      let screenshotUrl: string | null = null;
+      if (screenshotFile) {
+        const fileExt = screenshotFile.name.split('.').pop();
+        const fileName = `${parsedData.bookingReference}-${Date.now()}.${fileExt}`;
+        const filePath = `${fileName}`;
+
+        const { error: uploadError } = await supabase.storage
+          .from('booking-screenshots')
+          .upload(filePath, screenshotFile);
+
+        if (uploadError) {
+          console.error('Error uploading screenshot:', uploadError);
+          // Continue anyway, screenshot is not critical
+        } else {
+          const { data: urlData } = supabase.storage
+            .from('booking-screenshots')
+            .getPublicUrl(filePath);
+          screenshotUrl = urlData.publicUrl;
+        }
+      }
+
       // Calculate price per night
       const checkIn = new Date(parsedData.checkInDate);
       const checkOut = new Date(parsedData.checkOutDate);
@@ -244,7 +268,8 @@ const BookingComReservations = () => {
           status: 'confirmed',
           source: 'booking.com',
           channel: 'Booking.com',
-          preferred_language: parsedData.preferredLanguage || null
+          preferred_language: parsedData.preferredLanguage || null,
+          booking_screenshot_url: screenshotUrl
         })
         .select()
         .single();
@@ -286,6 +311,7 @@ const BookingComReservations = () => {
 
       setShowPreview(false);
       setParsedData(null);
+      setScreenshotFile(null);
       
       // Reset file input
       const fileInput = document.getElementById('screenshot-upload') as HTMLInputElement;

@@ -161,6 +161,7 @@ export type Database = {
         Row: {
           adults: number | null
           booking_reference: string
+          booking_screenshot_url: string | null
           channel: string
           check_in_date: string
           check_out_date: string
@@ -195,6 +196,7 @@ export type Database = {
         Insert: {
           adults?: number | null
           booking_reference: string
+          booking_screenshot_url?: string | null
           channel?: string
           check_in_date: string
           check_out_date: string
@@ -229,6 +231,7 @@ export type Database = {
         Update: {
           adults?: number | null
           booking_reference?: string
+          booking_screenshot_url?: string | null
           channel?: string
           check_in_date?: string
           check_out_date?: string

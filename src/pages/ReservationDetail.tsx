@@ -91,6 +91,7 @@ interface Reservation {
   marriage_certificate_url: string | null;
   id_passport_url: string | null;
   id_passport_url_back: string | null;
+  booking_screenshot_url: string | null;
   created_at: string;
   updated_at: string;
   units: { name: string; unit_number: string | null } | null;
@@ -946,6 +947,41 @@ const ReservationDetail = () => {
             )}
           </CardContent>
         </Card>
+
+        {reservation.booking_screenshot_url && reservation.source === 'booking.com' && (
+          <Card className="md:col-span-2">
+            <CardHeader>
+              <CardTitle>Booking Screenshot</CardTitle>
+            </CardHeader>
+            <CardContent className="space-y-4">
+              <div>
+                <img 
+                  src={reservation.booking_screenshot_url} 
+                  alt="Booking.com Screenshot" 
+                  className="w-full max-w-2xl rounded-lg border border-border shadow-sm"
+                />
+              </div>
+              <div>
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={() => {
+                    const link = document.createElement('a');
+                    link.href = reservation.booking_screenshot_url!;
+                    link.download = `booking-${reservation.booking_reference}.png`;
+                    link.target = '_blank';
+                    document.body.appendChild(link);
+                    link.click();
+                    document.body.removeChild(link);
+                  }}
+                >
+                  <Download className="mr-2 h-4 w-4" />
+                  Download Screenshot
+                </Button>
+              </div>
+            </CardContent>
+          </Card>
+        )}
 
         {/* Documents Card */}
         {(reservation.marriage_certificate_url || reservation.id_passport_url || reservation.id_passport_url_back) && (
