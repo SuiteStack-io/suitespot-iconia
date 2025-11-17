@@ -20,6 +20,8 @@ interface ParsedReservation {
   adults?: number;
   children?: number;
   notes?: string;
+  commissionAmount?: number;
+  chargesAmount?: number;
 }
 
 serve(async (req) => {
@@ -58,20 +60,24 @@ serve(async (req) => {
   "checkInDate": "YYYY-MM-DD",
   "checkOutDate": "YYYY-MM-DD",
   "roomName": "string (exact room/property name)",
-  "numberOfGuests": number,
+  "numberOfGuests": number (TOTAL number of guests - make sure to count ALL guests),
   "contactEmail": "string or null",
   "contactPhone": "string or null",
   "totalPrice": number or null,
   "currency": "string (USD, EUR, etc) or null",
   "adults": number or null,
   "children": number or null,
-  "notes": "string or null"
+  "notes": "string or null",
+  "commissionAmount": number or null (commission charged by Booking.com),
+  "chargesAmount": number or null (any additional charges or fees)
 }
 
 Important:
 - Dates must be in YYYY-MM-DD format
 - Extract the exact room/property name as shown
 - Include all guest names if visible
+- For numberOfGuests, count ALL guests (adults + children), not just adults
+- Extract commission amount if visible on the screenshot
 - Return ONLY the JSON, no markdown or extra text`
               },
               {
