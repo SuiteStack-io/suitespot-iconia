@@ -6,7 +6,7 @@ import { ReservationsList } from '@/components/ReservationsList';
 import { WeeklyCalendar } from '@/components/WeeklyCalendar';
 import { CreateReservationDialog } from '@/components/CreateReservationDialog';
 import { Button } from '@/components/ui/button';
-import { LogOut, CalendarDays, ChevronDown, DoorOpen, Home, Settings as SettingsIcon } from 'lucide-react';
+import { LogOut, CalendarDays, ChevronDown, DoorOpen, Home, Settings as SettingsIcon, RefreshCw } from 'lucide-react';
 import { NotificationCenter } from '@/components/NotificationCenter';
 import { SyncButton } from '@/components/SyncButton';
 import suitespotLogo from '@/assets/suitespot-logo.png';
@@ -74,10 +74,24 @@ const Index = () => {
 
           {/* Right side - user info and action buttons */}
           <div className={isMobile ? "flex flex-col items-end gap-2" : "flex items-center gap-2"}>
+            {/* Hidden sync button for programmatic access */}
+            {isAdmin && (
+              <div className="hidden">
+                <SyncButton />
+              </div>
+            )}
+            
             {/* Admin tools */}
             {isAdmin && (
               <div className="flex items-center gap-2">
-                <SyncButton />
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={() => navigate('/booking-com-reservations')}
+                >
+                  <DoorOpen className="h-4 w-4 mr-2" />
+                  Booking.com Import
+                </Button>
                 <NotificationCenter />
               </div>
             )}
@@ -118,6 +132,19 @@ const Index = () => {
                 </DropdownMenuItem>
               {userRole === 'admin' && (
                   <>
+                    <DropdownMenuItem onClick={() => {
+                      // Find and trigger the hidden sync button
+                      const syncButtons = document.querySelectorAll('button');
+                      const syncButton = Array.from(syncButtons).find(btn => 
+                        btn.textContent?.includes('Sync Bookings') || btn.textContent?.includes('Syncing')
+                      );
+                      if (syncButton && !syncButton.disabled) {
+                        syncButton.click();
+                      }
+                    }}>
+                      <RefreshCw className="h-4 w-4 mr-2" />
+                      Sync Bookings
+                    </DropdownMenuItem>
                     <DropdownMenuItem onClick={() => navigate('/users')}>
                       Users
                     </DropdownMenuItem>
@@ -126,9 +153,6 @@ const Index = () => {
                     </DropdownMenuItem>
                     <DropdownMenuItem onClick={() => navigate('/analytics')}>
                       Analytics
-                    </DropdownMenuItem>
-                    <DropdownMenuItem onClick={() => navigate('/booking-com-reservations')}>
-                      Booking.com Import
                     </DropdownMenuItem>
                     <DropdownMenuItem onClick={() => navigate('/settings')}>
                       <SettingsIcon className="h-4 w-4 mr-2" />
