@@ -256,11 +256,21 @@ const BookingComReservations = () => {
         try {
           await supabase.functions.invoke('send-reservation-notification', {
             body: {
-              reservation: {
-                ...reservation,
-                guest_names: parsedData.guestNames,
-                contact_email: parsedData.contactEmail
-              }
+              reservationId: parsedData.bookingReference,
+              guestNames: parsedData.guestNames || [],
+              checkIn: parsedData.checkInDate,
+              checkOut: parsedData.checkOutDate,
+              unitName: parsedData.roomName, // Use Booking.com room name (e.g., "Double Room with Terrace")
+              unitType: '',
+              totalPrice: parsedData.totalPrice || 0,
+              numberOfGuests: parsedData.numberOfGuests,
+              adults: parsedData.adults || parsedData.numberOfGuests,
+              children: parsedData.children || 0,
+              source: 'Booking.com',
+              notes: parsedData.notes || null,
+              guestNationality: parsedData.nationality || null,
+              customerEmail: parsedData.contactEmail,
+              customerPhone: parsedData.contactPhone || null,
             }
           });
         } catch (emailError) {
