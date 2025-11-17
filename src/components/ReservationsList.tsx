@@ -344,7 +344,7 @@ export const ReservationsList = () => {
                 >
                   <TableCell className="font-medium">{reservation.units?.name || 'N/A'}</TableCell>
                   <TableCell>{reservation.units?.unit_number || '-'}</TableCell>
-                  <TableCell>{reservation.guest_names.join(', ')}</TableCell>
+                  <TableCell>{reservation.guest_names?.length > 0 ? reservation.guest_names.join(', ') : 'N/A'}</TableCell>
                   <TableCell>{format(new Date(reservation.check_in_date), 'dd MMM yyyy')}</TableCell>
                   <TableCell>{format(new Date(reservation.check_out_date), 'dd MMM yyyy')}</TableCell>
                   <TableCell>{reservation.nights}</TableCell>
@@ -357,10 +357,10 @@ export const ReservationsList = () => {
                   </TableCell>
                   <TableCell>{reservation.source}</TableCell>
                   <TableCell className="text-right">
-                    {reservation.price_per_night ? `$${reservation.price_per_night}` : '-'}
+                    {reservation.price_per_night ? `$${Number(reservation.price_per_night).toFixed(2)}` : '-'}
                   </TableCell>
                   <TableCell className="text-right font-medium">
-                    {reservation.total_price ? `$${reservation.total_price}` : '-'}
+                    {reservation.total_price ? `$${Number(reservation.total_price).toFixed(2)}` : '-'}
                   </TableCell>
                   <TableCell className="font-mono text-sm">{reservation.booking_reference}</TableCell>
                   <TableCell>{format(new Date(reservation.created_at), 'dd MMM yyyy')}</TableCell>
