@@ -456,7 +456,7 @@ const BookingComReservations = () => {
 
           {parsedData && (
             <div className="space-y-4">
-              <div className="grid grid-cols-2 gap-4">
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                 <div>
                   <Label className="text-xs text-muted-foreground">Booking Reference</Label>
                   <p className="font-medium">{parsedData.bookingReference}</p>
@@ -470,7 +470,7 @@ const BookingComReservations = () => {
                 </div>
               </div>
 
-              <div className="grid grid-cols-2 gap-4">
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                 <div>
                   <Label className="text-xs text-muted-foreground">Check-in</Label>
                   <p className="font-medium">{new Date(parsedData.checkInDate).toLocaleDateString()}</p>
@@ -486,7 +486,7 @@ const BookingComReservations = () => {
                 <p className="font-medium">{parsedData.guestNames.join(', ')}</p>
               </div>
 
-              <div className="grid grid-cols-2 gap-4">
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                 <div>
                   <Label className="text-xs text-muted-foreground">Number of Guests</Label>
                   <p className="font-medium">{parsedData.numberOfGuests}</p>
@@ -504,7 +504,7 @@ const BookingComReservations = () => {
                 </div>
               )}
 
-              <div className="grid grid-cols-2 gap-4">
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                 <div className="space-y-4">
                   {parsedData.preferredLanguage && (
                     <div>
