@@ -127,6 +127,9 @@ const Index = () => {
                     <DropdownMenuItem onClick={() => navigate('/analytics')}>
                       Analytics
                     </DropdownMenuItem>
+                    <DropdownMenuItem onClick={() => navigate('/booking-com-reservations')}>
+                      Booking.com Import
+                    </DropdownMenuItem>
                     <DropdownMenuItem onClick={() => navigate('/settings')}>
                       <SettingsIcon className="h-4 w-4 mr-2" />
                       Settings

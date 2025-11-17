@@ -27,6 +27,7 @@ import Nearby from "./pages/Nearby";
 import Blog from "./pages/Blog";
 import HomepageManagement from "./pages/HomepageManagement";
 import Settings from "./pages/Settings";
+import BookingComReservations from "./pages/BookingComReservations";
 
 const queryClient = new QueryClient();
 
@@ -62,6 +63,7 @@ const App = () => (
             <Route path="/rooms" element={<ProtectedRoute><Rooms /></ProtectedRoute>} />
             <Route path="/homepage-management" element={<ProtectedRoute><HomepageManagement /></ProtectedRoute>} />
             <Route path="/settings" element={<ProtectedRoute><Settings /></ProtectedRoute>} />
+            <Route path="/booking-com-reservations" element={<ProtectedRoute><BookingComReservations /></ProtectedRoute>} />
             
             {/* ADD ALL CUSTOM ROUTES ABOVE THE CATCH-ALL "*" ROUTE */}
             <Route path="*" element={<NotFound />} />
