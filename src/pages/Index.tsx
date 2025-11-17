@@ -149,6 +149,14 @@ const Index = () => {
                 <Button
                   variant="outline"
                   size="sm"
+                  onClick={() => window.open('/', '_blank')}
+                >
+                  <Home className="h-4 w-4 mr-2" />
+                  Homepage
+                </Button>
+                <Button
+                  variant="outline"
+                  size="sm"
                   onClick={() => navigate('/calendar')}
                 >
                   <CalendarDays className="h-4 w-4 mr-2" />
