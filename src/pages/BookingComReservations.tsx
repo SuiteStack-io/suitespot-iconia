@@ -96,56 +96,75 @@ const BookingComReservations = () => {
       // Convert to base64
       const reader = new FileReader();
       reader.onload = async (event) => {
-        setUploadProgress(30);
-        const base64 = event.target?.result?.toString().split(',')[1];
-        
-        if (!base64) {
-          throw new Error('Failed to read file');
-        }
-
-        setUploadProgress(50);
-        
-        // Call edge function to parse
-        const { data, error } = await supabase.functions.invoke('parse-reservation-screenshot', {
-          body: { imageBase64: base64 }
-        });
-
-        setUploadProgress(80);
-
-        if (error) throw error;
-
-        if (data.success) {
-          setUploadProgress(100);
-          setUploadComplete(true);
+        try {
+          setUploadProgress(30);
+          const base64 = event.target?.result?.toString().split(',')[1];
           
-          setTimeout(() => {
-            setParsedData(data.data);
-            setShowPreview(true);
-            setUploadComplete(false);
-          }, 1000);
-        } else {
-          throw new Error(data.error || 'Failed to parse reservation');
+          if (!base64) {
+            throw new Error('Failed to read file');
+          }
+
+          setUploadProgress(50);
+          
+          // Call edge function to parse
+          const { data, error } = await supabase.functions.invoke('parse-reservation-screenshot', {
+            body: { imageBase64: base64 }
+          });
+
+          setUploadProgress(80);
+
+          if (error) throw error;
+
+          if (data.success) {
+            setUploadProgress(100);
+            setUploadComplete(true);
+            
+            setTimeout(() => {
+              setParsedData(data.data);
+              setShowPreview(true);
+              setUploadComplete(false);
+              setUploading(false);
+            }, 1000);
+          } else {
+            throw new Error(data.error || 'Failed to parse reservation');
+          }
+        } catch (error: any) {
+          console.error('Error parsing screenshot:', error);
+          setUploadProgress(0);
+          setUploadComplete(false);
+          setUploading(false);
+          toast({
+            title: 'Error',
+            description: error.message || 'Failed to parse reservation screenshot',
+            variant: 'destructive',
+          });
         }
       };
 
       reader.onerror = () => {
-        throw new Error('Failed to read file');
+        setUploadProgress(0);
+        setUploadComplete(false);
+        setUploading(false);
+        toast({
+          title: 'Error',
+          description: 'Failed to read file',
+          variant: 'destructive',
+        });
       };
 
       setUploadProgress(10);
       reader.readAsDataURL(file);
 
     } catch (error: any) {
-      console.error('Error parsing screenshot:', error);
+      console.error('Error processing file:', error);
       setUploadProgress(0);
       setUploadComplete(false);
+      setUploading(false);
       toast({
         title: 'Error',
-        description: error.message || 'Failed to parse reservation screenshot',
+        description: error.message || 'Failed to process file',
         variant: 'destructive',
       });
-    } finally {
-      setUploading(false);
     }
   };
 
