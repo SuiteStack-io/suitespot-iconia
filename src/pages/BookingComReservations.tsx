@@ -38,6 +38,7 @@ interface ParsedReservation {
   commissionableAmount?: number;
   commissionAmount?: number;
   nationality?: string;
+  preferredLanguage?: string;
 }
 
 const BookingComReservations = () => {
@@ -216,7 +217,8 @@ const BookingComReservations = () => {
           notes: parsedData.notes,
           status: 'confirmed',
           source: 'booking.com',
-          channel: 'Booking.com'
+          channel: 'Booking.com',
+          preferred_language: parsedData.preferredLanguage || null
         })
         .select()
         .single();
@@ -437,6 +439,13 @@ const BookingComReservations = () => {
                 <div>
                   <Label className="text-xs text-muted-foreground">Nationality</Label>
                   <p className="font-medium">{parsedData.nationality}</p>
+                </div>
+              )}
+
+              {parsedData.preferredLanguage && (
+                <div>
+                  <Label className="text-xs text-muted-foreground">Preferred Language</Label>
+                  <p className="font-medium">{parsedData.preferredLanguage}</p>
                 </div>
               )}
 
