@@ -124,6 +124,7 @@ const ReservationDetail = () => {
     id_passport_url?: boolean;
     id_passport_url_back?: boolean;
     marriage_certificate_url?: boolean;
+    booking_screenshot_url?: boolean;
   }>({});
   
   // Form state
@@ -361,7 +362,7 @@ const ReservationDetail = () => {
     }
   };
 
-  const handleDownloadDocument = async (url: string, docType: 'id_passport_url' | 'id_passport_url_back' | 'marriage_certificate_url') => {
+  const handleDownloadDocument = async (url: string, docType: 'id_passport_url' | 'id_passport_url_back' | 'marriage_certificate_url' | 'booking_screenshot_url') => {
     setDownloading(prev => ({ ...prev, [docType]: true }));
     
     try {
@@ -378,7 +379,10 @@ const ReservationDetail = () => {
       let primaryBucket = '';
       let fallbackBucket = '';
       
-      if (docType === 'marriage_certificate_url') {
+      if (docType === 'booking_screenshot_url') {
+        primaryBucket = 'booking-screenshots';
+        fallbackBucket = '';
+      } else if (docType === 'marriage_certificate_url') {
         primaryBucket = 'marriage-certificates';
         fallbackBucket = 'id-passports';
       } else {
@@ -965,18 +969,11 @@ const ReservationDetail = () => {
                 <Button
                   variant="outline"
                   size="sm"
-                  onClick={() => {
-                    const link = document.createElement('a');
-                    link.href = reservation.booking_screenshot_url!;
-                    link.download = `booking-${reservation.booking_reference}.png`;
-                    link.target = '_blank';
-                    document.body.appendChild(link);
-                    link.click();
-                    document.body.removeChild(link);
-                  }}
+                  onClick={() => handleDownloadDocument(reservation.booking_screenshot_url!, 'booking_screenshot_url')}
+                  disabled={downloading.booking_screenshot_url}
                 >
                   <Download className="mr-2 h-4 w-4" />
-                  Download Screenshot
+                  {downloading.booking_screenshot_url ? 'Downloading...' : 'Download Screenshot'}
                 </Button>
               </div>
             </CardContent>
