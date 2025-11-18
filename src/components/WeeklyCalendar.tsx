@@ -3,7 +3,7 @@ import { supabase } from '@/integrations/supabase/client';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { ChevronLeft, ChevronRight } from 'lucide-react';
-import { startOfWeek, addDays, format, addWeeks, subWeeks, isWithinInterval, isSameDay } from 'date-fns';
+import { startOfWeek, addDays, format, addWeeks, subWeeks, isWithinInterval, isSameDay, startOfDay } from 'date-fns';
 import { useIsMobile } from '@/hooks/use-mobile';
 
 interface Unit {
@@ -32,7 +32,7 @@ interface BlockedDate {
 
 export const WeeklyCalendar = () => {
   const isMobile = useIsMobile();
-  const [currentWeekStart, setCurrentWeekStart] = useState(() => startOfWeek(new Date(), { weekStartsOn: 0 }));
+  const [currentWeekStart, setCurrentWeekStart] = useState(() => startOfDay(new Date()));
   const [units, setUnits] = useState<Unit[]>([]);
   const [reservations, setReservations] = useState<Reservation[]>([]);
   const [blockedDates, setBlockedDates] = useState<BlockedDate[]>([]);
@@ -123,7 +123,7 @@ export const WeeklyCalendar = () => {
   };
 
   const getWeekDays = () => {
-    return Array.from({ length: 7 }, (_, i) => addDays(currentWeekStart, i));
+    return Array.from({ length: 14 }, (_, i) => addDays(currentWeekStart, i));
   };
 
   const hasConflict = (date: Date, unitId: string) => {
@@ -188,19 +188,19 @@ export const WeeklyCalendar = () => {
   };
 
   const navigatePreviousWeek = () => {
-    setCurrentWeekStart(prev => subWeeks(prev, 1));
+    setCurrentWeekStart(prev => addDays(prev, -7));
   };
 
   const navigateNextWeek = () => {
-    setCurrentWeekStart(prev => addWeeks(prev, 1));
+    setCurrentWeekStart(prev => addDays(prev, 7));
   };
 
   const goToCurrentWeek = () => {
-    setCurrentWeekStart(startOfWeek(new Date(), { weekStartsOn: 0 }));
+    setCurrentWeekStart(startOfDay(new Date()));
   };
 
   const weekDays = getWeekDays();
-  const isCurrentWeek = isSameDay(currentWeekStart, startOfWeek(new Date(), { weekStartsOn: 0 }));
+  const isCurrentWeek = isSameDay(currentWeekStart, startOfDay(new Date()));
 
   return (
     <Card>
@@ -217,7 +217,7 @@ export const WeeklyCalendar = () => {
               <ChevronLeft className="h-4 w-4" />
             </Button>
             <div className={`text-sm font-medium text-center ${isMobile ? 'flex-1' : 'min-w-[200px]'}`}>
-              {format(weekDays[0], 'MMM d')} - {format(weekDays[6], 'MMM d, yyyy')}
+              {format(weekDays[0], 'MMM d')} - {format(weekDays[13], 'MMM d, yyyy')}
             </div>
             <Button variant="outline" size="sm" onClick={navigateNextWeek}>
               <ChevronRight className="h-4 w-4" />
