@@ -126,6 +126,17 @@ export const WeeklyCalendar = () => {
     return Array.from({ length: 7 }, (_, i) => addDays(currentWeekStart, i));
   };
 
+  const hasConflict = (date: Date, unitId: string) => {
+    // Check if there are multiple confirmed reservations for the same unit on the same date
+    const conflictingReservations = reservations.filter(res => {
+      if (res.unit_id !== unitId || res.status !== 'confirmed') return false;
+      const checkIn = new Date(res.check_in_date);
+      const checkOut = new Date(res.check_out_date);
+      return date >= checkIn && date < checkOut;
+    });
+    return conflictingReservations.length > 1;
+  };
+
   const isDateBlocked = (date: Date, unitId: string) => {
     return blockedDates.some(blocked => {
       const blockedDate = new Date(blocked.blocked_date);
@@ -257,16 +268,28 @@ export const WeeklyCalendar = () => {
                   {weekDays.map((day, index) => {
                     const { checkingOut, checkingIn, staying } = getReservationsForDate(day, unit.id);
                     const blocked = isDateBlocked(day, unit.id);
+                    const conflict = hasConflict(day, unit.id);
                     const hasBothCheckOutAndIn = checkingOut && checkingIn;
                     
                     return (
                       <td
                         key={index}
-                        className={`border border-border p-0 ${
-                          blocked ? 'bg-black text-white' : !checkingOut && !checkingIn && !staying ? 'bg-background' : ''
-                        }`}
+                        className={`border p-0 ${
+                          conflict 
+                            ? 'border-red-600 border-4 bg-red-600/90 animate-pulse'
+                            : blocked 
+                            ? 'bg-black text-white border-border' 
+                            : 'border-border'
+                        } ${!checkingOut && !checkingIn && !staying && !conflict ? 'bg-background' : ''}`}
                       >
-                        {blocked ? (
+                        {conflict ? (
+                          <div className="p-2 text-center min-h-[60px] flex items-center justify-center">
+                            <div className="text-xs space-y-1 text-white font-bold">
+                              <div>⚠️ CONFLICT</div>
+                              <div className="text-[10px]">DOUBLE BOOKING!</div>
+                            </div>
+                          </div>
+                        ) : blocked ? (
                           <div className="p-2 text-center min-h-[60px] flex items-center justify-center">
                             <div className="text-xs space-y-1">
                               <div>Blocked</div>
@@ -335,6 +358,10 @@ export const WeeklyCalendar = () => {
       
       <div className="px-6 pb-6">
         <div className="flex items-center gap-4 text-sm flex-wrap">
+          <div className="flex items-center gap-2">
+            <div className="w-20 h-6 bg-red-600 border-4 border-red-600 rounded flex items-center justify-center text-white text-xs font-bold animate-pulse">⚠️</div>
+            <span className="font-semibold text-red-600">= CONFLICT (Double Booking)</span>
+          </div>
           <div className="flex items-center gap-2">
             <div className="w-16 h-6 bg-[#003580] border rounded flex items-center justify-center text-white text-xs">B.com</div>
             <span>= Booking.com</span>

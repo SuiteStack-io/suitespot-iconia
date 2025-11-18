@@ -125,6 +125,17 @@ export const RoomCalendar = () => {
     });
   };
 
+  const hasConflict = (date: Date, unitId: string) => {
+    // Check if there are multiple confirmed reservations for the same unit on the same date
+    const conflictingReservations = reservations.filter(res => {
+      if (res.unit_id !== unitId || res.status !== 'confirmed') return false;
+      const checkIn = new Date(res.check_in_date);
+      const checkOut = new Date(res.check_out_date);
+      return date >= checkIn && date < checkOut;
+    });
+    return conflictingReservations.length > 1;
+  };
+
   const isDateBlocked = (date: Date, unitId: string) => {
     return blockedDates.some(blocked => {
       const blockedDate = new Date(blocked.blocked_date);
@@ -238,21 +249,29 @@ export const RoomCalendar = () => {
                 {days.map((day) => {
                   const reservation = getReservationForDateAndUnit(day, unit.id);
                   const blocked = isDateBlocked(day, unit.id);
+                  const conflict = hasConflict(day, unit.id);
                   
                   return (
                     <td 
                       key={day.toISOString()} 
-                      className={`border border-border p-2 text-center ${
-                        blocked
-                          ? 'bg-black text-white'
+                      className={`border p-2 text-center ${
+                        conflict
+                          ? 'border-red-600 border-4 bg-red-600/90 text-white animate-pulse'
+                          : blocked
+                          ? 'bg-black text-white border-border'
                           : reservation
-                          ? getReservationColor(reservation.source)
+                          ? `${getReservationColor(reservation.source)} border-border`
                           : isSameDay(day, new Date()) 
-                          ? 'bg-primary/5' 
-                          : 'bg-background'
+                          ? 'bg-primary/5 border-border' 
+                          : 'bg-background border-border'
                       }`}
                     >
-                      {blocked ? (
+                      {conflict ? (
+                        <div className="text-xs space-y-1 break-words font-bold">
+                          <div>⚠️ CONFLICT</div>
+                          <div className="text-[10px]">DOUBLE BOOKING!</div>
+                        </div>
+                      ) : blocked ? (
                         <div className="text-xs space-y-1 break-words">
                           <div>Blocked</div>
                         </div>
@@ -276,6 +295,10 @@ export const RoomCalendar = () => {
       </Card>
 
       <div className="flex items-center gap-4 text-sm flex-wrap">
+        <div className="flex items-center gap-2">
+          <div className="w-20 h-6 bg-red-600 border-4 border-red-600 rounded flex items-center justify-center text-white text-xs font-bold animate-pulse">⚠️</div>
+          <span className="font-semibold text-red-600">= CONFLICT (Double Booking)</span>
+        </div>
         <div className="flex items-center gap-2">
           <div className="w-16 h-6 bg-[#003580] border rounded flex items-center justify-center text-white text-xs">B.com</div>
           <span>= Booking.com</span>
