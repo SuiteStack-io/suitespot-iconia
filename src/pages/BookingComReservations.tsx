@@ -210,19 +210,26 @@ const BookingComReservations = () => {
     setCreating(true);
 
     try {
-      // Check for overlapping reservations
-      const { data: conflictingReservations, error: conflictError } = await supabase
-        .from('reservations')
-        .select('id, booking_reference, guest_names, check_in_date, check_out_date')
-        .eq('unit_id', parsedData.unitId)
-        .eq('status', 'confirmed')
-        .or(`and(check_in_date.lte.${parsedData.checkOutDate},check_out_date.gte.${parsedData.checkInDate})`);
-      
-      if (conflictError) {
-        console.error('Error checking for conflicts:', conflictError);
+      // Check for overlapping reservations using database function
+      const { data: conflicts, error: conflictCheckError } = await supabase
+        .rpc('check_reservation_overlap', {
+          p_unit_id: parsedData.unitId,
+          p_check_in_date: parsedData.checkInDate,
+          p_check_out_date: parsedData.checkOutDate
+        });
+
+      if (conflictCheckError) {
+        console.error('Error checking for conflicts:', conflictCheckError);
+        toast({
+          title: "Error",
+          description: "Failed to check for reservation conflicts",
+          variant: "destructive",
+        });
+        setCreating(false);
+        return;
       }
-      
-      if (conflictingReservations && conflictingReservations.length > 0) {
+
+      if (conflicts && conflicts.length > 0) {
         setCreating(false);
         
         // Find available alternative rooms
@@ -234,16 +241,17 @@ const BookingComReservations = () => {
         
         // Get all conflicting unit IDs for this date range
         const { data: allConflicts } = await supabase
-          .from('reservations')
-          .select('unit_id')
-          .eq('status', 'confirmed')
-          .or(`and(check_in_date.lte.${parsedData.checkOutDate},check_out_date.gte.${parsedData.checkInDate})`);
+          .rpc('check_reservation_overlap', {
+            p_unit_id: parsedData.unitId,
+            p_check_in_date: parsedData.checkInDate,
+            p_check_out_date: parsedData.checkOutDate
+          });
         
-        const conflictingUnitIds = allConflicts?.map(r => r.unit_id) || [];
+        const conflictingUnitIds = allConflicts?.map(c => c.conflict_id) || [];
         const availableUnits = allUnits?.filter(u => !conflictingUnitIds.includes(u.id)) || [];
         
-        const conflictDetails = conflictingReservations.map(r => 
-          `${r.guest_names.join(', ')} (${r.booking_reference})`
+        const conflictDetails = conflicts.map(c => 
+          `${c.conflict_guest_names.join(', ')} (${c.conflict_reference})`
         ).join(', ');
         
         toast({
@@ -259,7 +267,8 @@ const BookingComReservations = () => {
           title: 'Double Booking Prevented',
           message: `Screenshot upload blocked: Room ${getUnitName(parsedData.unitId)} already booked for ${parsedData.checkInDate} to ${parsedData.checkOutDate}. Conflicting booking: ${conflictDetails}. New booking: ${parsedData.guestNames.join(', ')} (${parsedData.bookingReference}). ${availableUnits.length} alternative rooms available.`,
           metadata: {
-            event_type: 'double_booking_prevented'
+            event_type: 'double_booking_prevented',
+            conflicts: conflicts
           } as any
         }]);
         
