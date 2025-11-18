@@ -189,7 +189,7 @@ export const AvailabilityCalendar = () => {
     if (viewMode === 'monthly') {
       setCurrentMonth(startOfMonth(new Date()));
     } else {
-      setCurrentWeekStart(startOfWeek(new Date(), { weekStartsOn: 1 }));
+      setCurrentWeekStart(new Date());
     }
   };
 
