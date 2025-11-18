@@ -118,8 +118,10 @@ export const AvailabilityCalendar = () => {
       const checkIn = new Date(reservation.check_in_date);
       const checkOut = new Date(reservation.check_out_date);
       
-      // For each date in the reservation
-      for (let d = new Date(checkIn); d < checkOut; d.setDate(d.getDate() + 1)) {
+      // Generate all dates for this reservation using isSameDay for accuracy
+      const dates = eachDayOfInterval({ start: checkIn, end: addDays(checkOut, -1) });
+      
+      dates.forEach(d => {
         const dateKey = format(d, 'yyyy-MM-dd');
         const key = `${reservation.unit_id}-${dateKey}`;
         
@@ -127,7 +129,7 @@ export const AvailabilityCalendar = () => {
           bookingsByUnitDate.set(key, []);
         }
         bookingsByUnitDate.get(key)!.push(reservation);
-      }
+      });
     });
 
     // Check for conflicts (multiple bookings on same unit/date)
@@ -143,9 +145,17 @@ export const AvailabilityCalendar = () => {
   const getDayAvailability = (unit: Unit, date: Date): DayAvailability => {
     const dateKey = format(date, 'yyyy-MM-dd');
     const dayReservations = reservations.filter(r => {
+      if (r.unit_id !== unit.id) return false;
+      
       const checkIn = new Date(r.check_in_date);
       const checkOut = new Date(r.check_out_date);
-      return r.unit_id === unit.id && date >= checkIn && date < checkOut;
+      
+      // Check if date is check-in day OR a staying day (between check-in and check-out)
+      // This matches the logic in RoomCalendar and prevents timezone issues
+      const isCheckInDay = isSameDay(date, checkIn);
+      const isStayingDay = date > checkIn && date < checkOut;
+      
+      return isCheckInDay || isStayingDay;
     });
 
     const conflictKey = `${unit.id}-${dateKey}`;
