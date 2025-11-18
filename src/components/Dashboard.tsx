@@ -5,6 +5,7 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Calendar, LogIn, LogOut, TrendingUp, DollarSign } from 'lucide-react';
 import { format } from 'date-fns';
 import { ConflictAlert } from './ConflictAlert';
+import { AvailabilityCalendar } from './AvailabilityCalendar';
 import {
   Dialog,
   DialogContent,
@@ -244,6 +245,16 @@ export const Dashboard = () => {
             </Card>
           );
         })}
+      </div>
+
+      {/* Conflict Alert */}
+      <div className="mt-6">
+        <ConflictAlert />
+      </div>
+
+      {/* Availability Calendar */}
+      <div className="mt-6">
+        <AvailabilityCalendar />
       </div>
 
       <Dialog open={dialogOpen} onOpenChange={setDialogOpen}>
