@@ -443,7 +443,7 @@ serve(async (req) => {
           console.log(`Using fallback unit: ${units?.[0]?.name || 'none'}`);
         }
         
-        const notesText = parsed.bookingComRoomId 
+        let notesText = parsed.bookingComRoomId 
           ? `Auto-synced from Gmail. Booking.com Room ID: ${parsed.bookingComRoomId}, Unit: ${parsed.unitName}`
           : `Auto-synced from Gmail. Unit: ${parsed.unitName}`;
         
@@ -452,6 +452,88 @@ serve(async (req) => {
         const checkIn = new Date(parsed.checkInDate);
         const checkOut = new Date(parsed.checkOutDate);
         const nights = Math.ceil((checkOut.getTime() - checkIn.getTime()) / (1000 * 60 * 60 * 24));
+        
+        // Check for overlapping reservations BEFORE inserting
+        if (unitId) {
+          const { data: conflictingReservations } = await supabase
+            .from('reservations')
+            .select('id, booking_reference, guest_names, unit_id')
+            .eq('unit_id', unitId)
+            .eq('status', 'confirmed')
+            .or(`and(check_in_date.lte.${parsed.checkOutDate},check_out_date.gte.${parsed.checkInDate})`);
+          
+          if (conflictingReservations && conflictingReservations.length > 0) {
+            console.error(`Conflict detected for unit ${unitId}:`, conflictingReservations);
+            
+            // Try to find an alternative available unit
+            const { data: allUnits } = await supabase
+              .from('units')
+              .select('id, name, unit_number, unit_type')
+              .eq('status', 'available')
+              .order('unit_number');
+            
+            // Get all conflicting unit IDs for this date range
+            const { data: allConflicts } = await supabase
+              .from('reservations')
+              .select('unit_id')
+              .eq('status', 'confirmed')
+              .or(`and(check_in_date.lte.${parsed.checkOutDate},check_out_date.gte.${parsed.checkInDate})`);
+            
+            const conflictingUnitIds = allConflicts?.map(r => r.unit_id) || [];
+            const availableUnits = allUnits?.filter(u => !conflictingUnitIds.includes(u.id));
+            
+            if (availableUnits && availableUnits.length > 0) {
+              // Auto-assign to first available room of same type if possible
+              const currentUnit = allUnits?.find(u => u.id === unitId);
+              const sameType = availableUnits.find(u => u.unit_type === currentUnit?.unit_type);
+              const newUnit = sameType || availableUnits[0];
+              
+              unitId = newUnit.id;
+              notesText += ` | AUTO-REASSIGNED from conflicting room to ${newUnit.name} (${newUnit.unit_number}) due to double booking conflict`;
+              console.log(`Auto-reassigned to unit ${unitId} (${newUnit.name}) due to conflict`);
+              
+              // Create notification about auto-reassignment
+              await supabase.from('notifications').insert({
+                type: 'warning',
+                title: 'Gmail Sync: Booking Auto-Reassigned',
+                message: `Booking for ${parsed.guestNames.join(', ')} automatically reassigned to ${newUnit.name} due to room conflict. Original room was already booked. Ref: ${parsed.bookingReference}`,
+                metadata: { 
+                  email_subject: subject,
+                  original_unit: currentUnit?.name,
+                  new_unit: newUnit.name,
+                  parsed_data: parsed,
+                  conflict: conflictingReservations[0]
+                }
+              });
+            } else {
+              // No rooms available - create admin notification and skip
+              await supabase.from('notifications').insert({
+                type: 'error',
+                title: 'Gmail Sync: Double Booking - Manual Review Required',
+                message: `Gmail sync found booking for ${parsed.guestNames.join(', ')} (${parsed.checkInDate} to ${parsed.checkOutDate}) but all rooms are fully booked. Ref: ${parsed.bookingReference}. Conflicting booking: ${conflictingReservations[0].guest_names.join(', ')} (${conflictingReservations[0].booking_reference})`,
+                metadata: { 
+                  email_subject: subject,
+                  parsed_data: parsed,
+                  conflict: conflictingReservations[0],
+                  all_conflicts: conflictingReservations
+                }
+              });
+              
+              skippedCount++;
+              await logSync(
+                supabase,
+                'manual',
+                'error',
+                0,
+                1,
+                `Double booking conflict - no rooms available: ${parsed.bookingReference}`,
+                null
+              );
+              console.log(`Skipped booking ${parsed.bookingReference} - no available rooms`);
+              continue; // Skip this booking
+            }
+          }
+        }
         
         // Create reservation
         const { data: newReservation, error: insertError } = await supabase
