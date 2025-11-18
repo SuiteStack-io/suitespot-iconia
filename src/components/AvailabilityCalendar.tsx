@@ -473,6 +473,7 @@ export const AvailabilityCalendar = () => {
                   >
                     <div>{format(day, 'EEE')}</div>
                     <div className="font-medium">{format(day, 'd')}</div>
+                    <div className="text-[10px]">{format(day, 'MMM')}</div>
                   </div>
                 ))}
               </div>
