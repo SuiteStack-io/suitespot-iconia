@@ -2,11 +2,15 @@ import { useState, useEffect } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
-import { ChevronLeft, ChevronRight, AlertCircle, CheckCircle, Calendar as CalendarIcon } from "lucide-react";
-import { format, addDays, startOfWeek, isSameDay } from "date-fns";
+import { ChevronLeft, ChevronRight, AlertCircle, CheckCircle, Calendar as CalendarIcon, Download, FileSpreadsheet, FileText } from "lucide-react";
+import { format, addDays, startOfWeek, isSameDay, startOfMonth, endOfMonth, getDaysInMonth, eachDayOfInterval } from "date-fns";
 import { Badge } from "@/components/ui/badge";
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
 import { useNavigate } from "react-router-dom";
+import { useToast } from "@/hooks/use-toast";
+import jsPDF from 'jspdf';
+import autoTable from 'jspdf-autotable';
+import * as XLSX from 'xlsx';
 
 interface Unit {
   id: string;
@@ -32,14 +36,22 @@ interface DayAvailability {
   reservations: Reservation[];
 }
 
+type ViewMode = 'weekly' | 'monthly';
+
 export const AvailabilityCalendar = () => {
   const [units, setUnits] = useState<Unit[]>([]);
   const [reservations, setReservations] = useState<Reservation[]>([]);
   const [currentWeekStart, setCurrentWeekStart] = useState<Date>(startOfWeek(new Date(), { weekStartsOn: 1 }));
+  const [currentMonth, setCurrentMonth] = useState<Date>(startOfMonth(new Date()));
+  const [viewMode, setViewMode] = useState<ViewMode>('monthly');
   const [conflicts, setConflicts] = useState<Set<string>>(new Set());
+  const [exporting, setExporting] = useState(false);
   const navigate = useNavigate();
+  const { toast } = useToast();
 
-  const weekDays = Array.from({ length: 14 }, (_, i) => addDays(currentWeekStart, i));
+  const displayDays = viewMode === 'monthly' 
+    ? eachDayOfInterval({ start: startOfMonth(currentMonth), end: endOfMonth(currentMonth) })
+    : Array.from({ length: 14 }, (_, i) => addDays(currentWeekStart, i));
 
   useEffect(() => {
     fetchData();
@@ -64,7 +76,7 @@ export const AvailabilityCalendar = () => {
     return () => {
       supabase.removeChannel(channel);
     };
-  }, [currentWeekStart]);
+  }, [currentWeekStart, currentMonth, viewMode]);
 
   const fetchData = async () => {
     // Fetch units
@@ -77,8 +89,12 @@ export const AvailabilityCalendar = () => {
     if (unitsData) setUnits(unitsData);
 
     // Fetch reservations for date range
-    const startDate = format(currentWeekStart, 'yyyy-MM-dd');
-    const endDate = format(addDays(currentWeekStart, 13), 'yyyy-MM-dd');
+    const startDate = viewMode === 'monthly' 
+      ? format(startOfMonth(currentMonth), 'yyyy-MM-dd')
+      : format(currentWeekStart, 'yyyy-MM-dd');
+    const endDate = viewMode === 'monthly'
+      ? format(endOfMonth(currentMonth), 'yyyy-MM-dd')
+      : format(addDays(currentWeekStart, 13), 'yyyy-MM-dd');
 
     const { data: reservationsData } = await supabase
       .from('reservations')
@@ -153,22 +169,200 @@ export const AvailabilityCalendar = () => {
     return "bg-green-50 dark:bg-green-950/30 border-green-200 dark:border-green-800 hover:bg-green-100 dark:hover:bg-green-900/40";
   };
 
-  const handlePreviousWeek = () => {
-    setCurrentWeekStart(addDays(currentWeekStart, -7));
+  const handlePrevious = () => {
+    if (viewMode === 'monthly') {
+      setCurrentMonth(new Date(currentMonth.getFullYear(), currentMonth.getMonth() - 1, 1));
+    } else {
+      setCurrentWeekStart(addDays(currentWeekStart, -7));
+    }
   };
 
-  const handleNextWeek = () => {
-    setCurrentWeekStart(addDays(currentWeekStart, 7));
+  const handleNext = () => {
+    if (viewMode === 'monthly') {
+      setCurrentMonth(new Date(currentMonth.getFullYear(), currentMonth.getMonth() + 1, 1));
+    } else {
+      setCurrentWeekStart(addDays(currentWeekStart, 7));
+    }
   };
 
   const handleToday = () => {
-    setCurrentWeekStart(startOfWeek(new Date(), { weekStartsOn: 1 }));
+    if (viewMode === 'monthly') {
+      setCurrentMonth(startOfMonth(new Date()));
+    } else {
+      setCurrentWeekStart(startOfWeek(new Date(), { weekStartsOn: 1 }));
+    }
+  };
+
+  const toggleViewMode = () => {
+    setViewMode(viewMode === 'weekly' ? 'monthly' : 'weekly');
   };
 
   const handleCellClick = (availability: DayAvailability, unit: Unit) => {
     if (availability.reservations.length > 0) {
       // Navigate to first reservation detail
       navigate(`/reservation/${availability.reservations[0].id}`);
+    }
+  };
+
+  const exportToPDF = () => {
+    setExporting(true);
+    try {
+      const doc = new jsPDF('l', 'mm', 'a4'); // landscape orientation
+      
+      const title = viewMode === 'monthly' 
+        ? `Unit Availability - ${format(currentMonth, 'MMMM yyyy')}`
+        : `Unit Availability - ${format(displayDays[0], 'MMM d')} to ${format(displayDays[displayDays.length - 1], 'MMM d, yyyy')}`;
+      
+      // Title
+      doc.setFontSize(16);
+      doc.text(title, 14, 15);
+      
+      // Add conflict warning if any
+      if (totalConflicts > 0) {
+        doc.setFontSize(10);
+        doc.setTextColor(255, 0, 0);
+        doc.text(`⚠️ ${totalConflicts} CONFLICT${totalConflicts > 1 ? 'S' : ''} DETECTED`, 14, 22);
+        doc.setTextColor(0, 0, 0);
+      }
+
+      // Prepare table data
+      const headers = ['Unit', ...displayDays.map(day => format(day, 'MMM d'))];
+      const tableData = units.map(unit => {
+        const row = [unit.name];
+        displayDays.forEach(day => {
+          const availability = getDayAvailability(unit, day);
+          if (availability.hasConflict) {
+            row.push('⚠️ CONFLICT');
+          } else if (!availability.isAvailable) {
+            row.push('Booked');
+          } else {
+            row.push('Available');
+          }
+        });
+        return row;
+      });
+
+      autoTable(doc, {
+        head: [headers],
+        body: tableData,
+        startY: totalConflicts > 0 ? 25 : 20,
+        theme: 'grid',
+        styles: { fontSize: 8, cellPadding: 2 },
+        headStyles: { fillColor: [66, 66, 66], textColor: 255 },
+        columnStyles: {
+          0: { fontStyle: 'bold', cellWidth: 40 }
+        },
+        didParseCell: (data) => {
+          if (data.cell.text[0] === '⚠️ CONFLICT') {
+            data.cell.styles.fillColor = [220, 38, 38];
+            data.cell.styles.textColor = 255;
+            data.cell.styles.fontStyle = 'bold';
+          } else if (data.cell.text[0] === 'Booked') {
+            data.cell.styles.fillColor = [219, 234, 254];
+            data.cell.styles.textColor = [30, 64, 175];
+          } else if (data.cell.text[0] === 'Available') {
+            data.cell.styles.fillColor = [240, 253, 244];
+            data.cell.styles.textColor = [22, 101, 52];
+          }
+        }
+      });
+
+      // Add legend
+      const finalY = (doc as any).lastAutoTable.finalY + 10;
+      doc.setFontSize(8);
+      doc.text('Legend:', 14, finalY);
+      doc.text('• Available: Room is free', 14, finalY + 5);
+      doc.text('• Booked: Room is occupied', 14, finalY + 10);
+      doc.text('• ⚠️ CONFLICT: Double booking detected', 14, finalY + 15);
+
+      // Save
+      const filename = `availability-calendar-${format(new Date(), 'yyyy-MM-dd')}.pdf`;
+      doc.save(filename);
+
+      toast({
+        title: "Export Successful",
+        description: `Calendar exported as ${filename}`,
+      });
+    } catch (error) {
+      console.error('PDF export error:', error);
+      toast({
+        title: "Export Failed",
+        description: "Failed to generate PDF",
+        variant: "destructive",
+      });
+    } finally {
+      setExporting(false);
+    }
+  };
+
+  const exportToExcel = () => {
+    setExporting(true);
+    try {
+      // Prepare worksheet data
+      const wsData: any[][] = [];
+      
+      // Title row
+      const title = viewMode === 'monthly' 
+        ? `Unit Availability - ${format(currentMonth, 'MMMM yyyy')}`
+        : `Unit Availability - ${format(displayDays[0], 'MMM d')} to ${format(displayDays[displayDays.length - 1], 'MMM d, yyyy')}`;
+      wsData.push([title]);
+      
+      // Conflict warning
+      if (totalConflicts > 0) {
+        wsData.push([`⚠️ ${totalConflicts} CONFLICT${totalConflicts > 1 ? 'S' : ''} DETECTED`]);
+      }
+      wsData.push([]); // Empty row
+      
+      // Headers
+      const headers = ['Unit', ...displayDays.map(day => format(day, 'MMM d, yyyy'))];
+      wsData.push(headers);
+      
+      // Data rows
+      units.forEach(unit => {
+        const row: any[] = [unit.name];
+        displayDays.forEach(day => {
+          const availability = getDayAvailability(unit, day);
+          if (availability.hasConflict) {
+            const guests = availability.reservations.map(r => r.guest_names[0]).join(' & ');
+            row.push(`⚠️ CONFLICT: ${guests}`);
+          } else if (!availability.isAvailable) {
+            const reservation = availability.reservations[0];
+            row.push(`Booked: ${reservation.guest_names[0]} (${reservation.booking_reference})`);
+          } else {
+            row.push('Available');
+          }
+        });
+        wsData.push(row);
+      });
+
+      // Create workbook and worksheet
+      const wb = XLSX.utils.book_new();
+      const ws = XLSX.utils.aoa_to_sheet(wsData);
+
+      // Set column widths
+      const colWidths = [{ wch: 30 }, ...displayDays.map(() => ({ wch: 25 }))];
+      ws['!cols'] = colWidths;
+
+      // Add worksheet to workbook
+      XLSX.utils.book_append_sheet(wb, ws, 'Availability');
+
+      // Save file
+      const filename = `availability-calendar-${format(new Date(), 'yyyy-MM-dd')}.xlsx`;
+      XLSX.writeFile(wb, filename);
+
+      toast({
+        title: "Export Successful",
+        description: `Calendar exported as ${filename}`,
+      });
+    } catch (error) {
+      console.error('Excel export error:', error);
+      toast({
+        title: "Export Failed",
+        description: "Failed to generate Excel file",
+        variant: "destructive",
+      });
+    } finally {
+      setExporting(false);
     }
   };
 
@@ -197,38 +391,66 @@ export const AvailabilityCalendar = () => {
       </CardHeader>
       <CardContent>
         {/* Navigation */}
-        <div className="flex items-center justify-between mb-4">
-          <Button variant="outline" size="sm" onClick={handlePreviousWeek}>
+        <div className="flex items-center justify-between mb-4 flex-wrap gap-2">
+          <Button variant="outline" size="sm" onClick={handlePrevious}>
             <ChevronLeft className="h-4 w-4" />
             Previous
           </Button>
-          <div className="flex gap-2">
+          <div className="flex gap-2 items-center flex-wrap">
             <Button variant="outline" size="sm" onClick={handleToday}>
               Today
             </Button>
+            <Button variant="outline" size="sm" onClick={toggleViewMode}>
+              {viewMode === 'monthly' ? 'Weekly View' : 'Monthly View'}
+            </Button>
             <span className="text-sm font-medium flex items-center">
-              {format(currentWeekStart, 'MMM d')} - {format(addDays(currentWeekStart, 13), 'MMM d, yyyy')}
+              {viewMode === 'monthly' 
+                ? format(currentMonth, 'MMMM yyyy')
+                : `${format(displayDays[0], 'MMM d')} - ${format(displayDays[displayDays.length - 1], 'MMM d, yyyy')}`
+              }
             </span>
           </div>
-          <Button variant="outline" size="sm" onClick={handleNextWeek}>
+          <Button variant="outline" size="sm" onClick={handleNext}>
             Next
             <ChevronRight className="h-4 w-4" />
           </Button>
         </div>
 
         {/* Legend */}
-        <div className="flex gap-4 mb-4 text-xs flex-wrap">
-          <div className="flex items-center gap-2">
-            <div className="w-4 h-4 bg-green-50 dark:bg-green-950/30 border border-green-200 dark:border-green-800 rounded" />
-            <span>Available</span>
+        <div className="flex gap-4 mb-4 text-xs flex-wrap items-center justify-between">
+          <div className="flex gap-4 flex-wrap">
+            <div className="flex items-center gap-2">
+              <div className="w-4 h-4 bg-green-50 dark:bg-green-950/30 border border-green-200 dark:border-green-800 rounded" />
+              <span>Available</span>
+            </div>
+            <div className="flex items-center gap-2">
+              <div className="w-4 h-4 bg-blue-100 dark:bg-blue-900/30 border border-blue-300 dark:border-blue-700 rounded" />
+              <span>Booked</span>
+            </div>
+            <div className="flex items-center gap-2">
+              <div className="w-4 h-4 bg-red-600 border border-red-700 rounded animate-pulse" />
+              <span className="font-medium">Double Booking Conflict</span>
+            </div>
           </div>
-          <div className="flex items-center gap-2">
-            <div className="w-4 h-4 bg-blue-100 dark:bg-blue-900/30 border border-blue-300 dark:border-blue-700 rounded" />
-            <span>Booked</span>
-          </div>
-          <div className="flex items-center gap-2">
-            <div className="w-4 h-4 bg-red-600 border border-red-700 rounded animate-pulse" />
-            <span className="font-medium">Double Booking Conflict</span>
+          <div className="flex gap-2">
+            <Button 
+              variant="outline" 
+              size="sm" 
+              onClick={exportToPDF}
+              disabled={exporting}
+            >
+              <FileText className="h-4 w-4 mr-1" />
+              Export PDF
+            </Button>
+            <Button 
+              variant="outline" 
+              size="sm" 
+              onClick={exportToExcel}
+              disabled={exporting}
+            >
+              <FileSpreadsheet className="h-4 w-4 mr-1" />
+              Export Excel
+            </Button>
           </div>
         </div>
 
@@ -237,9 +459,9 @@ export const AvailabilityCalendar = () => {
           <TooltipProvider>
             <div className="min-w-max">
               {/* Header Row */}
-              <div className="grid gap-1 mb-2" style={{ gridTemplateColumns: `160px repeat(14, 70px)` }}>
+              <div className="grid gap-1 mb-2" style={{ gridTemplateColumns: `160px repeat(${displayDays.length}, 70px)` }}>
                 <div className="font-medium text-sm p-2">Unit</div>
-                {weekDays.map((day) => (
+                {displayDays.map((day) => (
                   <div
                     key={day.toISOString()}
                     className={`text-center text-xs p-2 rounded ${
@@ -259,7 +481,7 @@ export const AvailabilityCalendar = () => {
                 <div
                   key={unit.id}
                   className="grid gap-1 mb-1"
-                  style={{ gridTemplateColumns: `160px repeat(14, 70px)` }}
+                  style={{ gridTemplateColumns: `160px repeat(${displayDays.length}, 70px)` }}
                 >
                   <div className="flex items-center text-sm font-medium p-2 bg-muted/50 rounded">
                     <div>
@@ -267,7 +489,7 @@ export const AvailabilityCalendar = () => {
                       <div className="text-xs text-muted-foreground">#{unit.unit_number}</div>
                     </div>
                   </div>
-                  {weekDays.map((day) => {
+                  {displayDays.map((day) => {
                     const availability = getDayAvailability(unit, day);
                     return (
                       <Tooltip key={day.toISOString()}>
