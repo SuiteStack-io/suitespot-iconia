@@ -237,17 +237,19 @@ export const AvailabilityCalendar = () => {
       }
 
       // Prepare table data
-      const headers = ['Unit', ...displayDays.map(day => format(day, 'MMM d'))];
+      const monthName = format(displayDays[0], 'MMM');
+      const headers = ['Unit', ...displayDays.map(day => `${monthName}\n${format(day, 'd')}`)];
       const tableData = units.map(unit => {
-        const row = [unit.name];
+        const unitCell = unit.unit_number ? `${unit.name}\nRoom #${unit.unit_number}` : unit.name;
+        const row = [unitCell];
         displayDays.forEach(day => {
           const availability = getDayAvailability(unit, day);
           if (availability.hasConflict) {
-            row.push('⚠️ CONFLICT');
+            row.push('CONFLICT');
           } else if (!availability.isAvailable) {
-            row.push('Booked');
+            row.push('');
           } else {
-            row.push('Available');
+            row.push('');
           }
         });
         return row;
@@ -258,33 +260,57 @@ export const AvailabilityCalendar = () => {
         body: tableData,
         startY: totalConflicts > 0 ? 25 : 20,
         theme: 'grid',
-        styles: { fontSize: 8, cellPadding: 2 },
-        headStyles: { fillColor: [66, 66, 66], textColor: 255 },
+        styles: { fontSize: 8, cellPadding: 3, halign: 'center', valign: 'middle' },
+        headStyles: { fillColor: [66, 66, 66], textColor: 255, halign: 'center' },
         columnStyles: {
-          0: { fontStyle: 'bold', cellWidth: 40 }
+          0: { fontStyle: 'bold', cellWidth: 45, halign: 'left' }
         },
         didParseCell: (data) => {
-          if (data.cell.text[0] === '⚠️ CONFLICT') {
-            data.cell.styles.fillColor = [220, 38, 38];
-            data.cell.styles.textColor = 255;
-            data.cell.styles.fontStyle = 'bold';
-          } else if (data.cell.text[0] === 'Booked') {
-            data.cell.styles.fillColor = [219, 234, 254];
-            data.cell.styles.textColor = [30, 64, 175];
-          } else if (data.cell.text[0] === 'Available') {
-            data.cell.styles.fillColor = [240, 253, 244];
-            data.cell.styles.textColor = [22, 101, 52];
+          if (data.section === 'body' && data.column.index > 0) {
+            const rowIndex = data.row.index;
+            const colIndex = data.column.index - 1;
+            const unit = units[rowIndex];
+            const day = displayDays[colIndex];
+            const availability = getDayAvailability(unit, day);
+            
+            if (availability.hasConflict) {
+              data.cell.styles.fillColor = [220, 38, 38];
+              data.cell.styles.textColor = 255;
+              data.cell.styles.fontStyle = 'bold';
+            } else if (!availability.isAvailable) {
+              data.cell.styles.fillColor = [59, 130, 246]; // Blue for booked
+              data.cell.styles.textColor = 255;
+            } else {
+              data.cell.styles.fillColor = [34, 197, 94]; // Green for available
+              data.cell.styles.textColor = 255;
+            }
           }
         }
       });
 
       // Add legend
       const finalY = (doc as any).lastAutoTable.finalY + 10;
-      doc.setFontSize(8);
+      doc.setFontSize(10);
+      doc.setFont(undefined, 'bold');
       doc.text('Legend:', 14, finalY);
-      doc.text('• Available: Room is free', 14, finalY + 5);
-      doc.text('• Booked: Room is occupied', 14, finalY + 10);
-      doc.text('• ⚠️ CONFLICT: Double booking detected', 14, finalY + 15);
+      
+      doc.setFont(undefined, 'normal');
+      doc.setFontSize(9);
+      
+      // Green box for Available
+      doc.setFillColor(34, 197, 94);
+      doc.rect(14, finalY + 3, 5, 5, 'F');
+      doc.text('Available: Room is free', 22, finalY + 7);
+      
+      // Blue box for Booked
+      doc.setFillColor(59, 130, 246);
+      doc.rect(14, finalY + 10, 5, 5, 'F');
+      doc.text('Booked: Room is occupied', 22, finalY + 14);
+      
+      // Red box for Conflict
+      doc.setFillColor(220, 38, 38);
+      doc.rect(14, finalY + 17, 5, 5, 'F');
+      doc.text('CONFLICT: Double booking detected', 22, finalY + 21);
 
       // Save
       const filename = `availability-calendar-${format(new Date(), 'yyyy-MM-dd')}.pdf`;
