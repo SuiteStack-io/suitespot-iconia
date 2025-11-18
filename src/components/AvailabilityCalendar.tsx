@@ -27,12 +27,21 @@ interface Reservation {
   booking_reference: string;
   guest_names: string[];
   status: string;
+  source: string;
+}
+
+interface BlockedDate {
+  id: string;
+  blocked_date: string;
+  unit_id: string | null;
+  reason: string | null;
 }
 
 interface DayAvailability {
   date: Date;
   isAvailable: boolean;
   hasConflict: boolean;
+  isBlocked: boolean;
   reservations: Reservation[];
 }
 
@@ -41,6 +50,7 @@ type ViewMode = 'weekly' | 'monthly';
 export const AvailabilityCalendar = () => {
   const [units, setUnits] = useState<Unit[]>([]);
   const [reservations, setReservations] = useState<Reservation[]>([]);
+  const [blockedDates, setBlockedDates] = useState<BlockedDate[]>([]);
   const [currentWeekStart, setCurrentWeekStart] = useState<Date>(startOfDay(new Date()));
   const [currentMonth, setCurrentMonth] = useState<Date>(startOfMonth(new Date()));
   const [viewMode, setViewMode] = useState<ViewMode>('monthly');
@@ -68,6 +78,18 @@ export const AvailabilityCalendar = () => {
         },
         () => {
           console.log('Reservation change detected, refreshing...');
+          fetchData();
+        }
+      )
+      .on(
+        'postgres_changes',
+        {
+          event: '*',
+          schema: 'public',
+          table: 'blocked_dates'
+        },
+        () => {
+          console.log('Blocked dates change detected, refreshing...');
           fetchData();
         }
       )
@@ -106,6 +128,13 @@ export const AvailabilityCalendar = () => {
       setReservations(reservationsData);
       detectConflicts(reservationsData);
     }
+
+    // Fetch blocked dates
+    const { data: blockedDatesData } = await supabase
+      .from('blocked_dates')
+      .select('*');
+
+    if (blockedDatesData) setBlockedDates(blockedDatesData);
   };
 
   const detectConflicts = (reservationsList: Reservation[]) => {
@@ -142,8 +171,38 @@ export const AvailabilityCalendar = () => {
     setConflicts(conflictSet);
   };
 
+  const isDateBlocked = (date: Date, unitId: string) => {
+    return blockedDates.some(blocked => {
+      const blockedDate = new Date(blocked.blocked_date);
+      return isSameDay(date, blockedDate) && 
+             (blocked.unit_id === null || blocked.unit_id === unitId);
+    });
+  };
+
+  const getReservationColor = (source: string) => {
+    const lowerSource = source.toLowerCase();
+    if (lowerSource.includes('admin') || lowerSource.includes('manager')) {
+      return 'bg-green-500/80 text-white';
+    }
+    if (lowerSource.includes('booking')) {
+      return 'bg-[#003580] text-white';
+    }
+    return 'bg-red-500/80 text-white'; // Direct website
+  };
+
+  const getReservationType = (date: Date, reservation: Reservation) => {
+    const checkIn = new Date(reservation.check_in_date);
+    const checkOut = new Date(reservation.check_out_date);
+    
+    if (isSameDay(date, checkIn)) return 'checking-in';
+    if (isSameDay(date, checkOut)) return 'checking-out';
+    if (date > checkIn && date < checkOut) return 'staying';
+    return null;
+  };
+
   const getDayAvailability = (unit: Unit, date: Date): DayAvailability => {
     const dateKey = format(date, 'yyyy-MM-dd');
+    const isBlocked = isDateBlocked(date, unit.id);
     const dayReservations = reservations.filter(r => {
       if (r.unit_id !== unit.id) return false;
       
@@ -163,8 +222,9 @@ export const AvailabilityCalendar = () => {
 
     return {
       date,
-      isAvailable: dayReservations.length === 0,
+      isAvailable: dayReservations.length === 0 && !isBlocked,
       hasConflict,
+      isBlocked,
       reservations: dayReservations
     };
   };
@@ -173,8 +233,12 @@ export const AvailabilityCalendar = () => {
     if (availability.hasConflict) {
       return "bg-red-600 border-red-700 hover:bg-red-700 animate-pulse cursor-pointer";
     }
+    if (availability.isBlocked) {
+      return "bg-black border-gray-700 text-white";
+    }
     if (!availability.isAvailable) {
-      return "bg-blue-100 dark:bg-blue-900/30 border-blue-300 dark:border-blue-700 hover:bg-blue-200 dark:hover:bg-blue-800/40 cursor-pointer";
+      // Use source-based colors - will be applied via reservation-specific rendering
+      return "border-gray-300 dark:border-gray-700 cursor-pointer";
     }
     return "bg-green-50 dark:bg-green-950/30 border-green-200 dark:border-green-800 hover:bg-green-100 dark:hover:bg-green-900/40";
   };
@@ -244,8 +308,12 @@ export const AvailabilityCalendar = () => {
           const availability = getDayAvailability(unit, day);
           if (availability.hasConflict) {
             row.push('⚠️ CONFLICT');
+          } else if (availability.isBlocked) {
+            row.push('Blocked');
           } else if (!availability.isAvailable) {
-            row.push('Booked');
+            const reservation = availability.reservations[0];
+            const source = reservation.source || 'Direct';
+            row.push(`${source.substring(0, 10)}`);
           } else {
             row.push('Available');
           }
@@ -268,9 +336,18 @@ export const AvailabilityCalendar = () => {
             data.cell.styles.fillColor = [220, 38, 38];
             data.cell.styles.textColor = 255;
             data.cell.styles.fontStyle = 'bold';
-          } else if (data.cell.text[0] === 'Booked') {
-            data.cell.styles.fillColor = [219, 234, 254];
-            data.cell.styles.textColor = [30, 64, 175];
+          } else if (data.cell.text[0] === 'Blocked') {
+            data.cell.styles.fillColor = [0, 0, 0];
+            data.cell.styles.textColor = 255;
+          } else if (data.cell.text[0] && data.cell.text[0].includes('Booking')) {
+            data.cell.styles.fillColor = [0, 53, 128];
+            data.cell.styles.textColor = 255;
+          } else if (data.cell.text[0] && data.cell.text[0].includes('Admin')) {
+            data.cell.styles.fillColor = [34, 197, 94];
+            data.cell.styles.textColor = 255;
+          } else if (data.cell.text[0] && (data.cell.text[0].includes('Direct') || data.cell.text[0].includes('Website'))) {
+            data.cell.styles.fillColor = [239, 68, 68];
+            data.cell.styles.textColor = 255;
           } else if (data.cell.text[0] === 'Available') {
             data.cell.styles.fillColor = [240, 253, 244];
             data.cell.styles.textColor = [22, 101, 52];
@@ -336,9 +413,12 @@ export const AvailabilityCalendar = () => {
           if (availability.hasConflict) {
             const guests = availability.reservations.map(r => r.guest_names[0]).join(' & ');
             row.push(`⚠️ CONFLICT: ${guests}`);
+          } else if (availability.isBlocked) {
+            row.push('Blocked');
           } else if (!availability.isAvailable) {
             const reservation = availability.reservations[0];
-            row.push(`Booked: ${reservation.guest_names[0]} (${reservation.booking_reference})`);
+            const source = reservation.source || 'Direct';
+            row.push(`Booked (${source}): ${reservation.guest_names[0]} (${reservation.booking_reference})`);
           } else {
             row.push('Available');
           }
@@ -444,8 +524,20 @@ export const AvailabilityCalendar = () => {
               <span>Available</span>
             </div>
             <div className="flex items-center gap-2">
-              <div className="w-4 h-4 bg-blue-100 dark:bg-blue-900/30 border border-blue-300 dark:border-blue-700 rounded" />
-              <span>Booked</span>
+              <div className="w-4 h-4 bg-[#003580] rounded" />
+              <span>Booking.com</span>
+            </div>
+            <div className="flex items-center gap-2">
+              <div className="w-4 h-4 bg-green-500/80 rounded" />
+              <span>Admin Booking</span>
+            </div>
+            <div className="flex items-center gap-2">
+              <div className="w-4 h-4 bg-red-500/80 rounded" />
+              <span>Direct Website</span>
+            </div>
+            <div className="flex items-center gap-2">
+              <div className="w-4 h-4 bg-black border border-gray-700 rounded" />
+              <span>Blocked</span>
             </div>
             <div className="flex items-center gap-2">
               <div className="w-4 h-4 bg-red-600 border border-red-700 rounded animate-pulse" />
@@ -524,25 +616,38 @@ export const AvailabilityCalendar = () => {
                                 <AlertCircle className="h-4 w-4 text-white" />
                               </div>
                             )}
-                            {!availability.isAvailable && !availability.hasConflict && (
+                            {availability.isBlocked && !availability.hasConflict && (
+                              <div className="flex items-center justify-center h-full">
+                                <span className="text-[10px] font-medium">Blocked</span>
+                              </div>
+                            )}
+                            {!availability.isAvailable && !availability.hasConflict && !availability.isBlocked && (
                               <div className="flex flex-col items-center justify-center h-full px-1 overflow-hidden">
                                 {(() => {
-                                  const fullName = availability.reservations[0]?.guest_names[0] || '';
-                                  const nameParts = fullName.split(' ');
-                                  const firstName = nameParts[0];
-                                  const lastName = nameParts.slice(1).join(' ');
-                                  return (
-                                    <>
-                                      <span className="text-[10px] text-blue-600 dark:text-blue-400 font-medium text-center leading-tight">
-                                        {firstName}
-                                      </span>
-                                      {lastName && (
-                                        <span className="text-[10px] text-blue-600 dark:text-blue-400 font-medium text-center leading-tight">
-                                          {lastName}
-                                        </span>
-                                      )}
-                                    </>
-                                  );
+                                  const reservation = availability.reservations[0];
+                                  const type = getReservationType(day, reservation);
+                                  const colorClass = getReservationColor(reservation.source || 'direct website');
+                                  
+                                  if (type === 'checking-in') {
+                                    return (
+                                      <div className={`w-full h-full flex items-center justify-center ${colorClass} rounded`}>
+                                        <span className="text-xs font-bold">IN</span>
+                                      </div>
+                                    );
+                                  } else if (type === 'checking-out') {
+                                    return (
+                                      <div className={`w-full h-full flex items-center justify-center ${colorClass} rounded`}>
+                                        <span className="text-xs font-bold">OUT</span>
+                                      </div>
+                                    );
+                                  } else {
+                                    // Staying - show dot
+                                    return (
+                                      <div className={`w-full h-full flex items-center justify-center ${colorClass} rounded`}>
+                                        <div className="w-2 h-2 bg-white rounded-full" />
+                                      </div>
+                                    );
+                                  }
                                 })()}
                               </div>
                             )}
@@ -557,23 +662,41 @@ export const AvailabilityCalendar = () => {
                                 <div className="mt-1">
                                   {availability.reservations.map((r, idx) => (
                                     <div key={idx} className="text-xs">
-                                      • {r.guest_names[0]} ({r.booking_reference})
+                                      • {r.guest_names[0]} ({r.booking_reference}) - {r.source || 'Direct'}
                                     </div>
                                   ))}
                                 </div>
+                              </div>
+                            ) : availability.isBlocked ? (
+                              <div>
+                                <div className="font-semibold">Blocked</div>
+                                {(() => {
+                                  const blocked = blockedDates.find(b => 
+                                    isSameDay(new Date(b.blocked_date), day) && 
+                                    (b.unit_id === null || b.unit_id === unit.id)
+                                  );
+                                  return blocked?.reason ? (
+                                    <div className="text-xs mt-1">Reason: {blocked.reason}</div>
+                                  ) : null;
+                                })()}
                               </div>
                             ) : availability.isAvailable ? (
                               <div className="text-green-600 dark:text-green-400">Available</div>
                             ) : (
                               <div>
-                                <div className="text-blue-600 dark:text-blue-400">Booked</div>
-                                {availability.reservations.map((r, idx) => (
-                                  <div key={idx} className="text-xs mt-1">
-                                    {r.guest_names[0]}
-                                    <br />
-                                    {r.booking_reference}
-                                  </div>
-                                ))}
+                                {availability.reservations.map((r, idx) => {
+                                  const type = getReservationType(day, r);
+                                  const status = type === 'checking-in' ? 'Check-in' : 
+                                               type === 'checking-out' ? 'Check-out' : 'Staying';
+                                  return (
+                                    <div key={idx} className="text-xs mt-1">
+                                      <div className="font-semibold">{status}</div>
+                                      <div>Guest: {r.guest_names[0]}</div>
+                                      <div>Ref: {r.booking_reference}</div>
+                                      <div>Source: {r.source || 'Direct'}</div>
+                                    </div>
+                                  );
+                                })}
                               </div>
                             )}
                           </div>
