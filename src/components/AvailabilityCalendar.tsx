@@ -33,8 +33,10 @@ interface DayAvailability {
   date: Date;
   isAvailable: boolean;
   hasConflict: boolean;
+  isBlocked: boolean;
   reservations: Reservation[];
 }
+
 
 type ViewMode = 'weekly' | 'monthly';
 
@@ -146,15 +148,10 @@ export const AvailabilityCalendar = () => {
     const dateKey = format(date, 'yyyy-MM-dd');
     const dayReservations = reservations.filter(r => {
       if (r.unit_id !== unit.id) return false;
-      
       const checkIn = new Date(r.check_in_date);
       const checkOut = new Date(r.check_out_date);
-      
-      // Check if date is check-in day OR a staying day (between check-in and check-out)
-      // This matches the logic in RoomCalendar and prevents timezone issues
       const isCheckInDay = isSameDay(date, checkIn);
       const isStayingDay = date > checkIn && date < checkOut;
-      
       return isCheckInDay || isStayingDay;
     });
 
@@ -165,7 +162,8 @@ export const AvailabilityCalendar = () => {
       date,
       isAvailable: dayReservations.length === 0,
       hasConflict,
-      reservations: dayReservations
+      isBlocked: false,
+      reservations: dayReservations,
     };
   };
 
