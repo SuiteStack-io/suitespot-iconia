@@ -204,15 +204,16 @@ export const WeeklyCalendar = () => {
               {weekDays.map((day, index) => {
                 const isToday = isSameDay(day, new Date());
                 return (
-                  <div
-                    key={index}
-                    className={`text-center text-xs p-2 rounded ${
-                      isToday ? 'bg-primary text-primary-foreground font-semibold' : 'text-muted-foreground'
-                    }`}
-                  >
-                    <div>{format(day, 'EEE')}</div>
-                    <div className="font-medium">{format(day, 'd')}</div>
-                  </div>
+              <div
+                key={index}
+                className={`text-center text-xs p-2 rounded ${
+                  isToday ? 'bg-primary text-primary-foreground font-semibold' : 'text-muted-foreground'
+                }`}
+              >
+                <div>{format(day, 'EEE')}</div>
+                <div className="font-medium">{format(day, 'd')}</div>
+                <div className="text-[10px]">{format(day, 'MMM')}</div>
+              </div>
                 );
               })}
             </div>
