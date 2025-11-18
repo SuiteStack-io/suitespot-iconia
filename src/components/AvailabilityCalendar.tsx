@@ -401,9 +401,9 @@ export const AvailabilityCalendar = () => {
               Today
             </Button>
             <Button variant="outline" size="sm" onClick={toggleViewMode}>
-              {viewMode === 'monthly' ? 'Weekly View' : 'Monthly View'}
+              {viewMode === 'monthly' ? 'Switch to Weekly' : 'Switch to Monthly'}
             </Button>
-            <span className="text-sm font-medium flex items-center">
+            <span className="text-base font-semibold flex items-center">
               {viewMode === 'monthly' 
                 ? format(currentMonth, 'MMMM yyyy')
                 : `${format(displayDays[0], 'MMM d')} - ${format(displayDays[displayDays.length - 1], 'MMM d, yyyy')}`
