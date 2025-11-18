@@ -418,9 +418,6 @@ export const AvailabilityCalendar = () => {
                 Today
               </Button>
             )}
-            <Button variant="outline" size="sm" onClick={toggleViewMode}>
-              {viewMode === 'monthly' ? 'Switch to Weekly' : 'Switch to Monthly'}
-            </Button>
             <span className="text-base font-semibold flex items-center">
               {viewMode === 'monthly' 
                 ? format(currentMonth, 'MMMM yyyy')
@@ -428,10 +425,15 @@ export const AvailabilityCalendar = () => {
               }
             </span>
           </div>
-          <Button variant="outline" size="sm" onClick={handleNext}>
-            Next
-            <ChevronRight className="h-4 w-4" />
-          </Button>
+          <div className="flex gap-2 items-center">
+            <Button variant="outline" size="sm" onClick={toggleViewMode}>
+              {viewMode === 'monthly' ? 'Weekly View' : 'Monthly View'}
+            </Button>
+            <Button variant="outline" size="sm" onClick={handleNext}>
+              Next
+              <ChevronRight className="h-4 w-4" />
+            </Button>
+          </div>
         </div>
 
         {/* Legend */}
