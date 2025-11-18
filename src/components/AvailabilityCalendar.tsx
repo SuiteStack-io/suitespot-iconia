@@ -41,7 +41,7 @@ type ViewMode = 'weekly' | 'monthly';
 export const AvailabilityCalendar = () => {
   const [units, setUnits] = useState<Unit[]>([]);
   const [reservations, setReservations] = useState<Reservation[]>([]);
-  const [currentWeekStart, setCurrentWeekStart] = useState<Date>(startOfWeek(new Date(), { weekStartsOn: 1 }));
+  const [currentWeekStart, setCurrentWeekStart] = useState<Date>(startOfDay(new Date()));
   const [currentMonth, setCurrentMonth] = useState<Date>(startOfMonth(new Date()));
   const [viewMode, setViewMode] = useState<ViewMode>('monthly');
   const [conflicts, setConflicts] = useState<Set<string>>(new Set());
@@ -398,9 +398,16 @@ export const AvailabilityCalendar = () => {
             Previous
           </Button>
           <div className="flex gap-2 items-center flex-wrap">
-            <Button variant="outline" size="sm" onClick={handleToday}>
-              Today
-            </Button>
+            {viewMode === 'weekly' && !isSameDay(currentWeekStart, startOfDay(new Date())) && (
+              <Button variant="outline" size="sm" onClick={handleToday}>
+                Today
+              </Button>
+            )}
+            {viewMode === 'monthly' && !isSameDay(currentMonth, startOfMonth(new Date())) && (
+              <Button variant="outline" size="sm" onClick={handleToday}>
+                Today
+              </Button>
+            )}
             <Button variant="outline" size="sm" onClick={toggleViewMode}>
               {viewMode === 'monthly' ? 'Switch to Weekly' : 'Switch to Monthly'}
             </Button>
