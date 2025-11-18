@@ -29,6 +29,13 @@ interface Reservation {
   status: string;
 }
 
+interface BlockedDate {
+  id: string;
+  blocked_date: string;
+  unit_id: string | null;
+  reason: string | null;
+}
+
 interface DayAvailability {
   date: Date;
   isAvailable: boolean;
@@ -43,6 +50,7 @@ type ViewMode = 'weekly' | 'monthly';
 export const AvailabilityCalendar = () => {
   const [units, setUnits] = useState<Unit[]>([]);
   const [reservations, setReservations] = useState<Reservation[]>([]);
+  const [blockedDates, setBlockedDates] = useState<BlockedDate[]>([]);
   const [currentWeekStart, setCurrentWeekStart] = useState<Date>(startOfDay(new Date()));
   const [currentMonth, setCurrentMonth] = useState<Date>(startOfMonth(new Date()));
   const [viewMode, setViewMode] = useState<ViewMode>('monthly');
@@ -69,7 +77,17 @@ export const AvailabilityCalendar = () => {
           table: 'reservations'
         },
         () => {
-          console.log('Reservation change detected, refreshing...');
+          fetchData();
+        }
+      )
+      .on(
+        'postgres_changes',
+        {
+          event: '*',
+          schema: 'public',
+          table: 'blocked_dates'
+        },
+        () => {
           fetchData();
         }
       )
@@ -108,6 +126,14 @@ export const AvailabilityCalendar = () => {
       setReservations(reservationsData);
       detectConflicts(reservationsData);
     }
+
+    const { data: blockedData } = await supabase
+      .from('blocked_dates')
+      .select('*');
+    
+    if (blockedData) {
+      setBlockedDates(blockedData);
+    }
   };
 
   const detectConflicts = (reservationsList: Reservation[]) => {
@@ -144,8 +170,18 @@ export const AvailabilityCalendar = () => {
     setConflicts(conflictSet);
   };
 
+  const isDateBlocked = (date: Date, unitId: string) => {
+    return blockedDates.some(blocked => {
+      const blockedDate = new Date(blocked.blocked_date);
+      return isSameDay(date, blockedDate) && 
+             (blocked.unit_id === null || blocked.unit_id === unitId);
+    });
+  };
+
   const getDayAvailability = (unit: Unit, date: Date): DayAvailability => {
     const dateKey = format(date, 'yyyy-MM-dd');
+    const isBlocked = isDateBlocked(date, unit.id);
+    
     const dayReservations = reservations.filter(r => {
       if (r.unit_id !== unit.id) return false;
       const checkIn = new Date(r.check_in_date);
@@ -160,9 +196,9 @@ export const AvailabilityCalendar = () => {
 
     return {
       date,
-      isAvailable: dayReservations.length === 0,
+      isAvailable: dayReservations.length === 0 && !isBlocked,
       hasConflict,
-      isBlocked: false,
+      isBlocked,
       reservations: dayReservations,
     };
   };
@@ -170,6 +206,9 @@ export const AvailabilityCalendar = () => {
   const getCellClassName = (availability: DayAvailability) => {
     if (availability.hasConflict) {
       return "bg-red-600 border-red-700 hover:bg-red-700 animate-pulse cursor-pointer";
+    }
+    if (availability.isBlocked) {
+      return "bg-muted text-muted-foreground border border-border cursor-default";
     }
     if (!availability.isAvailable) {
       return "bg-blue-100 dark:bg-blue-900/30 border-blue-300 dark:border-blue-700 hover:bg-blue-200 dark:hover:bg-blue-800/40 cursor-pointer";
@@ -207,10 +246,10 @@ export const AvailabilityCalendar = () => {
   };
 
   const handleCellClick = (availability: DayAvailability, unit: Unit) => {
-    if (availability.reservations.length > 0) {
-      // Navigate to first reservation detail
-      navigate(`/reservation/${availability.reservations[0].id}`);
+    if (availability.isBlocked || availability.reservations.length === 0) {
+      return;
     }
+    navigate(`/reservation/${availability.reservations[0].id}`);
   };
 
   const exportToPDF = () => {
@@ -242,6 +281,8 @@ export const AvailabilityCalendar = () => {
           const availability = getDayAvailability(unit, day);
           if (availability.hasConflict) {
             row.push('⚠️ CONFLICT');
+          } else if (availability.isBlocked) {
+            row.push('Blocked');
           } else if (!availability.isAvailable) {
             row.push('Booked');
           } else {
@@ -266,6 +307,9 @@ export const AvailabilityCalendar = () => {
             data.cell.styles.fillColor = [220, 38, 38];
             data.cell.styles.textColor = 255;
             data.cell.styles.fontStyle = 'bold';
+          } else if (data.cell.text[0] === 'Blocked') {
+            data.cell.styles.fillColor = [30, 30, 30];
+            data.cell.styles.textColor = 255;
           } else if (data.cell.text[0] === 'Booked') {
             data.cell.styles.fillColor = [219, 234, 254];
             data.cell.styles.textColor = [30, 64, 175];
@@ -282,7 +326,8 @@ export const AvailabilityCalendar = () => {
       doc.text('Legend:', 14, finalY);
       doc.text('• Available: Room is free', 14, finalY + 5);
       doc.text('• Booked: Room is occupied', 14, finalY + 10);
-      doc.text('• ⚠️ CONFLICT: Double booking detected', 14, finalY + 15);
+      doc.text('• Blocked: Room is unavailable for booking', 14, finalY + 15);
+      doc.text('• ⚠️ CONFLICT: Double booking detected', 14, finalY + 20);
 
       // Save
       const filename = `availability-calendar-${format(new Date(), 'yyyy-MM-dd')}.pdf`;
@@ -334,6 +379,12 @@ export const AvailabilityCalendar = () => {
           if (availability.hasConflict) {
             const guests = availability.reservations.map(r => r.guest_names[0]).join(' & ');
             row.push(`⚠️ CONFLICT: ${guests}`);
+          } else if (availability.isBlocked) {
+            const blockedInfo = blockedDates.find(b => 
+              isSameDay(new Date(b.blocked_date), day) && 
+              (b.unit_id === null || b.unit_id === unit.id)
+            );
+            row.push(`Blocked: ${blockedInfo?.reason || 'No reason'}`);
           } else if (!availability.isAvailable) {
             const reservation = availability.reservations[0];
             row.push(`Booked: ${reservation.guest_names[0]} (${reservation.booking_reference})`);
@@ -446,6 +497,10 @@ export const AvailabilityCalendar = () => {
               <span>Booked</span>
             </div>
             <div className="flex items-center gap-2">
+              <div className="w-4 h-4 bg-muted border border-border rounded" />
+              <span>Blocked</span>
+            </div>
+            <div className="flex items-center gap-2">
               <div className="w-4 h-4 bg-red-600 border border-red-700 rounded animate-pulse" />
               <span className="font-medium">Double Booking Conflict</span>
             </div>
@@ -510,6 +565,11 @@ export const AvailabilityCalendar = () => {
                   </div>
                   {displayDays.map((day) => {
                     const availability = getDayAvailability(unit, day);
+                    const blockedInfo = blockedDates.filter(b => 
+                      isSameDay(new Date(b.blocked_date), day) && 
+                      (b.unit_id === null || b.unit_id === unit.id)
+                    );
+                    
                     return (
                       <Tooltip key={day.toISOString()}>
                         <TooltipTrigger asChild>
@@ -522,7 +582,12 @@ export const AvailabilityCalendar = () => {
                                 <AlertCircle className="h-4 w-4 text-white" />
                               </div>
                             )}
-                            {!availability.isAvailable && !availability.hasConflict && (
+                            {availability.isBlocked && !availability.hasConflict && (
+                              <div className="flex items-center justify-center h-full px-1 overflow-hidden">
+                                <span className="text-[10px] font-medium text-muted-foreground">Blocked</span>
+                              </div>
+                            )}
+                            {!availability.isAvailable && !availability.hasConflict && !availability.isBlocked && (
                               <div className="flex flex-col items-center justify-center h-full px-1 overflow-hidden">
                                 {(() => {
                                   const fullName = availability.reservations[0]?.guest_names[0] || '';
@@ -559,6 +624,15 @@ export const AvailabilityCalendar = () => {
                                     </div>
                                   ))}
                                 </div>
+                              </div>
+                            ) : availability.isBlocked ? (
+                              <div className="text-muted-foreground">
+                                <div>Blocked</div>
+                                {blockedInfo.map((b) => (
+                                  <div key={b.id} className="text-xs mt-1">
+                                    {b.reason || 'No reason provided'}
+                                  </div>
+                                ))}
                               </div>
                             ) : availability.isAvailable ? (
                               <div className="text-green-600 dark:text-green-400">Available</div>
