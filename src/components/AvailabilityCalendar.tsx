@@ -3,7 +3,7 @@ import { supabase } from "@/integrations/supabase/client";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { ChevronLeft, ChevronRight, AlertCircle, CheckCircle, Calendar as CalendarIcon, Download, FileSpreadsheet, FileText } from "lucide-react";
-import { format, addDays, startOfWeek, isSameDay, startOfMonth, endOfMonth, getDaysInMonth, eachDayOfInterval } from "date-fns";
+import { format, addDays, startOfWeek, isSameDay, startOfMonth, endOfMonth, getDaysInMonth, eachDayOfInterval, startOfDay } from "date-fns";
 import { Badge } from "@/components/ui/badge";
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
 import { useNavigate } from "react-router-dom";
@@ -186,10 +186,11 @@ export const AvailabilityCalendar = () => {
   };
 
   const handleToday = () => {
+    const today = startOfDay(new Date());
     if (viewMode === 'monthly') {
-      setCurrentMonth(startOfMonth(new Date()));
+      setCurrentMonth(startOfMonth(today));
     } else {
-      setCurrentWeekStart(new Date());
+      setCurrentWeekStart(today);
     }
   };
 
