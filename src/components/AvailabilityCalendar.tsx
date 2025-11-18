@@ -506,8 +506,8 @@ export const AvailabilityCalendar = () => {
                               </div>
                             )}
                             {!availability.isAvailable && !availability.hasConflict && (
-                              <div className="flex items-center justify-center h-full px-1">
-                                <span className="text-[10px] text-blue-600 dark:text-blue-400 font-medium text-center truncate w-full">
+                              <div className="flex items-center justify-center h-full px-1 overflow-hidden">
+                                <span className="text-[10px] text-blue-600 dark:text-blue-400 font-medium text-center truncate block w-full" title={availability.reservations[0]?.guest_names[0]}>
                                   {availability.reservations[0]?.guest_names[0]}
                                 </span>
                               </div>
