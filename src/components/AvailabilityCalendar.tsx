@@ -506,10 +506,25 @@ export const AvailabilityCalendar = () => {
                               </div>
                             )}
                             {!availability.isAvailable && !availability.hasConflict && (
-                              <div className="flex items-center justify-center h-full px-1 overflow-hidden">
-                                <span className="text-[10px] text-blue-600 dark:text-blue-400 font-medium text-center truncate block w-full" title={availability.reservations[0]?.guest_names[0]}>
-                                  {availability.reservations[0]?.guest_names[0]}
-                                </span>
+                              <div className="flex flex-col items-center justify-center h-full px-1 overflow-hidden">
+                                {(() => {
+                                  const fullName = availability.reservations[0]?.guest_names[0] || '';
+                                  const nameParts = fullName.split(' ');
+                                  const firstName = nameParts[0];
+                                  const lastName = nameParts.slice(1).join(' ');
+                                  return (
+                                    <>
+                                      <span className="text-[10px] text-blue-600 dark:text-blue-400 font-medium text-center leading-tight">
+                                        {firstName}
+                                      </span>
+                                      {lastName && (
+                                        <span className="text-[10px] text-blue-600 dark:text-blue-400 font-medium text-center leading-tight">
+                                          {lastName}
+                                        </span>
+                                      )}
+                                    </>
+                                  );
+                                })()}
                               </div>
                             )}
                           </div>
