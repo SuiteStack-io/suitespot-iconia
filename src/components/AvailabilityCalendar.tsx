@@ -506,8 +506,10 @@ export const AvailabilityCalendar = () => {
                               </div>
                             )}
                             {!availability.isAvailable && !availability.hasConflict && (
-                              <div className="flex items-center justify-center h-full">
-                                <CheckCircle className="h-4 w-4 text-blue-600 dark:text-blue-400" />
+                              <div className="flex items-center justify-center h-full px-1">
+                                <span className="text-[10px] text-blue-600 dark:text-blue-400 font-medium text-center truncate w-full">
+                                  {availability.reservations[0]?.guest_names[0]}
+                                </span>
                               </div>
                             )}
                           </div>
