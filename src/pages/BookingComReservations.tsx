@@ -210,6 +210,61 @@ const BookingComReservations = () => {
     setCreating(true);
 
     try {
+      // Check for overlapping reservations
+      const { data: conflictingReservations, error: conflictError } = await supabase
+        .from('reservations')
+        .select('id, booking_reference, guest_names, check_in_date, check_out_date')
+        .eq('unit_id', parsedData.unitId)
+        .eq('status', 'confirmed')
+        .or(`and(check_in_date.lte.${parsedData.checkOutDate},check_out_date.gte.${parsedData.checkInDate})`);
+      
+      if (conflictError) {
+        console.error('Error checking for conflicts:', conflictError);
+      }
+      
+      if (conflictingReservations && conflictingReservations.length > 0) {
+        setCreating(false);
+        
+        // Find available alternative rooms
+        const { data: allUnits } = await supabase
+          .from('units')
+          .select('id, name, unit_number, unit_type')
+          .eq('status', 'available')
+          .order('unit_number');
+        
+        // Get all conflicting unit IDs for this date range
+        const { data: allConflicts } = await supabase
+          .from('reservations')
+          .select('unit_id')
+          .eq('status', 'confirmed')
+          .or(`and(check_in_date.lte.${parsedData.checkOutDate},check_out_date.gte.${parsedData.checkInDate})`);
+        
+        const conflictingUnitIds = allConflicts?.map(r => r.unit_id) || [];
+        const availableUnits = allUnits?.filter(u => !conflictingUnitIds.includes(u.id)) || [];
+        
+        const conflictDetails = conflictingReservations.map(r => 
+          `${r.guest_names.join(', ')} (${r.booking_reference})`
+        ).join(', ');
+        
+        toast({
+          variant: "destructive",
+          title: "Double Booking Detected!",
+          description: `This room is already booked for these dates by: ${conflictDetails}. ${availableUnits.length} alternative room(s) available.`,
+          duration: 8000
+        });
+        
+        // Log the conflict for admin review
+        await supabase.from('notifications').insert([{
+          type: 'error',
+          title: 'Double Booking Prevented',
+          message: `Screenshot upload blocked: Room ${getUnitName(parsedData.unitId)} already booked for ${parsedData.checkInDate} to ${parsedData.checkOutDate}. Conflicting booking: ${conflictDetails}. New booking: ${parsedData.guestNames.join(', ')} (${parsedData.bookingReference}). ${availableUnits.length} alternative rooms available.`,
+          metadata: {
+            event_type: 'double_booking_prevented'
+          } as any
+        }]);
+        
+        return;
+      }
       // Upload screenshot to storage first
       let screenshotUrl: string | null = null;
       if (screenshotFile) {
