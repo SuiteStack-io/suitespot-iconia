@@ -464,6 +464,21 @@ export type Database = {
       [_ in never]: never
     }
     Functions: {
+      check_reservation_overlap: {
+        Args: {
+          p_check_in_date: string
+          p_check_out_date: string
+          p_exclude_id?: string
+          p_unit_id: string
+        }
+        Returns: {
+          conflict_check_in: string
+          conflict_check_out: string
+          conflict_guest_names: string[]
+          conflict_id: string
+          conflict_reference: string
+        }[]
+      }
       get_all_users_with_emails: {
         Args: never
         Returns: {
@@ -472,6 +487,15 @@ export type Database = {
           role: Database["public"]["Enums"]["app_role"]
           user_id: string
         }[]
+      }
+      has_reservation_conflict: {
+        Args: {
+          p_check_in_date: string
+          p_check_out_date: string
+          p_exclude_id?: string
+          p_unit_id: string
+        }
+        Returns: boolean
       }
       has_role: {
         Args: {
