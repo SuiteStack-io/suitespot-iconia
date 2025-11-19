@@ -79,6 +79,53 @@ export type Database = {
           },
         ]
       }
+      booking_com_sync_log: {
+        Row: {
+          booking_com_room_id: string | null
+          created_at: string | null
+          direction: string
+          error_message: string | null
+          id: string
+          operation_type: string
+          request_payload: Json | null
+          response_payload: Json | null
+          status: string
+          unit_id: string | null
+        }
+        Insert: {
+          booking_com_room_id?: string | null
+          created_at?: string | null
+          direction: string
+          error_message?: string | null
+          id?: string
+          operation_type: string
+          request_payload?: Json | null
+          response_payload?: Json | null
+          status: string
+          unit_id?: string | null
+        }
+        Update: {
+          booking_com_room_id?: string | null
+          created_at?: string | null
+          direction?: string
+          error_message?: string | null
+          id?: string
+          operation_type?: string
+          request_payload?: Json | null
+          response_payload?: Json | null
+          status?: string
+          unit_id?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "booking_com_sync_log_unit_id_fkey"
+            columns: ["unit_id"]
+            isOneToOne: false
+            referencedRelation: "units"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       notifications: {
         Row: {
           created_at: string | null
