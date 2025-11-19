@@ -14,3 +14,6 @@ verify_jwt = true
 
 [functions.allocate-unit]
 verify_jwt = false
+
+[functions.push-availability-booking-com]
+verify_jwt = false
