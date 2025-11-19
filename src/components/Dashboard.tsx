@@ -5,6 +5,7 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Calendar, LogIn, LogOut, TrendingUp, DollarSign } from 'lucide-react';
 import { format } from 'date-fns';
 import { ConflictAlert } from './ConflictAlert';
+import { PendingAssignmentsAlert } from './PendingAssignmentsAlert';
 import { AvailabilityCalendar } from './AvailabilityCalendar';
 import {
   Dialog,
@@ -224,6 +225,7 @@ export const Dashboard = () => {
 
   return (
     <>
+      <PendingAssignmentsAlert />
       <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-4">
         {statCards.map((stat) => {
           const Icon = stat.icon;
