@@ -488,6 +488,16 @@ export type Database = {
           user_id: string
         }[]
       }
+      get_units_by_booking_com_room_id: {
+        Args: { p_room_id: string }
+        Returns: {
+          id: string
+          last_allocated_at: string
+          name: string
+          status: string
+          unit_number: string
+        }[]
+      }
       has_reservation_conflict: {
         Args: {
           p_check_in_date: string
