@@ -92,16 +92,80 @@ Deno.serve(async (req) => {
       }
     }
 
-    // No available units found
-    console.error('All units are booked for the requested dates');
+    // No available units found - create pending assignment reservation
+    console.warn('All units are booked - creating pending assignment reservation');
+    
+    // Create reservation with pending_assignment status and no unit assigned
+    const { data: pendingReservation, error: reservationError } = await supabase
+      .from('reservations')
+      .insert({
+        unit_id: null, // No unit assigned yet
+        booking_reference: bookingReference,
+        check_in_date: checkInDate,
+        check_out_date: checkOutDate,
+        guest_names: guestNames,
+        number_of_guests: guestNames.length,
+        status: 'pending_assignment',
+        channel: 'Booking.com',
+        source: 'booking.com',
+        notes: `CONFLICT: All ${units.length} units with Booking.com Room ID ${bookingComRoomId} are booked. Manual assignment required.`,
+      })
+      .select()
+      .single();
+
+    if (reservationError) {
+      console.error('Error creating pending reservation:', reservationError);
+      throw reservationError;
+    }
+
+    console.log('Created pending assignment reservation:', pendingReservation.id);
+
+    // Create notifications for all admin users
+    const { data: adminRoles } = await supabase
+      .from('user_roles')
+      .select('user_id')
+      .eq('role', 'admin');
+
+    if (adminRoles && adminRoles.length > 0) {
+      const notifications = adminRoles.map(admin => ({
+        user_id: admin.user_id,
+        type: 'conflict',
+        title: '🚨 Over-Booking Conflict',
+        message: `All units for "${units[0]?.name || 'room type'}" are booked. Reservation ${bookingReference} requires manual unit assignment.`,
+        metadata: {
+          reservation_id: pendingReservation.id,
+          booking_reference: bookingReference,
+          check_in_date: checkInDate,
+          check_out_date: checkOutDate,
+          booking_com_room_id: bookingComRoomId,
+          units_checked: units.length,
+        },
+      }));
+
+      const { error: notifError } = await supabase
+        .from('notifications')
+        .insert(notifications);
+
+      if (notifError) {
+        console.error('Error creating notifications:', notifError);
+      } else {
+        console.log(`Created ${notifications.length} admin notifications`);
+      }
+    }
+
     return new Response(
       JSON.stringify({
-        success: false,
-        error: 'NO_AVAILABILITY',
-        message: 'All units are booked for the requested dates',
+        success: true,
+        requiresManualAssignment: true,
+        reservation: {
+          id: pendingReservation.id,
+          booking_reference: bookingReference,
+          status: 'pending_assignment',
+        },
+        message: 'No units available - reservation created for manual assignment',
         unitsChecked: units.length,
       }),
-      { headers: { ...corsHeaders, 'Content-Type': 'application/json' }, status: 409 }
+      { headers: { ...corsHeaders, 'Content-Type': 'application/json' }, status: 200 }
     );
 
   } catch (error: any) {
