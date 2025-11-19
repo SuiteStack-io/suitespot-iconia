@@ -464,6 +464,17 @@ export type Database = {
       [_ in never]: never
     }
     Functions: {
+      check_and_lock_unit_availability: {
+        Args: {
+          p_check_in_date: string
+          p_check_out_date: string
+          p_unit_id: string
+        }
+        Returns: {
+          is_available: boolean
+          unit_id: string
+        }[]
+      }
       check_reservation_overlap: {
         Args: {
           p_check_in_date: string
