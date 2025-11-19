@@ -583,7 +583,7 @@ const Rooms = () => {
         unit_type: roomToClone.unit_type,
         unit_size: roomToClone.unit_size,
         status: 'available', // New cloned rooms are available by default
-        booking_com_id: null, // Don't clone booking.com ID
+        booking_com_id: null, // Don't clone booking.com Room ID
         comments: roomToClone.comments,
         beds: roomToClone.beds,
         baths: roomToClone.baths,
@@ -774,7 +774,7 @@ const Rooms = () => {
                 <TableHead className="min-w-[80px]">Tax %</TableHead>
                 <TableHead className="min-w-[160px]">Photos</TableHead>
                 <TableHead className="min-w-[120px]">Status</TableHead>
-                <TableHead className="min-w-[140px]">Booking.com ID</TableHead>
+                <TableHead className="min-w-[140px]">Booking.com Room ID</TableHead>
                 <TableHead className="min-w-[130px]">Next Reservation</TableHead>
                 <TableHead className="min-w-[140px]">View</TableHead>
                 {isAdmin && !isBulkEdit && <TableHead className="min-w-[100px]">Actions</TableHead>}
@@ -900,7 +900,7 @@ const Rooms = () => {
                     <Input
                       value={newUnit.booking_com_id || ''}
                       onChange={(e) => setNewUnit({ ...newUnit, booking_com_id: e.target.value })}
-                      placeholder="Booking.com ID"
+                      placeholder="Booking.com Room ID"
                     />
                   </TableCell>
                   <TableCell>
@@ -1225,7 +1225,7 @@ const Rooms = () => {
                               ? handleBulkEditChange(unit.id, 'booking_com_id', e.target.value)
                               : setEditedUnit({ ...editedUnit, booking_com_id: e.target.value })
                           }
-                          placeholder="Enter Booking.com ID"
+                          placeholder="Enter Booking.com Room ID"
                         />
                       ) : (
                         <span className="font-mono text-sm">{unit.booking_com_id || '-'}</span>
