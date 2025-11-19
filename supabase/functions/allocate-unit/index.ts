@@ -27,6 +27,31 @@ Deno.serve(async (req) => {
 
     console.log('Allocating unit for:', { bookingComRoomId, checkInDate, checkOutDate, bookingReference });
 
+    // IDEMPOTENCY CHECK: Prevent duplicate processing if Booking.com sends same webhook twice
+    const { data: existingReservation, error: checkError } = await supabase
+      .from('reservations')
+      .select('id, unit_id, status')
+      .eq('booking_reference', bookingReference)
+      .maybeSingle();
+
+    if (checkError) {
+      console.error('Error checking existing reservation:', checkError);
+      throw checkError;
+    }
+
+    if (existingReservation) {
+      console.log('Reservation already exists (idempotency):', existingReservation.id);
+      return new Response(
+        JSON.stringify({
+          success: true,
+          idempotent: true,
+          message: 'Reservation already processed',
+          reservation: existingReservation,
+        }),
+        { headers: { ...corsHeaders, 'Content-Type': 'application/json' }, status: 200 }
+      );
+    }
+
     // Get all units with this Booking.com Room ID
     const { data: units, error: unitsError } = await supabase
       .from('units')
@@ -54,26 +79,26 @@ Deno.serve(async (req) => {
 
     console.log(`Found ${units.length} units with Room ID ${bookingComRoomId}:`, units.map(u => u.unit_number));
 
+    // Use database transaction with row-level locking to prevent race conditions
     // Check each unit for availability (First Available strategy)
     for (const unit of units) {
-      // Check if unit has any conflicting reservations
-      const { data: conflicts, error: conflictError } = await supabase.rpc(
-        'has_reservation_conflict',
-        {
+      // Use FOR UPDATE SKIP LOCKED to lock the unit row during conflict check
+      // This prevents two concurrent allocations from selecting the same unit
+      const { data: lockedUnit, error: lockError } = await supabase
+        .rpc('check_and_lock_unit_availability', {
           p_unit_id: unit.id,
           p_check_in_date: checkInDate,
           p_check_out_date: checkOutDate,
-        }
-      );
+        });
 
-      if (conflictError) {
-        console.error('Error checking conflicts for unit:', unit.unit_number, conflictError);
+      if (lockError) {
+        console.error('Error locking/checking unit:', unit.unit_number, lockError);
         continue; // Try next unit
       }
 
-      // If no conflict, this unit is available - allocate it!
-      if (!conflicts) {
-        console.log(`Unit ${unit.unit_number} is available - allocating`);
+      // If unit is available (no conflicts), allocate it
+      if (lockedUnit && lockedUnit.length > 0 && lockedUnit[0].is_available) {
+        console.log(`Unit ${unit.unit_number} is available and locked - allocating`);
 
         return new Response(
           JSON.stringify({
@@ -88,7 +113,7 @@ Deno.serve(async (req) => {
           { headers: { ...corsHeaders, 'Content-Type': 'application/json' }, status: 200 }
         );
       } else {
-        console.log(`Unit ${unit.unit_number} has conflict - checking next`);
+        console.log(`Unit ${unit.unit_number} has conflict or is locked - checking next`);
       }
     }
 
@@ -119,6 +144,23 @@ Deno.serve(async (req) => {
     }
 
     console.log('Created pending assignment reservation:', pendingReservation.id);
+
+    // Push availability = 0 to Booking.com to prevent more bookings (background task)
+    console.log('Pushing availability = 0 to Booking.com for room:', bookingComRoomId);
+    supabase.functions.invoke('push-availability-booking-com', {
+      body: {
+        bookingComRoomId,
+        dateFrom: checkInDate,
+        dateTo: checkOutDate,
+        available: 0, // Mark as unavailable
+      },
+    }).then(({ error: pushError }) => {
+      if (pushError) {
+        console.error('Failed to push availability to Booking.com:', pushError);
+      } else {
+        console.log('Successfully pushed availability = 0 to Booking.com');
+      }
+    }).catch(err => console.error('Error invoking push function:', err));
 
     // Create notifications for all admin users
     const { data: adminRoles } = await supabase
