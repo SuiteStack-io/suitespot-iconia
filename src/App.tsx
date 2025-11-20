@@ -36,6 +36,7 @@ import Survey from "./pages/guest/Survey";
 import StaySurvey from "./pages/guest/StaySurvey";
 import GuestTickets from "./pages/GuestTickets";
 import TicketAnalytics from "./pages/TicketAnalytics";
+import LocationsManagement from "./pages/LocationsManagement";
 
 const queryClient = new QueryClient();
 
@@ -86,6 +87,7 @@ const App = () => (
             <Route path="/homepage-management" element={<ProtectedRoute><HomepageManagement /></ProtectedRoute>} />
             <Route path="/settings" element={<ProtectedRoute><Settings /></ProtectedRoute>} />
       <Route path="/booking-com-reservations" element={<ProtectedRoute><BookingComReservations /></ProtectedRoute>} />
+      <Route path="/locations-management" element={<ProtectedRoute><LocationsManagement /></ProtectedRoute>} />
       <Route path="/guest-tickets" element={
         <ProtectedRoute>
           <GuestTickets />
@@ -96,7 +98,6 @@ const App = () => (
           <TicketAnalytics />
         </ProtectedRoute>
       } />
-            <Route path="/guest-tickets" element={<ProtectedRoute><GuestTickets /></ProtectedRoute>} />
             
             {/* ADD ALL CUSTOM ROUTES ABOVE THE CATCH-ALL "*" ROUTE */}
             <Route path="*" element={<NotFound />} />
