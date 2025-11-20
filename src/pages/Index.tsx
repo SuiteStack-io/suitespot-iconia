@@ -6,7 +6,7 @@ import { ReservationsList } from '@/components/ReservationsList';
 import { WeeklyCalendar } from '@/components/WeeklyCalendar';
 import { CreateReservationDialog } from '@/components/CreateReservationDialog';
 import { Button } from '@/components/ui/button';
-import { LogOut, CalendarDays, ChevronDown, DoorOpen, Home, Settings as SettingsIcon, RefreshCw, Upload, Ticket, BarChart3, Bell } from 'lucide-react';
+import { LogOut, CalendarDays, ChevronDown, DoorOpen, Home, Settings as SettingsIcon, RefreshCw, Upload, Ticket, BarChart3, Bell, Map } from 'lucide-react';
 import { NotificationCenter } from '@/components/NotificationCenter';
 import suitespotLogo from '@/assets/suitespot-logo.png';
 import { useIsMobile } from '@/hooks/use-mobile';
@@ -72,6 +72,7 @@ const Index = () => {
                 <DropdownMenuItem onClick={() => navigate('/guests')}>Guests</DropdownMenuItem>
                 <DropdownMenuItem onClick={() => navigate('/guest-tickets')}><Ticket className="h-4 w-4 mr-2" />Guest Tickets</DropdownMenuItem>
                 <DropdownMenuItem onClick={() => navigate('/ticket-analytics')}><BarChart3 className="h-4 w-4 mr-2" />Analytics</DropdownMenuItem>
+                <DropdownMenuItem onClick={() => navigate('/locations-management')}><Map className="h-4 w-4 mr-2" />Locations</DropdownMenuItem>
                 <DropdownMenuItem onClick={() => navigate('/settings')}>Settings</DropdownMenuItem></>)}
               </DropdownMenuContent>
             </DropdownMenu>
