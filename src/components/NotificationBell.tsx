@@ -97,16 +97,16 @@ export const NotificationBell = () => {
       });
     }
 
-    if (metadata.reservation_id) {
+    if (metadata.source || metadata.channel) {
       fields.push({
-        label: "Reservation ID",
-        value: metadata.reservation_id,
+        label: "Booking Source",
+        value: metadata.channel || metadata.source,
       });
     }
 
     // Handle any other fields that might exist
     Object.keys(metadata).forEach((key) => {
-      if (!['check_in', 'check_out', 'old_room', 'new_room', 'reservation_id'].includes(key)) {
+      if (!['check_in', 'check_out', 'old_room', 'new_room', 'source', 'channel', 'reservation_id', 'booking_reference', 'booking_com_room_id', 'units_checked'].includes(key)) {
         fields.push({
           label: key.replace(/_/g, ' ').replace(/\b\w/g, l => l.toUpperCase()),
           value: String(metadata[key]),
