@@ -126,6 +126,203 @@ export type Database = {
           },
         ]
       }
+      guest_accounts: {
+        Row: {
+          created_at: string
+          created_by: string | null
+          first_login_at: string | null
+          id: string
+          is_active: boolean | null
+          last_login_at: string | null
+          password_hash: string
+          reservation_id: string
+          username: string
+        }
+        Insert: {
+          created_at?: string
+          created_by?: string | null
+          first_login_at?: string | null
+          id?: string
+          is_active?: boolean | null
+          last_login_at?: string | null
+          password_hash: string
+          reservation_id: string
+          username: string
+        }
+        Update: {
+          created_at?: string
+          created_by?: string | null
+          first_login_at?: string | null
+          id?: string
+          is_active?: boolean | null
+          last_login_at?: string | null
+          password_hash?: string
+          reservation_id?: string
+          username?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "guest_accounts_created_by_fkey"
+            columns: ["created_by"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "guest_accounts_reservation_id_fkey"
+            columns: ["reservation_id"]
+            isOneToOne: false
+            referencedRelation: "reservations"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      guest_tickets: {
+        Row: {
+          amenity_id: string | null
+          assigned_to: string | null
+          created_at: string
+          description: string
+          guest_account_id: string
+          id: string
+          photo_url: string | null
+          priority: Database["public"]["Enums"]["ticket_priority"]
+          reservation_id: string
+          resolved_at: string | null
+          resolved_by: string | null
+          status: Database["public"]["Enums"]["ticket_status"]
+          ticket_type: Database["public"]["Enums"]["ticket_type"]
+          title: string
+          updated_at: string
+        }
+        Insert: {
+          amenity_id?: string | null
+          assigned_to?: string | null
+          created_at?: string
+          description: string
+          guest_account_id: string
+          id?: string
+          photo_url?: string | null
+          priority?: Database["public"]["Enums"]["ticket_priority"]
+          reservation_id: string
+          resolved_at?: string | null
+          resolved_by?: string | null
+          status?: Database["public"]["Enums"]["ticket_status"]
+          ticket_type: Database["public"]["Enums"]["ticket_type"]
+          title: string
+          updated_at?: string
+        }
+        Update: {
+          amenity_id?: string | null
+          assigned_to?: string | null
+          created_at?: string
+          description?: string
+          guest_account_id?: string
+          id?: string
+          photo_url?: string | null
+          priority?: Database["public"]["Enums"]["ticket_priority"]
+          reservation_id?: string
+          resolved_at?: string | null
+          resolved_by?: string | null
+          status?: Database["public"]["Enums"]["ticket_status"]
+          ticket_type?: Database["public"]["Enums"]["ticket_type"]
+          title?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "guest_tickets_amenity_id_fkey"
+            columns: ["amenity_id"]
+            isOneToOne: false
+            referencedRelation: "property_amenities"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "guest_tickets_assigned_to_fkey"
+            columns: ["assigned_to"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "guest_tickets_guest_account_id_fkey"
+            columns: ["guest_account_id"]
+            isOneToOne: false
+            referencedRelation: "guest_accounts"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "guest_tickets_reservation_id_fkey"
+            columns: ["reservation_id"]
+            isOneToOne: false
+            referencedRelation: "reservations"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "guest_tickets_resolved_by_fkey"
+            columns: ["resolved_by"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      nearby_amenities: {
+        Row: {
+          address: string | null
+          created_at: string
+          description: string
+          distance_meters: number
+          hours: string | null
+          id: string
+          latitude: number | null
+          longitude: number | null
+          name: string
+          phone: string | null
+          type: string
+          unit_id: string
+          website: string | null
+        }
+        Insert: {
+          address?: string | null
+          created_at?: string
+          description: string
+          distance_meters: number
+          hours?: string | null
+          id?: string
+          latitude?: number | null
+          longitude?: number | null
+          name: string
+          phone?: string | null
+          type: string
+          unit_id: string
+          website?: string | null
+        }
+        Update: {
+          address?: string | null
+          created_at?: string
+          description?: string
+          distance_meters?: number
+          hours?: string | null
+          id?: string
+          latitude?: number | null
+          longitude?: number | null
+          name?: string
+          phone?: string | null
+          type?: string
+          unit_id?: string
+          website?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "nearby_amenities_unit_id_fkey"
+            columns: ["unit_id"]
+            isOneToOne: false
+            referencedRelation: "units"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       notifications: {
         Row: {
           created_at: string | null
@@ -203,6 +400,47 @@ export type Database = {
           updated_at?: string
         }
         Relationships: []
+      }
+      property_amenities: {
+        Row: {
+          category: string
+          created_at: string
+          id: string
+          is_available: boolean | null
+          location: string
+          name: string
+          notes: string | null
+          unit_id: string
+        }
+        Insert: {
+          category: string
+          created_at?: string
+          id?: string
+          is_available?: boolean | null
+          location: string
+          name: string
+          notes?: string | null
+          unit_id: string
+        }
+        Update: {
+          category?: string
+          created_at?: string
+          id?: string
+          is_available?: boolean | null
+          location?: string
+          name?: string
+          notes?: string | null
+          unit_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "property_amenities_unit_id_fkey"
+            columns: ["unit_id"]
+            isOneToOne: false
+            referencedRelation: "units"
+            referencedColumns: ["id"]
+          },
+        ]
       }
       reservations: {
         Row: {
@@ -418,6 +656,7 @@ export type Database = {
       }
       units: {
         Row: {
+          address: string | null
           availability_date: string | null
           baths: number | null
           beds: number | null
@@ -426,6 +665,9 @@ export type Database = {
           comments: string | null
           created_at: string
           id: string
+          latitude: number | null
+          longitude: number | null
+          map_description: string | null
           max_guests: number | null
           name: string
           photos: string[] | null
@@ -440,6 +682,7 @@ export type Database = {
           view: string | null
         }
         Insert: {
+          address?: string | null
           availability_date?: string | null
           baths?: number | null
           beds?: number | null
@@ -448,6 +691,9 @@ export type Database = {
           comments?: string | null
           created_at?: string
           id?: string
+          latitude?: number | null
+          longitude?: number | null
+          map_description?: string | null
           max_guests?: number | null
           name: string
           photos?: string[] | null
@@ -462,6 +708,7 @@ export type Database = {
           view?: string | null
         }
         Update: {
+          address?: string | null
           availability_date?: string | null
           baths?: number | null
           beds?: number | null
@@ -470,6 +717,9 @@ export type Database = {
           comments?: string | null
           created_at?: string
           id?: string
+          latitude?: number | null
+          longitude?: number | null
+          map_description?: string | null
           max_guests?: number | null
           name?: string
           photos?: string[] | null
@@ -575,6 +825,14 @@ export type Database = {
     }
     Enums: {
       app_role: "admin" | "front_desk" | "housekeeping" | "manager"
+      ticket_priority: "low" | "medium" | "high" | "urgent"
+      ticket_status: "open" | "in_progress" | "resolved" | "closed"
+      ticket_type:
+        | "not_working"
+        | "broken"
+        | "repair_needed"
+        | "housekeeping"
+        | "linen_change"
     }
     CompositeTypes: {
       [_ in never]: never
@@ -703,6 +961,15 @@ export const Constants = {
   public: {
     Enums: {
       app_role: ["admin", "front_desk", "housekeeping", "manager"],
+      ticket_priority: ["low", "medium", "high", "urgent"],
+      ticket_status: ["open", "in_progress", "resolved", "closed"],
+      ticket_type: [
+        "not_working",
+        "broken",
+        "repair_needed",
+        "housekeeping",
+        "linen_change",
+      ],
     },
   },
 } as const
