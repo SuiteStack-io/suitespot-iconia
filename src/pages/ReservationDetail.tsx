@@ -29,6 +29,7 @@ import { toast } from 'sonner';
 import { format } from 'date-fns';
 import { ArrowLeft, Edit2, X, CalendarIcon, Trash2, FileText, Download, Check, ChevronsUpDown } from 'lucide-react';
 import { cn } from '@/lib/utils';
+import { CreateGuestAccountDialog } from '@/components/CreateGuestAccountDialog';
 import {
   AlertDialog,
   AlertDialogAction,
@@ -477,6 +478,10 @@ const ReservationDetail = () => {
           </div>
           {canEdit && !isEditMode && (
             <div className="hidden md:flex gap-2">
+              <CreateGuestAccountDialog 
+                reservationId={reservation.id}
+                guestName={reservation.guest_names[0] || 'Guest'}
+              />
               <Button onClick={() => setIsEditMode(true)}>
                 <Edit2 className="h-4 w-4 mr-2" />
                 Edit Reservation
@@ -493,6 +498,10 @@ const ReservationDetail = () => {
         </div>
         {canEdit && !isEditMode && (
           <div className="flex md:hidden gap-2 mt-4 justify-center">
+            <CreateGuestAccountDialog 
+              reservationId={reservation.id}
+              guestName={reservation.guest_names[0] || 'Guest'}
+            />
             <Button onClick={() => setIsEditMode(true)}>
               <Edit2 className="h-4 w-4 mr-2" />
               Edit

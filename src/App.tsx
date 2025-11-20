@@ -4,7 +4,9 @@ import { TooltipProvider } from "@/components/ui/tooltip";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { BrowserRouter, Routes, Route } from "react-router-dom";
 import { AuthProvider } from "@/lib/auth";
+import { GuestAuthProvider } from "@/lib/guestAuth";
 import { ProtectedRoute } from "@/components/ProtectedRoute";
+import { GuestProtectedRoute } from "@/components/GuestProtectedRoute";
 import Index from "./pages/Index";
 import Auth from "./pages/Auth";
 import Calendar from "./pages/Calendar";
@@ -28,6 +30,7 @@ import Blog from "./pages/Blog";
 import HomepageManagement from "./pages/HomepageManagement";
 import Settings from "./pages/Settings";
 import BookingComReservations from "./pages/BookingComReservations";
+import GuestLogin from "./pages/guest/Login";
 
 const queryClient = new QueryClient();
 
@@ -35,10 +38,11 @@ const App = () => (
   <QueryClientProvider client={queryClient}>
     <TooltipProvider>
       <AuthProvider>
-        <Toaster />
-        <Sonner />
-        <BrowserRouter>
-          <Routes>
+        <GuestAuthProvider>
+          <Toaster />
+          <Sonner />
+          <BrowserRouter>
+            <Routes>
             {/* Public Routes - For findyoursuitespot.com */}
             <Route path="/" element={<PublicHome />} />
             <Route path="/book" element={<BookingFlow />} />
@@ -50,6 +54,9 @@ const App = () => (
             <Route path="/experiences" element={<Experiences />} />
             <Route path="/nearby" element={<Nearby />} />
             <Route path="/blog" element={<Blog />} />
+            
+            {/* Guest Routes - For guest portal */}
+            <Route path="/guest/login" element={<GuestLogin />} />
             
             {/* Admin Routes - For internal management */}
             <Route path="/admin" element={<ProtectedRoute><Index /></ProtectedRoute>} />
@@ -67,8 +74,9 @@ const App = () => (
             
             {/* ADD ALL CUSTOM ROUTES ABOVE THE CATCH-ALL "*" ROUTE */}
             <Route path="*" element={<NotFound />} />
-          </Routes>
-        </BrowserRouter>
+            </Routes>
+          </BrowserRouter>
+        </GuestAuthProvider>
       </AuthProvider>
     </TooltipProvider>
   </QueryClientProvider>
