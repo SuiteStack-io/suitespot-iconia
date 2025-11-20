@@ -53,7 +53,10 @@ export const AvailabilityCalendar = () => {
   const [blockedDates, setBlockedDates] = useState<BlockedDate[]>([]);
   const [currentWeekStart, setCurrentWeekStart] = useState<Date>(startOfDay(new Date()));
   const [currentMonth, setCurrentMonth] = useState<Date>(startOfMonth(new Date()));
-  const [viewMode, setViewMode] = useState<ViewMode>('monthly');
+  const [viewMode, setViewMode] = useState<ViewMode>(() => {
+    const saved = localStorage.getItem('calendarViewMode');
+    return (saved as ViewMode) || 'weekly';
+  });
   const [conflicts, setConflicts] = useState<Set<string>>(new Set());
   const [exporting, setExporting] = useState(false);
   const navigate = useNavigate();
@@ -62,6 +65,10 @@ export const AvailabilityCalendar = () => {
   const displayDays = viewMode === 'monthly' 
     ? eachDayOfInterval({ start: startOfMonth(currentMonth), end: endOfMonth(currentMonth) })
     : Array.from({ length: 14 }, (_, i) => addDays(currentWeekStart, i));
+
+  useEffect(() => {
+    localStorage.setItem('calendarViewMode', viewMode);
+  }, [viewMode]);
 
   useEffect(() => {
     fetchData();
