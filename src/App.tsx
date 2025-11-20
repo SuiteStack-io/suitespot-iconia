@@ -37,6 +37,8 @@ import StaySurvey from "./pages/guest/StaySurvey";
 import GuestTickets from "./pages/GuestTickets";
 import TicketAnalytics from "./pages/TicketAnalytics";
 import LocationsManagement from "./pages/LocationsManagement";
+import MediaLibrary from "./pages/MediaLibrary";
+import PropertyMedia from "./pages/PropertyMedia";
 
 const queryClient = new QueryClient();
 
@@ -88,6 +90,8 @@ const App = () => (
             <Route path="/settings" element={<ProtectedRoute><Settings /></ProtectedRoute>} />
       <Route path="/booking-com-reservations" element={<ProtectedRoute><BookingComReservations /></ProtectedRoute>} />
       <Route path="/locations-management" element={<ProtectedRoute><LocationsManagement /></ProtectedRoute>} />
+      <Route path="/media-library" element={<ProtectedRoute><MediaLibrary /></ProtectedRoute>} />
+      <Route path="/property-media/:unitId" element={<ProtectedRoute><PropertyMedia /></ProtectedRoute>} />
       <Route path="/guest-tickets" element={
         <ProtectedRoute>
           <GuestTickets />

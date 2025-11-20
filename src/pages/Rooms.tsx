@@ -5,7 +5,7 @@ import { supabase } from '@/integrations/supabase/client';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
-import { ArrowLeft, Save, Plus, Pencil, X, Upload, Trash2, Eye, ChevronDown, Copy } from 'lucide-react';
+import { ArrowLeft, Save, Plus, Pencil, X, Upload, Trash2, Eye, ChevronDown, Copy, Image as ImageIcon } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
 import { Progress } from '@/components/ui/progress';
 import {
@@ -1311,6 +1311,14 @@ const Rooms = () => {
                           <div className="flex gap-2">
                             <Button size="sm" variant="ghost" onClick={() => handleEdit(unit)}>
                               <Pencil className="h-4 w-4" />
+                            </Button>
+                            <Button 
+                              size="sm" 
+                              variant="ghost" 
+                              onClick={() => navigate(`/property-media/${unit.id}`)}
+                              title="Manage photos"
+                            >
+                              <ImageIcon className="h-4 w-4" />
                             </Button>
                             <Button 
                               size="sm" 
