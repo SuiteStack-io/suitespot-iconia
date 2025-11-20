@@ -33,6 +33,7 @@ import BookingComReservations from "./pages/BookingComReservations";
 import GuestLogin from "./pages/guest/Login";
 import GuestDashboard from "./pages/guest/Dashboard";
 import GuestTickets from "./pages/GuestTickets";
+import TicketAnalytics from "./pages/TicketAnalytics";
 
 const queryClient = new QueryClient();
 
@@ -80,7 +81,17 @@ const App = () => (
             <Route path="/rooms" element={<ProtectedRoute><Rooms /></ProtectedRoute>} />
             <Route path="/homepage-management" element={<ProtectedRoute><HomepageManagement /></ProtectedRoute>} />
             <Route path="/settings" element={<ProtectedRoute><Settings /></ProtectedRoute>} />
-            <Route path="/booking-com-reservations" element={<ProtectedRoute><BookingComReservations /></ProtectedRoute>} />
+      <Route path="/booking-com-reservations" element={<ProtectedRoute><BookingComReservations /></ProtectedRoute>} />
+      <Route path="/guest-tickets" element={
+        <ProtectedRoute>
+          <GuestTickets />
+        </ProtectedRoute>
+      } />
+      <Route path="/ticket-analytics" element={
+        <ProtectedRoute>
+          <TicketAnalytics />
+        </ProtectedRoute>
+      } />
             <Route path="/guest-tickets" element={<ProtectedRoute><GuestTickets /></ProtectedRoute>} />
             
             {/* ADD ALL CUSTOM ROUTES ABOVE THE CATCH-ALL "*" ROUTE */}

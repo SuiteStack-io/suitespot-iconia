@@ -7,12 +7,15 @@ import { CheckoutCountdown } from "@/components/guest/CheckoutCountdown";
 import { QuickActions } from "@/components/guest/QuickActions";
 import { AmenitiesChecklist } from "@/components/guest/AmenitiesChecklist";
 import { TicketSubmission } from "@/components/guest/TicketSubmission";
+import TicketHistory from "@/components/guest/TicketHistory";
+import NearbyMap from "@/components/guest/NearbyMap";
 
 interface Reservation {
   id: string;
   check_in_date: string;
   check_out_date: string;
   guest_names: string[];
+  unit_id: string;
   units: {
     id: string;
     name: string;
@@ -29,10 +32,11 @@ export default function GuestDashboard() {
     const fetchReservation = async () => {
       if (!guestAccount?.reservation_id) return;
 
-      const { data, error } = await supabase
+      const { data, error} = await supabase
         .from("reservations")
         .select(`
           id,
+          unit_id,
           check_in_date,
           check_out_date,
           guest_names,
@@ -98,13 +102,18 @@ export default function GuestDashboard() {
         <QuickActions unitId={reservation.units?.id || ""} />
 
         <div className="grid gap-6 md:grid-cols-2">
-          <AmenitiesChecklist unitId={reservation.units?.id || ""} />
+          <AmenitiesChecklist unitId={reservation.unit_id} />
           
           <TicketSubmission
             reservationId={reservation.id}
             guestAccountId={guestAccount?.id || ""}
-            unitId={reservation.units?.id || ""}
+            unitId={reservation.unit_id}
           />
+        </div>
+
+        <div className="grid gap-6 md:grid-cols-2">
+          <NearbyMap unitId={reservation.unit_id} />
+          <TicketHistory guestAccountId={guestAccount?.id || ""} />
         </div>
       </div>
     </div>
