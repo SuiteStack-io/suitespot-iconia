@@ -77,7 +77,6 @@ const Index = () => {
             <DropdownMenu>
               <DropdownMenuTrigger asChild><Button variant="outline" size="sm"><Home className="h-4 w-4 mr-2" />Menu<ChevronDown className="h-4 w-4 ml-2" /></Button></DropdownMenuTrigger>
               <DropdownMenuContent align="end">
-                <DropdownMenuItem onClick={() => navigate('/admin')}>Dashboard</DropdownMenuItem>
                 <DropdownMenuItem onClick={() => navigate('/calendar')}>Calendar</DropdownMenuItem>
                 <DropdownMenuItem onClick={() => navigate('/rooms')}>Rooms</DropdownMenuItem>
                 {isAdmin && (<><DropdownMenuItem onClick={() => navigate('/users')}>Users</DropdownMenuItem>
