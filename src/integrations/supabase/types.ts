@@ -267,6 +267,62 @@ export type Database = {
           },
         ]
       }
+      media_library: {
+        Row: {
+          bucket_id: string
+          created_at: string
+          description: string | null
+          file_name: string
+          file_path: string
+          file_size: number
+          id: string
+          mime_type: string
+          tags: string[] | null
+          title: string | null
+          unit_id: string | null
+          updated_at: string
+          uploaded_by: string | null
+        }
+        Insert: {
+          bucket_id: string
+          created_at?: string
+          description?: string | null
+          file_name: string
+          file_path: string
+          file_size: number
+          id?: string
+          mime_type: string
+          tags?: string[] | null
+          title?: string | null
+          unit_id?: string | null
+          updated_at?: string
+          uploaded_by?: string | null
+        }
+        Update: {
+          bucket_id?: string
+          created_at?: string
+          description?: string | null
+          file_name?: string
+          file_path?: string
+          file_size?: number
+          id?: string
+          mime_type?: string
+          tags?: string[] | null
+          title?: string | null
+          unit_id?: string | null
+          updated_at?: string
+          uploaded_by?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "media_library_unit_id_fkey"
+            columns: ["unit_id"]
+            isOneToOne: false
+            referencedRelation: "units"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       nearby_amenities: {
         Row: {
           address: string | null
