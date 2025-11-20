@@ -62,6 +62,12 @@ const Index = () => {
           </div>
           <div className="flex items-center gap-2">
             <NotificationBell />
+            {isAdmin && (
+              <Button variant="outline" size="sm" onClick={() => navigate('/booking-com-reservations')}>
+                <Upload className="h-4 w-4 mr-2" />
+                Booking.com
+              </Button>
+            )}
             <DropdownMenu>
               <DropdownMenuTrigger asChild><Button variant="outline" size="sm"><Home className="h-4 w-4 mr-2" />Menu<ChevronDown className="h-4 w-4 ml-2" /></Button></DropdownMenuTrigger>
               <DropdownMenuContent align="end">
