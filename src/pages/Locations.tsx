@@ -1,12 +1,32 @@
+import { useEffect, useState } from "react";
+import { supabase } from "@/integrations/supabase/client";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
 import { Link } from "react-router-dom";
 import { MapPin, Home, Waves, Dumbbell, Lock, Tv, Wifi, Wind, Package, Sparkles } from "lucide-react";
 import { PublicNav } from "@/components/PublicNav";
-import Map from "@/components/Map";
+import InteractivePropertyMap from "@/components/InteractivePropertyMap";
 import northCoast from "@/assets/north-coast.webp";
 
+
 const Locations = () => {
+  const [properties, setProperties] = useState<any[]>([]);
+
+  useEffect(() => {
+    fetchProperties();
+  }, []);
+
+  const fetchProperties = async () => {
+    const { data } = await supabase
+      .from("units")
+      .select("*")
+      .not("latitude", "is", null)
+      .not("longitude", "is", null)
+      .order("name");
+    
+    if (data) setProperties(data);
+  };
+
   return (
     <div className="min-h-screen bg-background">
       <PublicNav />
@@ -148,9 +168,7 @@ const Locations = () => {
                 ICONIA Zamalek - 16 Mohammed Thakeb St, Zamalek, Cairo
               </p>
             </div>
-            <div className="h-[500px]">
-              <Map />
-            </div>
+            <InteractivePropertyMap properties={properties} />
           </div>
         </section>
       </div>
