@@ -6,19 +6,14 @@ import { ReservationsList } from '@/components/ReservationsList';
 import { WeeklyCalendar } from '@/components/WeeklyCalendar';
 import { CreateReservationDialog } from '@/components/CreateReservationDialog';
 import { Button } from '@/components/ui/button';
-import { LogOut, CalendarDays, ChevronDown, DoorOpen, Home, Settings as SettingsIcon, RefreshCw, Upload, Ticket } from 'lucide-react';
+import { LogOut, CalendarDays, ChevronDown, DoorOpen, Home, Settings as SettingsIcon, RefreshCw, Upload, Ticket, BarChart3, Bell } from 'lucide-react';
 import { NotificationCenter } from '@/components/NotificationCenter';
-import { SyncButton } from '@/components/SyncButton';
 import suitespotLogo from '@/assets/suitespot-logo.png';
 import { useIsMobile } from '@/hooks/use-mobile';
 import { useToast } from '@/hooks/use-toast';
 import { supabase } from '@/integrations/supabase/client';
-import {
-  DropdownMenu,
-  DropdownMenuContent,
-  DropdownMenuItem,
-  DropdownMenuTrigger,
-} from '@/components/ui/dropdown-menu';
+import { useNotifications } from '@/hooks/useNotifications';
+import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from '@/components/ui/dropdown-menu';
 
 const Index = () => {
   const { user, loading, signOut, userRole } = useAuth();
@@ -26,74 +21,34 @@ const Index = () => {
   const isMobile = useIsMobile();
   const { toast } = useToast();
   const [syncing, setSyncing] = useState(false);
+  const { permission, requestPermission, subscribeToTickets } = useNotifications();
+
+  useEffect(() => {
+    if (permission === "granted") {
+      const unsubscribe = subscribeToTickets();
+      return unsubscribe;
+    }
+  }, [permission]);
 
   const handleSync = async () => {
     setSyncing(true);
     try {
-      const { data, error } = await supabase.functions.invoke('sync-booking-gmail', {
-        body: { trigger_type: 'manual' }
-      });
-
+      const { data, error } = await supabase.functions.invoke('sync-booking-gmail', { body: { trigger_type: 'manual' } });
       if (error) throw error;
-
-      const bookingsCreated = data?.bookingsCreated || 0;
-      const bookingsSkipped = data?.bookingsSkipped || 0;
-
-      if (bookingsCreated > 0) {
-        toast({
-          title: "Sync Complete",
-          description: `Created ${bookingsCreated} new booking${bookingsCreated > 1 ? 's' : ''}, skipped ${bookingsSkipped}`,
-        });
-      } else if (bookingsSkipped > 0) {
-        toast({
-          title: "Sync Complete",
-          description: `No new bookings found (${bookingsSkipped} existing)`,
-        });
-      } else {
-        toast({
-          title: "Sync Complete",
-          description: "No new bookings found",
-        });
-      }
-
-      // Refresh the page to show new bookings
+      toast({ title: "Sync Complete", description: "Bookings synced successfully" });
       window.location.reload();
     } catch (error: any) {
-      console.error('Sync error:', error);
-      toast({
-        title: "Sync Failed",
-        description: error.message || "Failed to sync bookings",
-        variant: "destructive",
-      });
+      toast({ title: "Sync Failed", description: error.message, variant: "destructive" });
     } finally {
       setSyncing(false);
     }
   };
 
-  useEffect(() => {
-    if (!loading && !user) {
-      navigate('/auth');
-    }
-  }, [user, loading, navigate]);
+  useEffect(() => { if (!loading && !user) navigate('/auth'); }, [user, loading, navigate]);
+  useEffect(() => { if (window.location.pathname === '/' && user) navigate('/admin'); }, [user, navigate]);
 
-  // Redirect to admin from root if logged in
-  useEffect(() => {
-    if (window.location.pathname === '/' && user) {
-      navigate('/admin');
-    }
-  }, [user, navigate]);
-
-  if (loading) {
-    return (
-      <div className="flex min-h-screen items-center justify-center">
-        <div className="text-muted-foreground">Loading...</div>
-      </div>
-    );
-  }
-
-  if (!user) {
-    return null;
-  }
+  if (loading) return <div className="flex min-h-screen items-center justify-center"><div className="text-muted-foreground">Loading...</div></div>;
+  if (!user) return null;
 
   const isAdmin = userRole === 'admin';
 
@@ -101,174 +56,37 @@ const Index = () => {
     <div className="min-h-screen bg-background">
       <header className="border-b bg-card">
         <div className="container mx-auto px-4 py-4 flex items-start justify-between">
-          {/* Logo and title - horizontal on desktop, stacked on mobile */}
           <div className={isMobile ? "flex flex-col items-center gap-2" : "flex items-center gap-3"}>
             <img src={suitespotLogo} alt="SuiteSpot Logo" className={isMobile ? "h-14 w-14" : "h-10 w-10"} />
-            <div className={isMobile ? "text-center" : ""}>
-              <h1 className={isMobile ? "text-xl font-bold leading-tight" : "text-xl font-bold"}>
-                {isMobile ? (
-                  <>
-                    <div>SuiteSpot</div>
-                    <div>Reservations</div>
-                  </>
-                ) : (
-                  'SuiteSpot Reservations'
-                )}
-              </h1>
-              <p className="text-sm text-muted-foreground">Manage your bookings with ease</p>
-            </div>
+            <div><h1 className="text-xl font-bold">SuiteSpot Reservations</h1></div>
           </div>
-
-          {/* Right side - user info and action buttons */}
-          <div className={isMobile ? "flex flex-col items-end gap-2" : "flex items-center gap-2"}>
-            {/* Admin tools */}
-            {isAdmin && (
-              <div className="flex items-center gap-2">
-                <NotificationCenter />
-              </div>
-            )}
-            
-            {/* User info display with dropdown */}
+          <div className="flex items-center gap-2">
+            <NotificationCenter />
             <DropdownMenu>
-              <DropdownMenuTrigger asChild>
-                <button className="flex items-center gap-2 px-3 py-2 bg-accent/10 rounded-lg border border-accent/20 hover:bg-accent/20 transition-colors cursor-pointer">
-                  <div className="hidden md:flex flex-col items-end">
-                    <span className="text-sm font-medium">
-                      {user.user_metadata?.full_name || user.email?.split('@')[0] || 'User'}
-                    </span>
-                    <span className="text-xs text-muted-foreground capitalize">
-                      {userRole || 'No role'}
-                    </span>
-                  </div>
-                  <div className="w-8 h-8 rounded-full bg-accent/20 flex items-center justify-center">
-                    <span className="text-sm font-semibold text-accent">
-                      {(() => {
-                        const fullName = user.user_metadata?.full_name;
-                        if (fullName) {
-                          const names = fullName.split(' ');
-                          if (names.length > 1) {
-                            return (names[0][0] + names[names.length - 1][0]).toUpperCase();
-                          }
-                          return fullName.substring(0, 2).toUpperCase();
-                        }
-                        return (user.email || 'U').substring(0, 2).toUpperCase();
-                      })()}
-                    </span>
-                  </div>
-                  <ChevronDown className="h-4 w-4 text-muted-foreground" />
-                </button>
-              </DropdownMenuTrigger>
-              <DropdownMenuContent align="end" className="w-48">
-                <DropdownMenuItem onClick={() => navigate('/my-reservations')}>
-                  My Reservations
-                </DropdownMenuItem>
-              {userRole === 'admin' && (
-                  <>
-                    {/* Sync Bookings menu item - on both desktop and mobile */}
-                    <DropdownMenuItem onClick={handleSync} disabled={syncing}>
-                      <RefreshCw className={`h-4 w-4 mr-2 ${syncing ? 'animate-spin' : ''}`} />
-                      {syncing ? 'Syncing...' : 'Sync Bookings'}
-                    </DropdownMenuItem>
-                    <DropdownMenuItem onClick={() => navigate('/users')}>
-                      Users
-                    </DropdownMenuItem>
-                    <DropdownMenuItem onClick={() => navigate('/guests')}>
-                      Guests
-                    </DropdownMenuItem>
-                    <DropdownMenuItem onClick={() => navigate('/guest-tickets')}>
-                      <Ticket className="h-4 w-4 mr-2" />
-                      Guest Tickets
-                    </DropdownMenuItem>
-                    <DropdownMenuItem onClick={() => navigate('/analytics')}>
-                      Analytics
-                    </DropdownMenuItem>
-                    <DropdownMenuItem onClick={() => navigate('/settings')}>
-                      <SettingsIcon className="h-4 w-4 mr-2" />
-                      Settings
-                    </DropdownMenuItem>
-                  </>
-                )}
+              <DropdownMenuTrigger asChild><Button variant="outline" size="sm"><Home className="h-4 w-4 mr-2" />Menu<ChevronDown className="h-4 w-4 ml-2" /></Button></DropdownMenuTrigger>
+              <DropdownMenuContent align="end">
+                <DropdownMenuItem onClick={() => navigate('/admin')}>Dashboard</DropdownMenuItem>
+                <DropdownMenuItem onClick={() => navigate('/calendar')}>Calendar</DropdownMenuItem>
+                <DropdownMenuItem onClick={() => navigate('/rooms')}>Rooms</DropdownMenuItem>
+                {isAdmin && (<><DropdownMenuItem onClick={() => navigate('/users')}>Users</DropdownMenuItem>
+                <DropdownMenuItem onClick={() => navigate('/guests')}>Guests</DropdownMenuItem>
+                <DropdownMenuItem onClick={() => navigate('/guest-tickets')}><Ticket className="h-4 w-4 mr-2" />Guest Tickets</DropdownMenuItem>
+                <DropdownMenuItem onClick={() => navigate('/ticket-analytics')}><BarChart3 className="h-4 w-4 mr-2" />Analytics</DropdownMenuItem>
+                <DropdownMenuItem onClick={() => navigate('/settings')}>Settings</DropdownMenuItem></>)}
               </DropdownMenuContent>
             </DropdownMenu>
-
-            {/* Action buttons - horizontal on desktop, stacked on mobile */}
-            <div className={isMobile ? "flex flex-col gap-2 w-full" : "flex items-center gap-2"}>
-              <Button 
-                variant="outline" 
-                size="sm" 
-                onClick={() => navigate('/calendar')} 
-                className={isMobile ? "w-full justify-start" : ""}
-              >
-                <CalendarDays className="h-4 w-4 mr-2" />
-                <span className={isMobile ? "" : "hidden md:inline"}>
-                  {isMobile ? "Calendar" : "Calendar View"}
-                </span>
-                <span className={isMobile ? "hidden" : "md:hidden inline"}>Calendar</span>
-              </Button>
-              {userRole === 'admin' && (
-                <>
-                  <Button 
-                    variant="outline" 
-                    size="sm" 
-                    onClick={() => navigate('/rooms')} 
-                    className={isMobile ? "w-full justify-start" : ""}
-                  >
-                    <DoorOpen className="h-4 w-4 mr-2" />
-                    Rooms
-                  </Button>
-                  <Button 
-                    variant="outline" 
-                    size="sm" 
-                    onClick={() => navigate('/homepage-management')} 
-                    className={isMobile ? "w-full justify-start" : ""}
-                  >
-                    <Home className="h-4 w-4 mr-2" />
-                    Content
-                  </Button>
-                  <Button 
-                    variant="outline" 
-                    size="sm" 
-                    onClick={() => navigate('/booking-com-reservations')} 
-                    className={isMobile ? "w-full justify-start" : ""}
-                  >
-                    <Upload className="h-4 w-4 mr-2" />
-                    Booking.com
-                  </Button>
-                </>
-              )}
-              <Button 
-                variant="outline" 
-                size="sm" 
-                onClick={() => signOut()} 
-                className={isMobile ? "w-full justify-start" : ""}
-              >
-                <LogOut className="h-4 w-4 mr-2" />
-                Sign Out
-              </Button>
-            </div>
+            <Button variant="outline" size="sm" onClick={handleSync} disabled={syncing}><RefreshCw className={`h-4 w-4 mr-2 ${syncing ? 'animate-spin' : ''}`} />Sync</Button>
+            <Button variant="outline" size="sm" onClick={() => signOut()}><LogOut className="h-4 w-4 mr-2" />Sign Out</Button>
           </div>
         </div>
       </header>
-
-      <main className="container mx-auto px-4 py-8 space-y-8">
-        <section>
-          <h2 className="text-2xl font-bold mb-4">Dashboard</h2>
-          <Dashboard />
-        </section>
-
-        <section>
-          <div className="flex items-center justify-between mb-4">
-            <h2 className="text-2xl font-bold">{isMobile ? 'Reservations' : 'All Reservations'}</h2>
-            <CreateReservationDialog />
-          </div>
-          <ReservationsList />
-        </section>
-
-        <section>
-          <h2 className="text-2xl font-bold mb-4">Weekly Calendar</h2>
-          <WeeklyCalendar />
-        </section>
-      </main>
+      <div className="container mx-auto p-6 space-y-6">
+        {permission !== "granted" && (<div className="bg-yellow-50 border border-yellow-200 rounded-lg p-4 flex items-center justify-between"><div className="flex items-center gap-3"><Bell className="h-5 w-5 text-yellow-600" /><p className="text-sm text-yellow-800">Enable notifications for ticket alerts</p></div><Button onClick={requestPermission} variant="outline" size="sm">Enable</Button></div>)}
+        <Dashboard />
+        <div className="flex items-center justify-between mb-4"><h2 className="text-2xl font-bold">Reservations</h2><CreateReservationDialog /></div>
+        <ReservationsList />
+        <WeeklyCalendar />
+      </div>
     </div>
   );
 };

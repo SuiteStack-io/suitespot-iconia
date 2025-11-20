@@ -19,6 +19,7 @@ export function CreateGuestAccountDialog({ reservationId, guestName }: CreateGue
 
   const handleCreateAccount = async () => {
     setLoading(true);
+    const generatedPassword = Math.random().toString(36).slice(-8);
     
     try {
       const { data, error } = await supabase.functions.invoke('create-guest-account', {
@@ -30,12 +31,38 @@ export function CreateGuestAccountDialog({ reservationId, guestName }: CreateGue
 
       if (error) throw error;
 
+      // Send credentials email
+      try {
+        const { data: reservationData } = await supabase
+          .from("reservations")
+          .select("check_in_date, check_out_date, contact_email, units(name)")
+          .eq("id", reservationId)
+          .single();
+
+        if (reservationData?.contact_email) {
+          await supabase.functions.invoke("send-guest-credentials", {
+            body: {
+              email: reservationData.contact_email,
+              guestName: guestName,
+              username: data.username,
+              password: generatedPassword,
+              checkInDate: reservationData.check_in_date,
+              checkOutDate: reservationData.check_out_date,
+              unitName: reservationData.units?.name || "Your Unit",
+            },
+          });
+        }
+      } catch (emailError) {
+        console.error("Error sending credentials email:", emailError);
+        toast.warning("Account created but email notification failed");
+      }
+
       setCredentials({
         username: data.username,
-        password: data.password
+        password: generatedPassword
       });
       
-      toast.success('Guest account created successfully!');
+      toast.success('Guest account created and credentials sent!');
     } catch (error: any) {
       console.error('Error creating guest account:', error);
       toast.error(error.message || 'Failed to create guest account');
