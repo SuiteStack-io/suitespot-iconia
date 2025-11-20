@@ -16,7 +16,7 @@ import {
   DialogTitle,
 } from "@/components/ui/dialog";
 import { ScrollArea } from "@/components/ui/scroll-area";
-import { formatDistanceToNow } from "date-fns";
+import { formatDistanceToNow, format } from "date-fns";
 
 
 interface Notification {
@@ -62,6 +62,59 @@ export const NotificationBell = () => {
     if (!notification.read) {
       markAsRead(notification.id);
     }
+  };
+
+  const formatMetadata = (metadata: any) => {
+    if (!metadata) return null;
+
+    const fields: { label: string; value: string }[] = [];
+
+    if (metadata.check_in) {
+      fields.push({
+        label: "Check-in Date",
+        value: format(new Date(metadata.check_in), "MMMM d, yyyy"),
+      });
+    }
+
+    if (metadata.check_out) {
+      fields.push({
+        label: "Check-out Date",
+        value: format(new Date(metadata.check_out), "MMMM d, yyyy"),
+      });
+    }
+
+    if (metadata.old_room) {
+      fields.push({
+        label: "Previous Room",
+        value: `Room ${metadata.old_room}`,
+      });
+    }
+
+    if (metadata.new_room) {
+      fields.push({
+        label: "New Room",
+        value: `Room ${metadata.new_room}`,
+      });
+    }
+
+    if (metadata.reservation_id) {
+      fields.push({
+        label: "Reservation ID",
+        value: metadata.reservation_id,
+      });
+    }
+
+    // Handle any other fields that might exist
+    Object.keys(metadata).forEach((key) => {
+      if (!['check_in', 'check_out', 'old_room', 'new_room', 'reservation_id'].includes(key)) {
+        fields.push({
+          label: key.replace(/_/g, ' ').replace(/\b\w/g, l => l.toUpperCase()),
+          value: String(metadata[key]),
+        });
+      }
+    });
+
+    return fields;
   };
 
   const getNotificationColor = (type: string) => {
@@ -165,15 +218,24 @@ export const NotificationBell = () => {
             </DialogDescription>
           </DialogHeader>
           <div className="space-y-4">
-            <div className="text-sm">
+            <div className="text-sm leading-relaxed">
               {selectedNotification?.message}
             </div>
-            {selectedNotification?.metadata && (
-              <div className="bg-muted p-4 rounded-lg">
-                <p className="text-sm font-medium mb-2">Additional Information</p>
-                <pre className="text-xs overflow-auto">
-                  {JSON.stringify(selectedNotification.metadata, null, 2)}
-                </pre>
+            {selectedNotification?.metadata && formatMetadata(selectedNotification.metadata) && (
+              <div className="bg-muted/50 p-4 rounded-lg border border-border">
+                <p className="text-sm font-semibold mb-3 text-foreground">Additional Information</p>
+                <div className="space-y-2">
+                  {formatMetadata(selectedNotification.metadata)?.map((field, index) => (
+                    <div key={index} className="flex flex-col gap-1">
+                      <span className="text-xs font-medium text-muted-foreground">
+                        {field.label}
+                      </span>
+                      <span className="text-sm text-foreground">
+                        {field.value}
+                      </span>
+                    </div>
+                  ))}
+                </div>
               </div>
             )}
           </div>
