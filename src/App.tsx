@@ -31,6 +31,7 @@ import HomepageManagement from "./pages/HomepageManagement";
 import Settings from "./pages/Settings";
 import BookingComReservations from "./pages/BookingComReservations";
 import GuestLogin from "./pages/guest/Login";
+import GuestDashboard from "./pages/guest/Dashboard";
 
 const queryClient = new QueryClient();
 
@@ -56,7 +57,15 @@ const App = () => (
             <Route path="/blog" element={<Blog />} />
             
             {/* Guest Routes - For guest portal */}
-            <Route path="/guest/login" element={<GuestLogin />} />
+          <Route path="/guest/login" element={<GuestLogin />} />
+          <Route
+            path="/guest/dashboard"
+            element={
+              <GuestProtectedRoute>
+                <GuestDashboard />
+              </GuestProtectedRoute>
+            }
+          />
             
             {/* Admin Routes - For internal management */}
             <Route path="/admin" element={<ProtectedRoute><Index /></ProtectedRoute>} />
