@@ -1,14 +1,17 @@
 import { useState, useEffect } from "react";
+import { useNavigate } from "react-router-dom";
 import { supabase } from "@/integrations/supabase/client";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { TicketList } from "@/components/tickets/TicketList";
 import { TicketFilters } from "@/components/tickets/TicketFilters";
 import { TicketStats } from "@/components/tickets/TicketStats";
-import { AlertCircle } from "lucide-react";
+import { AlertCircle, ArrowLeft } from "lucide-react";
 import { Alert, AlertDescription } from "@/components/ui/alert";
+import { Button } from "@/components/ui/button";
 
 export default function GuestTickets() {
+  const navigate = useNavigate();
   const [tickets, setTickets] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
   const [filters, setFilters] = useState({
@@ -100,6 +103,10 @@ export default function GuestTickets() {
     <div className="min-h-screen bg-background p-6 space-y-6">
       <div className="flex items-center justify-between">
         <div>
+          <Button variant="ghost" size="sm" onClick={() => navigate('/admin')} className="mb-4">
+            <ArrowLeft className="h-4 w-4 mr-2" />
+            Back
+          </Button>
           <h1 className="text-3xl font-bold text-foreground">Guest Tickets</h1>
           <p className="text-muted-foreground">
             Manage and resolve guest requests and issues
