@@ -175,7 +175,8 @@ Deno.serve(async (req) => {
         title: '🚨 Over-Booking Conflict',
         message: `All units for "${units[0]?.name || 'room type'}" are booked. Reservation ${bookingReference} requires manual unit assignment.`,
         metadata: {
-          reservation_id: pendingReservation.id,
+          source: 'Booking.com',
+          channel: 'Booking.com',
           booking_reference: bookingReference,
           check_in_date: checkInDate,
           check_out_date: checkOutDate,
