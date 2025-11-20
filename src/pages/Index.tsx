@@ -72,6 +72,10 @@ const Index = () => {
                   <Upload className="h-4 w-4 mr-2" />
                   Booking.com
                 </Button>
+                <Button variant="outline" size="sm" onClick={() => navigate('/guest-tickets')}>
+                  <Ticket className="h-4 w-4 mr-2" />
+                  Tickets
+                </Button>
               </>
             )}
             <DropdownMenu>
@@ -81,7 +85,6 @@ const Index = () => {
                 <DropdownMenuItem onClick={() => navigate('/rooms')}>Rooms</DropdownMenuItem>
                 {isAdmin && (<><DropdownMenuItem onClick={() => navigate('/users')}>Users</DropdownMenuItem>
                 <DropdownMenuItem onClick={() => navigate('/guests')}>Guests</DropdownMenuItem>
-                <DropdownMenuItem onClick={() => navigate('/guest-tickets')}><Ticket className="h-4 w-4 mr-2" />Guest Tickets</DropdownMenuItem>
                 <DropdownMenuItem onClick={() => navigate('/ticket-analytics')}><BarChart3 className="h-4 w-4 mr-2" />Analytics</DropdownMenuItem>
                 <DropdownMenuItem onClick={() => navigate('/locations-management')}><Map className="h-4 w-4 mr-2" />Locations</DropdownMenuItem>
                 <DropdownMenuItem onClick={() => navigate('/media-library')}><ImageIcon className="h-4 w-4 mr-2" />Media Library</DropdownMenuItem>
