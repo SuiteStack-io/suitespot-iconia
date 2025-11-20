@@ -654,6 +654,70 @@ export type Database = {
         }
         Relationships: []
       }
+      ticket_surveys: {
+        Row: {
+          created_at: string
+          feedback: string | null
+          guest_account_id: string
+          id: string
+          rating: number
+          reservation_id: string
+          resolution_satisfaction: number | null
+          response_time_satisfaction: number | null
+          submitted_at: string
+          ticket_id: string
+          would_recommend: boolean | null
+        }
+        Insert: {
+          created_at?: string
+          feedback?: string | null
+          guest_account_id: string
+          id?: string
+          rating: number
+          reservation_id: string
+          resolution_satisfaction?: number | null
+          response_time_satisfaction?: number | null
+          submitted_at?: string
+          ticket_id: string
+          would_recommend?: boolean | null
+        }
+        Update: {
+          created_at?: string
+          feedback?: string | null
+          guest_account_id?: string
+          id?: string
+          rating?: number
+          reservation_id?: string
+          resolution_satisfaction?: number | null
+          response_time_satisfaction?: number | null
+          submitted_at?: string
+          ticket_id?: string
+          would_recommend?: boolean | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "ticket_surveys_guest_account_id_fkey"
+            columns: ["guest_account_id"]
+            isOneToOne: false
+            referencedRelation: "guest_accounts"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "ticket_surveys_reservation_id_fkey"
+            columns: ["reservation_id"]
+            isOneToOne: false
+            referencedRelation: "reservations"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "ticket_surveys_ticket_id_fkey"
+            columns: ["ticket_id"]
+            isOneToOne: false
+            referencedRelation: "guest_tickets"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       units: {
         Row: {
           address: string | null

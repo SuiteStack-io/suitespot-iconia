@@ -109,7 +109,29 @@ export function TicketDetailDialog({ ticket, open, onOpenChange, onUpdate }: Tic
 
       if (error) throw error;
 
-      toast.success("Ticket resolved successfully");
+      // Get reservation details for survey email
+      const { data: reservation } = await supabase
+        .from("reservations")
+        .select("contact_email, guest_names")
+        .eq("id", ticket.reservation_id)
+        .single();
+
+      if (reservation?.contact_email) {
+        const surveyUrl = `${window.location.origin}/guest/survey/${ticket.id}`;
+        
+        // Send survey notification
+        await supabase.functions.invoke("send-survey-notification", {
+          body: {
+            guestEmail: reservation.contact_email,
+            guestName: reservation.guest_names[0] || "Guest",
+            ticketId: ticket.id,
+            ticketTitle: ticket.title,
+            surveyUrl,
+          },
+        });
+      }
+
+      toast.success("Ticket resolved and survey sent to guest");
       onUpdate();
     } catch (error: any) {
       console.error("Error resolving ticket:", error);
