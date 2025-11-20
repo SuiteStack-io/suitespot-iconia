@@ -474,6 +474,8 @@ export type Database = {
           price_per_night: number | null
           source: string
           status: string
+          survey_completed_at: string | null
+          survey_sent_at: string | null
           total_price: number | null
           unit_id: string | null
           updated_at: string
@@ -509,6 +511,8 @@ export type Database = {
           price_per_night?: number | null
           source?: string
           status: string
+          survey_completed_at?: string | null
+          survey_sent_at?: string | null
           total_price?: number | null
           unit_id?: string | null
           updated_at?: string
@@ -544,6 +548,8 @@ export type Database = {
           price_per_night?: number | null
           source?: string
           status?: string
+          survey_completed_at?: string | null
+          survey_sent_at?: string | null
           total_price?: number | null
           unit_id?: string | null
           updated_at?: string
@@ -581,6 +587,56 @@ export type Database = {
           updated_at?: string
         }
         Relationships: []
+      }
+      stay_surveys: {
+        Row: {
+          amenities_rating: number | null
+          cleanliness_rating: number | null
+          created_at: string
+          feedback: string | null
+          id: string
+          location_rating: number | null
+          overall_rating: number
+          reservation_id: string
+          submitted_at: string
+          value_rating: number | null
+          would_recommend: boolean | null
+        }
+        Insert: {
+          amenities_rating?: number | null
+          cleanliness_rating?: number | null
+          created_at?: string
+          feedback?: string | null
+          id?: string
+          location_rating?: number | null
+          overall_rating: number
+          reservation_id: string
+          submitted_at?: string
+          value_rating?: number | null
+          would_recommend?: boolean | null
+        }
+        Update: {
+          amenities_rating?: number | null
+          cleanliness_rating?: number | null
+          created_at?: string
+          feedback?: string | null
+          id?: string
+          location_rating?: number | null
+          overall_rating?: number
+          reservation_id?: string
+          submitted_at?: string
+          value_rating?: number | null
+          would_recommend?: boolean | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "stay_surveys_reservation_id_fkey"
+            columns: ["reservation_id"]
+            isOneToOne: false
+            referencedRelation: "reservations"
+            referencedColumns: ["id"]
+          },
+        ]
       }
       sync_logs: {
         Row: {

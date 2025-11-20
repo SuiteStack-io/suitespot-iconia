@@ -6,6 +6,7 @@ import TicketMetrics from "@/components/analytics/TicketMetrics";
 import ResolutionTimeChart from "@/components/analytics/ResolutionTimeChart";
 import TicketTypeChart from "@/components/analytics/TicketTypeChart";
 import SurveyAnalytics from "@/components/analytics/SurveyAnalytics";
+import StaySurveyAnalytics from "@/components/analytics/StaySurveyAnalytics";
 import { BarChart3 } from "lucide-react";
 
 interface TicketData {
@@ -69,7 +70,15 @@ const TicketAnalytics = () => {
         <TicketTypeChart tickets={tickets} />
       </div>
 
-      <SurveyAnalytics />
+      <div className="space-y-6">
+        <h2 className="text-2xl font-semibold">Guest Feedback</h2>
+        <StaySurveyAnalytics />
+      </div>
+
+      <div className="space-y-6">
+        <h2 className="text-2xl font-semibold">Ticket Resolution Feedback</h2>
+        <SurveyAnalytics />
+      </div>
     </div>
   );
 };

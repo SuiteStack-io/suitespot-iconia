@@ -33,6 +33,7 @@ import BookingComReservations from "./pages/BookingComReservations";
 import GuestLogin from "./pages/guest/Login";
 import GuestDashboard from "./pages/guest/Dashboard";
 import Survey from "./pages/guest/Survey";
+import StaySurvey from "./pages/guest/StaySurvey";
 import GuestTickets from "./pages/GuestTickets";
 import TicketAnalytics from "./pages/TicketAnalytics";
 
@@ -70,6 +71,7 @@ const App = () => (
             }
           />
           <Route path="/guest/survey/:ticketId" element={<Survey />} />
+          <Route path="/guest/stay-survey/:reservationId" element={<StaySurvey />} />
             
             {/* Admin Routes - For internal management */}
             <Route path="/admin" element={<ProtectedRoute><Index /></ProtectedRoute>} />
