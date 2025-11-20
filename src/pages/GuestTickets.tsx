@@ -101,12 +101,12 @@ export default function GuestTickets() {
 
   return (
     <div className="min-h-screen bg-background p-6 space-y-6">
-      <div className="flex items-center justify-between">
+      <div className="flex items-center gap-4 mb-6">
+        <Button variant="ghost" size="sm" onClick={() => navigate('/admin')}>
+          <ArrowLeft className="h-4 w-4 mr-2" />
+          Back
+        </Button>
         <div>
-          <Button variant="ghost" size="sm" onClick={() => navigate('/admin')} className="mb-4">
-            <ArrowLeft className="h-4 w-4 mr-2" />
-            Back
-          </Button>
           <h1 className="text-3xl font-bold text-foreground">Guest Tickets</h1>
           <p className="text-muted-foreground">
             Manage and resolve guest requests and issues
