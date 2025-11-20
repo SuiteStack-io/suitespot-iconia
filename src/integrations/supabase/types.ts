@@ -787,6 +787,10 @@ export type Database = {
           conflict_reference: string
         }[]
       }
+      generate_guest_username: {
+        Args: { p_guest_name: string }
+        Returns: string
+      }
       get_all_users_with_emails: {
         Args: never
         Returns: {
@@ -820,6 +824,10 @@ export type Database = {
           _role: Database["public"]["Enums"]["app_role"]
           _user_id: string
         }
+        Returns: boolean
+      }
+      is_guest_session_valid: {
+        Args: { p_reservation_id: string }
         Returns: boolean
       }
     }
