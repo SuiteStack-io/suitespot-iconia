@@ -6,7 +6,7 @@ import { ReservationsList } from '@/components/ReservationsList';
 import { WeeklyCalendar } from '@/components/WeeklyCalendar';
 import { CreateReservationDialog } from '@/components/CreateReservationDialog';
 import { Button } from '@/components/ui/button';
-import { LogOut, CalendarDays, ChevronDown, DoorOpen, Home, Settings as SettingsIcon, RefreshCw, Upload } from 'lucide-react';
+import { LogOut, CalendarDays, ChevronDown, DoorOpen, Home, Settings as SettingsIcon, RefreshCw, Upload, Ticket } from 'lucide-react';
 import { NotificationCenter } from '@/components/NotificationCenter';
 import { SyncButton } from '@/components/SyncButton';
 import suitespotLogo from '@/assets/suitespot-logo.png';
@@ -174,6 +174,10 @@ const Index = () => {
                     </DropdownMenuItem>
                     <DropdownMenuItem onClick={() => navigate('/guests')}>
                       Guests
+                    </DropdownMenuItem>
+                    <DropdownMenuItem onClick={() => navigate('/guest-tickets')}>
+                      <Ticket className="h-4 w-4 mr-2" />
+                      Guest Tickets
                     </DropdownMenuItem>
                     <DropdownMenuItem onClick={() => navigate('/analytics')}>
                       Analytics
