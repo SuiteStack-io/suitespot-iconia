@@ -5,6 +5,7 @@ import { Skeleton } from "@/components/ui/skeleton";
 import TicketMetrics from "@/components/analytics/TicketMetrics";
 import ResolutionTimeChart from "@/components/analytics/ResolutionTimeChart";
 import TicketTypeChart from "@/components/analytics/TicketTypeChart";
+import SurveyAnalytics from "@/components/analytics/SurveyAnalytics";
 import { BarChart3 } from "lucide-react";
 
 interface TicketData {
@@ -67,6 +68,8 @@ const TicketAnalytics = () => {
         <ResolutionTimeChart tickets={tickets} />
         <TicketTypeChart tickets={tickets} />
       </div>
+
+      <SurveyAnalytics />
     </div>
   );
 };
