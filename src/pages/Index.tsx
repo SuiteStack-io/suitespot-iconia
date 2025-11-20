@@ -7,7 +7,7 @@ import { WeeklyCalendar } from '@/components/WeeklyCalendar';
 import { CreateReservationDialog } from '@/components/CreateReservationDialog';
 import { Button } from '@/components/ui/button';
 import { LogOut, CalendarDays, ChevronDown, DoorOpen, Home, Settings as SettingsIcon, RefreshCw, Upload, Ticket, BarChart3, Bell, Map, Image as ImageIcon } from 'lucide-react';
-import { NotificationCenter } from '@/components/NotificationCenter';
+import { NotificationBell } from '@/components/NotificationBell';
 import suitespotLogo from '@/assets/suitespot-logo.png';
 import { useIsMobile } from '@/hooks/use-mobile';
 import { useToast } from '@/hooks/use-toast';
@@ -21,14 +21,14 @@ const Index = () => {
   const isMobile = useIsMobile();
   const { toast } = useToast();
   const [syncing, setSyncing] = useState(false);
-  const { permission, requestPermission, subscribeToTickets } = useNotifications();
+  const { permission, requestPermission } = useNotifications();
 
   useEffect(() => {
-    if (permission === "granted") {
-      const unsubscribe = subscribeToTickets();
-      return unsubscribe;
+    if (permission === "default") {
+      // Request browser notification permission on first load
+      requestPermission();
     }
-  }, [permission]);
+  }, []);
 
   const handleSync = async () => {
     setSyncing(true);
@@ -61,7 +61,7 @@ const Index = () => {
             <div><h1 className="text-xl font-bold">SuiteSpot Reservations</h1></div>
           </div>
           <div className="flex items-center gap-2">
-            <NotificationCenter />
+            <NotificationBell />
             <DropdownMenu>
               <DropdownMenuTrigger asChild><Button variant="outline" size="sm"><Home className="h-4 w-4 mr-2" />Menu<ChevronDown className="h-4 w-4 ml-2" /></Button></DropdownMenuTrigger>
               <DropdownMenuContent align="end">

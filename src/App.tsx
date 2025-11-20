@@ -5,6 +5,7 @@ import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { BrowserRouter, Routes, Route } from "react-router-dom";
 import { AuthProvider } from "@/lib/auth";
 import { GuestAuthProvider } from "@/lib/guestAuth";
+import { RealtimeProvider } from "@/components/RealtimeProvider";
 import { ProtectedRoute } from "@/components/ProtectedRoute";
 import { GuestProtectedRoute } from "@/components/GuestProtectedRoute";
 import Index from "./pages/Index";
@@ -47,8 +48,9 @@ const App = () => (
     <TooltipProvider>
       <AuthProvider>
         <GuestAuthProvider>
-          <Toaster />
-          <Sonner />
+          <RealtimeProvider>
+            <Toaster />
+            <Sonner />
           <BrowserRouter>
             <Routes>
             {/* Public Routes - For findyoursuitespot.com */}
@@ -107,6 +109,7 @@ const App = () => (
             <Route path="*" element={<NotFound />} />
             </Routes>
           </BrowserRouter>
+        </RealtimeProvider>
         </GuestAuthProvider>
       </AuthProvider>
     </TooltipProvider>
