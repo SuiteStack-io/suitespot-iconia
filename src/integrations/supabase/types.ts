@@ -1006,6 +1006,10 @@ export type Database = {
         Args: { p_reservation_id: string }
         Returns: boolean
       }
+      reset_guest_password: {
+        Args: { p_account_id: string; p_new_password_hash: string }
+        Returns: boolean
+      }
     }
     Enums: {
       app_role: "admin" | "front_desk" | "housekeeping" | "manager"
