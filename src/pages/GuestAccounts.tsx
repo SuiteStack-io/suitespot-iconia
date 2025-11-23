@@ -9,8 +9,9 @@ import { Badge } from "@/components/ui/badge";
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { toast } from "sonner";
-import { ArrowLeft, Key, Ban, CheckCircle, Copy } from "lucide-react";
+import { ArrowLeft, Key, Ban, CheckCircle, Copy, UserPlus, Loader2 } from "lucide-react";
 import { format } from "date-fns";
 import bcrypt from "bcryptjs";
 
@@ -41,6 +42,14 @@ export default function GuestAccounts() {
   const [newPassword, setNewPassword] = useState("");
   const [confirmPassword, setConfirmPassword] = useState("");
   const [resetting, setResetting] = useState(false);
+  
+  // Create account states
+  const [createDialogOpen, setCreateDialogOpen] = useState(false);
+  const [reservations, setReservations] = useState<any[]>([]);
+  const [selectedReservationId, setSelectedReservationId] = useState("");
+  const [guestName, setGuestName] = useState("");
+  const [creating, setCreating] = useState(false);
+  const [generatedCredentials, setGeneratedCredentials] = useState<{ username: string; password: string } | null>(null);
 
   useEffect(() => {
     if (user) {
@@ -61,6 +70,22 @@ export default function GuestAccounts() {
     }
 
     fetchAccounts();
+    fetchReservations();
+  };
+
+  const fetchReservations = async () => {
+    const { data, error } = await supabase
+      .from("reservations")
+      .select("id, booking_reference, guest_names, check_in_date, check_out_date, units(name)")
+      .eq("status", "confirmed")
+      .order("check_in_date", { ascending: false })
+      .limit(100);
+
+    if (error) {
+      console.error("Error fetching reservations:", error);
+    } else {
+      setReservations(data || []);
+    }
   };
 
   const fetchAccounts = async () => {
@@ -142,6 +167,63 @@ export default function GuestAccounts() {
     toast.success("Username copied to clipboard");
   };
 
+  const handleCreateAccount = async () => {
+    if (!selectedReservationId || !guestName.trim()) {
+      toast.error("Please select a reservation and enter guest name");
+      return;
+    }
+
+    // Check how many accounts already exist for this reservation
+    const { count } = await supabase
+      .from("guest_accounts")
+      .select("*", { count: "exact", head: true })
+      .eq("reservation_id", selectedReservationId);
+
+    if (count && count >= 4) {
+      toast.error("Maximum 4 guest accounts per reservation");
+      return;
+    }
+
+    setCreating(true);
+    try {
+      const { data, error } = await supabase.functions.invoke("create-guest-account", {
+        body: {
+          reservationId: selectedReservationId,
+          guestName: guestName.trim(),
+        },
+      });
+
+      if (error) throw error;
+
+      setGeneratedCredentials({
+        username: data.username,
+        password: data.password,
+      });
+
+      toast.success("Guest account created successfully");
+      fetchAccounts();
+    } catch (error: any) {
+      console.error("Error creating guest account:", error);
+      toast.error(error.message || "Failed to create guest account");
+    } finally {
+      setCreating(false);
+    }
+  };
+
+  const handleCloseCreateDialog = () => {
+    setCreateDialogOpen(false);
+    setTimeout(() => {
+      setSelectedReservationId("");
+      setGuestName("");
+      setGeneratedCredentials(null);
+    }, 300);
+  };
+
+  const copyToClipboard = (text: string, label: string) => {
+    navigator.clipboard.writeText(text);
+    toast.success(`${label} copied to clipboard`);
+  };
+
   if (loading) {
     return (
       <div className="flex items-center justify-center min-h-screen">
@@ -152,11 +234,17 @@ export default function GuestAccounts() {
 
   return (
     <div className="container mx-auto py-8 px-4">
-      <div className="flex items-center gap-4 mb-6">
-        <Button variant="ghost" size="icon" onClick={() => navigate("/admin")}>
-          <ArrowLeft className="h-5 w-5" />
+      <div className="flex items-center justify-between mb-6">
+        <div className="flex items-center gap-4">
+          <Button variant="ghost" size="icon" onClick={() => navigate("/admin")}>
+            <ArrowLeft className="h-5 w-5" />
+          </Button>
+          <h1 className="text-3xl font-bold">Guest Accounts Management</h1>
+        </div>
+        <Button onClick={() => setCreateDialogOpen(true)}>
+          <UserPlus className="h-4 w-4 mr-2" />
+          Create Guest Account
         </Button>
-        <h1 className="text-3xl font-bold">Guest Accounts Management</h1>
       </div>
 
       <Card>
@@ -316,6 +404,112 @@ export default function GuestAccounts() {
             <Button onClick={handleResetPassword} disabled={resetting}>
               {resetting ? "Resetting..." : "Reset Password"}
             </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      <Dialog open={createDialogOpen} onOpenChange={setCreateDialogOpen}>
+        <DialogContent className="sm:max-w-md">
+          <DialogHeader>
+            <DialogTitle>Create Guest Account</DialogTitle>
+            <DialogDescription>
+              Generate login credentials for a guest
+            </DialogDescription>
+          </DialogHeader>
+
+          {!generatedCredentials ? (
+            <div className="space-y-4 py-4">
+              <div className="space-y-2">
+                <Label htmlFor="reservation">Select Reservation</Label>
+                <Select value={selectedReservationId} onValueChange={setSelectedReservationId}>
+                  <SelectTrigger>
+                    <SelectValue placeholder="Choose a reservation" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {reservations.map((reservation) => (
+                      <SelectItem key={reservation.id} value={reservation.id}>
+                        {reservation.booking_reference} - {reservation.guest_names[0]} ({format(new Date(reservation.check_in_date), "MMM d")})
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
+
+              <div className="space-y-2">
+                <Label htmlFor="guest-name">Guest Name</Label>
+                <Input
+                  id="guest-name"
+                  value={guestName}
+                  onChange={(e) => setGuestName(e.target.value)}
+                  placeholder="Enter guest name"
+                />
+              </div>
+
+              <p className="text-sm text-muted-foreground">
+                This will create a guest portal account with automatically generated credentials.
+              </p>
+            </div>
+          ) : (
+            <div className="space-y-4 py-4">
+              <div className="space-y-2">
+                <Label>Username</Label>
+                <div className="flex gap-2">
+                  <Input value={generatedCredentials.username} readOnly />
+                  <Button
+                    variant="outline"
+                    size="icon"
+                    onClick={() => copyToClipboard(generatedCredentials.username, "Username")}
+                  >
+                    <Copy className="h-4 w-4" />
+                  </Button>
+                </div>
+              </div>
+
+              <div className="space-y-2">
+                <Label>Password</Label>
+                <div className="flex gap-2">
+                  <Input value={generatedCredentials.password} readOnly />
+                  <Button
+                    variant="outline"
+                    size="icon"
+                    onClick={() => copyToClipboard(generatedCredentials.password, "Password")}
+                  >
+                    <Copy className="h-4 w-4" />
+                  </Button>
+                </div>
+              </div>
+
+              <div className="bg-muted p-4 rounded-lg space-y-2">
+                <p className="text-sm font-medium">Next Steps:</p>
+                <ol className="text-sm text-muted-foreground list-decimal list-inside space-y-1">
+                  <li>Copy these credentials</li>
+                  <li>Send them to the guest via WhatsApp or email</li>
+                  <li>Guest can log in at: {window.location.origin}/guest/login</li>
+                </ol>
+              </div>
+            </div>
+          )}
+
+          <DialogFooter>
+            {!generatedCredentials ? (
+              <>
+                <Button variant="outline" onClick={handleCloseCreateDialog}>
+                  Cancel
+                </Button>
+                <Button onClick={handleCreateAccount} disabled={creating}>
+                  {creating ? (
+                    <>
+                      <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                      Creating...
+                    </>
+                  ) : (
+                    "Generate Credentials"
+                  )}
+                </Button>
+              </>
+            ) : (
+              <Button onClick={handleCloseCreateDialog}>Done</Button>
+            )}
           </DialogFooter>
         </DialogContent>
       </Dialog>
