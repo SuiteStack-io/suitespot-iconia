@@ -77,7 +77,8 @@ export default function GuestAccounts() {
   const [createDialogOpen, setCreateDialogOpen] = useState(false);
   const [reservations, setReservations] = useState<any[]>([]);
   const [selectedReservationId, setSelectedReservationId] = useState("");
-  const [guestName, setGuestName] = useState("");
+  const [firstName, setFirstName] = useState("");
+  const [lastName, setLastName] = useState("");
   const [creating, setCreating] = useState(false);
   const [generatedCredentials, setGeneratedCredentials] = useState<{ username: string; password: string } | null>(null);
 
@@ -198,8 +199,8 @@ export default function GuestAccounts() {
   };
 
   const handleCreateAccount = async () => {
-    if (!selectedReservationId || !guestName.trim()) {
-      toast.error("Please select a reservation and enter guest name");
+    if (!selectedReservationId || !firstName.trim() || !lastName.trim()) {
+      toast.error("Please select a reservation and enter first and last name");
       return;
     }
 
@@ -219,7 +220,8 @@ export default function GuestAccounts() {
       const { data, error } = await supabase.functions.invoke("create-guest-account", {
         body: {
           reservationId: selectedReservationId,
-          guestName: guestName.trim(),
+          firstName: firstName.trim(),
+          lastName: lastName.trim(),
         },
       });
 
@@ -244,7 +246,8 @@ export default function GuestAccounts() {
     setCreateDialogOpen(false);
     setTimeout(() => {
       setSelectedReservationId("");
-      setGuestName("");
+      setFirstName("");
+      setLastName("");
       setGeneratedCredentials(null);
     }, 300);
   };
@@ -466,12 +469,22 @@ export default function GuestAccounts() {
               </div>
 
               <div className="space-y-2">
-                <Label htmlFor="guest-name">Guest Name</Label>
+                <Label htmlFor="first-name">First Name</Label>
                 <Input
-                  id="guest-name"
-                  value={guestName}
-                  onChange={(e) => setGuestName(e.target.value)}
-                  placeholder="Enter guest name"
+                  id="first-name"
+                  value={firstName}
+                  onChange={(e) => setFirstName(e.target.value)}
+                  placeholder="Enter first name"
+                />
+              </div>
+
+              <div className="space-y-2">
+                <Label htmlFor="last-name">Last Name</Label>
+                <Input
+                  id="last-name"
+                  value={lastName}
+                  onChange={(e) => setLastName(e.target.value)}
+                  placeholder="Enter last name"
                 />
               </div>
 
