@@ -30,7 +30,7 @@ const Suites = () => {
           .from("units")
           .select("*")
           .eq("status", "available")
-          .not('name', 'ilike', '%Almaza%')
+          .eq("is_private", false)
           .order("name");
 
         if (error) throw error;
