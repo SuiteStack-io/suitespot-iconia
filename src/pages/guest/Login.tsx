@@ -99,7 +99,7 @@ export default function GuestLogin() {
           </form>
           
           <div className="mt-6 text-center">
-            <p className="font-playfair text-base text-gray-700">
+            <p className="font-playfair text-base text-gray-900">
               Need Help?{' '}
               <a 
                 href="tel:+1234567890" 
