@@ -87,14 +87,18 @@ const Index = () => {
               <DropdownMenuContent align="end">
                 <DropdownMenuItem onClick={() => navigate('/calendar')}>Calendar</DropdownMenuItem>
                 <DropdownMenuItem onClick={() => navigate('/rooms')}>ICONIA Rooms</DropdownMenuItem>
-                {isAdmin && (<><DropdownMenuItem onClick={() => navigate('/users')}>Users</DropdownMenuItem>
-                <DropdownMenuItem onClick={() => navigate('/guest-accounts')}>Guest Accounts</DropdownMenuItem>
-                <DropdownMenuItem onClick={() => navigate('/guests')}>Guests</DropdownMenuItem>
-                <DropdownMenuItem onClick={() => navigate('/ticket-analytics')}>Analytics</DropdownMenuItem>
-                <DropdownMenuItem onClick={() => navigate('/locations-management')}>Locations</DropdownMenuItem>
-                <DropdownMenuItem onClick={() => navigate('/media-library')}>Media Library</DropdownMenuItem>
-                <DropdownMenuItem onClick={() => navigate('/almaza-bay')}>Almaza Bay</DropdownMenuItem>
-                <DropdownMenuItem onClick={() => navigate('/settings')}>Settings</DropdownMenuItem></>)}
+                {isAdmin && (
+                  <>
+                    <DropdownMenuItem onClick={() => navigate('/almaza-bay')}>Almaza Bay</DropdownMenuItem>
+                    <DropdownMenuItem onClick={() => navigate('/ticket-analytics')}>Analytics</DropdownMenuItem>
+                    <DropdownMenuItem onClick={() => navigate('/guest-accounts')}>Guest Accounts</DropdownMenuItem>
+                    <DropdownMenuItem onClick={() => navigate('/guests')}>Guests</DropdownMenuItem>
+                    <DropdownMenuItem onClick={() => navigate('/locations-management')}>Locations</DropdownMenuItem>
+                    <DropdownMenuItem onClick={() => navigate('/media-library')}>Media Library</DropdownMenuItem>
+                    <DropdownMenuItem onClick={() => navigate('/settings')}>Settings</DropdownMenuItem>
+                    <DropdownMenuItem onClick={() => navigate('/users')}>Users</DropdownMenuItem>
+                  </>
+                )}
               </DropdownMenuContent>
             </DropdownMenu>
             <Button variant="outline" size="sm" onClick={handleSync} disabled={syncing}><RefreshCw className={`h-4 w-4 mr-2 ${syncing ? 'animate-spin' : ''}`} />Sync</Button>
