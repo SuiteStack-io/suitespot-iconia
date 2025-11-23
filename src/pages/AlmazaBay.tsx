@@ -59,6 +59,7 @@ interface Property {
   photos: string[] | null;
   view: string | null;
   is_private: boolean | null;
+  location: string | null;
 }
 
 interface Reservation {
@@ -97,6 +98,7 @@ const AlmazaBay = () => {
     photos: [],
     view: null,
     is_private: true,
+    location: 'Almaza Bay',
   });
   const [uploadingPhotos, setUploadingPhotos] = useState<string | null>(null);
   const [uploadProgress, setUploadProgress] = useState<{ [key: string]: number }>({});
@@ -160,10 +162,10 @@ const AlmazaBay = () => {
   }, [user]);
 
   const fetchProperties = async () => {
-    // Show all properties in admin view - they're already hidden from public pages
     const { data, error } = await supabase
       .from('units')
       .select('*')
+      .eq('location', 'Almaza Bay')
       .order('name');
 
     if (error) {
@@ -419,6 +421,7 @@ const AlmazaBay = () => {
       price_per_night: newProperty.price_per_night || null,
       tax_percentage: newProperty.tax_percentage || 14.00,
       is_private: newProperty.is_private ?? true,
+      location: 'Almaza Bay',
     }]);
 
     if (error) {
@@ -452,6 +455,7 @@ const AlmazaBay = () => {
       tax_percentage: 14.00,
       photos: [],
       is_private: true,
+      location: 'Almaza Bay',
     });
     fetchProperties();
   };

@@ -23,6 +23,7 @@ const Locations = () => {
       .not("latitude", "is", null)
       .not("longitude", "is", null)
       .eq("is_private", false)
+      .eq("location", "ICONIA")
       .order("name");
     
     if (data) setProperties(data);

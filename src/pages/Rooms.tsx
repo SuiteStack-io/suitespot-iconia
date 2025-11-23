@@ -57,6 +57,7 @@ interface Unit {
   tax_percentage: number | null;
   photos: string[] | null;
   view: string | null;
+  location: string | null;
 }
 
 interface Reservation {
@@ -97,6 +98,7 @@ const Rooms = () => {
     tax_percentage: 14.00,
     photos: [],
     view: null,
+    location: 'ICONIA',
   });
   const [uploadingPhotos, setUploadingPhotos] = useState<string | null>(null);
   const [uploadProgress, setUploadProgress] = useState<{ [key: string]: number }>({});
@@ -167,6 +169,7 @@ const Rooms = () => {
     const { data, error } = await supabase
       .from('units')
       .select('*')
+      .eq('location', 'ICONIA')
       .order('name');
 
     if (error) {
@@ -506,6 +509,7 @@ const Rooms = () => {
       sofa_bed: newUnit.sofa_bed || false,
       price_per_night: newUnit.price_per_night || null,
       tax_percentage: newUnit.tax_percentage || 14.00,
+      location: 'ICONIA',
     }]);
 
     if (error) {
@@ -538,6 +542,7 @@ const Rooms = () => {
       price_per_night: null,
       tax_percentage: 14.00,
       photos: [],
+      location: 'ICONIA',
     });
     fetchUnits();
   };

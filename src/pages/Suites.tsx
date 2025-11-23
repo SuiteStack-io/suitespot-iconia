@@ -31,6 +31,7 @@ const Suites = () => {
           .select("*")
           .eq("status", "available")
           .eq("is_private", false)
+          .eq("location", "ICONIA")
           .order("name");
 
         if (error) throw error;
