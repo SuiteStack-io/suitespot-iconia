@@ -109,15 +109,6 @@ export default function GuestLogin() {
               >
                 Contact Us
               </a>
-              {' '}or{' '}
-              <a 
-                href="https://wa.me/201003901516" 
-                target="_blank"
-                rel="noopener noreferrer"
-                className="text-gray-900 hover:text-almaza-gold hover:underline font-medium cursor-pointer transition-colors"
-              >
-                WhatsApp
-              </a>
             </p>
           </div>
         </CardContent>
