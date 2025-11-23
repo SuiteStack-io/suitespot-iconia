@@ -24,10 +24,10 @@ serve(async (req) => {
       }
     );
 
-    const { reservationId, guestName } = await req.json();
+    const { reservationId, firstName, lastName } = await req.json();
 
-    if (!reservationId || !guestName) {
-      throw new Error('Missing required fields: reservationId and guestName');
+    if (!reservationId || !firstName || !lastName) {
+      throw new Error('Missing required fields: reservationId, firstName, and lastName');
     }
 
     console.log('Creating guest account for reservation:', reservationId);
@@ -45,7 +45,10 @@ serve(async (req) => {
 
     // Generate username using database function
     const { data: usernameData, error: usernameError } = await supabaseClient
-      .rpc('generate_guest_username', { p_guest_name: guestName });
+      .rpc('generate_guest_username', { 
+        p_first_name: firstName,
+        p_last_name: lastName 
+      });
 
     if (usernameError) {
       console.error('Error generating username:', usernameError);
