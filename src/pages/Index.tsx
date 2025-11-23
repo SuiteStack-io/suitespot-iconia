@@ -13,7 +13,7 @@ import { useIsMobile } from '@/hooks/use-mobile';
 import { useToast } from '@/hooks/use-toast';
 import { supabase } from '@/integrations/supabase/client';
 import { useNotifications } from '@/hooks/useNotifications';
-import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from '@/components/ui/dropdown-menu';
+import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger, DropdownMenuSeparator } from '@/components/ui/dropdown-menu';
 
 const Index = () => {
   const { user, loading, signOut, userRole } = useAuth();
@@ -85,22 +85,15 @@ const Index = () => {
             <DropdownMenu>
               <DropdownMenuTrigger asChild><Button variant="outline" size="sm"><Home className="h-4 w-4 mr-2" />Menu<ChevronDown className="h-4 w-4 ml-2" /></Button></DropdownMenuTrigger>
               <DropdownMenuContent align="end">
-                {isAdmin && (
-                  <>
-                    <DropdownMenuItem onClick={() => navigate('/almaza-bay')}>Almaza Bay</DropdownMenuItem>
-                    <DropdownMenuItem onClick={() => navigate('/ticket-analytics')}>Analytics</DropdownMenuItem>
-                  </>
-                )}
                 <DropdownMenuItem onClick={() => navigate('/calendar')}>Calendar</DropdownMenuItem>
-                {isAdmin && (
-                  <>
-                    <DropdownMenuItem onClick={() => navigate('/guest-accounts')}>Guest Accounts</DropdownMenuItem>
-                    <DropdownMenuItem onClick={() => navigate('/guests')}>Guests</DropdownMenuItem>
-                  </>
-                )}
                 <DropdownMenuItem onClick={() => navigate('/rooms')}>ICONIA Rooms</DropdownMenuItem>
                 {isAdmin && (
                   <>
+                    <DropdownMenuSeparator />
+                    <DropdownMenuItem onClick={() => navigate('/almaza-bay')}>Almaza Bay</DropdownMenuItem>
+                    <DropdownMenuItem onClick={() => navigate('/ticket-analytics')}>Analytics</DropdownMenuItem>
+                    <DropdownMenuItem onClick={() => navigate('/guest-accounts')}>Guest Accounts</DropdownMenuItem>
+                    <DropdownMenuItem onClick={() => navigate('/guests')}>Guests</DropdownMenuItem>
                     <DropdownMenuItem onClick={() => navigate('/locations-management')}>Locations</DropdownMenuItem>
                     <DropdownMenuItem onClick={() => navigate('/media-library')}>Media Library</DropdownMenuItem>
                     <DropdownMenuItem onClick={() => navigate('/settings')}>Settings</DropdownMenuItem>
