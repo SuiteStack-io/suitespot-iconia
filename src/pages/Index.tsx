@@ -93,6 +93,7 @@ const Index = () => {
                 <DropdownMenuItem onClick={() => navigate('/ticket-analytics')}>Analytics</DropdownMenuItem>
                 <DropdownMenuItem onClick={() => navigate('/locations-management')}>Locations</DropdownMenuItem>
                 <DropdownMenuItem onClick={() => navigate('/media-library')}>Media Library</DropdownMenuItem>
+                <DropdownMenuItem onClick={() => navigate('/almaza-bay')}>Almaza Bay</DropdownMenuItem>
                 <DropdownMenuItem onClick={() => navigate('/settings')}>Settings</DropdownMenuItem></>)}
               </DropdownMenuContent>
             </DropdownMenu>
