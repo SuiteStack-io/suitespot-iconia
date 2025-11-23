@@ -41,6 +41,7 @@ import TicketAnalytics from "./pages/TicketAnalytics";
 import LocationsManagement from "./pages/LocationsManagement";
 import MediaLibrary from "./pages/MediaLibrary";
 import PropertyMedia from "./pages/PropertyMedia";
+import AlmazaBay from "./pages/AlmazaBay";
 
 const queryClient = new QueryClient();
 
@@ -96,6 +97,7 @@ const App = () => (
       <Route path="/locations-management" element={<ProtectedRoute><LocationsManagement /></ProtectedRoute>} />
       <Route path="/media-library" element={<ProtectedRoute><MediaLibrary /></ProtectedRoute>} />
       <Route path="/property-media/:unitId" element={<ProtectedRoute><PropertyMedia /></ProtectedRoute>} />
+      <Route path="/almaza-bay" element={<ProtectedRoute><AlmazaBay /></ProtectedRoute>} />
       <Route path="/guest-tickets" element={
         <ProtectedRoute>
           <GuestTickets />
