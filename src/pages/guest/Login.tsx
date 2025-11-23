@@ -53,7 +53,7 @@ export default function GuestLogin() {
             Welcome to Your Almaza Stay
           </CardTitle>
           <CardDescription className="font-playfair text-xl font-medium text-gray-800 dark:text-gray-800">
-            Enter your credentials to access your guest portal.
+            Sign In to Unlock your Almaza experience.
           </CardDescription>
         </CardHeader>
         <CardContent>
