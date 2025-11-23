@@ -964,7 +964,7 @@ export type Database = {
         }[]
       }
       generate_guest_username: {
-        Args: { p_guest_name: string }
+        Args: { p_first_name: string; p_last_name: string }
         Returns: string
       }
       get_all_users_with_emails: {
