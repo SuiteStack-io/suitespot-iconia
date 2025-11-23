@@ -5,7 +5,7 @@ import { supabase } from '@/integrations/supabase/client';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
-import { ArrowLeft, Save, Plus, Pencil, X, Upload, Trash2, Eye, ChevronDown, Copy, Image as ImageIcon } from 'lucide-react';
+import { ArrowLeft, Save, Plus, Pencil, X, Upload, Trash2, Eye, ChevronDown, Copy, Image as ImageIcon, GripVertical } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
 import { Progress } from '@/components/ui/progress';
 import {
@@ -38,6 +38,23 @@ import {
   SelectValue,
 } from '@/components/ui/select';
 import { format } from 'date-fns';
+import {
+  DndContext,
+  closestCenter,
+  KeyboardSensor,
+  PointerSensor,
+  useSensor,
+  useSensors,
+  DragEndEvent,
+} from '@dnd-kit/core';
+import {
+  arrayMove,
+  SortableContext,
+  sortableKeyboardCoordinates,
+  useSortable,
+  verticalListSortingStrategy,
+} from '@dnd-kit/sortable';
+import { CSS } from '@dnd-kit/utilities';
 
 interface Unit {
   id: string;
@@ -107,6 +124,15 @@ const Rooms = () => {
   const [cloneRoomNumber, setCloneRoomNumber] = useState<string>('');
   const [deleteDialogOpen, setDeleteDialogOpen] = useState(false);
   const [roomToDelete, setRoomToDelete] = useState<Unit | null>(null);
+  const [photoGalleryOpen, setPhotoGalleryOpen] = useState(false);
+  const [currentUnitPhotos, setCurrentUnitPhotos] = useState<{ id: string; photos: string[] } | null>(null);
+
+  const sensors = useSensors(
+    useSensor(PointerSensor),
+    useSensor(KeyboardSensor, {
+      coordinateGetter: sortableKeyboardCoordinates,
+    })
+  );
 
   useEffect(() => {
     if (!loading && !user) {
@@ -634,6 +660,48 @@ const Rooms = () => {
   const handleDeleteClick = (unit: Unit) => {
     setRoomToDelete(unit);
     setDeleteDialogOpen(true);
+  };
+
+  const handleReorderPhotos = async (unitId: string, newPhotosOrder: string[]) => {
+    try {
+      const { error } = await supabase
+        .from('units')
+        .update({ photos: newPhotosOrder })
+        .eq('id', unitId);
+
+      if (error) throw error;
+
+      toast({
+        title: 'Success',
+        description: 'Photo order updated',
+      });
+
+      fetchUnits();
+      if (currentUnitPhotos?.id === unitId) {
+        setCurrentUnitPhotos({ id: unitId, photos: newPhotosOrder });
+      }
+    } catch (error: any) {
+      toast({
+        title: 'Error',
+        description: error.message,
+        variant: 'destructive',
+      });
+    }
+  };
+
+  const handleDragEnd = (event: DragEndEvent) => {
+    const { active, over } = event;
+
+    if (!over || !currentUnitPhotos) return;
+
+    if (active.id !== over.id) {
+      const oldIndex = currentUnitPhotos.photos.indexOf(active.id as string);
+      const newIndex = currentUnitPhotos.photos.indexOf(over.id as string);
+
+      const newOrder = arrayMove(currentUnitPhotos.photos, oldIndex, newIndex);
+      setCurrentUnitPhotos({ ...currentUnitPhotos, photos: newOrder });
+      handleReorderPhotos(currentUnitPhotos.id, newOrder);
+    }
   };
 
   const handleConfirmDelete = async () => {
@@ -1178,19 +1246,17 @@ const Rooms = () => {
                             </div>
                           )}
                           {unit.photos && unit.photos.length > 0 && (
-                            <div className="flex flex-wrap gap-1">
-                              {unit.photos.map((photo, idx) => (
-                                <div key={idx} className="relative group w-12 h-12 rounded overflow-hidden border">
-                                  <img src={photo} alt={`Photo ${idx + 1}`} className="w-full h-full object-cover" />
-                                  <button
-                                    onClick={() => handleDeletePhoto(unit.id, photo)}
-                                    className="absolute inset-0 bg-black/50 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center"
-                                  >
-                                    <Trash2 className="h-3 w-3 text-white" />
-                                  </button>
-                                </div>
-                              ))}
-                            </div>
+                            <Button
+                              size="sm"
+                              variant="outline"
+                              onClick={() => {
+                                setCurrentUnitPhotos({ id: unit.id, photos: unit.photos || [] });
+                                setPhotoGalleryOpen(true);
+                              }}
+                            >
+                              <Eye className="h-3 w-3 mr-1" />
+                              View ({unit.photos.length})
+                            </Button>
                           )}
                         </div>
                       )}
@@ -1438,8 +1504,111 @@ const Rooms = () => {
           </DialogFooter>
         </DialogContent>
       </Dialog>
+
+      <Dialog open={photoGalleryOpen} onOpenChange={setPhotoGalleryOpen}>
+        <DialogContent className="max-w-2xl max-h-[80vh] overflow-hidden flex flex-col">
+          <DialogHeader>
+            <DialogTitle>Manage Photos</DialogTitle>
+            <DialogDescription>
+              Drag and drop to reorder photos. The first photo will be the main image.
+            </DialogDescription>
+          </DialogHeader>
+          <div className="flex-1 overflow-y-auto">
+            {currentUnitPhotos && (
+              <DndContext
+                sensors={sensors}
+                collisionDetection={closestCenter}
+                onDragEnd={handleDragEnd}
+              >
+                <SortableContext
+                  items={currentUnitPhotos.photos}
+                  strategy={verticalListSortingStrategy}
+                >
+                  <div className="space-y-2">
+                    {currentUnitPhotos.photos.map((photoUrl, index) => (
+                      <SortablePhotoItem
+                        key={photoUrl}
+                        id={photoUrl}
+                        photoUrl={photoUrl}
+                        index={index}
+                        onDelete={() => {
+                          handleDeletePhoto(currentUnitPhotos.id, photoUrl);
+                          setCurrentUnitPhotos({
+                            ...currentUnitPhotos,
+                            photos: currentUnitPhotos.photos.filter(p => p !== photoUrl)
+                          });
+                        }}
+                      />
+                    ))}
+                  </div>
+                </SortableContext>
+              </DndContext>
+            )}
+          </div>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 };
+
+interface SortablePhotoItemProps {
+  id: string;
+  photoUrl: string;
+  index: number;
+  onDelete: () => void;
+}
+
+function SortablePhotoItem({ id, photoUrl, index, onDelete }: SortablePhotoItemProps) {
+  const {
+    attributes,
+    listeners,
+    setNodeRef,
+    transform,
+    transition,
+    isDragging,
+  } = useSortable({ id });
+
+  const style = {
+    transform: CSS.Transform.toString(transform),
+    transition,
+    opacity: isDragging ? 0.5 : 1,
+  };
+
+  return (
+    <div
+      ref={setNodeRef}
+      style={style}
+      className="flex items-center gap-3 p-3 bg-muted rounded-lg border"
+    >
+      <button
+        className="cursor-grab active:cursor-grabbing touch-none"
+        {...attributes}
+        {...listeners}
+      >
+        <GripVertical className="h-5 w-5 text-muted-foreground" />
+      </button>
+      <div className="flex-shrink-0">
+        {index === 0 && (
+          <span className="text-xs bg-primary text-primary-foreground px-2 py-0.5 rounded mb-1 inline-block">
+            Main Photo
+          </span>
+        )}
+        <img
+          src={photoUrl}
+          alt={`Photo ${index + 1}`}
+          className="w-24 h-24 object-cover rounded"
+        />
+      </div>
+      <span className="text-sm text-muted-foreground flex-1">Photo {index + 1}</span>
+      <Button
+        size="sm"
+        variant="ghost"
+        onClick={onDelete}
+      >
+        <Trash2 className="h-4 w-4" />
+      </Button>
+    </div>
+  );
+}
 
 export default Rooms;
