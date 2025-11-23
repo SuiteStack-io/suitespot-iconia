@@ -18,7 +18,7 @@ const ticketSchema = z.object({
   description: z.string().min(10, "Description must be at least 10 characters"),
   ticket_type: z.enum(["not_working", "broken", "repair_needed", "housekeeping", "linen_change"]),
   priority: z.enum(["low", "medium", "high", "urgent"]),
-  photo_url: z.string().optional(),
+  photo_urls: z.array(z.string()).optional(),
 });
 
 type TicketForm = z.infer<typeof ticketSchema>;
@@ -31,7 +31,7 @@ interface TicketSubmissionProps {
 
 export function TicketSubmission({ reservationId, guestAccountId, unitId }: TicketSubmissionProps) {
   const [loading, setLoading] = useState(false);
-  const [photoUrl, setPhotoUrl] = useState<string>("");
+  const [photoUrls, setPhotoUrls] = useState<string[]>([]);
 
   const form = useForm<TicketForm>({
     resolver: zodResolver(ticketSchema),
@@ -40,7 +40,7 @@ export function TicketSubmission({ reservationId, guestAccountId, unitId }: Tick
       description: "",
       ticket_type: "not_working",
       priority: "medium",
-      photo_url: "",
+      photo_urls: [],
     },
   });
 
@@ -54,7 +54,8 @@ export function TicketSubmission({ reservationId, guestAccountId, unitId }: Tick
         description: data.description,
         ticket_type: data.ticket_type,
         priority: data.priority,
-        photo_url: photoUrl || null,
+        photo_urls: photoUrls.length > 0 ? photoUrls : null,
+        photo_url: photoUrls.length > 0 ? photoUrls[0] : null, // Keep for backward compatibility
         status: "open",
       });
 
@@ -62,7 +63,7 @@ export function TicketSubmission({ reservationId, guestAccountId, unitId }: Tick
 
       toast.success("Ticket submitted successfully! Our team will respond shortly.");
       form.reset();
-      setPhotoUrl("");
+      setPhotoUrls([]);
     } catch (error: any) {
       console.error("Error submitting ticket:", error);
       toast.error(error.message || "Failed to submit ticket");
@@ -164,7 +165,7 @@ export function TicketSubmission({ reservationId, guestAccountId, unitId }: Tick
               )}
             />
 
-            <PhotoUpload onPhotoUploaded={setPhotoUrl} />
+            <PhotoUpload onPhotosUploaded={setPhotoUrls} maxPhotos={5} />
 
             <Button type="submit" disabled={loading} className="w-full">
               {loading ? (
