@@ -6,7 +6,7 @@ import { ReservationsList } from '@/components/ReservationsList';
 import { WeeklyCalendar } from '@/components/WeeklyCalendar';
 import { CreateReservationDialog } from '@/components/CreateReservationDialog';
 import { Button } from '@/components/ui/button';
-import { LogOut, CalendarDays, ChevronDown, DoorOpen, Home, Settings as SettingsIcon, RefreshCw, Upload, Ticket, BarChart3, Bell, Map, Image as ImageIcon, UserCircle } from 'lucide-react';
+import { LogOut, CalendarDays, ChevronDown, DoorOpen, Home, Settings as SettingsIcon, RefreshCw, Upload, Ticket, BarChart3, Bell, Map, Image as ImageIcon, UserCircle, ArrowUp } from 'lucide-react';
 import { NotificationBell } from '@/components/NotificationBell';
 import suitespotLogo from '@/assets/suitespot-logo.png';
 import { useIsMobile } from '@/hooks/use-mobile';
@@ -22,12 +22,22 @@ const Index = () => {
   const { toast } = useToast();
   const [syncing, setSyncing] = useState(false);
   const { permission, requestPermission } = useNotifications();
+  const [showScrollTop, setShowScrollTop] = useState(false);
 
   useEffect(() => {
     if (permission === "default") {
       // Request browser notification permission on first load
       requestPermission();
     }
+  }, []);
+
+  useEffect(() => {
+    const handleScroll = () => {
+      setShowScrollTop(window.scrollY > 400);
+    };
+
+    window.addEventListener('scroll', handleScroll);
+    return () => window.removeEventListener('scroll', handleScroll);
   }, []);
 
   const handleSync = async () => {
@@ -42,6 +52,10 @@ const Index = () => {
     } finally {
       setSyncing(false);
     }
+  };
+
+  const scrollToTop = () => {
+    window.scrollTo({ top: 0, behavior: 'smooth' });
   };
 
   useEffect(() => { if (!loading && !user) navigate('/auth'); }, [user, loading, navigate]);
@@ -114,6 +128,17 @@ const Index = () => {
         <ReservationsList />
         <WeeklyCalendar />
       </div>
+      
+      {showScrollTop && (
+        <Button
+          onClick={scrollToTop}
+          className="fixed bottom-8 right-8 h-12 w-12 rounded-full shadow-lg z-50"
+          size="icon"
+          aria-label="Scroll to top"
+        >
+          <ArrowUp className="h-5 w-5" />
+        </Button>
+      )}
     </div>
   );
 };
