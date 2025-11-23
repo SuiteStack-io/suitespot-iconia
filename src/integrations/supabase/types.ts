@@ -186,6 +186,7 @@ export type Database = {
           guest_account_id: string
           id: string
           photo_url: string | null
+          photo_urls: string[] | null
           priority: Database["public"]["Enums"]["ticket_priority"]
           reservation_id: string
           resolved_at: string | null
@@ -203,6 +204,7 @@ export type Database = {
           guest_account_id: string
           id?: string
           photo_url?: string | null
+          photo_urls?: string[] | null
           priority?: Database["public"]["Enums"]["ticket_priority"]
           reservation_id: string
           resolved_at?: string | null
@@ -220,6 +222,7 @@ export type Database = {
           guest_account_id?: string
           id?: string
           photo_url?: string | null
+          photo_urls?: string[] | null
           priority?: Database["public"]["Enums"]["ticket_priority"]
           reservation_id?: string
           resolved_at?: string | null
