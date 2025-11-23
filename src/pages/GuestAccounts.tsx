@@ -522,11 +522,36 @@ export default function GuestAccounts() {
                 </div>
               </div>
 
+              <div className="space-y-2">
+                <Button
+                  variant="default"
+                  className="w-full"
+                  onClick={() => {
+                    const whatsappMessage = `Welcome to SuiteSpot Almaza! We're excited to have you with us. Below are your login details to access your guest portal and manage everything related to your stay.
+
+Username: 
+${generatedCredentials.username}
+
+Password: 
+${generatedCredentials.password}
+
+Once logged in, you'll be able to view check-in details, access your stay information, and enjoy a seamless SuiteSpot experience. If you need anything at all, we're just a message away.
+
+Wishing you an amazing summer stay! 🌴🌊`;
+                    navigator.clipboard.writeText(whatsappMessage);
+                    toast.success("WhatsApp message copied to clipboard!");
+                  }}
+                >
+                  <Copy className="h-4 w-4 mr-2" />
+                  Copy WhatsApp Message
+                </Button>
+              </div>
+
               <div className="bg-muted p-4 rounded-lg space-y-2">
                 <p className="text-sm font-medium">Next Steps:</p>
                 <ol className="text-sm text-muted-foreground list-decimal list-inside space-y-1">
-                  <li>Copy these credentials</li>
-                  <li>Send them to the guest via WhatsApp or email</li>
+                  <li>Copy the WhatsApp message above</li>
+                  <li>Send it to the guest via WhatsApp</li>
                   <li>Guest can log in at: {window.location.origin}/guest/login</li>
                 </ol>
               </div>
