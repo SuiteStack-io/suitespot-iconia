@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle, DialogTrigger } from '@/components/ui/dialog';
 import { Button } from '@/components/ui/button';
 import { Label } from '@/components/ui/label';
@@ -16,6 +16,19 @@ export function CreateGuestAccountDialog({ reservationId, guestName }: CreateGue
   const [open, setOpen] = useState(false);
   const [loading, setLoading] = useState(false);
   const [credentials, setCredentials] = useState<{ username: string; password: string } | null>(null);
+  const [existingAccountsCount, setExistingAccountsCount] = useState(0);
+
+  useEffect(() => {
+    const fetchAccountsCount = async () => {
+      const { count } = await supabase
+        .from("guest_accounts")
+        .select("*", { count: "exact", head: true })
+        .eq("reservation_id", reservationId);
+      setExistingAccountsCount(count || 0);
+    };
+    
+    fetchAccountsCount();
+  }, [reservationId]);
 
   const handleCreateAccount = async () => {
     setLoading(true);
@@ -86,16 +99,16 @@ export function CreateGuestAccountDialog({ reservationId, guestName }: CreateGue
   return (
     <Dialog open={open} onOpenChange={setOpen}>
       <DialogTrigger asChild>
-        <Button variant="outline" size="sm">
+        <Button variant="outline" size="sm" disabled={existingAccountsCount >= 4}>
           <UserPlus className="h-4 w-4 mr-2" />
-          Create Guest Account
+          Create Guest Account {existingAccountsCount > 0 && `(${existingAccountsCount}/4)`}
         </Button>
       </DialogTrigger>
       <DialogContent className="sm:max-w-md">
         <DialogHeader>
           <DialogTitle>Create Guest Account</DialogTitle>
           <DialogDescription>
-            Generate login credentials for {guestName}
+            Generate login credentials for {guestName}. {existingAccountsCount} of 4 accounts already created for this reservation.
           </DialogDescription>
         </DialogHeader>
 

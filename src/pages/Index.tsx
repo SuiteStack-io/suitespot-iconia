@@ -84,6 +84,7 @@ const Index = () => {
                 <DropdownMenuItem onClick={() => navigate('/calendar')}>Calendar</DropdownMenuItem>
                 <DropdownMenuItem onClick={() => navigate('/rooms')}>Rooms</DropdownMenuItem>
                 {isAdmin && (<><DropdownMenuItem onClick={() => navigate('/users')}>Users</DropdownMenuItem>
+                <DropdownMenuItem onClick={() => navigate('/guest-accounts')}>Guest Accounts</DropdownMenuItem>
                 <DropdownMenuItem onClick={() => navigate('/guests')}>Guests</DropdownMenuItem>
                 <DropdownMenuItem onClick={() => navigate('/ticket-analytics')}>Analytics</DropdownMenuItem>
                 <DropdownMenuItem onClick={() => navigate('/locations-management')}>Locations</DropdownMenuItem>

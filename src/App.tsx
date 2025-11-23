@@ -14,6 +14,7 @@ import Calendar from "./pages/Calendar";
 import ReservationDetail from "./pages/ReservationDetail";
 import NotFound from "./pages/NotFound";
 import Users from "./pages/Users";
+import GuestAccounts from "./pages/GuestAccounts";
 import Analytics from "./pages/Analytics";
 import Guests from "./pages/Guests";
 import MyReservations from "./pages/MyReservations";
@@ -84,6 +85,7 @@ const App = () => (
             <Route path="/calendar" element={<ProtectedRoute><Calendar /></ProtectedRoute>} />
             <Route path="/reservation/:id" element={<ProtectedRoute><ReservationDetail /></ProtectedRoute>} />
             <Route path="/users" element={<ProtectedRoute><Users /></ProtectedRoute>} />
+            <Route path="/guest-accounts" element={<ProtectedRoute><GuestAccounts /></ProtectedRoute>} />
             <Route path="/analytics" element={<ProtectedRoute><Analytics /></ProtectedRoute>} />
             <Route path="/guests" element={<ProtectedRoute><Guests /></ProtectedRoute>} />
             <Route path="/my-reservations" element={<ProtectedRoute><MyReservations /></ProtectedRoute>} />
