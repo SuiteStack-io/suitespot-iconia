@@ -7,7 +7,7 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Textarea } from '@/components/ui/textarea';
 import { Switch } from '@/components/ui/switch';
-import { ArrowLeft, Save, Plus, Pencil, X, Upload, Trash2, Eye, ChevronDown, Copy, Image as ImageIcon, Lock, Globe } from 'lucide-react';
+import { ArrowLeft, Save, Plus, Pencil, X, Upload, Trash2, Eye, ChevronDown, Copy, Image as ImageIcon, Lock, Globe, GripVertical } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
 import { Progress } from '@/components/ui/progress';
 import {
@@ -40,6 +40,23 @@ import {
   SelectValue,
 } from '@/components/ui/select';
 import { format } from 'date-fns';
+import {
+  DndContext,
+  closestCenter,
+  KeyboardSensor,
+  PointerSensor,
+  useSensor,
+  useSensors,
+  DragEndEvent,
+} from '@dnd-kit/core';
+import {
+  arrayMove,
+  SortableContext,
+  sortableKeyboardCoordinates,
+  useSortable,
+  verticalListSortingStrategy,
+} from '@dnd-kit/sortable';
+import { CSS } from '@dnd-kit/utilities';
 
 interface Property {
   id: string;
@@ -104,6 +121,15 @@ const AlmazaBay = () => {
   const [uploadProgress, setUploadProgress] = useState<{ [key: string]: number }>({});
   const [deleteDialogOpen, setDeleteDialogOpen] = useState(false);
   const [propertyToDelete, setPropertyToDelete] = useState<Property | null>(null);
+  const [photoGalleryOpen, setPhotoGalleryOpen] = useState(false);
+  const [currentPropertyPhotos, setCurrentPropertyPhotos] = useState<{ id: string; photos: string[] } | null>(null);
+
+  const sensors = useSensors(
+    useSensor(PointerSensor),
+    useSensor(KeyboardSensor, {
+      coordinateGetter: sortableKeyboardCoordinates,
+    })
+  );
 
   useEffect(() => {
     if (!loading && !user) {
@@ -356,6 +382,48 @@ const AlmazaBay = () => {
         description: error.message,
         variant: 'destructive',
       });
+    }
+  };
+
+  const handleReorderPhotos = async (propertyId: string, newPhotosOrder: string[]) => {
+    try {
+      const { error } = await supabase
+        .from('units')
+        .update({ photos: newPhotosOrder })
+        .eq('id', propertyId);
+
+      if (error) throw error;
+
+      toast({
+        title: 'Success',
+        description: 'Photo order updated',
+      });
+
+      fetchProperties();
+      if (currentPropertyPhotos?.id === propertyId) {
+        setCurrentPropertyPhotos({ id: propertyId, photos: newPhotosOrder });
+      }
+    } catch (error: any) {
+      toast({
+        title: 'Error',
+        description: error.message,
+        variant: 'destructive',
+      });
+    }
+  };
+
+  const handleDragEnd = (event: DragEndEvent) => {
+    const { active, over } = event;
+
+    if (!over || !currentPropertyPhotos) return;
+
+    if (active.id !== over.id) {
+      const oldIndex = currentPropertyPhotos.photos.indexOf(active.id as string);
+      const newIndex = currentPropertyPhotos.photos.indexOf(over.id as string);
+
+      const newOrder = arrayMove(currentPropertyPhotos.photos, oldIndex, newIndex);
+      setCurrentPropertyPhotos({ ...currentPropertyPhotos, photos: newOrder });
+      handleReorderPhotos(currentPropertyPhotos.id, newOrder);
     }
   };
 
@@ -848,28 +916,17 @@ const AlmazaBay = () => {
                             Upload
                           </Button>
                           {property.photos && property.photos.length > 0 && (
-                            <DropdownMenu>
-                              <DropdownMenuTrigger asChild>
-                                <Button size="sm" variant="outline">
-                                  <Eye className="h-4 w-4 mr-2" />
-                                  View ({property.photos.length})
-                                </Button>
-                              </DropdownMenuTrigger>
-                              <DropdownMenuContent className="w-96 max-h-96 overflow-y-auto">
-                                {property.photos.map((photoUrl, idx) => (
-                                  <div key={idx} className="flex items-center gap-2 p-2">
-                                    <img src={photoUrl} alt={`Photo ${idx + 1}`} className="w-20 h-20 object-cover rounded" />
-                                    <Button
-                                      size="sm"
-                                      variant="ghost"
-                                      onClick={() => handleDeletePhoto(property.id, photoUrl)}
-                                    >
-                                      <Trash2 className="h-4 w-4" />
-                                    </Button>
-                                  </div>
-                                ))}
-                              </DropdownMenuContent>
-                            </DropdownMenu>
+                            <Button 
+                              size="sm" 
+                              variant="outline"
+                              onClick={() => {
+                                setCurrentPropertyPhotos({ id: property.id, photos: property.photos || [] });
+                                setPhotoGalleryOpen(true);
+                              }}
+                            >
+                              <Eye className="h-4 w-4 mr-2" />
+                              View ({property.photos.length})
+                            </Button>
                           )}
                         </div>
                       </div>
@@ -974,8 +1031,111 @@ const AlmazaBay = () => {
           </DialogFooter>
         </DialogContent>
       </Dialog>
+
+      <Dialog open={photoGalleryOpen} onOpenChange={setPhotoGalleryOpen}>
+        <DialogContent className="max-w-2xl max-h-[80vh] overflow-hidden flex flex-col">
+          <DialogHeader>
+            <DialogTitle>Manage Photos</DialogTitle>
+            <DialogDescription>
+              Drag and drop to reorder photos. The first photo will be the main image.
+            </DialogDescription>
+          </DialogHeader>
+          <div className="flex-1 overflow-y-auto">
+            {currentPropertyPhotos && (
+              <DndContext
+                sensors={sensors}
+                collisionDetection={closestCenter}
+                onDragEnd={handleDragEnd}
+              >
+                <SortableContext
+                  items={currentPropertyPhotos.photos}
+                  strategy={verticalListSortingStrategy}
+                >
+                  <div className="space-y-2">
+                    {currentPropertyPhotos.photos.map((photoUrl, index) => (
+                      <SortablePhotoItem
+                        key={photoUrl}
+                        id={photoUrl}
+                        photoUrl={photoUrl}
+                        index={index}
+                        onDelete={() => {
+                          handleDeletePhoto(currentPropertyPhotos.id, photoUrl);
+                          setCurrentPropertyPhotos({
+                            ...currentPropertyPhotos,
+                            photos: currentPropertyPhotos.photos.filter(p => p !== photoUrl)
+                          });
+                        }}
+                      />
+                    ))}
+                  </div>
+                </SortableContext>
+              </DndContext>
+            )}
+          </div>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 };
+
+interface SortablePhotoItemProps {
+  id: string;
+  photoUrl: string;
+  index: number;
+  onDelete: () => void;
+}
+
+function SortablePhotoItem({ id, photoUrl, index, onDelete }: SortablePhotoItemProps) {
+  const {
+    attributes,
+    listeners,
+    setNodeRef,
+    transform,
+    transition,
+    isDragging,
+  } = useSortable({ id });
+
+  const style = {
+    transform: CSS.Transform.toString(transform),
+    transition,
+    opacity: isDragging ? 0.5 : 1,
+  };
+
+  return (
+    <div
+      ref={setNodeRef}
+      style={style}
+      className="flex items-center gap-3 p-3 bg-muted rounded-lg border"
+    >
+      <button
+        className="cursor-grab active:cursor-grabbing touch-none"
+        {...attributes}
+        {...listeners}
+      >
+        <GripVertical className="h-5 w-5 text-muted-foreground" />
+      </button>
+      <div className="flex-shrink-0">
+        {index === 0 && (
+          <span className="text-xs bg-primary text-primary-foreground px-2 py-0.5 rounded mb-1 inline-block">
+            Main Photo
+          </span>
+        )}
+        <img
+          src={photoUrl}
+          alt={`Photo ${index + 1}`}
+          className="w-24 h-24 object-cover rounded"
+        />
+      </div>
+      <span className="text-sm text-muted-foreground flex-1">Photo {index + 1}</span>
+      <Button
+        size="sm"
+        variant="ghost"
+        onClick={onDelete}
+      >
+      <Trash2 className="h-4 w-4" />
+      </Button>
+    </div>
+  );
+}
 
 export default AlmazaBay;
