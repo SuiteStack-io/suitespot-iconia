@@ -13,7 +13,37 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { toast } from "sonner";
 import { ArrowLeft, Key, Ban, CheckCircle, Copy, UserPlus, Loader2 } from "lucide-react";
 import { format } from "date-fns";
-import bcrypt from "bcryptjs";
+
+async function hashPassword(password: string): Promise<string> {
+  const encoder = new TextEncoder();
+  const data = encoder.encode(password);
+  const salt = crypto.getRandomValues(new Uint8Array(16));
+  
+  const keyMaterial = await crypto.subtle.importKey(
+    'raw',
+    data,
+    { name: 'PBKDF2' },
+    false,
+    ['deriveBits']
+  );
+  
+  const derivedBits = await crypto.subtle.deriveBits(
+    {
+      name: 'PBKDF2',
+      salt: salt,
+      iterations: 100000,
+      hash: 'SHA-256'
+    },
+    keyMaterial,
+    256
+  );
+  
+  const hashArray = new Uint8Array(derivedBits);
+  const hashHex = Array.from(hashArray).map(b => b.toString(16).padStart(2, '0')).join('');
+  const saltHex = Array.from(salt).map(b => b.toString(16).padStart(2, '0')).join('');
+  
+  return `${saltHex}:${hashHex}`;
+}
 
 interface GuestAccount {
   id: string;
@@ -140,7 +170,7 @@ export default function GuestAccounts() {
 
     setResetting(true);
     try {
-      const passwordHash = await bcrypt.hash(newPassword, 10);
+      const passwordHash = await hashPassword(newPassword);
       
       const { error } = await supabase.rpc("reset_guest_password", {
         p_account_id: selectedAccount?.id,

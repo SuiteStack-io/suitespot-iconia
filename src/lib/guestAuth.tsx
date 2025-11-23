@@ -1,6 +1,5 @@
 import { createContext, useContext, useEffect, useState, ReactNode } from 'react';
 import { supabase } from '@/integrations/supabase/client';
-import bcrypt from 'bcryptjs';
 
 interface GuestAccount {
   id: string;
@@ -19,6 +18,43 @@ interface GuestAuthContextType {
 }
 
 const GuestAuthContext = createContext<GuestAuthContextType | undefined>(undefined);
+
+async function verifyPassword(password: string, hash: string): Promise<boolean> {
+  try {
+    const [saltHex, hashHex] = hash.split(':');
+    const salt = new Uint8Array(saltHex.match(/.{1,2}/g)!.map(byte => parseInt(byte, 16)));
+    
+    const encoder = new TextEncoder();
+    const data = encoder.encode(password);
+    
+    const keyMaterial = await crypto.subtle.importKey(
+      'raw',
+      data,
+      { name: 'PBKDF2' },
+      false,
+      ['deriveBits']
+    );
+    
+    const derivedBits = await crypto.subtle.deriveBits(
+      {
+        name: 'PBKDF2',
+        salt: salt,
+        iterations: 100000,
+        hash: 'SHA-256'
+      },
+      keyMaterial,
+      256
+    );
+    
+    const hashArray = new Uint8Array(derivedBits);
+    const computedHashHex = Array.from(hashArray).map(b => b.toString(16).padStart(2, '0')).join('');
+    
+    return computedHashHex === hashHex;
+  } catch (error) {
+    console.error('Error verifying password:', error);
+    return false;
+  }
+}
 
 export const GuestAuthProvider = ({ children }: { children: ReactNode }) => {
   const [guestAccount, setGuestAccount] = useState<GuestAccount | null>(null);
@@ -90,7 +126,7 @@ export const GuestAuthProvider = ({ children }: { children: ReactNode }) => {
       }
 
       // Verify password
-      const isValidPassword = await bcrypt.compare(password, account.password_hash);
+      const isValidPassword = await verifyPassword(password, account.password_hash);
       if (!isValidPassword) {
         return { error: new Error('Invalid username or password') };
       }
