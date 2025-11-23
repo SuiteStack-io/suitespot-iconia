@@ -23,12 +23,13 @@ export function CreateGuestAccountDialog({ reservationId, guestName }: CreateGue
       const { count } = await supabase
         .from("guest_accounts")
         .select("*", { count: "exact", head: true })
-        .eq("reservation_id", reservationId);
+        .eq("reservation_id", reservationId)
+        .eq("is_active", true);
       setExistingAccountsCount(count || 0);
     };
     
     fetchAccountsCount();
-  }, [reservationId]);
+  }, [reservationId, open]);
 
   const handleCreateAccount = async () => {
     setLoading(true);
@@ -108,7 +109,7 @@ export function CreateGuestAccountDialog({ reservationId, guestName }: CreateGue
         <DialogHeader>
           <DialogTitle>Create Guest Account</DialogTitle>
           <DialogDescription>
-            Generate login credentials for {guestName}. {existingAccountsCount} of 4 accounts already created for this reservation.
+            Generate login credentials for {guestName}. {existingAccountsCount} of 4 active accounts created for this reservation.
           </DialogDescription>
         </DialogHeader>
 

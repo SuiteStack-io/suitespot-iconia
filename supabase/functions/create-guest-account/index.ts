@@ -32,15 +32,20 @@ serve(async (req) => {
 
     console.log('Creating guest account for reservation:', reservationId);
 
-    // Check if guest account already exists
-    const { data: existingAccount } = await supabaseClient
+    // Check number of active guest accounts for this reservation
+    const { count, error: countError } = await supabaseClient
       .from('guest_accounts')
-      .select('username')
+      .select('*', { count: 'exact', head: true })
       .eq('reservation_id', reservationId)
-      .maybeSingle();
+      .eq('is_active', true);
 
-    if (existingAccount) {
-      throw new Error('Guest account already exists for this reservation');
+    if (countError) {
+      console.error('Error checking existing accounts:', countError);
+      throw new Error('Failed to check existing accounts');
+    }
+
+    if (count && count >= 4) {
+      throw new Error('Maximum of 4 active guest accounts per reservation reached');
     }
 
     // Generate username using database function
