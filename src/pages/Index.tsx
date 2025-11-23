@@ -6,7 +6,7 @@ import { ReservationsList } from '@/components/ReservationsList';
 import { WeeklyCalendar } from '@/components/WeeklyCalendar';
 import { CreateReservationDialog } from '@/components/CreateReservationDialog';
 import { Button } from '@/components/ui/button';
-import { LogOut, CalendarDays, ChevronDown, DoorOpen, Home, Settings as SettingsIcon, RefreshCw, Upload, Ticket, BarChart3, Bell, Map, Image as ImageIcon } from 'lucide-react';
+import { LogOut, CalendarDays, ChevronDown, DoorOpen, Home, Settings as SettingsIcon, RefreshCw, Upload, Ticket, BarChart3, Bell, Map, Image as ImageIcon, UserCircle } from 'lucide-react';
 import { NotificationBell } from '@/components/NotificationBell';
 import suitespotLogo from '@/assets/suitespot-logo.png';
 import { useIsMobile } from '@/hooks/use-mobile';
@@ -75,6 +75,10 @@ const Index = () => {
                 <Button variant="outline" size="sm" onClick={() => navigate('/guest-tickets')}>
                   <Ticket className="h-4 w-4 mr-2" />
                   Tickets
+                </Button>
+                <Button variant="outline" size="sm" onClick={() => navigate('/guest/login')}>
+                  <UserCircle className="h-4 w-4 mr-2" />
+                  Guest Login
                 </Button>
               </>
             )}
