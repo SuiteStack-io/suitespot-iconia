@@ -157,11 +157,10 @@ const AlmazaBay = () => {
   }, [user]);
 
   const fetchProperties = async () => {
-    // Filter for Almaza Bay properties (you may need to add a specific identifier)
+    // Show all properties in admin view - they're already hidden from public pages
     const { data, error } = await supabase
       .from('units')
       .select('*')
-      .ilike('name', '%Almaza%')
       .order('name');
 
     if (error) {
