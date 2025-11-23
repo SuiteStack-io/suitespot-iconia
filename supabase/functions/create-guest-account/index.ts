@@ -37,7 +37,7 @@ serve(async (req) => {
       .from('guest_accounts')
       .select('username')
       .eq('reservation_id', reservationId)
-      .single();
+      .maybeSingle();
 
     if (existingAccount) {
       throw new Error('Guest account already exists for this reservation');
@@ -57,9 +57,8 @@ serve(async (req) => {
     // Generate random password (8 characters, alphanumeric)
     const password = generatePassword();
 
-    // Hash password using bcrypt
-    const bcrypt = await import('https://deno.land/x/bcrypt@v0.4.1/mod.ts');
-    const passwordHash = await bcrypt.hash(password);
+    // Hash password using Web Crypto API (compatible with edge functions)
+    const passwordHash = await hashPassword(password);
 
     // Get current user (admin creating the account)
     const authHeader = req.headers.get('Authorization')!;
@@ -122,4 +121,35 @@ function generatePassword(): string {
     password += chars.charAt(Math.floor(Math.random() * chars.length));
   }
   return password;
+}
+
+async function hashPassword(password: string): Promise<string> {
+  const encoder = new TextEncoder();
+  const data = encoder.encode(password);
+  const salt = crypto.getRandomValues(new Uint8Array(16));
+  
+  const keyMaterial = await crypto.subtle.importKey(
+    'raw',
+    data,
+    { name: 'PBKDF2' },
+    false,
+    ['deriveBits']
+  );
+  
+  const derivedBits = await crypto.subtle.deriveBits(
+    {
+      name: 'PBKDF2',
+      salt: salt,
+      iterations: 100000,
+      hash: 'SHA-256'
+    },
+    keyMaterial,
+    256
+  );
+  
+  const hashArray = new Uint8Array(derivedBits);
+  const hashHex = Array.from(hashArray).map(b => b.toString(16).padStart(2, '0')).join('');
+  const saltHex = Array.from(salt).map(b => b.toString(16).padStart(2, '0')).join('');
+  
+  return `${saltHex}:${hashHex}`;
 }
