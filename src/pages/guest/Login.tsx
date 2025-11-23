@@ -47,19 +47,19 @@ export default function GuestLogin() {
         backgroundRepeat: 'no-repeat',
       }}
     >
-      <Card className="w-full max-w-md backdrop-blur-sm bg-background/95 shadow-2xl border-2">
+      <Card className="w-full max-w-md backdrop-blur-md bg-white/40 dark:bg-white/40 shadow-2xl border border-white/20">
         <CardHeader className="space-y-2 text-center">
-          <CardTitle className="font-playfair text-6xl font-semibold tracking-tight" style={{ letterSpacing: '-0.02em' }}>
-            Guest Portal
+          <CardTitle className="font-playfair text-almaza-gold text-6xl font-semibold tracking-tight" style={{ letterSpacing: '-0.02em' }}>
+            Welcome to Your Almaza Stay
           </CardTitle>
-          <CardDescription className="font-playfair text-xl font-medium">
-            Welcome to SuiteSpot Iconia. Enter your credentials to access your guest portal.
+          <CardDescription className="font-playfair text-xl font-medium text-gray-800 dark:text-gray-800">
+            Enter your credentials to access your guest portal.
           </CardDescription>
         </CardHeader>
         <CardContent>
           <form onSubmit={handleSubmit} className="space-y-4">
             <div className="space-y-2">
-              <Label htmlFor="username" className="font-playfair text-base font-medium">Username</Label>
+              <Label htmlFor="username" className="font-playfair text-base font-medium text-gray-800">Username</Label>
               <Input
                 id="username"
                 type="text"
@@ -71,7 +71,7 @@ export default function GuestLogin() {
               />
             </div>
             <div className="space-y-2">
-              <Label htmlFor="password" className="font-playfair text-base font-medium">Password</Label>
+              <Label htmlFor="password" className="font-playfair text-base font-medium text-gray-800">Password</Label>
               <Input
                 id="password"
                 type="password"
@@ -99,7 +99,7 @@ export default function GuestLogin() {
           </form>
           
           <div className="mt-6 text-center">
-            <p className="font-playfair text-base text-muted-foreground">Need help? Contact the front desk.</p>
+            <p className="font-playfair text-base text-gray-700">Need help? Contact the front desk.</p>
           </div>
         </CardContent>
       </Card>

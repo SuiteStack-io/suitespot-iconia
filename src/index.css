@@ -71,6 +71,9 @@ All colors MUST be HSL.
     --glass-background: rgba(255, 255, 255, 0.7);
     --glass-border: rgba(255, 255, 255, 0.2);
     --glass-blur: blur(12px);
+    
+    /* Custom colors */
+    --almaza-gold: 45 93% 58%;
   }
 
   .dark {
@@ -105,6 +108,8 @@ All colors MUST be HSL.
     
     --glass-background: rgba(0, 0, 0, 0.5);
     --glass-border: rgba(255, 255, 255, 0.1);
+    
+    --almaza-gold: 45 93% 58%;
   }
 }
 
