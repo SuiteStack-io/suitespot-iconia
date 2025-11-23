@@ -1,5 +1,6 @@
 import { useState, useRef } from "react";
 import { Button } from "@/components/ui/button";
+import { Progress } from "@/components/ui/progress";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
 import { Camera, X, Loader2 } from "lucide-react";
@@ -10,6 +11,7 @@ interface PhotoUploadProps {
 
 export function PhotoUpload({ onPhotoUploaded }: PhotoUploadProps) {
   const [uploading, setUploading] = useState(false);
+  const [uploadProgress, setUploadProgress] = useState(0);
   const [preview, setPreview] = useState<string>("");
   const fileInputRef = useRef<HTMLInputElement>(null);
 
@@ -78,16 +80,24 @@ export function PhotoUpload({ onPhotoUploaded }: PhotoUploadProps) {
     }
 
     setUploading(true);
+    setUploadProgress(0);
     try {
+      // Simulate initial progress
+      setUploadProgress(10);
+      
       // Compress image
       const compressedBlob = await compressImage(file);
+      setUploadProgress(30);
       
       // Create preview
       const previewUrl = URL.createObjectURL(compressedBlob);
       setPreview(previewUrl);
+      setUploadProgress(50);
 
       // Upload to Supabase
       const fileName = `${Date.now()}-${file.name}`;
+      setUploadProgress(60);
+      
       const { data, error } = await supabase.storage
         .from("guest-ticket-photos")
         .upload(fileName, compressedBlob, {
@@ -96,18 +106,21 @@ export function PhotoUpload({ onPhotoUploaded }: PhotoUploadProps) {
         });
 
       if (error) throw error;
+      setUploadProgress(80);
 
       // Get public URL
       const { data: urlData } = supabase.storage
         .from("guest-ticket-photos")
         .getPublicUrl(data.path);
 
+      setUploadProgress(100);
       onPhotoUploaded(urlData.publicUrl);
       toast.success("Photo uploaded successfully");
     } catch (error: any) {
       console.error("Error uploading photo:", error);
       toast.error(error.message || "Failed to upload photo");
       setPreview("");
+      setUploadProgress(0);
     } finally {
       setUploading(false);
     }
@@ -115,6 +128,7 @@ export function PhotoUpload({ onPhotoUploaded }: PhotoUploadProps) {
 
   const handleRemove = () => {
     setPreview("");
+    setUploadProgress(0);
     onPhotoUploaded("");
     if (fileInputRef.current) {
       fileInputRef.current.value = "";
@@ -143,7 +157,7 @@ export function PhotoUpload({ onPhotoUploaded }: PhotoUploadProps) {
           </Button>
         </div>
       ) : (
-        <div>
+        <div className="space-y-3">
           <input
             ref={fileInputRef}
             type="file"
@@ -171,6 +185,14 @@ export function PhotoUpload({ onPhotoUploaded }: PhotoUploadProps) {
               </>
             )}
           </Button>
+          {uploading && (
+            <div className="space-y-1">
+              <Progress value={uploadProgress} className="h-2" />
+              <p className="text-xs text-center text-muted-foreground">
+                {uploadProgress}% uploaded
+              </p>
+            </div>
+          )}
         </div>
       )}
       <p className="text-xs text-muted-foreground">
