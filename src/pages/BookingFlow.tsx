@@ -197,6 +197,7 @@ const BookingFlow = () => {
             .from("units")
             .select("id, name, unit_type, unit_number, status, beds, baths, max_guests, unit_size, sofa_bed, price_per_night, tax_percentage, photos")
             .eq("id", preSelectedUnitId)
+            .not('name', 'ilike', '%Almaza%')
             .single();
 
           if (unitError) throw unitError;
@@ -208,6 +209,7 @@ const BookingFlow = () => {
             .select("id, name, unit_type, unit_number, status, beds, baths, max_guests, unit_size, sofa_bed, price_per_night, tax_percentage, photos")
             .eq("status", "available")
             .eq("unit_type", preSelectedUnitType)
+            .not('name', 'ilike', '%Almaza%')
             .order("unit_number");
 
           const { data: typeUnits, error: unitsError } = await query;
@@ -271,6 +273,7 @@ const BookingFlow = () => {
             .from("units")
             .select("id, name, unit_type, unit_number, status, beds, baths, max_guests, unit_size, sofa_bed, price_per_night, tax_percentage, photos")
             .eq("status", "available")
+            .not('name', 'ilike', '%Almaza%')
             .order("name");
 
           if (unitsError) throw unitsError;
