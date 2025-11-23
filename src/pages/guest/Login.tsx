@@ -99,7 +99,15 @@ export default function GuestLogin() {
           </form>
           
           <div className="mt-6 text-center">
-            <p className="font-playfair text-base text-gray-700">Need help? Contact the front desk.</p>
+            <p className="font-playfair text-base text-gray-700">
+              Need Help?{' '}
+              <a 
+                href="tel:+1234567890" 
+                className="text-almaza-gold hover:underline font-medium cursor-pointer"
+              >
+                Contact Us
+              </a>
+            </p>
           </div>
         </CardContent>
       </Card>
