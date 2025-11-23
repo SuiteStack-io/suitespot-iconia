@@ -6,7 +6,8 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Textarea } from '@/components/ui/textarea';
-import { ArrowLeft, Save, Plus, Pencil, X, Upload, Trash2, Eye, ChevronDown, Copy, Image as ImageIcon } from 'lucide-react';
+import { Switch } from '@/components/ui/switch';
+import { ArrowLeft, Save, Plus, Pencil, X, Upload, Trash2, Eye, ChevronDown, Copy, Image as ImageIcon, Lock, Globe } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
 import { Progress } from '@/components/ui/progress';
 import {
@@ -57,6 +58,7 @@ interface Property {
   tax_percentage: number | null;
   photos: string[] | null;
   view: string | null;
+  is_private: boolean | null;
 }
 
 interface Reservation {
@@ -94,6 +96,7 @@ const AlmazaBay = () => {
     tax_percentage: 14.00,
     photos: [],
     view: null,
+    is_private: true,
   });
   const [uploadingPhotos, setUploadingPhotos] = useState<string | null>(null);
   const [uploadProgress, setUploadProgress] = useState<{ [key: string]: number }>({});
@@ -330,6 +333,30 @@ const AlmazaBay = () => {
     return format(new Date(nextRes.check_in_date), 'MMM dd, yyyy');
   };
 
+  const handleTogglePrivate = async (propertyId: string, currentValue: boolean | null) => {
+    try {
+      const { error } = await supabase
+        .from('units')
+        .update({ is_private: !currentValue })
+        .eq('id', propertyId);
+
+      if (error) throw error;
+
+      toast({
+        title: 'Success',
+        description: `Property ${!currentValue ? 'marked as private' : 'made public'}`,
+      });
+
+      fetchProperties();
+    } catch (error: any) {
+      toast({
+        title: 'Error',
+        description: error.message,
+        variant: 'destructive',
+      });
+    }
+  };
+
   const handleEdit = (property: Property) => {
     setEditingId(property.id);
     setEditedProperty(property);
@@ -391,6 +418,7 @@ const AlmazaBay = () => {
       sofa_bed: newProperty.sofa_bed || false,
       price_per_night: newProperty.price_per_night || null,
       tax_percentage: newProperty.tax_percentage || 14.00,
+      is_private: newProperty.is_private ?? true,
     }]);
 
     if (error) {
@@ -423,6 +451,7 @@ const AlmazaBay = () => {
       price_per_night: null,
       tax_percentage: 14.00,
       photos: [],
+      is_private: true,
     });
     fetchProperties();
   };
@@ -555,6 +584,7 @@ const AlmazaBay = () => {
                 <TableHead className="min-w-[120px] text-base font-medium">Status</TableHead>
                 <TableHead className="min-w-[130px] text-base font-medium">Next Reservation</TableHead>
                 <TableHead className="min-w-[140px] text-base font-medium">View</TableHead>
+                <TableHead className="min-w-[120px] text-base font-medium">Visibility</TableHead>
                 {isAdmin && <TableHead className="min-w-[100px] text-base font-medium">Actions</TableHead>}
               </TableRow>
             </TableHeader>
@@ -677,6 +707,15 @@ const AlmazaBay = () => {
                   </TableCell>
                   <TableCell>
                     <span className="text-muted-foreground">-</span>
+                  </TableCell>
+                  <TableCell>
+                    <div className="flex items-center gap-2">
+                      <Switch checked={true} disabled />
+                      <span className="text-sm font-medium flex items-center gap-1">
+                        <Lock className="h-3 w-3" />
+                        Private
+                      </span>
+                    </div>
                   </TableCell>
                   <TableCell>
                     <span className="text-muted-foreground">-</span>
@@ -861,6 +900,27 @@ const AlmazaBay = () => {
                     </TableCell>
                     <TableCell>{getNextReservation(property.id) || 'None'}</TableCell>
                     <TableCell>{property.view || '-'}</TableCell>
+                    <TableCell>
+                      <div className="flex items-center gap-2">
+                        <Switch 
+                          checked={property.is_private ?? false}
+                          onCheckedChange={() => handleTogglePrivate(property.id, property.is_private)}
+                        />
+                        <span className="text-sm font-medium flex items-center gap-1">
+                          {property.is_private ? (
+                            <>
+                              <Lock className="h-3 w-3" />
+                              Private
+                            </>
+                          ) : (
+                            <>
+                              <Globe className="h-3 w-3" />
+                              Public
+                            </>
+                          )}
+                        </span>
+                      </div>
+                    </TableCell>
                     {isAdmin && (
                       <TableCell>
                         {isEditing ? (

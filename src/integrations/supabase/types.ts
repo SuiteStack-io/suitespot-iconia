@@ -844,6 +844,7 @@ export type Database = {
           comments: string | null
           created_at: string
           id: string
+          is_private: boolean | null
           latitude: number | null
           longitude: number | null
           map_description: string | null
@@ -870,6 +871,7 @@ export type Database = {
           comments?: string | null
           created_at?: string
           id?: string
+          is_private?: boolean | null
           latitude?: number | null
           longitude?: number | null
           map_description?: string | null
@@ -896,6 +898,7 @@ export type Database = {
           comments?: string | null
           created_at?: string
           id?: string
+          is_private?: boolean | null
           latitude?: number | null
           longitude?: number | null
           map_description?: string | null
