@@ -22,6 +22,7 @@ const Locations = () => {
       .select("*")
       .not("latitude", "is", null)
       .not("longitude", "is", null)
+      .not('name', 'ilike', '%Almaza%')
       .order("name");
     
     if (data) setProperties(data);
