@@ -37,18 +37,28 @@ export default function GuestLogin() {
   };
 
   return (
-    <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-primary/10 via-background to-secondary/10 p-4">
-      <Card className="w-full max-w-md">
-        <CardHeader className="space-y-1 text-center">
-          <CardTitle className="text-3xl font-bold">Guest Portal</CardTitle>
-          <CardDescription>
+    <div 
+      className="min-h-screen flex items-center justify-center p-4 relative"
+      style={{
+        backgroundImage: `linear-gradient(rgba(0, 0, 0, 0.5), rgba(0, 0, 0, 0.5)), url('https://images.unsplash.com/photo-1582719478250-c89cae4dc85b?q=80&w=2070')`,
+        backgroundSize: 'cover',
+        backgroundPosition: 'center',
+        backgroundRepeat: 'no-repeat',
+      }}
+    >
+      <Card className="w-full max-w-md backdrop-blur-sm bg-background/95 shadow-2xl border-2">
+        <CardHeader className="space-y-2 text-center">
+          <CardTitle className="font-playfair text-6xl font-semibold tracking-tight" style={{ letterSpacing: '-0.02em' }}>
+            Guest Portal
+          </CardTitle>
+          <CardDescription className="font-playfair text-xl font-medium">
             Welcome to SuiteSpot Iconia. Enter your credentials to access your guest portal.
           </CardDescription>
         </CardHeader>
         <CardContent>
           <form onSubmit={handleSubmit} className="space-y-4">
             <div className="space-y-2">
-              <Label htmlFor="username">Username</Label>
+              <Label htmlFor="username" className="font-playfair text-base font-medium">Username</Label>
               <Input
                 id="username"
                 type="text"
@@ -60,7 +70,7 @@ export default function GuestLogin() {
               />
             </div>
             <div className="space-y-2">
-              <Label htmlFor="password">Password</Label>
+              <Label htmlFor="password" className="font-playfair text-base font-medium">Password</Label>
               <Input
                 id="password"
                 type="password"
@@ -73,7 +83,7 @@ export default function GuestLogin() {
             </div>
             <Button 
               type="submit" 
-              className="w-full" 
+              className="w-full font-playfair text-base font-medium" 
               disabled={loading}
             >
               {loading ? (
@@ -87,8 +97,8 @@ export default function GuestLogin() {
             </Button>
           </form>
           
-          <div className="mt-6 text-center text-sm text-muted-foreground">
-            <p>Need help? Contact the front desk.</p>
+          <div className="mt-6 text-center">
+            <p className="font-playfair text-base text-muted-foreground">Need help? Contact the front desk.</p>
           </div>
         </CardContent>
       </Card>
