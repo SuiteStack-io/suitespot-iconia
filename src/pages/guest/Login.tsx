@@ -103,9 +103,18 @@ export default function GuestLogin() {
               Need Help?{' '}
               <a 
                 href="tel:+1234567890" 
-                className="text-almaza-gold hover:underline font-medium cursor-pointer"
+                className="text-gray-900 hover:text-almaza-gold hover:underline font-medium cursor-pointer transition-colors"
               >
                 Contact Us
+              </a>
+              {' '}or{' '}
+              <a 
+                href="https://wa.me/1234567890" 
+                target="_blank"
+                rel="noopener noreferrer"
+                className="text-gray-900 hover:text-almaza-gold hover:underline font-medium cursor-pointer transition-colors"
+              >
+                WhatsApp
               </a>
             </p>
           </div>
