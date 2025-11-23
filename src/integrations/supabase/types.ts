@@ -846,6 +846,7 @@ export type Database = {
           id: string
           is_private: boolean | null
           latitude: number | null
+          location: string | null
           longitude: number | null
           map_description: string | null
           max_guests: number | null
@@ -873,6 +874,7 @@ export type Database = {
           id?: string
           is_private?: boolean | null
           latitude?: number | null
+          location?: string | null
           longitude?: number | null
           map_description?: string | null
           max_guests?: number | null
@@ -900,6 +902,7 @@ export type Database = {
           id?: string
           is_private?: boolean | null
           latitude?: number | null
+          location?: string | null
           longitude?: number | null
           map_description?: string | null
           max_guests?: number | null
