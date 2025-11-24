@@ -7,7 +7,7 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Textarea } from '@/components/ui/textarea';
 import { Switch } from '@/components/ui/switch';
-import { ArrowLeft, Save, Plus, Pencil, X, Upload, Trash2, Eye, ChevronDown, Copy, Image as ImageIcon, Lock, Globe, GripVertical } from 'lucide-react';
+import { ArrowLeft, Save, Plus, Pencil, X, Upload, Trash2, Eye, ChevronDown, Copy, Image as ImageIcon, Lock, Globe, GripVertical, FileText } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
 import { Progress } from '@/components/ui/progress';
 import {
@@ -123,6 +123,8 @@ const AlmazaBay = () => {
   const [propertyToDelete, setPropertyToDelete] = useState<Property | null>(null);
   const [photoGalleryOpen, setPhotoGalleryOpen] = useState(false);
   const [currentPropertyPhotos, setCurrentPropertyPhotos] = useState<{ id: string; photos: string[] } | null>(null);
+  const [showKYCModal, setShowKYCModal] = useState(false);
+  const [kycLink, setKycLink] = useState('');
 
   const sensors = useSensors(
     useSensor(PointerSensor),
@@ -626,6 +628,20 @@ const AlmazaBay = () => {
             </div>
             {isAdmin && (
               <div className="flex gap-2">
+                <Button 
+                  onClick={() => {
+                    const uniqueToken = crypto.randomUUID();
+                    const baseUrl = window.location.origin;
+                    const generatedLink = `${baseUrl}/kyc/${uniqueToken}`;
+                    setKycLink(generatedLink);
+                    setShowKYCModal(true);
+                  }} 
+                  variant="outline"
+                  className="font-medium"
+                >
+                  <FileText className="h-4 w-4 mr-2" />
+                  KYC
+                </Button>
                 <Button onClick={() => setIsAdding(true)} disabled={isAdding} className="font-medium">
                   <Plus className="h-4 w-4 mr-2" />
                   Add Property
@@ -1071,6 +1087,56 @@ const AlmazaBay = () => {
                 </SortableContext>
               </DndContext>
             )}
+          </div>
+        </DialogContent>
+      </Dialog>
+
+      {/* KYC Modal */}
+      <Dialog open={showKYCModal} onOpenChange={setShowKYCModal}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle className="font-playfair text-2xl">KYC Link Generated</DialogTitle>
+            <DialogDescription>
+              Share this unique link with your guest to collect their information
+            </DialogDescription>
+          </DialogHeader>
+          <div className="space-y-4 py-4">
+            <div className="flex items-center gap-2">
+              <Input 
+                value={kycLink} 
+                readOnly 
+                className="flex-1"
+              />
+              <Button
+                variant="outline"
+                size="icon"
+                onClick={() => {
+                  navigator.clipboard.writeText(kycLink);
+                  toast({
+                    title: 'Copied!',
+                    description: 'Link copied to clipboard',
+                  });
+                }}
+              >
+                <Copy className="h-4 w-4" />
+              </Button>
+            </div>
+            <Button
+              className="w-full"
+              onClick={() => {
+                const message = `Welcome to SuiteSpot Almaza!
+We're excited to guide you through the next step.
+Please fill out the short form below so we can tailor the perfect home options for your stay:
+${kycLink}`;
+                navigator.clipboard.writeText(message);
+                toast({
+                  title: 'Copied to clipboard!',
+                  description: 'WhatsApp message ready to paste',
+                });
+              }}
+            >
+              Copy to WhatsApp
+            </Button>
           </div>
         </DialogContent>
       </Dialog>
