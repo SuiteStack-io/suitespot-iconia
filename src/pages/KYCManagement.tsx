@@ -228,6 +228,11 @@ We'll get back to you within 3 hours with personalized recommendations!`;
       return;
     }
 
+    if (!kycGuestContact.trim()) {
+      toast.error("Please enter phone number");
+      return;
+    }
+
     try {
       const { data: { user: authUser } } = await supabase.auth.getUser();
       
@@ -238,7 +243,7 @@ We'll get back to you within 3 hours with personalized recommendations!`;
         .insert({
           unit_id: selectedPropertyId,
           guest_name: kycGuestName,
-          guest_contact: kycGuestContact || null,
+          guest_contact: kycGuestContact,
           token: uniqueToken,
           status: 'pending',
           created_by: authUser?.id
@@ -560,12 +565,13 @@ We'll get back to you within 3 hours with personalized recommendations!`;
               />
             </div>
             <div>
-              <Label>Contact (Phone/Email)</Label>
+              <Label>Phone *</Label>
               <Input
-                placeholder="Optional contact information"
+                placeholder="Enter phone number"
                 value={kycGuestContact}
                 onChange={(e) => setKycGuestContact(e.target.value)}
                 className="mt-2"
+                required
               />
             </div>
             <div>
