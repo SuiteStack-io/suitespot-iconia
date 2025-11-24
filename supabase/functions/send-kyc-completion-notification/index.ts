@@ -27,22 +27,60 @@ const handler = async (req: Request): Promise<Response> => {
 
     console.log("Sending KYC completion notification for:", guestName);
 
-    // Initialize Supabase client
+    // Initialize Supabase client with service role
     const supabaseUrl = Deno.env.get("SUPABASE_URL")!;
     const supabaseServiceKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
     const supabase = createClient(supabaseUrl, supabaseServiceKey);
 
-    // Fetch all admin users
-    const { data: users, error: usersError } = await supabase.rpc(
-      "get_all_users_with_emails"
-    );
+    // Fetch admin users directly (service role has access)
+    const { data: userRoles, error: rolesError } = await supabase
+      .from("user_roles")
+      .select("user_id")
+      .eq("role", "admin");
 
-    if (usersError) {
-      console.error("Error fetching users:", usersError);
-      throw usersError;
+    if (rolesError) {
+      console.error("Error fetching admin roles:", rolesError);
+      throw rolesError;
     }
 
-    const adminUsers = users?.filter((user: any) => user.role === "admin") || [];
+    if (!userRoles || userRoles.length === 0) {
+      console.log("No admin users found");
+      return new Response(
+        JSON.stringify({ message: "No admin users to notify" }),
+        {
+          status: 200,
+          headers: { "Content-Type": "application/json", ...corsHeaders },
+        }
+      );
+    }
+
+    // Fetch profiles and auth emails for admin users
+    const { data: profiles, error: profilesError } = await supabase
+      .from("profiles")
+      .select("id, full_name")
+      .in("id", userRoles.map(r => r.user_id));
+
+    if (profilesError) {
+      console.error("Error fetching profiles:", profilesError);
+      throw profilesError;
+    }
+
+    // Fetch emails from auth.users using service role
+    const { data: { users: authUsers }, error: authError } = await supabase.auth.admin.listUsers();
+
+    if (authError) {
+      console.error("Error fetching auth users:", authError);
+      throw authError;
+    }
+
+    const adminUsers = profiles?.map(profile => {
+      const authUser = authUsers?.find(u => u.id === profile.id);
+      return {
+        email: authUser?.email,
+        full_name: profile.full_name,
+        user_id: profile.id
+      };
+    }).filter(user => user.email) || [];
 
     if (adminUsers.length === 0) {
       console.log("No admin users found");
