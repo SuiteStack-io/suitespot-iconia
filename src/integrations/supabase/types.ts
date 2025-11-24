@@ -270,6 +270,50 @@ export type Database = {
           },
         ]
       }
+      kyc_links: {
+        Row: {
+          completed_at: string | null
+          created_at: string
+          created_by: string | null
+          guest_contact: string | null
+          guest_name: string
+          id: string
+          status: string
+          token: string
+          unit_id: string | null
+        }
+        Insert: {
+          completed_at?: string | null
+          created_at?: string
+          created_by?: string | null
+          guest_contact?: string | null
+          guest_name: string
+          id?: string
+          status?: string
+          token: string
+          unit_id?: string | null
+        }
+        Update: {
+          completed_at?: string | null
+          created_at?: string
+          created_by?: string | null
+          guest_contact?: string | null
+          guest_name?: string
+          id?: string
+          status?: string
+          token?: string
+          unit_id?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "kyc_links_unit_id_fkey"
+            columns: ["unit_id"]
+            isOneToOne: false
+            referencedRelation: "units"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       media_library: {
         Row: {
           bucket_id: string

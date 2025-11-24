@@ -3,6 +3,7 @@ import { useParams } from 'react-router-dom';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent } from '@/components/ui/card';
 import guestLoginBg from '@/assets/guest-login-bg.webp';
+import { supabase } from '@/integrations/supabase/client';
 
 export default function KYCLanding() {
   const { token } = useParams<{ token: string }>();
@@ -12,16 +13,44 @@ export default function KYCLanding() {
   const typeformUrl = "https://form.typeform.com/to/YOUR_FORM_ID";
 
   useEffect(() => {
+    // Check if this KYC link was already completed
+    const checkStatus = async () => {
+      if (!token) return;
+      
+      const { data } = await supabase
+        .from('kyc_links')
+        .select('status')
+        .eq('token', token)
+        .single();
+      
+      if (data?.status === 'completed') {
+        setSubmitted(true);
+      }
+    };
+    
+    checkStatus();
+
     // Listen for message from Typeform when submitted
-    const handleMessage = (event: MessageEvent) => {
+    const handleMessage = async (event: MessageEvent) => {
       if (event.data.type === 'form-submit') {
         setSubmitted(true);
+        
+        // Update KYC link status in database
+        if (token) {
+          await supabase
+            .from('kyc_links')
+            .update({ 
+              status: 'completed',
+              completed_at: new Date().toISOString()
+            })
+            .eq('token', token);
+        }
       }
     };
 
     window.addEventListener('message', handleMessage);
     return () => window.removeEventListener('message', handleMessage);
-  }, []);
+  }, [token]);
 
   const openTypeform = () => {
     // Open Typeform in a new window or embed it
