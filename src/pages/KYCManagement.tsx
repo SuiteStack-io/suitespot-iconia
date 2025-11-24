@@ -8,8 +8,9 @@ import { Badge } from "@/components/ui/badge";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { ArrowLeft, Copy, ExternalLink, Search, X, Send, Mail, MessageCircle } from "lucide-react";
+import { ArrowLeft, Copy, ExternalLink, Search, X, Send, Mail, MessageCircle, Plus } from "lucide-react";
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from "@/components/ui/dropdown-menu";
+import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { toast } from "sonner";
 import { format } from "date-fns";
 import { Calendar } from "@/components/ui/calendar";
@@ -48,6 +49,14 @@ export default function KYCManagement() {
   const [propertyFilter, setPropertyFilter] = useState<string>("all");
   const [dateFrom, setDateFrom] = useState<Date | undefined>();
   const [dateTo, setDateTo] = useState<Date | undefined>();
+  
+  // KYC generation states
+  const [showKYCInputModal, setShowKYCInputModal] = useState(false);
+  const [showKYCModal, setShowKYCModal] = useState(false);
+  const [kycLink, setKycLink] = useState("");
+  const [kycGuestName, setKycGuestName] = useState("");
+  const [kycGuestContact, setKycGuestContact] = useState("");
+  const [selectedPropertyId, setSelectedPropertyId] = useState<string | null>(null);
 
   useEffect(() => {
     fetchKYCLinks();
@@ -213,6 +222,52 @@ We'll get back to you within 3 hours with personalized recommendations!`;
     toast.success("WhatsApp opened with reminder message");
   };
 
+  const handleGenerateKYC = async () => {
+    if (!kycGuestName.trim()) {
+      toast.error("Please enter guest name");
+      return;
+    }
+
+    try {
+      const { data: { user: authUser } } = await supabase.auth.getUser();
+      
+      const uniqueToken = Math.random().toString(36).substring(2, 15) + Math.random().toString(36).substring(2, 15);
+      
+      const { error } = await supabase
+        .from('kyc_links')
+        .insert({
+          unit_id: selectedPropertyId,
+          guest_name: kycGuestName,
+          guest_contact: kycGuestContact || null,
+          token: uniqueToken,
+          status: 'pending',
+          created_by: authUser?.id
+        });
+
+      if (error) throw error;
+
+      const link = `${window.location.origin}/kyc/${uniqueToken}`;
+      setKycLink(link);
+      setShowKYCInputModal(false);
+      setShowKYCModal(true);
+      
+      // Refresh the list
+      fetchKYCLinks();
+      
+      toast.success("KYC link generated successfully");
+    } catch (error: any) {
+      console.error("Error generating KYC link:", error);
+      toast.error(error.message || "Failed to generate KYC link");
+    }
+  };
+
+  const openGenerateDialog = () => {
+    setKycGuestName("");
+    setKycGuestContact("");
+    setSelectedPropertyId(null);
+    setShowKYCInputModal(true);
+  };
+
   if (loading) {
     return (
       <div className="flex items-center justify-center min-h-screen">
@@ -224,18 +279,24 @@ We'll get back to you within 3 hours with personalized recommendations!`;
   return (
     <div className="min-h-screen bg-background p-4 md:p-8">
       <div className="max-w-7xl mx-auto space-y-6">
-        <div className="flex items-center gap-4">
-          <Button
-            variant="ghost"
-            size="icon"
-            onClick={() => navigate("/almaza-bay")}
-          >
-            <ArrowLeft className="h-5 w-5" />
-          </Button>
-          <div>
-            <h1 className="text-3xl font-bold">KYC Link Management</h1>
-            <p className="text-muted-foreground">Track and manage all generated KYC links</p>
+        <div className="flex items-center justify-between w-full">
+          <div className="flex items-center gap-4">
+            <Button
+              variant="ghost"
+              size="icon"
+              onClick={() => navigate("/almaza-bay")}
+            >
+              <ArrowLeft className="h-5 w-5" />
+            </Button>
+            <div>
+              <h1 className="text-3xl font-bold">KYC Link Management</h1>
+              <p className="text-muted-foreground">Track and manage all generated KYC links</p>
+            </div>
           </div>
+          <Button onClick={openGenerateDialog} className="font-medium">
+            <Plus className="h-4 w-4 mr-2" />
+            Generate KYC
+          </Button>
         </div>
 
         <Card>
@@ -478,6 +539,104 @@ We'll get back to you within 3 hours with personalized recommendations!`;
           </CardContent>
         </Card>
       </div>
+
+      {/* KYC Input Modal */}
+      <Dialog open={showKYCInputModal} onOpenChange={setShowKYCInputModal}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle className="font-playfair text-2xl">Generate KYC Link</DialogTitle>
+            <DialogDescription>
+              Enter guest details to generate a personalized KYC link
+            </DialogDescription>
+          </DialogHeader>
+          <div className="space-y-4 py-4">
+            <div>
+              <Label>Guest Name *</Label>
+              <Input
+                placeholder="Enter guest name"
+                value={kycGuestName}
+                onChange={(e) => setKycGuestName(e.target.value)}
+                className="mt-2"
+              />
+            </div>
+            <div>
+              <Label>Contact (Phone/Email)</Label>
+              <Input
+                placeholder="Optional contact information"
+                value={kycGuestContact}
+                onChange={(e) => setKycGuestContact(e.target.value)}
+                className="mt-2"
+              />
+            </div>
+            <div>
+              <Label>Property (Optional)</Label>
+              <Select value={selectedPropertyId || "none"} onValueChange={(value) => setSelectedPropertyId(value === "none" ? null : value)}>
+                <SelectTrigger className="mt-2">
+                  <SelectValue placeholder="Select a property" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="none">None - General Inquiry</SelectItem>
+                  {properties.map((property) => (
+                    <SelectItem key={property.id} value={property.id}>
+                      {property.name}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+            <Button
+              className="w-full"
+              onClick={handleGenerateKYC}
+            >
+              Generate Link
+            </Button>
+          </div>
+        </DialogContent>
+      </Dialog>
+
+      {/* KYC Success Modal */}
+      <Dialog open={showKYCModal} onOpenChange={setShowKYCModal}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle className="text-2xl">KYC Link Generated</DialogTitle>
+            <DialogDescription>
+              Share this unique link with your guest to collect their information
+            </DialogDescription>
+          </DialogHeader>
+          <div className="space-y-4 py-4">
+            <div className="flex items-center gap-2">
+              <Input 
+                value={kycLink} 
+                readOnly 
+                className="flex-1"
+              />
+              <Button
+                variant="outline"
+                size="icon"
+                onClick={() => {
+                  navigator.clipboard.writeText(kycLink);
+                  toast.success("Link copied to clipboard");
+                }}
+              >
+                <Copy className="h-4 w-4" />
+              </Button>
+            </div>
+            <Button
+              className="w-full"
+              onClick={() => {
+                const message = `Welcome to SuiteSpot Almaza!
+We're excited to guide you through the next step.
+Please fill out the short form below so we can tailor the perfect home options for your stay:
+${kycLink}`;
+                navigator.clipboard.writeText(message);
+                toast.success("WhatsApp message copied to clipboard");
+              }}
+            >
+              Copy to WhatsApp
+            </Button>
+          </div>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }
