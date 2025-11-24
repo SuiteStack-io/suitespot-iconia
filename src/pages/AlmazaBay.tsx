@@ -7,7 +7,7 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Textarea } from '@/components/ui/textarea';
 import { Switch } from '@/components/ui/switch';
-import { ArrowLeft, Save, Plus, Pencil, X, Upload, Trash2, Eye, ChevronDown, Copy, Image as ImageIcon, Lock, Globe, GripVertical, FileText } from 'lucide-react';
+import { ArrowLeft, Save, Plus, Pencil, X, Upload, Trash2, Eye, ChevronDown, Copy, Image as ImageIcon, Lock, Globe, GripVertical, FileText, List } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
 import { Progress } from '@/components/ui/progress';
 import {
@@ -125,6 +125,10 @@ const AlmazaBay = () => {
   const [currentPropertyPhotos, setCurrentPropertyPhotos] = useState<{ id: string; photos: string[] } | null>(null);
   const [showKYCModal, setShowKYCModal] = useState(false);
   const [kycLink, setKycLink] = useState('');
+  const [kycGuestName, setKycGuestName] = useState('');
+  const [kycGuestContact, setKycGuestContact] = useState('');
+  const [showKYCInputModal, setShowKYCInputModal] = useState(false);
+  const [selectedPropertyForKYC, setSelectedPropertyForKYC] = useState<string | null>(null);
 
   const sensors = useSensors(
     useSensor(PointerSensor),
@@ -414,6 +418,58 @@ const AlmazaBay = () => {
     }
   };
 
+  const handleKYCClick = (propertyId: string) => {
+    setSelectedPropertyForKYC(propertyId);
+    setKycGuestName('');
+    setKycGuestContact('');
+    setShowKYCInputModal(true);
+  };
+
+  const handleGenerateKYC = async () => {
+    if (!kycGuestName.trim()) {
+      toast({
+        title: 'Error',
+        description: 'Please enter guest name',
+        variant: 'destructive',
+      });
+      return;
+    }
+
+    try {
+      const { data: { user: authUser } } = await supabase.auth.getUser();
+      
+      const uniqueToken = Math.random().toString(36).substring(2, 15) + Math.random().toString(36).substring(2, 15);
+      
+      const { error } = await supabase
+        .from('kyc_links')
+        .insert({
+          unit_id: selectedPropertyForKYC,
+          guest_name: kycGuestName,
+          guest_contact: kycGuestContact || null,
+          token: uniqueToken,
+          status: 'pending',
+          created_by: authUser?.id
+        });
+
+      if (error) throw error;
+
+      const link = `${window.location.origin}/kyc/${uniqueToken}`;
+      setKycLink(link);
+      setShowKYCInputModal(false);
+      setShowKYCModal(true);
+      toast({
+        title: 'Success',
+        description: 'KYC link generated successfully',
+      });
+    } catch (error: any) {
+      toast({
+        title: 'Error',
+        description: error.message || 'Failed to generate KYC link',
+        variant: 'destructive',
+      });
+    }
+  };
+
   const handleDragEnd = (event: DragEndEvent) => {
     const { active, over } = event;
 
@@ -629,18 +685,12 @@ const AlmazaBay = () => {
             {isAdmin && (
               <div className="flex gap-2">
                 <Button 
-                  onClick={() => {
-                    const uniqueToken = crypto.randomUUID();
-                    const baseUrl = window.location.origin;
-                    const generatedLink = `${baseUrl}/kyc/${uniqueToken}`;
-                    setKycLink(generatedLink);
-                    setShowKYCModal(true);
-                  }} 
                   variant="outline"
+                  onClick={() => navigate('/kyc-management')}
                   className="font-medium"
                 >
-                  <FileText className="h-4 w-4 mr-2" />
-                  KYC
+                  <List className="h-4 w-4 mr-2" />
+                  View KYC Links
                 </Button>
                 <Button onClick={() => setIsAdding(true)} disabled={isAdding} className="font-medium">
                   <Plus className="h-4 w-4 mr-2" />
@@ -1011,6 +1061,14 @@ const AlmazaBay = () => {
                           </div>
                         ) : (
                           <div className="flex gap-2">
+                            <Button 
+                              size="sm" 
+                              variant="outline" 
+                              onClick={() => handleKYCClick(property.id)}
+                              title="Generate KYC Link"
+                            >
+                              <FileText className="h-4 w-4" />
+                            </Button>
                             <Button size="sm" variant="outline" onClick={() => handleEdit(property)}>
                               <Pencil className="h-4 w-4" />
                             </Button>
@@ -1087,6 +1145,44 @@ const AlmazaBay = () => {
                 </SortableContext>
               </DndContext>
             )}
+          </div>
+        </DialogContent>
+      </Dialog>
+
+      {/* KYC Input Modal */}
+      <Dialog open={showKYCInputModal} onOpenChange={setShowKYCInputModal}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle className="font-playfair text-2xl">Generate KYC Link</DialogTitle>
+            <DialogDescription>
+              Enter guest details to generate a personalized KYC link
+            </DialogDescription>
+          </DialogHeader>
+          <div className="space-y-4 py-4">
+            <div>
+              <Label className="font-playfair">Guest Name *</Label>
+              <Input
+                placeholder="Enter guest name"
+                value={kycGuestName}
+                onChange={(e) => setKycGuestName(e.target.value)}
+                className="font-playfair mt-2"
+              />
+            </div>
+            <div>
+              <Label className="font-playfair">Contact (Phone/Email)</Label>
+              <Input
+                placeholder="Optional contact information"
+                value={kycGuestContact}
+                onChange={(e) => setKycGuestContact(e.target.value)}
+                className="font-playfair mt-2"
+              />
+            </div>
+            <Button
+              className="w-full font-playfair"
+              onClick={handleGenerateKYC}
+            >
+              Generate Link
+            </Button>
           </div>
         </DialogContent>
       </Dialog>

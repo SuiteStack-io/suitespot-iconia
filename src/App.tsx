@@ -43,6 +43,7 @@ import MediaLibrary from "./pages/MediaLibrary";
 import PropertyMedia from "./pages/PropertyMedia";
 import AlmazaBay from "./pages/AlmazaBay";
 import KYCLanding from "./pages/KYCLanding";
+import KYCManagement from "./pages/KYCManagement";
 
 const queryClient = new QueryClient();
 
@@ -67,7 +68,8 @@ const App = () => (
             <Route path="/experiences" element={<Experiences />} />
             <Route path="/nearby" element={<Nearby />} />
             <Route path="/blog" element={<Blog />} />
-            <Route path="/kyc/:token" element={<KYCLanding />} />
+          <Route path="/kyc/:token" element={<KYCLanding />} />
+          <Route path="/kyc-management" element={<ProtectedRoute><KYCManagement /></ProtectedRoute>} />
             
             {/* Guest Routes - For guest portal */}
           <Route path="/guest/login" element={<GuestLogin />} />
