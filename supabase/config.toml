@@ -1,5 +1,8 @@
 project_id = "phvduifvymozqiqwvajj"
 
+[functions.send-kyc-completion-notification]
+verify_jwt = false
+
 [functions.gmail-auth-start]
 verify_jwt = false
 
