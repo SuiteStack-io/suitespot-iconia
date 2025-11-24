@@ -120,7 +120,7 @@ export default function KYCLanding() {
               </div>
 
               <Button onClick={showTypeform} size="lg" className="font-playfair text-xl font-medium px-12 py-6 h-auto">
-                Go to Questionnaire
+                Tell Us Your Preferences
               </Button>
 
               <p className="font-playfair text-lg text-gray-800 mt-8">
