@@ -8,7 +8,8 @@ import { Badge } from "@/components/ui/badge";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { ArrowLeft, Copy, ExternalLink, Search, X } from "lucide-react";
+import { ArrowLeft, Copy, ExternalLink, Search, X, Send, Mail, MessageCircle } from "lucide-react";
+import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from "@/components/ui/dropdown-menu";
 import { toast } from "sonner";
 import { format } from "date-fns";
 import { Calendar } from "@/components/ui/calendar";
@@ -165,6 +166,51 @@ ${link}`;
 
   const openLink = (token: string) => {
     window.open(`/kyc/${token}`, '_blank');
+  };
+
+  const sendReminderEmail = async (link: KYCLink) => {
+    if (!link.guest_contact) {
+      toast.error("No email address available for this guest");
+      return;
+    }
+
+    try {
+      const kycLink = `${window.location.origin}/kyc/${link.token}`;
+      
+      const { error } = await supabase.functions.invoke('send-kyc-reminder', {
+        body: {
+          guestName: link.guest_name,
+          guestEmail: link.guest_contact,
+          kycLink: kycLink,
+          propertyName: link.units?.name,
+        },
+      });
+
+      if (error) throw error;
+      
+      toast.success("Reminder email sent successfully");
+    } catch (error) {
+      console.error("Error sending reminder email:", error);
+      toast.error("Failed to send reminder email");
+    }
+  };
+
+  const sendReminderWhatsApp = (token: string, guestName: string) => {
+    const link = `${window.location.origin}/kyc/${token}`;
+    const message = `Hi ${guestName}!
+
+Welcome to SuiteSpot Almaza! 🏖️
+
+We're excited to help you find your perfect home at Almaza Bay.
+
+Please complete our short questionnaire to help us tailor the best options for your stay:
+${link}
+
+We'll get back to you within 3 hours with personalized recommendations!`;
+    
+    const whatsappUrl = `https://wa.me/?text=${encodeURIComponent(message)}`;
+    window.open(whatsappUrl, '_blank');
+    toast.success("WhatsApp opened with reminder message");
   };
 
   if (loading) {
@@ -393,6 +439,34 @@ ${link}`;
                             >
                               <ExternalLink className="h-4 w-4" />
                             </Button>
+                            {link.status === "pending" && (
+                              <DropdownMenu>
+                                <DropdownMenuTrigger asChild>
+                                  <Button
+                                    variant="default"
+                                    size="icon"
+                                    title="Resend reminder"
+                                  >
+                                    <Send className="h-4 w-4" />
+                                  </Button>
+                                </DropdownMenuTrigger>
+                                <DropdownMenuContent align="end">
+                                  <DropdownMenuItem 
+                                    onClick={() => sendReminderEmail(link)}
+                                    disabled={!link.guest_contact}
+                                  >
+                                    <Mail className="h-4 w-4 mr-2" />
+                                    Send via Email
+                                  </DropdownMenuItem>
+                                  <DropdownMenuItem 
+                                    onClick={() => sendReminderWhatsApp(link.token, link.guest_name)}
+                                  >
+                                    <MessageCircle className="h-4 w-4 mr-2" />
+                                    Send via WhatsApp
+                                  </DropdownMenuItem>
+                                </DropdownMenuContent>
+                              </DropdownMenu>
+                            )}
                           </div>
                         </TableCell>
                       </TableRow>
