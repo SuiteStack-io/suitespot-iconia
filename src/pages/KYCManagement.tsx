@@ -5,9 +5,15 @@ import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Badge } from "@/components/ui/badge";
-import { ArrowLeft, Copy, ExternalLink } from "lucide-react";
+import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { ArrowLeft, Copy, ExternalLink, Search, X } from "lucide-react";
 import { toast } from "sonner";
 import { format } from "date-fns";
+import { Calendar } from "@/components/ui/calendar";
+import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
+import { CalendarIcon } from "lucide-react";
 
 interface KYCLink {
   id: string;
@@ -23,14 +29,33 @@ interface KYCLink {
   } | null;
 }
 
+interface Property {
+  id: string;
+  name: string;
+}
+
 export default function KYCManagement() {
   const navigate = useNavigate();
   const [kycLinks, setKycLinks] = useState<KYCLink[]>([]);
+  const [filteredLinks, setFilteredLinks] = useState<KYCLink[]>([]);
+  const [properties, setProperties] = useState<Property[]>([]);
   const [loading, setLoading] = useState(true);
+  
+  // Filter states
+  const [searchQuery, setSearchQuery] = useState("");
+  const [statusFilter, setStatusFilter] = useState<string>("all");
+  const [propertyFilter, setPropertyFilter] = useState<string>("all");
+  const [dateFrom, setDateFrom] = useState<Date | undefined>();
+  const [dateTo, setDateTo] = useState<Date | undefined>();
 
   useEffect(() => {
     fetchKYCLinks();
+    fetchProperties();
   }, []);
+
+  useEffect(() => {
+    applyFilters();
+  }, [kycLinks, searchQuery, statusFilter, propertyFilter, dateFrom, dateTo]);
 
   const fetchKYCLinks = async () => {
     try {
@@ -51,6 +76,76 @@ export default function KYCManagement() {
       setLoading(false);
     }
   };
+
+  const fetchProperties = async () => {
+    try {
+      const { data, error } = await supabase
+        .from("units")
+        .select("id, name")
+        .eq("location", "Almaza Bay")
+        .order("name");
+
+      if (error) throw error;
+      setProperties(data || []);
+    } catch (error) {
+      console.error("Error fetching properties:", error);
+    }
+  };
+
+  const applyFilters = () => {
+    let filtered = [...kycLinks];
+
+    // Search by guest name or contact
+    if (searchQuery) {
+      const query = searchQuery.toLowerCase();
+      filtered = filtered.filter(
+        (link) =>
+          link.guest_name.toLowerCase().includes(query) ||
+          link.guest_contact?.toLowerCase().includes(query)
+      );
+    }
+
+    // Filter by status
+    if (statusFilter !== "all") {
+      filtered = filtered.filter((link) => link.status === statusFilter);
+    }
+
+    // Filter by property
+    if (propertyFilter !== "all") {
+      filtered = filtered.filter((link) => link.unit_id === propertyFilter);
+    }
+
+    // Filter by date range
+    if (dateFrom) {
+      filtered = filtered.filter(
+        (link) => new Date(link.created_at) >= dateFrom
+      );
+    }
+    if (dateTo) {
+      const endOfDay = new Date(dateTo);
+      endOfDay.setHours(23, 59, 59, 999);
+      filtered = filtered.filter(
+        (link) => new Date(link.created_at) <= endOfDay
+      );
+    }
+
+    setFilteredLinks(filtered);
+  };
+
+  const clearFilters = () => {
+    setSearchQuery("");
+    setStatusFilter("all");
+    setPropertyFilter("all");
+    setDateFrom(undefined);
+    setDateTo(undefined);
+  };
+
+  const hasActiveFilters = 
+    searchQuery || 
+    statusFilter !== "all" || 
+    propertyFilter !== "all" || 
+    dateFrom || 
+    dateTo;
 
   const copyLink = (token: string) => {
     const link = `${window.location.origin}/kyc/${token}`;
@@ -99,9 +194,126 @@ ${link}`;
 
         <Card>
           <CardHeader>
-            <CardTitle>All KYC Links ({kycLinks.length})</CardTitle>
+            <CardTitle>
+              All KYC Links ({filteredLinks.length}
+              {hasActiveFilters && ` of ${kycLinks.length}`})
+            </CardTitle>
           </CardHeader>
           <CardContent>
+            {/* Filters Section */}
+            <div className="space-y-4 mb-6 p-4 bg-muted/50 rounded-lg">
+              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
+                {/* Search */}
+                <div className="space-y-2">
+                  <Label>Search Guest</Label>
+                  <div className="relative">
+                    <Search className="absolute left-2 top-2.5 h-4 w-4 text-muted-foreground" />
+                    <Input
+                      placeholder="Name or contact..."
+                      value={searchQuery}
+                      onChange={(e) => setSearchQuery(e.target.value)}
+                      className="pl-8"
+                    />
+                  </div>
+                </div>
+
+                {/* Status Filter */}
+                <div className="space-y-2">
+                  <Label>Status</Label>
+                  <Select value={statusFilter} onValueChange={setStatusFilter}>
+                    <SelectTrigger>
+                      <SelectValue />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="all">All Statuses</SelectItem>
+                      <SelectItem value="pending">Pending</SelectItem>
+                      <SelectItem value="completed">Completed</SelectItem>
+                    </SelectContent>
+                  </Select>
+                </div>
+
+                {/* Property Filter */}
+                <div className="space-y-2">
+                  <Label>Property</Label>
+                  <Select value={propertyFilter} onValueChange={setPropertyFilter}>
+                    <SelectTrigger>
+                      <SelectValue />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="all">All Properties</SelectItem>
+                      {properties.map((property) => (
+                        <SelectItem key={property.id} value={property.id}>
+                          {property.name}
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                </div>
+
+                {/* Clear Filters */}
+                <div className="space-y-2">
+                  <Label className="invisible">Clear</Label>
+                  <Button
+                    variant="outline"
+                    onClick={clearFilters}
+                    disabled={!hasActiveFilters}
+                    className="w-full"
+                  >
+                    <X className="h-4 w-4 mr-2" />
+                    Clear Filters
+                  </Button>
+                </div>
+              </div>
+
+              {/* Date Range */}
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                <div className="space-y-2">
+                  <Label>Date From</Label>
+                  <Popover>
+                    <PopoverTrigger asChild>
+                      <Button
+                        variant="outline"
+                        className="w-full justify-start text-left font-normal"
+                      >
+                        <CalendarIcon className="mr-2 h-4 w-4" />
+                        {dateFrom ? format(dateFrom, "PPP") : "Pick a date"}
+                      </Button>
+                    </PopoverTrigger>
+                    <PopoverContent className="w-auto p-0">
+                      <Calendar
+                        mode="single"
+                        selected={dateFrom}
+                        onSelect={setDateFrom}
+                        initialFocus
+                      />
+                    </PopoverContent>
+                  </Popover>
+                </div>
+
+                <div className="space-y-2">
+                  <Label>Date To</Label>
+                  <Popover>
+                    <PopoverTrigger asChild>
+                      <Button
+                        variant="outline"
+                        className="w-full justify-start text-left font-normal"
+                      >
+                        <CalendarIcon className="mr-2 h-4 w-4" />
+                        {dateTo ? format(dateTo, "PPP") : "Pick a date"}
+                      </Button>
+                    </PopoverTrigger>
+                    <PopoverContent className="w-auto p-0">
+                      <Calendar
+                        mode="single"
+                        selected={dateTo}
+                        onSelect={setDateTo}
+                        initialFocus
+                      />
+                    </PopoverContent>
+                  </Popover>
+                </div>
+              </div>
+            </div>
             <div className="overflow-x-auto">
               <Table>
                 <TableHeader>
@@ -116,14 +328,24 @@ ${link}`;
                   </TableRow>
                 </TableHeader>
                 <TableBody>
-                  {kycLinks.length === 0 ? (
+                  {loading ? (
                     <TableRow>
-                      <TableCell colSpan={7} className="text-center text-muted-foreground">
-                        No KYC links generated yet
+                      <TableCell colSpan={7} className="text-center">
+                        <div className="flex items-center justify-center py-8">
+                          <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary"></div>
+                        </div>
+                      </TableCell>
+                    </TableRow>
+                  ) : filteredLinks.length === 0 ? (
+                    <TableRow>
+                      <TableCell colSpan={7} className="text-center text-muted-foreground py-8">
+                        {hasActiveFilters
+                          ? "No KYC links match the selected filters"
+                          : "No KYC links generated yet"}
                       </TableCell>
                     </TableRow>
                   ) : (
-                    kycLinks.map((link) => (
+                    filteredLinks.map((link) => (
                       <TableRow key={link.id}>
                         <TableCell className="font-medium">{link.guest_name}</TableCell>
                         <TableCell>{link.guest_contact || "-"}</TableCell>
