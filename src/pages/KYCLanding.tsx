@@ -33,15 +33,54 @@ export default function KYCLanding() {
         setShowForm(false);
         setSubmitted(true);
 
-        // Update KYC link status in database
+        // Update KYC link status in database and send notifications
         if (token) {
-          await supabase
+          const completedAt = new Date().toISOString();
+          const { data: kycData, error: updateError } = await supabase
             .from("kyc_links")
             .update({
               status: "completed",
-              completed_at: new Date().toISOString(),
+              completed_at: completedAt,
             })
-            .eq("token", token);
+            .eq("token", token)
+            .select("guest_name, unit_id")
+            .single();
+
+          if (updateError) {
+            console.error("Error updating KYC status:", updateError);
+          } else {
+            // Send notification to admins
+            try {
+              // Fetch unit name if unit_id exists
+              let propertyName = undefined;
+              if (kycData?.unit_id) {
+                const { data: unitData } = await supabase
+                  .from("units")
+                  .select("name")
+                  .eq("id", kycData.unit_id)
+                  .single();
+                propertyName = unitData?.name;
+              }
+
+              const { error: notificationError } = await supabase.functions.invoke(
+                "send-kyc-completion-notification",
+                {
+                  body: {
+                    guestName: kycData?.guest_name || "Unknown Guest",
+                    propertyName,
+                    completedAt,
+                    kycLinkId: token,
+                  },
+                }
+              );
+
+              if (notificationError) {
+                console.error("Error sending notification:", notificationError);
+              }
+            } catch (notifError) {
+              console.error("Failed to send notification:", notifError);
+            }
+          }
         }
       }
     };
