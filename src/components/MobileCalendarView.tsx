@@ -232,6 +232,10 @@ export const MobileCalendarView = () => {
                 const isMiddleOfSequence = hasBooking && prevHasBooking && nextHasBooking;
                 const isSingleDay = hasBooking && !prevHasBooking && !nextHasBooking;
 
+                // Calculate available rooms
+                const availableRooms = units.length - dayData.bookingCount;
+                const hasPartialAvailability = dayData.bookingCount > 0 && dayData.bookingCount < units.length;
+
                 return (
                   <div
                     key={date.toISOString()}
@@ -241,6 +245,13 @@ export const MobileCalendarView = () => {
                     <span className="text-sm font-medium relative z-10">{format(date, 'd')}</span>
                     {dayData.hasConflict && (
                       <AlertTriangle className="h-3 w-3 text-destructive absolute top-1 right-1 z-10" />
+                    )}
+                    
+                    {/* Available rooms indicator for partial availability */}
+                    {hasPartialAvailability && isCurrentMonth && (
+                      <span className="absolute top-1 right-1 text-[9px] font-semibold bg-green-500 text-white px-1.5 py-0.5 rounded-full z-10">
+                        {availableRooms} left
+                      </span>
                     )}
                     
                     {/* Blue ribbon for bookings */}
