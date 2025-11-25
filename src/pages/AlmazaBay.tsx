@@ -7,9 +7,16 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Textarea } from '@/components/ui/textarea';
 import { Switch } from '@/components/ui/switch';
+import { Checkbox } from '@/components/ui/checkbox';
 import { ArrowLeft, Save, Plus, Pencil, X, Upload, Trash2, Eye, ChevronDown, Copy, Image as ImageIcon, Lock, Globe, GripVertical, FileText, List } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
 import { Progress } from '@/components/ui/progress';
+import { PROPERTY_FEATURES } from '@/constants/propertyFeatures';
+import {
+  Collapsible,
+  CollapsibleContent,
+  CollapsibleTrigger,
+} from "@/components/ui/collapsible";
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -137,7 +144,8 @@ const AlmazaBay = () => {
   const [selectedPropertyForKYC, setSelectedPropertyForKYC] = useState<string | null>(null);
   const [featuresDialogOpen, setFeaturesDialogOpen] = useState(false);
   const [currentPropertyFeatures, setCurrentPropertyFeatures] = useState<{ id: string; features: string[] } | null>(null);
-  const [newFeature, setNewFeature] = useState('');
+  const [customFeature, setCustomFeature] = useState('');
+  const [openCategories, setOpenCategories] = useState<string[]>([]);
 
   const sensors = useSensors(
     useSensor(PointerSensor),
@@ -427,11 +435,16 @@ const AlmazaBay = () => {
     }
   };
 
-  const handleAddFeature = async () => {
-    if (!newFeature.trim() || !currentPropertyFeatures) return;
+  const handleToggleFeature = async (featureName: string) => {
+    if (!currentPropertyFeatures) return;
     
     try {
-      const updatedFeatures = [...(currentPropertyFeatures.features || []), newFeature.trim()];
+      const currentFeatures = currentPropertyFeatures.features || [];
+      const isSelected = currentFeatures.includes(featureName);
+      
+      const updatedFeatures = isSelected
+        ? currentFeatures.filter(f => f !== featureName)
+        : [...currentFeatures, featureName];
       
       const { error } = await supabase
         .from('units')
@@ -440,13 +453,7 @@ const AlmazaBay = () => {
 
       if (error) throw error;
 
-      toast({
-        title: 'Success',
-        description: 'Feature added successfully',
-      });
-
       setCurrentPropertyFeatures({ ...currentPropertyFeatures, features: updatedFeatures });
-      setNewFeature('');
       fetchProperties();
     } catch (error: any) {
       toast({
@@ -457,11 +464,11 @@ const AlmazaBay = () => {
     }
   };
 
-  const handleDeleteFeature = async (featureIndex: number) => {
-    if (!currentPropertyFeatures) return;
+  const handleAddCustomFeature = async () => {
+    if (!customFeature.trim() || !currentPropertyFeatures) return;
     
     try {
-      const updatedFeatures = currentPropertyFeatures.features.filter((_, index) => index !== featureIndex);
+      const updatedFeatures = [...(currentPropertyFeatures.features || []), customFeature.trim()];
       
       const { error } = await supabase
         .from('units')
@@ -472,8 +479,33 @@ const AlmazaBay = () => {
 
       toast({
         title: 'Success',
-        description: 'Feature deleted successfully',
+        description: 'Custom feature added successfully',
       });
+
+      setCurrentPropertyFeatures({ ...currentPropertyFeatures, features: updatedFeatures });
+      setCustomFeature('');
+      fetchProperties();
+    } catch (error: any) {
+      toast({
+        title: 'Error',
+        description: error.message,
+        variant: 'destructive',
+      });
+    }
+  };
+
+  const handleRemoveCustomFeature = async (featureName: string) => {
+    if (!currentPropertyFeatures) return;
+    
+    try {
+      const updatedFeatures = currentPropertyFeatures.features.filter(f => f !== featureName);
+      
+      const { error } = await supabase
+        .from('units')
+        .update({ features: updatedFeatures })
+        .eq('id', currentPropertyFeatures.id);
+
+      if (error) throw error;
 
       setCurrentPropertyFeatures({ ...currentPropertyFeatures, features: updatedFeatures });
       fetchProperties();
@@ -1286,57 +1318,127 @@ const AlmazaBay = () => {
 
       {/* Features Management Dialog */}
       <Dialog open={featuresDialogOpen} onOpenChange={setFeaturesDialogOpen}>
-        <DialogContent className="max-w-2xl">
+        <DialogContent className="max-w-3xl max-h-[80vh] overflow-hidden flex flex-col">
           <DialogHeader>
-            <DialogTitle>Manage Features & Amenities</DialogTitle>
+            <DialogTitle className="font-['Playfair_Display'] text-2xl font-semibold">Manage Features & Amenities</DialogTitle>
             <DialogDescription>
-              Add or remove features that will be displayed in the property selection modal
+              Select features from predefined categories or add custom features for this property
             </DialogDescription>
           </DialogHeader>
-          <div className="space-y-4">
-            {/* Add new feature */}
-            <div className="flex gap-2">
-              <Input
-                placeholder="Enter new feature..."
-                value={newFeature}
-                onChange={(e) => setNewFeature(e.target.value)}
-                onKeyPress={(e) => {
-                  if (e.key === 'Enter') {
-                    handleAddFeature();
-                  }
+          <div className="flex-1 overflow-y-auto space-y-6 pr-2">
+            {/* Predefined Features by Category */}
+            {PROPERTY_FEATURES.map((category) => (
+              <Collapsible
+                key={category.name}
+                open={openCategories.includes(category.name)}
+                onOpenChange={(isOpen) => {
+                  setOpenCategories(prev =>
+                    isOpen
+                      ? [...prev, category.name]
+                      : prev.filter(c => c !== category.name)
+                  );
                 }}
-              />
-              <Button onClick={handleAddFeature} disabled={!newFeature.trim()}>
-                <Plus className="h-4 w-4 mr-2" />
-                Add
-              </Button>
-            </div>
+              >
+                <CollapsibleTrigger className="flex items-center justify-between w-full p-3 hover:bg-muted rounded-lg transition-colors">
+                  <div className="flex items-center gap-3">
+                    <span className="text-2xl">{category.icon}</span>
+                    <span className="font-medium text-base">{category.name}</span>
+                    <span className="text-sm text-muted-foreground">
+                      ({currentPropertyFeatures?.features.filter(f => category.features.includes(f)).length || 0}/{category.features.length})
+                    </span>
+                  </div>
+                  <ChevronDown className={`h-4 w-4 transition-transform ${openCategories.includes(category.name) ? 'rotate-180' : ''}`} />
+                </CollapsibleTrigger>
+                <CollapsibleContent className="pt-2">
+                  <div className="grid grid-cols-2 gap-3 pl-12 pr-2">
+                    {category.features.map((feature) => {
+                      const isSelected = currentPropertyFeatures?.features.includes(feature) || false;
+                      return (
+                        <div key={feature} className="flex items-center space-x-2">
+                          <Checkbox
+                            id={`feature-${feature}`}
+                            checked={isSelected}
+                            onCheckedChange={() => handleToggleFeature(feature)}
+                          />
+                          <label
+                            htmlFor={`feature-${feature}`}
+                            className="text-sm cursor-pointer leading-none peer-disabled:cursor-not-allowed peer-disabled:opacity-70"
+                          >
+                            {feature}
+                          </label>
+                        </div>
+                      );
+                    })}
+                  </div>
+                </CollapsibleContent>
+              </Collapsible>
+            ))}
 
-            {/* Features list */}
-            <div className="border rounded-lg p-4 max-h-96 overflow-y-auto">
-              {currentPropertyFeatures && currentPropertyFeatures.features.length > 0 ? (
-                <ul className="space-y-2">
-                  {currentPropertyFeatures.features.map((feature, index) => (
-                    <li key={index} className="flex items-center justify-between p-2 hover:bg-muted rounded">
-                      <span className="flex items-center gap-2">
-                        <span className="text-primary">✓</span>
-                        {feature}
-                      </span>
-                      <Button
-                        size="sm"
-                        variant="ghost"
-                        onClick={() => handleDeleteFeature(index)}
-                      >
-                        <X className="h-4 w-4" />
-                      </Button>
-                    </li>
-                  ))}
-                </ul>
-              ) : (
-                <p className="text-center text-muted-foreground py-8">
-                  No features added yet. Add features to help guests understand what this property offers.
-                </p>
-              )}
+            {/* Custom Features Section */}
+            <div className="border-t pt-6">
+              <h3 className="font-medium text-base mb-3 flex items-center gap-2">
+                <span>✨</span>
+                Custom Features
+              </h3>
+              
+              {/* Add custom feature */}
+              <div className="flex gap-2 mb-4">
+                <Input
+                  placeholder="Add a custom feature..."
+                  value={customFeature}
+                  onChange={(e) => setCustomFeature(e.target.value)}
+                  onKeyPress={(e) => {
+                    if (e.key === 'Enter') {
+                      handleAddCustomFeature();
+                    }
+                  }}
+                  autoComplete="off"
+                />
+                <Button onClick={handleAddCustomFeature} disabled={!customFeature.trim()}>
+                  <Plus className="h-4 w-4 mr-2" />
+                  Add
+                </Button>
+              </div>
+
+              {/* Display custom features (features not in predefined list) */}
+              {currentPropertyFeatures && (() => {
+                const allPredefinedFeatures = PROPERTY_FEATURES.flatMap(cat => cat.features);
+                const customFeatures = currentPropertyFeatures.features.filter(
+                  f => !allPredefinedFeatures.includes(f)
+                );
+                
+                return customFeatures.length > 0 ? (
+                  <div className="space-y-2">
+                    {customFeatures.map((feature) => (
+                      <div key={feature} className="flex items-center justify-between p-2 hover:bg-muted rounded-lg">
+                        <span className="flex items-center gap-2 text-sm">
+                          <span className="text-primary">✓</span>
+                          {feature}
+                        </span>
+                        <Button
+                          size="sm"
+                          variant="ghost"
+                          onClick={() => handleRemoveCustomFeature(feature)}
+                        >
+                          <X className="h-4 w-4" />
+                        </Button>
+                      </div>
+                    ))}
+                  </div>
+                ) : (
+                  <p className="text-center text-muted-foreground text-sm py-4">
+                    No custom features added. Add unique features specific to this property.
+                  </p>
+                );
+              })()}
+            </div>
+          </div>
+          <div className="border-t pt-4 mt-4">
+            <div className="flex justify-between items-center text-sm text-muted-foreground">
+              <span>Total selected: {currentPropertyFeatures?.features.length || 0} features</span>
+              <Button variant="outline" onClick={() => setFeaturesDialogOpen(false)}>
+                Done
+              </Button>
             </div>
           </div>
         </DialogContent>

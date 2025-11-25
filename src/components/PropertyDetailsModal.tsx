@@ -7,6 +7,7 @@ import {
 } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
 import { ChevronLeft, ChevronRight, X } from "lucide-react";
+import { PROPERTY_FEATURES } from "@/constants/propertyFeatures";
 
 interface PropertyDetailsModalProps {
   open: boolean;
@@ -138,17 +139,62 @@ export function PropertyDetailsModal({ open, onClose, property }: PropertyDetail
           {/* Features & Amenities */}
           {property.features && property.features.length > 0 && (
             <div>
-              <h3 className="font-playfair text-xl font-semibold mb-3">
+              <h3 className="font-playfair text-xl font-semibold mb-4">
                 Features & Amenities
               </h3>
-              <ul className="grid grid-cols-1 md:grid-cols-2 gap-2">
-                {property.features.map((feature, index) => (
-                  <li key={index} className="flex items-start gap-2 text-sm">
-                    <span className="text-primary mt-1">✓</span>
-                    <span>{feature}</span>
-                  </li>
-                ))}
-              </ul>
+              <div className="space-y-6">
+                {PROPERTY_FEATURES.map((category) => {
+                  const categoryFeatures = property.features?.filter(f => 
+                    category.features.includes(f)
+                  ) || [];
+                  
+                  if (categoryFeatures.length === 0) return null;
+                  
+                  return (
+                    <div key={category.name}>
+                      <h4 className="text-sm font-medium mb-2 flex items-center gap-2">
+                        <span className="text-lg">{category.icon}</span>
+                        {category.name}
+                      </h4>
+                      <ul className="grid grid-cols-1 md:grid-cols-2 gap-2 pl-7">
+                        {categoryFeatures.map((feature, index) => (
+                          <li key={index} className="flex items-start gap-2 text-sm">
+                            <span className="text-primary mt-0.5">✓</span>
+                            <span>{feature}</span>
+                          </li>
+                        ))}
+                      </ul>
+                    </div>
+                  );
+                })}
+                
+                {/* Custom Features (features not in predefined categories) */}
+                {(() => {
+                  const allPredefinedFeatures = PROPERTY_FEATURES.flatMap(cat => cat.features);
+                  const customFeatures = property.features?.filter(
+                    f => !allPredefinedFeatures.includes(f)
+                  ) || [];
+                  
+                  if (customFeatures.length === 0) return null;
+                  
+                  return (
+                    <div>
+                      <h4 className="text-sm font-medium mb-2 flex items-center gap-2">
+                        <span className="text-lg">✨</span>
+                        Additional Features
+                      </h4>
+                      <ul className="grid grid-cols-1 md:grid-cols-2 gap-2 pl-7">
+                        {customFeatures.map((feature, index) => (
+                          <li key={index} className="flex items-start gap-2 text-sm">
+                            <span className="text-primary mt-0.5">✓</span>
+                            <span>{feature}</span>
+                          </li>
+                        ))}
+                      </ul>
+                    </div>
+                  );
+                })()}
+              </div>
             </div>
           )}
         </div>
