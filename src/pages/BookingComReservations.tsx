@@ -376,6 +376,7 @@ const BookingComReservations = () => {
               checkIn: parsedData.checkInDate,
               checkOut: parsedData.checkOutDate,
               unitName: parsedData.roomName, // Use Booking.com room name (e.g., "Double Room with Terrace")
+              unitId: unitId, // Pass the assigned unit ID
               unitType: '',
               totalPrice: parsedData.totalPrice || 0,
               numberOfGuests: parsedData.numberOfGuests,
