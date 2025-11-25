@@ -535,12 +535,12 @@ export const AvailabilityCalendar = () => {
         </div>
 
         {/* Calendar Grid */}
-        <div className="overflow-x-auto">
+        <div className="overflow-x-auto relative">
           <TooltipProvider>
             <div className="min-w-max">
               {/* Header Row */}
               <div className="grid gap-1 mb-2" style={{ gridTemplateColumns: `160px repeat(${displayDays.length}, 70px)` }}>
-                <div className="font-medium text-sm p-2">Unit</div>
+                <div className="font-medium text-sm p-2 sticky left-0 bg-background z-10 border-r border-border">Unit</div>
                 {displayDays.map((day) => (
                   <div
                     key={day.toISOString()}
@@ -564,7 +564,7 @@ export const AvailabilityCalendar = () => {
                   className="grid gap-1 mb-1"
                   style={{ gridTemplateColumns: `160px repeat(${displayDays.length}, 70px)` }}
                 >
-                  <div className="flex items-center text-sm font-medium p-2 bg-muted/50 rounded">
+                  <div className="flex items-center text-sm font-medium p-2 bg-muted/50 rounded sticky left-0 z-10 border-r border-border">
                     <div>
                       <div>{unit.name}</div>
                       <div className="text-xs text-muted-foreground">#{unit.unit_number}</div>
