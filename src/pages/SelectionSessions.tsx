@@ -6,6 +6,7 @@ import { Badge } from "@/components/ui/badge";
 import { useToast } from "@/hooks/use-toast";
 import { Clock, XCircle, Plus } from "lucide-react";
 import { formatDistanceToNow } from "date-fns";
+import { useAuth } from "@/lib/auth";
 
 interface SelectionSession {
   id: string;
@@ -22,6 +23,7 @@ export default function SelectionSessions() {
   const [sessions, setSessions] = useState<SelectionSession[]>([]);
   const [loading, setLoading] = useState(true);
   const { toast } = useToast();
+  const { user } = useAuth();
 
   const fetchSessions = async () => {
     try {
@@ -83,6 +85,8 @@ export default function SelectionSessions() {
 
   const extendSession = async (sessionId: string) => {
     try {
+      const session = sessions.find(s => s.id === sessionId);
+      const oldExpiryTime = session?.session_expires_at;
       const newExpiryTime = new Date();
       newExpiryTime.setMinutes(newExpiryTime.getMinutes() + 15);
 
@@ -94,6 +98,22 @@ export default function SelectionSessions() {
         .eq("id", sessionId);
 
       if (error) throw error;
+
+      // Log the action
+      await supabase.from("audit_logs").insert({
+        user_id: user?.id,
+        action: "UPDATE",
+        table_name: "selection_accounts",
+        record_id: sessionId,
+        changes: {
+          action: "extend_session",
+          guest_name: session?.guest_name,
+          username: session?.username,
+          old_expiry: oldExpiryTime,
+          new_expiry: newExpiryTime.toISOString(),
+          extended_by_minutes: 15,
+        },
+      });
 
       toast({
         title: "Session Extended",
@@ -113,6 +133,8 @@ export default function SelectionSessions() {
 
   const revokeSession = async (sessionId: string) => {
     try {
+      const session = sessions.find(s => s.id === sessionId);
+      
       const { error } = await supabase
         .from("selection_accounts")
         .update({
@@ -122,6 +144,24 @@ export default function SelectionSessions() {
         .eq("id", sessionId);
 
       if (error) throw error;
+
+      // Log the action
+      await supabase.from("audit_logs").insert({
+        user_id: user?.id,
+        action: "UPDATE",
+        table_name: "selection_accounts",
+        record_id: sessionId,
+        changes: {
+          action: "revoke_session",
+          guest_name: session?.guest_name,
+          username: session?.username,
+          previous_status: {
+            is_active: session?.is_active,
+            session_expires_at: session?.session_expires_at,
+          },
+          revoked_at: new Date().toISOString(),
+        },
+      });
 
       toast({
         title: "Session Revoked",
