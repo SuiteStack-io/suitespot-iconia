@@ -8,7 +8,7 @@ import { Label } from '@/components/ui/label';
 import { Textarea } from '@/components/ui/textarea';
 import { Switch } from '@/components/ui/switch';
 import { Checkbox } from '@/components/ui/checkbox';
-import { ArrowLeft, Save, Plus, Pencil, X, Upload, Trash2, Eye, ChevronDown, Copy, Image as ImageIcon, Lock, Globe, GripVertical, FileText, List } from 'lucide-react';
+import { ArrowLeft, Save, Plus, Pencil, X, Upload, Trash2, Eye, ChevronDown, Copy, Image as ImageIcon, Lock, Globe, GripVertical, FileText, List, Download, FileUp } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
 import { Progress } from '@/components/ui/progress';
 import { PROPERTY_FEATURES } from '@/constants/propertyFeatures';
@@ -47,6 +47,7 @@ import {
   SelectValue,
 } from '@/components/ui/select';
 import { format } from 'date-fns';
+import * as XLSX from 'xlsx';
 import {
   DndContext,
   closestCenter,
@@ -149,6 +150,9 @@ const AlmazaBay = () => {
   const [bulkFeaturesDialogOpen, setBulkFeaturesDialogOpen] = useState(false);
   const [selectedPropertiesForBulk, setSelectedPropertiesForBulk] = useState<string[]>([]);
   const [bulkFeaturesToApply, setBulkFeaturesToApply] = useState<string[]>([]);
+  const [importDialogOpen, setImportDialogOpen] = useState(false);
+  const [importFile, setImportFile] = useState<File | null>(null);
+  const [importPreview, setImportPreview] = useState<any[]>([]);
 
   const sensors = useSensors(
     useSensor(PointerSensor),
@@ -591,6 +595,177 @@ const AlmazaBay = () => {
     }
   };
 
+  const handleExportToExcel = () => {
+    try {
+      // Prepare data for export
+      const exportData = properties.map(property => ({
+        'Property Name': property.name,
+        'Unit Number': property.unit_number || '',
+        'Type': property.unit_type || '',
+        'Address': property.address || '',
+        'Size': property.unit_size || '',
+        'Beds': property.beds || '',
+        'Baths': property.baths || '',
+        'Max Guests': property.max_guests || '',
+        'Sofa Bed': property.sofa_bed ? 'Yes' : 'No',
+        'Price Per Night': property.price_per_night || '',
+        'Min Stay': property.min_stay || '',
+        'Payment Terms': property.payment_terms || '',
+        'Tax %': property.tax_percentage || '',
+        'Features': (property.features || []).join(', '),
+        'Status': property.status,
+        'View': property.view || '',
+        'Is Private': property.is_private ? 'Yes' : 'No',
+        'Location': property.location || 'Almaza Bay',
+      }));
+
+      // Create worksheet
+      const worksheet = XLSX.utils.json_to_sheet(exportData);
+      
+      // Create workbook
+      const workbook = XLSX.utils.book_new();
+      XLSX.utils.book_append_sheet(workbook, worksheet, 'Properties');
+
+      // Generate filename with timestamp
+      const timestamp = format(new Date(), 'yyyy-MM-dd_HH-mm');
+      const filename = `almaza-bay-properties_${timestamp}.xlsx`;
+
+      // Download file
+      XLSX.writeFile(workbook, filename);
+
+      toast({
+        title: 'Success',
+        description: 'Properties exported successfully',
+      });
+    } catch (error: any) {
+      toast({
+        title: 'Error',
+        description: error.message,
+        variant: 'destructive',
+      });
+    }
+  };
+
+  const handleFileUpload = (event: React.ChangeEvent<HTMLInputElement>) => {
+    const file = event.target.files?.[0];
+    if (!file) return;
+
+    setImportFile(file);
+
+    const reader = new FileReader();
+    reader.onload = (e) => {
+      try {
+        const data = e.target?.result;
+        const workbook = XLSX.read(data, { type: 'binary' });
+        const sheetName = workbook.SheetNames[0];
+        const worksheet = workbook.Sheets[sheetName];
+        const jsonData = XLSX.utils.sheet_to_json(worksheet);
+
+        setImportPreview(jsonData);
+        toast({
+          title: 'File loaded',
+          description: `Ready to import ${jsonData.length} properties`,
+        });
+      } catch (error: any) {
+        toast({
+          title: 'Error',
+          description: 'Failed to parse file: ' + error.message,
+          variant: 'destructive',
+        });
+      }
+    };
+    reader.readAsBinaryString(file);
+  };
+
+  const handleImportProperties = async () => {
+    if (importPreview.length === 0) {
+      toast({
+        title: 'Error',
+        description: 'No data to import',
+        variant: 'destructive',
+      });
+      return;
+    }
+
+    try {
+      let successCount = 0;
+      let errorCount = 0;
+
+      for (const row of importPreview) {
+        try {
+          // Map CSV columns to database fields
+          const propertyData: any = {
+            name: row['Property Name'] || '',
+            unit_number: row['Unit Number'] || null,
+            unit_type: row['Type'] || null,
+            address: row['Address'] || null,
+            unit_size: row['Size'] || null,
+            beds: row['Beds'] ? parseInt(String(row['Beds'])) : null,
+            baths: row['Baths'] ? parseInt(String(row['Baths'])) : null,
+            max_guests: row['Max Guests'] ? parseInt(String(row['Max Guests'])) : null,
+            sofa_bed: row['Sofa Bed'] === 'Yes' || row['Sofa Bed'] === 'true',
+            price_per_night: row['Price Per Night'] ? parseFloat(String(row['Price Per Night'])) : null,
+            min_stay: row['Min Stay'] ? parseInt(String(row['Min Stay'])) : null,
+            payment_terms: row['Payment Terms'] || null,
+            tax_percentage: row['Tax %'] ? parseFloat(String(row['Tax %'])) : 14.00,
+            features: row['Features'] ? String(row['Features']).split(',').map((f: string) => f.trim()).filter(Boolean) : [],
+            status: row['Status'] || 'available',
+            view: row['View'] || null,
+            is_private: row['Is Private'] === 'Yes' || row['Is Private'] === 'true',
+            location: 'Almaza Bay',
+            photos: [],
+          };
+
+          // Check if property already exists by name and unit number
+          const { data: existing } = await supabase
+            .from('units')
+            .select('id')
+            .eq('name', propertyData.name)
+            .eq('location', 'Almaza Bay')
+            .maybeSingle();
+
+          if (existing) {
+            // Update existing property
+            const { error } = await supabase
+              .from('units')
+              .update(propertyData)
+              .eq('id', existing.id);
+
+            if (error) throw error;
+          } else {
+            // Insert new property
+            const { error } = await supabase
+              .from('units')
+              .insert(propertyData);
+
+            if (error) throw error;
+          }
+
+          successCount++;
+        } catch (error: any) {
+          console.error('Error importing row:', row, error);
+          errorCount++;
+        }
+      }
+
+      toast({
+        title: 'Import Complete',
+        description: `Successfully imported ${successCount} properties${errorCount > 0 ? `. ${errorCount} failed.` : ''}`,
+      });
+
+      setImportDialogOpen(false);
+      setImportFile(null);
+      setImportPreview([]);
+      fetchProperties();
+    } catch (error: any) {
+      toast({
+        title: 'Error',
+        description: error.message,
+        variant: 'destructive',
+      });
+    }
+  };
+
   const handleKYCClick = (propertyId: string) => {
     setSelectedPropertyForKYC(propertyId);
     setKycGuestName('');
@@ -869,6 +1044,22 @@ const AlmazaBay = () => {
                 >
                   <List className="h-4 w-4 mr-2" />
                   View KYC Links
+                </Button>
+                <Button 
+                  variant="outline"
+                  onClick={handleExportToExcel}
+                  className="font-medium"
+                >
+                  <Download className="h-4 w-4 mr-2" />
+                  Export
+                </Button>
+                <Button 
+                  variant="outline"
+                  onClick={() => setImportDialogOpen(true)}
+                  className="font-medium"
+                >
+                  <FileUp className="h-4 w-4 mr-2" />
+                  Import
                 </Button>
                 <Button 
                   variant="outline"
@@ -1686,6 +1877,165 @@ const AlmazaBay = () => {
               disabled={selectedPropertiesForBulk.length === 0 || bulkFeaturesToApply.length === 0}
             >
               Apply to {selectedPropertiesForBulk.length} {selectedPropertiesForBulk.length === 1 ? 'Property' : 'Properties'}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* Import Properties Dialog */}
+      <Dialog open={importDialogOpen} onOpenChange={setImportDialogOpen}>
+        <DialogContent className="max-w-4xl max-h-[90vh] overflow-y-auto">
+          <DialogHeader>
+            <DialogTitle className="font-playfair text-2xl">Import Properties</DialogTitle>
+            <DialogDescription>
+              Upload a CSV or Excel file to import property data. All fields will be automatically filled.
+            </DialogDescription>
+          </DialogHeader>
+
+          <div className="space-y-6 py-4">
+            {/* File Upload Section */}
+            <div className="space-y-3">
+              <div className="border-2 border-dashed rounded-lg p-6 text-center">
+                <Input
+                  type="file"
+                  accept=".csv,.xlsx,.xls"
+                  onChange={handleFileUpload}
+                  className="hidden"
+                  id="import-file-upload"
+                />
+                <label
+                  htmlFor="import-file-upload"
+                  className="cursor-pointer flex flex-col items-center gap-2"
+                >
+                  <FileUp className="h-12 w-12 text-muted-foreground" />
+                  <div>
+                    <p className="font-medium">Click to upload CSV or Excel file</p>
+                    <p className="text-sm text-muted-foreground">Supports .csv, .xlsx, .xls formats</p>
+                  </div>
+                  {importFile && (
+                    <p className="text-sm text-primary mt-2">
+                      Selected: {importFile.name}
+                    </p>
+                  )}
+                </label>
+              </div>
+
+              {/* Expected Columns Info */}
+              <div className="bg-muted p-4 rounded-lg">
+                <h4 className="font-medium text-sm mb-2">Expected Columns:</h4>
+                <div className="grid grid-cols-2 md:grid-cols-4 gap-2 text-xs text-muted-foreground">
+                  <span>• Property Name</span>
+                  <span>• Unit Number</span>
+                  <span>• Type</span>
+                  <span>• Address</span>
+                  <span>• Size</span>
+                  <span>• Beds</span>
+                  <span>• Baths</span>
+                  <span>• Max Guests</span>
+                  <span>• Sofa Bed (Yes/No)</span>
+                  <span>• Price Per Night</span>
+                  <span>• Min Stay</span>
+                  <span>• Payment Terms</span>
+                  <span>• Tax %</span>
+                  <span>• Features (comma-separated)</span>
+                  <span>• Status</span>
+                  <span>• View</span>
+                  <span>• Is Private (Yes/No)</span>
+                </div>
+              </div>
+
+              {/* Download Template Button */}
+              <Button
+                variant="outline"
+                className="w-full"
+                onClick={() => {
+                  const template = [{
+                    'Property Name': 'Sample Property',
+                    'Unit Number': '101',
+                    'Type': 'Chalet',
+                    'Address': 'Sample Address',
+                    'Size': '200',
+                    'Beds': '3',
+                    'Baths': '2',
+                    'Max Guests': '6',
+                    'Sofa Bed': 'Yes',
+                    'Price Per Night': '500',
+                    'Min Stay': '3',
+                    'Payment Terms': '50% upfront, 50% on arrival',
+                    'Tax %': '14',
+                    'Features': 'Private Pool, WiFi, Air Conditioning',
+                    'Status': 'available',
+                    'View': 'Sea View',
+                    'Is Private': 'Yes',
+                  }];
+                  const ws = XLSX.utils.json_to_sheet(template);
+                  const wb = XLSX.utils.book_new();
+                  XLSX.utils.book_append_sheet(wb, ws, 'Template');
+                  XLSX.writeFile(wb, 'almaza-bay-import-template.xlsx');
+                }}
+              >
+                <Download className="h-4 w-4 mr-2" />
+                Download Template
+              </Button>
+            </div>
+
+            {/* Preview Section */}
+            {importPreview.length > 0 && (
+              <div className="space-y-3 border-t pt-6">
+                <h3 className="font-medium text-base">
+                  Preview ({importPreview.length} {importPreview.length === 1 ? 'property' : 'properties'})
+                </h3>
+                <div className="max-h-[300px] overflow-auto border rounded-lg">
+                  <Table>
+                    <TableHeader>
+                      <TableRow>
+                        <TableHead>Property Name</TableHead>
+                        <TableHead>Unit #</TableHead>
+                        <TableHead>Type</TableHead>
+                        <TableHead>Beds</TableHead>
+                        <TableHead>Baths</TableHead>
+                        <TableHead>Features</TableHead>
+                      </TableRow>
+                    </TableHeader>
+                    <TableBody>
+                      {importPreview.slice(0, 10).map((row: any, index: number) => (
+                        <TableRow key={index}>
+                          <TableCell>{row['Property Name']}</TableCell>
+                          <TableCell>{row['Unit Number']}</TableCell>
+                          <TableCell>{row['Type']}</TableCell>
+                          <TableCell>{row['Beds']}</TableCell>
+                          <TableCell>{row['Baths']}</TableCell>
+                          <TableCell className="max-w-[200px] truncate">
+                            {String(row['Features'] || '').substring(0, 50)}
+                            {String(row['Features'] || '').length > 50 ? '...' : ''}
+                          </TableCell>
+                        </TableRow>
+                      ))}
+                    </TableBody>
+                  </Table>
+                  {importPreview.length > 10 && (
+                    <p className="text-center text-sm text-muted-foreground py-2">
+                      And {importPreview.length - 10} more...
+                    </p>
+                  )}
+                </div>
+              </div>
+            )}
+          </div>
+
+          <DialogFooter>
+            <Button variant="outline" onClick={() => {
+              setImportDialogOpen(false);
+              setImportFile(null);
+              setImportPreview([]);
+            }}>
+              Cancel
+            </Button>
+            <Button 
+              onClick={handleImportProperties}
+              disabled={importPreview.length === 0}
+            >
+              Import {importPreview.length} {importPreview.length === 1 ? 'Property' : 'Properties'}
             </Button>
           </DialogFooter>
         </DialogContent>
