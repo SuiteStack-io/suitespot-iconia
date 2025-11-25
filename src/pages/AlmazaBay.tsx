@@ -1875,12 +1875,21 @@ const AlmazaBay = () => {
                         `$${property.price_per_night?.toFixed(2) ?? '-'}`
                       )}
                     </TableCell>
-                    <TableCell>
-                      {isEditing ? (
+                    <TableCell className="min-w-[100px]">
+                      {bulkEditMode || isEditing ? (
                         <Input
                           type="number"
-                          value={editedProperty.min_stay || ''}
-                          onChange={(e) => setEditedProperty({ ...editedProperty, min_stay: e.target.value ? parseInt(e.target.value) : null })}
+                          value={bulkEditMode 
+                            ? (bulkEditedProperties[property.id]?.min_stay ?? property.min_stay ?? '')
+                            : (editedProperty.min_stay ?? '')}
+                          onChange={(e) => {
+                            const value = e.target.value ? parseInt(e.target.value) : null;
+                            if (bulkEditMode) {
+                              handleBulkEditChange(property.id, 'min_stay', value);
+                            } else {
+                              setEditedProperty({ ...editedProperty, min_stay: value });
+                            }
+                          }}
                           placeholder="Min nights"
                         />
                       ) : (
