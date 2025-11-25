@@ -162,14 +162,14 @@ export const MobileCalendarView = () => {
     }
 
     if (dayData.bookingCount > 0) {
-      // Pink shading for booked days matching the reference image
+      // Pink background for booked days
       const pinkShade = '!bg-pink-200/60 dark:!bg-pink-900/40';
-      const todayBorder = today ? '!ring-2 !ring-blue-500 !ring-inset' : '';
+      const todayBorder = today ? '!ring-2 !ring-[#0066CC] !ring-inset' : '';
       const selectedBg = isSelected ? '!bg-yellow-200 dark:!bg-yellow-900/40' : '';
       return `${baseClasses} ${selectedBg || pinkShade} ${todayBorder} cursor-pointer`;
     }
 
-    const todayBorder = today ? '!ring-2 !ring-blue-500 !ring-inset' : '';
+    const todayBorder = today ? '!ring-2 !ring-[#0066CC] !ring-inset' : '';
     const selectedBg = isSelected ? '!bg-yellow-200 dark:!bg-yellow-900/40' : '';
     return `${baseClasses} ${selectedBg} ${todayBorder}`;
   };
@@ -188,35 +188,78 @@ export const MobileCalendarView = () => {
     const calendarEnd = endOfWeek(monthEnd);
     const days = eachDayOfInterval({ start: calendarStart, end: calendarEnd });
 
+    // Group days into weeks for continuous ribbon rendering
+    const weeks: Date[][] = [];
+    for (let i = 0; i < days.length; i += 7) {
+      weeks.push(days.slice(i, i + 7));
+    }
+
     return (
       <div key={format(monthDate, 'yyyy-MM')} className="mb-6 bg-muted/30 p-4 rounded-lg">
         <h3 className="text-lg font-semibold mb-3">{format(monthDate, 'MMMM yyyy')}</h3>
-        <div className="grid grid-cols-7 gap-0 border border-border/50 rounded-lg overflow-hidden">
-          {['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'].map(day => (
-            <div key={day} className="bg-muted/50 p-2 text-center text-xs font-medium border-b border-border/50">
-              {day}
+        <div className="border border-border/50 rounded-lg overflow-hidden">
+          {/* Day headers */}
+          <div className="grid grid-cols-7">
+            {['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'].map(day => (
+              <div key={day} className="bg-muted/50 p-2 text-center text-xs font-medium border-b border-border/50">
+                {day}
+              </div>
+            ))}
+          </div>
+          
+          {/* Week rows */}
+          {weeks.map((week, weekIndex) => (
+            <div key={weekIndex} className="grid grid-cols-7 relative">
+              {week.map((date, dayIndex) => {
+                const dayData = getDayData(date);
+                const isCurrentMonth = isSameMonth(date, monthDate);
+                const today = isSameDay(date, new Date());
+                const isSelected = selectedDay && isSameDay(date, selectedDay.date);
+                
+                // Check if this is part of a consecutive booking sequence
+                const prevDay = dayIndex > 0 ? week[dayIndex - 1] : null;
+                const nextDay = dayIndex < 6 ? week[dayIndex + 1] : null;
+                const prevDayData = prevDay ? getDayData(prevDay) : null;
+                const nextDayData = nextDay ? getDayData(nextDay) : null;
+                
+                const hasBooking = dayData.bookingCount > 0;
+                const prevHasBooking = prevDayData && prevDayData.bookingCount > 0;
+                const nextHasBooking = nextDayData && nextDayData.bookingCount > 0;
+                
+                const isStartOfSequence = hasBooking && !prevHasBooking;
+                const isEndOfSequence = hasBooking && !nextHasBooking;
+                const isMiddleOfSequence = hasBooking && prevHasBooking && nextHasBooking;
+                const isSingleDay = hasBooking && !prevHasBooking && !nextHasBooking;
+
+                return (
+                  <div
+                    key={date.toISOString()}
+                    className={getCellClassName(dayData, date)}
+                    onClick={() => handleDayClick(dayData)}
+                  >
+                    <span className="text-sm font-medium relative z-10">{format(date, 'd')}</span>
+                    {dayData.hasConflict && (
+                      <AlertTriangle className="h-3 w-3 text-destructive absolute top-1 right-1 z-10" />
+                    )}
+                    
+                    {/* Blue ribbon for bookings */}
+                    {hasBooking && isCurrentMonth && (
+                      <div 
+                        className={`absolute bottom-0 left-0 right-0 h-5 bg-[#0066CC] flex items-center justify-center z-0
+                          ${isStartOfSequence || isSingleDay ? 'rounded-l' : ''}
+                          ${isEndOfSequence || isSingleDay ? 'rounded-r' : ''}
+                        `}
+                      >
+                        <span className="text-[9px] font-semibold text-white px-1">
+                          {dayData.bookingCount} bo...
+                        </span>
+                      </div>
+                    )}
+                  </div>
+                );
+              })}
             </div>
           ))}
-          {days.map(date => {
-            const dayData = getDayData(date);
-            return (
-              <div
-                key={date.toISOString()}
-                className={getCellClassName(dayData, date)}
-                onClick={() => handleDayClick(dayData)}
-              >
-                <span className="text-sm font-medium">{format(date, 'd')}</span>
-                {dayData.hasConflict && (
-                  <AlertTriangle className="h-3 w-3 text-destructive absolute top-1 right-1" />
-                )}
-                {dayData.bookingCount > 0 && (
-                  <span className="text-[9px] font-medium text-blue-600 dark:text-blue-400 mt-auto px-1 bg-blue-100 dark:bg-blue-900/30 rounded">
-                    {dayData.bookingCount} bo...
-                  </span>
-                )}
-              </div>
-            );
-          })}
         </div>
       </div>
     );
