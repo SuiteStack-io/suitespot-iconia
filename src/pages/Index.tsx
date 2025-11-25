@@ -106,7 +106,7 @@ const Index = () => {
                     <DropdownMenuSeparator />
                     <DropdownMenuItem onClick={() => navigate('/almaza-bay')}>Almaza Bay</DropdownMenuItem>
                     <DropdownMenuItem onClick={() => navigate('/ticket-analytics')}>Analytics</DropdownMenuItem>
-                    <DropdownMenuItem onClick={() => navigate('/guest-accounts')}>Guest Accounts</DropdownMenuItem>
+                    <DropdownMenuItem onClick={() => navigate('/guest-accounts')}>App Accounts</DropdownMenuItem>
                     <DropdownMenuItem onClick={() => navigate('/guests')}>Guests</DropdownMenuItem>
                     <DropdownMenuItem onClick={() => navigate('/locations-management')}>Locations</DropdownMenuItem>
                     <DropdownMenuItem onClick={() => navigate('/media-library')}>Media Library</DropdownMenuItem>
