@@ -206,7 +206,7 @@ export default function SelectionLanding() {
 
         <div className="text-center mt-12 bg-background/95 backdrop-blur-sm rounded-xl p-6 max-w-2xl mx-auto border border-border/50">
           <p className="text-sm text-muted-foreground">
-            This content is private and exclusive. Please contact us to discuss your preferred options.
+            This session will expire in {timeRemaining}
           </p>
         </div>
       </div>
