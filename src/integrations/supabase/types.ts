@@ -560,6 +560,7 @@ export type Database = {
           contact_phone: string | null
           created_at: string
           currency: string | null
+          group_id: string | null
           guest_ages: number[] | null
           guest_genders: string[] | null
           guest_names: string[]
@@ -597,6 +598,7 @@ export type Database = {
           contact_phone?: string | null
           created_at?: string
           currency?: string | null
+          group_id?: string | null
           guest_ages?: number[] | null
           guest_genders?: string[] | null
           guest_names?: string[]
@@ -634,6 +636,7 @@ export type Database = {
           contact_phone?: string | null
           created_at?: string
           currency?: string | null
+          group_id?: string | null
           guest_ages?: number[] | null
           guest_genders?: string[] | null
           guest_names?: string[]

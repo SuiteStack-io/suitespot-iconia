@@ -177,6 +177,9 @@ export function CreateReservationDialog() {
   
   // Form state
   const [dateRange, setDateRange] = useState<DateRange | undefined>();
+  const [numberOfRooms, setNumberOfRooms] = useState<number>(1);
+  const [selectedUnitIds, setSelectedUnitIds] = useState<string[]>([""]);
+  const [roomPrices, setRoomPrices] = useState<(number | "")[]>([""]);
   const [unitId, setUnitId] = useState("");
   const [roomNumber, setRoomNumber] = useState<string>("");
   const [adults, setAdults] = useState<number>(1);
@@ -227,22 +230,37 @@ export function CreateReservationDialog() {
     ? differenceInDays(checkOutDate, checkInDate) 
     : 0;
 
-  // Get selected unit for tax calculation
-  const selectedUnitData = availableUnits.find(u => u.id === unitId);
+  // Sync selectedUnitIds array size with numberOfRooms
+  useEffect(() => {
+    setSelectedUnitIds(Array(numberOfRooms).fill("").map((_, i) => selectedUnitIds[i] || ""));
+    setRoomPrices(Array(numberOfRooms).fill("").map((_, i) => roomPrices[i] || ""));
+  }, [numberOfRooms]);
+
+  // Get selected unit for tax calculation (use first room for tax percentage)
+  const selectedUnitData = availableUnits.find(u => u.id === selectedUnitIds[0]);
   const taxPercentage = selectedUnitData?.tax_percentage || 14;
 
-  // Update room number when unit changes
+  // Update room number when unit changes (legacy support for single room)
   useEffect(() => {
-    if (selectedUnitData) {
-      setRoomNumber(selectedUnitData.unit_number || '');
+    if (numberOfRooms === 1 && selectedUnitIds[0]) {
+      const unit = availableUnits.find(u => u.id === selectedUnitIds[0]);
+      setUnitId(selectedUnitIds[0]);
+      setRoomNumber(unit?.unit_number || '');
     } else {
+      setUnitId("");
       setRoomNumber('');
     }
-  }, [selectedUnitData]);
+  }, [selectedUnitIds, numberOfRooms, availableUnits]);
 
-  // Calculate subtotal (before tax)
-  const subtotal = pricePerNight && nights > 0 
-    ? Number(pricePerNight) * nights 
+  // Calculate subtotal (before tax) for all rooms
+  const subtotal = nights > 0
+    ? selectedUnitIds.reduce((total, unitId, index) => {
+        const price = roomPrices[index];
+        if (price && unitId) {
+          return total + (Number(price) * nights);
+        }
+        return total;
+      }, 0)
     : 0;
 
   // Calculate tax amount
@@ -495,9 +513,12 @@ export function CreateReservationDialog() {
     
     setAvailableUnits(available);
     
-    // Reset unit selection if previously selected unit is no longer available
-    if (unitId && unavailableUnitIds.includes(unitId)) {
-      setUnitId("");
+    // Reset unit selections if any selected unit is no longer available
+    const newSelectedUnitIds = selectedUnitIds.map(id => 
+      unavailableUnitIds.includes(id) ? "" : id
+    );
+    if (JSON.stringify(newSelectedUnitIds) !== JSON.stringify(selectedUnitIds)) {
+      setSelectedUnitIds(newSelectedUnitIds);
     }
     
     setCheckingAvailability(false);
@@ -525,6 +546,26 @@ export function CreateReservationDialog() {
     const newGuestGenders = [...guestGenders];
     newGuestGenders[index] = gender;
     setGuestGenders(newGuestGenders);
+  };
+
+  const updateRoomSelection = (roomIndex: number, unitId: string) => {
+    const newSelectedUnitIds = [...selectedUnitIds];
+    newSelectedUnitIds[roomIndex] = unitId;
+    setSelectedUnitIds(newSelectedUnitIds);
+    
+    // Auto-fill price from unit data
+    const unit = allUnits.find(u => u.id === unitId);
+    if (unit && unit.price_per_night) {
+      const newRoomPrices = [...roomPrices];
+      newRoomPrices[roomIndex] = unit.price_per_night;
+      setRoomPrices(newRoomPrices);
+    }
+  };
+
+  const updateRoomPrice = (roomIndex: number, price: number | "") => {
+    const newRoomPrices = [...roomPrices];
+    newRoomPrices[roomIndex] = price;
+    setRoomPrices(newRoomPrices);
   };
 
   const handleIdPassportUpload = async (file: File, isBack: boolean = false) => {
@@ -730,9 +771,32 @@ export function CreateReservationDialog() {
       return false;
     }
     
-    // Room selection
-    if (!unitId) {
-      missingFields.push("Room selection");
+    // Room selection - check all rooms are selected
+    const emptyRoomSelections = selectedUnitIds.filter(id => !id).length;
+    if (emptyRoomSelections > 0) {
+      missingFields.push(`Room selection (${emptyRoomSelections} room${emptyRoomSelections > 1 ? 's' : ''} not selected)`);
+    }
+    
+    // Check for duplicate room selections
+    const uniqueRooms = new Set(selectedUnitIds.filter(id => id));
+    if (uniqueRooms.size < selectedUnitIds.filter(id => id).length) {
+      toast.error("You cannot select the same room multiple times");
+      return false;
+    }
+    
+    // Price validation for each room
+    const emptyPrices = roomPrices.filter((price, index) => selectedUnitIds[index] && (!price || Number(price) <= 0)).length;
+    if (emptyPrices > 0) {
+      missingFields.push(`Price per night for all rooms (${emptyPrices} room${emptyPrices > 1 ? 's' : ''} missing price)`);
+    }
+    
+    // Validate prices are integers
+    const hasNonIntegerPrice = roomPrices.some((price, index) => {
+      return selectedUnitIds[index] && price && !Number.isInteger(Number(price));
+    });
+    if (hasNonIntegerPrice) {
+      toast.error("All prices must be whole numbers");
+      return false;
     }
     
     // Guest validations
@@ -801,14 +865,6 @@ export function CreateReservationDialog() {
       missingFields.push("Source specification (when selecting Others)");
     }
     
-    // Price validation
-    if (!pricePerNight || Number(pricePerNight) <= 0) {
-      missingFields.push("Price per night");
-    } else if (!Number.isInteger(Number(pricePerNight))) {
-      toast.error("Price per night must be a whole number");
-      return false;
-    }
-    
     // Show all missing fields if any
     if (missingFields.length > 0) {
       const fieldsList = missingFields.join(", ");
@@ -841,90 +897,113 @@ export function CreateReservationDialog() {
         `${firstName.trim()} ${guestLastNames[i]?.trim() || ''}`.trim()
       ).filter(n => n);
 
-      // Marriage certificate URL is already set from immediate upload
-
-      // Calculate pricing and commission
-      const total = Number(pricePerNight) * nights;
-      const commissionAmount = (total * commissionRate) / 100;
-      const netRevenue = total - commissionAmount;
-
       // Prepare source value: if "Others", append specification
       const finalSource = source === "Others" && sourceSpecification.trim()
         ? `Others - ${sourceSpecification.trim()}`
         : source;
 
-      const reservationData = {
-        booking_reference: `MAN-${Date.now()}`,
-        check_in_date: format(checkInDate!, "yyyy-MM-dd"),
-        check_out_date: format(checkOutDate!, "yyyy-MM-dd"),
-        unit_id: unitId,
-        number_of_guests: numberOfGuests,
-        adults: adults,
-        children: children,
-        guest_names: combinedNames,
-        guest_types: guestTypes.filter((_, i) => combinedNames[i]),
-        guest_genders: guestGenders.filter((_, i) => combinedNames[i]),
-        guest_nationality: nationality,
-        marriage_certificate_url: marriageCertificateUrl || null,
-        id_passport_url: idPassportUrl || null,
-        id_passport_url_back: idPassportUrlBack || null,
-        source: finalSource,
-        status: "confirmed",
-        channel: "Manual",
-        price_per_night: Number(pricePerNight),
-        total_price: total,
-        commission_rate: commissionRate,
-        commission_amount: commissionAmount,
-        net_revenue: netRevenue,
-        currency: "USD",
-        contact_email: contactEmail,
-        contact_phone: `${countryCode}${contactPhone}`,
-        notes: notes || null,
-        guest_ages: [],
-      };
+      // Generate a group_id for multi-room bookings
+      const groupId = numberOfRooms > 1 ? crypto.randomUUID() : null;
+      
+      // Create reservations for each room
+      const reservationPromises = selectedUnitIds.map(async (unitIdValue, roomIndex) => {
+        if (!unitIdValue) return null;
 
-      const { data: insertedReservation, error } = await supabase
-        .from("reservations")
-        .insert([reservationData])
-        .select()
-        .single();
+        const priceForRoom = Number(roomPrices[roomIndex]);
+        const totalForRoom = priceForRoom * nights;
+        const commissionAmount = (totalForRoom * commissionRate) / 100;
+        const netRevenue = totalForRoom - commissionAmount;
 
-      if (error) throw error;
+        const reservationData = {
+          booking_reference: `MAN-${Date.now()}-${roomIndex + 1}`,
+          check_in_date: format(checkInDate!, "yyyy-MM-dd"),
+          check_out_date: format(checkOutDate!, "yyyy-MM-dd"),
+          unit_id: unitIdValue,
+          number_of_guests: numberOfGuests,
+          adults: adults,
+          children: children,
+          guest_names: combinedNames,
+          guest_types: guestTypes.filter((_, i) => combinedNames[i]),
+          guest_genders: guestGenders.filter((_, i) => combinedNames[i]),
+          guest_nationality: nationality,
+          marriage_certificate_url: marriageCertificateUrl || null,
+          id_passport_url: idPassportUrl || null,
+          id_passport_url_back: idPassportUrlBack || null,
+          source: finalSource,
+          status: "confirmed",
+          channel: "Manual",
+          price_per_night: priceForRoom,
+          total_price: totalForRoom,
+          commission_rate: commissionRate,
+          commission_amount: commissionAmount,
+          net_revenue: netRevenue,
+          currency: "USD",
+          contact_email: contactEmail,
+          contact_phone: `${countryCode}${contactPhone}`,
+          notes: notes || null,
+          guest_ages: [],
+          group_id: groupId,
+        };
 
-      // Get unit name and type for email
-      const selectedUnit = allUnits.find(u => u.id === unitId);
-      const unitName = selectedUnit ? `${selectedUnit.name} ${selectedUnit.unit_number || ''}`.trim() : 'Unit';
-      const unitType = selectedUnit?.unit_type || '';
+        const { data: insertedReservation, error } = await supabase
+          .from("reservations")
+          .insert([reservationData])
+          .select()
+          .single();
 
-      // Send email notification to platform users
-      try {
-        await supabase.functions.invoke('send-reservation-notification', {
-          body: {
-            reservationId: insertedReservation.id,
-            guestNames: combinedNames,
-            checkIn: format(checkInDate!, "yyyy-MM-dd"),
-            checkOut: format(checkOutDate!, "yyyy-MM-dd"),
-            unitName,
-            unitType,
-            totalPrice: total,
-            numberOfGuests,
-            adults,
-            children,
-            source,
-            notes: notes || null,
-            guestNationality: nationality || null,
-          },
-        });
-        console.log('Email notification sent successfully');
-      } catch (emailError) {
-        // Don't fail the reservation if email fails
-        console.error('Failed to send email notification:', emailError);
+        if (error) throw error;
+        return insertedReservation;
+      });
+
+      const insertedReservations = (await Promise.all(reservationPromises)).filter(Boolean);
+
+      if (insertedReservations.length === 0) {
+        throw new Error("Failed to create any reservations");
       }
 
-      toast.success("Reservation created successfully!");
+      // Send email notification for each room
+      for (const reservation of insertedReservations) {
+        const selectedUnit = allUnits.find(u => u.id === reservation.unit_id);
+        const unitName = selectedUnit ? `${selectedUnit.name} ${selectedUnit.unit_number || ''}`.trim() : 'Unit';
+        const unitType = selectedUnit?.unit_type || '';
+
+        try {
+          await supabase.functions.invoke('send-reservation-notification', {
+            body: {
+              reservationId: reservation.id,
+              guestNames: combinedNames,
+              checkIn: format(checkInDate!, "yyyy-MM-dd"),
+              checkOut: format(checkOutDate!, "yyyy-MM-dd"),
+              unitName,
+              unitType,
+              totalPrice: reservation.total_price,
+              numberOfGuests,
+              adults,
+              children,
+              source,
+              notes: notes || null,
+              guestNationality: nationality || null,
+              isMultiRoom: numberOfRooms > 1,
+              roomNumber: insertedReservations.indexOf(reservation) + 1,
+              totalRooms: numberOfRooms,
+            },
+          });
+        } catch (emailError) {
+          console.error('Failed to send email notification:', emailError);
+        }
+      }
+
+      toast.success(
+        numberOfRooms > 1 
+          ? `${numberOfRooms} reservations created successfully!` 
+          : "Reservation created successfully!"
+      );
       
       // Reset form
       setDateRange(undefined);
+      setNumberOfRooms(1);
+      setSelectedUnitIds([""]);
+      setRoomPrices([""]);
       setUnitId("");
       setAdults(1);
       setChildren(0);
@@ -932,6 +1011,7 @@ export function CreateReservationDialog() {
       setGuestFirstNames([""]);
       setGuestLastNames([""]);
       setGuestTypes(["adult"]);
+      setGuestGenders([""]);
       setNationality("");
       setIdPassportFile(null);
       setIdPassportUrl(null);
@@ -944,27 +1024,25 @@ export function CreateReservationDialog() {
       setCountryCode("+20");
       setContactPhone("");
       setSource("");
+      setSourceSpecification("");
       setPricePerNight("");
+      setNotes("");
       setOpen(false);
     } catch (error: any) {
       console.error("Error creating reservation:", error);
       
       // Provide specific error messages
       if (error.code === '42501') {
-        // Permission denied error
         toast.error('You do not have permission to create reservations. Please contact an administrator.');
       } else if (error.code === '23505') {
-        // Unique constraint violation
         toast.error('A reservation with this booking reference already exists.');
       } else if (error.message?.includes('violates row-level security')) {
         toast.error('Permission denied. Your account may not have the required role to create reservations.');
       } else if (error.message?.includes('not found')) {
         toast.error('The selected unit was not found. Please refresh and try again.');
       } else if (error.details) {
-        // Show specific error details from Supabase
         toast.error(`Error: ${error.message}. ${error.details}`);
       } else {
-        // Generic error
         toast.error(`Failed to create reservation: ${error.message || 'Please try again.'}`);
       }
     } finally {
@@ -975,7 +1053,7 @@ export function CreateReservationDialog() {
   const isFormValid = 
     checkInDate &&
     checkOutDate &&
-    unitId &&
+    selectedUnitIds.every(id => id) &&
     numberOfGuests > 0 &&
     guestFirstNames[0]?.trim() !== "" &&
     guestLastNames[0]?.trim() !== "" &&
@@ -984,9 +1062,7 @@ export function CreateReservationDialog() {
     contactPhone.trim() !== "" &&
     source &&
     (source !== "Others" || sourceSpecification.trim() !== "") &&
-    pricePerNight &&
-    Number(pricePerNight) > 0 &&
-    Number.isInteger(Number(pricePerNight));
+    roomPrices.every((price, index) => selectedUnitIds[index] ? price && Number(price) > 0 : true);
 
   const resetForm = () => {
     setDateRange(undefined);
@@ -1114,53 +1190,103 @@ export function CreateReservationDialog() {
             </p>
           )}
 
-          {/* Suite Name and Room # */}
-          <div className="grid grid-cols-2 gap-4">
-            <div className="space-y-2">
-              <Label htmlFor="unitId">
-                Suite Name <span className="text-destructive">*</span>
-              </Label>
-              <Select value={unitId} onValueChange={setUnitId} disabled={checkingAvailability}>
-                <SelectTrigger>
-                  <SelectValue placeholder={
-                    checkingAvailability 
-                      ? "Checking availability..." 
-                      : !checkInDate || !checkOutDate
-                      ? "Select dates first"
-                      : availableUnits.length === 0
-                      ? "No units available for selected dates"
-                      : "Select a room"
-                  } />
-                </SelectTrigger>
-                <SelectContent>
-                  {availableUnits.map((unit) => (
-                    <SelectItem key={unit.id} value={unit.id}>
-                      {unit.name}{unit.unit_type ? ` - ${unit.unit_type}` : ''}
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-              {checkInDate && checkOutDate && availableUnits.length === 0 && (
-                <p className="text-xs text-destructive">
-                  All rooms are booked for these dates
-                </p>
-              )}
-            </div>
-
-            <div className="space-y-2">
-              <Label htmlFor="roomNumber">
-                Room #
-              </Label>
-              <Input 
-                id="roomNumber"
-                value={roomNumber}
-                readOnly
-                disabled
-                placeholder="Auto-filled"
-                className="bg-muted"
-              />
-            </div>
+          {/* Number of Rooms */}
+          <div className="space-y-2">
+            <Label htmlFor="numberOfRooms">
+              Number of Rooms <span className="text-destructive">*</span>
+            </Label>
+            <Select 
+              value={numberOfRooms.toString()} 
+              onValueChange={(value) => setNumberOfRooms(Number(value))}
+            >
+              <SelectTrigger>
+                <SelectValue />
+              </SelectTrigger>
+              <SelectContent>
+                {[1, 2, 3, 4].map((num) => (
+                  <SelectItem key={num} value={num.toString()}>
+                    {num} {num === 1 ? 'Room' : 'Rooms'}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
           </div>
+
+          {/* Room Selections */}
+          {Array.from({ length: numberOfRooms }).map((_, roomIndex) => (
+            <div key={roomIndex} className="space-y-4 p-4 border rounded-lg bg-muted/30">
+              <h3 className="font-semibold text-sm">
+                Room {roomIndex + 1} {numberOfRooms > 1 && `of ${numberOfRooms}`}
+              </h3>
+              
+              <div className="grid grid-cols-2 gap-4">
+                <div className="space-y-2">
+                  <Label htmlFor={`unitId-${roomIndex}`}>
+                    Suite Name <span className="text-destructive">*</span>
+                  </Label>
+                  <Select 
+                    value={selectedUnitIds[roomIndex]} 
+                    onValueChange={(value) => updateRoomSelection(roomIndex, value)} 
+                    disabled={checkingAvailability}
+                  >
+                    <SelectTrigger>
+                      <SelectValue placeholder={
+                        checkingAvailability 
+                          ? "Checking availability..." 
+                          : !checkInDate || !checkOutDate
+                          ? "Select dates first"
+                          : availableUnits.length === 0
+                          ? "No units available"
+                          : "Select a room"
+                      } />
+                    </SelectTrigger>
+                    <SelectContent>
+                      {availableUnits
+                        .filter(unit => !selectedUnitIds.includes(unit.id) || unit.id === selectedUnitIds[roomIndex])
+                        .map((unit) => (
+                          <SelectItem key={unit.id} value={unit.id}>
+                            {unit.name}{unit.unit_type ? ` - ${unit.unit_type}` : ''} {unit.unit_number ? `(#${unit.unit_number})` : ''}
+                          </SelectItem>
+                        ))}
+                    </SelectContent>
+                  </Select>
+                </div>
+
+                <div className="space-y-2">
+                  <Label htmlFor={`roomPrice-${roomIndex}`}>
+                    Price/Night (USD) <span className="text-destructive">*</span>
+                  </Label>
+                  <Input 
+                    id={`roomPrice-${roomIndex}`}
+                    type="number"
+                    value={roomPrices[roomIndex]}
+                    onChange={(e) => updateRoomPrice(roomIndex, e.target.value ? Number(e.target.value) : "")}
+                    placeholder="Enter price"
+                    min="0"
+                    step="1"
+                  />
+                </div>
+              </div>
+            </div>
+          ))}
+
+          {/* Total Pricing Summary */}
+          {subtotal > 0 && (
+            <div className="p-4 bg-muted/50 rounded-lg space-y-2">
+              <div className="flex justify-between text-sm">
+                <span>Subtotal ({numberOfRooms} {numberOfRooms === 1 ? 'room' : 'rooms'} × {nights} {nights === 1 ? 'night' : 'nights'}):</span>
+                <span className="font-semibold">${subtotal.toFixed(2)}</span>
+              </div>
+              <div className="flex justify-between text-sm text-muted-foreground">
+                <span>Tax ({taxPercentage}%):</span>
+                <span>${taxAmount.toFixed(2)}</span>
+              </div>
+              <div className="flex justify-between font-semibold pt-2 border-t">
+                <span>Total:</span>
+                <span>${totalPrice.toFixed(2)}</span>
+              </div>
+            </div>
+          )}
 
           {/* Number of Guests */}
           <div className="space-y-4">
@@ -1648,50 +1774,6 @@ export function CreateReservationDialog() {
                 className="flex-1"
               />
             </div>
-          </div>
-
-          {/* Price Per Night */}
-          <div className="space-y-2">
-            <Label htmlFor="pricePerNight">
-              Price Per Night <span className="text-destructive">*</span>
-            </Label>
-            <div className="relative">
-              <span className="absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground">
-                $
-              </span>
-              <Input
-                id="pricePerNight"
-                type="number"
-                min="0"
-                step="1"
-                placeholder="0"
-                value={pricePerNight}
-                onChange={(e) => setPricePerNight(e.target.value ? parseInt(e.target.value) : "")}
-                className="pl-8"
-              />
-            </div>
-            <p className="text-xs text-muted-foreground">
-              Enter whole number only (e.g., 100 for $100)
-            </p>
-            {pricePerNight && nights > 0 && (
-              <div className="text-sm space-y-1 pt-2 border-t">
-                <p className="text-xs text-muted-foreground">
-                  Subtotal (before tax): ${subtotal.toFixed(2)}
-                </p>
-                <p className="text-xs text-muted-foreground">
-                  Tax ({taxPercentage}%): ${taxAmount.toFixed(2)}
-                </p>
-                <p className="font-medium text-primary">
-                  Grand Total (incl. tax): ${totalPrice.toFixed(2)}
-                </p>
-                <p className="text-xs text-muted-foreground">
-                  Commission ({commissionRate}%): ${((totalPrice * commissionRate) / 100).toFixed(2)}
-                </p>
-                <p className="text-xs text-muted-foreground">
-                  Net Revenue: ${(totalPrice - (totalPrice * commissionRate) / 100).toFixed(2)}
-                </p>
-              </div>
-            )}
           </div>
 
           {/* Source */}
