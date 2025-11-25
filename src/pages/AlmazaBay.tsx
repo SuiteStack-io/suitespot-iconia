@@ -229,6 +229,10 @@ const AlmazaBay = () => {
   const [importPreview, setImportPreview] = useState<any[]>([]);
   const [importValidationErrors, setImportValidationErrors] = useState<{ row: number; errors: string[] }[]>([]);
   
+  // Bulk edit mode state
+  const [bulkEditMode, setBulkEditMode] = useState(false);
+  const [bulkEditedProperties, setBulkEditedProperties] = useState<{ [key: string]: Partial<Property> }>({});
+  
   // TODO: Remove after development - Simulation dialog state
   const [simulationDialogOpen, setSimulationDialogOpen] = useState(false);
   const [selectedPropertiesForSimulation, setSelectedPropertiesForSimulation] = useState<string[]>([]);
@@ -1347,6 +1351,49 @@ const AlmazaBay = () => {
     }
   };
 
+  const handleBulkEditChange = (propertyId: string, field: keyof Property, value: any) => {
+    setBulkEditedProperties(prev => ({
+      ...prev,
+      [propertyId]: {
+        ...prev[propertyId],
+        [field]: value
+      }
+    }));
+  };
+
+  const handleSaveAllBulkEdits = async () => {
+    try {
+      const updates = Object.entries(bulkEditedProperties).map(([id, changes]) => 
+        supabase.from('units').update(changes).eq('id', id)
+      );
+
+      await Promise.all(updates);
+
+      toast({
+        title: 'Success',
+        description: 'All changes saved successfully',
+      });
+
+      setBulkEditedProperties({});
+      setBulkEditMode(false);
+      fetchProperties();
+    } catch (error: any) {
+      toast({
+        title: 'Save failed',
+        description: error.message,
+        variant: 'destructive',
+      });
+    }
+  };
+
+  const toggleBulkEditMode = () => {
+    if (bulkEditMode) {
+      // Cancel bulk edit
+      setBulkEditedProperties({});
+    }
+    setBulkEditMode(!bulkEditMode);
+  };
+
   if (loading) {
     return (
       <div className="flex min-h-screen items-center justify-center">
@@ -1423,10 +1470,41 @@ const AlmazaBay = () => {
                   <FileText className="h-4 w-4 mr-2" />
                   Bulk Features
                 </Button>
-                <Button onClick={() => setIsAdding(true)} disabled={isAdding} className="font-medium">
-                  <Plus className="h-4 w-4 mr-2" />
-                  Add Property
-                </Button>
+                {bulkEditMode ? (
+                  <>
+                    <Button 
+                      onClick={handleSaveAllBulkEdits}
+                      disabled={Object.keys(bulkEditedProperties).length === 0}
+                      className="font-medium"
+                    >
+                      <Save className="h-4 w-4 mr-2" />
+                      Save All
+                    </Button>
+                    <Button 
+                      variant="outline"
+                      onClick={toggleBulkEditMode}
+                      className="font-medium"
+                    >
+                      <X className="h-4 w-4 mr-2" />
+                      Cancel
+                    </Button>
+                  </>
+                ) : (
+                  <>
+                    <Button 
+                      variant="outline"
+                      onClick={toggleBulkEditMode}
+                      className="font-medium"
+                    >
+                      <Pencil className="h-4 w-4 mr-2" />
+                      Bulk Edit
+                    </Button>
+                    <Button onClick={() => setIsAdding(true)} disabled={isAdding} className="font-medium">
+                      <Plus className="h-4 w-4 mr-2" />
+                      Add Property
+                    </Button>
+                  </>
+                )}
               </div>
             )}
           </div>
@@ -1434,6 +1512,14 @@ const AlmazaBay = () => {
       </header>
 
       <main className="container mx-auto px-4 py-8">
+        {bulkEditMode && (
+          <div className="mb-4 p-4 bg-amber-50 border border-amber-200 rounded-md flex items-start gap-2">
+            <AlertCircle className="h-5 w-5 text-amber-600 mt-0.5 flex-shrink-0" />
+            <p className="text-sm text-amber-900">
+              <strong>Bulk Edit Mode:</strong> The table can be scrolled horizontally to see all fields. All changes will be saved when you click "Save All".
+            </p>
+          </div>
+        )}
         <div className="rounded-md border overflow-x-auto">
           <Table className="min-w-[1600px]">
             <TableHeader>
@@ -1457,7 +1543,7 @@ const AlmazaBay = () => {
                 <TableHead className="min-w-[130px] text-base font-medium">Next Reservation</TableHead>
                 <TableHead className="min-w-[140px] text-base font-medium">View</TableHead>
                 <TableHead className="min-w-[120px] text-base font-medium">Visibility</TableHead>
-                {isAdmin && <TableHead className="min-w-[100px] text-base font-medium">Actions</TableHead>}
+                {isAdmin && !bulkEditMode && <TableHead className="min-w-[100px] text-base font-medium">Actions</TableHead>}
               </TableRow>
             </TableHeader>
             <TableBody>
@@ -1731,8 +1817,54 @@ const AlmazaBay = () => {
                         property.baths ?? '-'
                       )}
                     </TableCell>
-                    <TableCell>{property.max_guests}</TableCell>
-                    <TableCell>{property.sofa_bed ? 'Yes' : 'No'}</TableCell>
+                    <TableCell className="min-w-[100px]">
+                      {bulkEditMode || isEditing ? (
+                        <Input
+                          type="number"
+                          value={bulkEditMode 
+                            ? (bulkEditedProperties[property.id]?.max_guests ?? property.max_guests ?? '')
+                            : (editedProperty.max_guests ?? '')}
+                          onChange={(e) => {
+                            const value = e.target.value ? parseInt(e.target.value) : null;
+                            if (bulkEditMode) {
+                              handleBulkEditChange(property.id, 'max_guests', value);
+                            } else {
+                              setEditedProperty({ ...editedProperty, max_guests: value });
+                            }
+                          }}
+                          placeholder="Max guests"
+                        />
+                      ) : (
+                        property.max_guests ?? '-'
+                      )}
+                    </TableCell>
+                    <TableCell className="min-w-[100px]">
+                      {bulkEditMode || isEditing ? (
+                        <Select
+                          value={bulkEditMode
+                            ? String(bulkEditedProperties[property.id]?.sofa_bed ?? property.sofa_bed ?? false)
+                            : String(editedProperty.sofa_bed ?? false)}
+                          onValueChange={(value) => {
+                            const boolValue = value === 'true';
+                            if (bulkEditMode) {
+                              handleBulkEditChange(property.id, 'sofa_bed', boolValue);
+                            } else {
+                              setEditedProperty({ ...editedProperty, sofa_bed: boolValue });
+                            }
+                          }}
+                        >
+                          <SelectTrigger>
+                            <SelectValue />
+                          </SelectTrigger>
+                          <SelectContent>
+                            <SelectItem value="true">Yes</SelectItem>
+                            <SelectItem value="false">No</SelectItem>
+                          </SelectContent>
+                        </Select>
+                      ) : (
+                        property.sofa_bed ? 'Yes' : 'No'
+                      )}
+                    </TableCell>
                     <TableCell>${property.price_per_night?.toFixed(2)}</TableCell>
                     <TableCell>
                       {isEditing ? (
@@ -1864,7 +1996,7 @@ const AlmazaBay = () => {
                         </span>
                       </div>
                     </TableCell>
-                    {isAdmin && (
+                    {isAdmin && !bulkEditMode && (
                       <TableCell>
                         {isEditing ? (
                           <div className="flex gap-2">
