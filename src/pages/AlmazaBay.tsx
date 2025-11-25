@@ -2905,6 +2905,10 @@ ${kycLink}`;
                           <div className="text-sm text-muted-foreground space-y-1 mt-2">
                             {property.beds && <p>Beds: {property.beds}</p>}
                             {property.baths && <p>Baths: {property.baths}</p>}
+                            {property.unit_size && <p>Size: {property.unit_size}</p>}
+                            {property.max_guests && <p>Max guests: {property.max_guests}</p>}
+                            {property.min_stay && <p>Min stay: {property.min_stay} {property.min_stay === 1 ? 'night' : 'nights'}</p>}
+                            {property.price_per_night && <p>Price / night: ${property.price_per_night}</p>}
                           </div>
                         </div>
                       </div>
