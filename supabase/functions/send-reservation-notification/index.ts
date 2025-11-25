@@ -407,10 +407,20 @@ const handler = async (req: Request): Promise<Response> => {
       console.log(`Attempting to send email to: ${user.email}`);
       
       try {
+        // Build subject line with suite name and room number if available
+        let subject = `New Reservation: ${guestNames.join(", ")}`;
+        if (matchedSuiteName && matchedRoomNumber) {
+          subject += ` - ${matchedSuiteName} - Room #${matchedRoomNumber}`;
+        } else if (matchedSuiteName) {
+          subject += ` - ${matchedSuiteName}`;
+        } else {
+          subject += ` - ${unitName}`;
+        }
+        
         const result = await resend.emails.send({
           from: "SuiteSpot Bookings <reservations@bookings.suitespoteg.com>",
           to: [user.email],
-          subject: `New Reservation: ${guestNames.join(", ")} - ${unitName.split(' ')[0]} ${unitName.split(' ')[1] || ''}`,
+          subject: subject,
         html: `
           <!DOCTYPE html>
           <html>
