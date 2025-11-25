@@ -78,26 +78,49 @@ const Index = () => {
             <NotificationBell />
             {isAdmin && (
               <>
-                <Button variant="outline" size="sm" onClick={() => navigate('/homepage-management')}>
-                  <Home className="h-4 w-4 mr-2" />
-                  Content
-                </Button>
-                <Button variant="outline" size="sm" onClick={() => navigate('/booking-com-reservations')}>
-                  <Upload className="h-4 w-4 mr-2" />
-                  Booking.com
-                </Button>
-                <Button variant="outline" size="sm" onClick={() => navigate('/guest-tickets')}>
-                  <Ticket className="h-4 w-4 mr-2" />
-                  Tickets
-                </Button>
-                <Button variant="outline" size="sm" onClick={() => navigate('/guest/login')}>
-                  <UserCircle className="h-4 w-4 mr-2" />
-                  Guest Login
-                </Button>
+                {/* Desktop: horizontal layout */}
+                <div className="hidden md:flex items-center gap-2">
+                  <Button variant="outline" size="sm" onClick={() => navigate('/homepage-management')}>
+                    <Home className="h-4 w-4 mr-2" />
+                    Content
+                  </Button>
+                  <Button variant="outline" size="sm" onClick={() => navigate('/booking-com-reservations')}>
+                    <Upload className="h-4 w-4 mr-2" />
+                    Booking.com
+                  </Button>
+                  <Button variant="outline" size="sm" onClick={() => navigate('/guest-tickets')}>
+                    <Ticket className="h-4 w-4 mr-2" />
+                    Tickets
+                  </Button>
+                  <Button variant="outline" size="sm" onClick={() => navigate('/guest/login')}>
+                    <UserCircle className="h-4 w-4 mr-2" />
+                    Guest Login
+                  </Button>
+                </div>
+                
+                {/* Mobile: vertical layout - Content, Booking.com, Menu order */}
+                <div className="md:hidden flex flex-col gap-2">
+                  <Button variant="outline" size="sm" onClick={() => navigate('/homepage-management')} className="w-full">
+                    <Home className="h-4 w-4 mr-2" />
+                    Content
+                  </Button>
+                  <Button variant="outline" size="sm" onClick={() => navigate('/booking-com-reservations')} className="w-full">
+                    <Upload className="h-4 w-4 mr-2" />
+                    Booking.com
+                  </Button>
+                </div>
               </>
             )}
+            
+            {/* Menu dropdown - desktop: inline, mobile: stacked below */}
             <DropdownMenu>
-              <DropdownMenuTrigger asChild><Button variant="outline" size="sm"><Home className="h-4 w-4 mr-2" />Menu<ChevronDown className="h-4 w-4 ml-2" /></Button></DropdownMenuTrigger>
+              <DropdownMenuTrigger asChild>
+                <Button variant="outline" size="sm" className={isAdmin && isMobile ? "w-full md:w-auto" : ""}>
+                  <Home className="h-4 w-4 mr-2" />
+                  Menu
+                  <ChevronDown className="h-4 w-4 ml-2" />
+                </Button>
+              </DropdownMenuTrigger>
               <DropdownMenuContent align="end">
                 <DropdownMenuItem onClick={() => navigate('/calendar')}>Calendar</DropdownMenuItem>
                 <DropdownMenuItem onClick={() => navigate('/rooms')}>ICONIA Rooms</DropdownMenuItem>
@@ -112,12 +135,22 @@ const Index = () => {
                     <DropdownMenuItem onClick={() => navigate('/media-library')}>Media Library</DropdownMenuItem>
                     <DropdownMenuItem onClick={() => navigate('/settings')}>Settings</DropdownMenuItem>
                     <DropdownMenuItem onClick={() => navigate('/users')}>Users</DropdownMenuItem>
+                    <DropdownMenuSeparator />
+                    <DropdownMenuItem onClick={() => navigate('/guest-tickets')} className="md:hidden">Tickets</DropdownMenuItem>
+                    <DropdownMenuItem onClick={() => navigate('/guest/login')} className="md:hidden">Guest Login</DropdownMenuItem>
                   </>
                 )}
               </DropdownMenuContent>
             </DropdownMenu>
-            <Button variant="outline" size="sm" onClick={handleSync} disabled={syncing}><RefreshCw className={`h-4 w-4 mr-2 ${syncing ? 'animate-spin' : ''}`} />Sync</Button>
-            <Button variant="outline" size="sm" onClick={() => signOut()}><LogOut className="h-4 w-4 mr-2" />Sign Out</Button>
+            
+            <Button variant="outline" size="sm" onClick={handleSync} disabled={syncing} className="hidden md:flex">
+              <RefreshCw className={`h-4 w-4 mr-2 ${syncing ? 'animate-spin' : ''}`} />
+              Sync
+            </Button>
+            <Button variant="outline" size="sm" onClick={() => signOut()} className="hidden md:flex">
+              <LogOut className="h-4 w-4 mr-2" />
+              Sign Out
+            </Button>
           </div>
         </div>
       </header>
