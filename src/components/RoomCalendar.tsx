@@ -55,8 +55,11 @@ export const RoomCalendar = () => {
   const [blockedDates, setBlockedDates] = useState<BlockedDate[]>([]);
   const [selectedDay, setSelectedDay] = useState<DayData | null>(null);
   const [sheetOpen, setSheetOpen] = useState(false);
+  const [iconiaCount, setIconiaCount] = useState(0);
+  const [almazaBayCount, setAlmazaBayCount] = useState(0);
 
   useEffect(() => {
+    fetchUnitCounts();
     fetchUnits();
     fetchReservations();
     fetchBlockedDates();
@@ -65,13 +68,35 @@ export const RoomCalendar = () => {
       .channel('room-calendar-realtime')
       .on('postgres_changes', { event: '*', schema: 'public', table: 'reservations' }, () => fetchReservations())
       .on('postgres_changes', { event: '*', schema: 'public', table: 'blocked_dates' }, () => fetchBlockedDates())
-      .on('postgres_changes', { event: '*', schema: 'public', table: 'units' }, () => fetchUnits())
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'units' }, () => {
+        fetchUnits();
+        fetchUnitCounts();
+      })
       .subscribe();
 
     return () => {
       supabase.removeChannel(channel);
     };
   }, [selectedLocation]);
+
+  const fetchUnitCounts = async () => {
+    // Fetch ICONIA count
+    const { count: iconiaTotal } = await supabase
+      .from('units')
+      .select('*', { count: 'exact', head: true })
+      .eq('location', 'ICONIA')
+      .eq('status', 'available');
+    
+    // Fetch Almaza Bay count
+    const { count: almazaTotal } = await supabase
+      .from('units')
+      .select('*', { count: 'exact', head: true })
+      .eq('location', 'Almaza Bay')
+      .eq('status', 'available');
+    
+    setIconiaCount(iconiaTotal || 0);
+    setAlmazaBayCount(almazaTotal || 0);
+  };
 
   const fetchUnits = async () => {
     const { data, error } = await supabase
@@ -320,8 +345,12 @@ export const RoomCalendar = () => {
             {!isMobile && (
               <Tabs value={selectedLocation} onValueChange={(value) => setSelectedLocation(value as 'ICONIA' | 'Almaza Bay')}>
                 <TabsList>
-                  <TabsTrigger value="ICONIA">ICONIA</TabsTrigger>
-                  <TabsTrigger value="Almaza Bay">Almaza Bay</TabsTrigger>
+                  <TabsTrigger value="ICONIA">
+                    ICONIA <span className="ml-1.5 text-xs opacity-70">({iconiaCount})</span>
+                  </TabsTrigger>
+                  <TabsTrigger value="Almaza Bay">
+                    Almaza Bay <span className="ml-1.5 text-xs opacity-70">({almazaBayCount})</span>
+                  </TabsTrigger>
                 </TabsList>
               </Tabs>
             )}
@@ -330,8 +359,12 @@ export const RoomCalendar = () => {
           {isMobile && (
             <Tabs value={selectedLocation} onValueChange={(value) => setSelectedLocation(value as 'ICONIA' | 'Almaza Bay')} className="w-full">
               <TabsList className="w-full grid grid-cols-2">
-                <TabsTrigger value="ICONIA">ICONIA</TabsTrigger>
-                <TabsTrigger value="Almaza Bay">Almaza Bay</TabsTrigger>
+                <TabsTrigger value="ICONIA" className="text-xs sm:text-sm">
+                  ICONIA <span className="ml-1 opacity-70">({iconiaCount})</span>
+                </TabsTrigger>
+                <TabsTrigger value="Almaza Bay" className="text-xs sm:text-sm">
+                  Almaza Bay <span className="ml-1 opacity-70">({almazaBayCount})</span>
+                </TabsTrigger>
               </TabsList>
             </Tabs>
           )}
