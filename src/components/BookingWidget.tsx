@@ -26,11 +26,13 @@ export const BookingWidget = () => {
 
         if (blockedError) throw blockedError;
 
-        // Get all available units
+        // Get all available units (only ICONIA public properties)
         const { data: allUnits } = await supabase
           .from("units")
           .select("id")
-          .eq("status", "available");
+          .eq("status", "available")
+          .eq("is_private", false)
+          .eq("location", "ICONIA");
 
         const totalUnits = allUnits?.length || 0;
         if (totalUnits === 0) return;
