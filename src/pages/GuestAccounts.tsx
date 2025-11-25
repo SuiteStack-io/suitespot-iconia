@@ -136,7 +136,7 @@ export default function GuestAccounts() {
       .order("created_at", { ascending: false });
 
     if (error) {
-      toast.error("Failed to load guest accounts");
+      toast.error("Failed to load app accounts");
       console.error(error);
     } else {
       setAccounts(data as GuestAccount[]);
@@ -211,7 +211,7 @@ export default function GuestAccounts() {
       .eq("reservation_id", selectedReservationId);
 
     if (count && count >= 4) {
-      toast.error("Maximum 4 guest accounts per reservation");
+      toast.error("Maximum 4 app accounts per reservation");
       return;
     }
 
@@ -232,11 +232,11 @@ export default function GuestAccounts() {
         password: data.password,
       });
 
-      toast.success("Guest account created successfully");
+      toast.success("App account created successfully");
       fetchAccounts();
     } catch (error: any) {
-      console.error("Error creating guest account:", error);
-      toast.error(error.message || "Failed to create guest account");
+      console.error("Error creating app account:", error);
+      toast.error(error.message || "Failed to create app account");
     } finally {
       setCreating(false);
     }
@@ -272,17 +272,17 @@ export default function GuestAccounts() {
           <Button variant="ghost" size="icon" onClick={() => navigate("/admin")}>
             <ArrowLeft className="h-5 w-5" />
           </Button>
-          <h1 className="text-3xl font-bold">Guest Accounts Management</h1>
+          <h1 className="text-3xl font-bold">App Accounts Management</h1>
         </div>
         <Button onClick={() => setCreateDialogOpen(true)}>
           <UserPlus className="h-4 w-4 mr-2" />
-          Create Guest Account
+          Create App Account
         </Button>
       </div>
 
       <Card>
         <CardHeader>
-          <CardTitle>All Guest Accounts ({accounts.length})</CardTitle>
+          <CardTitle>All App Accounts ({accounts.length})</CardTitle>
         </CardHeader>
         <CardContent>
           <div className="overflow-x-auto">
@@ -304,7 +304,7 @@ export default function GuestAccounts() {
                 {accounts.length === 0 ? (
                   <TableRow>
                     <TableCell colSpan={9} className="text-center text-muted-foreground">
-                      No guest accounts found
+                      No app accounts found
                     </TableCell>
                   </TableRow>
                 ) : (
@@ -397,7 +397,7 @@ export default function GuestAccounts() {
           <DialogHeader>
             <DialogTitle>Reset Password</DialogTitle>
             <DialogDescription>
-              Reset password for guest account: <strong>{selectedAccount?.username}</strong>
+              Reset password for app account: <strong>{selectedAccount?.username}</strong>
             </DialogDescription>
           </DialogHeader>
           <div className="space-y-4 py-4">
@@ -444,7 +444,7 @@ export default function GuestAccounts() {
       <Dialog open={createDialogOpen} onOpenChange={setCreateDialogOpen}>
         <DialogContent className="sm:max-w-md">
           <DialogHeader>
-            <DialogTitle>Create Guest Account</DialogTitle>
+            <DialogTitle>Create App Account</DialogTitle>
             <DialogDescription>
               Generate login credentials for a guest
             </DialogDescription>

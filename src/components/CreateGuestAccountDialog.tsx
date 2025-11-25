@@ -76,10 +76,10 @@ export function CreateGuestAccountDialog({ reservationId, guestName }: CreateGue
         password: generatedPassword
       });
       
-      toast.success('Guest account created and credentials sent!');
+      toast.success('App account created and credentials sent!');
     } catch (error: any) {
-      console.error('Error creating guest account:', error);
-      toast.error(error.message || 'Failed to create guest account');
+      console.error('Error creating app account:', error);
+      toast.error(error.message || 'Failed to create app account');
     } finally {
       setLoading(false);
     }
@@ -102,12 +102,12 @@ export function CreateGuestAccountDialog({ reservationId, guestName }: CreateGue
       <DialogTrigger asChild>
         <Button variant="outline" size="sm" disabled={existingAccountsCount >= 4}>
           <UserPlus className="h-4 w-4 mr-2" />
-          Create Guest Account {existingAccountsCount > 0 && `(${existingAccountsCount}/4)`}
+          Create App Account {existingAccountsCount > 0 && `(${existingAccountsCount}/4)`}
         </Button>
       </DialogTrigger>
       <DialogContent className="sm:max-w-md">
         <DialogHeader>
-          <DialogTitle>Create Guest Account</DialogTitle>
+          <DialogTitle>Create App Account</DialogTitle>
           <DialogDescription>
             Generate login credentials for {guestName}. {existingAccountsCount} of 4 active accounts created for this reservation.
           </DialogDescription>
@@ -121,7 +121,7 @@ export function CreateGuestAccountDialog({ reservationId, guestName }: CreateGue
             </div>
             
             <p className="text-sm text-muted-foreground">
-              This will create a guest portal account with automatically generated credentials.
+              This will create an app account with automatically generated credentials.
             </p>
           </div>
         ) : (
