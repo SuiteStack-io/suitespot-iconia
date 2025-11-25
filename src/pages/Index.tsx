@@ -108,14 +108,45 @@ const Index = () => {
                     <Upload className="h-4 w-4 mr-2" />
                     Booking.com
                   </Button>
+                  
+                  {/* Menu dropdown on mobile - stacked below */}
+                  <DropdownMenu>
+                    <DropdownMenuTrigger asChild>
+                      <Button variant="outline" size="sm" className="w-full">
+                        <Home className="h-4 w-4 mr-2" />
+                        Menu
+                        <ChevronDown className="h-4 w-4 ml-2" />
+                      </Button>
+                    </DropdownMenuTrigger>
+                    <DropdownMenuContent align="end">
+                      <DropdownMenuItem onClick={() => navigate('/calendar')}>Calendar</DropdownMenuItem>
+                      <DropdownMenuItem onClick={() => navigate('/rooms')}>ICONIA Rooms</DropdownMenuItem>
+                      {isAdmin && (
+                        <>
+                          <DropdownMenuSeparator />
+                          <DropdownMenuItem onClick={() => navigate('/almaza-bay')}>Almaza Bay</DropdownMenuItem>
+                          <DropdownMenuItem onClick={() => navigate('/ticket-analytics')}>Analytics</DropdownMenuItem>
+                          <DropdownMenuItem onClick={() => navigate('/guest-accounts')}>App Accounts</DropdownMenuItem>
+                          <DropdownMenuItem onClick={() => navigate('/guests')}>Guests</DropdownMenuItem>
+                          <DropdownMenuItem onClick={() => navigate('/locations-management')}>Locations</DropdownMenuItem>
+                          <DropdownMenuItem onClick={() => navigate('/media-library')}>Media Library</DropdownMenuItem>
+                          <DropdownMenuItem onClick={() => navigate('/settings')}>Settings</DropdownMenuItem>
+                          <DropdownMenuItem onClick={() => navigate('/users')}>Users</DropdownMenuItem>
+                          <DropdownMenuSeparator />
+                          <DropdownMenuItem onClick={() => navigate('/guest-tickets')}>Tickets</DropdownMenuItem>
+                          <DropdownMenuItem onClick={() => navigate('/guest/login')}>Guest Login</DropdownMenuItem>
+                        </>
+                      )}
+                    </DropdownMenuContent>
+                  </DropdownMenu>
                 </div>
               </>
             )}
             
-            {/* Menu dropdown - desktop: inline, mobile: stacked below */}
+            {/* Menu dropdown - desktop only */}
             <DropdownMenu>
               <DropdownMenuTrigger asChild>
-                <Button variant="outline" size="sm" className={isAdmin && isMobile ? "w-full md:w-auto" : ""}>
+                <Button variant="outline" size="sm" className="hidden md:flex">
                   <Home className="h-4 w-4 mr-2" />
                   Menu
                   <ChevronDown className="h-4 w-4 ml-2" />
