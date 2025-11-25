@@ -8,7 +8,9 @@ import { Badge } from "@/components/ui/badge";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { ArrowLeft, Copy, ExternalLink, Search, X, Send, Mail, MessageCircle, Plus } from "lucide-react";
+import { ArrowLeft, Copy, ExternalLink, Search, X, Send, Mail, MessageCircle, Plus, Check, XCircle } from "lucide-react";
+import { InventorySelectionModal } from "@/components/InventorySelectionModal";
+import { SelectionCredentialsModal } from "@/components/SelectionCredentialsModal";
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from "@/components/ui/dropdown-menu";
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { toast } from "sonner";
@@ -26,6 +28,8 @@ interface KYCLink {
   created_at: string;
   completed_at: string | null;
   unit_id: string | null;
+  outcome: string | null;
+  outcome_at: string | null;
   units: {
     name: string;
   } | null;
@@ -57,6 +61,17 @@ export default function KYCManagement() {
   const [kycGuestName, setKycGuestName] = useState("");
   const [kycGuestContact, setKycGuestContact] = useState("");
   const [selectedPropertyId, setSelectedPropertyId] = useState<string | null>(null);
+
+  // Accept/Reject states
+  const [showRejectModal, setShowRejectModal] = useState(false);
+  const [showInventoryModal, setShowInventoryModal] = useState(false);
+  const [showCredentialsModal, setShowCredentialsModal] = useState(false);
+  const [selectedKYCLink, setSelectedKYCLink] = useState<KYCLink | null>(null);
+  const [selectionCredentials, setSelectionCredentials] = useState<{
+    link: string;
+    username: string;
+    password: string;
+  } | null>(null);
 
   useEffect(() => {
     fetchKYCLinks();
@@ -273,6 +288,57 @@ We'll get back to you within 3 hours with personalized recommendations!`;
     setShowKYCInputModal(true);
   };
 
+  const handleAccept = async (link: KYCLink) => {
+    setSelectedKYCLink(link);
+    setShowInventoryModal(true);
+  };
+
+  const handleReject = async (link: KYCLink) => {
+    setSelectedKYCLink(link);
+    setShowRejectModal(true);
+  };
+
+  const confirmReject = async () => {
+    if (!selectedKYCLink) return;
+
+    try {
+      const { data: { user } } = await supabase.auth.getUser();
+
+      const { error } = await supabase
+        .from("kyc_links")
+        .update({
+          outcome: "rejected",
+          outcome_at: new Date().toISOString(),
+          outcome_by: user?.id
+        })
+        .eq("id", selectedKYCLink.id);
+
+      if (error) throw error;
+
+      // Copy rejection message
+      const message = "Thank you for your interest. Unfortunately, we do not have any availability that suits your needs at the moment.";
+      navigator.clipboard.writeText(message);
+      toast.success("Rejected. Message copied to clipboard for WhatsApp");
+
+      setShowRejectModal(false);
+      setSelectedKYCLink(null);
+      fetchKYCLinks();
+    } catch (error) {
+      console.error("Error rejecting KYC:", error);
+      toast.error("Failed to reject application");
+    }
+  };
+
+  const handleCredentialsGenerated = (credentials: {
+    link: string;
+    username: string;
+    password: string;
+  }) => {
+    setSelectionCredentials(credentials);
+    setShowCredentialsModal(true);
+    fetchKYCLinks();
+  };
+
   if (loading) {
     return (
       <div className="flex items-center justify-center min-h-screen">
@@ -336,10 +402,12 @@ We'll get back to you within 3 hours with personalized recommendations!`;
                     <SelectTrigger>
                       <SelectValue />
                     </SelectTrigger>
-                    <SelectContent>
+                     <SelectContent>
                       <SelectItem value="all">All Statuses</SelectItem>
                       <SelectItem value="pending">Pending</SelectItem>
                       <SelectItem value="completed">Completed</SelectItem>
+                      <SelectItem value="accepted">Accepted</SelectItem>
+                      <SelectItem value="rejected">Rejected</SelectItem>
                     </SelectContent>
                   </Select>
                 </div>
@@ -434,6 +502,7 @@ We'll get back to you within 3 hours with personalized recommendations!`;
                     <TableHead>Contact</TableHead>
                     <TableHead>Property</TableHead>
                     <TableHead>Status</TableHead>
+                    <TableHead>Outcome</TableHead>
                     <TableHead>Created</TableHead>
                     <TableHead>Completed</TableHead>
                     <TableHead>Actions</TableHead>
@@ -442,7 +511,7 @@ We'll get back to you within 3 hours with personalized recommendations!`;
                 <TableBody>
                   {loading ? (
                     <TableRow>
-                      <TableCell colSpan={7} className="text-center">
+                      <TableCell colSpan={8} className="text-center">
                         <div className="flex items-center justify-center py-8">
                           <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary"></div>
                         </div>
@@ -450,7 +519,7 @@ We'll get back to you within 3 hours with personalized recommendations!`;
                     </TableRow>
                   ) : filteredLinks.length === 0 ? (
                     <TableRow>
-                      <TableCell colSpan={7} className="text-center text-muted-foreground py-8">
+                      <TableCell colSpan={8} className="text-center text-muted-foreground py-8">
                         {hasActiveFilters
                           ? "No KYC links match the selected filters"
                           : "No KYC links generated yet"}
@@ -468,6 +537,38 @@ We'll get back to you within 3 hours with personalized recommendations!`;
                           >
                             {link.status}
                           </Badge>
+                        </TableCell>
+                        <TableCell>
+                          {link.outcome ? (
+                            <Badge
+                              variant={link.outcome === "accepted" ? "default" : "destructive"}
+                            >
+                              {link.outcome}
+                            </Badge>
+                          ) : link.status === "completed" ? (
+                            <div className="flex gap-2">
+                              <Button
+                                size="sm"
+                                variant="default"
+                                onClick={() => handleAccept(link)}
+                                title="Accept application"
+                              >
+                                <Check className="h-3 w-3 mr-1" />
+                                Accept
+                              </Button>
+                              <Button
+                                size="sm"
+                                variant="destructive"
+                                onClick={() => handleReject(link)}
+                                title="Reject application"
+                              >
+                                <XCircle className="h-3 w-3 mr-1" />
+                                Reject
+                              </Button>
+                            </div>
+                          ) : (
+                            "-"
+                          )}
                         </TableCell>
                         <TableCell>
                           {format(new Date(link.created_at), "MMM d, yyyy HH:mm")}
@@ -643,6 +744,57 @@ ${kycLink}`;
           </div>
         </DialogContent>
       </Dialog>
+
+      {/* Reject Modal */}
+      <Dialog open={showRejectModal} onOpenChange={setShowRejectModal}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle className="text-2xl">Reject Application</DialogTitle>
+            <DialogDescription>
+              This will mark the application as rejected and copy the rejection message.
+            </DialogDescription>
+          </DialogHeader>
+          <div className="space-y-4 py-4">
+            <div className="bg-muted p-4 rounded-md">
+              <p className="text-sm italic">
+                "Thank you for your interest. Unfortunately, we do not have any availability that suits your needs at the moment."
+              </p>
+            </div>
+            <div className="flex gap-2 justify-end">
+              <Button variant="outline" onClick={() => setShowRejectModal(false)}>
+                Cancel
+              </Button>
+              <Button variant="destructive" onClick={confirmReject}>
+                Confirm Rejection
+              </Button>
+            </div>
+          </div>
+        </DialogContent>
+      </Dialog>
+
+      {/* Inventory Selection Modal */}
+      {selectedKYCLink && (
+        <InventorySelectionModal
+          open={showInventoryModal}
+          onClose={() => {
+            setShowInventoryModal(false);
+            setSelectedKYCLink(null);
+          }}
+          kycLinkId={selectedKYCLink.id}
+          guestName={selectedKYCLink.guest_name}
+          onCredentialsGenerated={handleCredentialsGenerated}
+        />
+      )}
+
+      {/* Selection Credentials Modal */}
+      <SelectionCredentialsModal
+        open={showCredentialsModal}
+        onClose={() => {
+          setShowCredentialsModal(false);
+          setSelectionCredentials(null);
+        }}
+        credentials={selectionCredentials}
+      />
     </div>
   );
 }
