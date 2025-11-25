@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react';
-import { format, addDays, isSameDay, startOfDay } from 'date-fns';
+import { format, addDays, isSameDay, startOfDay, startOfMonth, endOfMonth, eachDayOfInterval, startOfWeek, endOfWeek, isSameMonth, addMonths } from 'date-fns';
 import { supabase } from '@/integrations/supabase/client';
 import { Button } from '@/components/ui/button';
 import { ChevronLeft, ChevronRight } from 'lucide-react';
@@ -34,6 +34,7 @@ interface BlockedDate {
 export const RoomCalendar = () => {
   const isMobile = useIsMobile();
   const [currentWeekStart, setCurrentWeekStart] = useState(() => startOfDay(new Date()));
+  const [currentMonth, setCurrentMonth] = useState(startOfMonth(new Date()));
   const [units, setUnits] = useState<Unit[]>([]);
   const [reservations, setReservations] = useState<Reservation[]>([]);
   const [blockedDates, setBlockedDates] = useState<BlockedDate[]>([]);
@@ -162,8 +163,115 @@ export const RoomCalendar = () => {
   const navigateNextWeek = () => setCurrentWeekStart(prev => addDays(prev, 7));
   const goToCurrentWeek = () => setCurrentWeekStart(startOfDay(new Date()));
 
+  const navigatePreviousMonth = () => setCurrentMonth(prev => addMonths(prev, -1));
+  const navigateNextMonth = () => setCurrentMonth(prev => addMonths(prev, 1));
+  const goToCurrentMonth = () => setCurrentMonth(startOfMonth(new Date()));
+
+  const getDayData = (date: Date) => {
+    const dayReservations = reservations.filter(r => {
+      const checkIn = new Date(r.check_in_date);
+      const checkOut = new Date(r.check_out_date);
+      const isCheckInDay = isSameDay(date, checkIn);
+      const isStayingDay = date > checkIn && date < checkOut;
+      return isCheckInDay || isStayingDay;
+    });
+
+    const bookingsByUnit = new Map<string, Reservation[]>();
+    dayReservations.forEach(r => {
+      if (!bookingsByUnit.has(r.unit_id)) {
+        bookingsByUnit.set(r.unit_id, []);
+      }
+      bookingsByUnit.get(r.unit_id)!.push(r);
+    });
+
+    const hasConflict = Array.from(bookingsByUnit.values()).some(bookings => bookings.length > 1);
+    const bookingCount = dayReservations.length;
+    const availableRooms = units.length - bookingCount;
+    const isSoldOut = bookingCount >= units.length;
+
+    return {
+      date,
+      bookingCount,
+      availableRooms,
+      isSoldOut,
+      hasConflict,
+      reservations: dayReservations,
+    };
+  };
+
   const weekDays = getWeekDays();
   const isCurrentWeek = isSameDay(currentWeekStart, startOfDay(new Date()));
+  const isCurrentMonth = isSameMonth(currentMonth, new Date());
+
+  // Desktop Monthly Calendar View
+  const renderMonthlyCalendar = () => {
+    const monthStart = startOfMonth(currentMonth);
+    const monthEnd = endOfMonth(currentMonth);
+    const calendarStart = startOfWeek(monthStart);
+    const calendarEnd = endOfWeek(monthEnd);
+    const days = eachDayOfInterval({ start: calendarStart, end: calendarEnd });
+
+    const weeks: Date[][] = [];
+    for (let i = 0; i < days.length; i += 7) {
+      weeks.push(days.slice(i, i + 7));
+    }
+
+    return (
+      <div>
+        {/* Day headers */}
+        <div className="grid grid-cols-7 mb-2">
+          {['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'].map(day => (
+            <div key={day} className="text-center text-sm font-semibold p-2 border-b">
+              {day}
+            </div>
+          ))}
+        </div>
+
+        {/* Calendar Grid */}
+        {weeks.map((week, weekIndex) => (
+          <div key={weekIndex} className="grid grid-cols-7 gap-1 mb-1">
+            {week.map((date, dayIndex) => {
+              const dayData = getDayData(date);
+              const isCurrentMonthDay = isSameMonth(date, currentMonth);
+              const isToday = isSameDay(date, new Date());
+              
+              return (
+                <div
+                  key={dayIndex}
+                  className={`min-h-[120px] border rounded-lg p-2 relative ${
+                    !isCurrentMonthDay 
+                      ? 'bg-muted/30 text-muted-foreground' 
+                      : dayData.isSoldOut 
+                      ? 'bg-[#FFB3BA] dark:bg-pink-900/40'
+                      : 'bg-white dark:bg-card'
+                  } ${isToday ? 'ring-2 ring-[#0066CC]' : ''}`}
+                >
+                  {/* Day number */}
+                  <div className="text-sm font-semibold mb-1">{format(date, 'd')}</div>
+                  
+                  {/* Availability badge */}
+                  {isCurrentMonthDay && dayData.bookingCount > 0 && dayData.bookingCount < units.length && (
+                    <div className="text-xs text-center mb-1">
+                      {dayData.availableRooms} left to sell
+                    </div>
+                  )}
+
+                  {/* Blue booking ribbon */}
+                  {isCurrentMonthDay && dayData.bookingCount > 0 && (
+                    <div className="absolute bottom-0 left-0 right-0 bg-[#0066CC] text-white text-center py-1 rounded-b-lg">
+                      <div className="text-xs font-semibold">
+                        {dayData.bookingCount} booking{dayData.bookingCount > 1 ? 's' : ''}
+                      </div>
+                    </div>
+                  )}
+                </div>
+              );
+            })}
+          </div>
+        ))}
+      </div>
+    );
+  };
 
   return (
     <Card>
@@ -171,141 +279,165 @@ export const RoomCalendar = () => {
         <div className="flex items-center justify-between">
           <CardTitle className={isMobile ? "hidden" : ""}>Room Calendar</CardTitle>
           <div className={`flex items-center ${isMobile ? 'gap-1.5 w-full justify-between' : 'gap-2'}`}>
-            {!isMobile && !isCurrentWeek && (
-              <Button variant="outline" size="sm" onClick={goToCurrentWeek}>Today</Button>
-            )}
-            <Button variant="outline" size="sm" onClick={navigatePreviousWeek}>
-              <ChevronLeft className="h-4 w-4" />
-            </Button>
-            <div className={`text-sm font-medium text-center ${isMobile ? 'flex-1' : 'min-w-[200px]'}`}>
-              {format(weekDays[0], 'MMM d')} - {format(weekDays[13], 'MMM d, yyyy')}
-            </div>
-            <Button variant="outline" size="sm" onClick={navigateNextWeek}>
-              <ChevronRight className="h-4 w-4" />
-            </Button>
-            {isMobile && !isCurrentWeek && (
-              <Button variant="outline" size="sm" onClick={goToCurrentWeek} className="ml-1">Today</Button>
+            {!isMobile ? (
+              <>
+                {!isCurrentMonth && (
+                  <Button variant="outline" size="sm" onClick={goToCurrentMonth}>Today</Button>
+                )}
+                <Button variant="outline" size="sm" onClick={navigatePreviousMonth}>
+                  <ChevronLeft className="h-4 w-4" />
+                </Button>
+                <div className="text-sm font-medium text-center min-w-[200px]">
+                  {format(currentMonth, 'MMMM yyyy')}
+                </div>
+                <Button variant="outline" size="sm" onClick={navigateNextMonth}>
+                  <ChevronRight className="h-4 w-4" />
+                </Button>
+              </>
+            ) : (
+              <>
+                {!isCurrentWeek && (
+                  <Button variant="outline" size="sm" onClick={goToCurrentWeek}>Today</Button>
+                )}
+                <Button variant="outline" size="sm" onClick={navigatePreviousWeek}>
+                  <ChevronLeft className="h-4 w-4" />
+                </Button>
+                <div className="text-sm font-medium text-center flex-1">
+                  {format(weekDays[0], 'MMM d')} - {format(weekDays[13], 'MMM d, yyyy')}
+                </div>
+                <Button variant="outline" size="sm" onClick={navigateNextWeek}>
+                  <ChevronRight className="h-4 w-4" />
+                </Button>
+              </>
             )}
           </div>
         </div>
       </CardHeader>
       <CardContent>
-        <div className="flex gap-4 mb-4 text-xs flex-wrap">
-          <div className="flex items-center gap-2">
-            <div className="w-4 h-4 bg-green-50 dark:bg-green-950/30 border border-green-200 dark:border-green-800 rounded" />
-            <span>Available</span>
-          </div>
-          <div className="flex items-center gap-2">
-            <div className="w-4 h-4 bg-[#003580] rounded" />
-            <span>Booking.com</span>
-          </div>
-          <div className="flex items-center gap-2">
-            <div className="w-4 h-4 bg-green-500/80 rounded" />
-            <span>Admin Booking</span>
-          </div>
-          <div className="flex items-center gap-2">
-            <div className="w-4 h-4 bg-red-500/80 rounded" />
-            <span>Direct Website</span>
-          </div>
-          <div className="flex items-center gap-2">
-            <div className="w-4 h-4 bg-black rounded" />
-            <span>Blocked</span>
-          </div>
-          <div className="flex items-center gap-2">
-            <div className="w-4 h-4 bg-red-600 border border-red-700 rounded animate-pulse" />
-            <span className="font-medium">Double Booking Conflict</span>
-          </div>
-        </div>
-
-        <div className="overflow-x-auto">
-          <div className="min-w-max">
-            <div className="grid gap-1 mb-2" style={{ gridTemplateColumns: `160px repeat(${weekDays.length}, 70px)` }}>
-              <div className="font-medium text-sm p-2">Suite Name</div>
-              {weekDays.map((day, index) => {
-                const isToday = isSameDay(day, new Date());
-                return (
-                  <div
-                    key={index}
-                    className={`text-center text-xs p-2 rounded ${
-                      isToday ? 'bg-primary text-primary-foreground font-semibold' : 'text-muted-foreground'
-                    }`}
-                  >
-                    <div>{format(day, 'EEE')}</div>
-                    <div className="font-medium">{format(day, 'd')}</div>
-                    <div className="text-[10px]">{format(day, 'MMM')}</div>
-                  </div>
-                );
-              })}
+        {!isMobile ? (
+          // Desktop: Monthly Calendar Grid
+          renderMonthlyCalendar()
+        ) : (
+          // Mobile: 2-week Timeline View
+          <>
+            <div className="flex gap-4 mb-4 text-xs flex-wrap">
+              <div className="flex items-center gap-2">
+                <div className="w-4 h-4 bg-green-50 dark:bg-green-950/30 border border-green-200 dark:border-green-800 rounded" />
+                <span>Available</span>
+              </div>
+              <div className="flex items-center gap-2">
+                <div className="w-4 h-4 bg-[#003580] rounded" />
+                <span>Booking.com</span>
+              </div>
+              <div className="flex items-center gap-2">
+                <div className="w-4 h-4 bg-green-500/80 rounded" />
+                <span>Admin Booking</span>
+              </div>
+              <div className="flex items-center gap-2">
+                <div className="w-4 h-4 bg-red-500/80 rounded" />
+                <span>Direct Website</span>
+              </div>
+              <div className="flex items-center gap-2">
+                <div className="w-4 h-4 bg-black rounded" />
+                <span>Blocked</span>
+              </div>
+              <div className="flex items-center gap-2">
+                <div className="w-4 h-4 bg-red-600 border border-red-700 rounded animate-pulse" />
+                <span className="font-medium">Double Booking Conflict</span>
+              </div>
             </div>
 
-            {units.map((unit) => (
-              <div
-                key={unit.id}
-                className="grid gap-1 mb-1"
-                style={{ gridTemplateColumns: `160px repeat(${weekDays.length}, 70px)` }}
-              >
-                <div className="flex items-center text-sm font-medium p-2 bg-muted/50 rounded">
-                  <div>
-                    <div>{unit.name}</div>
-                    <div className="text-xs text-muted-foreground">#{unit.unit_number}</div>
-                  </div>
+            <div className="overflow-x-auto">
+              <div className="min-w-max">
+                <div className="grid gap-1 mb-2" style={{ gridTemplateColumns: `160px repeat(${weekDays.length}, 70px)` }}>
+                  <div className="font-medium text-sm p-2">Suite Name</div>
+                  {weekDays.map((day, index) => {
+                    const isToday = isSameDay(day, new Date());
+                    return (
+                      <div
+                        key={index}
+                        className={`text-center text-xs p-2 rounded ${
+                          isToday ? 'bg-primary text-primary-foreground font-semibold' : 'text-muted-foreground'
+                        }`}
+                      >
+                        <div>{format(day, 'EEE')}</div>
+                        <div className="font-medium">{format(day, 'd')}</div>
+                        <div className="text-[10px]">{format(day, 'MMM')}</div>
+                      </div>
+                    );
+                  })}
                 </div>
-                {weekDays.map((day, index) => {
-                  const { checkingOut, checkingIn, staying } = getReservationsForDate(day, unit.id);
-                  const blocked = isDateBlocked(day, unit.id);
-                  const conflict = hasConflict(day, unit.id);
-                  const hasBothCheckOutAndIn = checkingOut && checkingIn;
-                  
-                  return (
-                    <div
-                      key={index}
-                      className={`h-14 border rounded transition-colors ${
-                        conflict 
-                          ? 'bg-red-600 border-red-700 animate-pulse cursor-pointer'
-                          : blocked 
-                          ? 'bg-black border-black hover:bg-gray-900'
-                          : (checkingOut || checkingIn || staying)
-                          ? 'border-border hover:opacity-80 cursor-pointer'
-                          : 'bg-green-50 dark:bg-green-950/30 border-green-200 dark:border-green-800 hover:bg-green-100 dark:hover:bg-green-900/40'
-                      }`}
-                    >
-                      {conflict ? (
-                        <div className="flex items-center justify-center h-full">
-                          <div className="text-white text-xs font-bold text-center">⚠️ CONFLICT</div>
-                        </div>
-                      ) : blocked ? (
-                        <div className="flex items-center justify-center h-full">
-                          <div className="text-white text-xs">Blocked</div>
-                        </div>
-                      ) : hasBothCheckOutAndIn ? (
-                        <div className="flex flex-col h-full">
-                          <div className={`flex-1 flex items-center justify-center text-[10px] border-b ${getReservationColor(checkingOut.source)}`}>
-                            OUT
-                          </div>
-                          <div className={`flex-1 flex items-center justify-center text-[10px] ${getReservationColor(checkingIn.source)}`}>
-                            IN
-                          </div>
-                        </div>
-                      ) : checkingOut ? (
-                        <div className={`h-full flex items-center justify-center text-xs ${getReservationColor(checkingOut.source)}`}>
-                          OUT
-                        </div>
-                      ) : checkingIn ? (
-                        <div className={`h-full flex flex-col items-center justify-center ${getReservationColor(checkingIn.source)} px-1`}>
-                          {renderGuestName(checkingIn.guest_names[0])}
-                        </div>
-                      ) : staying ? (
-                        <div className={`h-full flex flex-col items-center justify-center ${getReservationColor(staying.source)} px-1`}>
-                          {renderGuestName(staying.guest_names[0])}
-                        </div>
-                      ) : null}
+
+                {units.map((unit) => (
+                  <div
+                    key={unit.id}
+                    className="grid gap-1 mb-1"
+                    style={{ gridTemplateColumns: `160px repeat(${weekDays.length}, 70px)` }}
+                  >
+                    <div className="flex items-center text-sm font-medium p-2 bg-muted/50 rounded">
+                      <div>
+                        <div>{unit.name}</div>
+                        <div className="text-xs text-muted-foreground">#{unit.unit_number}</div>
+                      </div>
                     </div>
-                  );
-                })}
+                    {weekDays.map((day, index) => {
+                      const { checkingOut, checkingIn, staying } = getReservationsForDate(day, unit.id);
+                      const blocked = isDateBlocked(day, unit.id);
+                      const conflict = hasConflict(day, unit.id);
+                      const hasBothCheckOutAndIn = checkingOut && checkingIn;
+                      
+                      return (
+                        <div
+                          key={index}
+                          className={`h-14 border rounded transition-colors ${
+                            conflict 
+                              ? 'bg-red-600 border-red-700 animate-pulse cursor-pointer'
+                              : blocked 
+                              ? 'bg-black border-black hover:bg-gray-900'
+                              : (checkingOut || checkingIn || staying)
+                              ? 'border-border hover:opacity-80 cursor-pointer'
+                              : 'bg-green-50 dark:bg-green-950/30 border-green-200 dark:border-green-800 hover:bg-green-100 dark:hover:bg-green-900/40'
+                          }`}
+                        >
+                          {conflict ? (
+                            <div className="flex items-center justify-center h-full">
+                              <div className="text-white text-xs font-bold text-center">⚠️ CONFLICT</div>
+                            </div>
+                          ) : blocked ? (
+                            <div className="flex items-center justify-center h-full">
+                              <div className="text-white text-xs">Blocked</div>
+                            </div>
+                          ) : hasBothCheckOutAndIn ? (
+                            <div className="flex flex-col h-full">
+                              <div className={`flex-1 flex items-center justify-center text-[10px] border-b ${getReservationColor(checkingOut.source)}`}>
+                                OUT
+                              </div>
+                              <div className={`flex-1 flex items-center justify-center text-[10px] ${getReservationColor(checkingIn.source)}`}>
+                                IN
+                              </div>
+                            </div>
+                          ) : checkingOut ? (
+                            <div className={`h-full flex items-center justify-center text-xs ${getReservationColor(checkingOut.source)}`}>
+                              OUT
+                            </div>
+                          ) : checkingIn ? (
+                            <div className={`h-full flex flex-col items-center justify-center ${getReservationColor(checkingIn.source)} px-1`}>
+                              {renderGuestName(checkingIn.guest_names[0])}
+                            </div>
+                          ) : staying ? (
+                            <div className={`h-full flex flex-col items-center justify-center ${getReservationColor(staying.source)} px-1`}>
+                              {renderGuestName(staying.guest_names[0])}
+                            </div>
+                          ) : null}
+                        </div>
+                      );
+                    })}
+                  </div>
+                ))}
               </div>
-            ))}
-          </div>
-        </div>
+            </div>
+          </>
+        )}
 
         {units.length === 0 && (
           <div className="text-center text-muted-foreground py-8">
