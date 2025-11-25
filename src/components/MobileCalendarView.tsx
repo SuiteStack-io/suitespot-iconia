@@ -341,7 +341,7 @@ export const MobileCalendarView = () => {
                         >
                           <div className="flex items-center gap-2 flex-wrap">
                             <span className="font-medium text-sm">{reservation.guest_names[0]}</span>
-                            <Badge className={`${getSourceColor(reservation)} text-white text-xs`}>
+                            <Badge className={`${getSourceColor(reservation)} text-black text-xs`}>
                               {reservation.channel || reservation.source}
                             </Badge>
                           </div>
