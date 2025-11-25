@@ -1575,7 +1575,7 @@ const AlmazaBay = () => {
                 </TableHead>
                 <TableHead className="min-w-[100px] text-base font-medium">Unit #</TableHead>
                 <TableHead className="min-w-[140px] text-base font-medium">Type</TableHead>
-                <TableHead className="min-w-[250px] text-base font-medium">Location (Google Maps Link)</TableHead>
+                <TableHead className="min-w-[140px] text-base font-medium">View</TableHead>
                 <TableHead className="min-w-[120px] text-base font-medium">Size</TableHead>
                 <TableHead 
                   className="min-w-[80px] text-base font-medium cursor-pointer hover:bg-muted/50"
@@ -1648,7 +1648,7 @@ const AlmazaBay = () => {
                   </div>
                 </TableHead>
                 <TableHead className="min-w-[130px] text-base font-medium">Next Reservation</TableHead>
-                <TableHead className="min-w-[140px] text-base font-medium">View</TableHead>
+                <TableHead className="min-w-[250px] text-base font-medium">Location (Google Maps Link)</TableHead>
                 <TableHead className="min-w-[120px] text-base font-medium">Visibility</TableHead>
                 {isAdmin && !bulkEditMode && <TableHead className="min-w-[100px] text-base font-medium">Actions</TableHead>}
               </TableRow>
@@ -1680,9 +1680,9 @@ const AlmazaBay = () => {
                   </TableCell>
                   <TableCell>
                     <Input
-                      value={newProperty.address || ''}
-                      onChange={(e) => setNewProperty({ ...newProperty, address: e.target.value })}
-                      placeholder="Paste Google Maps link"
+                      value={newProperty.view || ''}
+                      onChange={(e) => setNewProperty({ ...newProperty, view: e.target.value })}
+                      placeholder="View"
                     />
                   </TableCell>
                   <TableCell>
@@ -1792,6 +1792,13 @@ const AlmazaBay = () => {
                     <span className="text-muted-foreground">-</span>
                   </TableCell>
                   <TableCell>
+                    <Input
+                      value={newProperty.address || ''}
+                      onChange={(e) => setNewProperty({ ...newProperty, address: e.target.value })}
+                      placeholder="Paste Google Maps link"
+                    />
+                  </TableCell>
+                  <TableCell>
                     <div className="flex items-center gap-2">
                       <Switch checked={true} disabled />
                       <span className="text-sm font-medium flex items-center gap-1">
@@ -1799,9 +1806,6 @@ const AlmazaBay = () => {
                         Private
                       </span>
                     </div>
-                  </TableCell>
-                  <TableCell>
-                    <span className="text-muted-foreground">-</span>
                   </TableCell>
                   <TableCell>
                     <div className="flex gap-2">
@@ -1879,27 +1883,15 @@ const AlmazaBay = () => {
                         property.unit_type
                       )}
                     </TableCell>
-                    <TableCell className="min-w-[250px]">
+                    <TableCell className="min-w-[140px]">
                       {isEditing ? (
                         <Input
-                          value={editedProperty.address || ''}
-                          onChange={(e) => setEditedProperty({ ...editedProperty, address: e.target.value })}
-                          placeholder="Paste Google Maps link"
+                          value={editedProperty.view || ''}
+                          onChange={(e) => setEditedProperty({ ...editedProperty, view: e.target.value })}
+                          placeholder="View"
                         />
                       ) : (
-                        property.address ? (
-                          <a 
-                            href={property.address} 
-                            target="_blank" 
-                            rel="noopener noreferrer"
-                            className="text-primary hover:underline flex items-center gap-1"
-                          >
-                            View Location
-                            <svg className="h-3 w-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M10 6H6a2 2 0 00-2 2v10a2 2 0 002 2h10a2 2 0 002-2v-4M14 4h6m0 0v6m0-6L10 14" />
-                            </svg>
-                          </a>
-                        ) : '-'
+                        property.view || '-'
                       )}
                     </TableCell>
                     <TableCell className="min-w-[120px]">
@@ -2142,7 +2134,29 @@ const AlmazaBay = () => {
                       )}
                     </TableCell>
                     <TableCell>{getNextReservation(property.id) || 'None'}</TableCell>
-                    <TableCell>{property.view || '-'}</TableCell>
+                    <TableCell className="min-w-[250px]">
+                      {isEditing ? (
+                        <Input
+                          value={editedProperty.address || ''}
+                          onChange={(e) => setEditedProperty({ ...editedProperty, address: e.target.value })}
+                          placeholder="Paste Google Maps link"
+                        />
+                      ) : (
+                        property.address ? (
+                          <a 
+                            href={property.address} 
+                            target="_blank" 
+                            rel="noopener noreferrer"
+                            className="text-primary hover:underline flex items-center gap-1"
+                          >
+                            View Location
+                            <svg className="h-3 w-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M10 6H6a2 2 0 00-2 2v10a2 2 0 002 2h10a2 2 0 002-2v-4M14 4h6m0 0v6m0-6L10 14" />
+                            </svg>
+                          </a>
+                        ) : '-'
+                      )}
+                    </TableCell>
                     <TableCell>
                       <div className="flex items-center gap-2">
                         <Switch 
