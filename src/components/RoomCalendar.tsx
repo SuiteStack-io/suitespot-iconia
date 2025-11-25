@@ -2,8 +2,11 @@ import { useState, useEffect } from 'react';
 import { format, addDays, isSameDay, startOfDay, startOfMonth, endOfMonth, eachDayOfInterval, startOfWeek, endOfWeek, isSameMonth, addMonths } from 'date-fns';
 import { supabase } from '@/integrations/supabase/client';
 import { Button } from '@/components/ui/button';
-import { ChevronLeft, ChevronRight } from 'lucide-react';
+import { ChevronLeft, ChevronRight, AlertTriangle } from 'lucide-react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
+import { Sheet, SheetContent, SheetHeader, SheetTitle } from '@/components/ui/sheet';
+import { Badge } from '@/components/ui/badge';
+import { useNavigate } from 'react-router-dom';
 import { useIsMobile } from '@/hooks/use-mobile';
 
 interface Unit {
@@ -31,13 +34,25 @@ interface BlockedDate {
   reason: string | null;
 }
 
+interface DayData {
+  date: Date;
+  bookingCount: number;
+  availableRooms: number;
+  isSoldOut: boolean;
+  hasConflict: boolean;
+  reservations: Reservation[];
+}
+
 export const RoomCalendar = () => {
   const isMobile = useIsMobile();
+  const navigate = useNavigate();
   const [currentWeekStart, setCurrentWeekStart] = useState(() => startOfDay(new Date()));
   const [currentMonth, setCurrentMonth] = useState(startOfMonth(new Date()));
   const [units, setUnits] = useState<Unit[]>([]);
   const [reservations, setReservations] = useState<Reservation[]>([]);
   const [blockedDates, setBlockedDates] = useState<BlockedDate[]>([]);
+  const [selectedDay, setSelectedDay] = useState<DayData | null>(null);
+  const [sheetOpen, setSheetOpen] = useState(false);
 
   useEffect(() => {
     fetchUnits();
@@ -167,7 +182,22 @@ export const RoomCalendar = () => {
   const navigateNextMonth = () => setCurrentMonth(prev => addMonths(prev, 1));
   const goToCurrentMonth = () => setCurrentMonth(startOfMonth(new Date()));
 
-  const getDayData = (date: Date) => {
+  const handleDayClick = (dayData: DayData) => {
+    if (dayData.bookingCount > 0 || dayData.hasConflict) {
+      setSelectedDay(dayData);
+      setSheetOpen(true);
+    }
+  };
+
+  const getSourceColor = (reservation: Reservation) => {
+    const source = reservation.source || '';
+    if (source.toLowerCase().includes('booking')) return 'bg-blue-500';
+    if (source.toLowerCase().includes('airbnb')) return 'bg-pink-500';
+    if (source.toLowerCase().includes('direct')) return 'bg-green-500';
+    return 'bg-muted';
+  };
+
+  const getDayData = (date: Date): DayData => {
     const dayReservations = reservations.filter(r => {
       const checkIn = new Date(r.check_in_date);
       const checkOut = new Date(r.check_out_date);
@@ -244,7 +274,10 @@ export const RoomCalendar = () => {
                       : dayData.isSoldOut 
                       ? 'bg-[#FFB3BA] dark:bg-pink-900/40'
                       : 'bg-white dark:bg-card'
-                  } ${isToday ? 'ring-2 ring-[#0066CC]' : ''}`}
+                  } ${isToday ? 'ring-2 ring-[#0066CC]' : ''} ${
+                    dayData.bookingCount > 0 ? 'cursor-pointer hover:shadow-md transition-shadow' : ''
+                  }`}
+                  onClick={() => handleDayClick(dayData)}
                 >
                   {/* Day number */}
                   <div className="text-sm font-semibold mb-1">{format(date, 'd')}</div>
@@ -445,6 +478,67 @@ export const RoomCalendar = () => {
           </div>
         )}
       </CardContent>
+
+      {/* Day Details Sheet */}
+      <Sheet open={sheetOpen} onOpenChange={setSheetOpen}>
+        <SheetContent side="bottom" className="max-h-[85vh] overflow-y-auto">
+          <SheetHeader>
+            <SheetTitle>
+              {selectedDay && format(selectedDay.date, 'EEEE, MMMM d, yyyy')}
+            </SheetTitle>
+          </SheetHeader>
+          {selectedDay && (
+            <div className="mt-4 space-y-3">
+              {selectedDay.hasConflict && (
+                <div className="bg-destructive/10 border border-destructive rounded-lg p-3">
+                  <div className="flex items-center gap-2 text-destructive font-semibold">
+                    <AlertTriangle className="h-4 w-4" />
+                    Double Booking Conflict Detected
+                  </div>
+                </div>
+              )}
+              
+              {units.map(unit => {
+                const unitReservations = selectedDay.reservations.filter(r => r.unit_id === unit.id);
+                if (unitReservations.length === 0) return null;
+
+                return (
+                  <div key={unit.id} className="border rounded-lg p-3 space-y-2">
+                    <div className="font-semibold text-sm">{unit.name}</div>
+                    {unitReservations.map(reservation => {
+                      const isCheckIn = isSameDay(selectedDay.date, new Date(reservation.check_in_date));
+                      const isCheckOut = isSameDay(addDays(selectedDay.date, 1), new Date(reservation.check_out_date));
+                      
+                      return (
+                        <div
+                          key={reservation.id}
+                          className="bg-muted/50 rounded p-2 space-y-1 cursor-pointer hover:bg-muted"
+                          onClick={() => navigate(`/reservation/${reservation.id}`)}
+                        >
+                          <div className="flex items-center gap-2 flex-wrap">
+                            <span className="font-medium text-sm">{reservation.guest_names[0]}</span>
+                            <Badge className={`${getSourceColor(reservation)} text-white text-xs`}>
+                              {reservation.source}
+                            </Badge>
+                          </div>
+                          <div className="text-xs text-muted-foreground">
+                            {isCheckIn && '✓ Check-in'}
+                            {isCheckOut && '✓ Check-out'}
+                            {!isCheckIn && !isCheckOut && 'Staying'}
+                          </div>
+                          <div className="text-xs text-muted-foreground">
+                            Ref: {reservation.booking_reference}
+                          </div>
+                        </div>
+                      );
+                    })}
+                  </div>
+                );
+              })}
+            </div>
+          )}
+        </SheetContent>
+      </Sheet>
     </Card>
   );
 };
