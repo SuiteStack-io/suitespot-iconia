@@ -50,9 +50,21 @@ export const MobileCalendarView = () => {
   const [sheetOpen, setSheetOpen] = useState(false);
   const navigate = useNavigate();
 
+  const triggerHaptic = () => {
+    if ('vibrate' in navigator) {
+      navigator.vibrate(10);
+    }
+  };
+
   const swipeHandlers = useSwipeable({
-    onSwipedLeft: () => setCurrentMonth(addMonths(currentMonth, 1)),
-    onSwipedRight: () => setCurrentMonth(addMonths(currentMonth, -1)),
+    onSwipedLeft: () => {
+      triggerHaptic();
+      setCurrentMonth(addMonths(currentMonth, 1));
+    },
+    onSwipedRight: () => {
+      triggerHaptic();
+      setCurrentMonth(addMonths(currentMonth, -1));
+    },
     trackMouse: false,
     trackTouch: true,
     delta: 50,
