@@ -6,8 +6,9 @@ import {
   DialogTitle,
 } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
-import { ChevronLeft, ChevronRight, X } from "lucide-react";
+import { ChevronLeft, ChevronRight, X, Maximize2 } from "lucide-react";
 import { PROPERTY_FEATURES } from "@/constants/propertyFeatures";
+import { useSwipeable } from "react-swipeable";
 
 interface PropertyDetailsModalProps {
   open: boolean;
@@ -30,6 +31,7 @@ interface PropertyDetailsModalProps {
 
 export function PropertyDetailsModal({ open, onClose, property }: PropertyDetailsModalProps) {
   const [currentPhotoIndex, setCurrentPhotoIndex] = useState(0);
+  const [isFullscreen, setIsFullscreen] = useState(false);
   const photos = property.photos || [];
 
   const nextPhoto = () => {
@@ -39,6 +41,26 @@ export function PropertyDetailsModal({ open, onClose, property }: PropertyDetail
   const previousPhoto = () => {
     setCurrentPhotoIndex((prev) => (prev - 1 + photos.length) % photos.length);
   };
+
+  const openFullscreen = () => {
+    setIsFullscreen(true);
+  };
+
+  const closeFullscreen = () => {
+    setIsFullscreen(false);
+  };
+
+  // Swipe handlers for mobile navigation
+  const swipeHandlers = useSwipeable({
+    onSwipedLeft: () => {
+      if (photos.length > 1) nextPhoto();
+    },
+    onSwipedRight: () => {
+      if (photos.length > 1) previousPhoto();
+    },
+    trackMouse: false,
+    trackTouch: true,
+  });
 
   return (
     <Dialog open={open} onOpenChange={onClose}>
@@ -51,12 +73,29 @@ export function PropertyDetailsModal({ open, onClose, property }: PropertyDetail
 
         {/* Photo Slideshow */}
         {photos.length > 0 && (
-          <div className="relative aspect-video bg-muted rounded-lg overflow-hidden">
+          <div 
+            {...swipeHandlers}
+            className="relative aspect-video bg-muted rounded-lg overflow-hidden group cursor-pointer"
+            onClick={openFullscreen}
+          >
             <img
               src={photos[currentPhotoIndex]}
               alt={`${property.name} - Photo ${currentPhotoIndex + 1}`}
               className="w-full h-full object-cover"
             />
+            
+            {/* Fullscreen button */}
+            <Button
+              variant="outline"
+              size="icon"
+              className="absolute top-2 right-2 bg-background/80 backdrop-blur-sm opacity-0 group-hover:opacity-100 transition-opacity"
+              onClick={(e) => {
+                e.stopPropagation();
+                openFullscreen();
+              }}
+            >
+              <Maximize2 className="h-4 w-4" />
+            </Button>
             
             {photos.length > 1 && (
               <>
@@ -64,7 +103,10 @@ export function PropertyDetailsModal({ open, onClose, property }: PropertyDetail
                   variant="outline"
                   size="icon"
                   className="absolute left-2 top-1/2 -translate-y-1/2 bg-background/80 backdrop-blur-sm"
-                  onClick={previousPhoto}
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    previousPhoto();
+                  }}
                 >
                   <ChevronLeft className="h-4 w-4" />
                 </Button>
@@ -72,7 +114,10 @@ export function PropertyDetailsModal({ open, onClose, property }: PropertyDetail
                   variant="outline"
                   size="icon"
                   className="absolute right-2 top-1/2 -translate-y-1/2 bg-background/80 backdrop-blur-sm"
-                  onClick={nextPhoto}
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    nextPhoto();
+                  }}
                 >
                   <ChevronRight className="h-4 w-4" />
                 </Button>
@@ -199,6 +244,61 @@ export function PropertyDetailsModal({ open, onClose, property }: PropertyDetail
           )}
         </div>
       </DialogContent>
+
+      {/* Fullscreen Photo Viewer */}
+      <Dialog open={isFullscreen} onOpenChange={closeFullscreen}>
+        <DialogContent className="max-w-full w-screen h-screen p-0 bg-black/95">
+          <div className="relative w-full h-full flex items-center justify-center">
+            {/* Close button */}
+            <Button
+              variant="outline"
+              size="icon"
+              className="absolute top-4 right-4 z-50 bg-background/80 backdrop-blur-sm"
+              onClick={closeFullscreen}
+            >
+              <X className="h-4 w-4" />
+            </Button>
+
+            {/* Fullscreen image with swipe support */}
+            <div 
+              {...swipeHandlers}
+              className="relative w-full h-full flex items-center justify-center"
+            >
+              <img
+                src={photos[currentPhotoIndex]}
+                alt={`${property.name} - Photo ${currentPhotoIndex + 1}`}
+                className="max-w-full max-h-full object-contain"
+              />
+              
+              {photos.length > 1 && (
+                <>
+                  <Button
+                    variant="outline"
+                    size="icon"
+                    className="absolute left-4 top-1/2 -translate-y-1/2 bg-background/80 backdrop-blur-sm"
+                    onClick={previousPhoto}
+                  >
+                    <ChevronLeft className="h-4 w-4" />
+                  </Button>
+                  <Button
+                    variant="outline"
+                    size="icon"
+                    className="absolute right-4 top-1/2 -translate-y-1/2 bg-background/80 backdrop-blur-sm"
+                    onClick={nextPhoto}
+                  >
+                    <ChevronRight className="h-4 w-4" />
+                  </Button>
+                  
+                  {/* Photo counter */}
+                  <div className="absolute bottom-4 left-1/2 -translate-x-1/2 bg-background/80 backdrop-blur-sm px-4 py-2 rounded-full text-sm">
+                    {currentPhotoIndex + 1} / {photos.length}
+                  </div>
+                </>
+              )}
+            </div>
+          </div>
+        </DialogContent>
+      </Dialog>
     </Dialog>
   );
 }
