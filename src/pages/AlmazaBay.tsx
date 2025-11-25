@@ -1104,6 +1104,24 @@ const AlmazaBay = () => {
     });
   };
 
+  const copyUsername = () => {
+    if (!simulationCredentials) return;
+    navigator.clipboard.writeText(simulationCredentials.username);
+    toast({
+      title: 'Copied!',
+      description: 'Username copied to clipboard',
+    });
+  };
+
+  const copyPassword = () => {
+    if (!simulationCredentials) return;
+    navigator.clipboard.writeText(simulationCredentials.password);
+    toast({
+      title: 'Copied!',
+      description: 'Password copied to clipboard',
+    });
+  };
+
   const extendSimulationSession = async () => {
     if (!simulationSessionId) return;
 
@@ -3022,11 +3040,31 @@ ${kycLink}`;
                   <div className="bg-muted p-4 rounded-lg space-y-3">
                     <div className="grid grid-cols-2 gap-4">
                       <div>
-                        <Label className="text-sm text-muted-foreground">Username</Label>
+                        <div className="flex items-center justify-between mb-1">
+                          <Label className="text-sm text-muted-foreground">Username</Label>
+                          <Button
+                            variant="ghost"
+                            size="sm"
+                            className="h-6 px-2"
+                            onClick={copyUsername}
+                          >
+                            <Copy className="h-3 w-3" />
+                          </Button>
+                        </div>
                         <p className="font-mono font-medium">{simulationCredentials.username}</p>
                       </div>
                       <div>
-                        <Label className="text-sm text-muted-foreground">Password</Label>
+                        <div className="flex items-center justify-between mb-1">
+                          <Label className="text-sm text-muted-foreground">Password</Label>
+                          <Button
+                            variant="ghost"
+                            size="sm"
+                            className="h-6 px-2"
+                            onClick={copyPassword}
+                          >
+                            <Copy className="h-3 w-3" />
+                          </Button>
+                        </div>
                         <p className="font-mono font-medium">{simulationCredentials.password}</p>
                       </div>
                     </div>
