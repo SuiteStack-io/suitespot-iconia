@@ -870,7 +870,7 @@ const AlmazaBay = () => {
                     <Input
                       value={newProperty.unit_size || ''}
                       onChange={(e) => setNewProperty({ ...newProperty, unit_size: e.target.value })}
-                      placeholder="Size"
+                      placeholder="Size (sqm)"
                     />
                   </TableCell>
                   <TableCell>
@@ -1070,31 +1070,41 @@ const AlmazaBay = () => {
                         property.address
                       )}
                     </TableCell>
-                    <TableCell className="min-w-[160px]">
-                      <Button
-                        size="sm"
-                        variant="outline"
-                        onClick={() => {
-                          setCurrentPropertyFeatures({ id: property.id, features: property.features || [] });
-                          setFeaturesDialogOpen(true);
-                        }}
-                      >
-                        <List className="h-4 w-4 mr-2" />
-                        Manage ({(property.features || []).length})
-                      </Button>
-                    </TableCell>
                     <TableCell className="min-w-[120px]">
                       {isEditing ? (
                         <Input
                           value={editedProperty.unit_size || ''}
                           onChange={(e) => setEditedProperty({ ...editedProperty, unit_size: e.target.value })}
+                          placeholder="Size (sqm)"
                         />
                       ) : (
-                        property.unit_size
+                        property.unit_size ? `${property.unit_size} sqm` : '-'
                       )}
                     </TableCell>
-                    <TableCell>{property.beds}</TableCell>
-                    <TableCell>{property.baths}</TableCell>
+                    <TableCell className="min-w-[80px]">
+                      {isEditing ? (
+                        <Input
+                          type="number"
+                          value={editedProperty.beds ?? ''}
+                          onChange={(e) => setEditedProperty({ ...editedProperty, beds: e.target.value ? parseInt(e.target.value) : null })}
+                          placeholder="Beds"
+                        />
+                      ) : (
+                        property.beds ?? '-'
+                      )}
+                    </TableCell>
+                    <TableCell className="min-w-[80px]">
+                      {isEditing ? (
+                        <Input
+                          type="number"
+                          value={editedProperty.baths ?? ''}
+                          onChange={(e) => setEditedProperty({ ...editedProperty, baths: e.target.value ? parseInt(e.target.value) : null })}
+                          placeholder="Baths"
+                        />
+                      ) : (
+                        property.baths ?? '-'
+                      )}
+                    </TableCell>
                     <TableCell>{property.max_guests}</TableCell>
                     <TableCell>{property.sofa_bed ? 'Yes' : 'No'}</TableCell>
                     <TableCell>${property.price_per_night?.toFixed(2)}</TableCell>
@@ -1163,6 +1173,19 @@ const AlmazaBay = () => {
                           )}
                         </div>
                       </div>
+                    </TableCell>
+                    <TableCell className="min-w-[160px]">
+                      <Button
+                        size="sm"
+                        variant="outline"
+                        onClick={() => {
+                          setCurrentPropertyFeatures({ id: property.id, features: property.features || [] });
+                          setFeaturesDialogOpen(true);
+                        }}
+                      >
+                        <List className="h-4 w-4 mr-2" />
+                        Manage ({(property.features || []).length})
+                      </Button>
                     </TableCell>
                     <TableCell className="min-w-[120px]">
                       {isEditing ? (
