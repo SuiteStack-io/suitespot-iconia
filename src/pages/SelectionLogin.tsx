@@ -6,6 +6,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Loader2 } from "lucide-react";
 import { toast } from "sonner";
+import guestLoginBg from '@/assets/guest-login-bg.webp';
 
 export default function SelectionLogin() {
   const { token } = useParams();
@@ -38,25 +39,28 @@ export default function SelectionLogin() {
 
   return (
     <div
-      className="min-h-screen flex items-center justify-center bg-cover bg-center bg-no-repeat p-4"
+      className="min-h-screen flex items-center justify-center p-4 relative"
       style={{
-        backgroundImage: "url('/lovable-uploads/26e5c95e-58d2-4c28-82de-1ee3dcc6e70f.png')"
+        backgroundImage: `linear-gradient(rgba(0, 0, 0, 0.4), rgba(0, 0, 0, 0.4)), url(${guestLoginBg})`,
+        backgroundSize: 'cover',
+        backgroundPosition: 'center',
+        backgroundRepeat: 'no-repeat',
       }}
     >
       <div className="w-full max-w-md">
-        <div className="bg-background/95 backdrop-blur-sm rounded-2xl shadow-2xl p-8 border border-border/50">
+        <div className="backdrop-blur-md bg-white/40 dark:bg-white/40 shadow-2xl border border-white/20 rounded-2xl p-8">
           <div className="text-center mb-8">
-            <h1 className="text-4xl md:text-5xl font-serif font-semibold mb-2" style={{ fontFamily: "'Playfair Display', serif", letterSpacing: "-0.02em" }}>
+            <h1 className="font-playfair text-almaza-gold text-6xl font-semibold tracking-tight mb-2" style={{ letterSpacing: "-0.02em" }}>
               Almaza Selection
             </h1>
-            <p className="text-lg text-muted-foreground" style={{ fontFamily: "'Playfair Display', serif" }}>
+            <p className="font-playfair text-xl font-medium text-gray-800 dark:text-gray-800">
               Enter your credentials to view your curated properties
             </p>
           </div>
 
           <form onSubmit={handleSubmit} className="space-y-6">
             <div className="space-y-2">
-              <Label htmlFor="username">Username</Label>
+              <Label htmlFor="username" className="font-playfair text-base font-medium text-gray-800">Username</Label>
               <Input
                 id="username"
                 type="text"
@@ -69,7 +73,7 @@ export default function SelectionLogin() {
             </div>
 
             <div className="space-y-2">
-              <Label htmlFor="password">Password</Label>
+              <Label htmlFor="password" className="font-playfair text-base font-medium text-gray-800">Password</Label>
               <Input
                 id="password"
                 type="password"
@@ -82,7 +86,7 @@ export default function SelectionLogin() {
 
             <Button
               type="submit"
-              className="w-full"
+              className="w-full font-playfair text-base font-medium"
               size="lg"
               disabled={loading}
             >
@@ -97,7 +101,7 @@ export default function SelectionLogin() {
             </Button>
           </form>
 
-          <p className="text-xs text-center text-muted-foreground mt-6">
+          <p className="font-playfair text-base text-gray-900 text-center mt-6">
             Your session will expire 15 minutes after first access
           </p>
         </div>
