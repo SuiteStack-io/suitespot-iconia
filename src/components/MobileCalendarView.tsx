@@ -6,6 +6,7 @@ import { format, addMonths, startOfMonth, endOfMonth, eachDayOfInterval, startOf
 import { Sheet, SheetContent, SheetHeader, SheetTitle } from "@/components/ui/sheet";
 import { Badge } from "@/components/ui/badge";
 import { useNavigate } from "react-router-dom";
+import { useSwipeable } from "react-swipeable";
 
 interface Unit {
   id: string;
@@ -48,6 +49,15 @@ export const MobileCalendarView = () => {
   const [selectedDay, setSelectedDay] = useState<DayData | null>(null);
   const [sheetOpen, setSheetOpen] = useState(false);
   const navigate = useNavigate();
+
+  const swipeHandlers = useSwipeable({
+    onSwipedLeft: () => setCurrentMonth(addMonths(currentMonth, 1)),
+    onSwipedRight: () => setCurrentMonth(addMonths(currentMonth, -1)),
+    trackMouse: false,
+    trackTouch: true,
+    delta: 50,
+    preventScrollOnSwipe: false,
+  });
 
   useEffect(() => {
     fetchData();
@@ -206,7 +216,7 @@ export const MobileCalendarView = () => {
   };
 
   return (
-    <div className="pb-6">
+    <div className="pb-6" {...swipeHandlers}>
       {/* Header */}
       <div className="flex items-center justify-between mb-4 sticky top-0 bg-background z-10 py-3 border-b">
         <Button variant="outline" size="sm" onClick={() => setCurrentMonth(addMonths(currentMonth, -1))}>
