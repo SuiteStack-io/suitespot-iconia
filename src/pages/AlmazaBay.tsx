@@ -1536,7 +1536,6 @@ const AlmazaBay = () => {
                 <TableHead className="min-w-[110px] text-base font-medium">Price/Night</TableHead>
                 <TableHead className="min-w-[100px] text-base font-medium">Min Stay</TableHead>
                 <TableHead className="min-w-[200px] text-base font-medium">Payment Terms</TableHead>
-                <TableHead className="min-w-[80px] text-base font-medium">Tax %</TableHead>
                 <TableHead className="min-w-[160px] text-base font-medium">Photos</TableHead>
                 <TableHead className="min-w-[160px] text-base font-medium">Features</TableHead>
                 <TableHead className="min-w-[120px] text-base font-medium">Status</TableHead>
@@ -1645,17 +1644,6 @@ const AlmazaBay = () => {
                       value={newProperty.payment_terms || ''}
                       onChange={(e) => setNewProperty({ ...newProperty, payment_terms: e.target.value })}
                       placeholder="Payment terms"
-                    />
-                  </TableCell>
-                  <TableCell>
-                    <Input
-                      type="number"
-                      step="0.01"
-                      min="0"
-                      max="100"
-                      value={newProperty.tax_percentage ?? ''}
-                      onChange={(e) => setNewProperty({ ...newProperty, tax_percentage: e.target.value ? parseFloat(e.target.value) : null })}
-                      placeholder="14"
                     />
                   </TableCell>
                   <TableCell>
@@ -1910,7 +1898,6 @@ const AlmazaBay = () => {
                         property.payment_terms || '-'
                       )}
                     </TableCell>
-                    <TableCell>{property.tax_percentage}%</TableCell>
                     <TableCell className="min-w-[160px]">
                       <div className="flex flex-col gap-2">
                         {uploadingPhotos === property.id && (
