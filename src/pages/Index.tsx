@@ -127,6 +127,7 @@ const Index = () => {
                     <DropdownMenuItem onClick={() => navigate('/almaza-bay')}>Almaza Bay</DropdownMenuItem>
                     <DropdownMenuItem onClick={() => navigate('/kyc-management')}>KYC Management</DropdownMenuItem>
                     <DropdownMenuItem onClick={() => navigate('/selection-sessions')}>Selection Sessions</DropdownMenuItem>
+                    <DropdownMenuItem onClick={() => navigate('/session-audit-log')}>Session Audit Log</DropdownMenuItem>
                     <DropdownMenuItem onClick={() => navigate('/ticket-analytics')}>Analytics</DropdownMenuItem>
                           <DropdownMenuItem onClick={() => navigate('/guest-accounts')}>App Accounts</DropdownMenuItem>
                           <DropdownMenuItem onClick={() => navigate('/guests')}>Guests</DropdownMenuItem>
@@ -163,6 +164,7 @@ const Index = () => {
                     <DropdownMenuItem onClick={() => navigate('/almaza-bay')}>Almaza Bay</DropdownMenuItem>
                     <DropdownMenuItem onClick={() => navigate('/kyc-management')}>KYC Management</DropdownMenuItem>
                     <DropdownMenuItem onClick={() => navigate('/selection-sessions')}>Selection Sessions</DropdownMenuItem>
+                    <DropdownMenuItem onClick={() => navigate('/session-audit-log')}>Session Audit Log</DropdownMenuItem>
                     <DropdownMenuItem onClick={() => navigate('/ticket-analytics')}>Analytics</DropdownMenuItem>
                     <DropdownMenuItem onClick={() => navigate('/guest-accounts')}>App Accounts</DropdownMenuItem>
                     <DropdownMenuItem onClick={() => navigate('/guests')}>Guests</DropdownMenuItem>

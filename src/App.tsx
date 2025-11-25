@@ -48,6 +48,7 @@ import KYCManagement from "./pages/KYCManagement";
 import SelectionLogin from "./pages/SelectionLogin";
 import SelectionLanding from "./pages/SelectionLanding";
 import SelectionSessions from "./pages/SelectionSessions";
+import SessionAuditLog from "./pages/SessionAuditLog";
 
 const queryClient = new QueryClient();
 
@@ -76,6 +77,7 @@ const App = () => (
             <Route path="/kyc/:token" element={<KYCLanding />} />
             <Route path="/kyc-management" element={<ProtectedRoute><KYCManagement /></ProtectedRoute>} />
             <Route path="/selection-sessions" element={<ProtectedRoute><SelectionSessions /></ProtectedRoute>} />
+            <Route path="/session-audit-log" element={<ProtectedRoute><SessionAuditLog /></ProtectedRoute>} />
               
             {/* Selection Routes - For private inventory selection */}
             <Route path="/selection-login/:token" element={<SelectionLogin />} />
