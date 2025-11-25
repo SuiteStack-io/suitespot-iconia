@@ -1006,6 +1006,7 @@ export type Database = {
           booking_com_name: string | null
           comments: string | null
           created_at: string
+          features: string[] | null
           id: string
           is_private: boolean | null
           latitude: number | null
@@ -1034,6 +1035,7 @@ export type Database = {
           booking_com_name?: string | null
           comments?: string | null
           created_at?: string
+          features?: string[] | null
           id?: string
           is_private?: boolean | null
           latitude?: number | null
@@ -1062,6 +1064,7 @@ export type Database = {
           booking_com_name?: string | null
           comments?: string | null
           created_at?: string
+          features?: string[] | null
           id?: string
           is_private?: boolean | null
           latitude?: number | null
