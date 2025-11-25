@@ -1748,11 +1748,22 @@ const AlmazaBay = () => {
                     />
                   </TableCell>
                   <TableCell>
-                    <Input
+                    <Select
                       value={newProperty.payment_terms || ''}
-                      onChange={(e) => setNewProperty({ ...newProperty, payment_terms: e.target.value })}
-                      placeholder="Payment terms"
-                    />
+                      onValueChange={(value) => setNewProperty({ ...newProperty, payment_terms: value })}
+                    >
+                      <SelectTrigger>
+                        <SelectValue placeholder="Select payment terms" />
+                      </SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="50% upon reservation - 50% 1 week before check in">
+                          50% upon reservation - 50% 1 week before check in
+                        </SelectItem>
+                        <SelectItem value="100% upon reservation">
+                          100% upon reservation
+                        </SelectItem>
+                      </SelectContent>
+                    </Select>
                   </TableCell>
                   <TableCell>
                     <div className="text-muted-foreground text-sm">Add property first, then upload photos</div>
@@ -2006,20 +2017,30 @@ const AlmazaBay = () => {
                     </TableCell>
                     <TableCell className="min-w-[200px]">
                       {bulkEditMode || isEditing ? (
-                        <Input
+                        <Select
                           value={bulkEditMode 
                             ? (bulkEditedProperties[property.id]?.payment_terms ?? property.payment_terms ?? '')
                             : (editedProperty.payment_terms ?? '')}
-                          onChange={(e) => {
-                            const value = e.target.value;
+                          onValueChange={(value) => {
                             if (bulkEditMode) {
                               handleBulkEditChange(property.id, 'payment_terms', value);
                             } else {
                               setEditedProperty({ ...editedProperty, payment_terms: value });
                             }
                           }}
-                          placeholder="Payment terms"
-                        />
+                        >
+                          <SelectTrigger>
+                            <SelectValue placeholder="Select payment terms" />
+                          </SelectTrigger>
+                          <SelectContent>
+                            <SelectItem value="50% upon reservation - 50% 1 week before check in">
+                              50% upon reservation - 50% 1 week before check in
+                            </SelectItem>
+                            <SelectItem value="100% upon reservation">
+                              100% upon reservation
+                            </SelectItem>
+                          </SelectContent>
+                        </Select>
                       ) : (
                         property.payment_terms || '-'
                       )}
