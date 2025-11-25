@@ -123,9 +123,11 @@ const Index = () => {
                       <DropdownMenuItem onClick={() => navigate('/rooms')}>ICONIA Rooms</DropdownMenuItem>
                       {isAdmin && (
                         <>
-                          <DropdownMenuSeparator />
-                          <DropdownMenuItem onClick={() => navigate('/almaza-bay')}>Almaza Bay</DropdownMenuItem>
-                          <DropdownMenuItem onClick={() => navigate('/ticket-analytics')}>Analytics</DropdownMenuItem>
+                    <DropdownMenuSeparator />
+                    <DropdownMenuItem onClick={() => navigate('/almaza-bay')}>Almaza Bay</DropdownMenuItem>
+                    <DropdownMenuItem onClick={() => navigate('/kyc-management')}>KYC Management</DropdownMenuItem>
+                    <DropdownMenuItem onClick={() => navigate('/selection-sessions')}>Selection Sessions</DropdownMenuItem>
+                    <DropdownMenuItem onClick={() => navigate('/ticket-analytics')}>Analytics</DropdownMenuItem>
                           <DropdownMenuItem onClick={() => navigate('/guest-accounts')}>App Accounts</DropdownMenuItem>
                           <DropdownMenuItem onClick={() => navigate('/guests')}>Guests</DropdownMenuItem>
                           <DropdownMenuItem onClick={() => navigate('/locations-management')}>Locations</DropdownMenuItem>
@@ -159,6 +161,8 @@ const Index = () => {
                   <>
                     <DropdownMenuSeparator />
                     <DropdownMenuItem onClick={() => navigate('/almaza-bay')}>Almaza Bay</DropdownMenuItem>
+                    <DropdownMenuItem onClick={() => navigate('/kyc-management')}>KYC Management</DropdownMenuItem>
+                    <DropdownMenuItem onClick={() => navigate('/selection-sessions')}>Selection Sessions</DropdownMenuItem>
                     <DropdownMenuItem onClick={() => navigate('/ticket-analytics')}>Analytics</DropdownMenuItem>
                     <DropdownMenuItem onClick={() => navigate('/guest-accounts')}>App Accounts</DropdownMenuItem>
                     <DropdownMenuItem onClick={() => navigate('/guests')}>Guests</DropdownMenuItem>
