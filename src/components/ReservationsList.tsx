@@ -18,8 +18,15 @@ import {
   SelectTrigger,
   SelectValue,
 } from '@/components/ui/select';
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogHeader,
+  DialogTitle,
+} from '@/components/ui/dialog';
 import { format } from 'date-fns';
-import { Search } from 'lucide-react';
+import { Search, Users } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
 
 interface Reservation {
@@ -41,6 +48,14 @@ interface Reservation {
   net_revenue: number | null;
   currency: string | null;
   created_at: string;
+  group_id: string | null;
+  unit_id: string;
+}
+
+interface GroupedReservation extends Reservation {
+  isGrouped: boolean;
+  groupCount?: number;
+  groupRooms?: Reservation[];
 }
 
 type SortField = 'units' | 'guest_names' | 'check_in_date' | 'check_out_date' | 'nights' | 'number_of_guests' | 'guest_nationality' | 'status' | 'source' | 'price_per_night' | 'total_price' | 'booking_reference' | 'created_at';
@@ -56,13 +71,15 @@ const statusColors = {
 
 export const ReservationsList = () => {
   const [reservations, setReservations] = useState<Reservation[]>([]);
-  const [filteredReservations, setFilteredReservations] = useState<Reservation[]>([]);
+  const [filteredReservations, setFilteredReservations] = useState<GroupedReservation[]>([]);
   const [searchQuery, setSearchQuery] = useState('');
   const [statusFilter, setStatusFilter] = useState<string>('all');
   const [unitFilter, setUnitFilter] = useState<string>('all');
   const [units, setUnits] = useState<{ id: string; name: string }[]>([]);
   const [sortField, setSortField] = useState<SortField>('created_at');
   const [sortOrder, setSortOrder] = useState<SortOrder>('desc');
+  const [selectedGroup, setSelectedGroup] = useState<Reservation[] | null>(null);
+  const [showGroupDialog, setShowGroupDialog] = useState(false);
   const navigate = useNavigate();
 
   useEffect(() => {
@@ -117,12 +134,54 @@ export const ReservationsList = () => {
   const fetchReservations = async () => {
     const { data, error } = await supabase
       .from('reservations')
-      .select('*, units(name, unit_number)')
+      .select('id, booking_reference, check_in_date, check_out_date, nights, number_of_guests, guest_names, guest_nationality, status, source, price_per_night, total_price, commission_rate, commission_amount, net_revenue, currency, created_at, group_id, unit_id, units(name, unit_number)')
       .order('check_in_date', { ascending: false });
 
     if (!error && data) {
       setReservations(data as Reservation[]);
     }
+  };
+
+  const processGroupedReservations = (reservationsList: Reservation[]): GroupedReservation[] => {
+    const groupMap = new Map<string, Reservation[]>();
+    const processedReservations: GroupedReservation[] = [];
+    const processedGroupIds = new Set<string>();
+
+    // Group reservations by group_id
+    reservationsList.forEach(res => {
+      if (res.group_id) {
+        if (!groupMap.has(res.group_id)) {
+          groupMap.set(res.group_id, []);
+        }
+        groupMap.get(res.group_id)!.push(res);
+      }
+    });
+
+    // Process reservations
+    reservationsList.forEach(res => {
+      if (res.group_id && groupMap.has(res.group_id)) {
+        const groupRooms = groupMap.get(res.group_id)!;
+        
+        // Only add the first reservation from each group
+        if (!processedGroupIds.has(res.group_id)) {
+          processedGroupIds.add(res.group_id);
+          processedReservations.push({
+            ...res,
+            isGrouped: true,
+            groupCount: groupRooms.length,
+            groupRooms: groupRooms,
+          });
+        }
+      } else {
+        // Single reservation (no group)
+        processedReservations.push({
+          ...res,
+          isGrouped: false,
+        });
+      }
+    });
+
+    return processedReservations;
   };
 
   const fetchUnits = async () => {
@@ -184,7 +243,14 @@ export const ReservationsList = () => {
       return 0;
     });
 
-    setFilteredReservations(filtered);
+    const groupedFiltered = processGroupedReservations(filtered);
+    setFilteredReservations(groupedFiltered);
+  };
+
+  const handleViewGroup = (groupRooms: Reservation[], e: React.MouseEvent) => {
+    e.stopPropagation();
+    setSelectedGroup(groupRooms);
+    setShowGroupDialog(true);
   };
 
   const handleSort = (field: SortField) => {
@@ -342,8 +408,28 @@ export const ReservationsList = () => {
                   className="cursor-pointer hover:bg-muted/50"
                   onClick={() => navigate(`/reservation/${reservation.id}`)}
                 >
-                  <TableCell className="font-medium">{reservation.units?.name || 'N/A'}</TableCell>
-                  <TableCell>{reservation.units?.unit_number || '-'}</TableCell>
+                  <TableCell className="font-medium">
+                    <div className="flex items-center gap-2">
+                      {reservation.units?.name || 'N/A'}
+                      {reservation.isGrouped && reservation.groupCount && (
+                        <Badge 
+                          variant="outline" 
+                          className="bg-blue-50 text-blue-700 border-blue-300 hover:bg-blue-100"
+                          onClick={(e) => handleViewGroup(reservation.groupRooms!, e)}
+                        >
+                          <Users className="h-3 w-3 mr-1" />
+                          {reservation.groupCount} rooms
+                        </Badge>
+                      )}
+                    </div>
+                  </TableCell>
+                  <TableCell>
+                    {reservation.isGrouped && reservation.groupCount ? (
+                      <span className="text-muted-foreground text-xs">Multiple</span>
+                    ) : (
+                      reservation.units?.unit_number || '-'
+                    )}
+                  </TableCell>
                   <TableCell>{reservation.guest_names?.length > 0 ? reservation.guest_names.join(', ') : 'N/A'}</TableCell>
                   <TableCell>{format(new Date(reservation.check_in_date), 'dd MMM yyyy')}</TableCell>
                   <TableCell>{format(new Date(reservation.check_out_date), 'dd MMM yyyy')}</TableCell>
@@ -357,10 +443,21 @@ export const ReservationsList = () => {
                   </TableCell>
                   <TableCell>{reservation.source}</TableCell>
                   <TableCell className="text-right">
-                    {reservation.price_per_night ? `$${Number(reservation.price_per_night).toFixed(2)}` : '-'}
+                    {reservation.isGrouped && reservation.groupCount ? (
+                      <span className="text-muted-foreground text-xs">Various</span>
+                    ) : (
+                      reservation.price_per_night ? `$${Number(reservation.price_per_night).toFixed(2)}` : '-'
+                    )}
                   </TableCell>
                   <TableCell className="text-right font-medium">
-                    {reservation.total_price ? `$${Number(reservation.total_price).toFixed(2)}` : '-'}
+                    {reservation.isGrouped && reservation.groupRooms ? (
+                      <div>
+                        ${reservation.groupRooms.reduce((sum, r) => sum + (Number(r.total_price) || 0), 0).toFixed(2)}
+                        <div className="text-xs text-muted-foreground">Combined</div>
+                      </div>
+                    ) : (
+                      reservation.total_price ? `$${Number(reservation.total_price).toFixed(2)}` : '-'
+                    )}
                   </TableCell>
                   <TableCell className="font-mono text-sm">{reservation.booking_reference}</TableCell>
                   <TableCell>{format(new Date(reservation.created_at), 'dd MMM yyyy')}</TableCell>
@@ -370,6 +467,102 @@ export const ReservationsList = () => {
           </TableBody>
         </Table>
       </div>
+
+      {/* Group Details Dialog */}
+      <Dialog open={showGroupDialog} onOpenChange={setShowGroupDialog}>
+        <DialogContent className="max-w-4xl max-h-[80vh] overflow-y-auto">
+          <DialogHeader>
+            <DialogTitle>Multi-Room Booking Details</DialogTitle>
+            <DialogDescription>
+              This booking includes {selectedGroup?.length} rooms
+            </DialogDescription>
+          </DialogHeader>
+          
+          {selectedGroup && (
+            <div className="space-y-4">
+              {/* Group Summary */}
+              <div className="grid grid-cols-2 gap-4 p-4 bg-muted/50 rounded-lg">
+                <div>
+                  <p className="text-sm font-medium text-muted-foreground">Guest Name</p>
+                  <p className="font-semibold">{selectedGroup[0].guest_names.join(', ')}</p>
+                </div>
+                <div>
+                  <p className="text-sm font-medium text-muted-foreground">Total Rooms</p>
+                  <p className="font-semibold">{selectedGroup.length}</p>
+                </div>
+                <div>
+                  <p className="text-sm font-medium text-muted-foreground">Check-in</p>
+                  <p className="font-semibold">{format(new Date(selectedGroup[0].check_in_date), 'dd MMM yyyy')}</p>
+                </div>
+                <div>
+                  <p className="text-sm font-medium text-muted-foreground">Check-out</p>
+                  <p className="font-semibold">{format(new Date(selectedGroup[0].check_out_date), 'dd MMM yyyy')}</p>
+                </div>
+                <div>
+                  <p className="text-sm font-medium text-muted-foreground">Combined Total</p>
+                  <p className="font-semibold text-lg">
+                    ${selectedGroup.reduce((sum, r) => sum + (Number(r.total_price) || 0), 0).toFixed(2)}
+                  </p>
+                </div>
+                <div>
+                  <p className="text-sm font-medium text-muted-foreground">Status</p>
+                  <Badge className={statusColors[selectedGroup[0].status as keyof typeof statusColors]}>
+                    {selectedGroup[0].status}
+                  </Badge>
+                </div>
+              </div>
+
+              {/* Individual Rooms */}
+              <div className="space-y-2">
+                <h3 className="font-semibold">Individual Rooms</h3>
+                <div className="border rounded-lg">
+                  <Table>
+                    <TableHeader>
+                      <TableRow>
+                        <TableHead>Room</TableHead>
+                        <TableHead>Suite Name</TableHead>
+                        <TableHead>Room #</TableHead>
+                        <TableHead className="text-right">Price/Night</TableHead>
+                        <TableHead className="text-right">Total</TableHead>
+                        <TableHead>Booking Ref</TableHead>
+                        <TableHead></TableHead>
+                      </TableRow>
+                    </TableHeader>
+                    <TableBody>
+                      {selectedGroup.map((room, index) => (
+                        <TableRow key={room.id}>
+                          <TableCell className="font-medium">Room {index + 1}</TableCell>
+                          <TableCell>{room.units?.name || 'N/A'}</TableCell>
+                          <TableCell>{room.units?.unit_number || '-'}</TableCell>
+                          <TableCell className="text-right">
+                            ${Number(room.price_per_night).toFixed(2)}
+                          </TableCell>
+                          <TableCell className="text-right font-medium">
+                            ${Number(room.total_price).toFixed(2)}
+                          </TableCell>
+                          <TableCell className="font-mono text-sm">{room.booking_reference}</TableCell>
+                          <TableCell>
+                            <Button
+                              variant="outline"
+                              size="sm"
+                              onClick={() => {
+                                setShowGroupDialog(false);
+                                navigate(`/reservation/${room.id}`);
+                              }}
+                            >
+                              View Details
+                            </Button>
+                          </TableCell>
+                        </TableRow>
+                      ))}
+                    </TableBody>
+                  </Table>
+                </div>
+              </div>
+            </div>
+          )}
+        </DialogContent>
+      </Dialog>
     </div>
   );
 };
