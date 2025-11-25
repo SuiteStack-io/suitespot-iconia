@@ -4,6 +4,7 @@ import { useSelectionAuth } from "@/lib/selectionAuth";
 import { supabase } from "@/integrations/supabase/client";
 import { Loader2, Clock } from "lucide-react";
 import { toast } from "sonner";
+import { PropertyDetailsModal } from "@/components/PropertyDetailsModal";
 
 interface Unit {
   id: string;
@@ -15,6 +16,7 @@ interface Unit {
   unit_size: string | null;
   view: string | null;
   address: string | null;
+  features: string[] | null;
 }
 
 export default function SelectionLanding() {
@@ -24,6 +26,7 @@ export default function SelectionLanding() {
   const [units, setUnits] = useState<Unit[]>([]);
   const [loading, setLoading] = useState(true);
   const [timeRemaining, setTimeRemaining] = useState<string>("");
+  const [selectedUnit, setSelectedUnit] = useState<Unit | null>(null);
 
   useEffect(() => {
     if (!authLoading && !account) {
@@ -91,7 +94,7 @@ export default function SelectionLanding() {
       // Fetch unit details
       const { data: unitsData, error: unitsError } = await supabase
         .from("units")
-        .select("id, name, beds, baths, max_guests, photos, unit_size, view, address")
+        .select("id, name, beds, baths, max_guests, photos, unit_size, view, address, features")
         .in("id", unitIds);
 
       if (unitsError) throw unitsError;
@@ -179,12 +182,22 @@ export default function SelectionLanding() {
                 className="bg-background/95 backdrop-blur-sm rounded-xl shadow-xl overflow-hidden border border-border/50 hover:shadow-2xl transition-shadow"
               >
                 {unit.photos && unit.photos.length > 0 && (
-                  <img
-                    src={unit.photos[0]}
-                    alt={unit.name}
-                    className="w-full h-64 object-cover"
-                    draggable="false"
-                  />
+                  <div
+                    className="relative cursor-pointer group"
+                    onClick={() => setSelectedUnit(unit)}
+                  >
+                    <img
+                      src={unit.photos[0]}
+                      alt={unit.name}
+                      className="w-full h-64 object-cover transition-transform group-hover:scale-105"
+                      draggable="false"
+                    />
+                    <div className="absolute inset-0 bg-black/0 group-hover:bg-black/20 transition-colors flex items-center justify-center">
+                      <span className="text-white opacity-0 group-hover:opacity-100 transition-opacity text-lg font-semibold">
+                        View Details
+                      </span>
+                    </div>
+                  </div>
                 )}
                 <div className="p-6">
                   <h2 className="text-2xl font-serif font-semibold mb-3" style={{ fontFamily: "'Playfair Display', serif" }}>
@@ -210,6 +223,15 @@ export default function SelectionLanding() {
           </p>
         </div>
       </div>
+
+      {/* Property Details Modal */}
+      {selectedUnit && (
+        <PropertyDetailsModal
+          open={!!selectedUnit}
+          onClose={() => setSelectedUnit(null)}
+          property={selectedUnit}
+        />
+      )}
     </div>
   );
 }

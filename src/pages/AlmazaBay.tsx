@@ -77,6 +77,7 @@ interface Property {
   view: string | null;
   is_private: boolean | null;
   location: string | null;
+  features: string[] | null;
 }
 
 interface Reservation {
@@ -116,6 +117,7 @@ const AlmazaBay = () => {
     view: null,
     is_private: true,
     location: 'Almaza Bay',
+    features: [],
   });
   const [uploadingPhotos, setUploadingPhotos] = useState<string | null>(null);
   const [uploadProgress, setUploadProgress] = useState<{ [key: string]: number }>({});
@@ -129,6 +131,9 @@ const AlmazaBay = () => {
   const [kycGuestContact, setKycGuestContact] = useState('');
   const [showKYCInputModal, setShowKYCInputModal] = useState(false);
   const [selectedPropertyForKYC, setSelectedPropertyForKYC] = useState<string | null>(null);
+  const [featuresDialogOpen, setFeaturesDialogOpen] = useState(false);
+  const [currentPropertyFeatures, setCurrentPropertyFeatures] = useState<{ id: string; features: string[] } | null>(null);
+  const [newFeature, setNewFeature] = useState('');
 
   const sensors = useSensors(
     useSensor(PointerSensor),
@@ -409,6 +414,65 @@ const AlmazaBay = () => {
       if (currentPropertyPhotos?.id === propertyId) {
         setCurrentPropertyPhotos({ id: propertyId, photos: newPhotosOrder });
       }
+    } catch (error: any) {
+      toast({
+        title: 'Error',
+        description: error.message,
+        variant: 'destructive',
+      });
+    }
+  };
+
+  const handleAddFeature = async () => {
+    if (!newFeature.trim() || !currentPropertyFeatures) return;
+    
+    try {
+      const updatedFeatures = [...(currentPropertyFeatures.features || []), newFeature.trim()];
+      
+      const { error } = await supabase
+        .from('units')
+        .update({ features: updatedFeatures })
+        .eq('id', currentPropertyFeatures.id);
+
+      if (error) throw error;
+
+      toast({
+        title: 'Success',
+        description: 'Feature added successfully',
+      });
+
+      setCurrentPropertyFeatures({ ...currentPropertyFeatures, features: updatedFeatures });
+      setNewFeature('');
+      fetchProperties();
+    } catch (error: any) {
+      toast({
+        title: 'Error',
+        description: error.message,
+        variant: 'destructive',
+      });
+    }
+  };
+
+  const handleDeleteFeature = async (featureIndex: number) => {
+    if (!currentPropertyFeatures) return;
+    
+    try {
+      const updatedFeatures = currentPropertyFeatures.features.filter((_, index) => index !== featureIndex);
+      
+      const { error } = await supabase
+        .from('units')
+        .update({ features: updatedFeatures })
+        .eq('id', currentPropertyFeatures.id);
+
+      if (error) throw error;
+
+      toast({
+        title: 'Success',
+        description: 'Feature deleted successfully',
+      });
+
+      setCurrentPropertyFeatures({ ...currentPropertyFeatures, features: updatedFeatures });
+      fetchProperties();
     } catch (error: any) {
       toast({
         title: 'Error',
@@ -719,6 +783,7 @@ const AlmazaBay = () => {
                 <TableHead className="min-w-[110px] text-base font-medium">Price/Night</TableHead>
                 <TableHead className="min-w-[80px] text-base font-medium">Tax %</TableHead>
                 <TableHead className="min-w-[160px] text-base font-medium">Photos</TableHead>
+                <TableHead className="min-w-[160px] text-base font-medium">Features</TableHead>
                 <TableHead className="min-w-[120px] text-base font-medium">Status</TableHead>
                 <TableHead className="min-w-[130px] text-base font-medium">Next Reservation</TableHead>
                 <TableHead className="min-w-[140px] text-base font-medium">View</TableHead>
@@ -939,6 +1004,19 @@ const AlmazaBay = () => {
                         property.address
                       )}
                     </TableCell>
+                    <TableCell className="min-w-[160px]">
+                      <Button
+                        size="sm"
+                        variant="outline"
+                        onClick={() => {
+                          setCurrentPropertyFeatures({ id: property.id, features: property.features || [] });
+                          setFeaturesDialogOpen(true);
+                        }}
+                      >
+                        <List className="h-4 w-4 mr-2" />
+                        Manage ({(property.features || []).length})
+                      </Button>
+                    </TableCell>
                     <TableCell className="min-w-[120px]">
                       {isEditing ? (
                         <Input
@@ -1145,6 +1223,64 @@ const AlmazaBay = () => {
                 </SortableContext>
               </DndContext>
             )}
+          </div>
+        </DialogContent>
+      </Dialog>
+
+      {/* Features Management Dialog */}
+      <Dialog open={featuresDialogOpen} onOpenChange={setFeaturesDialogOpen}>
+        <DialogContent className="max-w-2xl">
+          <DialogHeader>
+            <DialogTitle>Manage Features & Amenities</DialogTitle>
+            <DialogDescription>
+              Add or remove features that will be displayed in the property selection modal
+            </DialogDescription>
+          </DialogHeader>
+          <div className="space-y-4">
+            {/* Add new feature */}
+            <div className="flex gap-2">
+              <Input
+                placeholder="Enter new feature..."
+                value={newFeature}
+                onChange={(e) => setNewFeature(e.target.value)}
+                onKeyPress={(e) => {
+                  if (e.key === 'Enter') {
+                    handleAddFeature();
+                  }
+                }}
+              />
+              <Button onClick={handleAddFeature} disabled={!newFeature.trim()}>
+                <Plus className="h-4 w-4 mr-2" />
+                Add
+              </Button>
+            </div>
+
+            {/* Features list */}
+            <div className="border rounded-lg p-4 max-h-96 overflow-y-auto">
+              {currentPropertyFeatures && currentPropertyFeatures.features.length > 0 ? (
+                <ul className="space-y-2">
+                  {currentPropertyFeatures.features.map((feature, index) => (
+                    <li key={index} className="flex items-center justify-between p-2 hover:bg-muted rounded">
+                      <span className="flex items-center gap-2">
+                        <span className="text-primary">✓</span>
+                        {feature}
+                      </span>
+                      <Button
+                        size="sm"
+                        variant="ghost"
+                        onClick={() => handleDeleteFeature(index)}
+                      >
+                        <X className="h-4 w-4" />
+                      </Button>
+                    </li>
+                  ))}
+                </ul>
+              ) : (
+                <p className="text-center text-muted-foreground py-8">
+                  No features added yet. Add features to help guests understand what this property offers.
+                </p>
+              )}
+            </div>
           </div>
         </DialogContent>
       </Dialog>
