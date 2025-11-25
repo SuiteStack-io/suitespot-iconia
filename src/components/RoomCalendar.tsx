@@ -6,6 +6,7 @@ import { ChevronLeft, ChevronRight, AlertTriangle } from 'lucide-react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Sheet, SheetContent, SheetHeader, SheetTitle } from '@/components/ui/sheet';
 import { Badge } from '@/components/ui/badge';
+import { Tabs, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { useNavigate } from 'react-router-dom';
 import { useIsMobile } from '@/hooks/use-mobile';
 
@@ -48,6 +49,7 @@ export const RoomCalendar = () => {
   const navigate = useNavigate();
   const [currentWeekStart, setCurrentWeekStart] = useState(() => startOfDay(new Date()));
   const [currentMonth, setCurrentMonth] = useState(startOfMonth(new Date()));
+  const [selectedLocation, setSelectedLocation] = useState<'ICONIA' | 'Almaza Bay'>('ICONIA');
   const [units, setUnits] = useState<Unit[]>([]);
   const [reservations, setReservations] = useState<Reservation[]>([]);
   const [blockedDates, setBlockedDates] = useState<BlockedDate[]>([]);
@@ -63,17 +65,20 @@ export const RoomCalendar = () => {
       .channel('room-calendar-realtime')
       .on('postgres_changes', { event: '*', schema: 'public', table: 'reservations' }, () => fetchReservations())
       .on('postgres_changes', { event: '*', schema: 'public', table: 'blocked_dates' }, () => fetchBlockedDates())
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'units' }, () => fetchUnits())
       .subscribe();
 
     return () => {
       supabase.removeChannel(channel);
     };
-  }, []);
+  }, [selectedLocation]);
 
   const fetchUnits = async () => {
     const { data, error } = await supabase
       .from('units')
       .select('id, unit_number, name, unit_type')
+      .eq('location', selectedLocation)
+      .eq('status', 'available')
       .order('unit_number');
     
     if (error) {
@@ -309,8 +314,28 @@ export const RoomCalendar = () => {
   return (
     <Card>
       <CardHeader>
-        <div className="flex items-center justify-between">
-          <CardTitle className={isMobile ? "hidden" : ""}>Room Calendar</CardTitle>
+        <div className="flex flex-col gap-4">
+          <div className="flex items-center justify-between">
+            <CardTitle className={isMobile ? "hidden" : ""}>Room Calendar</CardTitle>
+            {!isMobile && (
+              <Tabs value={selectedLocation} onValueChange={(value) => setSelectedLocation(value as 'ICONIA' | 'Almaza Bay')}>
+                <TabsList>
+                  <TabsTrigger value="ICONIA">ICONIA</TabsTrigger>
+                  <TabsTrigger value="Almaza Bay">Almaza Bay</TabsTrigger>
+                </TabsList>
+              </Tabs>
+            )}
+          </div>
+          
+          {isMobile && (
+            <Tabs value={selectedLocation} onValueChange={(value) => setSelectedLocation(value as 'ICONIA' | 'Almaza Bay')} className="w-full">
+              <TabsList className="w-full grid grid-cols-2">
+                <TabsTrigger value="ICONIA">ICONIA</TabsTrigger>
+                <TabsTrigger value="Almaza Bay">Almaza Bay</TabsTrigger>
+              </TabsList>
+            </Tabs>
+          )}
+          
           <div className={`flex items-center ${isMobile ? 'gap-1.5 w-full justify-between' : 'gap-2'}`}>
             {!isMobile ? (
               <>
