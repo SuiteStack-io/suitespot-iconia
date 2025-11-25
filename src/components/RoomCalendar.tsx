@@ -135,6 +135,10 @@ export const RoomCalendar = () => {
   const getWeekDays = () => Array.from({ length: 14 }, (_, i) => addDays(currentWeekStart, i));
 
   const hasConflict = (date: Date, unitId: string) => {
+    // Only check if the unit is in the current location
+    const unitInCurrentLocation = units.some(u => u.id === unitId);
+    if (!unitInCurrentLocation) return false;
+    
     const conflictingReservations = reservations.filter(res => {
       if (res.unit_id !== unitId || res.status !== 'confirmed') return false;
       const checkIn = new Date(res.check_in_date);
@@ -229,6 +233,10 @@ export const RoomCalendar = () => {
 
   const getDayData = (date: Date): DayData => {
     const dayReservations = reservations.filter(r => {
+      // Only include reservations for units in the current location
+      const unitInCurrentLocation = units.some(u => u.id === r.unit_id);
+      if (!unitInCurrentLocation) return false;
+      
       const checkIn = new Date(r.check_in_date);
       const checkOut = new Date(r.check_out_date);
       const isCheckInDay = isSameDay(date, checkIn);
