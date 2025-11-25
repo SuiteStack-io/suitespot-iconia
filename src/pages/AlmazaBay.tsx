@@ -233,6 +233,10 @@ const AlmazaBay = () => {
   const [bulkEditMode, setBulkEditMode] = useState(false);
   const [bulkEditedProperties, setBulkEditedProperties] = useState<{ [key: string]: Partial<Property> }>({});
   
+  // Sorting state
+  const [sortField, setSortField] = useState<keyof Property | null>(null);
+  const [sortDirection, setSortDirection] = useState<'asc' | 'desc'>('asc');
+  
   // TODO: Remove after development - Simulation dialog state
   const [simulationDialogOpen, setSimulationDialogOpen] = useState(false);
   const [selectedPropertiesForSimulation, setSelectedPropertiesForSimulation] = useState<string[]>([]);
@@ -1394,6 +1398,40 @@ const AlmazaBay = () => {
     setBulkEditMode(!bulkEditMode);
   };
 
+  const handleSort = (field: keyof Property) => {
+    if (sortField === field) {
+      // Toggle direction
+      setSortDirection(sortDirection === 'asc' ? 'desc' : 'asc');
+    } else {
+      setSortField(field);
+      setSortDirection('asc');
+    }
+  };
+
+  const sortedProperties = [...properties].sort((a, b) => {
+    if (!sortField) return 0;
+    
+    const aValue = a[sortField];
+    const bValue = b[sortField];
+    
+    // Handle null/undefined values
+    if (aValue == null && bValue == null) return 0;
+    if (aValue == null) return 1;
+    if (bValue == null) return -1;
+    
+    // Compare values
+    let comparison = 0;
+    if (typeof aValue === 'string' && typeof bValue === 'string') {
+      comparison = aValue.localeCompare(bValue);
+    } else if (typeof aValue === 'number' && typeof bValue === 'number') {
+      comparison = aValue - bValue;
+    } else if (typeof aValue === 'boolean' && typeof bValue === 'boolean') {
+      comparison = aValue === bValue ? 0 : aValue ? 1 : -1;
+    }
+    
+    return sortDirection === 'asc' ? comparison : -comparison;
+  });
+
   if (loading) {
     return (
       <div className="flex min-h-screen items-center justify-center">
@@ -1524,21 +1562,91 @@ const AlmazaBay = () => {
           <Table className="min-w-[1600px]">
             <TableHeader>
               <TableRow>
-                <TableHead className="min-w-[200px] text-base font-medium">Property Name</TableHead>
+                <TableHead 
+                  className="min-w-[200px] text-base font-medium cursor-pointer hover:bg-muted/50"
+                  onClick={() => handleSort('name')}
+                >
+                  <div className="flex items-center gap-1">
+                    Property Name
+                    {sortField === 'name' && (
+                      <ChevronDown className={`h-4 w-4 transition-transform ${sortDirection === 'desc' ? 'rotate-180' : ''}`} />
+                    )}
+                  </div>
+                </TableHead>
                 <TableHead className="min-w-[100px] text-base font-medium">Unit #</TableHead>
                 <TableHead className="min-w-[140px] text-base font-medium">Type</TableHead>
                 <TableHead className="min-w-[200px] text-base font-medium">Address</TableHead>
                 <TableHead className="min-w-[120px] text-base font-medium">Size</TableHead>
-                <TableHead className="min-w-[80px] text-base font-medium">Beds</TableHead>
-                <TableHead className="min-w-[80px] text-base font-medium">Baths</TableHead>
-                <TableHead className="min-w-[100px] text-base font-medium">Max Guests</TableHead>
+                <TableHead 
+                  className="min-w-[80px] text-base font-medium cursor-pointer hover:bg-muted/50"
+                  onClick={() => handleSort('beds')}
+                >
+                  <div className="flex items-center gap-1">
+                    Beds
+                    {sortField === 'beds' && (
+                      <ChevronDown className={`h-4 w-4 transition-transform ${sortDirection === 'desc' ? 'rotate-180' : ''}`} />
+                    )}
+                  </div>
+                </TableHead>
+                <TableHead 
+                  className="min-w-[80px] text-base font-medium cursor-pointer hover:bg-muted/50"
+                  onClick={() => handleSort('baths')}
+                >
+                  <div className="flex items-center gap-1">
+                    Baths
+                    {sortField === 'baths' && (
+                      <ChevronDown className={`h-4 w-4 transition-transform ${sortDirection === 'desc' ? 'rotate-180' : ''}`} />
+                    )}
+                  </div>
+                </TableHead>
+                <TableHead 
+                  className="min-w-[100px] text-base font-medium cursor-pointer hover:bg-muted/50"
+                  onClick={() => handleSort('max_guests')}
+                >
+                  <div className="flex items-center gap-1">
+                    Max Guests
+                    {sortField === 'max_guests' && (
+                      <ChevronDown className={`h-4 w-4 transition-transform ${sortDirection === 'desc' ? 'rotate-180' : ''}`} />
+                    )}
+                  </div>
+                </TableHead>
                 <TableHead className="min-w-[100px] text-base font-medium">Sofa Bed</TableHead>
-                <TableHead className="min-w-[110px] text-base font-medium">Price/Night</TableHead>
-                <TableHead className="min-w-[100px] text-base font-medium">Min Stay</TableHead>
+                <TableHead 
+                  className="min-w-[110px] text-base font-medium cursor-pointer hover:bg-muted/50"
+                  onClick={() => handleSort('price_per_night')}
+                >
+                  <div className="flex items-center gap-1">
+                    Price/Night
+                    {sortField === 'price_per_night' && (
+                      <ChevronDown className={`h-4 w-4 transition-transform ${sortDirection === 'desc' ? 'rotate-180' : ''}`} />
+                    )}
+                  </div>
+                </TableHead>
+                <TableHead 
+                  className="min-w-[100px] text-base font-medium cursor-pointer hover:bg-muted/50"
+                  onClick={() => handleSort('min_stay')}
+                >
+                  <div className="flex items-center gap-1">
+                    Min Stay
+                    {sortField === 'min_stay' && (
+                      <ChevronDown className={`h-4 w-4 transition-transform ${sortDirection === 'desc' ? 'rotate-180' : ''}`} />
+                    )}
+                  </div>
+                </TableHead>
                 <TableHead className="min-w-[200px] text-base font-medium">Payment Terms</TableHead>
                 <TableHead className="min-w-[160px] text-base font-medium">Photos</TableHead>
                 <TableHead className="min-w-[160px] text-base font-medium">Features</TableHead>
-                <TableHead className="min-w-[120px] text-base font-medium">Status</TableHead>
+                <TableHead 
+                  className="min-w-[120px] text-base font-medium cursor-pointer hover:bg-muted/50"
+                  onClick={() => handleSort('status')}
+                >
+                  <div className="flex items-center gap-1">
+                    Status
+                    {sortField === 'status' && (
+                      <ChevronDown className={`h-4 w-4 transition-transform ${sortDirection === 'desc' ? 'rotate-180' : ''}`} />
+                    )}
+                  </div>
+                </TableHead>
                 <TableHead className="min-w-[130px] text-base font-medium">Next Reservation</TableHead>
                 <TableHead className="min-w-[140px] text-base font-medium">View</TableHead>
                 <TableHead className="min-w-[120px] text-base font-medium">Visibility</TableHead>
@@ -1723,7 +1831,7 @@ const AlmazaBay = () => {
                   </TableCell>
                 </TableRow>
               )}
-              {properties.map((property) => {
+              {sortedProperties.map((property) => {
                 const isEditing = editingId === property.id;
                 
                 return (
@@ -1897,10 +2005,19 @@ const AlmazaBay = () => {
                       )}
                     </TableCell>
                     <TableCell className="min-w-[200px]">
-                      {isEditing ? (
+                      {bulkEditMode || isEditing ? (
                         <Input
-                          value={editedProperty.payment_terms || ''}
-                          onChange={(e) => setEditedProperty({ ...editedProperty, payment_terms: e.target.value })}
+                          value={bulkEditMode 
+                            ? (bulkEditedProperties[property.id]?.payment_terms ?? property.payment_terms ?? '')
+                            : (editedProperty.payment_terms ?? '')}
+                          onChange={(e) => {
+                            const value = e.target.value;
+                            if (bulkEditMode) {
+                              handleBulkEditChange(property.id, 'payment_terms', value);
+                            } else {
+                              setEditedProperty({ ...editedProperty, payment_terms: value });
+                            }
+                          }}
                           placeholder="Payment terms"
                         />
                       ) : (
