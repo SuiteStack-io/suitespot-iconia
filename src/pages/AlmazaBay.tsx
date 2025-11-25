@@ -8,7 +8,7 @@ import { Label } from '@/components/ui/label';
 import { Textarea } from '@/components/ui/textarea';
 import { Switch } from '@/components/ui/switch';
 import { Checkbox } from '@/components/ui/checkbox';
-import { ArrowLeft, Save, Plus, Pencil, X, Upload, Trash2, Eye, ChevronDown, Copy, Image as ImageIcon, Lock, Globe, GripVertical, FileText, List, Download, FileUp, AlertCircle } from 'lucide-react';
+import { ArrowLeft, Save, Plus, Pencil, X, Upload, Trash2, Eye, ChevronDown, Copy, Image as ImageIcon, Lock, Globe, GripVertical, FileText, List, Download, FileUp, AlertCircle, Loader2 } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
 import { Progress } from '@/components/ui/progress';
 import { PROPERTY_FEATURES } from '@/constants/propertyFeatures';
@@ -228,6 +228,14 @@ const AlmazaBay = () => {
   const [importFile, setImportFile] = useState<File | null>(null);
   const [importPreview, setImportPreview] = useState<any[]>([]);
   const [importValidationErrors, setImportValidationErrors] = useState<{ row: number; errors: string[] }[]>([]);
+  
+  // TODO: Remove after development - Simulation dialog state
+  const [simulationDialogOpen, setSimulationDialogOpen] = useState(false);
+  const [selectedPropertiesForSimulation, setSelectedPropertiesForSimulation] = useState<string[]>([]);
+  const [simulationTimer, setSimulationTimer] = useState<number | null>(null);
+  const [simulationLink, setSimulationLink] = useState<string>('');
+  const [simulationCredentials, setSimulationCredentials] = useState<{ username: string; password: string } | null>(null);
+  const [generatingSimulation, setGeneratingSimulation] = useState(false);
 
   const sensors = useSensors(
     useSensor(PointerSensor),
@@ -291,6 +299,23 @@ const AlmazaBay = () => {
       supabase.removeChannel(reservationsChannel);
     };
   }, [user]);
+
+  // TODO: Remove after development - Timer countdown effect
+  useEffect(() => {
+    if (simulationTimer === null || simulationTimer <= 0) return;
+
+    const interval = setInterval(() => {
+      setSimulationTimer(prev => {
+        if (prev === null || prev <= 0) {
+          clearInterval(interval);
+          return 0;
+        }
+        return prev - 1;
+      });
+    }, 1000);
+
+    return () => clearInterval(interval);
+  }, [simulationTimer]);
 
   const fetchProperties = async () => {
     const { data, error } = await supabase
@@ -947,6 +972,118 @@ const AlmazaBay = () => {
     }
   };
 
+  // TODO: Remove after development - Simulation dialog handlers
+  const toggleSimulationProperty = (propertyId: string) => {
+    setSelectedPropertiesForSimulation(prev => 
+      prev.includes(propertyId)
+        ? prev.filter(id => id !== propertyId)
+        : [...prev, propertyId]
+    );
+  };
+
+  const selectAllSimulationProperties = () => {
+    setSelectedPropertiesForSimulation(properties.map(p => p.id));
+  };
+
+  const clearAllSimulationProperties = () => {
+    setSelectedPropertiesForSimulation([]);
+  };
+
+  const handleGenerateSimulationLink = async () => {
+    if (selectedPropertiesForSimulation.length === 0) {
+      toast({
+        title: 'Error',
+        description: 'Please select at least one property',
+        variant: 'destructive',
+      });
+      return;
+    }
+
+    setGeneratingSimulation(true);
+
+    try {
+      // Create a temporary KYC link for simulation
+      const { data: { user: authUser } } = await supabase.auth.getUser();
+      const uniqueToken = 'sim_' + Math.random().toString(36).substring(2, 15);
+      
+      const { data: kycData, error: kycError } = await supabase
+        .from('kyc_links')
+        .insert({
+          guest_name: 'Simulation Test',
+          guest_contact: 'simulation@test.com',
+          token: uniqueToken,
+          status: 'completed',
+          outcome: 'accepted',
+          created_by: authUser?.id
+        })
+        .select()
+        .single();
+
+      if (kycError) throw kycError;
+
+      // Generate credentials via edge function
+      const { data: credentialsData, error: credError } = await supabase.functions.invoke(
+        'generate-selection-credentials',
+        {
+          body: {
+            kycLinkId: kycData.id,
+            guestName: 'Simulation Test',
+            selectedUnitIds: selectedPropertiesForSimulation
+          }
+        }
+      );
+
+      if (credError) throw credError;
+
+      const link = `${window.location.origin}/selection/${credentialsData.token}`;
+      
+      setSimulationLink(link);
+      setSimulationCredentials({
+        username: credentialsData.username,
+        password: credentialsData.password
+      });
+      setSimulationTimer(15 * 60); // 15 minutes in seconds
+
+      toast({
+        title: 'Success',
+        description: 'Simulation session created successfully!',
+      });
+    } catch (error: any) {
+      console.error('Error generating simulation:', error);
+      toast({
+        title: 'Error',
+        description: error.message || 'Failed to generate simulation session',
+        variant: 'destructive',
+      });
+    } finally {
+      setGeneratingSimulation(false);
+    }
+  };
+
+  const formatTimer = (seconds: number): string => {
+    const mins = Math.floor(seconds / 60);
+    const secs = seconds % 60;
+    return `${mins.toString().padStart(2, '0')}:${secs.toString().padStart(2, '0')}`;
+  };
+
+  const copySimulationLink = () => {
+    navigator.clipboard.writeText(simulationLink);
+    toast({
+      title: 'Copied!',
+      description: 'Link copied to clipboard',
+    });
+  };
+
+  const copySimulationCredentials = () => {
+    if (!simulationCredentials) return;
+    const text = `Username: ${simulationCredentials.username}\nPassword: ${simulationCredentials.password}`;
+    navigator.clipboard.writeText(text);
+    toast({
+      title: 'Copied!',
+      description: 'Credentials copied to clipboard',
+    });
+  };
+
   const handleDragEnd = (event: DragEndEvent) => {
     const { active, over } = event;
 
@@ -1166,6 +1303,15 @@ const AlmazaBay = () => {
             </div>
             {isAdmin && (
               <div className="flex gap-2">
+                {/* TODO: Remove after development - Simulation button */}
+                <Button 
+                  variant="outline"
+                  onClick={() => setSimulationDialogOpen(true)}
+                  className="font-medium"
+                >
+                  <Eye className="h-4 w-4 mr-2" />
+                  Unit Selection
+                </Button>
                 <Button 
                   variant="outline"
                   onClick={() => navigate('/kyc-management')}
@@ -2283,6 +2429,219 @@ ${kycLink}`;
               Copy to WhatsApp
             </Button>
           </div>
+        </DialogContent>
+      </Dialog>
+
+      {/* TODO: Remove after development - Simulation Dialog */}
+      <Dialog open={simulationDialogOpen} onOpenChange={(open) => {
+        setSimulationDialogOpen(open);
+        if (!open) {
+          // Reset simulation state when dialog closes
+          setSelectedPropertiesForSimulation([]);
+          setSimulationTimer(null);
+          setSimulationLink('');
+          setSimulationCredentials(null);
+        }
+      }}>
+        <DialogContent className="max-w-5xl max-h-[90vh] overflow-y-auto">
+          <DialogHeader>
+            <DialogTitle className="text-3xl font-semibold tracking-tight" style={{ letterSpacing: '-0.02em' }}>
+              Unit Selection Simulation
+            </DialogTitle>
+            <DialogDescription className="text-base mt-2">
+              Select properties and generate a test selection landing page with live timer
+            </DialogDescription>
+          </DialogHeader>
+
+          {!simulationLink ? (
+            <div className="space-y-6 py-4">
+              {/* Property Selection */}
+              <div className="space-y-4">
+                <div className="flex items-center justify-between">
+                  <h3 className="text-lg font-medium">Select Properties</h3>
+                  <div className="flex gap-2">
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      onClick={selectAllSimulationProperties}
+                    >
+                      Select All
+                    </Button>
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      onClick={clearAllSimulationProperties}
+                    >
+                      Clear All
+                    </Button>
+                  </div>
+                </div>
+
+                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+                  {properties.map((property) => (
+                    <div
+                      key={property.id}
+                      className={`border rounded-lg p-4 cursor-pointer transition-all ${
+                        selectedPropertiesForSimulation.includes(property.id)
+                          ? 'border-primary bg-primary/5 ring-2 ring-primary/20'
+                          : 'border-border hover:border-primary/50'
+                      }`}
+                      onClick={() => toggleSimulationProperty(property.id)}
+                    >
+                      <div className="flex items-start gap-3">
+                        <Checkbox
+                          checked={selectedPropertiesForSimulation.includes(property.id)}
+                          onCheckedChange={() => toggleSimulationProperty(property.id)}
+                          onClick={(e) => e.stopPropagation()}
+                        />
+                        <div className="flex-1 min-w-0">
+                          {property.photos && property.photos.length > 0 && (
+                            <img
+                              src={property.photos[0]}
+                              alt={property.name}
+                              className="w-full h-32 object-cover rounded mb-2"
+                            />
+                          )}
+                          <h4 className="font-semibold truncate">{property.name}</h4>
+                          <div className="text-sm text-muted-foreground space-y-1 mt-2">
+                            {property.beds && <p>Beds: {property.beds}</p>}
+                            {property.baths && <p>Baths: {property.baths}</p>}
+                          </div>
+                        </div>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+
+                <div className="flex items-center justify-between pt-2 border-t">
+                  <p className="text-sm text-muted-foreground">
+                    {selectedPropertiesForSimulation.length} {selectedPropertiesForSimulation.length === 1 ? 'property' : 'properties'} selected
+                  </p>
+                </div>
+              </div>
+            </div>
+          ) : (
+            <div className="space-y-6 py-4">
+              {/* Timer Display */}
+              <div className="bg-primary/5 border border-primary/20 rounded-lg p-6 text-center">
+                <h3 className="text-lg font-medium mb-2">Session Timer</h3>
+                <div className={`text-5xl font-bold tracking-tight ${
+                  simulationTimer && simulationTimer < 120 ? 'text-destructive' : 'text-primary'
+                }`}>
+                  {simulationTimer !== null ? formatTimer(simulationTimer) : '15:00'}
+                </div>
+                {simulationTimer !== null && simulationTimer < 120 && (
+                  <p className="text-sm text-destructive mt-2">
+                    Session expiring soon!
+                  </p>
+                )}
+              </div>
+
+              {/* Generated Link */}
+              <div className="space-y-4">
+                <h3 className="text-lg font-medium">Generated Selection Link</h3>
+                <div className="bg-muted p-4 rounded-lg space-y-3">
+                  <div className="flex items-center gap-2">
+                    <Input
+                      value={simulationLink}
+                      readOnly
+                      className="flex-1 font-mono text-sm"
+                    />
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      onClick={copySimulationLink}
+                    >
+                      <Copy className="h-4 w-4" />
+                    </Button>
+                  </div>
+                  <Button
+                    variant="default"
+                    className="w-full"
+                    onClick={() => window.open(simulationLink, '_blank')}
+                  >
+                    <Eye className="h-4 w-4 mr-2" />
+                    Open in New Tab
+                  </Button>
+                </div>
+              </div>
+
+              {/* Credentials */}
+              {simulationCredentials && (
+                <div className="space-y-4">
+                  <h3 className="text-lg font-medium">Login Credentials</h3>
+                  <div className="bg-muted p-4 rounded-lg space-y-3">
+                    <div className="grid grid-cols-2 gap-4">
+                      <div>
+                        <Label className="text-sm text-muted-foreground">Username</Label>
+                        <p className="font-mono font-medium">{simulationCredentials.username}</p>
+                      </div>
+                      <div>
+                        <Label className="text-sm text-muted-foreground">Password</Label>
+                        <p className="font-mono font-medium">{simulationCredentials.password}</p>
+                      </div>
+                    </div>
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      className="w-full"
+                      onClick={copySimulationCredentials}
+                    >
+                      <Copy className="h-4 w-4 mr-2" />
+                      Copy Credentials
+                    </Button>
+                  </div>
+                </div>
+              )}
+
+              {/* Selected Properties */}
+              <div className="space-y-3">
+                <h3 className="text-lg font-medium">Selected Properties ({selectedPropertiesForSimulation.length})</h3>
+                <div className="bg-muted p-4 rounded-lg">
+                  <ul className="space-y-1 text-sm">
+                    {selectedPropertiesForSimulation.map(id => {
+                      const property = properties.find(p => p.id === id);
+                      return property ? <li key={id}>• {property.name}</li> : null;
+                    })}
+                  </ul>
+                </div>
+              </div>
+            </div>
+          )}
+
+          <DialogFooter>
+            {!simulationLink ? (
+              <>
+                <Button
+                  variant="outline"
+                  onClick={() => setSimulationDialogOpen(false)}
+                  disabled={generatingSimulation}
+                >
+                  Cancel
+                </Button>
+                <Button
+                  onClick={handleGenerateSimulationLink}
+                  disabled={generatingSimulation || selectedPropertiesForSimulation.length === 0}
+                >
+                  {generatingSimulation ? (
+                    <>
+                      <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                      Generating...
+                    </>
+                  ) : (
+                    'Generate Link'
+                  )}
+                </Button>
+              </>
+            ) : (
+              <Button
+                variant="outline"
+                onClick={() => setSimulationDialogOpen(false)}
+              >
+                Close
+              </Button>
+            )}
+          </DialogFooter>
         </DialogContent>
       </Dialog>
     </div>
