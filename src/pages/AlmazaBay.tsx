@@ -236,6 +236,8 @@ const AlmazaBay = () => {
   const [simulationLink, setSimulationLink] = useState<string>('');
   const [simulationCredentials, setSimulationCredentials] = useState<{ username: string; password: string } | null>(null);
   const [generatingSimulation, setGeneratingSimulation] = useState(false);
+  const [simulationSessionId, setSimulationSessionId] = useState<string | null>(null);
+  const [showRevokeConfirm, setShowRevokeConfirm] = useState(false);
 
   const sensors = useSensors(
     useSensor(PointerSensor),
@@ -1037,6 +1039,16 @@ const AlmazaBay = () => {
 
       const link = `${window.location.origin}/selection/${credentialsData.token}`;
       
+      // Fetch the selection_accounts record to get the session ID
+      const { data: sessionData, error: sessionError } = await supabase
+        .from('selection_accounts')
+        .select('id')
+        .eq('landing_page_token', credentialsData.token)
+        .single();
+
+      if (sessionError) throw sessionError;
+      
+      setSimulationSessionId(sessionData.id);
       setSimulationLink(link);
       setSimulationCredentials({
         username: credentialsData.username,
@@ -1082,6 +1094,73 @@ const AlmazaBay = () => {
       title: 'Copied!',
       description: 'Credentials copied to clipboard',
     });
+  };
+
+  const extendSimulationSession = async () => {
+    if (!simulationSessionId) return;
+
+    try {
+      const newExpiresAt = new Date(Date.now() + 15 * 60 * 1000).toISOString();
+      
+      const { error } = await supabase
+        .from('selection_accounts')
+        .update({ session_expires_at: newExpiresAt })
+        .eq('id', simulationSessionId);
+
+      if (error) throw error;
+
+      setSimulationTimer(15 * 60); // Reset to 15 minutes
+      
+      toast({
+        title: 'Session Extended',
+        description: 'Added 15 more minutes to the session',
+      });
+    } catch (error: any) {
+      console.error('Error extending session:', error);
+      toast({
+        title: 'Error',
+        description: 'Failed to extend session',
+        variant: 'destructive',
+      });
+    }
+  };
+
+  const revokeSimulationSession = async () => {
+    if (!simulationSessionId) return;
+
+    try {
+      const { error } = await supabase
+        .from('selection_accounts')
+        .update({ 
+          session_expires_at: new Date().toISOString(),
+          is_active: false 
+        })
+        .eq('id', simulationSessionId);
+
+      if (error) throw error;
+
+      setSimulationTimer(0);
+      setShowRevokeConfirm(false);
+      
+      toast({
+        title: 'Session Revoked',
+        description: 'The simulation session has been terminated',
+      });
+    } catch (error: any) {
+      console.error('Error revoking session:', error);
+      toast({
+        title: 'Error',
+        description: 'Failed to revoke session',
+        variant: 'destructive',
+      });
+    }
+  };
+
+  const getSessionStatus = () => {
+    if (simulationTimer === null) return null;
+    if (simulationTimer === 0) return 'expired';
+    if (simulationTimer < 120) return 'expiring';
+    return 'active';
   };
 
   const handleDragEnd = (event: DragEndEvent) => {
@@ -2441,6 +2520,8 @@ ${kycLink}`;
           setSimulationTimer(null);
           setSimulationLink('');
           setSimulationCredentials(null);
+          setSimulationSessionId(null);
+          setShowRevokeConfirm(false);
         }
       }}>
         <DialogContent className="max-w-5xl max-h-[90vh] overflow-y-auto">
@@ -2522,17 +2603,63 @@ ${kycLink}`;
             </div>
           ) : (
             <div className="space-y-6 py-4">
-              {/* Timer Display */}
-              <div className="bg-primary/5 border border-primary/20 rounded-lg p-6 text-center">
-                <h3 className="text-lg font-medium mb-2">Session Timer</h3>
+              {/* Session Status & Timer Display */}
+              <div className={`rounded-lg p-6 text-center border-2 ${
+                getSessionStatus() === 'expired' 
+                  ? 'bg-destructive/10 border-destructive' 
+                  : getSessionStatus() === 'expiring'
+                  ? 'bg-amber-500/10 border-amber-500'
+                  : 'bg-primary/5 border-primary/20'
+              }`}>
+                <div className="flex items-center justify-center gap-2 mb-3">
+                  <div className={`w-3 h-3 rounded-full ${
+                    getSessionStatus() === 'expired' 
+                      ? 'bg-destructive animate-pulse' 
+                      : getSessionStatus() === 'expiring'
+                      ? 'bg-amber-500 animate-pulse'
+                      : 'bg-green-500 animate-pulse'
+                  }`} />
+                  <h3 className="text-lg font-medium">
+                    {getSessionStatus() === 'expired' 
+                      ? 'Session Expired' 
+                      : getSessionStatus() === 'expiring'
+                      ? 'Session Expiring Soon'
+                      : 'Session Active'}
+                  </h3>
+                </div>
                 <div className={`text-5xl font-bold tracking-tight ${
-                  simulationTimer && simulationTimer < 120 ? 'text-destructive' : 'text-primary'
+                  getSessionStatus() === 'expired' 
+                    ? 'text-destructive' 
+                    : getSessionStatus() === 'expiring'
+                    ? 'text-amber-600'
+                    : 'text-primary'
                 }`}>
                   {simulationTimer !== null ? formatTimer(simulationTimer) : '15:00'}
                 </div>
-                {simulationTimer !== null && simulationTimer < 120 && (
-                  <p className="text-sm text-destructive mt-2">
-                    Session expiring soon!
+                {simulationTimer !== null && simulationTimer > 0 && (
+                  <div className="flex gap-2 justify-center mt-4">
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      onClick={extendSimulationSession}
+                      disabled={getSessionStatus() === 'expired'}
+                    >
+                      <Plus className="h-4 w-4 mr-1" />
+                      Extend +15min
+                    </Button>
+                    <Button
+                      variant="destructive"
+                      size="sm"
+                      onClick={() => setShowRevokeConfirm(true)}
+                    >
+                      <X className="h-4 w-4 mr-1" />
+                      Revoke Session
+                    </Button>
+                  </div>
+                )}
+                {simulationTimer === 0 && (
+                  <p className="text-sm text-destructive mt-2 font-medium">
+                    This session has been terminated and can no longer be accessed
                   </p>
                 )}
               </div>
@@ -2641,6 +2768,32 @@ ${kycLink}`;
                 Close
               </Button>
             )}
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* Revoke Confirmation Dialog */}
+      <Dialog open={showRevokeConfirm} onOpenChange={setShowRevokeConfirm}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Revoke Simulation Session?</DialogTitle>
+            <DialogDescription>
+              This will immediately terminate the session and prevent any further access to the selection landing page. This action cannot be undone.
+            </DialogDescription>
+          </DialogHeader>
+          <DialogFooter>
+            <Button
+              variant="outline"
+              onClick={() => setShowRevokeConfirm(false)}
+            >
+              Cancel
+            </Button>
+            <Button
+              variant="destructive"
+              onClick={revokeSimulationSession}
+            >
+              Revoke Session
+            </Button>
           </DialogFooter>
         </DialogContent>
       </Dialog>
