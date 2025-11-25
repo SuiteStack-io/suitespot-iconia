@@ -8,10 +8,11 @@ import { Label } from '@/components/ui/label';
 import { Textarea } from '@/components/ui/textarea';
 import { Switch } from '@/components/ui/switch';
 import { Checkbox } from '@/components/ui/checkbox';
-import { ArrowLeft, Save, Plus, Pencil, X, Upload, Trash2, Eye, ChevronDown, Copy, Image as ImageIcon, Lock, Globe, GripVertical, FileText, List, Download, FileUp } from 'lucide-react';
+import { ArrowLeft, Save, Plus, Pencil, X, Upload, Trash2, Eye, ChevronDown, Copy, Image as ImageIcon, Lock, Globe, GripVertical, FileText, List, Download, FileUp, AlertCircle } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
 import { Progress } from '@/components/ui/progress';
 import { PROPERTY_FEATURES } from '@/constants/propertyFeatures';
+import { z } from 'zod';
 import {
   Collapsible,
   CollapsibleContent,
@@ -100,6 +101,79 @@ interface Reservation {
 
 const STATUS_OPTIONS = ['available', 'occupied', 'maintenance', 'reserved'];
 
+// Property import validation schema
+const propertyImportSchema = z.object({
+  'Property Name': z.string()
+    .trim()
+    .min(1, 'Property name is required')
+    .max(200, 'Property name must be less than 200 characters'),
+  'Unit Number': z.string().trim().max(50).optional().nullable(),
+  'Type': z.string().trim().max(100).optional().nullable(),
+  'Address': z.string().trim().max(500).optional().nullable(),
+  'Size': z.string().trim().max(50).optional().nullable(),
+  'Beds': z.union([
+    z.string().regex(/^\d+$/, 'Beds must be a number').transform(Number),
+    z.number().int().min(0).max(20),
+    z.null(),
+    z.literal('')
+  ]).optional().nullable(),
+  'Baths': z.union([
+    z.string().regex(/^\d+$/, 'Baths must be a number').transform(Number),
+    z.number().int().min(0).max(20),
+    z.null(),
+    z.literal('')
+  ]).optional().nullable(),
+  'Max Guests': z.union([
+    z.string().regex(/^\d+$/, 'Max guests must be a number').transform(Number),
+    z.number().int().min(0).max(50),
+    z.null(),
+    z.literal('')
+  ]).optional().nullable(),
+  'Sofa Bed': z.union([
+    z.enum(['Yes', 'No', 'yes', 'no', 'true', 'false', 'TRUE', 'FALSE']),
+    z.boolean(),
+    z.null(),
+    z.literal('')
+  ]).optional().nullable(),
+  'Price Per Night': z.union([
+    z.string().regex(/^\d+\.?\d*$/, 'Price must be a valid number').transform(Number),
+    z.number().min(0, 'Price cannot be negative'),
+    z.null(),
+    z.literal('')
+  ]).optional().nullable(),
+  'Min Stay': z.union([
+    z.string().regex(/^\d+$/, 'Min stay must be a number').transform(Number),
+    z.number().int().min(0).max(365),
+    z.null(),
+    z.literal('')
+  ]).optional().nullable(),
+  'Payment Terms': z.string().trim().max(500).optional().nullable(),
+  'Tax %': z.union([
+    z.string().regex(/^\d+\.?\d*$/, 'Tax must be a valid number').transform(Number),
+    z.number().min(0).max(100),
+    z.null(),
+    z.literal('')
+  ]).optional().nullable(),
+  'Features': z.string().max(2000).optional().nullable(),
+  'Status': z.enum(['available', 'occupied', 'maintenance', 'reserved'])
+    .or(z.string().transform(val => {
+      const lower = val.toLowerCase();
+      if (['available', 'occupied', 'maintenance', 'reserved'].includes(lower)) {
+        return lower as 'available' | 'occupied' | 'maintenance' | 'reserved';
+      }
+      throw new Error('Invalid status');
+    }))
+    .optional()
+    .default('available'),
+  'View': z.string().trim().max(200).optional().nullable(),
+  'Is Private': z.union([
+    z.enum(['Yes', 'No', 'yes', 'no', 'true', 'false', 'TRUE', 'FALSE']),
+    z.boolean(),
+    z.null(),
+    z.literal('')
+  ]).optional().nullable(),
+});
+
 const AlmazaBay = () => {
   const { user, loading, userRole } = useAuth();
   const navigate = useNavigate();
@@ -153,6 +227,7 @@ const AlmazaBay = () => {
   const [importDialogOpen, setImportDialogOpen] = useState(false);
   const [importFile, setImportFile] = useState<File | null>(null);
   const [importPreview, setImportPreview] = useState<any[]>([]);
+  const [importValidationErrors, setImportValidationErrors] = useState<{ row: number; errors: string[] }[]>([]);
 
   const sensors = useSensors(
     useSensor(PointerSensor),
@@ -651,6 +726,7 @@ const AlmazaBay = () => {
     if (!file) return;
 
     setImportFile(file);
+    setImportValidationErrors([]);
 
     const reader = new FileReader();
     reader.onload = (e) => {
@@ -661,11 +737,39 @@ const AlmazaBay = () => {
         const worksheet = workbook.Sheets[sheetName];
         const jsonData = XLSX.utils.sheet_to_json(worksheet);
 
-        setImportPreview(jsonData);
-        toast({
-          title: 'File loaded',
-          description: `Ready to import ${jsonData.length} properties`,
+        // Validate data
+        const errors: { row: number; errors: string[] }[] = [];
+        const validatedData: any[] = [];
+
+        jsonData.forEach((row: any, index: number) => {
+          try {
+            const validatedRow = propertyImportSchema.parse(row);
+            validatedData.push(validatedRow);
+          } catch (error: any) {
+            if (error instanceof z.ZodError) {
+              const rowErrors = error.errors.map(err => 
+                `${err.path.join('.')}: ${err.message}`
+              );
+              errors.push({ row: index + 2, errors: rowErrors }); // +2 for header row and 0-based index
+            }
+          }
         });
+
+        setImportPreview(validatedData);
+        setImportValidationErrors(errors);
+
+        if (errors.length > 0) {
+          toast({
+            title: 'Validation Errors Found',
+            description: `${errors.length} ${errors.length === 1 ? 'row has' : 'rows have'} validation errors. Please review before importing.`,
+            variant: 'destructive',
+          });
+        } else {
+          toast({
+            title: 'File validated',
+            description: `Ready to import ${validatedData.length} ${validatedData.length === 1 ? 'property' : 'properties'}`,
+          });
+        }
       } catch (error: any) {
         toast({
           title: 'Error',
@@ -681,7 +785,16 @@ const AlmazaBay = () => {
     if (importPreview.length === 0) {
       toast({
         title: 'Error',
-        description: 'No data to import',
+        description: 'No valid data to import',
+        variant: 'destructive',
+      });
+      return;
+    }
+
+    if (importValidationErrors.length > 0) {
+      toast({
+        title: 'Validation Errors',
+        description: `Please fix ${importValidationErrors.length} validation ${importValidationErrors.length === 1 ? 'error' : 'errors'} before importing`,
         variant: 'destructive',
       });
       return;
@@ -690,28 +803,31 @@ const AlmazaBay = () => {
     try {
       let successCount = 0;
       let errorCount = 0;
+      const errors: string[] = [];
 
       for (const row of importPreview) {
         try {
-          // Map CSV columns to database fields
+          // Map validated columns to database fields
           const propertyData: any = {
-            name: row['Property Name'] || '',
+            name: row['Property Name'],
             unit_number: row['Unit Number'] || null,
             unit_type: row['Type'] || null,
             address: row['Address'] || null,
             unit_size: row['Size'] || null,
-            beds: row['Beds'] ? parseInt(String(row['Beds'])) : null,
-            baths: row['Baths'] ? parseInt(String(row['Baths'])) : null,
-            max_guests: row['Max Guests'] ? parseInt(String(row['Max Guests'])) : null,
-            sofa_bed: row['Sofa Bed'] === 'Yes' || row['Sofa Bed'] === 'true',
-            price_per_night: row['Price Per Night'] ? parseFloat(String(row['Price Per Night'])) : null,
-            min_stay: row['Min Stay'] ? parseInt(String(row['Min Stay'])) : null,
+            beds: row['Beds'] || null,
+            baths: row['Baths'] || null,
+            max_guests: row['Max Guests'] || null,
+            sofa_bed: ['Yes', 'yes', 'true', 'TRUE', true].includes(row['Sofa Bed']),
+            price_per_night: row['Price Per Night'] || null,
+            min_stay: row['Min Stay'] || null,
             payment_terms: row['Payment Terms'] || null,
-            tax_percentage: row['Tax %'] ? parseFloat(String(row['Tax %'])) : 14.00,
-            features: row['Features'] ? String(row['Features']).split(',').map((f: string) => f.trim()).filter(Boolean) : [],
+            tax_percentage: row['Tax %'] || 14.00,
+            features: row['Features'] 
+              ? String(row['Features']).split(',').map((f: string) => f.trim()).filter(Boolean) 
+              : [],
             status: row['Status'] || 'available',
             view: row['View'] || null,
-            is_private: row['Is Private'] === 'Yes' || row['Is Private'] === 'true',
+            is_private: ['Yes', 'yes', 'true', 'TRUE', true].includes(row['Is Private']),
             location: 'Almaza Bay',
             photos: [],
           };
@@ -745,17 +861,30 @@ const AlmazaBay = () => {
         } catch (error: any) {
           console.error('Error importing row:', row, error);
           errorCount++;
+          errors.push(`${row['Property Name']}: ${error.message}`);
         }
       }
 
-      toast({
-        title: 'Import Complete',
-        description: `Successfully imported ${successCount} properties${errorCount > 0 ? `. ${errorCount} failed.` : ''}`,
-      });
+      if (successCount > 0) {
+        toast({
+          title: 'Import Complete',
+          description: `Successfully imported ${successCount} ${successCount === 1 ? 'property' : 'properties'}${errorCount > 0 ? `. ${errorCount} failed.` : ''}`,
+        });
 
-      setImportDialogOpen(false);
-      setImportFile(null);
-      setImportPreview([]);
+        if (errorCount === 0) {
+          setImportDialogOpen(false);
+          setImportFile(null);
+          setImportPreview([]);
+          setImportValidationErrors([]);
+        }
+      } else {
+        toast({
+          title: 'Import Failed',
+          description: errors.length > 0 ? errors[0] : 'All imports failed',
+          variant: 'destructive',
+        });
+      }
+
       fetchProperties();
     } catch (error: any) {
       toast({
@@ -1979,6 +2108,33 @@ const AlmazaBay = () => {
               </Button>
             </div>
 
+            {/* Validation Errors Section */}
+            {importValidationErrors.length > 0 && (
+              <div className="space-y-3 border-t pt-6">
+                <div className="bg-destructive/10 border border-destructive/20 rounded-lg p-4">
+                  <h3 className="font-medium text-base text-destructive flex items-center gap-2 mb-3">
+                    <AlertCircle className="h-5 w-5" />
+                    Validation Errors ({importValidationErrors.length} {importValidationErrors.length === 1 ? 'row' : 'rows'})
+                  </h3>
+                  <div className="space-y-3 max-h-[300px] overflow-y-auto">
+                    {importValidationErrors.map((error, index) => (
+                      <div key={index} className="bg-background rounded p-3 space-y-1">
+                        <p className="font-medium text-sm">Row {error.row}:</p>
+                        <ul className="list-disc list-inside text-sm text-muted-foreground space-y-1">
+                          {error.errors.map((err, errIndex) => (
+                            <li key={errIndex}>{err}</li>
+                          ))}
+                        </ul>
+                      </div>
+                    ))}
+                  </div>
+                  <p className="text-sm text-muted-foreground mt-3">
+                    Please fix these errors in your file and upload again.
+                  </p>
+                </div>
+              </div>
+            )}
+
             {/* Preview Section */}
             {importPreview.length > 0 && (
               <div className="space-y-3 border-t pt-6">
@@ -2028,12 +2184,13 @@ const AlmazaBay = () => {
               setImportDialogOpen(false);
               setImportFile(null);
               setImportPreview([]);
+              setImportValidationErrors([]);
             }}>
               Cancel
             </Button>
             <Button 
               onClick={handleImportProperties}
-              disabled={importPreview.length === 0}
+              disabled={importPreview.length === 0 || importValidationErrors.length > 0}
             >
               Import {importPreview.length} {importPreview.length === 1 ? 'Property' : 'Properties'}
             </Button>
