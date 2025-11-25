@@ -3,13 +3,16 @@ import { useNavigate } from 'react-router-dom';
 import { useAuth } from '@/lib/auth';
 import { RoomCalendar } from '@/components/RoomCalendar';
 import { BlockedDatesManager } from '@/components/BlockedDatesManager';
+import { MobileCalendarView } from '@/components/MobileCalendarView';
 import { Button } from '@/components/ui/button';
 import { ArrowLeft } from 'lucide-react';
+import { useIsMobile } from '@/hooks/use-mobile';
 import suitespotLogo from '@/assets/suitespot-logo.png';
 
 const Calendar = () => {
   const { user, loading } = useAuth();
   const navigate = useNavigate();
+  const isMobile = useIsMobile();
 
   useEffect(() => {
     if (!loading && !user) {
@@ -45,8 +48,14 @@ const Calendar = () => {
       </header>
 
       <main className="container mx-auto px-4 py-8 space-y-8">
-        <RoomCalendar />
-        <BlockedDatesManager />
+        {isMobile ? (
+          <MobileCalendarView />
+        ) : (
+          <>
+            <RoomCalendar />
+            <BlockedDatesManager />
+          </>
+        )}
       </main>
     </div>
   );
