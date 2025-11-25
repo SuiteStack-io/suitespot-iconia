@@ -78,6 +78,8 @@ interface Property {
   is_private: boolean | null;
   location: string | null;
   features: string[] | null;
+  min_stay: number | null;
+  payment_terms: string | null;
 }
 
 interface Reservation {
@@ -118,6 +120,8 @@ const AlmazaBay = () => {
     is_private: true,
     location: 'Almaza Bay',
     features: [],
+    min_stay: null,
+    payment_terms: null,
   });
   const [uploadingPhotos, setUploadingPhotos] = useState<string | null>(null);
   const [uploadProgress, setUploadProgress] = useState<{ [key: string]: number }>({});
@@ -612,6 +616,8 @@ const AlmazaBay = () => {
       tax_percentage: newProperty.tax_percentage || 14.00,
       is_private: newProperty.is_private ?? true,
       location: 'Almaza Bay',
+      min_stay: newProperty.min_stay || null,
+      payment_terms: newProperty.payment_terms || null,
     }]);
 
     if (error) {
@@ -646,6 +652,9 @@ const AlmazaBay = () => {
       photos: [],
       is_private: true,
       location: 'Almaza Bay',
+      features: [],
+      min_stay: null,
+      payment_terms: null,
     });
     fetchProperties();
   };
@@ -781,6 +790,8 @@ const AlmazaBay = () => {
                 <TableHead className="min-w-[100px] text-base font-medium">Max Guests</TableHead>
                 <TableHead className="min-w-[100px] text-base font-medium">Sofa Bed</TableHead>
                 <TableHead className="min-w-[110px] text-base font-medium">Price/Night</TableHead>
+                <TableHead className="min-w-[100px] text-base font-medium">Min Stay</TableHead>
+                <TableHead className="min-w-[200px] text-base font-medium">Payment Terms</TableHead>
                 <TableHead className="min-w-[80px] text-base font-medium">Tax %</TableHead>
                 <TableHead className="min-w-[160px] text-base font-medium">Photos</TableHead>
                 <TableHead className="min-w-[160px] text-base font-medium">Features</TableHead>
@@ -880,6 +891,21 @@ const AlmazaBay = () => {
                   <TableCell>
                     <Input
                       type="number"
+                      value={newProperty.min_stay || ''}
+                      onChange={(e) => setNewProperty({ ...newProperty, min_stay: e.target.value ? parseInt(e.target.value) : null })}
+                      placeholder="Min nights"
+                    />
+                  </TableCell>
+                  <TableCell>
+                    <Input
+                      value={newProperty.payment_terms || ''}
+                      onChange={(e) => setNewProperty({ ...newProperty, payment_terms: e.target.value })}
+                      placeholder="Payment terms"
+                    />
+                  </TableCell>
+                  <TableCell>
+                    <Input
+                      type="number"
                       step="0.01"
                       min="0"
                       max="100"
@@ -890,6 +916,9 @@ const AlmazaBay = () => {
                   </TableCell>
                   <TableCell>
                     <div className="text-muted-foreground text-sm">Add property first, then upload photos</div>
+                  </TableCell>
+                  <TableCell>
+                    <div className="text-muted-foreground text-sm">Add property first</div>
                   </TableCell>
                   <TableCell>
                     <Select
@@ -948,6 +977,11 @@ const AlmazaBay = () => {
                             price_per_night: null,
                             tax_percentage: 14.00,
                             photos: [],
+                            is_private: true,
+                            location: 'Almaza Bay',
+                            features: [],
+                            min_stay: null,
+                            payment_terms: null,
                           });
                         }}
                       >
@@ -1032,6 +1066,29 @@ const AlmazaBay = () => {
                     <TableCell>{property.max_guests}</TableCell>
                     <TableCell>{property.sofa_bed ? 'Yes' : 'No'}</TableCell>
                     <TableCell>${property.price_per_night?.toFixed(2)}</TableCell>
+                    <TableCell>
+                      {isEditing ? (
+                        <Input
+                          type="number"
+                          value={editedProperty.min_stay || ''}
+                          onChange={(e) => setEditedProperty({ ...editedProperty, min_stay: e.target.value ? parseInt(e.target.value) : null })}
+                          placeholder="Min nights"
+                        />
+                      ) : (
+                        property.min_stay ? `${property.min_stay} nights` : '-'
+                      )}
+                    </TableCell>
+                    <TableCell className="min-w-[200px]">
+                      {isEditing ? (
+                        <Input
+                          value={editedProperty.payment_terms || ''}
+                          onChange={(e) => setEditedProperty({ ...editedProperty, payment_terms: e.target.value })}
+                          placeholder="Payment terms"
+                        />
+                      ) : (
+                        property.payment_terms || '-'
+                      )}
+                    </TableCell>
                     <TableCell>{property.tax_percentage}%</TableCell>
                     <TableCell className="min-w-[160px]">
                       <div className="flex flex-col gap-2">

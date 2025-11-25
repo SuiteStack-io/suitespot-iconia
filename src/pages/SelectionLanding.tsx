@@ -17,6 +17,9 @@ interface Unit {
   view: string | null;
   address: string | null;
   features: string[] | null;
+  min_stay: number | null;
+  price_per_night: number | null;
+  payment_terms: string | null;
 }
 
 export default function SelectionLanding() {
@@ -94,7 +97,7 @@ export default function SelectionLanding() {
       // Fetch unit details
       const { data: unitsData, error: unitsError } = await supabase
         .from("units")
-        .select("id, name, beds, baths, max_guests, photos, unit_size, view, address, features")
+        .select("id, name, beds, baths, max_guests, photos, unit_size, view, address, features, min_stay, price_per_night, payment_terms")
         .in("id", unitIds);
 
       if (unitsError) throw unitsError;
@@ -176,7 +179,7 @@ export default function SelectionLanding() {
           </div>
         ) : (
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6 max-w-7xl mx-auto">
-            {units.map((unit) => (
+            {units.map((unit, index) => (
               <div
                 key={unit.id}
                 className="bg-background/95 backdrop-blur-sm rounded-xl shadow-xl overflow-hidden border border-border/50 hover:shadow-2xl transition-shadow"
@@ -186,6 +189,10 @@ export default function SelectionLanding() {
                     className="relative cursor-pointer group"
                     onClick={() => setSelectedUnit(unit)}
                   >
+                    {/* Option Number Badge */}
+                    <div className="absolute top-3 left-3 z-10 bg-primary text-primary-foreground px-3 py-1 rounded-full text-sm font-semibold shadow-lg">
+                      Option {index + 1}
+                    </div>
                     <img
                       src={unit.photos[0]}
                       alt={unit.name}
@@ -210,6 +217,25 @@ export default function SelectionLanding() {
                     {unit.unit_size && <p>Size: {unit.unit_size}</p>}
                     {unit.view && <p>View: {unit.view}</p>}
                     {unit.address && <p className="pt-2">{unit.address}</p>}
+                  </div>
+                  
+                  {/* New Fields */}
+                  <div className="mt-4 pt-4 border-t border-border/50 space-y-2">
+                    {unit.min_stay && (
+                      <p className="text-sm font-medium">
+                        Min Stay: <span className="text-foreground">{unit.min_stay} nights</span>
+                      </p>
+                    )}
+                    {unit.price_per_night && (
+                      <p className="text-sm font-medium">
+                        Price per Night: <span className="text-foreground">${unit.price_per_night}</span>
+                      </p>
+                    )}
+                    {unit.payment_terms && (
+                      <p className="text-sm font-medium">
+                        Payment Terms: <span className="text-foreground">{unit.payment_terms}</span>
+                      </p>
+                    )}
                   </div>
                 </div>
               </div>

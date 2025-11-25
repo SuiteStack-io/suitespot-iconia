@@ -1014,7 +1014,9 @@ export type Database = {
           longitude: number | null
           map_description: string | null
           max_guests: number | null
+          min_stay: number | null
           name: string
+          payment_terms: string | null
           photos: string[] | null
           price_per_night: number | null
           sofa_bed: boolean | null
@@ -1043,7 +1045,9 @@ export type Database = {
           longitude?: number | null
           map_description?: string | null
           max_guests?: number | null
+          min_stay?: number | null
           name: string
+          payment_terms?: string | null
           photos?: string[] | null
           price_per_night?: number | null
           sofa_bed?: boolean | null
@@ -1072,7 +1076,9 @@ export type Database = {
           longitude?: number | null
           map_description?: string | null
           max_guests?: number | null
+          min_stay?: number | null
           name?: string
+          payment_terms?: string | null
           photos?: string[] | null
           price_per_night?: number | null
           sofa_bed?: boolean | null

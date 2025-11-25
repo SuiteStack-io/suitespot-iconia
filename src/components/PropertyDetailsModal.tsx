@@ -21,6 +21,9 @@ interface PropertyDetailsModalProps {
     view: string | null;
     address: string | null;
     features: string[] | null;
+    min_stay: number | null;
+    price_per_night: number | null;
+    payment_terms: string | null;
   };
 }
 
@@ -113,6 +116,21 @@ export function PropertyDetailsModal({ open, onClose, property }: PropertyDetail
             {property.address && (
               <div className="col-span-2">
                 <span className="font-semibold">Address:</span> {property.address}
+              </div>
+            )}
+            {property.min_stay && (
+              <div>
+                <span className="font-semibold">Min Stay:</span> {property.min_stay} nights
+              </div>
+            )}
+            {property.price_per_night && (
+              <div>
+                <span className="font-semibold">Price per Night:</span> ${property.price_per_night}
+              </div>
+            )}
+            {property.payment_terms && (
+              <div className="col-span-2">
+                <span className="font-semibold">Payment Terms:</span> {property.payment_terms}
               </div>
             )}
           </div>
