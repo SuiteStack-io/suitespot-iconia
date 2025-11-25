@@ -249,7 +249,7 @@ export const MobileCalendarView = () => {
                     
                     {/* Available rooms indicator for partial availability */}
                     {hasPartialAvailability && isCurrentMonth && (
-                      <span className="absolute top-1 right-1 text-[9px] font-semibold bg-green-500 text-white px-1.5 py-0.5 rounded-full z-10">
+                      <span className="absolute bottom-6 right-1 text-[9px] font-semibold bg-green-500 text-white px-1.5 py-0.5 rounded-full z-10">
                         {availableRooms} left
                       </span>
                     )}
