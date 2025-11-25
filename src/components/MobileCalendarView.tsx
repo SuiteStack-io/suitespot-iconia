@@ -161,12 +161,13 @@ export const MobileCalendarView = () => {
       return `${baseClasses} !bg-muted text-muted-foreground cursor-default`;
     }
 
-    if (dayData.bookingCount > 0) {
-      // Light coral/pink background matching reference image
-      const pinkShade = '!bg-[#FFB3BA] dark:!bg-pink-900/40';
+    // Only show pink/red background when ALL rooms are sold out
+    const allRoomsSoldOut = dayData.bookingCount >= units.length;
+    
+    if (allRoomsSoldOut) {
       const todayBorder = today ? '!ring-2 !ring-[#0066CC] !ring-inset' : '';
       const selectedBg = isSelected ? '!bg-yellow-200 dark:!bg-yellow-900/40' : '';
-      return `${baseClasses} ${selectedBg || pinkShade} ${todayBorder} cursor-pointer`;
+      return `${baseClasses} ${selectedBg || '!bg-[#FFB3BA] dark:!bg-pink-900/40'} ${todayBorder} cursor-pointer`;
     }
 
     const todayBorder = today ? '!ring-2 !ring-[#0066CC] !ring-inset' : '';
