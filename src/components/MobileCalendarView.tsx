@@ -162,8 +162,8 @@ export const MobileCalendarView = () => {
     }
 
     if (dayData.bookingCount > 0) {
-      // Pink background for booked days
-      const pinkShade = '!bg-pink-200/60 dark:!bg-pink-900/40';
+      // Light coral/pink background matching reference image
+      const pinkShade = '!bg-[#FFB3BA] dark:!bg-pink-900/40';
       const todayBorder = today ? '!ring-2 !ring-[#0066CC] !ring-inset' : '';
       const selectedBg = isSelected ? '!bg-yellow-200 dark:!bg-yellow-900/40' : '';
       return `${baseClasses} ${selectedBg || pinkShade} ${todayBorder} cursor-pointer`;
