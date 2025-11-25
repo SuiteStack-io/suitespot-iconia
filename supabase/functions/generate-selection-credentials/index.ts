@@ -121,6 +121,23 @@ serve(async (req) => {
 
     console.log("Inventory access created for", selectedUnitIds.length, "units");
 
+    // Update KYC link outcome to 'accepted'
+    const { error: outcomeError } = await supabase
+      .from("kyc_links")
+      .update({
+        outcome: "accepted",
+        outcome_at: new Date().toISOString(),
+        outcome_by: user?.id
+      })
+      .eq("id", kycLinkId);
+
+    if (outcomeError) {
+      console.error("Error updating KYC outcome:", outcomeError);
+      // Don't throw - credentials were generated successfully
+    }
+
+    console.log("KYC link outcome updated to 'accepted'");
+
     return new Response(
       JSON.stringify({
         username,
