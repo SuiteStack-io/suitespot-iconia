@@ -2,6 +2,8 @@ import { useState, useEffect } from "react";
 import { Button } from "@/components/ui/button";
 import { Calendar } from "@/components/ui/calendar";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
+import { Drawer, DrawerContent, DrawerTrigger } from "@/components/ui/drawer";
+import { ScrollArea } from "@/components/ui/scroll-area";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { CalendarIcon, Users } from "lucide-react";
 import { format, parseISO } from "date-fns";
@@ -9,12 +11,15 @@ import { useNavigate } from "react-router-dom";
 import { cn } from "@/lib/utils";
 import type { DateRange } from "react-day-picker";
 import { supabase } from "@/integrations/supabase/client";
+import { useIsMobile } from "@/hooks/use-mobile";
 
 export const BookingWidget = () => {
   const navigate = useNavigate();
+  const isMobile = useIsMobile();
   const [dateRange, setDateRange] = useState<DateRange | undefined>();
   const [guests, setGuests] = useState<string>("2");
   const [bookedDates, setBookedDates] = useState<Date[]>([]);
+  const [isCalendarOpen, setIsCalendarOpen] = useState(false);
 
   useEffect(() => {
     const fetchBookedDates = async () => {
@@ -119,6 +124,10 @@ export const BookingWidget = () => {
     // Only set the range if it's valid (doesn't contain blocked dates)
     if (isRangeValid(range)) {
       setDateRange(range);
+      // Close calendar on mobile when both dates are selected
+      if (isMobile && range?.from && range?.to) {
+        setIsCalendarOpen(false);
+      }
     }
   };
 
@@ -141,100 +150,150 @@ export const BookingWidget = () => {
         {/* Check In & Check Out Combined - Mobile: col-span-1, Desktop: col-span-2 */}
         <div className="col-span-1 md:col-span-2 grid grid-cols-1 md:grid-cols-2 gap-1.5">
           {/* Combined Date Picker for Mobile, Separate Check In for Desktop */}
-          <Popover>
-            <PopoverTrigger asChild>
-              <Button
-                variant="outline"
-                className="w-full justify-start text-left font-normal h-auto py-1.5 px-3"
-              >
-                <div className="flex items-start gap-2 w-full">
-                  <CalendarIcon className="h-5 w-5 text-muted-foreground mt-0.5 flex-shrink-0" />
-                  <div className="flex flex-col min-w-0">
-                    <span className="text-xs md:text-sm font-semibold text-foreground md:hidden">Dates</span>
-                    <span className="text-xs md:text-sm font-semibold text-foreground hidden md:block">Check in</span>
-                    <span className={cn("text-xs md:text-sm truncate", !dateRange?.from && "text-muted-foreground")}>
-                      {dateRange?.from ? (
-                        <span className="md:hidden">
-                          {format(dateRange.from, "MMM dd")} - {dateRange?.to ? format(dateRange.to, "MMM dd") : "..."}
-                        </span>
-                      ) : (
-                        <span className="md:hidden">Add dates</span>
-                      )}
-                      <span className="hidden md:inline">
+          {isMobile ? (
+            <Drawer open={isCalendarOpen} onOpenChange={setIsCalendarOpen}>
+              <DrawerTrigger asChild>
+                <Button
+                  variant="outline"
+                  className="w-full justify-start text-left font-normal h-auto py-1.5 px-3"
+                >
+                  <div className="flex items-start gap-2 w-full">
+                    <CalendarIcon className="h-5 w-5 text-muted-foreground mt-0.5 flex-shrink-0" />
+                    <div className="flex flex-col min-w-0">
+                      <span className="text-xs md:text-sm font-semibold text-foreground">Dates</span>
+                      <span className={cn("text-xs md:text-sm truncate", !dateRange?.from && "text-muted-foreground")}>
+                        {dateRange?.from ? (
+                          <>
+                            {format(dateRange.from, "MMM dd")} - {dateRange?.to ? format(dateRange.to, "MMM dd") : "..."}
+                          </>
+                        ) : (
+                          "Add dates"
+                        )}
+                      </span>
+                    </div>
+                  </div>
+                </Button>
+              </DrawerTrigger>
+              <DrawerContent className="max-h-[85vh]">
+                <ScrollArea className="h-full">
+                  <div className="px-4 py-6">
+                    <h3 className="text-lg font-semibold mb-4 text-center">Select Your Dates</h3>
+                    <Calendar
+                      mode="range"
+                      selected={dateRange}
+                      onSelect={handleDateSelect}
+                      disabled={(date) => {
+                        const isPast = date < new Date();
+                        const isBooked = bookedDates.some(bookedDate => 
+                          format(bookedDate, 'yyyy-MM-dd') === format(date, 'yyyy-MM-dd')
+                        );
+                        return isPast || isBooked;
+                      }}
+                      numberOfMonths={6}
+                      className="pointer-events-auto flex flex-col space-y-4"
+                      classNames={{
+                        months: "flex flex-col space-y-4",
+                        nav: "hidden"
+                      }}
+                      modifiers={{
+                        booked: bookedDates,
+                      }}
+                      modifiersClassNames={{
+                        booked: "bg-destructive/20 text-muted-foreground line-through",
+                      }}
+                    />
+                  </div>
+                </ScrollArea>
+              </DrawerContent>
+            </Drawer>
+          ) : (
+            <Popover>
+              <PopoverTrigger asChild>
+                <Button
+                  variant="outline"
+                  className="w-full justify-start text-left font-normal h-auto py-1.5 px-3"
+                >
+                  <div className="flex items-start gap-2 w-full">
+                    <CalendarIcon className="h-5 w-5 text-muted-foreground mt-0.5 flex-shrink-0" />
+                    <div className="flex flex-col min-w-0">
+                      <span className="text-xs md:text-sm font-semibold text-foreground">Check in</span>
+                      <span className={cn("text-xs md:text-sm truncate", !dateRange?.from && "text-muted-foreground")}>
                         {dateRange?.from ? format(dateRange.from, "MMM dd") : "Add date"}
                       </span>
-                    </span>
+                    </div>
                   </div>
-                </div>
-              </Button>
-            </PopoverTrigger>
-            <PopoverContent className="w-auto p-0" align="start">
-              <Calendar
-                mode="range"
-                selected={dateRange}
-                onSelect={handleDateSelect}
-                disabled={(date) => {
-                  const isPast = date < new Date();
-                  const isBooked = bookedDates.some(bookedDate => 
-                    format(bookedDate, 'yyyy-MM-dd') === format(date, 'yyyy-MM-dd')
-                  );
-                  return isPast || isBooked;
-                }}
-                initialFocus
-                numberOfMonths={1}
-                className="pointer-events-auto"
-                modifiers={{
-                  booked: bookedDates,
-                }}
-                modifiersClassNames={{
-                  booked: "bg-white text-muted-foreground opacity-60 cursor-not-allowed",
-                }}
-              />
-            </PopoverContent>
-          </Popover>
+                </Button>
+              </PopoverTrigger>
+              <PopoverContent className="w-auto p-0" align="start">
+                <Calendar
+                  mode="range"
+                  selected={dateRange}
+                  onSelect={handleDateSelect}
+                  disabled={(date) => {
+                    const isPast = date < new Date();
+                    const isBooked = bookedDates.some(bookedDate => 
+                      format(bookedDate, 'yyyy-MM-dd') === format(date, 'yyyy-MM-dd')
+                    );
+                    return isPast || isBooked;
+                  }}
+                  initialFocus
+                  numberOfMonths={1}
+                  className="pointer-events-auto"
+                  modifiers={{
+                    booked: bookedDates,
+                  }}
+                  modifiersClassNames={{
+                    booked: "bg-destructive/20 text-muted-foreground line-through",
+                  }}
+                />
+              </PopoverContent>
+            </Popover>
+          )}
 
           {/* Check Out - Desktop Only */}
-          <Popover>
-            <PopoverTrigger asChild>
-              <Button
-                variant="outline"
-                className="hidden md:flex w-full justify-start text-left font-normal h-auto py-1.5 px-3"
-              >
-                <div className="flex items-start gap-2 w-full">
-                  <CalendarIcon className="h-5 w-5 text-muted-foreground mt-0.5 flex-shrink-0" />
-                  <div className="flex flex-col min-w-0">
-                    <span className="text-xs md:text-sm font-semibold text-foreground">Check out</span>
-                    <span className={cn("text-xs md:text-sm truncate", !dateRange?.to && "text-muted-foreground")}>
-                      {dateRange?.to ? format(dateRange.to, "MMM dd") : "Add date"}
-                    </span>
+          {!isMobile && (
+            <Popover>
+              <PopoverTrigger asChild>
+                <Button
+                  variant="outline"
+                  className="w-full justify-start text-left font-normal h-auto py-1.5 px-3"
+                >
+                  <div className="flex items-start gap-2 w-full">
+                    <CalendarIcon className="h-5 w-5 text-muted-foreground mt-0.5 flex-shrink-0" />
+                    <div className="flex flex-col min-w-0">
+                      <span className="text-xs md:text-sm font-semibold text-foreground">Check out</span>
+                      <span className={cn("text-xs md:text-sm truncate", !dateRange?.to && "text-muted-foreground")}>
+                        {dateRange?.to ? format(dateRange.to, "MMM dd") : "Add date"}
+                      </span>
+                    </div>
                   </div>
-                </div>
-              </Button>
-            </PopoverTrigger>
-            <PopoverContent className="w-auto p-0" align="start">
-              <Calendar
-                mode="range"
-                selected={dateRange}
-                onSelect={handleDateSelect}
-                disabled={(date) => {
-                  const isPast = date < new Date();
-                  const isBooked = bookedDates.some(bookedDate => 
-                    format(bookedDate, 'yyyy-MM-dd') === format(date, 'yyyy-MM-dd')
-                  );
-                  return isPast || isBooked;
-                }}
-                initialFocus
-                numberOfMonths={1}
-                className="pointer-events-auto"
-                modifiers={{
-                  booked: bookedDates,
-                }}
-                modifiersClassNames={{
-                  booked: "bg-white text-muted-foreground opacity-60 cursor-not-allowed",
-                }}
-              />
-            </PopoverContent>
-          </Popover>
+                </Button>
+              </PopoverTrigger>
+              <PopoverContent className="w-auto p-0" align="start">
+                <Calendar
+                  mode="range"
+                  selected={dateRange}
+                  onSelect={handleDateSelect}
+                  disabled={(date) => {
+                    const isPast = date < new Date();
+                    const isBooked = bookedDates.some(bookedDate => 
+                      format(bookedDate, 'yyyy-MM-dd') === format(date, 'yyyy-MM-dd')
+                    );
+                    return isPast || isBooked;
+                  }}
+                  initialFocus
+                  numberOfMonths={1}
+                  className="pointer-events-auto"
+                  modifiers={{
+                    booked: bookedDates,
+                  }}
+                  modifiersClassNames={{
+                    booked: "bg-destructive/20 text-muted-foreground line-through",
+                  }}
+                />
+              </PopoverContent>
+            </Popover>
+          )}
         </div>
 
         {/* Guests */}

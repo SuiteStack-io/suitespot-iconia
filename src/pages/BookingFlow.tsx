@@ -8,6 +8,8 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Textarea } from "@/components/ui/textarea";
 import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
+import { Drawer, DrawerContent } from "@/components/ui/drawer";
+import { ScrollArea } from "@/components/ui/scroll-area";
 import { Command, CommandEmpty, CommandGroup, CommandInput, CommandItem, CommandList } from "@/components/ui/command";
 import { Progress } from "@/components/ui/progress";
 import { Link, useNavigate, useSearchParams } from "react-router-dom";
@@ -19,6 +21,7 @@ import { Loader2, Bed, Bath, Users, Maximize2, Sofa, X, ChevronLeft, ChevronRigh
 import { cn } from "@/lib/utils";
 import type { DateRange } from "react-day-picker";
 import { PublicNav } from "@/components/PublicNav";
+import { useIsMobile } from "@/hooks/use-mobile";
 
 const NATIONALITIES = [
   "Afghanistan", "Albania", "Algeria", "United States", "Andorra", "Angola", "Antigua and Barbuda", "Argentina", "Armenia", "Australia",
@@ -124,6 +127,7 @@ const BookingFlow = () => {
   const navigate = useNavigate();
   const { toast } = useToast();
   const [searchParams] = useSearchParams();
+  const isMobile = useIsMobile();
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [step, setStep] = useState(1);
   const [units, setUnits] = useState<Unit[]>([]);
@@ -133,6 +137,7 @@ const BookingFlow = () => {
   const [preSelectedUnitId, setPreSelectedUnitId] = useState<string | null>(null);
   const [preSelectedUnitType, setPreSelectedUnitType] = useState<string | null>(null);
   const [selectedUnitType, setSelectedUnitType] = useState<string>("");
+  const [isCalendarOpen, setIsCalendarOpen] = useState(false);
   
   // Booking data
   const [dateRange, setDateRange] = useState<DateRange | undefined>();
@@ -536,6 +541,10 @@ const BookingFlow = () => {
     // Only set the range if it's valid (doesn't contain blocked dates)
     if (isRangeValid(range)) {
       setDateRange(range);
+      // Close calendar on mobile when both dates are selected
+      if (isMobile && range?.from && range?.to) {
+        setIsCalendarOpen(false);
+      }
     }
   };
 
@@ -920,28 +929,73 @@ const BookingFlow = () => {
                 ) : (
                   <div>
                     <Label className="text-lg font-semibold mb-4 block">Select Your Dates</Label>
-                    <div className="flex justify-center">
-                      <Calendar
-                        mode="range"
-                        selected={dateRange}
-                        onSelect={handleDateSelect}
-                        disabled={(date) => {
-                          const isPast = date < new Date();
-                          const isFullyBooked = bookedDates.some(
-                            bookedDate => format(bookedDate, "yyyy-MM-dd") === format(date, "yyyy-MM-dd")
-                          );
-                          return isPast || isFullyBooked;
-                        }}
-                        numberOfMonths={1}
-                        className="rounded-md border pointer-events-auto"
-                        modifiers={{
-                          booked: bookedDates
-                        }}
-                        modifiersClassNames={{
-                          booked: "bg-white text-muted-foreground opacity-60 cursor-not-allowed"
-                        }}
-                      />
-                    </div>
+                    {isMobile ? (
+                      <>
+                        <Button
+                          variant="outline"
+                          onClick={() => setIsCalendarOpen(true)}
+                          className="w-full h-12 justify-start text-left font-normal"
+                        >
+                          <span className="text-muted-foreground">Tap to select dates</span>
+                        </Button>
+                        <Drawer open={isCalendarOpen} onOpenChange={setIsCalendarOpen}>
+                          <DrawerContent className="max-h-[85vh]">
+                            <ScrollArea className="h-full">
+                              <div className="px-4 py-6">
+                                <h3 className="text-lg font-semibold mb-4 text-center">Select Your Dates</h3>
+                                <Calendar
+                                  mode="range"
+                                  selected={dateRange}
+                                  onSelect={handleDateSelect}
+                                  disabled={(date) => {
+                                    const isPast = date < new Date();
+                                    const isFullyBooked = bookedDates.some(
+                                      bookedDate => format(bookedDate, "yyyy-MM-dd") === format(date, "yyyy-MM-dd")
+                                    );
+                                    return isPast || isFullyBooked;
+                                  }}
+                                  numberOfMonths={6}
+                                  className="pointer-events-auto flex flex-col space-y-4"
+                                  classNames={{
+                                    months: "flex flex-col space-y-4",
+                                    nav: "hidden"
+                                  }}
+                                  modifiers={{
+                                    booked: bookedDates
+                                  }}
+                                  modifiersClassNames={{
+                                    booked: "bg-destructive/20 text-muted-foreground line-through"
+                                  }}
+                                />
+                              </div>
+                            </ScrollArea>
+                          </DrawerContent>
+                        </Drawer>
+                      </>
+                    ) : (
+                      <div className="flex justify-center">
+                        <Calendar
+                          mode="range"
+                          selected={dateRange}
+                          onSelect={handleDateSelect}
+                          disabled={(date) => {
+                            const isPast = date < new Date();
+                            const isFullyBooked = bookedDates.some(
+                              bookedDate => format(bookedDate, "yyyy-MM-dd") === format(date, "yyyy-MM-dd")
+                            );
+                            return isPast || isFullyBooked;
+                          }}
+                          numberOfMonths={1}
+                          className="rounded-md border pointer-events-auto"
+                          modifiers={{
+                            booked: bookedDates
+                          }}
+                          modifiersClassNames={{
+                            booked: "bg-destructive/20 text-muted-foreground line-through"
+                          }}
+                        />
+                      </div>
+                    )}
                   </div>
                 )}
 
