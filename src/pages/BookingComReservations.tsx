@@ -7,7 +7,7 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/com
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Progress } from '@/components/ui/progress';
-import { ArrowLeft, Upload, Loader2, CheckCircle } from 'lucide-react';
+import { ArrowLeft, Upload, Loader2, CheckCircle, AlertTriangle } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
 import {
   Dialog,
@@ -17,6 +17,9 @@ import {
   DialogHeader,
   DialogTitle,
 } from '@/components/ui/dialog';
+import { RadioGroup, RadioGroupItem } from '@/components/ui/radio-group';
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
+import { Alert, AlertDescription } from '@/components/ui/alert';
 import suitespotLogo from '@/assets/suitespot-logo.png';
 
 interface ParsedReservation {
@@ -54,6 +57,18 @@ const BookingComReservations = () => {
   const [uploadProgress, setUploadProgress] = useState(0);
   const [uploadComplete, setUploadComplete] = useState(false);
   const [screenshotFile, setScreenshotFile] = useState<File | null>(null);
+  const [showConflictDialog, setShowConflictDialog] = useState(false);
+  const [conflictInfo, setConflictInfo] = useState<{
+    guestNames: string[];
+    bookingReference: string;
+    checkIn: string;
+    checkOut: string;
+    roomName: string;
+    originalUnitType: string;
+  } | null>(null);
+  const [sameTypeAlternatives, setSameTypeAlternatives] = useState<any[]>([]);
+  const [otherAlternatives, setOtherAlternatives] = useState<any[]>([]);
+  const [selectedAlternativeId, setSelectedAlternativeId] = useState<string>('');
 
   useEffect(() => {
     if (!loading && !user) {
@@ -204,10 +219,8 @@ const BookingComReservations = () => {
     await processFile(file);
   };
 
-  const handleConfirmReservation = async () => {
+  const createReservationWithUnit = async (unitId: string, unitName: string) => {
     if (!parsedData) return;
-
-    setCreating(true);
 
     try {
       // Check for overlapping reservations using database function
@@ -232,42 +245,57 @@ const BookingComReservations = () => {
       if (conflicts && conflicts.length > 0) {
         setCreating(false);
         
-        // Find available alternative rooms
+        // Get the original unit's type
+        const originalUnit = units.find(u => u.id === parsedData.unitId);
+        const originalUnitType = originalUnit?.unit_type;
+        
+        // Fetch all units
         const { data: allUnits } = await supabase
           .from('units')
           .select('id, name, unit_number, unit_type')
           .eq('status', 'available')
+          .neq('id', parsedData.unitId)
           .order('unit_number');
         
-        // Get all conflicting unit IDs for this date range
-        const { data: allConflicts } = await supabase
-          .rpc('check_reservation_overlap', {
-            p_unit_id: parsedData.unitId,
-            p_check_in_date: parsedData.checkInDate,
-            p_check_out_date: parsedData.checkOutDate
-          });
+        // Check availability for each unit on these specific dates
+        const availableUnitsChecked = await Promise.all(
+          (allUnits || []).map(async (unit) => {
+            const { data: unitConflicts } = await supabase.rpc('check_reservation_overlap', {
+              p_unit_id: unit.id,
+              p_check_in_date: parsedData.checkInDate,
+              p_check_out_date: parsedData.checkOutDate
+            });
+            return { ...unit, hasConflict: unitConflicts && unitConflicts.length > 0 };
+          })
+        );
         
-        const conflictingUnitIds = allConflicts?.map(c => c.conflict_id) || [];
-        const availableUnits = allUnits?.filter(u => !conflictingUnitIds.includes(u.id)) || [];
+        const availableUnits = availableUnitsChecked.filter(u => !u.hasConflict);
         
-        const conflictDetails = conflicts.map(c => 
-          `${c.conflict_guest_names.join(', ')} (${c.conflict_reference})`
-        ).join(', ');
+        // Split into same-type and other alternatives
+        const sameType = availableUnits.filter(u => u.unit_type === originalUnitType);
+        const others = availableUnits.filter(u => u.unit_type !== originalUnitType);
         
-        toast({
-          variant: "destructive",
-          title: "Double Booking Detected!",
-          description: `This room is already booked for these dates by: ${conflictDetails}. ${availableUnits.length} alternative room(s) available.`,
-          duration: 8000
+        // Store conflict information
+        setConflictInfo({
+          guestNames: conflicts[0].conflict_guest_names,
+          bookingReference: conflicts[0].conflict_reference,
+          checkIn: conflicts[0].conflict_check_in,
+          checkOut: conflicts[0].conflict_check_out,
+          roomName: originalUnit?.name || 'Unknown room',
+          originalUnitType: originalUnitType || 'Unknown type'
         });
+        setSameTypeAlternatives(sameType);
+        setOtherAlternatives(others);
+        setSelectedAlternativeId(sameType.length > 0 ? sameType[0].id : '');
+        setShowConflictDialog(true);
         
         // Log the conflict for admin review
         await supabase.from('notifications').insert([{
           type: 'error',
-          title: 'Double Booking Prevented',
-          message: `Screenshot upload blocked: Room ${getUnitName(parsedData.unitId)} already booked for ${parsedData.checkInDate} to ${parsedData.checkOutDate}. Conflicting booking: ${conflictDetails}. New booking: ${parsedData.guestNames.join(', ')} (${parsedData.bookingReference}). ${availableUnits.length} alternative rooms available.`,
+          title: 'Double Booking Detected',
+          message: `Room ${getUnitName(parsedData.unitId)} has a conflict for ${parsedData.checkInDate} to ${parsedData.checkOutDate}. Conflicting booking: ${conflicts[0].conflict_guest_names.join(', ')} (${conflicts[0].conflict_reference}). New booking: ${parsedData.guestNames.join(', ')} (${parsedData.bookingReference}). ${availableUnits.length} alternative rooms available.`,
           metadata: {
-            event_type: 'double_booking_prevented',
+            event_type: 'double_booking_detected',
             conflicts: conflicts
           } as any
         }]);
@@ -368,7 +396,7 @@ const BookingComReservations = () => {
 
       toast({
         title: 'Success',
-        description: 'Reservation created successfully',
+        description: `Reservation created successfully for ${unitName}`,
       });
 
       setShowPreview(false);
@@ -389,6 +417,36 @@ const BookingComReservations = () => {
     } finally {
       setCreating(false);
     }
+  };
+
+  const handleConfirmReservation = async () => {
+    if (!parsedData) return;
+    setCreating(true);
+    
+    const unitName = getUnitName(parsedData.unitId);
+    await createReservationWithUnit(parsedData.unitId!, unitName);
+  };
+
+  const handleAssignToAlternative = async () => {
+    if (!selectedAlternativeId || !parsedData) return;
+    
+    setShowConflictDialog(false);
+    setShowPreview(false);
+    setCreating(true);
+    
+    // Get the selected unit name
+    const selectedUnit = [...sameTypeAlternatives, ...otherAlternatives]
+      .find(u => u.id === selectedAlternativeId);
+    
+    // Update parsed data with new unit ID
+    const updatedParsedData = {
+      ...parsedData,
+      unitId: selectedAlternativeId
+    };
+    setParsedData(updatedParsedData);
+    
+    // Create reservation with the alternative unit
+    await createReservationWithUnit(selectedAlternativeId, selectedUnit?.name || 'Unknown room');
   };
 
   if (loading) {
@@ -507,6 +565,116 @@ const BookingComReservations = () => {
           </Card>
         </div>
       </main>
+
+      {/* Conflict Resolution Dialog */}
+      <Dialog open={showConflictDialog} onOpenChange={setShowConflictDialog}>
+        <DialogContent className="max-w-2xl">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2">
+              <AlertTriangle className="h-5 w-5 text-destructive" />
+              Double Booking Detected
+            </DialogTitle>
+            <DialogDescription>
+              This room is already booked for the selected dates
+            </DialogDescription>
+          </DialogHeader>
+
+          {conflictInfo && (
+            <div className="space-y-4">
+              <Alert variant="destructive">
+                <AlertDescription>
+                  <div className="space-y-1">
+                    <p className="font-semibold">{conflictInfo.roomName}</p>
+                    <p className="text-sm">Already booked by: {conflictInfo.guestNames.join(', ')}</p>
+                    <p className="text-sm">Reference: {conflictInfo.bookingReference}</p>
+                    <p className="text-sm">
+                      Dates: {new Date(conflictInfo.checkIn).toLocaleDateString()} - {new Date(conflictInfo.checkOut).toLocaleDateString()}
+                    </p>
+                  </div>
+                </AlertDescription>
+              </Alert>
+
+              {sameTypeAlternatives.length > 0 ? (
+                <div className="space-y-3">
+                  <div>
+                    <h4 className="font-semibold mb-1">Select an alternative room (same type)</h4>
+                    <p className="text-sm text-muted-foreground">
+                      {sameTypeAlternatives.length} available room(s) of type: {conflictInfo.originalUnitType}
+                    </p>
+                  </div>
+                  <RadioGroup value={selectedAlternativeId} onValueChange={setSelectedAlternativeId}>
+                    <div className="space-y-2">
+                      {sameTypeAlternatives.map((unit) => (
+                        <div key={unit.id} className="flex items-center space-x-2 p-3 border rounded-lg hover:bg-accent cursor-pointer">
+                          <RadioGroupItem value={unit.id} id={unit.id} />
+                          <Label htmlFor={unit.id} className="flex-1 cursor-pointer">
+                            <div>
+                              <p className="font-medium">{unit.name}</p>
+                              <p className="text-sm text-muted-foreground">Unit {unit.unit_number}</p>
+                            </div>
+                          </Label>
+                        </div>
+                      ))}
+                    </div>
+                  </RadioGroup>
+                </div>
+              ) : (
+                <div className="space-y-3">
+                  <Alert>
+                    <AlertTriangle className="h-4 w-4" />
+                    <AlertDescription>
+                      No rooms of the same type available. Please manually select from other available rooms.
+                    </AlertDescription>
+                  </Alert>
+
+                  {otherAlternatives.length > 0 ? (
+                    <div className="space-y-2">
+                      <Label htmlFor="manual-select">Select an available room</Label>
+                      <Select value={selectedAlternativeId} onValueChange={setSelectedAlternativeId}>
+                        <SelectTrigger id="manual-select">
+                          <SelectValue placeholder="Select a room..." />
+                        </SelectTrigger>
+                        <SelectContent>
+                          {otherAlternatives.map((unit) => (
+                            <SelectItem key={unit.id} value={unit.id}>
+                              {unit.name} (Unit {unit.unit_number}) - {unit.unit_type}
+                            </SelectItem>
+                          ))}
+                        </SelectContent>
+                      </Select>
+                    </div>
+                  ) : (
+                    <Alert variant="destructive">
+                      <AlertDescription>
+                        No alternative rooms available for these dates. Please check availability or modify the booking dates.
+                      </AlertDescription>
+                    </Alert>
+                  )}
+                </div>
+              )}
+            </div>
+          )}
+
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setShowConflictDialog(false)}>
+              Cancel
+            </Button>
+            <Button 
+              onClick={handleAssignToAlternative} 
+              disabled={!selectedAlternativeId || creating}
+            >
+              {creating ? (
+                <>
+                  <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+                  Assigning...
+                </>
+              ) : (
+                'Assign Selected Room'
+              )}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
 
       {/* Preview Dialog */}
       <Dialog open={showPreview} onOpenChange={setShowPreview}>
