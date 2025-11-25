@@ -144,31 +144,34 @@ export const MobileCalendarView = () => {
   };
 
   const getCellClassName = (dayData: DayData, date: Date) => {
-    const baseClasses = "min-h-16 p-1 flex flex-col items-start justify-start border border-border relative";
+    const baseClasses = "min-h-16 p-1 flex flex-col items-start justify-start border border-border/50 relative bg-white dark:bg-card";
     const today = isSameDay(date, new Date());
     const isCurrentMonth = isSameMonth(date, currentMonth);
+    const isSelected = selectedDay && isSameDay(date, selectedDay.date);
 
     if (!isCurrentMonth) {
-      return `${baseClasses} bg-muted/30 text-muted-foreground`;
+      return `${baseClasses} !bg-muted/30 text-muted-foreground`;
     }
 
     if (dayData.hasConflict) {
-      return `${baseClasses} bg-destructive/20 border-destructive animate-pulse cursor-pointer`;
+      return `${baseClasses} !bg-destructive/20 !border-destructive animate-pulse cursor-pointer`;
     }
 
     if (dayData.isBlocked) {
-      return `${baseClasses} bg-muted text-muted-foreground cursor-default`;
+      return `${baseClasses} !bg-muted text-muted-foreground cursor-default`;
     }
 
     if (dayData.bookingCount > 0) {
-      const intensity = Math.min(dayData.bookingCount / units.length, 1);
-      const pinkShade = intensity > 0.7 ? 'bg-pink-200 dark:bg-pink-900/40' : 
-                        intensity > 0.4 ? 'bg-pink-100 dark:bg-pink-900/20' : 
-                        'bg-pink-50 dark:bg-pink-900/10';
-      return `${baseClasses} ${pinkShade} ${today ? 'ring-2 ring-warning' : ''} cursor-pointer`;
+      // Pink shading for booked days matching the reference image
+      const pinkShade = '!bg-pink-200/60 dark:!bg-pink-900/40';
+      const todayBorder = today ? '!ring-2 !ring-blue-500 !ring-inset' : '';
+      const selectedBg = isSelected ? '!bg-yellow-200 dark:!bg-yellow-900/40' : '';
+      return `${baseClasses} ${selectedBg || pinkShade} ${todayBorder} cursor-pointer`;
     }
 
-    return `${baseClasses} bg-background ${today ? 'ring-2 ring-warning' : ''}`;
+    const todayBorder = today ? '!ring-2 !ring-blue-500 !ring-inset' : '';
+    const selectedBg = isSelected ? '!bg-yellow-200 dark:!bg-yellow-900/40' : '';
+    return `${baseClasses} ${selectedBg} ${todayBorder}`;
   };
 
   const handleDayClick = (dayData: DayData) => {
@@ -186,11 +189,11 @@ export const MobileCalendarView = () => {
     const days = eachDayOfInterval({ start: calendarStart, end: calendarEnd });
 
     return (
-      <div key={format(monthDate, 'yyyy-MM')} className="mb-6">
+      <div key={format(monthDate, 'yyyy-MM')} className="mb-6 bg-muted/30 p-4 rounded-lg">
         <h3 className="text-lg font-semibold mb-3">{format(monthDate, 'MMMM yyyy')}</h3>
-        <div className="grid grid-cols-7 gap-px bg-border rounded-lg overflow-hidden">
+        <div className="grid grid-cols-7 gap-0 border border-border/50 rounded-lg overflow-hidden">
           {['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'].map(day => (
-            <div key={day} className="bg-muted p-2 text-center text-xs font-medium">
+            <div key={day} className="bg-muted/50 p-2 text-center text-xs font-medium border-b border-border/50">
               {day}
             </div>
           ))}
@@ -202,13 +205,13 @@ export const MobileCalendarView = () => {
                 className={getCellClassName(dayData, date)}
                 onClick={() => handleDayClick(dayData)}
               >
-                <span className="text-xs font-medium">{format(date, 'd')}</span>
+                <span className="text-sm font-medium">{format(date, 'd')}</span>
                 {dayData.hasConflict && (
                   <AlertTriangle className="h-3 w-3 text-destructive absolute top-1 right-1" />
                 )}
                 {dayData.bookingCount > 0 && (
-                  <span className="text-[10px] text-muted-foreground mt-auto">
-                    {dayData.bookingCount} {dayData.bookingCount === 1 ? 'booking' : 'bookings'}
+                  <span className="text-[9px] font-medium text-blue-600 dark:text-blue-400 mt-auto px-1 bg-blue-100 dark:bg-blue-900/30 rounded">
+                    {dayData.bookingCount} bo...
                   </span>
                 )}
               </div>
