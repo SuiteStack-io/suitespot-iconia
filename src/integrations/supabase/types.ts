@@ -177,6 +177,52 @@ export type Database = {
           },
         ]
       }
+      guest_inventory_access: {
+        Row: {
+          created_at: string | null
+          created_by: string | null
+          id: string
+          kyc_link_id: string
+          unit_id: string
+        }
+        Insert: {
+          created_at?: string | null
+          created_by?: string | null
+          id?: string
+          kyc_link_id: string
+          unit_id: string
+        }
+        Update: {
+          created_at?: string | null
+          created_by?: string | null
+          id?: string
+          kyc_link_id?: string
+          unit_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "guest_inventory_access_created_by_fkey"
+            columns: ["created_by"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "guest_inventory_access_kyc_link_id_fkey"
+            columns: ["kyc_link_id"]
+            isOneToOne: false
+            referencedRelation: "kyc_links"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "guest_inventory_access_unit_id_fkey"
+            columns: ["unit_id"]
+            isOneToOne: false
+            referencedRelation: "units"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       guest_tickets: {
         Row: {
           amenity_id: string | null
@@ -278,6 +324,9 @@ export type Database = {
           guest_contact: string | null
           guest_name: string
           id: string
+          outcome: string | null
+          outcome_at: string | null
+          outcome_by: string | null
           status: string
           token: string
           unit_id: string | null
@@ -289,6 +338,9 @@ export type Database = {
           guest_contact?: string | null
           guest_name: string
           id?: string
+          outcome?: string | null
+          outcome_at?: string | null
+          outcome_by?: string | null
           status?: string
           token: string
           unit_id?: string | null
@@ -300,11 +352,21 @@ export type Database = {
           guest_contact?: string | null
           guest_name?: string
           id?: string
+          outcome?: string | null
+          outcome_at?: string | null
+          outcome_by?: string | null
           status?: string
           token?: string
           unit_id?: string | null
         }
         Relationships: [
+          {
+            foreignKeyName: "kyc_links_outcome_by_fkey"
+            columns: ["outcome_by"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
           {
             foreignKeyName: "kyc_links_unit_id_fkey"
             columns: ["unit_id"]
@@ -666,6 +728,60 @@ export type Database = {
             columns: ["unit_id"]
             isOneToOne: false
             referencedRelation: "units"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      selection_accounts: {
+        Row: {
+          created_at: string | null
+          created_by: string | null
+          first_access_at: string | null
+          id: string
+          is_active: boolean | null
+          kyc_link_id: string
+          landing_page_token: string
+          password_hash: string
+          session_expires_at: string | null
+          username: string
+        }
+        Insert: {
+          created_at?: string | null
+          created_by?: string | null
+          first_access_at?: string | null
+          id?: string
+          is_active?: boolean | null
+          kyc_link_id: string
+          landing_page_token: string
+          password_hash: string
+          session_expires_at?: string | null
+          username: string
+        }
+        Update: {
+          created_at?: string | null
+          created_by?: string | null
+          first_access_at?: string | null
+          id?: string
+          is_active?: boolean | null
+          kyc_link_id?: string
+          landing_page_token?: string
+          password_hash?: string
+          session_expires_at?: string | null
+          username?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "selection_accounts_created_by_fkey"
+            columns: ["created_by"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "selection_accounts_kyc_link_id_fkey"
+            columns: ["kyc_link_id"]
+            isOneToOne: true
+            referencedRelation: "kyc_links"
             referencedColumns: ["id"]
           },
         ]
