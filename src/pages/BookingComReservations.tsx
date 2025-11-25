@@ -696,9 +696,18 @@ const BookingComReservations = () => {
                 <div>
                   <Label className="text-xs text-muted-foreground">Room</Label>
                   <p className="font-medium">{parsedData.roomName}</p>
-                  <p className={`text-sm ${parsedData.unitId ? 'text-green-600' : 'text-yellow-600'}`}>
-                    {parsedData.unitId ? `✓ Matched: ${getUnitName(parsedData.unitId)}` : '⚠ No room matched'}
-                  </p>
+                  {parsedData.unitId ? (
+                    <>
+                      <p className="text-sm text-green-600">
+                        ✓ Matched: {getUnitName(parsedData.unitId)}
+                      </p>
+                      <p className="text-sm text-green-600">
+                        ✓ Matched Room # {units.find(u => u.id === parsedData.unitId)?.unit_number || 'N/A'}
+                      </p>
+                    </>
+                  ) : (
+                    <p className="text-sm text-yellow-600">⚠ No room matched</p>
+                  )}
                 </div>
               </div>
 
