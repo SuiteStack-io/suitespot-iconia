@@ -146,6 +146,9 @@ const AlmazaBay = () => {
   const [currentPropertyFeatures, setCurrentPropertyFeatures] = useState<{ id: string; features: string[] } | null>(null);
   const [customFeature, setCustomFeature] = useState('');
   const [openCategories, setOpenCategories] = useState<string[]>([]);
+  const [bulkFeaturesDialogOpen, setBulkFeaturesDialogOpen] = useState(false);
+  const [selectedPropertiesForBulk, setSelectedPropertiesForBulk] = useState<string[]>([]);
+  const [bulkFeaturesToApply, setBulkFeaturesToApply] = useState<string[]>([]);
 
   const sensors = useSensors(
     useSensor(PointerSensor),
@@ -518,6 +521,76 @@ const AlmazaBay = () => {
     }
   };
 
+  const handleTogglePropertyForBulk = (propertyId: string) => {
+    setSelectedPropertiesForBulk(prev => 
+      prev.includes(propertyId) 
+        ? prev.filter(id => id !== propertyId)
+        : [...prev, propertyId]
+    );
+  };
+
+  const handleToggleBulkFeature = (featureName: string) => {
+    setBulkFeaturesToApply(prev =>
+      prev.includes(featureName)
+        ? prev.filter(f => f !== featureName)
+        : [...prev, featureName]
+    );
+  };
+
+  const handleApplyBulkFeatures = async () => {
+    if (selectedPropertiesForBulk.length === 0) {
+      toast({
+        title: 'Error',
+        description: 'Please select at least one property',
+        variant: 'destructive',
+      });
+      return;
+    }
+
+    if (bulkFeaturesToApply.length === 0) {
+      toast({
+        title: 'Error',
+        description: 'Please select at least one feature to apply',
+        variant: 'destructive',
+      });
+      return;
+    }
+
+    try {
+      // Apply features to all selected properties
+      for (const propertyId of selectedPropertiesForBulk) {
+        const property = properties.find(p => p.id === propertyId);
+        if (!property) continue;
+
+        const currentFeatures = property.features || [];
+        const updatedFeatures = Array.from(new Set([...currentFeatures, ...bulkFeaturesToApply]));
+
+        const { error } = await supabase
+          .from('units')
+          .update({ features: updatedFeatures })
+          .eq('id', propertyId);
+
+        if (error) throw error;
+      }
+
+      toast({
+        title: 'Success',
+        description: `Features applied to ${selectedPropertiesForBulk.length} ${selectedPropertiesForBulk.length === 1 ? 'property' : 'properties'}`,
+      });
+
+      setBulkFeaturesDialogOpen(false);
+      setSelectedPropertiesForBulk([]);
+      setBulkFeaturesToApply([]);
+      fetchProperties();
+    } catch (error: any) {
+      toast({
+        title: 'Error',
+        description: error.message,
+        variant: 'destructive',
+      });
+    }
+  };
+
   const handleKYCClick = (propertyId: string) => {
     setSelectedPropertyForKYC(propertyId);
     setKycGuestName('');
@@ -796,6 +869,14 @@ const AlmazaBay = () => {
                 >
                   <List className="h-4 w-4 mr-2" />
                   View KYC Links
+                </Button>
+                <Button 
+                  variant="outline"
+                  onClick={() => setBulkFeaturesDialogOpen(true)}
+                  className="font-medium"
+                >
+                  <FileText className="h-4 w-4 mr-2" />
+                  Bulk Features
                 </Button>
                 <Button onClick={() => setIsAdding(true)} disabled={isAdding} className="font-medium">
                   <Plus className="h-4 w-4 mr-2" />
@@ -1464,6 +1545,149 @@ const AlmazaBay = () => {
               </Button>
             </div>
           </div>
+        </DialogContent>
+      </Dialog>
+
+      {/* Bulk Feature Management Dialog */}
+      <Dialog open={bulkFeaturesDialogOpen} onOpenChange={setBulkFeaturesDialogOpen}>
+        <DialogContent className="max-w-4xl max-h-[90vh] overflow-y-auto">
+          <DialogHeader>
+            <DialogTitle className="font-playfair text-2xl">Bulk Feature Management</DialogTitle>
+            <DialogDescription>
+              Select properties and features to apply in bulk
+            </DialogDescription>
+          </DialogHeader>
+          
+          <div className="space-y-6 py-4">
+            {/* Property Selection Section */}
+            <div className="space-y-3">
+              <div className="flex items-center justify-between">
+                <h3 className="font-medium text-base">Select Properties</h3>
+                <div className="flex gap-2">
+                  <Button 
+                    size="sm" 
+                    variant="outline"
+                    onClick={() => setSelectedPropertiesForBulk(properties.map(p => p.id))}
+                  >
+                    Select All
+                  </Button>
+                  <Button 
+                    size="sm" 
+                    variant="outline"
+                    onClick={() => setSelectedPropertiesForBulk([])}
+                  >
+                    Clear All
+                  </Button>
+                </div>
+              </div>
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-2 max-h-[200px] overflow-y-auto border rounded-lg p-3">
+                {properties.map((property) => (
+                  <div key={property.id} className="flex items-center space-x-2 p-2 hover:bg-muted rounded">
+                    <Checkbox
+                      checked={selectedPropertiesForBulk.includes(property.id)}
+                      onCheckedChange={() => handleTogglePropertyForBulk(property.id)}
+                    />
+                    <label className="text-sm cursor-pointer flex-1" onClick={() => handleTogglePropertyForBulk(property.id)}>
+                      {property.name} {property.unit_number && `(${property.unit_number})`}
+                    </label>
+                  </div>
+                ))}
+              </div>
+              <p className="text-sm text-muted-foreground">
+                Selected: {selectedPropertiesForBulk.length} {selectedPropertiesForBulk.length === 1 ? 'property' : 'properties'}
+              </p>
+            </div>
+
+            {/* Features Selection Section */}
+            <div className="space-y-3 border-t pt-6">
+              <div className="flex items-center justify-between">
+                <h3 className="font-medium text-base">Select Features to Apply</h3>
+                <div className="flex gap-2">
+                  <Button 
+                    size="sm" 
+                    variant="outline"
+                    onClick={() => {
+                      const allFeatures = PROPERTY_FEATURES.flatMap(cat => cat.features);
+                      setBulkFeaturesToApply(allFeatures);
+                    }}
+                  >
+                    Select All
+                  </Button>
+                  <Button 
+                    size="sm" 
+                    variant="outline"
+                    onClick={() => setBulkFeaturesToApply([])}
+                  >
+                    Clear All
+                  </Button>
+                </div>
+              </div>
+              
+              <div className="space-y-3">
+                {PROPERTY_FEATURES.map((category) => (
+                  <Collapsible
+                    key={category.name}
+                    open={openCategories.includes(category.name)}
+                    onOpenChange={(isOpen) => {
+                      setOpenCategories(prev =>
+                        isOpen
+                          ? [...prev, category.name]
+                          : prev.filter(c => c !== category.name)
+                      );
+                    }}
+                  >
+                    <CollapsibleTrigger className="flex items-center justify-between w-full p-3 bg-muted hover:bg-muted/80 rounded-lg transition-colors">
+                      <div className="flex items-center gap-2">
+                        <span className="text-lg">{category.icon}</span>
+                        <span className="font-medium">{category.name}</span>
+                        <span className="text-xs text-muted-foreground">
+                          ({category.features.filter(f => bulkFeaturesToApply.includes(f)).length}/{category.features.length})
+                        </span>
+                      </div>
+                      <ChevronDown className={`h-4 w-4 transition-transform ${openCategories.includes(category.name) ? 'rotate-180' : ''}`} />
+                    </CollapsibleTrigger>
+                    <CollapsibleContent className="pt-2 space-y-1">
+                      {category.features.map((feature) => (
+                        <div
+                          key={feature}
+                          className="flex items-center space-x-2 p-2 hover:bg-muted rounded cursor-pointer"
+                          onClick={() => handleToggleBulkFeature(feature)}
+                        >
+                          <Checkbox
+                            checked={bulkFeaturesToApply.includes(feature)}
+                            onCheckedChange={() => handleToggleBulkFeature(feature)}
+                          />
+                          <label className="text-sm cursor-pointer flex-1">
+                            {feature}
+                          </label>
+                        </div>
+                      ))}
+                    </CollapsibleContent>
+                  </Collapsible>
+                ))}
+              </div>
+              
+              <p className="text-sm text-muted-foreground">
+                Selected: {bulkFeaturesToApply.length} {bulkFeaturesToApply.length === 1 ? 'feature' : 'features'}
+              </p>
+            </div>
+          </div>
+
+          <DialogFooter>
+            <Button variant="outline" onClick={() => {
+              setBulkFeaturesDialogOpen(false);
+              setSelectedPropertiesForBulk([]);
+              setBulkFeaturesToApply([]);
+            }}>
+              Cancel
+            </Button>
+            <Button 
+              onClick={handleApplyBulkFeatures}
+              disabled={selectedPropertiesForBulk.length === 0 || bulkFeaturesToApply.length === 0}
+            >
+              Apply to {selectedPropertiesForBulk.length} {selectedPropertiesForBulk.length === 1 ? 'Property' : 'Properties'}
+            </Button>
+          </DialogFooter>
         </DialogContent>
       </Dialog>
 
