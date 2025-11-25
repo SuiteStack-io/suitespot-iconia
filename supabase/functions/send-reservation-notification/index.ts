@@ -16,6 +16,7 @@ interface ReservationNotification {
   checkIn: string;
   checkOut: string;
   unitName: string;
+  unitId?: string;
   unitType: string;
   totalPrice: number;
   numberOfGuests: number;
@@ -46,6 +47,7 @@ const handler = async (req: Request): Promise<Response> => {
       checkIn,
       checkOut,
       unitName,
+      unitId,
       unitType,
       totalPrice,
       numberOfGuests,
@@ -59,6 +61,24 @@ const handler = async (req: Request): Promise<Response> => {
     }: ReservationNotification = await req.json();
 
     console.log("Processing reservation notification:", reservationId);
+    
+    // Fetch unit details if unitId is provided
+    let matchedSuiteName = null;
+    let matchedRoomNumber = null;
+    
+    if (unitId) {
+      const { data: unitData, error: unitError } = await supabaseClient
+        .from('units')
+        .select('name, unit_number')
+        .eq('id', unitId)
+        .single();
+      
+      if (!unitError && unitData) {
+        matchedSuiteName = unitData.name;
+        matchedRoomNumber = unitData.unit_number;
+        console.log("Matched unit details:", { name: matchedSuiteName, number: matchedRoomNumber });
+      }
+    }
     
     // Calculate proper adult/children counts if they're both 0 or undefined
     let finalAdults = adults;
@@ -494,8 +514,22 @@ const handler = async (req: Request): Promise<Response> => {
                 
                 <div class="detail-row">
                   <div class="detail-label">Unit:</div>
-                  <div class="detail-value"><strong>${unitName.split(' ')[0]} ${unitName.split(' ')[1] || ''}</strong> ${unitType || ''}</div>
+                  <div class="detail-value"><strong>${unitName}</strong></div>
                 </div>
+                
+                ${matchedSuiteName ? `
+                <div class="detail-row">
+                  <div class="detail-label">Suite:</div>
+                  <div class="detail-value"><strong>${matchedSuiteName}</strong></div>
+                </div>
+                ` : ''}
+                
+                ${matchedRoomNumber ? `
+                <div class="detail-row">
+                  <div class="detail-label">Room #:</div>
+                  <div class="detail-value"><strong>${matchedRoomNumber}</strong></div>
+                </div>
+                ` : ''}
                 
                 <div class="detail-row">
                   <div class="detail-label">Check-in:</div>
