@@ -1865,7 +1865,28 @@ const AlmazaBay = () => {
                         property.sofa_bed ? 'Yes' : 'No'
                       )}
                     </TableCell>
-                    <TableCell>${property.price_per_night?.toFixed(2)}</TableCell>
+                    <TableCell className="min-w-[110px]">
+                      {bulkEditMode || isEditing ? (
+                        <Input
+                          type="number"
+                          step="0.01"
+                          value={bulkEditMode 
+                            ? (bulkEditedProperties[property.id]?.price_per_night ?? property.price_per_night ?? '')
+                            : (editedProperty.price_per_night ?? '')}
+                          onChange={(e) => {
+                            const value = e.target.value ? parseFloat(e.target.value) : null;
+                            if (bulkEditMode) {
+                              handleBulkEditChange(property.id, 'price_per_night', value);
+                            } else {
+                              setEditedProperty({ ...editedProperty, price_per_night: value });
+                            }
+                          }}
+                          placeholder="Price"
+                        />
+                      ) : (
+                        `$${property.price_per_night?.toFixed(2) ?? '-'}`
+                      )}
+                    </TableCell>
                     <TableCell>
                       {isEditing ? (
                         <Input
