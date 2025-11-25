@@ -47,6 +47,7 @@ import KYCLanding from "./pages/KYCLanding";
 import KYCManagement from "./pages/KYCManagement";
 import SelectionLogin from "./pages/SelectionLogin";
 import SelectionLanding from "./pages/SelectionLanding";
+import SelectionSessions from "./pages/SelectionSessions";
 
 const queryClient = new QueryClient();
 
@@ -74,6 +75,7 @@ const App = () => (
               <Route path="/blog" element={<Blog />} />
             <Route path="/kyc/:token" element={<KYCLanding />} />
             <Route path="/kyc-management" element={<ProtectedRoute><KYCManagement /></ProtectedRoute>} />
+            <Route path="/selection-sessions" element={<ProtectedRoute><SelectionSessions /></ProtectedRoute>} />
               
             {/* Selection Routes - For private inventory selection */}
             <Route path="/selection-login/:token" element={<SelectionLogin />} />
