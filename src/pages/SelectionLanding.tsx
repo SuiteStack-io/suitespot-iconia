@@ -214,10 +214,29 @@ export default function SelectionLanding() {
                     {unit.beds && <p>Bedrooms: {unit.beds}</p>}
                     {unit.baths && <p>Bathrooms: {unit.baths}</p>}
                     {unit.max_guests && <p>Max Guests: {unit.max_guests}</p>}
-                    {unit.unit_size && <p>Size: {unit.unit_size}</p>}
-                    {unit.view && <p>View: {unit.view}</p>}
-                    {unit.address && <p className="pt-2">{unit.address}</p>}
+                    {unit.unit_size && <p>Size: {unit.unit_size} sqm</p>}
                   </div>
+                  
+                  {/* Key Features */}
+                  {unit.features && unit.features.length > 0 && (
+                    <div className="mt-4 pt-4 border-t border-border/50">
+                      <div className="flex flex-wrap gap-2">
+                        {unit.features.slice(0, 3).map((feature, idx) => (
+                          <span
+                            key={idx}
+                            className="inline-flex items-center px-3 py-1 rounded-full text-xs font-medium bg-primary/10 text-primary border border-primary/20"
+                          >
+                            {feature}
+                          </span>
+                        ))}
+                        {unit.features.length > 3 && (
+                          <span className="inline-flex items-center px-3 py-1 rounded-full text-xs font-medium bg-muted text-muted-foreground">
+                            +{unit.features.length - 3} more
+                          </span>
+                        )}
+                      </div>
+                    </div>
+                  )}
                   
                   {/* New Fields */}
                   <div className="mt-4 pt-4 border-t border-border/50 space-y-2">
