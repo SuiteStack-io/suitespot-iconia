@@ -109,7 +109,7 @@ const propertyImportSchema = z.object({
     .max(200, 'Property name must be less than 200 characters'),
   'Unit Number': z.string().trim().max(50).optional().nullable(),
   'Type': z.string().trim().max(100).optional().nullable(),
-  'Address': z.string().trim().max(500).optional().nullable(),
+  'Location (Google Maps Link)': z.string().trim().max(500).optional().nullable(),
   'Size': z.string().trim().max(50).optional().nullable(),
   'Beds': z.union([
     z.string().regex(/^\d+$/, 'Beds must be a number').transform(Number),
@@ -712,7 +712,7 @@ const AlmazaBay = () => {
         'Property Name': property.name,
         'Unit Number': property.unit_number || '',
         'Type': property.unit_type || '',
-        'Address': property.address || '',
+        'Location (Google Maps Link)': property.address || '',
         'Size': property.unit_size || '',
         'Beds': property.beds || '',
         'Baths': property.baths || '',
@@ -847,7 +847,7 @@ const AlmazaBay = () => {
             name: row['Property Name'],
             unit_number: row['Unit Number'] || null,
             unit_type: row['Type'] || null,
-            address: row['Address'] || null,
+            address: row['Location (Google Maps Link)'] || null,
             unit_size: row['Size'] || null,
             beds: row['Beds'] || null,
             baths: row['Baths'] || null,
@@ -1575,7 +1575,7 @@ const AlmazaBay = () => {
                 </TableHead>
                 <TableHead className="min-w-[100px] text-base font-medium">Unit #</TableHead>
                 <TableHead className="min-w-[140px] text-base font-medium">Type</TableHead>
-                <TableHead className="min-w-[200px] text-base font-medium">Address</TableHead>
+                <TableHead className="min-w-[250px] text-base font-medium">Location (Google Maps Link)</TableHead>
                 <TableHead className="min-w-[120px] text-base font-medium">Size</TableHead>
                 <TableHead 
                   className="min-w-[80px] text-base font-medium cursor-pointer hover:bg-muted/50"
@@ -1682,7 +1682,7 @@ const AlmazaBay = () => {
                     <Input
                       value={newProperty.address || ''}
                       onChange={(e) => setNewProperty({ ...newProperty, address: e.target.value })}
-                      placeholder="Address"
+                      placeholder="Paste Google Maps link"
                     />
                   </TableCell>
                   <TableCell>
@@ -1879,14 +1879,27 @@ const AlmazaBay = () => {
                         property.unit_type
                       )}
                     </TableCell>
-                    <TableCell className="min-w-[200px]">
+                    <TableCell className="min-w-[250px]">
                       {isEditing ? (
                         <Input
                           value={editedProperty.address || ''}
                           onChange={(e) => setEditedProperty({ ...editedProperty, address: e.target.value })}
+                          placeholder="Paste Google Maps link"
                         />
                       ) : (
-                        property.address
+                        property.address ? (
+                          <a 
+                            href={property.address} 
+                            target="_blank" 
+                            rel="noopener noreferrer"
+                            className="text-primary hover:underline flex items-center gap-1"
+                          >
+                            View Location
+                            <svg className="h-3 w-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M10 6H6a2 2 0 00-2 2v10a2 2 0 002 2h10a2 2 0 002-2v-4M14 4h6m0 0v6m0-6L10 14" />
+                            </svg>
+                          </a>
+                        ) : '-'
                       )}
                     </TableCell>
                     <TableCell className="min-w-[120px]">
