@@ -394,9 +394,12 @@ const BookingComReservations = () => {
         }
       }
 
+      const unit = units.find(u => u.id === unitId);
+      const roomNumber = unit?.unit_number || 'N/A';
+      
       toast({
         title: 'Success',
-        description: `Reservation created successfully for ${unitName}`,
+        description: `Reservation created successfully for ${unitName} - Room # ${roomNumber}`,
       });
 
       setShowPreview(false);
