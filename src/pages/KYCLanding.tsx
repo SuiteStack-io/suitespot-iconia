@@ -104,26 +104,30 @@ export default function KYCLanding() {
       }}
     >
       {!showForm && !submitted && (
-        <Card className="w-full max-w-2xl backdrop-blur-md bg-white/40 shadow-2xl border border-white/20">
-          <CardContent className="p-12">
-            <div className="text-center space-y-8">
-              <div className="space-y-4">
+        <Card className="w-full max-w-2xl backdrop-blur-md bg-white/40 shadow-2xl border border-white/20 mx-4">
+          <CardContent className="p-6 sm:p-12">
+            <div className="text-center space-y-6 sm:space-y-8 flex flex-col items-center">
+              <div className="space-y-3 sm:space-y-4">
                 <h1
-                  className="font-playfair text-almaza-gold text-6xl font-semibold tracking-tight"
+                  className="font-playfair text-almaza-gold text-4xl sm:text-5xl md:text-6xl font-semibold tracking-tight px-2"
                   style={{ letterSpacing: "-0.02em" }}
                 >
                   Welcome to SuiteSpot Almaza
                 </h1>
-                <p className="font-playfair text-2xl font-medium text-gray-800 leading-relaxed">
+                <p className="font-playfair text-lg sm:text-xl md:text-2xl font-medium text-gray-800 leading-relaxed px-4">
                   We're excited to guide you through the next step
                 </p>
               </div>
 
-              <Button onClick={showTypeform} size="lg" className="font-playfair text-xl font-medium px-12 py-6 h-auto">
+              <Button 
+                onClick={showTypeform} 
+                size="lg" 
+                className="font-playfair text-lg sm:text-xl font-medium px-8 sm:px-12 py-5 sm:py-6 h-auto w-full sm:w-auto max-w-md"
+              >
                 Tell Us Your Preferences
               </Button>
 
-              <p className="font-playfair text-lg text-gray-800 mt-8">
+              <p className="font-playfair text-base sm:text-lg text-gray-800 px-4">
                 This will help us tailor the perfect home options for your stay
               </p>
             </div>
@@ -138,16 +142,16 @@ export default function KYCLanding() {
       )}
 
       {submitted && (
-        <Card className="w-full max-w-2xl backdrop-blur-md bg-white/40 shadow-2xl border border-white/20">
-          <CardContent className="p-12">
-            <div className="text-center space-y-6">
+        <Card className="w-full max-w-2xl backdrop-blur-md bg-white/40 shadow-2xl border border-white/20 mx-4">
+          <CardContent className="p-6 sm:p-12">
+            <div className="text-center space-y-4 sm:space-y-6 flex flex-col items-center">
               <h1
-                className="font-playfair text-almaza-gold text-6xl font-semibold tracking-tight"
+                className="font-playfair text-almaza-gold text-4xl sm:text-5xl md:text-6xl font-semibold tracking-tight px-2"
                 style={{ letterSpacing: "-0.02em" }}
               >
                 Thank You!
               </h1>
-              <p className="font-playfair text-2xl font-medium text-gray-800 leading-relaxed">
+              <p className="font-playfair text-lg sm:text-xl md:text-2xl font-medium text-gray-800 leading-relaxed px-4">
                 We will get back to you within 3 hours with options tailored to your needs.
               </p>
             </div>
