@@ -1466,69 +1466,77 @@ const AlmazaBay = () => {
               </div>
             </div>
             {isAdmin && (
-              <div className="flex gap-2">
-                {/* TODO: Remove after development - Simulation button */}
-                <Button 
-                  variant="outline"
-                  onClick={() => setSimulationDialogOpen(true)}
-                  className="font-medium"
-                >
-                  <Eye className="h-4 w-4 mr-2" />
-                  Unit Selection
-                </Button>
-                <Button 
-                  variant="outline"
-                  onClick={() => navigate('/kyc-management')}
-                  className="font-medium"
-                >
-                  <List className="h-4 w-4 mr-2" />
-                  View KYC Links
-                </Button>
-                <Button 
-                  variant="outline"
-                  onClick={handleExportToExcel}
-                  className="font-medium"
-                >
-                  <Download className="h-4 w-4 mr-2" />
-                  Export
-                </Button>
-                <Button 
-                  variant="outline"
-                  onClick={() => setImportDialogOpen(true)}
-                  className="font-medium"
-                >
-                  <FileUp className="h-4 w-4 mr-2" />
-                  Import
-                </Button>
-                <Button 
-                  variant="outline"
-                  onClick={() => setBulkFeaturesDialogOpen(true)}
-                  className="font-medium"
-                >
-                  <FileText className="h-4 w-4 mr-2" />
-                  Bulk Features
-                </Button>
-                {bulkEditMode ? (
-                  <>
-                    <Button 
-                      onClick={handleSaveAllBulkEdits}
-                      disabled={Object.keys(bulkEditedProperties).length === 0}
-                      className="font-medium"
-                    >
-                      <Save className="h-4 w-4 mr-2" />
-                      Save All
+              <div className="flex flex-col gap-2">
+                <div className="flex gap-2 justify-end">
+                  {/* TODO: Remove after development - Simulation button */}
+                  <Button 
+                    variant="outline"
+                    onClick={() => setSimulationDialogOpen(true)}
+                    className="font-medium"
+                  >
+                    <Eye className="h-4 w-4 mr-2" />
+                    Unit Selection
+                  </Button>
+                  <Button 
+                    variant="outline"
+                    onClick={() => navigate('/kyc-management')}
+                    className="font-medium"
+                  >
+                    <List className="h-4 w-4 mr-2" />
+                    View KYC Links
+                  </Button>
+                  <Button 
+                    variant="outline"
+                    onClick={() => setBulkFeaturesDialogOpen(true)}
+                    className="font-medium"
+                  >
+                    <FileText className="h-4 w-4 mr-2" />
+                    Bulk Features
+                  </Button>
+                  {bulkEditMode ? (
+                    <>
+                      <Button 
+                        onClick={handleSaveAllBulkEdits}
+                        disabled={Object.keys(bulkEditedProperties).length === 0}
+                        className="font-medium"
+                      >
+                        <Save className="h-4 w-4 mr-2" />
+                        Save All
+                      </Button>
+                      <Button 
+                        variant="outline"
+                        onClick={toggleBulkEditMode}
+                        className="font-medium"
+                      >
+                        <X className="h-4 w-4 mr-2" />
+                        Cancel
+                      </Button>
+                    </>
+                  ) : (
+                    <Button onClick={() => setIsAdding(true)} disabled={isAdding} className="font-medium">
+                      <Plus className="h-4 w-4 mr-2" />
+                      Add Property
                     </Button>
-                    <Button 
-                      variant="outline"
-                      onClick={toggleBulkEditMode}
-                      className="font-medium"
-                    >
-                      <X className="h-4 w-4 mr-2" />
-                      Cancel
-                    </Button>
-                  </>
-                ) : (
-                  <>
+                  )}
+                </div>
+                <div className="flex gap-2 justify-end">
+                  <Button 
+                    variant="outline"
+                    onClick={handleExportToExcel}
+                    className="font-medium"
+                  >
+                    <Download className="h-4 w-4 mr-2" />
+                    Export
+                  </Button>
+                  <Button 
+                    variant="outline"
+                    onClick={() => setImportDialogOpen(true)}
+                    className="font-medium"
+                  >
+                    <FileUp className="h-4 w-4 mr-2" />
+                    Import
+                  </Button>
+                  {!bulkEditMode && (
                     <Button 
                       variant="outline"
                       onClick={toggleBulkEditMode}
@@ -1537,12 +1545,8 @@ const AlmazaBay = () => {
                       <Pencil className="h-4 w-4 mr-2" />
                       Bulk Edit
                     </Button>
-                    <Button onClick={() => setIsAdding(true)} disabled={isAdding} className="font-medium">
-                      <Plus className="h-4 w-4 mr-2" />
-                      Add Property
-                    </Button>
-                  </>
-                )}
+                  )}
+                </div>
               </div>
             )}
           </div>
