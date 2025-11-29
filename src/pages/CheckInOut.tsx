@@ -4,10 +4,12 @@ import { supabase } from '@/integrations/supabase/client';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
-import { LogIn, LogOut, ArrowLeft, CheckCircle } from 'lucide-react';
+import { LogIn, LogOut, ArrowLeft, CheckCircle, Filter, SortAsc } from 'lucide-react';
 import { format } from 'date-fns';
 import { useToast } from '@/hooks/use-toast';
 import { useAuth } from '@/lib/auth';
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
+import { Checkbox } from '@/components/ui/checkbox';
 
 interface Reservation {
   id: string;
@@ -27,7 +29,14 @@ const CheckInOut = () => {
   const { user, loading } = useAuth();
   const [arrivals, setArrivals] = useState<Reservation[]>([]);
   const [departures, setDepartures] = useState<Reservation[]>([]);
+  const [filteredArrivals, setFilteredArrivals] = useState<Reservation[]>([]);
+  const [filteredDepartures, setFilteredDepartures] = useState<Reservation[]>([]);
   const [updating, setUpdating] = useState<string | null>(null);
+  const [roomTypeFilter, setRoomTypeFilter] = useState<string>('all');
+  const [sortBy, setSortBy] = useState<string>('room');
+  const [selectedArrivals, setSelectedArrivals] = useState<Set<string>>(new Set());
+  const [selectedDepartures, setSelectedDepartures] = useState<Set<string>>(new Set());
+  const [availableRoomTypes, setAvailableRoomTypes] = useState<string[]>([]);
 
   useEffect(() => {
     if (!loading && !user) {
@@ -79,6 +88,49 @@ const CheckInOut = () => {
 
     setArrivals(arrivalsData || []);
     setDepartures(departuresData || []);
+    
+    // Extract unique room types
+    const allReservations = [...(arrivalsData || []), ...(departuresData || [])];
+    const roomTypes = new Set(
+      allReservations
+        .map(r => r.units?.name)
+        .filter((name): name is string => name !== null && name !== undefined)
+    );
+    setAvailableRoomTypes(Array.from(roomTypes));
+  };
+
+  useEffect(() => {
+    applyFilters();
+  }, [arrivals, departures, roomTypeFilter, sortBy]);
+
+  const applyFilters = () => {
+    let filteredArr = [...arrivals];
+    let filteredDep = [...departures];
+
+    // Apply room type filter
+    if (roomTypeFilter !== 'all') {
+      filteredArr = filteredArr.filter(r => r.units?.name === roomTypeFilter);
+      filteredDep = filteredDep.filter(r => r.units?.name === roomTypeFilter);
+    }
+
+    // Apply sorting
+    const sortFn = (a: Reservation, b: Reservation) => {
+      if (sortBy === 'room') {
+        const roomA = a.units?.unit_number || '';
+        const roomB = b.units?.unit_number || '';
+        return roomA.localeCompare(roomB);
+      } else {
+        const nameA = a.guest_names[0] || '';
+        const nameB = b.guest_names[0] || '';
+        return nameA.localeCompare(nameB);
+      }
+    };
+
+    filteredArr.sort(sortFn);
+    filteredDep.sort(sortFn);
+
+    setFilteredArrivals(filteredArr);
+    setFilteredDepartures(filteredDep);
   };
 
   const handleCheckIn = async (reservationId: string) => {
@@ -135,6 +187,100 @@ const CheckInOut = () => {
     }
   };
 
+  const handleBulkCheckIn = async () => {
+    if (selectedArrivals.size === 0) return;
+    
+    setUpdating('bulk');
+    try {
+      const updates = Array.from(selectedArrivals).map(id =>
+        supabase.from('reservations').update({ status: 'checked-in' }).eq('id', id)
+      );
+
+      await Promise.all(updates);
+
+      toast({
+        title: 'Success',
+        description: `${selectedArrivals.size} guests checked in successfully`,
+      });
+
+      setSelectedArrivals(new Set());
+      fetchTodayReservations();
+    } catch (error: any) {
+      toast({
+        title: 'Error',
+        description: error.message,
+        variant: 'destructive',
+      });
+    } finally {
+      setUpdating(null);
+    }
+  };
+
+  const handleBulkCheckOut = async () => {
+    if (selectedDepartures.size === 0) return;
+    
+    setUpdating('bulk');
+    try {
+      const updates = Array.from(selectedDepartures).map(id =>
+        supabase.from('reservations').update({ status: 'checked-out' }).eq('id', id)
+      );
+
+      await Promise.all(updates);
+
+      toast({
+        title: 'Success',
+        description: `${selectedDepartures.size} guests checked out successfully`,
+      });
+
+      setSelectedDepartures(new Set());
+      fetchTodayReservations();
+    } catch (error: any) {
+      toast({
+        title: 'Error',
+        description: error.message,
+        variant: 'destructive',
+      });
+    } finally {
+      setUpdating(null);
+    }
+  };
+
+  const toggleArrivalSelection = (id: string) => {
+    const newSelection = new Set(selectedArrivals);
+    if (newSelection.has(id)) {
+      newSelection.delete(id);
+    } else {
+      newSelection.add(id);
+    }
+    setSelectedArrivals(newSelection);
+  };
+
+  const toggleDepartureSelection = (id: string) => {
+    const newSelection = new Set(selectedDepartures);
+    if (newSelection.has(id)) {
+      newSelection.delete(id);
+    } else {
+      newSelection.add(id);
+    }
+    setSelectedDepartures(newSelection);
+  };
+
+  const selectAllArrivals = () => {
+    if (selectedArrivals.size === filteredArrivals.length) {
+      setSelectedArrivals(new Set());
+    } else {
+      setSelectedArrivals(new Set(filteredArrivals.map(r => r.id)));
+    }
+  };
+
+  const selectAllDepartures = () => {
+    if (selectedDepartures.size === filteredDepartures.length) {
+      setSelectedDepartures(new Set());
+    } else {
+      setSelectedDepartures(new Set(filteredDepartures.map(r => r.id)));
+    }
+  };
+
   if (loading) {
     return (
       <div className="flex min-h-screen items-center justify-center">
@@ -162,30 +308,87 @@ const CheckInOut = () => {
           </p>
         </div>
 
+        {/* Filters and Sorting */}
+        <div className="flex flex-wrap gap-4 mb-6">
+          <div className="flex items-center gap-2">
+            <Filter className="h-4 w-4 text-muted-foreground" />
+            <Select value={roomTypeFilter} onValueChange={setRoomTypeFilter}>
+              <SelectTrigger className="w-[200px]">
+                <SelectValue placeholder="Filter by room type" />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="all">All Room Types</SelectItem>
+                {availableRoomTypes.map(type => (
+                  <SelectItem key={type} value={type}>{type}</SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+          </div>
+
+          <div className="flex items-center gap-2">
+            <SortAsc className="h-4 w-4 text-muted-foreground" />
+            <Select value={sortBy} onValueChange={setSortBy}>
+              <SelectTrigger className="w-[200px]">
+                <SelectValue placeholder="Sort by" />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="room">Room Number</SelectItem>
+                <SelectItem value="guest">Guest Name</SelectItem>
+              </SelectContent>
+            </Select>
+          </div>
+        </div>
+
         <div className="grid gap-6 lg:grid-cols-2">
           {/* Today's Arrivals */}
           <Card>
             <CardHeader>
-              <CardTitle className="flex items-center gap-2">
-                <LogIn className="h-5 w-5 text-blue-600" />
-                Today's Arrivals ({arrivals.length})
+              <CardTitle className="flex items-center justify-between">
+                <div className="flex items-center gap-2">
+                  <LogIn className="h-5 w-5 text-blue-600" />
+                  Today's Arrivals ({filteredArrivals.length})
+                </div>
+                <div className="flex items-center gap-2">
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    onClick={selectAllArrivals}
+                  >
+                    {selectedArrivals.size === filteredArrivals.length && filteredArrivals.length > 0 ? 'Deselect All' : 'Select All'}
+                  </Button>
+                  {selectedArrivals.size > 0 && (
+                    <Button
+                      size="sm"
+                      onClick={handleBulkCheckIn}
+                      disabled={updating === 'bulk'}
+                    >
+                      Check In ({selectedArrivals.size})
+                    </Button>
+                  )}
+                </div>
               </CardTitle>
             </CardHeader>
             <CardContent className="space-y-3">
-              {arrivals.length === 0 ? (
+              {filteredArrivals.length === 0 ? (
                 <p className="text-muted-foreground text-center py-8">
-                  No arrivals today
+                  No arrivals matching filters
                 </p>
               ) : (
-                arrivals.map((reservation) => (
+                filteredArrivals.map((reservation) => (
                   <Card key={reservation.id} className="bg-accent/20">
                     <CardContent className="p-4">
                       <div className="space-y-2">
-                        {reservation.units?.unit_number && (
-                          <p className="text-lg font-bold text-primary">
-                            Room #{reservation.units.unit_number}
-                          </p>
-                        )}
+                        <div className="flex items-center gap-3">
+                          <Checkbox
+                            checked={selectedArrivals.has(reservation.id)}
+                            onCheckedChange={() => toggleArrivalSelection(reservation.id)}
+                          />
+                          {reservation.units?.unit_number && (
+                            <p className="text-lg font-bold text-primary">
+                              Room #{reservation.units.unit_number}
+                            </p>
+                          )}
+                        </div>
                         <div className="flex items-center justify-between">
                           <div>
                             <p className="font-semibold">
@@ -230,26 +433,53 @@ const CheckInOut = () => {
           {/* Today's Departures */}
           <Card>
             <CardHeader>
-              <CardTitle className="flex items-center gap-2">
-                <LogOut className="h-5 w-5 text-orange-600" />
-                Today's Departures ({departures.length})
+              <CardTitle className="flex items-center justify-between">
+                <div className="flex items-center gap-2">
+                  <LogOut className="h-5 w-5 text-orange-600" />
+                  Today's Departures ({filteredDepartures.length})
+                </div>
+                <div className="flex items-center gap-2">
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    onClick={selectAllDepartures}
+                  >
+                    {selectedDepartures.size === filteredDepartures.length && filteredDepartures.length > 0 ? 'Deselect All' : 'Select All'}
+                  </Button>
+                  {selectedDepartures.size > 0 && (
+                    <Button
+                      size="sm"
+                      variant="outline"
+                      onClick={handleBulkCheckOut}
+                      disabled={updating === 'bulk'}
+                    >
+                      Check Out ({selectedDepartures.size})
+                    </Button>
+                  )}
+                </div>
               </CardTitle>
             </CardHeader>
             <CardContent className="space-y-3">
-              {departures.length === 0 ? (
+              {filteredDepartures.length === 0 ? (
                 <p className="text-muted-foreground text-center py-8">
-                  No departures today
+                  No departures matching filters
                 </p>
               ) : (
-                departures.map((reservation) => (
+                filteredDepartures.map((reservation) => (
                   <Card key={reservation.id} className="bg-accent/20">
                     <CardContent className="p-4">
                       <div className="space-y-2">
-                        {reservation.units?.unit_number && (
-                          <p className="text-lg font-bold text-primary">
-                            Room #{reservation.units.unit_number}
-                          </p>
-                        )}
+                        <div className="flex items-center gap-3">
+                          <Checkbox
+                            checked={selectedDepartures.has(reservation.id)}
+                            onCheckedChange={() => toggleDepartureSelection(reservation.id)}
+                          />
+                          {reservation.units?.unit_number && (
+                            <p className="text-lg font-bold text-primary">
+                              Room #{reservation.units.unit_number}
+                            </p>
+                          )}
+                        </div>
                         <div className="flex items-center justify-between">
                           <div>
                             <p className="font-semibold">
