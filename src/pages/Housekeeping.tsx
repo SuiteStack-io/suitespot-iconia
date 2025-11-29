@@ -169,23 +169,35 @@ const Housekeeping = () => {
   return (
     <div className="min-h-screen bg-background p-6">
       <div className="container mx-auto max-w-4xl">
-        <div className="mb-8 flex items-center gap-4">
+        <div className="mb-8">
+          {/* Mobile back button - icon only */}
           <Button 
             variant="ghost" 
             onClick={() => navigate('/admin')}
-            className="hidden md:flex items-center gap-2 -ml-2"
+            className="md:hidden mb-4 -ml-2"
           >
             <ArrowLeft className="h-5 w-5" />
-            <span>Back</span>
           </Button>
-          <div>
-            <h1 className="text-3xl font-bold mb-2 flex items-center gap-2">
-              <Sparkles className="h-8 w-8 text-primary" />
-              Housekeeping Dashboard
-            </h1>
-            <p className="text-muted-foreground">
-              Rooms that need cleaning after checkout
-            </p>
+          
+          {/* Desktop back button with text */}
+          <div className="flex items-center gap-4">
+            <Button 
+              variant="ghost" 
+              onClick={() => navigate('/admin')}
+              className="hidden md:flex items-center gap-2 -ml-2"
+            >
+              <ArrowLeft className="h-5 w-5" />
+              <span>Back</span>
+            </Button>
+            <div>
+              <h1 className="text-3xl font-bold mb-2 flex items-center gap-2">
+                <Sparkles className="h-8 w-8 text-primary" />
+                Housekeeping Dashboard
+              </h1>
+              <p className="text-muted-foreground">
+                Rooms that need cleaning after checkout
+              </p>
+            </div>
           </div>
         </div>
 
