@@ -207,20 +207,32 @@ export default function SelectionSessions() {
 
   return (
     <div className="container mx-auto p-6">
-      <div className="mb-6 flex items-center gap-4">
+      <div className="mb-6">
+        {/* Mobile back button - icon only */}
         <Button 
           variant="ghost" 
           onClick={() => navigate('/admin')}
-          className="hidden md:flex items-center gap-2 -ml-2"
+          className="md:hidden mb-4 -ml-2"
         >
           <ArrowLeft className="h-5 w-5" />
-          <span>Back</span>
         </Button>
-        <div>
-          <h1 className="text-3xl font-bold mb-2">Almaza Bay KYC Results</h1>
-          <p className="text-muted-foreground">
-            Manage active guest selection sessions and access times
-          </p>
+        
+        {/* Desktop back button with text */}
+        <div className="flex items-center gap-4">
+          <Button 
+            variant="ghost" 
+            onClick={() => navigate('/admin')}
+            className="hidden md:flex items-center gap-2 -ml-2"
+          >
+            <ArrowLeft className="h-5 w-5" />
+            <span>Back</span>
+          </Button>
+          <div>
+            <h1 className="text-3xl font-bold mb-2">Almaza Bay KYC Results</h1>
+            <p className="text-muted-foreground">
+              Manage active guest selection sessions and access times
+            </p>
+          </div>
         </div>
       </div>
 
