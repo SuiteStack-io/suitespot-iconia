@@ -1,4 +1,4 @@
-import { Link } from "react-router-dom";
+import { Link, useLocation } from "react-router-dom";
 import {
   Breadcrumb,
   BreadcrumbList,
@@ -15,6 +15,8 @@ interface AdminBreadcrumbProps {
 }
 
 export function AdminBreadcrumb({ section, currentPage, sectionPath }: AdminBreadcrumbProps) {
+  const location = useLocation();
+  
   // Auto-determine section path based on section name if not provided
   const getSectionPath = () => {
     if (sectionPath) return sectionPath;
@@ -31,25 +33,47 @@ export function AdminBreadcrumb({ section, currentPage, sectionPath }: AdminBrea
     }
   };
 
+  const sectionPathValue = getSectionPath();
+  const isOnAdminDashboard = location.pathname === "/admin";
+  const isOnSectionPage = location.pathname === sectionPathValue;
+
   return (
     <Breadcrumb className="mb-4">
       <BreadcrumbList>
         <BreadcrumbItem>
           <BreadcrumbLink asChild>
-            <Link to="/admin" className="hover:text-primary transition-colors">Admin</Link>
+            <Link 
+              to="/admin" 
+              className={`transition-colors ${
+                isOnAdminDashboard 
+                  ? "text-primary font-semibold" 
+                  : "hover:text-primary"
+              }`}
+            >
+              Admin
+            </Link>
           </BreadcrumbLink>
         </BreadcrumbItem>
         <BreadcrumbSeparator />
         <BreadcrumbItem>
           <BreadcrumbLink asChild>
-            <Link to={getSectionPath()} className="hover:text-primary transition-colors">
+            <Link 
+              to={sectionPathValue} 
+              className={`transition-colors ${
+                isOnSectionPage 
+                  ? "text-primary font-semibold" 
+                  : "hover:text-primary"
+              }`}
+            >
               {section}
             </Link>
           </BreadcrumbLink>
         </BreadcrumbItem>
         <BreadcrumbSeparator />
         <BreadcrumbItem>
-          <BreadcrumbPage>{currentPage}</BreadcrumbPage>
+          <BreadcrumbPage className="text-primary font-semibold">
+            {currentPage}
+          </BreadcrumbPage>
         </BreadcrumbItem>
       </BreadcrumbList>
     </Breadcrumb>
