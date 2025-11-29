@@ -22,6 +22,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { Alert, AlertDescription } from '@/components/ui/alert';
 import suitespotLogo from '@/assets/suitespot-logo.png';
 import { SlideMenu } from '@/components/SlideMenu';
+import { AdminBreadcrumb } from '@/components/AdminBreadcrumb';
 
 interface ParsedReservation {
   bookingReference: string;

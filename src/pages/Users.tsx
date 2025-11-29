@@ -8,6 +8,7 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@
 import { UserPlus, Pencil, ArrowLeft } from 'lucide-react';
 import { AddUserDialog } from '@/components/AddUserDialog';
 import { SlideMenu } from '@/components/SlideMenu';
+import { AdminBreadcrumb } from '@/components/AdminBreadcrumb';
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle, DialogTrigger } from '@/components/ui/dialog';
 import { Label } from '@/components/ui/label';
 import { Input } from '@/components/ui/input';
@@ -193,7 +194,7 @@ const Users = () => {
         <div className="container mx-auto px-4 py-4">
           <AdminBreadcrumb section="System" currentPage="Users" />
           <div className="flex items-center gap-4">
-          <SlideMenu isAdmin={userRole === 'admin'} />
+            <SlideMenu isAdmin={userRole === 'admin'} />
           
           {/* Mobile back button - icon only */}
           <Button 
@@ -216,6 +217,7 @@ const Users = () => {
           </Button>
           
           <h1 className="text-xl font-bold">User Management</h1>
+          </div>
         </div>
       </header>
 
