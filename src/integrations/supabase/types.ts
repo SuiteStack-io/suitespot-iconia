@@ -316,6 +316,64 @@ export type Database = {
           },
         ]
       }
+      housekeeping_logs: {
+        Row: {
+          actual_duration_minutes: number | null
+          cleaned_by: string | null
+          cleaning_completed_at: string
+          cleaning_started_at: string | null
+          created_at: string
+          id: string
+          notes: string | null
+          reservation_id: string
+          unit_id: string
+        }
+        Insert: {
+          actual_duration_minutes?: number | null
+          cleaned_by?: string | null
+          cleaning_completed_at?: string
+          cleaning_started_at?: string | null
+          created_at?: string
+          id?: string
+          notes?: string | null
+          reservation_id: string
+          unit_id: string
+        }
+        Update: {
+          actual_duration_minutes?: number | null
+          cleaned_by?: string | null
+          cleaning_completed_at?: string
+          cleaning_started_at?: string | null
+          created_at?: string
+          id?: string
+          notes?: string | null
+          reservation_id?: string
+          unit_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "housekeeping_logs_cleaned_by_fkey"
+            columns: ["cleaned_by"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "housekeeping_logs_reservation_id_fkey"
+            columns: ["reservation_id"]
+            isOneToOne: false
+            referencedRelation: "reservations"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "housekeeping_logs_unit_id_fkey"
+            columns: ["unit_id"]
+            isOneToOne: false
+            referencedRelation: "units"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       kyc_links: {
         Row: {
           completed_at: string | null
@@ -1006,6 +1064,7 @@ export type Database = {
           booking_com_name: string | null
           comments: string | null
           created_at: string
+          estimated_cleaning_minutes: number | null
           features: string[] | null
           id: string
           is_private: boolean | null
@@ -1037,6 +1096,7 @@ export type Database = {
           booking_com_name?: string | null
           comments?: string | null
           created_at?: string
+          estimated_cleaning_minutes?: number | null
           features?: string[] | null
           id?: string
           is_private?: boolean | null
@@ -1068,6 +1128,7 @@ export type Database = {
           booking_com_name?: string | null
           comments?: string | null
           created_at?: string
+          estimated_cleaning_minutes?: number | null
           features?: string[] | null
           id?: string
           is_private?: boolean | null
