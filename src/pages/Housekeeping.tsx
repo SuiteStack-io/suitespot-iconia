@@ -10,6 +10,7 @@ import { useToast } from '@/hooks/use-toast';
 import { useAuth } from '@/lib/auth';
 import { Checkbox } from '@/components/ui/checkbox';
 import { SlideMenu } from '@/components/SlideMenu';
+import { AdminBreadcrumb } from '@/components/AdminBreadcrumb';
 
 interface CleaningRoom {
   id: string;
@@ -168,10 +169,11 @@ const Housekeeping = () => {
   const normalRooms = rooms.filter(r => r.priority === 'normal');
 
   return (
-    <div className="min-h-screen bg-background p-6">
-      <div className="container mx-auto max-w-4xl">
-        <div className="mb-8">
-          <div className="flex items-center gap-4">
+    <div className="min-h-screen bg-background">
+      <header className="border-b bg-card sticky top-0 z-10">
+        <div className="container mx-auto px-4 py-4">
+          <AdminBreadcrumb section="ICONIA" currentPage="Housekeeping" />
+          <div className="flex items-center gap-4 mt-4">
             <SlideMenu isAdmin={userRole === 'admin'} />
             
             {/* Mobile back button - icon only */}
@@ -205,25 +207,28 @@ const Housekeeping = () => {
             </div>
           </div>
         </div>
+      </header>
 
-        {/* Bulk Actions */}
-        {selectedRooms.size > 0 && (
-          <Card className="mb-6 bg-primary/5">
-            <CardContent className="p-4 flex items-center justify-between">
-              <p className="font-medium">{selectedRooms.size} room{selectedRooms.size !== 1 ? 's' : ''} selected</p>
-              <Button
-                onClick={handleBulkMarkCleaned}
-                disabled={updating === 'bulk'}
-                className="gap-2"
-              >
-                <CheckCircle className="h-4 w-4" />
-                Mark as Cleaned
-              </Button>
-            </CardContent>
-          </Card>
-        )}
+      <main className="container mx-auto px-4 py-8">
+        <div className="max-w-4xl mx-auto space-y-6">
 
-        <div className="space-y-6">
+          {/* Bulk Actions */}
+          {selectedRooms.size > 0 && (
+            <Card className="bg-primary/5">
+              <CardContent className="p-4 flex items-center justify-between">
+                <p className="font-medium">{selectedRooms.size} room{selectedRooms.size !== 1 ? 's' : ''} selected</p>
+                <Button
+                  onClick={handleBulkMarkCleaned}
+                  disabled={updating === 'bulk'}
+                  className="gap-2"
+                >
+                  <CheckCircle className="h-4 w-4" />
+                  Mark as Cleaned
+                </Button>
+              </CardContent>
+            </Card>
+          )}
+
           {/* Urgent - Today's Checkouts */}
           {urgentRooms.length > 0 && (
             <Card className="border-orange-200">
@@ -353,7 +358,7 @@ const Housekeeping = () => {
             </Card>
           )}
         </div>
-      </div>
+      </main>
     </div>
   );
 };
