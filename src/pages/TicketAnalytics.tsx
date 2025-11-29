@@ -11,6 +11,7 @@ import StaySurveyAnalytics from "@/components/analytics/StaySurveyAnalytics";
 import { BarChart3, ArrowLeft } from "lucide-react";
 import { SlideMenu } from "@/components/SlideMenu";
 import { useAuth } from "@/lib/auth";
+import { AdminBreadcrumb } from "@/components/AdminBreadcrumb";
 import { useNavigate } from "react-router-dom";
 
 interface TicketData {

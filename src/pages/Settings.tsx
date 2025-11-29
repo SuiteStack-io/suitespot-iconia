@@ -10,6 +10,7 @@ import { Badge } from "@/components/ui/badge";
 import { formatDistanceToNow } from "date-fns";
 import { SlideMenu } from "@/components/SlideMenu";
 import { useAuth } from "@/lib/auth";
+import { AdminBreadcrumb } from "@/components/AdminBreadcrumb";
 
 export default function Settings() {
   const navigate = useNavigate();

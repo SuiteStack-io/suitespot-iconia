@@ -475,7 +475,9 @@ const BookingComReservations = () => {
   return (
     <div className="min-h-screen bg-background">
       <header className="border-b bg-card">
-        <div className="container mx-auto px-4 py-4 flex items-center gap-4">
+        <div className="container mx-auto px-4 py-4">
+          <AdminBreadcrumb section="ICONIA" currentPage="Booking.com" />
+          <div className="flex items-center gap-4">
           <SlideMenu isAdmin={userRole === 'admin'} />
           
           {/* Mobile back button - icon only */}
@@ -503,6 +505,7 @@ const BookingComReservations = () => {
             <h1 className="text-xl font-bold">Booking.com Reservations</h1>
             <p className="text-sm text-muted-foreground">Upload and import reservations from screenshots</p>
           </div>
+        </div>
         </div>
       </header>
 
