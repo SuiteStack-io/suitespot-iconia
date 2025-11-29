@@ -6,14 +6,14 @@ import { ReservationsList } from '@/components/ReservationsList';
 import { WeeklyCalendar } from '@/components/WeeklyCalendar';
 import { CreateReservationDialog } from '@/components/CreateReservationDialog';
 import { Button } from '@/components/ui/button';
-import { LogOut, CalendarDays, ChevronDown, DoorOpen, Home, Settings as SettingsIcon, RefreshCw, Upload, Ticket, BarChart3, Bell, Map, Image as ImageIcon, UserCircle, ArrowUp, DoorClosed, Sparkles } from 'lucide-react';
+import { LogOut, RefreshCw, Bell, ArrowUp } from 'lucide-react';
 import { NotificationBell } from '@/components/NotificationBell';
+import { SlideMenu } from '@/components/SlideMenu';
 import suitespotLogo from '@/assets/suitespot-logo.png';
 import { useIsMobile } from '@/hooks/use-mobile';
 import { useToast } from '@/hooks/use-toast';
 import { supabase } from '@/integrations/supabase/client';
 import { useNotifications } from '@/hooks/useNotifications';
-import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger, DropdownMenuSeparator } from '@/components/ui/dropdown-menu';
 
 const Index = () => {
   const { user, loading, signOut, userRole } = useAuth();
@@ -69,138 +69,33 @@ const Index = () => {
   return (
     <div className="min-h-screen bg-background">
       <header className="sticky top-0 z-50 border-b bg-card shadow-sm">
-        <div className="container mx-auto px-4 py-4 flex items-start justify-between">
-          <div className={isMobile ? "flex flex-col items-center gap-2" : "flex items-center gap-3"}>
-            <img src={suitespotLogo} alt="SuiteSpot Logo" className={isMobile ? "h-14 w-14" : "h-10 w-10"} />
-            <div><h1 className="text-xl font-bold">SuiteSpot Reservations</h1></div>
+        <div className="container mx-auto px-4 py-4 flex items-center justify-between">
+          {/* Left side: Hamburger Menu + Logo */}
+          <div className="flex items-center gap-3">
+            <SlideMenu isAdmin={isAdmin} />
+            <img src={suitespotLogo} alt="SuiteSpot Logo" className="h-10 w-10" />
+            <h1 className="text-xl font-bold hidden sm:block">SuiteSpot Reservations</h1>
           </div>
+
+          {/* Right side: Actions */}
           <div className="flex items-center gap-2">
             <NotificationBell />
-            {isAdmin && (
-              <>
-                {/* Desktop: horizontal layout */}
-                <div className="hidden md:flex items-center gap-2">
-                  <Button variant="outline" size="sm" onClick={() => navigate('/homepage-management')}>
-                    <Home className="h-4 w-4 mr-2" />
-                    Content
-                  </Button>
-                  <Button variant="outline" size="sm" onClick={() => navigate('/booking-com-reservations')}>
-                    <Upload className="h-4 w-4 mr-2" />
-                    Booking.com
-                  </Button>
-                  <Button variant="outline" size="sm" onClick={() => navigate('/guest-tickets')}>
-                    <Ticket className="h-4 w-4 mr-2" />
-                    Tickets
-                  </Button>
-                  <Button variant="outline" size="sm" onClick={() => navigate('/guest/login')}>
-                    <UserCircle className="h-4 w-4 mr-2" />
-                    Guest Login
-                  </Button>
-                </div>
-                
-                {/* Mobile: vertical layout - Content, Booking.com, Menu order */}
-                <div className="md:hidden flex flex-col gap-2">
-                  <Button variant="outline" size="sm" onClick={() => navigate('/homepage-management')} className="w-full">
-                    <Home className="h-4 w-4 mr-2" />
-                    Content
-                  </Button>
-                  <Button variant="outline" size="sm" onClick={() => navigate('/booking-com-reservations')} className="w-full">
-                    <Upload className="h-4 w-4 mr-2" />
-                    Booking.com
-                  </Button>
-                  
-                  {/* Menu dropdown on mobile - stacked below */}
-                  <DropdownMenu>
-                    <DropdownMenuTrigger asChild>
-                      <Button variant="outline" size="sm" className="w-full">
-                        <Home className="h-4 w-4 mr-2" />
-                        Menu
-                        <ChevronDown className="h-4 w-4 ml-2" />
-                      </Button>
-                    </DropdownMenuTrigger>
-                    <DropdownMenuContent align="end">
-                      <DropdownMenuItem onClick={() => navigate('/calendar')}>Calendar</DropdownMenuItem>
-                      <DropdownMenuItem onClick={() => navigate('/check-in-out')}>Check-In/Out</DropdownMenuItem>
-                      <DropdownMenuItem onClick={() => navigate('/housekeeping')}>Housekeeping</DropdownMenuItem>
-                      <DropdownMenuItem onClick={() => navigate('/rooms')}>ICONIA Rooms</DropdownMenuItem>
-                      {isAdmin && (
-                        <>
-                    <DropdownMenuSeparator />
-                    <DropdownMenuItem onClick={() => navigate('/almaza-bay')}>Almaza Bay</DropdownMenuItem>
-                    <DropdownMenuItem onClick={() => navigate('/kyc-management')}>KYC Management</DropdownMenuItem>
-                    <DropdownMenuItem onClick={() => navigate('/selection-sessions')}>Almaza Bay KYC Results</DropdownMenuItem>
-                    <DropdownMenuItem onClick={() => navigate('/session-audit-log')}>Session Audit Log</DropdownMenuItem>
-                    <DropdownMenuItem onClick={() => navigate('/ticket-analytics')}>Analytics</DropdownMenuItem>
-                          <DropdownMenuItem onClick={() => navigate('/guest-accounts')}>App Accounts</DropdownMenuItem>
-                          <DropdownMenuItem onClick={() => navigate('/guests')}>Guests</DropdownMenuItem>
-                          <DropdownMenuItem onClick={() => navigate('/locations-management')}>Locations</DropdownMenuItem>
-                          <DropdownMenuItem onClick={() => navigate('/media-library')}>Media Library</DropdownMenuItem>
-                          <DropdownMenuItem onClick={() => navigate('/settings')}>Settings</DropdownMenuItem>
-                          <DropdownMenuItem onClick={() => navigate('/users')}>Users</DropdownMenuItem>
-                          <DropdownMenuSeparator />
-                          <DropdownMenuItem onClick={() => navigate('/guest-tickets')}>Tickets</DropdownMenuItem>
-                          <DropdownMenuItem onClick={() => navigate('/guest/login')}>Guest Login</DropdownMenuItem>
-                        </>
-                      )}
-                    </DropdownMenuContent>
-                  </DropdownMenu>
-                </div>
-              </>
-            )}
-            
-            {/* Menu dropdown - desktop only */}
-            <DropdownMenu>
-              <DropdownMenuTrigger asChild>
-                <Button variant="outline" size="sm" className="hidden md:flex">
-                  <Home className="h-4 w-4 mr-2" />
-                  Menu
-                  <ChevronDown className="h-4 w-4 ml-2" />
-                </Button>
-              </DropdownMenuTrigger>
-              <DropdownMenuContent align="end">
-                <DropdownMenuItem onClick={() => navigate('/calendar')}>
-                  <CalendarDays className="mr-2 h-4 w-4" />
-                  Calendar
-                </DropdownMenuItem>
-                <DropdownMenuItem onClick={() => navigate('/check-in-out')}>
-                  <DoorClosed className="mr-2 h-4 w-4" />
-                  Check-In/Out
-                </DropdownMenuItem>
-                <DropdownMenuItem onClick={() => navigate('/housekeeping')}>
-                  <Sparkles className="mr-2 h-4 w-4" />
-                  Housekeeping
-                </DropdownMenuItem>
-                <DropdownMenuItem onClick={() => navigate('/rooms')}>
-                  <DoorOpen className="mr-2 h-4 w-4" />
-                  ICONIA Rooms
-                </DropdownMenuItem>
-                {isAdmin && (
-                  <>
-                    <DropdownMenuSeparator />
-                    <DropdownMenuItem onClick={() => navigate('/almaza-bay')}>Almaza Bay</DropdownMenuItem>
-                    <DropdownMenuItem onClick={() => navigate('/kyc-management')}>KYC Management</DropdownMenuItem>
-                    <DropdownMenuItem onClick={() => navigate('/selection-sessions')}>Almaza Bay KYC Results</DropdownMenuItem>
-                    <DropdownMenuItem onClick={() => navigate('/session-audit-log')}>Session Audit Log</DropdownMenuItem>
-                    <DropdownMenuItem onClick={() => navigate('/ticket-analytics')}>Analytics</DropdownMenuItem>
-                    <DropdownMenuItem onClick={() => navigate('/guest-accounts')}>App Accounts</DropdownMenuItem>
-                    <DropdownMenuItem onClick={() => navigate('/guests')}>Guests</DropdownMenuItem>
-                    <DropdownMenuItem onClick={() => navigate('/locations-management')}>Locations</DropdownMenuItem>
-                    <DropdownMenuItem onClick={() => navigate('/media-library')}>Media Library</DropdownMenuItem>
-                    <DropdownMenuItem onClick={() => navigate('/settings')}>Settings</DropdownMenuItem>
-                    <DropdownMenuItem onClick={() => navigate('/users')}>Users</DropdownMenuItem>
-                    <DropdownMenuSeparator />
-                    <DropdownMenuItem onClick={() => navigate('/guest-tickets')} className="md:hidden">Tickets</DropdownMenuItem>
-                    <DropdownMenuItem onClick={() => navigate('/guest/login')} className="md:hidden">Guest Login</DropdownMenuItem>
-                  </>
-                )}
-              </DropdownMenuContent>
-            </DropdownMenu>
-            
-            <Button variant="outline" size="sm" onClick={handleSync} disabled={syncing} className="hidden md:flex">
+            <Button 
+              variant="outline" 
+              size="sm" 
+              onClick={handleSync} 
+              disabled={syncing} 
+              className="hidden md:flex"
+            >
               <RefreshCw className={`h-4 w-4 mr-2 ${syncing ? 'animate-spin' : ''}`} />
               Sync
             </Button>
-            <Button variant="outline" size="sm" onClick={() => signOut()} className="hidden md:flex">
+            <Button 
+              variant="outline" 
+              size="sm" 
+              onClick={() => signOut()} 
+              className="hidden md:flex"
+            >
               <LogOut className="h-4 w-4 mr-2" />
               Sign Out
             </Button>
