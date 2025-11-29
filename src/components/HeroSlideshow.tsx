@@ -6,15 +6,29 @@ interface SlideshowImage {
   id: string;
   image_url: string;
   sequence_order: number;
+  blur_placeholder?: string;
+  image_url_sm?: string;
+  image_url_md?: string;
+  image_url_lg?: string;
 }
 
 export const HeroSlideshow = () => {
   const [images, setImages] = useState<SlideshowImage[]>([]);
   const [loading, setLoading] = useState(true);
   const [currentIndex, setCurrentIndex] = useState(0);
+  const [loadedImages, setLoadedImages] = useState<Set<string>>(new Set());
   const scrollContainerRef = useRef<HTMLDivElement>(null);
   const touchStartX = useRef<number>(0);
   const touchEndX = useRef<number>(0);
+
+  // Get optimal image URL based on viewport width
+  const getOptimalImageUrl = (image: SlideshowImage) => {
+    if (typeof window === 'undefined') return image.image_url;
+    const width = window.innerWidth;
+    if (width <= 768 && image.image_url_sm) return image.image_url_sm;
+    if (width <= 1440 && image.image_url_md) return image.image_url_md;
+    return image.image_url_lg || image.image_url;
+  };
 
   useEffect(() => {
     fetchImages();
@@ -150,19 +164,40 @@ export const HeroSlideshow = () => {
         className="flex overflow-x-auto scrollbar-hide scroll-smooth snap-x snap-mandatory h-full"
         style={{ scrollbarWidth: 'none', msOverflowStyle: 'none' }}
       >
-        {images.map((image) => (
-          <div 
-            key={image.id} 
-            className="flex-none w-full h-full snap-start"
-          >
-            <img
-              src={image.image_url}
-              alt={`SuiteSpot hero ${image.sequence_order + 1}`}
-              className="w-full h-full object-cover"
-              loading="lazy"
-            />
-          </div>
-        ))}
+        {images.map((image) => {
+          const optimalUrl = getOptimalImageUrl(image);
+          const isLoaded = loadedImages.has(image.id);
+          
+          return (
+            <div 
+              key={image.id} 
+              className="flex-none w-full h-full snap-start relative"
+            >
+              {/* Blur placeholder */}
+              {image.blur_placeholder && !isLoaded && (
+                <img
+                  src={image.blur_placeholder}
+                  alt=""
+                  className="absolute inset-0 w-full h-full object-cover blur-xl scale-110"
+                  aria-hidden="true"
+                />
+              )}
+              
+              {/* Main image */}
+              <img
+                src={optimalUrl}
+                alt={`SuiteSpot hero ${image.sequence_order + 1}`}
+                className={`w-full h-full object-cover transition-opacity duration-500 ${
+                  isLoaded ? 'opacity-100' : 'opacity-0'
+                }`}
+                loading="lazy"
+                onLoad={() => {
+                  setLoadedImages(prev => new Set(prev).add(image.id));
+                }}
+              />
+            </div>
+          );
+        })}
       </div>
       
       {/* Gradient overlay */}

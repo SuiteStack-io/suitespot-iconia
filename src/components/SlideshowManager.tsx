@@ -24,6 +24,10 @@ interface SlideshowImage {
   id: string;
   image_url: string;
   sequence_order: number;
+  blur_placeholder?: string;
+  image_url_sm?: string;
+  image_url_md?: string;
+  image_url_lg?: string;
 }
 
 interface SlideshowManagerProps {
@@ -90,19 +94,16 @@ export function SlideshowManager({ tableName, bucketName, title }: SlideshowMana
     setUploadProgress(0);
 
     try {
-      const progressInterval = setInterval(() => {
-        setUploadProgress(prev => Math.min(prev + 10, 90));
-      }, 100);
-
+      // Upload original image
       const fileExt = file.name.split('.').pop();
       const fileName = `${Math.random()}.${fileExt}`;
       const filePath = `${fileName}`;
 
+      setUploadProgress(30);
+
       const { error: uploadError } = await supabase.storage
         .from(bucketName)
         .upload(filePath, file);
-
-      clearInterval(progressInterval);
 
       if (uploadError) throw uploadError;
 
@@ -110,7 +111,33 @@ export function SlideshowManager({ tableName, bucketName, title }: SlideshowMana
         .from(bucketName)
         .getPublicUrl(filePath);
 
-      setUploadProgress(100);
+      setUploadProgress(50);
+
+      // Call optimization edge function
+      const formData = new FormData();
+      formData.append('file', file);
+      formData.append('bucket', bucketName);
+      formData.append('path', filePath);
+
+      const { data: { session } } = await supabase.auth.getSession();
+      
+      const optimizeResponse = await supabase.functions.invoke('optimize-image', {
+        body: formData,
+        headers: session?.access_token ? {
+          Authorization: `Bearer ${session.access_token}`
+        } : {}
+      });
+
+      setUploadProgress(80);
+
+      if (optimizeResponse.error) {
+        console.error('Optimization error:', optimizeResponse.error);
+        // Continue without optimization if it fails
+      }
+
+      const optimizedUrls = optimizeResponse.data?.optimizedUrls || {};
+
+      setUploadProgress(90);
 
       const nextOrder = images.length > 0 
         ? Math.max(...images.map(img => img.sequence_order)) + 1 
@@ -121,13 +148,21 @@ export function SlideshowManager({ tableName, bucketName, title }: SlideshowMana
         .insert({
           image_url: publicUrl,
           sequence_order: nextOrder,
+          blur_placeholder: optimizedUrls.blur_placeholder || null,
+          image_url_sm: optimizedUrls.image_url_sm || null,
+          image_url_md: optimizedUrls.image_url_md || null,
+          image_url_lg: optimizedUrls.image_url_lg || null,
         });
 
       if (dbError) throw dbError;
 
+      setUploadProgress(100);
+
       toast({
         title: 'Success',
-        description: 'Image uploaded successfully',
+        description: optimizedUrls.blur_placeholder 
+          ? 'Image uploaded and optimized successfully' 
+          : 'Image uploaded successfully',
       });
 
       fetchImages();
