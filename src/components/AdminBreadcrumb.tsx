@@ -19,7 +19,7 @@ export function AdminBreadcrumb({ section, currentPage }: AdminBreadcrumbProps) 
       <BreadcrumbList>
         <BreadcrumbItem>
           <BreadcrumbLink asChild>
-            <Link to="/admin">Admin</Link>
+            <Link to="/admin" className="hover:text-primary transition-colors">Admin</Link>
           </BreadcrumbLink>
         </BreadcrumbItem>
         <BreadcrumbSeparator />
