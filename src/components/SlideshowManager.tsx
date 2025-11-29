@@ -149,15 +149,28 @@ export function SlideshowManager({ tableName, bucketName, title }: SlideshowMana
         ? Math.max(...images.map(img => img.sequence_order)) + 1 
         : 0;
 
+      // Store relative paths instead of full URLs
+      const getPathFromUrl = (url: string) => {
+        if (!url) return null;
+        try {
+          const urlObj = new URL(url);
+          // Extract path after /storage/v1/object/public/
+          const pathMatch = urlObj.pathname.match(/\/storage\/v1\/object\/public\/(.+)/);
+          return pathMatch ? `/${pathMatch[1]}` : url;
+        } catch {
+          return url;
+        }
+      };
+
       const { error: dbError } = await supabase
         .from(tableName)
         .insert({
-          image_url: publicUrl,
+          image_url: `/${bucketName}/${filePath}`,
           sequence_order: nextOrder,
           blur_placeholder: optimizedUrls.blur_placeholder || null,
-          image_url_sm: optimizedUrls.image_url_sm || null,
-          image_url_md: optimizedUrls.image_url_md || null,
-          image_url_lg: optimizedUrls.image_url_lg || null,
+          image_url_sm: getPathFromUrl(optimizedUrls.image_url_sm) || null,
+          image_url_md: getPathFromUrl(optimizedUrls.image_url_md) || null,
+          image_url_lg: getPathFromUrl(optimizedUrls.image_url_lg) || null,
         });
 
       if (dbError) throw dbError;
