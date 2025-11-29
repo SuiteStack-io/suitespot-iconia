@@ -61,7 +61,7 @@ export default function SelectionSessions() {
       console.error("Error fetching sessions:", error);
       toast({
         title: "Error",
-        description: "Failed to load selection sessions",
+        description: "Failed to load KYC results",
         variant: "destructive",
       });
     } finally {
@@ -206,7 +206,7 @@ export default function SelectionSessions() {
   return (
     <div className="container mx-auto p-6">
       <div className="mb-6">
-        <h1 className="text-3xl font-bold mb-2">Selection Sessions</h1>
+        <h1 className="text-3xl font-bold mb-2">Almaza Bay KYC Results</h1>
         <p className="text-muted-foreground">
           Manage active guest selection sessions and access times
         </p>
@@ -219,7 +219,7 @@ export default function SelectionSessions() {
         <CardContent>
           {sessions.length === 0 ? (
             <p className="text-muted-foreground text-center py-8">
-              No selection sessions found
+              No KYC results found
             </p>
           ) : (
             <div className="space-y-4">
