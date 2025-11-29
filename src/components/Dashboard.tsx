@@ -39,7 +39,7 @@ interface Reservation {
   number_of_guests: number;
   children: number | null;
   adults: number | null;
-  units: { name: string } | null;
+  units: { name: string; unit_number: string | null } | null;
 }
 
 const statusColors = {
@@ -164,7 +164,7 @@ export const Dashboard = () => {
     
     let query = supabase
       .from('reservations')
-      .select('id, booking_reference, guest_names, guest_types, guest_genders, check_in_date, check_out_date, status, total_price, number_of_guests, children, adults, units(name)');
+      .select('id, booking_reference, guest_names, guest_types, guest_genders, check_in_date, check_out_date, status, total_price, number_of_guests, children, adults, units(name, unit_number)');
     
     switch (cardType) {
       case 'arrivals':
@@ -284,6 +284,11 @@ export const Dashboard = () => {
                   <CardContent className="p-4">
                     <div className="flex flex-col md:flex-row md:items-center justify-between gap-2">
                       <div className="space-y-1">
+                        {reservation.units?.unit_number && (
+                          <p className="text-lg font-bold text-primary">
+                            Room #{reservation.units.unit_number}
+                          </p>
+                        )}
                         <div className="flex items-center gap-2">
                           <p className="font-semibold">{reservation.booking_reference}</p>
                           <Badge 
