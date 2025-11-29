@@ -46,6 +46,16 @@ export function SlideshowManager({ tableName, bucketName, title }: SlideshowMana
   const [selectedImage, setSelectedImage] = useState<string | null>(null);
   const [isDragging, setIsDragging] = useState(false);
 
+  // Convert path to full URL if needed
+  const getFullUrl = (path: string) => {
+    if (!path) return '';
+    if (path.startsWith('http')) return path; // Already full URL
+    if (path.startsWith('data:')) return path; // Base64 data URL
+    // Relative path - construct full URL
+    const supabaseUrl = import.meta.env.VITE_SUPABASE_URL;
+    return `${supabaseUrl}/storage/v1/object/public${path}`;
+  };
+
   useEffect(() => {
     fetchImages();
   }, [tableName]);
@@ -430,7 +440,7 @@ export function SlideshowManager({ tableName, bucketName, title }: SlideshowMana
                   </TableCell>
                   <TableCell>
                     <img
-                      src={image.image_url}
+                      src={getFullUrl(image.image_url)}
                       alt={`Slide ${index + 1}`}
                       className="w-20 h-12 object-cover rounded cursor-pointer hover:opacity-80 transition-opacity"
                       onClick={() => setSelectedImage(image.image_url)}
@@ -463,7 +473,7 @@ export function SlideshowManager({ tableName, bucketName, title }: SlideshowMana
           </DialogHeader>
           <div className="relative w-full">
             <img
-              src={selectedImage || ''}
+              src={getFullUrl(selectedImage || '')}
               alt="Preview"
               className="w-full h-auto max-h-[70vh] object-contain rounded"
             />
