@@ -9,6 +9,7 @@ import { Clock, XCircle, Plus, ArrowLeft } from "lucide-react";
 import { formatDistanceToNow } from "date-fns";
 import { useAuth } from "@/lib/auth";
 import { SlideMenu } from "@/components/SlideMenu";
+import { AdminBreadcrumb } from "@/components/AdminBreadcrumb";
 
 interface SelectionSession {
   id: string;
@@ -210,7 +211,9 @@ export default function SelectionSessions() {
   return (
     <div className="min-h-screen bg-background">
       <header className="border-b bg-card">
-        <div className="container mx-auto px-4 py-4 flex items-center gap-4">
+        <div className="container mx-auto px-4 py-4">
+          <AdminBreadcrumb section="Almaza Bay" currentPage="KYC Results" />
+          <div className="flex items-center gap-4">
           <SlideMenu isAdmin={userRole === 'admin'} />
           
           {/* Mobile back button - icon only */}
@@ -239,6 +242,7 @@ export default function SelectionSessions() {
               Manage active guest selection sessions and access times
             </p>
           </div>
+        </div>
         </div>
       </header>
 

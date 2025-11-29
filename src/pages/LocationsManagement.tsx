@@ -8,6 +8,7 @@ import AmenitiesManager from "@/components/admin/AmenitiesManager";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { SlideMenu } from "@/components/SlideMenu";
 import { useAuth } from "@/lib/auth";
+import { AdminBreadcrumb } from "@/components/AdminBreadcrumb";
 
 const LocationsManagement = () => {
   const navigate = useNavigate();

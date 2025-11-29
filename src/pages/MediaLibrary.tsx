@@ -9,6 +9,7 @@ import MediaGallery from "@/components/media/MediaGallery";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
 import { SlideMenu } from "@/components/SlideMenu";
 import { useAuth } from "@/lib/auth";
+import { AdminBreadcrumb } from "@/components/AdminBreadcrumb";
 
 const MediaLibrary = () => {
   const navigate = useNavigate();

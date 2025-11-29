@@ -65,6 +65,7 @@ const Calendar = () => {
             <p className="text-sm text-muted-foreground">View and manage room bookings</p>
           </div>
         </div>
+        </div>
       </header>
 
       <main className="container mx-auto px-4 py-8 space-y-8">

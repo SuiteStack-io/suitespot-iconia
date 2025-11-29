@@ -11,6 +11,7 @@ import { Alert, AlertDescription } from "@/components/ui/alert";
 import { Button } from "@/components/ui/button";
 import { SlideMenu } from "@/components/SlideMenu";
 import { useAuth } from "@/lib/auth";
+import { AdminBreadcrumb } from "@/components/AdminBreadcrumb";
 
 export default function GuestTickets() {
   const navigate = useNavigate();

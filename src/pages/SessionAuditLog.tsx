@@ -9,6 +9,7 @@ import { format } from "date-fns";
 import { SlideMenu } from "@/components/SlideMenu";
 import { useAuth } from "@/lib/auth";
 import { useNavigate } from "react-router-dom";
+import { AdminBreadcrumb } from "@/components/AdminBreadcrumb";
 
 interface AuditLog {
   id: string;
@@ -90,6 +91,7 @@ export default function SessionAuditLog() {
 
   return (
     <div className="container mx-auto p-6">
+      <AdminBreadcrumb section="Almaza Bay" currentPage="Session Audit Log" />
       <div className="mb-6">
         <div className="flex items-center gap-4">
           <SlideMenu isAdmin={userRole === 'admin'} />
