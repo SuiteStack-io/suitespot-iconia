@@ -2,7 +2,7 @@ import { useEffect, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { supabase } from '@/integrations/supabase/client';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
-import { Calendar, LogIn, LogOut, TrendingUp, DollarSign } from 'lucide-react';
+import { Calendar, LogIn, LogOut, TrendingUp, DollarSign, CheckCircle } from 'lucide-react';
 import { format } from 'date-fns';
 import { ConflictAlert } from './ConflictAlert';
 import { PendingAssignmentsAlert } from './PendingAssignmentsAlert';
@@ -15,6 +15,7 @@ import {
 } from '@/components/ui/dialog';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
+import { useToast } from '@/hooks/use-toast';
 
 interface DashboardStats {
   todayArrivals: number;
@@ -51,6 +52,7 @@ const statusColors = {
 
 export const Dashboard = () => {
   const navigate = useNavigate();
+  const { toast } = useToast();
   const [stats, setStats] = useState<DashboardStats>({
     todayArrivals: 0,
     todayDepartures: 0,
@@ -63,6 +65,7 @@ export const Dashboard = () => {
   const [dialogOpen, setDialogOpen] = useState(false);
   const [dialogTitle, setDialogTitle] = useState('');
   const [dialogReservations, setDialogReservations] = useState<Reservation[]>([]);
+  const [updating, setUpdating] = useState<string | null>(null);
 
   useEffect(() => {
     fetchStats();
@@ -192,6 +195,41 @@ export const Dashboard = () => {
     setDialogOpen(true);
   };
 
+  const handleStatusChange = async (reservationId: string, newStatus: string) => {
+    setUpdating(reservationId);
+    try {
+      const { error } = await supabase
+        .from('reservations')
+        .update({ status: newStatus })
+        .eq('id', reservationId);
+
+      if (error) throw error;
+
+      toast({
+        title: 'Success',
+        description: `Status updated to ${newStatus}`,
+      });
+
+      // Refresh the dialog reservations and stats
+      fetchStats();
+      // Re-fetch the current dialog data
+      const currentType = dialogReservations.length > 0 && dialogTitle.includes('Arrivals') ? 'arrivals' : 
+                          dialogTitle.includes('Departures') ? 'departures' : 
+                          dialogTitle.includes('In-House') ? 'inhouse' : 'newbookings';
+      if (dialogOpen) {
+        handleCardClick(currentType);
+      }
+    } catch (error: any) {
+      toast({
+        title: 'Error',
+        description: error.message,
+        variant: 'destructive',
+      });
+    } finally {
+      setUpdating(null);
+    }
+  };
+
   const statCards = [
     {
       title: "Today's Arrivals",
@@ -283,7 +321,7 @@ export const Dashboard = () => {
                 >
                   <CardContent className="p-4">
                     <div className="flex flex-col md:flex-row md:items-center justify-between gap-2">
-                      <div className="space-y-1">
+                      <div className="space-y-1 flex-1">
                         {reservation.units?.unit_number && (
                           <p className="text-lg font-bold text-primary">
                             Room #{reservation.units.unit_number}
@@ -328,10 +366,43 @@ export const Dashboard = () => {
                           {reservation.units?.name || 'No unit assigned'}
                         </p>
                       </div>
-                      <div className="text-sm space-y-1">
-                        <p>Check-in: {format(new Date(reservation.check_in_date), 'MMM dd, yyyy')}</p>
-                        <p>Check-out: {format(new Date(reservation.check_out_date), 'MMM dd, yyyy')}</p>
-                        <p className="font-semibold">${reservation.total_price.toFixed(2)}</p>
+                      <div className="flex flex-col gap-2">
+                        <div className="text-sm space-y-1">
+                          <p>Check-in: {format(new Date(reservation.check_in_date), 'MMM dd, yyyy')}</p>
+                          <p>Check-out: {format(new Date(reservation.check_out_date), 'MMM dd, yyyy')}</p>
+                          <p className="font-semibold">${reservation.total_price.toFixed(2)}</p>
+                        </div>
+                        <div className="flex gap-2">
+                          {reservation.status === 'confirmed' && (
+                            <Button
+                              size="sm"
+                              onClick={(e) => {
+                                e.stopPropagation();
+                                handleStatusChange(reservation.id, 'checked-in');
+                              }}
+                              disabled={updating === reservation.id}
+                              className="gap-1"
+                            >
+                              <CheckCircle className="h-3 w-3" />
+                              Check In
+                            </Button>
+                          )}
+                          {reservation.status === 'checked-in' && (
+                            <Button
+                              size="sm"
+                              variant="outline"
+                              onClick={(e) => {
+                                e.stopPropagation();
+                                handleStatusChange(reservation.id, 'checked-out');
+                              }}
+                              disabled={updating === reservation.id}
+                              className="gap-1"
+                            >
+                              <CheckCircle className="h-3 w-3" />
+                              Check Out
+                            </Button>
+                          )}
+                        </div>
                       </div>
                     </div>
                   </CardContent>
