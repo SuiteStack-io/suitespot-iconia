@@ -40,10 +40,10 @@ serve(async (req) => {
     console.log(`Original dimensions: ${originalWidth}x${originalHeight}`);
 
     const sizes = [
-      { name: 'sm', width: 640 },
-      { name: 'md', width: 1280 },
-      { name: 'lg', width: 1920 },
-      { name: 'blur', width: 20 }
+      { name: 'sm', width: 640, quality: 70 },  // Lower quality for mobile
+      { name: 'md', width: 1280, quality: 80 },
+      { name: 'lg', width: 1920, quality: 80 },
+      { name: 'blur', width: 20, quality: 10 }
     ];
 
     const optimizedUrls: Record<string, string> = {};
@@ -55,9 +55,8 @@ serve(async (req) => {
       // Resize image
       const resized = image.resize(targetWidth, targetHeight);
 
-      // Encode to JPEG with quality setting (smaller file size than PNG)
-      const quality = size.name === 'blur' ? 10 : 80;
-      const encodedBuffer = await resized.encodeJPEG(quality);
+      // Encode to JPEG with size-specific quality setting
+      const encodedBuffer = await resized.encodeJPEG(size.quality);
 
       if (size.name === 'blur') {
         // Convert blur image to base64 for inline use

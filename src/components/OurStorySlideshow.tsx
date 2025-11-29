@@ -29,6 +29,26 @@ export const OurStorySlideshow = () => {
     return image.image_url_lg || image.image_url;
   };
 
+  // Preload first image for faster LCP
+  useEffect(() => {
+    if (images.length > 0) {
+      const firstImage = images[0];
+      const optimalUrl = getOptimalImageUrl(firstImage);
+      
+      // Create preload link
+      const link = document.createElement('link');
+      link.rel = 'preload';
+      link.as = 'image';
+      link.href = optimalUrl;
+      link.fetchPriority = 'high';
+      document.head.appendChild(link);
+
+      return () => {
+        document.head.removeChild(link);
+      };
+    }
+  }, [images]);
+
   useEffect(() => {
     fetchImages();
 
@@ -110,9 +130,10 @@ export const OurStorySlideshow = () => {
           className="flex overflow-x-auto scrollbar-hide scroll-smooth snap-x snap-mandatory h-full"
           style={{ scrollbarWidth: 'none', msOverflowStyle: 'none' }}
         >
-          {images.map((image) => {
+          {images.map((image, index) => {
             const optimalUrl = getOptimalImageUrl(image);
             const isLoaded = loadedImages.has(image.id);
+            const isFirstImage = index === 0;
             
             return (
               <div 
@@ -136,7 +157,8 @@ export const OurStorySlideshow = () => {
                   className={`w-full h-full object-cover transition-opacity duration-500 ${
                     isLoaded ? 'opacity-100' : 'opacity-0'
                   }`}
-                  loading="lazy"
+                  loading={isFirstImage ? "eager" : "lazy"}
+                  fetchPriority={isFirstImage ? "high" : "auto"}
                   onLoad={() => {
                     setLoadedImages(prev => new Set(prev).add(image.id));
                   }}
