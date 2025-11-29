@@ -79,6 +79,23 @@ serve(async (req) => {
       );
     }
 
+    // Get previous cleaning counts for each reservation
+    const reservationIds = reservationsNeedingCleaning.map((r: any) => r.id);
+    const { data: cleaningLogs, error: logsError } = await supabase
+      .from('housekeeping_logs')
+      .select('reservation_id')
+      .in('reservation_id', reservationIds);
+
+    if (logsError) {
+      console.error('Error fetching cleaning logs:', logsError);
+    }
+
+    // Count cleanings per reservation
+    const cleaningCounts = (cleaningLogs || []).reduce((acc: Record<string, number>, log: any) => {
+      acc[log.reservation_id] = (acc[log.reservation_id] || 0) + 1;
+      return acc;
+    }, {} as Record<string, number>);
+
     // Get all admin and housekeeping users
     const { data: users, error: usersError } = await supabase
       .rpc('get_all_users_with_emails');
@@ -97,16 +114,34 @@ serve(async (req) => {
     // Build email content
     const emailSubject = `Mid-Stay Cleaning Required - ${reservationsNeedingCleaning.length} Room${reservationsNeedingCleaning.length > 1 ? 's' : ''}`;
     
+    const formatDate = (dateString: string) => {
+      const date = new Date(dateString);
+      return date.toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' });
+    };
+
     const emailHtml = `
       <h2>Mid-Stay Cleaning Notification</h2>
       <p>The following room${reservationsNeedingCleaning.length > 1 ? 's need' : ' needs'} mid-stay cleaning today (4th day of stay):</p>
-      <ul>
+      <ul style="list-style: none; padding-left: 0;">
         ${reservationsNeedingCleaning.map((r: any) => {
           const unit = Array.isArray(r.units) ? r.units[0] : r.units;
           const unitName = unit?.name || 'Unknown Unit';
           const unitNumber = unit?.unit_number || '';
           const guestName = r.guest_names?.[0] || 'Unknown Guest';
-          return `<li><strong>${unitName}${unitNumber ? ` (${unitNumber})` : ''}</strong> - Guest: ${guestName}</li>`;
+          const checkIn = formatDate(r.check_in_date);
+          const checkOut = formatDate(r.check_out_date);
+          const cleaningCount = cleaningCounts[r.id] || 0;
+          return `
+            <li style="margin-bottom: 20px; padding: 15px; background-color: #f9f9f9; border-left: 4px solid #4CAF50;">
+              <strong style="font-size: 16px;">${unitName}${unitNumber ? ` (${unitNumber})` : ''}</strong> - Guest: ${guestName}
+              <br/>
+              <span style="color: #666; font-size: 14px;">
+                Check-in: ${checkIn} | Check-out: ${checkOut}
+                <br/>
+                Previous cleanings this stay: ${cleaningCount}
+              </span>
+            </li>
+          `;
         }).join('')}
       </ul>
       <p>Please ensure these rooms receive their mid-stay cleaning service today.</p>
