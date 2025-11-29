@@ -21,13 +21,23 @@ export const HeroSlideshow = () => {
   const touchStartX = useRef<number>(0);
   const touchEndX = useRef<number>(0);
 
+  // Convert path to full URL if needed
+  const getFullUrl = (path: string | null | undefined) => {
+    if (!path) return '';
+    if (path.startsWith('http')) return path; // Already full URL
+    if (path.startsWith('data:')) return path; // Base64 data URL
+    // Relative path - construct full URL
+    const supabaseUrl = import.meta.env.VITE_SUPABASE_URL;
+    return `${supabaseUrl}/storage/v1/object/public${path}`;
+  };
+
   // Get optimal image URL based on viewport width
   const getOptimalImageUrl = (image: SlideshowImage) => {
-    if (typeof window === 'undefined') return image.image_url;
+    if (typeof window === 'undefined') return getFullUrl(image.image_url);
     const width = window.innerWidth;
-    if (width <= 768 && image.image_url_sm) return image.image_url_sm;
-    if (width <= 1440 && image.image_url_md) return image.image_url_md;
-    return image.image_url_lg || image.image_url;
+    if (width <= 768 && image.image_url_sm) return getFullUrl(image.image_url_sm);
+    if (width <= 1440 && image.image_url_md) return getFullUrl(image.image_url_md);
+    return getFullUrl(image.image_url_lg || image.image_url);
   };
 
   // Preload first image for faster LCP
