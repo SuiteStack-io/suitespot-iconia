@@ -107,7 +107,7 @@ const handler = async (req: Request): Promise<Response> => {
     const emailPromises = adminUsers.map(async (admin: any) => {
       try {
         const emailResponse = await resend.emails.send({
-          from: "SuiteSpot Almaza <onboarding@resend.dev>",
+          from: "SuiteSpot Almaza <almaza@bookings.suitespoteg.com>",
           to: [admin.email],
           subject: "🎉 New KYC Questionnaire Completed",
           html: `

@@ -54,7 +54,7 @@ serve(async (req) => {
     const emailPromises = admins.map(async (admin: any) => {
       try {
         const emailResponse = await resend.emails.send({
-          from: "SuiteSpot Notifications <onboarding@resend.dev>",
+          from: "SuiteSpot Notifications <notifications@bookings.suitespoteg.com>",
           to: [admin.email],
           subject: `🚨 ${title}`,
           html: `

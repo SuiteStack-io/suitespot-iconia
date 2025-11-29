@@ -37,7 +37,7 @@ const handler = async (req: Request): Promise<Response> => {
     console.log("Sending credentials to:", email);
 
     const emailResponse = await resend.emails.send({
-      from: "SuiteSpot <onboarding@resend.dev>",
+      from: "SuiteSpot <welcome@bookings.suitespoteg.com>",
       to: [email],
       subject: "Welcome to SuiteSpot - Your Guest Portal Access",
       html: `

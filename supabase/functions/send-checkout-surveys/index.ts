@@ -54,7 +54,7 @@ const handler = async (req: Request): Promise<Response> => {
 
           // Send email
           const emailResponse = await resend.emails.send({
-            from: "SuiteSpot <onboarding@resend.dev>",
+            from: "SuiteSpot <feedback@bookings.suitespoteg.com>",
             to: [reservation.contact_email],
             subject: "How was your stay with us?",
             html: `
