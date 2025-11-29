@@ -5,9 +5,11 @@ import { GmailSyncStatus } from "@/components/GmailSyncStatus";
 import SurveyTrigger from "@/components/SurveyTrigger";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
-import { ArrowLeft, Activity } from "lucide-react";
+import { Activity } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import { formatDistanceToNow } from "date-fns";
+import { SlideMenu } from "@/components/SlideMenu";
+import { useAuth } from "@/lib/auth";
 
 export default function Settings() {
   const navigate = useNavigate();
@@ -15,6 +17,7 @@ export default function Settings() {
   const [isAdmin, setIsAdmin] = useState(false);
   const [syncLogs, setSyncLogs] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
+  const { userRole } = useAuth();
 
   useEffect(() => {
     checkAuth();
@@ -75,13 +78,7 @@ export default function Settings() {
     <div className="min-h-screen bg-background">
       <div className="container mx-auto px-4 py-8 max-w-4xl">
         <div className="flex items-center gap-4 mb-8">
-          <Button
-            variant="ghost"
-            size="icon"
-            onClick={() => navigate('/')}
-          >
-            <ArrowLeft className="h-5 w-5" />
-          </Button>
+          <SlideMenu isAdmin={isAdmin} />
           <div>
             <h1 className="text-3xl font-bold">Settings</h1>
             <p className="text-muted-foreground">Manage your system configuration</p>

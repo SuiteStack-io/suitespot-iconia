@@ -5,6 +5,9 @@ import { Badge } from "@/components/ui/badge";
 import { useToast } from "@/hooks/use-toast";
 import { Clock, UserCircle, FileText } from "lucide-react";
 import { format } from "date-fns";
+import { SlideMenu } from "@/components/SlideMenu";
+import { useAuth } from "@/lib/auth";
+import { useNavigate } from "react-router-dom";
 
 interface AuditLog {
   id: string;
@@ -21,6 +24,8 @@ export default function SessionAuditLog() {
   const [logs, setLogs] = useState<AuditLog[]>([]);
   const [loading, setLoading] = useState(true);
   const { toast } = useToast();
+  const { userRole } = useAuth();
+  const navigate = useNavigate();
 
   const fetchAuditLogs = async () => {
     try {
@@ -85,10 +90,15 @@ export default function SessionAuditLog() {
   return (
     <div className="container mx-auto p-6">
       <div className="mb-6">
-        <h1 className="text-3xl font-bold mb-2">Session Audit Log</h1>
-        <p className="text-muted-foreground">
-          Complete history of all selection session management actions
-        </p>
+        <div className="flex items-center gap-4">
+          <SlideMenu isAdmin={userRole === 'admin'} />
+          <div>
+            <h1 className="text-3xl font-bold mb-2">Session Audit Log</h1>
+            <p className="text-muted-foreground">
+              Complete history of all selection session management actions
+            </p>
+          </div>
+        </div>
       </div>
 
       <Card>

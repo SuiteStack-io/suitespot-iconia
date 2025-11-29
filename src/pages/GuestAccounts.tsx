@@ -11,8 +11,9 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { toast } from "sonner";
-import { ArrowLeft, Key, Ban, CheckCircle, Copy, UserPlus, Loader2 } from "lucide-react";
+import { Key, Ban, CheckCircle, Copy, UserPlus, Loader2 } from "lucide-react";
 import { format } from "date-fns";
+import { SlideMenu } from "@/components/SlideMenu";
 
 async function hashPassword(password: string): Promise<string> {
   const encoder = new TextEncoder();
@@ -64,7 +65,7 @@ interface GuestAccount {
 
 export default function GuestAccounts() {
   const navigate = useNavigate();
-  const { user } = useAuth();
+  const { user, userRole } = useAuth();
   const [loading, setLoading] = useState(true);
   const [accounts, setAccounts] = useState<GuestAccount[]>([]);
   const [resetDialogOpen, setResetDialogOpen] = useState(false);
@@ -269,9 +270,7 @@ export default function GuestAccounts() {
     <div className="container mx-auto py-8 px-4">
       <div className="flex items-center justify-between mb-6">
         <div className="flex items-center gap-4">
-          <Button variant="ghost" size="icon" onClick={() => navigate("/admin")}>
-            <ArrowLeft className="h-5 w-5" />
-          </Button>
+          <SlideMenu isAdmin={userRole === 'admin'} />
           <h1 className="text-3xl font-bold">App Accounts Management</h1>
         </div>
         <Button onClick={() => setCreateDialogOpen(true)}>

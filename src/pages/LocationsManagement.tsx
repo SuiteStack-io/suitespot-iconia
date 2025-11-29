@@ -2,16 +2,19 @@ import { useEffect, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { supabase } from "@/integrations/supabase/client";
 import { Button } from "@/components/ui/button";
-import { ArrowLeft, Map } from "lucide-react";
+import { Map } from "lucide-react";
 import LocationManager from "@/components/admin/LocationManager";
 import AmenitiesManager from "@/components/admin/AmenitiesManager";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { SlideMenu } from "@/components/SlideMenu";
+import { useAuth } from "@/lib/auth";
 
 const LocationsManagement = () => {
   const navigate = useNavigate();
   const [units, setUnits] = useState<any[]>([]);
   const [selectedUnitId, setSelectedUnitId] = useState<string>("");
   const [loading, setLoading] = useState(true);
+  const { userRole } = useAuth();
 
   useEffect(() => {
     fetchUnits();
@@ -51,9 +54,7 @@ const LocationsManagement = () => {
     <div className="min-h-screen bg-background">
       <div className="container mx-auto px-4 py-8 max-w-6xl">
         <div className="flex items-center gap-4 mb-8">
-          <Button variant="ghost" size="icon" onClick={() => navigate("/admin")}>
-            <ArrowLeft className="h-5 w-5" />
-          </Button>
+          <SlideMenu isAdmin={userRole === 'admin'} />
           <div className="flex-1">
             <div className="flex items-center gap-2">
               <Map className="h-8 w-8 text-primary" />

@@ -3,15 +3,18 @@ import { useNavigate } from "react-router-dom";
 import { Button } from "@/components/ui/button";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { ArrowLeft, Upload, Image as ImageIcon, FileText } from "lucide-react";
+import { Upload, Image as ImageIcon, FileText } from "lucide-react";
 import MediaUploader from "@/components/media/MediaUploader";
 import MediaGallery from "@/components/media/MediaGallery";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
+import { SlideMenu } from "@/components/SlideMenu";
+import { useAuth } from "@/lib/auth";
 
 const MediaLibrary = () => {
   const navigate = useNavigate();
   const [isUploadOpen, setIsUploadOpen] = useState(false);
   const [refreshKey, setRefreshKey] = useState(0);
+  const { userRole } = useAuth();
 
   const handleUploadComplete = () => {
     setIsUploadOpen(false);
@@ -23,9 +26,7 @@ const MediaLibrary = () => {
       <div className="container mx-auto px-4 py-8 max-w-7xl">
         <div className="flex items-center justify-between mb-8">
           <div className="flex items-center gap-4">
-            <Button variant="ghost" size="icon" onClick={() => navigate("/admin")}>
-              <ArrowLeft className="h-5 w-5" />
-            </Button>
+            <SlideMenu isAdmin={userRole === 'admin'} />
             <div>
               <h1 className="text-3xl font-bold">Media Library</h1>
               <p className="text-muted-foreground mt-1">

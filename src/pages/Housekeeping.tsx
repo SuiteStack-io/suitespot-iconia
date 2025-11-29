@@ -4,11 +4,12 @@ import { supabase } from '@/integrations/supabase/client';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
-import { ArrowLeft, CheckCircle, Sparkles, AlertCircle } from 'lucide-react';
+import { CheckCircle, Sparkles, AlertCircle } from 'lucide-react';
 import { format } from 'date-fns';
 import { useToast } from '@/hooks/use-toast';
 import { useAuth } from '@/lib/auth';
 import { Checkbox } from '@/components/ui/checkbox';
+import { SlideMenu } from '@/components/SlideMenu';
 
 interface CleaningRoom {
   id: string;
@@ -24,7 +25,7 @@ interface CleaningRoom {
 const Housekeeping = () => {
   const navigate = useNavigate();
   const { toast } = useToast();
-  const { user, loading } = useAuth();
+  const { user, loading, userRole } = useAuth();
   const [rooms, setRooms] = useState<CleaningRoom[]>([]);
   const [selectedRooms, setSelectedRooms] = useState<Set<string>>(new Set());
   const [updating, setUpdating] = useState<string | null>(null);
@@ -170,25 +171,8 @@ const Housekeeping = () => {
     <div className="min-h-screen bg-background p-6">
       <div className="container mx-auto max-w-4xl">
         <div className="mb-8">
-          {/* Mobile back button - icon only */}
-          <Button 
-            variant="ghost" 
-            onClick={() => navigate('/admin')}
-            className="md:hidden mb-4 -ml-2"
-          >
-            <ArrowLeft className="h-5 w-5" />
-          </Button>
-          
-          {/* Desktop back button with text */}
           <div className="flex items-center gap-4">
-            <Button 
-              variant="ghost" 
-              onClick={() => navigate('/admin')}
-              className="hidden md:flex items-center gap-2 -ml-2"
-            >
-              <ArrowLeft className="h-5 w-5" />
-              <span>Back</span>
-            </Button>
+            <SlideMenu isAdmin={userRole === 'admin'} />
             <div>
               <h1 className="text-3xl font-bold mb-2 flex items-center gap-2">
                 <Sparkles className="h-8 w-8 text-primary" />

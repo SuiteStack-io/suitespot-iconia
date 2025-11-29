@@ -5,7 +5,7 @@ import { supabase } from '@/integrations/supabase/client';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
-import { ArrowLeft, Save, Plus, Pencil, X, Upload, Trash2, Eye, ChevronDown, Copy, Image as ImageIcon, GripVertical } from 'lucide-react';
+import { Save, Plus, Pencil, X, Upload, Trash2, Eye, ChevronDown, Copy, Image as ImageIcon, GripVertical } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
 import { Progress } from '@/components/ui/progress';
 import {
@@ -55,6 +55,7 @@ import {
   verticalListSortingStrategy,
 } from '@dnd-kit/sortable';
 import { CSS } from '@dnd-kit/utilities';
+import { SlideMenu } from '@/components/SlideMenu';
 
 interface Unit {
   id: string;
@@ -785,10 +786,7 @@ const Rooms = () => {
         <div className="container mx-auto px-4 py-4">
           <div className="flex items-center justify-between">
             <div className="flex items-center gap-4">
-              <Button variant="ghost" size="sm" onClick={() => navigate('/admin')}>
-                <ArrowLeft className="h-4 w-4 mr-2" />
-                Back
-              </Button>
+              <SlideMenu isAdmin={userRole === 'admin'} />
               <h1 className="text-2xl font-bold">Rooms Management</h1>
             </div>
             {isAdmin && (
