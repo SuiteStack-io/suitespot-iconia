@@ -5,9 +5,10 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { useToast } from "@/hooks/use-toast";
-import { Clock, XCircle, Plus, ArrowLeft } from "lucide-react";
+import { Clock, XCircle, Plus } from "lucide-react";
 import { formatDistanceToNow } from "date-fns";
 import { useAuth } from "@/lib/auth";
+import { SlideMenu } from "@/components/SlideMenu";
 
 interface SelectionSession {
   id: string;
@@ -207,35 +208,20 @@ export default function SelectionSessions() {
   }
 
   return (
-    <div className="container mx-auto p-6">
-      <div className="mb-6">
-        {/* Mobile back button - icon only */}
-        <Button 
-          variant="ghost" 
-          onClick={() => navigate('/admin')}
-          className="md:hidden mb-4 -ml-2"
-        >
-          <ArrowLeft className="h-5 w-5" />
-        </Button>
-        
-        {/* Desktop back button with text */}
-        <div className="flex items-center gap-4">
-          <Button 
-            variant="ghost" 
-            onClick={() => navigate('/admin')}
-            className="hidden md:flex items-center gap-2 -ml-2"
-          >
-            <ArrowLeft className="h-5 w-5" />
-            <span>Back</span>
-          </Button>
+    <div className="min-h-screen bg-background">
+      <header className="border-b bg-card">
+        <div className="container mx-auto px-4 py-4 flex items-center gap-4">
+          <SlideMenu isAdmin={userRole === 'admin'} />
           <div>
-            <h1 className="text-3xl font-bold mb-2">Almaza Bay KYC Results</h1>
-            <p className="text-muted-foreground">
+            <h1 className="text-xl font-bold">Almaza Bay KYC Results</h1>
+            <p className="text-sm text-muted-foreground hidden md:block">
               Manage active guest selection sessions and access times
             </p>
           </div>
         </div>
-      </div>
+      </header>
+
+      <main className="container mx-auto px-4 py-8">
 
       <Card>
         <CardHeader>
@@ -318,6 +304,7 @@ export default function SelectionSessions() {
           )}
         </CardContent>
       </Card>
+      </main>
     </div>
   );
 }
