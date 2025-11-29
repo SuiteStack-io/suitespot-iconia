@@ -20,6 +20,3 @@ verify_jwt = false
 
 [functions.push-availability-booking-com]
 verify_jwt = false
-
-[functions.send-mid-stay-cleaning-notifications]
-verify_jwt = false
