@@ -6,7 +6,7 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { TicketList } from "@/components/tickets/TicketList";
 import { TicketFilters } from "@/components/tickets/TicketFilters";
 import { TicketStats } from "@/components/tickets/TicketStats";
-import { AlertCircle } from "lucide-react";
+import { AlertCircle, ArrowLeft } from "lucide-react";
 import { Alert, AlertDescription } from "@/components/ui/alert";
 import { Button } from "@/components/ui/button";
 import { SlideMenu } from "@/components/SlideMenu";
@@ -106,6 +106,27 @@ export default function GuestTickets() {
     <div className="min-h-screen bg-background p-6 space-y-6">
       <div className="flex items-center gap-4 mb-6">
         <SlideMenu isAdmin={userRole === 'admin'} />
+        
+        {/* Mobile back button - icon only */}
+        <Button 
+          variant="ghost" 
+          onClick={() => navigate('/admin')}
+          className="md:hidden"
+          size="icon"
+        >
+          <ArrowLeft className="h-5 w-5" />
+        </Button>
+        
+        {/* Desktop back button with text */}
+        <Button 
+          variant="ghost" 
+          onClick={() => navigate('/admin')}
+          className="hidden md:flex items-center gap-2"
+        >
+          <ArrowLeft className="h-4 w-4" />
+          Back
+        </Button>
+        
         <div>
           <h1 className="text-3xl font-bold text-foreground">Guest Tickets</h1>
           <p className="text-muted-foreground">

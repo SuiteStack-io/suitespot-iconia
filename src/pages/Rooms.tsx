@@ -5,7 +5,7 @@ import { supabase } from '@/integrations/supabase/client';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
-import { Save, Plus, Pencil, X, Upload, Trash2, Eye, ChevronDown, Copy, Image as ImageIcon, GripVertical } from 'lucide-react';
+import { Save, Plus, Pencil, X, Upload, Trash2, Eye, ChevronDown, Copy, Image as ImageIcon, GripVertical, ArrowLeft } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
 import { Progress } from '@/components/ui/progress';
 import {
@@ -787,6 +787,27 @@ const Rooms = () => {
           <div className="flex items-center justify-between">
             <div className="flex items-center gap-4">
               <SlideMenu isAdmin={userRole === 'admin'} />
+              
+              {/* Mobile back button - icon only */}
+              <Button 
+                variant="ghost" 
+                onClick={() => navigate('/admin')}
+                className="md:hidden"
+                size="icon"
+              >
+                <ArrowLeft className="h-5 w-5" />
+              </Button>
+              
+              {/* Desktop back button with text */}
+              <Button 
+                variant="ghost" 
+                onClick={() => navigate('/admin')}
+                className="hidden md:flex items-center gap-2"
+              >
+                <ArrowLeft className="h-4 w-4" />
+                Back
+              </Button>
+              
               <h1 className="text-2xl font-bold">Rooms Management</h1>
             </div>
             {isAdmin && (

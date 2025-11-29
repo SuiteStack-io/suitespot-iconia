@@ -8,7 +8,7 @@ import { Badge } from "@/components/ui/badge";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { Copy, ExternalLink, Search, X, Send, Mail, MessageCircle, Plus, Check, XCircle } from "lucide-react";
+import { Copy, ExternalLink, Search, X, Send, Mail, MessageCircle, Plus, Check, XCircle, ArrowLeft } from "lucide-react";
 import { InventorySelectionModal } from "@/components/InventorySelectionModal";
 import { SelectionCredentialsModal } from "@/components/SelectionCredentialsModal";
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from "@/components/ui/dropdown-menu";
@@ -352,10 +352,31 @@ We'll get back to you within 3 hours with personalized recommendations!`;
 
   return (
     <div className="min-h-screen bg-background p-4 md:p-8">
-      <div className="max-w-7xl mx-auto space-y-6">
+        <div className="max-w-7xl mx-auto space-y-6">
         <div className="flex items-center justify-between w-full">
           <div className="flex items-center gap-4">
             <SlideMenu isAdmin={userRole === 'admin'} />
+            
+            {/* Mobile back button - icon only */}
+            <Button 
+              variant="ghost" 
+              onClick={() => navigate('/admin')}
+              className="md:hidden"
+              size="icon"
+            >
+              <ArrowLeft className="h-5 w-5" />
+            </Button>
+            
+            {/* Desktop back button with text */}
+            <Button 
+              variant="ghost" 
+              onClick={() => navigate('/admin')}
+              className="hidden md:flex items-center gap-2"
+            >
+              <ArrowLeft className="h-4 w-4" />
+              Back
+            </Button>
+            
             <div>
               <h1 className="text-3xl font-bold">KYC Link Management</h1>
               <p className="text-muted-foreground">Track and manage all generated KYC links</p>

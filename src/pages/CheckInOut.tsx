@@ -4,7 +4,7 @@ import { supabase } from '@/integrations/supabase/client';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
-import { LogIn, LogOut, CheckCircle, Filter, SortAsc } from 'lucide-react';
+import { LogIn, LogOut, CheckCircle, Filter, SortAsc, ArrowLeft } from 'lucide-react';
 import { format } from 'date-fns';
 import { useToast } from '@/hooks/use-toast';
 import { useAuth } from '@/lib/auth';
@@ -298,6 +298,27 @@ const CheckInOut = () => {
         <div className="mb-8">
           <div className="flex items-center gap-4">
             <SlideMenu isAdmin={userRole === 'admin'} />
+            
+            {/* Mobile back button - icon only */}
+            <Button 
+              variant="ghost" 
+              onClick={() => navigate('/admin')}
+              className="md:hidden"
+              size="icon"
+            >
+              <ArrowLeft className="h-5 w-5" />
+            </Button>
+            
+            {/* Desktop back button with text */}
+            <Button 
+              variant="ghost" 
+              onClick={() => navigate('/admin')}
+              className="hidden md:flex items-center gap-2"
+            >
+              <ArrowLeft className="h-4 w-4" />
+              Back
+            </Button>
+            
             <div>
               <h1 className="text-3xl font-bold mb-2">Check-In / Check-Out</h1>
               <p className="text-muted-foreground">

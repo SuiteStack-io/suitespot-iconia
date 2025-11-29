@@ -12,7 +12,7 @@ import {
 } from "@/components/ui/table";
 import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
-import { Search, ChevronLeft, ChevronRight, Download } from "lucide-react";
+import { Search, ChevronLeft, ChevronRight, Download, ArrowLeft } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { format, startOfWeek, addDays, addWeeks, subWeeks, isSameDay, isWithinInterval, startOfMonth, endOfMonth, addMonths, subMonths, isSameMonth } from "date-fns";
@@ -315,16 +315,37 @@ const Guests = () => {
   return (
     <div className="min-h-screen bg-background p-4 md:p-8">
       <div className="max-w-7xl mx-auto">
-        <div className="flex items-center justify-between mb-6">
-          <div className="flex items-center gap-4">
-            <SlideMenu isAdmin={userRole === 'admin'} />
-            <div>
-              <h1 className="text-3xl font-bold">Guests</h1>
-              {!isMobile && (
-                <p className="text-muted-foreground">All guest records from reservations</p>
-              )}
+          <div className="flex items-center justify-between mb-6">
+            <div className="flex items-center gap-4">
+              <SlideMenu isAdmin={userRole === 'admin'} />
+              
+              {/* Mobile back button - icon only */}
+              <Button 
+                variant="ghost" 
+                onClick={() => navigate('/admin')}
+                className="md:hidden"
+                size="icon"
+              >
+                <ArrowLeft className="h-5 w-5" />
+              </Button>
+              
+              {/* Desktop back button with text */}
+              <Button 
+                variant="ghost" 
+                onClick={() => navigate('/admin')}
+                className="hidden md:flex items-center gap-2"
+              >
+                <ArrowLeft className="h-4 w-4" />
+                Back
+              </Button>
+              
+              <div>
+                <h1 className="text-3xl font-bold">Guests</h1>
+                {!isMobile && (
+                  <p className="text-muted-foreground">All guest records from reservations</p>
+                )}
+              </div>
             </div>
-          </div>
           
           <Button onClick={exportToCSV} variant="outline">
             <Download className="h-4 w-4 mr-2" />
