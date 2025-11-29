@@ -6,7 +6,7 @@ import { ReservationsList } from '@/components/ReservationsList';
 import { WeeklyCalendar } from '@/components/WeeklyCalendar';
 import { CreateReservationDialog } from '@/components/CreateReservationDialog';
 import { Button } from '@/components/ui/button';
-import { LogOut, CalendarDays, ChevronDown, DoorOpen, Home, Settings as SettingsIcon, RefreshCw, Upload, Ticket, BarChart3, Bell, Map, Image as ImageIcon, UserCircle, ArrowUp } from 'lucide-react';
+import { LogOut, CalendarDays, ChevronDown, DoorOpen, Home, Settings as SettingsIcon, RefreshCw, Upload, Ticket, BarChart3, Bell, Map, Image as ImageIcon, UserCircle, ArrowUp, DoorClosed } from 'lucide-react';
 import { NotificationBell } from '@/components/NotificationBell';
 import suitespotLogo from '@/assets/suitespot-logo.png';
 import { useIsMobile } from '@/hooks/use-mobile';
@@ -120,6 +120,7 @@ const Index = () => {
                     </DropdownMenuTrigger>
                     <DropdownMenuContent align="end">
                       <DropdownMenuItem onClick={() => navigate('/calendar')}>Calendar</DropdownMenuItem>
+                      <DropdownMenuItem onClick={() => navigate('/check-in-out')}>Check-In/Out</DropdownMenuItem>
                       <DropdownMenuItem onClick={() => navigate('/rooms')}>ICONIA Rooms</DropdownMenuItem>
                       {isAdmin && (
                         <>
@@ -156,8 +157,18 @@ const Index = () => {
                 </Button>
               </DropdownMenuTrigger>
               <DropdownMenuContent align="end">
-                <DropdownMenuItem onClick={() => navigate('/calendar')}>Calendar</DropdownMenuItem>
-                <DropdownMenuItem onClick={() => navigate('/rooms')}>ICONIA Rooms</DropdownMenuItem>
+                <DropdownMenuItem onClick={() => navigate('/calendar')}>
+                  <CalendarDays className="mr-2 h-4 w-4" />
+                  Calendar
+                </DropdownMenuItem>
+                <DropdownMenuItem onClick={() => navigate('/check-in-out')}>
+                  <DoorClosed className="mr-2 h-4 w-4" />
+                  Check-In/Out
+                </DropdownMenuItem>
+                <DropdownMenuItem onClick={() => navigate('/rooms')}>
+                  <DoorOpen className="mr-2 h-4 w-4" />
+                  ICONIA Rooms
+                </DropdownMenuItem>
                 {isAdmin && (
                   <>
                     <DropdownMenuSeparator />

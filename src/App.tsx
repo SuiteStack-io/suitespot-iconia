@@ -49,6 +49,7 @@ import SelectionLogin from "./pages/SelectionLogin";
 import SelectionLanding from "./pages/SelectionLanding";
 import SelectionSessions from "./pages/SelectionSessions";
 import SessionAuditLog from "./pages/SessionAuditLog";
+import CheckInOut from "./pages/CheckInOut";
 
 const queryClient = new QueryClient();
 
@@ -99,6 +100,7 @@ const App = () => (
               {/* Admin Routes - For internal management */}
               <Route path="/admin" element={<ProtectedRoute><Index /></ProtectedRoute>} />
               <Route path="/auth" element={<Auth />} />
+              <Route path="/check-in-out" element={<ProtectedRoute><CheckInOut /></ProtectedRoute>} />
               <Route path="/calendar" element={<ProtectedRoute><Calendar /></ProtectedRoute>} />
               <Route path="/reservation/:id" element={<ProtectedRoute><ReservationDetail /></ProtectedRoute>} />
               <Route path="/users" element={<ProtectedRoute><Users /></ProtectedRoute>} />
