@@ -67,6 +67,7 @@ import {
 } from '@dnd-kit/sortable';
 import { CSS } from '@dnd-kit/utilities';
 import { SlideMenu } from '@/components/SlideMenu';
+import { AdminBreadcrumb } from '@/components/AdminBreadcrumb';
 
 interface Property {
   id: string;
@@ -1467,8 +1468,9 @@ const AlmazaBay = () => {
 
   return (
     <div className="min-h-screen bg-background font-['Playfair_Display']">
-      <header className="border-b bg-card">
-        <div className="container mx-auto px-4 py-6">
+      <header className="border-b bg-card sticky top-0 z-10">
+        <div className="container mx-auto px-4 py-4">
+          <AdminBreadcrumb section="Almaza Bay" currentPage="Properties" />
           <div className="flex items-center justify-between">
             <div className="flex items-center gap-4">
               <SlideMenu isAdmin={userRole === 'admin'} />
@@ -1587,7 +1589,6 @@ const AlmazaBay = () => {
               </div>
             )}
           </div>
-        </div>
         </div>
       </header>
 

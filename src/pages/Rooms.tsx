@@ -56,6 +56,7 @@ import {
 } from '@dnd-kit/sortable';
 import { CSS } from '@dnd-kit/utilities';
 import { SlideMenu } from '@/components/SlideMenu';
+import { AdminBreadcrumb } from '@/components/AdminBreadcrumb';
 
 interface Unit {
   id: string;
@@ -782,8 +783,9 @@ const Rooms = () => {
 
   return (
     <div className="min-h-screen bg-background">
-      <header className="border-b bg-card">
+      <header className="border-b bg-card sticky top-0 z-10">
         <div className="container mx-auto px-4 py-4">
+          <AdminBreadcrumb section="ICONIA" currentPage="Rooms" />
           <div className="flex items-center justify-between">
             <div className="flex items-center gap-4">
               <SlideMenu isAdmin={userRole === 'admin'} />
@@ -838,7 +840,6 @@ const Rooms = () => {
               </div>
             )}
           </div>
-        </div>
         </div>
       </header>
 
