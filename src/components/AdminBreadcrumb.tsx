@@ -11,9 +11,26 @@ import {
 interface AdminBreadcrumbProps {
   section: string;
   currentPage: string;
+  sectionPath?: string;
 }
 
-export function AdminBreadcrumb({ section, currentPage }: AdminBreadcrumbProps) {
+export function AdminBreadcrumb({ section, currentPage, sectionPath }: AdminBreadcrumbProps) {
+  // Auto-determine section path based on section name if not provided
+  const getSectionPath = () => {
+    if (sectionPath) return sectionPath;
+    
+    switch (section) {
+      case "ICONIA":
+        return "/rooms";
+      case "Almaza Bay":
+        return "/almaza-bay";
+      case "System":
+        return "/users";
+      default:
+        return "/admin";
+    }
+  };
+
   return (
     <Breadcrumb className="mb-4">
       <BreadcrumbList>
@@ -24,7 +41,11 @@ export function AdminBreadcrumb({ section, currentPage }: AdminBreadcrumbProps) 
         </BreadcrumbItem>
         <BreadcrumbSeparator />
         <BreadcrumbItem>
-          <BreadcrumbPage className="text-muted-foreground">{section}</BreadcrumbPage>
+          <BreadcrumbLink asChild>
+            <Link to={getSectionPath()} className="hover:text-primary transition-colors">
+              {section}
+            </Link>
+          </BreadcrumbLink>
         </BreadcrumbItem>
         <BreadcrumbSeparator />
         <BreadcrumbItem>
