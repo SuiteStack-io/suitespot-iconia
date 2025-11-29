@@ -5,7 +5,7 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { useToast } from "@/hooks/use-toast";
-import { Clock, XCircle, Plus } from "lucide-react";
+import { Clock, XCircle, Plus, ArrowLeft } from "lucide-react";
 import { formatDistanceToNow } from "date-fns";
 import { useAuth } from "@/lib/auth";
 import { SlideMenu } from "@/components/SlideMenu";
@@ -212,6 +212,27 @@ export default function SelectionSessions() {
       <header className="border-b bg-card">
         <div className="container mx-auto px-4 py-4 flex items-center gap-4">
           <SlideMenu isAdmin={userRole === 'admin'} />
+          
+          {/* Mobile back button - icon only */}
+          <Button 
+            variant="ghost" 
+            onClick={() => navigate('/admin')}
+            className="md:hidden"
+            size="icon"
+          >
+            <ArrowLeft className="h-5 w-5" />
+          </Button>
+          
+          {/* Desktop back button with text */}
+          <Button 
+            variant="ghost" 
+            onClick={() => navigate('/admin')}
+            className="hidden md:flex items-center gap-2"
+          >
+            <ArrowLeft className="h-4 w-4" />
+            Back
+          </Button>
+          
           <div>
             <h1 className="text-xl font-bold">Almaza Bay KYC Results</h1>
             <p className="text-sm text-muted-foreground hidden md:block">

@@ -1,13 +1,14 @@
 import { useEffect, useState } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { Card } from "@/components/ui/card";
+import { Button } from "@/components/ui/button";
 import { Skeleton } from "@/components/ui/skeleton";
 import TicketMetrics from "@/components/analytics/TicketMetrics";
 import ResolutionTimeChart from "@/components/analytics/ResolutionTimeChart";
 import TicketTypeChart from "@/components/analytics/TicketTypeChart";
 import SurveyAnalytics from "@/components/analytics/SurveyAnalytics";
 import StaySurveyAnalytics from "@/components/analytics/StaySurveyAnalytics";
-import { BarChart3 } from "lucide-react";
+import { BarChart3, ArrowLeft } from "lucide-react";
 import { SlideMenu } from "@/components/SlideMenu";
 import { useAuth } from "@/lib/auth";
 import { useNavigate } from "react-router-dom";
@@ -65,6 +66,27 @@ const TicketAnalytics = () => {
     <div className="container mx-auto p-6 space-y-6">
       <div className="flex items-center gap-3">
         <SlideMenu isAdmin={userRole === 'admin'} />
+        
+        {/* Mobile back button - icon only */}
+        <Button 
+          variant="ghost" 
+          onClick={() => navigate('/admin')}
+          className="md:hidden"
+          size="icon"
+        >
+          <ArrowLeft className="h-5 w-5" />
+        </Button>
+        
+        {/* Desktop back button with text */}
+        <Button 
+          variant="ghost" 
+          onClick={() => navigate('/admin')}
+          className="hidden md:flex items-center gap-2"
+        >
+          <ArrowLeft className="h-4 w-4" />
+          Back
+        </Button>
+        
         <BarChart3 className="h-8 w-8 text-primary" />
         <h1 className="text-3xl font-bold">Ticket Analytics</h1>
       </div>

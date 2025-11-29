@@ -2,7 +2,7 @@ import { useEffect, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { supabase } from "@/integrations/supabase/client";
 import { Button } from "@/components/ui/button";
-import { Map } from "lucide-react";
+import { Map, ArrowLeft } from "lucide-react";
 import LocationManager from "@/components/admin/LocationManager";
 import AmenitiesManager from "@/components/admin/AmenitiesManager";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
@@ -55,6 +55,27 @@ const LocationsManagement = () => {
       <div className="container mx-auto px-4 py-8 max-w-6xl">
         <div className="flex items-center gap-4 mb-8">
           <SlideMenu isAdmin={userRole === 'admin'} />
+          
+          {/* Mobile back button - icon only */}
+          <Button 
+            variant="ghost" 
+            onClick={() => navigate('/admin')}
+            className="md:hidden"
+            size="icon"
+          >
+            <ArrowLeft className="h-5 w-5" />
+          </Button>
+          
+          {/* Desktop back button with text */}
+          <Button 
+            variant="ghost" 
+            onClick={() => navigate('/admin')}
+            className="hidden md:flex items-center gap-2"
+          >
+            <ArrowLeft className="h-4 w-4" />
+            Back
+          </Button>
+          
           <div className="flex-1">
             <div className="flex items-center gap-2">
               <Map className="h-8 w-8 text-primary" />

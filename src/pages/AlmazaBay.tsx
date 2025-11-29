@@ -8,7 +8,7 @@ import { Label } from '@/components/ui/label';
 import { Textarea } from '@/components/ui/textarea';
 import { Switch } from '@/components/ui/switch';
 import { Checkbox } from '@/components/ui/checkbox';
-import { Save, Plus, Pencil, X, Upload, Trash2, Eye, ChevronDown, Copy, Image as ImageIcon, Lock, Globe, GripVertical, FileText, List, Download, FileUp, AlertCircle, Loader2 } from 'lucide-react';
+import { Save, Plus, Pencil, X, Upload, Trash2, Eye, ChevronDown, Copy, Image as ImageIcon, Lock, Globe, GripVertical, FileText, List, Download, FileUp, AlertCircle, Loader2, ArrowLeft } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
 import { Progress } from '@/components/ui/progress';
 import { PROPERTY_FEATURES } from '@/constants/propertyFeatures';
@@ -1472,6 +1472,27 @@ const AlmazaBay = () => {
           <div className="flex items-center justify-between">
             <div className="flex items-center gap-4">
               <SlideMenu isAdmin={userRole === 'admin'} />
+              
+              {/* Mobile back button - icon only */}
+              <Button 
+                variant="ghost" 
+                onClick={() => navigate('/admin')}
+                className="md:hidden"
+                size="icon"
+              >
+                <ArrowLeft className="h-5 w-5" />
+              </Button>
+              
+              {/* Desktop back button with text */}
+              <Button 
+                variant="ghost" 
+                onClick={() => navigate('/admin')}
+                className="hidden md:flex items-center gap-2"
+              >
+                <ArrowLeft className="h-4 w-4" />
+                Back
+              </Button>
+              
               <div>
                 <h1 className="text-5xl font-semibold tracking-tight" style={{ letterSpacing: '-0.02em' }}>
                   Almaza Bay Properties

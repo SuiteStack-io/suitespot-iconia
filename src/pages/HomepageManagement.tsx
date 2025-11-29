@@ -6,6 +6,7 @@ import { SlideshowManager } from '@/components/SlideshowManager';
 import { BlogManagement } from '@/components/BlogManagement';
 import { SlideMenu } from '@/components/SlideMenu';
 import { useAuth } from '@/lib/auth';
+import { ArrowLeft } from 'lucide-react';
 
 export default function HomepageManagement() {
   const navigate = useNavigate();
@@ -17,6 +18,27 @@ export default function HomepageManagement() {
       <div className="container mx-auto p-6">
         <div className="flex items-center gap-4 mb-6">
           <SlideMenu isAdmin={userRole === 'admin'} />
+          
+          {/* Mobile back button - icon only */}
+          <Button 
+            variant="ghost" 
+            onClick={() => navigate('/admin')}
+            className="md:hidden"
+            size="icon"
+          >
+            <ArrowLeft className="h-5 w-5" />
+          </Button>
+          
+          {/* Desktop back button with text */}
+          <Button 
+            variant="ghost" 
+            onClick={() => navigate('/admin')}
+            className="hidden md:flex items-center gap-2"
+          >
+            <ArrowLeft className="h-4 w-4" />
+            Back
+          </Button>
+          
           <h1 className="text-3xl font-bold">Content Management</h1>
         </div>
 

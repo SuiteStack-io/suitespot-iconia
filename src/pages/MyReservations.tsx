@@ -6,7 +6,7 @@ import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { Badge } from '@/components/ui/badge';
-import { DollarSign, TrendingUp, Calendar } from 'lucide-react';
+import { DollarSign, TrendingUp, Calendar, ArrowLeft } from 'lucide-react';
 import { format } from 'date-fns';
 import { SlideMenu } from '@/components/SlideMenu';
 
@@ -122,6 +122,27 @@ const MyReservations = () => {
         <div className="container mx-auto px-4 py-4">
           <div className="flex items-center gap-4 mb-2">
             <SlideMenu isAdmin={userRole === 'admin'} />
+            
+            {/* Mobile back button - icon only */}
+            <Button 
+              variant="ghost" 
+              onClick={() => navigate('/admin')}
+              className="md:hidden"
+              size="icon"
+            >
+              <ArrowLeft className="h-5 w-5" />
+            </Button>
+            
+            {/* Desktop back button with text */}
+            <Button 
+              variant="ghost" 
+              onClick={() => navigate('/admin')}
+              className="hidden md:flex items-center gap-2"
+            >
+              <ArrowLeft className="h-4 w-4" />
+              Back
+            </Button>
+            
             <span>Back to Dashboard</span>
           </div>
           <h1 className="text-2xl font-bold">My Reservations</h1>
