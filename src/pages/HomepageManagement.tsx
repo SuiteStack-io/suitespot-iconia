@@ -4,6 +4,7 @@ import { Button } from '@/components/ui/button';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { SlideshowManager } from '@/components/SlideshowManager';
 import { BlogManagement } from '@/components/BlogManagement';
+import { BulkImageOptimizer } from '@/components/BulkImageOptimizer';
 import { SlideMenu } from '@/components/SlideMenu';
 import { useAuth } from '@/lib/auth';
 import { ArrowLeft } from 'lucide-react';
@@ -43,10 +44,11 @@ export default function HomepageManagement() {
         </div>
 
         <Tabs value={activeTab} onValueChange={setActiveTab} className="w-full">
-          <TabsList className="grid w-full max-w-md grid-cols-3 mb-6">
+          <TabsList className="grid w-full max-w-2xl grid-cols-4 mb-6">
             <TabsTrigger value="homepage">Homepage</TabsTrigger>
             <TabsTrigger value="our-story">Our Story</TabsTrigger>
             <TabsTrigger value="blog">Blog</TabsTrigger>
+            <TabsTrigger value="optimization">Optimization</TabsTrigger>
           </TabsList>
 
           <TabsContent value="homepage" className="space-y-6">
@@ -67,6 +69,10 @@ export default function HomepageManagement() {
 
           <TabsContent value="blog" className="space-y-6">
             <BlogManagement />
+          </TabsContent>
+
+          <TabsContent value="optimization" className="space-y-6">
+            <BulkImageOptimizer />
           </TabsContent>
         </Tabs>
       </div>
