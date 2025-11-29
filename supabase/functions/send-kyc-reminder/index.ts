@@ -28,7 +28,7 @@ const handler = async (req: Request): Promise<Response> => {
     console.log("Sending KYC reminder to:", guestEmail);
 
     const emailResponse = await resend.emails.send({
-      from: "SuiteSpot Almaza <onboarding@resend.dev>",
+      from: "SuiteSpot Almaza <almaza@bookings.suitespoteg.com>",
       to: [guestEmail],
       subject: "Complete Your SuiteSpot Almaza Questionnaire",
       html: `

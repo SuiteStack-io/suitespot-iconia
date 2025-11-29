@@ -60,7 +60,7 @@ const handler = async (req: Request): Promise<Response> => {
     const statusInfo = statusMessages[ticketStatus] || statusMessages.open;
 
     const emailResponse = await resend.emails.send({
-      from: "SuiteSpot Support <onboarding@resend.dev>",
+      from: "SuiteSpot Support <support@bookings.suitespoteg.com>",
       to: [email],
       subject: `${statusInfo.subject} - ${ticketTitle}`,
       html: `

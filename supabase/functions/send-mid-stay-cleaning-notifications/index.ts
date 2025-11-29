@@ -160,7 +160,7 @@ serve(async (req) => {
 
       try {
         const { error: emailError } = await resend.emails.send({
-          from: 'SuiteSpot <onboarding@resend.dev>',
+          from: 'SuiteSpot Housekeeping <housekeeping@bookings.suitespoteg.com>',
           to: [user.email],
           subject: emailSubject,
           html: emailHtml,

@@ -27,7 +27,7 @@ const handler = async (req: Request): Promise<Response> => {
     console.log("Sending survey notification to:", guestEmail);
 
     const emailResponse = await resend.emails.send({
-      from: "SuiteSpot <onboarding@resend.dev>",
+      from: "SuiteSpot <feedback@bookings.suitespoteg.com>",
       to: [guestEmail],
       subject: "We'd love your feedback!",
       html: `
