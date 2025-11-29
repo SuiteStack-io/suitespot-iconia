@@ -8,7 +8,7 @@ import { Badge } from "@/components/ui/badge";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { ArrowLeft, Copy, ExternalLink, Search, X, Send, Mail, MessageCircle, Plus, Check, XCircle } from "lucide-react";
+import { Copy, ExternalLink, Search, X, Send, Mail, MessageCircle, Plus, Check, XCircle } from "lucide-react";
 import { InventorySelectionModal } from "@/components/InventorySelectionModal";
 import { SelectionCredentialsModal } from "@/components/SelectionCredentialsModal";
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from "@/components/ui/dropdown-menu";
@@ -18,6 +18,8 @@ import { format } from "date-fns";
 import { Calendar } from "@/components/ui/calendar";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { CalendarIcon } from "lucide-react";
+import { SlideMenu } from "@/components/SlideMenu";
+import { useAuth } from "@/lib/auth";
 
 interface KYCLink {
   id: string;
@@ -42,6 +44,7 @@ interface Property {
 
 export default function KYCManagement() {
   const navigate = useNavigate();
+  const { userRole } = useAuth();
   const [kycLinks, setKycLinks] = useState<KYCLink[]>([]);
   const [filteredLinks, setFilteredLinks] = useState<KYCLink[]>([]);
   const [properties, setProperties] = useState<Property[]>([]);
@@ -352,13 +355,7 @@ We'll get back to you within 3 hours with personalized recommendations!`;
       <div className="max-w-7xl mx-auto space-y-6">
         <div className="flex items-center justify-between w-full">
           <div className="flex items-center gap-4">
-            <Button
-              variant="ghost"
-              size="icon"
-              onClick={() => navigate("/almaza-bay")}
-            >
-              <ArrowLeft className="h-5 w-5" />
-            </Button>
+            <SlideMenu isAdmin={userRole === 'admin'} />
             <div>
               <h1 className="text-3xl font-bold">KYC Link Management</h1>
               <p className="text-muted-foreground">Track and manage all generated KYC links</p>

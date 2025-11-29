@@ -6,12 +6,15 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { TicketList } from "@/components/tickets/TicketList";
 import { TicketFilters } from "@/components/tickets/TicketFilters";
 import { TicketStats } from "@/components/tickets/TicketStats";
-import { AlertCircle, ArrowLeft } from "lucide-react";
+import { AlertCircle } from "lucide-react";
 import { Alert, AlertDescription } from "@/components/ui/alert";
 import { Button } from "@/components/ui/button";
+import { SlideMenu } from "@/components/SlideMenu";
+import { useAuth } from "@/lib/auth";
 
 export default function GuestTickets() {
   const navigate = useNavigate();
+  const { userRole } = useAuth();
   const [tickets, setTickets] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
   const [filters, setFilters] = useState({
@@ -102,10 +105,7 @@ export default function GuestTickets() {
   return (
     <div className="min-h-screen bg-background p-6 space-y-6">
       <div className="flex items-center gap-4 mb-6">
-        <Button variant="ghost" size="sm" onClick={() => navigate('/admin')}>
-          <ArrowLeft className="h-4 w-4 mr-2" />
-          Back
-        </Button>
+        <SlideMenu isAdmin={userRole === 'admin'} />
         <div>
           <h1 className="text-3xl font-bold text-foreground">Guest Tickets</h1>
           <p className="text-muted-foreground">

@@ -5,12 +5,12 @@ import { RoomCalendar } from '@/components/RoomCalendar';
 import { BlockedDatesManager } from '@/components/BlockedDatesManager';
 import { MobileCalendarView } from '@/components/MobileCalendarView';
 import { Button } from '@/components/ui/button';
-import { ArrowLeft } from 'lucide-react';
 import { useIsMobile } from '@/hooks/use-mobile';
 import suitespotLogo from '@/assets/suitespot-logo.png';
+import { SlideMenu } from '@/components/SlideMenu';
 
 const Calendar = () => {
-  const { user, loading } = useAuth();
+  const { user, loading, userRole } = useAuth();
   const navigate = useNavigate();
   const isMobile = useIsMobile();
 
@@ -36,9 +36,7 @@ const Calendar = () => {
     <div className="min-h-screen bg-background">
       <header className="border-b bg-card">
         <div className="container mx-auto px-4 py-4 flex items-center gap-4">
-          <Button variant="ghost" size="icon" onClick={() => navigate('/admin')}>
-            <ArrowLeft className="h-5 w-5" />
-          </Button>
+          <SlideMenu isAdmin={userRole === 'admin'} />
           <img src={suitespotLogo} alt="SuiteSpot Logo" className="h-10 w-10 object-contain" />
           <div>
             <h1 className="text-xl font-bold">Room Calendar</h1>

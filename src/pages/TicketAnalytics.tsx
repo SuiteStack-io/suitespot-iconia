@@ -8,6 +8,9 @@ import TicketTypeChart from "@/components/analytics/TicketTypeChart";
 import SurveyAnalytics from "@/components/analytics/SurveyAnalytics";
 import StaySurveyAnalytics from "@/components/analytics/StaySurveyAnalytics";
 import { BarChart3 } from "lucide-react";
+import { SlideMenu } from "@/components/SlideMenu";
+import { useAuth } from "@/lib/auth";
+import { useNavigate } from "react-router-dom";
 
 interface TicketData {
   id: string;
@@ -22,6 +25,8 @@ interface TicketData {
 const TicketAnalytics = () => {
   const [tickets, setTickets] = useState<TicketData[]>([]);
   const [loading, setLoading] = useState(true);
+  const { userRole } = useAuth();
+  const navigate = useNavigate();
 
   useEffect(() => {
     fetchTickets();
@@ -59,6 +64,7 @@ const TicketAnalytics = () => {
   return (
     <div className="container mx-auto p-6 space-y-6">
       <div className="flex items-center gap-3">
+        <SlideMenu isAdmin={userRole === 'admin'} />
         <BarChart3 className="h-8 w-8 text-primary" />
         <h1 className="text-3xl font-bold">Ticket Analytics</h1>
       </div>

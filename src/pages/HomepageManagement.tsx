@@ -1,26 +1,22 @@
 import { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { Button } from '@/components/ui/button';
-import { ArrowLeft } from 'lucide-react';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { SlideshowManager } from '@/components/SlideshowManager';
 import { BlogManagement } from '@/components/BlogManagement';
+import { SlideMenu } from '@/components/SlideMenu';
+import { useAuth } from '@/lib/auth';
 
 export default function HomepageManagement() {
   const navigate = useNavigate();
   const [activeTab, setActiveTab] = useState('homepage');
+  const { userRole } = useAuth();
 
   return (
     <div className="min-h-screen bg-background">
       <div className="container mx-auto p-6">
         <div className="flex items-center gap-4 mb-6">
-          <Button
-            variant="outline"
-            size="icon"
-            onClick={() => navigate('/admin')}
-          >
-            <ArrowLeft className="h-4 w-4" />
-          </Button>
+          <SlideMenu isAdmin={userRole === 'admin'} />
           <h1 className="text-3xl font-bold">Content Management</h1>
         </div>
 

@@ -6,8 +6,9 @@ import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { Badge } from '@/components/ui/badge';
-import { ArrowLeft, DollarSign, TrendingUp, Calendar } from 'lucide-react';
+import { DollarSign, TrendingUp, Calendar } from 'lucide-react';
 import { format } from 'date-fns';
+import { SlideMenu } from '@/components/SlideMenu';
 
 interface Reservation {
   id: string;
@@ -25,7 +26,7 @@ interface Reservation {
 }
 
 const MyReservations = () => {
-  const { user, loading } = useAuth();
+  const { user, loading, userRole } = useAuth();
   const navigate = useNavigate();
   const [reservations, setReservations] = useState<Reservation[]>([]);
   const [isLoading, setIsLoading] = useState(true);
@@ -119,10 +120,10 @@ const MyReservations = () => {
     <div className="min-h-screen bg-background">
       <header className="border-b bg-card">
         <div className="container mx-auto px-4 py-4">
-          <Button variant="ghost" onClick={() => navigate('/admin')} className="mb-2">
-            <ArrowLeft className="h-4 w-4 mr-2" />
-            Back to Dashboard
-          </Button>
+          <div className="flex items-center gap-4 mb-2">
+            <SlideMenu isAdmin={userRole === 'admin'} />
+            <span>Back to Dashboard</span>
+          </div>
           <h1 className="text-2xl font-bold">My Reservations</h1>
           <p className="text-sm text-muted-foreground">View your reservations and commissions</p>
         </div>

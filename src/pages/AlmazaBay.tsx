@@ -8,7 +8,7 @@ import { Label } from '@/components/ui/label';
 import { Textarea } from '@/components/ui/textarea';
 import { Switch } from '@/components/ui/switch';
 import { Checkbox } from '@/components/ui/checkbox';
-import { ArrowLeft, Save, Plus, Pencil, X, Upload, Trash2, Eye, ChevronDown, Copy, Image as ImageIcon, Lock, Globe, GripVertical, FileText, List, Download, FileUp, AlertCircle, Loader2 } from 'lucide-react';
+import { Save, Plus, Pencil, X, Upload, Trash2, Eye, ChevronDown, Copy, Image as ImageIcon, Lock, Globe, GripVertical, FileText, List, Download, FileUp, AlertCircle, Loader2 } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
 import { Progress } from '@/components/ui/progress';
 import { PROPERTY_FEATURES } from '@/constants/propertyFeatures';
@@ -66,6 +66,7 @@ import {
   verticalListSortingStrategy,
 } from '@dnd-kit/sortable';
 import { CSS } from '@dnd-kit/utilities';
+import { SlideMenu } from '@/components/SlideMenu';
 
 interface Property {
   id: string;
@@ -1470,10 +1471,7 @@ const AlmazaBay = () => {
         <div className="container mx-auto px-4 py-6">
           <div className="flex items-center justify-between">
             <div className="flex items-center gap-4">
-              <Button variant="ghost" size="sm" onClick={() => navigate('/admin')}>
-                <ArrowLeft className="h-4 w-4 mr-2" />
-                Back
-              </Button>
+              <SlideMenu isAdmin={userRole === 'admin'} />
               <div>
                 <h1 className="text-5xl font-semibold tracking-tight" style={{ letterSpacing: '-0.02em' }}>
                   Almaza Bay Properties

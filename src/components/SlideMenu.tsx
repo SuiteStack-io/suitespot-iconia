@@ -101,7 +101,7 @@ export function SlideMenu({ isAdmin }: SlideMenuProps) {
           <PanelLeft className="h-5 w-5" />
         </Button>
       </SheetTrigger>
-      <SheetContent side="left" className="w-72 bg-slate-900 border-slate-800 p-0">
+      <SheetContent side="left" className="w-72 bg-[hsl(30,5%,20%)] border-[hsl(30,8%,30%)] p-0">
         <div className="flex flex-col h-full py-6">
           {/* Header */}
           <div className="px-6 mb-6">
@@ -114,7 +114,7 @@ export function SlideMenu({ isAdmin }: SlideMenuProps) {
               <div key={section.label} className={sectionIndex > 0 ? 'mt-6' : ''}>
                 {/* Section Label */}
                 <div className="px-3 mb-2">
-                  <h3 className="text-xs font-semibold text-slate-400 uppercase tracking-wider">
+                  <h3 className="text-xs font-semibold text-[hsl(30,12%,60%)] uppercase tracking-wider">
                     {section.label}
                   </h3>
                 </div>
@@ -132,7 +132,7 @@ export function SlideMenu({ isAdmin }: SlideMenuProps) {
                           onClick={() => navigate(item.url)}
                           className={cn(
                             'w-full justify-start gap-3 h-10 px-3 rounded-md',
-                            'text-slate-300 hover:text-white hover:bg-slate-800',
+                            'text-[hsl(30,15%,70%)] hover:text-white hover:bg-[hsl(30,8%,25%)]',
                             isActive && 'bg-cyan-500/10 text-cyan-400 hover:text-cyan-400 hover:bg-cyan-500/20'
                           )}
                         >

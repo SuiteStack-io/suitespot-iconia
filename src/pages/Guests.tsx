@@ -12,12 +12,13 @@ import {
 } from "@/components/ui/table";
 import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
-import { Search, ArrowLeft, ChevronLeft, ChevronRight, Download } from "lucide-react";
+import { Search, ChevronLeft, ChevronRight, Download } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { format, startOfWeek, addDays, addWeeks, subWeeks, isSameDay, isWithinInterval, startOfMonth, endOfMonth, addMonths, subMonths, isSameMonth } from "date-fns";
 import { cn } from "@/lib/utils";
 import { useIsMobile } from "@/hooks/use-mobile";
+import { SlideMenu } from "@/components/SlideMenu";
 
 interface GuestRecord {
   guestName: string;
@@ -316,13 +317,7 @@ const Guests = () => {
       <div className="max-w-7xl mx-auto">
         <div className="flex items-center justify-between mb-6">
           <div className="flex items-center gap-4">
-            <Button
-              variant="ghost"
-              size="icon"
-              onClick={() => navigate("/admin")}
-            >
-              <ArrowLeft className="h-5 w-5" />
-            </Button>
+            <SlideMenu isAdmin={userRole === 'admin'} />
             <div>
               <h1 className="text-3xl font-bold">Guests</h1>
               {!isMobile && (

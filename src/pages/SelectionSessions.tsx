@@ -22,6 +22,7 @@ interface SelectionSession {
 
 export default function SelectionSessions() {
   const navigate = useNavigate();
+  const { userRole } = useAuth();
   const [sessions, setSessions] = useState<SelectionSession[]>([]);
   const [loading, setLoading] = useState(true);
   const { toast } = useToast();

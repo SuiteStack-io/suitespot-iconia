@@ -27,9 +27,10 @@ import {
 } from '@/components/ui/command';
 import { toast } from 'sonner';
 import { format } from 'date-fns';
-import { ArrowLeft, Edit2, X, CalendarIcon, Trash2, FileText, Download, Check, ChevronsUpDown } from 'lucide-react';
+import { Edit2, X, CalendarIcon, Trash2, FileText, Download, Check, ChevronsUpDown } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { CreateGuestAccountDialog } from '@/components/CreateGuestAccountDialog';
+import { SlideMenu } from '@/components/SlideMenu';
 import {
   AlertDialog,
   AlertDialogAction,
@@ -468,9 +469,7 @@ const ReservationDetail = () => {
       <div className="py-8">
         <div className="flex items-center justify-between">
           <div className="flex items-center gap-4">
-            <Button variant="outline" size="icon" onClick={() => navigate('/admin')}>
-              <ArrowLeft className="h-4 w-4" />
-            </Button>
+            <SlideMenu isAdmin={canEdit} />
             <div>
               <h1 className="text-3xl font-bold">Reservation Details</h1>
               <p className="text-muted-foreground">Booking Reference: {reservation.booking_reference}</p>

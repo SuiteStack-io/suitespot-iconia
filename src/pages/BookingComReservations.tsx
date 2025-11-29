@@ -7,7 +7,7 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/com
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Progress } from '@/components/ui/progress';
-import { ArrowLeft, Upload, Loader2, CheckCircle, AlertTriangle } from 'lucide-react';
+import { Upload, Loader2, CheckCircle, AlertTriangle } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
 import {
   Dialog,
@@ -21,6 +21,7 @@ import { RadioGroup, RadioGroupItem } from '@/components/ui/radio-group';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Alert, AlertDescription } from '@/components/ui/alert';
 import suitespotLogo from '@/assets/suitespot-logo.png';
+import { SlideMenu } from '@/components/SlideMenu';
 
 interface ParsedReservation {
   bookingReference: string;
@@ -45,7 +46,7 @@ interface ParsedReservation {
 }
 
 const BookingComReservations = () => {
-  const { user, loading } = useAuth();
+  const { user, loading, userRole } = useAuth();
   const navigate = useNavigate();
   const { toast } = useToast();
   const [uploading, setUploading] = useState(false);
@@ -475,9 +476,7 @@ const BookingComReservations = () => {
     <div className="min-h-screen bg-background">
       <header className="border-b bg-card">
         <div className="container mx-auto px-4 py-4 flex items-center gap-4">
-          <Button variant="ghost" size="icon" onClick={() => navigate('/admin')}>
-            <ArrowLeft className="h-5 w-5" />
-          </Button>
+          <SlideMenu isAdmin={userRole === 'admin'} />
           <img src={suitespotLogo} alt="SuiteSpot Logo" className="h-10 w-10 object-contain" />
           <div>
             <h1 className="text-xl font-bold">Booking.com Reservations</h1>
