@@ -690,6 +690,7 @@ export type Database = {
           id_passport_url: string | null
           id_passport_url_back: string | null
           marriage_certificate_url: string | null
+          mid_stay_cleaning_completed: boolean | null
           net_revenue: number | null
           nights: number | null
           notes: string | null
@@ -728,6 +729,7 @@ export type Database = {
           id_passport_url?: string | null
           id_passport_url_back?: string | null
           marriage_certificate_url?: string | null
+          mid_stay_cleaning_completed?: boolean | null
           net_revenue?: number | null
           nights?: number | null
           notes?: string | null
@@ -766,6 +768,7 @@ export type Database = {
           id_passport_url?: string | null
           id_passport_url_back?: string | null
           marriage_certificate_url?: string | null
+          mid_stay_cleaning_completed?: boolean | null
           net_revenue?: number | null
           nights?: number | null
           notes?: string | null
@@ -1248,6 +1251,7 @@ export type Database = {
         Args: { p_reservation_id: string }
         Returns: boolean
       }
+      notify_mid_stay_cleaning: { Args: never; Returns: undefined }
       reset_guest_password: {
         Args: { p_account_id: string; p_new_password_hash: string }
         Returns: boolean
