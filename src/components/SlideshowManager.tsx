@@ -94,9 +94,15 @@ export function SlideshowManager({ tableName, bucketName, title }: SlideshowMana
     setUploadProgress(0);
 
     try {
-      // Upload original image
+      // Upload original image with timestamp + sanitized filename
       const fileExt = file.name.split('.').pop();
-      const fileName = `${Math.random()}.${fileExt}`;
+      const originalName = file.name.replace(/\.[^.]+$/, ''); // Remove extension
+      const sanitizedName = originalName
+        .toLowerCase()
+        .replace(/[^a-z0-9]+/g, '-') // Replace special chars with hyphen
+        .replace(/^-+|-+$/g, ''); // Remove leading/trailing hyphens
+      const timestamp = new Date().toISOString().split('T')[0]; // YYYY-MM-DD
+      const fileName = `${timestamp}-${sanitizedName}.${fileExt}`;
       const filePath = `${fileName}`;
 
       setUploadProgress(30);
