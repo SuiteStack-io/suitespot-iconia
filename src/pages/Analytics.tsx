@@ -591,6 +591,14 @@ const Analytics = () => {
     setNetRevenueDetails(details.filter(d => d.grossRevenue > 0));
   };
 
+  const getDisplayCommissionRate = (source: string): number => {
+    const sourceLower = source.toLowerCase();
+    if (sourceLower.includes('booking.com') || sourceLower.includes('booking com')) {
+      return 17.4;
+    }
+    return 10;
+  };
+
   const fetchCommissionDetails = async () => {
     const { startDate, endDate } = getDateRange();
     
@@ -612,7 +620,7 @@ const Analytics = () => {
           bookings: 0,
           grossRevenue: 0,
           commissionAmount: 0,
-          commissionRate: reservation.commission_rate || 10,
+          commissionRate: getDisplayCommissionRate(source),
         };
       }
       
@@ -627,6 +635,7 @@ const Analytics = () => {
 
     setCommissionDetails(sourceArray);
   };
+
 
   const handleTotalRevenueClick = () => {
     fetchTotalRevenueDetails();
