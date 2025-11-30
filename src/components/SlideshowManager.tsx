@@ -24,10 +24,6 @@ interface SlideshowImage {
   id: string;
   image_url: string;
   sequence_order: number;
-  blur_placeholder?: string;
-  image_url_sm?: string;
-  image_url_md?: string;
-  image_url_lg?: string;
 }
 
 interface SlideshowManagerProps {
@@ -45,16 +41,6 @@ export function SlideshowManager({ tableName, bucketName, title }: SlideshowMana
   const [draggedIndex, setDraggedIndex] = useState<number | null>(null);
   const [selectedImage, setSelectedImage] = useState<string | null>(null);
   const [isDragging, setIsDragging] = useState(false);
-
-  // Convert path to full URL if needed
-  const getFullUrl = (path: string) => {
-    if (!path) return '';
-    if (path.startsWith('http')) return path; // Already full URL
-    if (path.startsWith('data:')) return path; // Base64 data URL
-    // Relative path - construct full URL
-    const supabaseUrl = import.meta.env.VITE_SUPABASE_URL;
-    return `${supabaseUrl}/storage/v1/object/public${path}`;
-  };
 
   useEffect(() => {
     fetchImages();
@@ -104,22 +90,19 @@ export function SlideshowManager({ tableName, bucketName, title }: SlideshowMana
     setUploadProgress(0);
 
     try {
-      // Upload original image with timestamp + sanitized filename
-      const fileExt = file.name.split('.').pop();
-      const originalName = file.name.replace(/\.[^.]+$/, ''); // Remove extension
-      const sanitizedName = originalName
-        .toLowerCase()
-        .replace(/[^a-z0-9]+/g, '-') // Replace special chars with hyphen
-        .replace(/^-+|-+$/g, ''); // Remove leading/trailing hyphens
-      const timestamp = new Date().toISOString().split('T')[0]; // YYYY-MM-DD
-      const fileName = `${timestamp}-${sanitizedName}.${fileExt}`;
-      const filePath = `${fileName}`;
+      const progressInterval = setInterval(() => {
+        setUploadProgress(prev => Math.min(prev + 10, 90));
+      }, 100);
 
-      setUploadProgress(30);
+      const fileExt = file.name.split('.').pop();
+      const fileName = `${Math.random()}.${fileExt}`;
+      const filePath = `${fileName}`;
 
       const { error: uploadError } = await supabase.storage
         .from(bucketName)
         .upload(filePath, file);
+
+      clearInterval(progressInterval);
 
       if (uploadError) throw uploadError;
 
@@ -127,71 +110,24 @@ export function SlideshowManager({ tableName, bucketName, title }: SlideshowMana
         .from(bucketName)
         .getPublicUrl(filePath);
 
-      setUploadProgress(50);
-
-      // Call optimization edge function
-      const formData = new FormData();
-      formData.append('file', file);
-      formData.append('bucket', bucketName);
-      formData.append('path', filePath);
-
-      const { data: { session } } = await supabase.auth.getSession();
-      
-      const optimizeResponse = await supabase.functions.invoke('optimize-image', {
-        body: formData,
-        headers: session?.access_token ? {
-          Authorization: `Bearer ${session.access_token}`
-        } : {}
-      });
-
-      setUploadProgress(80);
-
-      if (optimizeResponse.error) {
-        console.error('Optimization error:', optimizeResponse.error);
-        // Continue without optimization if it fails
-      }
-
-      const optimizedUrls = optimizeResponse.data?.optimizedUrls || {};
-
-      setUploadProgress(90);
+      setUploadProgress(100);
 
       const nextOrder = images.length > 0 
         ? Math.max(...images.map(img => img.sequence_order)) + 1 
         : 0;
 
-      // Store relative paths instead of full URLs
-      const getPathFromUrl = (url: string) => {
-        if (!url) return null;
-        try {
-          const urlObj = new URL(url);
-          // Extract path after /storage/v1/object/public/
-          const pathMatch = urlObj.pathname.match(/\/storage\/v1\/object\/public\/(.+)/);
-          return pathMatch ? `/${pathMatch[1]}` : url;
-        } catch {
-          return url;
-        }
-      };
-
       const { error: dbError } = await supabase
         .from(tableName)
         .insert({
-          image_url: `/${bucketName}/${filePath}`,
+          image_url: publicUrl,
           sequence_order: nextOrder,
-          blur_placeholder: optimizedUrls.blur_placeholder || null,
-          image_url_sm: getPathFromUrl(optimizedUrls.image_url_sm) || null,
-          image_url_md: getPathFromUrl(optimizedUrls.image_url_md) || null,
-          image_url_lg: getPathFromUrl(optimizedUrls.image_url_lg) || null,
         });
 
       if (dbError) throw dbError;
 
-      setUploadProgress(100);
-
       toast({
         title: 'Success',
-        description: optimizedUrls.blur_placeholder 
-          ? 'Image uploaded and optimized successfully' 
-          : 'Image uploaded successfully',
+        description: 'Image uploaded successfully',
       });
 
       fetchImages();
@@ -440,7 +376,7 @@ export function SlideshowManager({ tableName, bucketName, title }: SlideshowMana
                   </TableCell>
                   <TableCell>
                     <img
-                      src={getFullUrl(image.image_url)}
+                      src={image.image_url}
                       alt={`Slide ${index + 1}`}
                       className="w-20 h-12 object-cover rounded cursor-pointer hover:opacity-80 transition-opacity"
                       onClick={() => setSelectedImage(image.image_url)}
@@ -473,7 +409,7 @@ export function SlideshowManager({ tableName, bucketName, title }: SlideshowMana
           </DialogHeader>
           <div className="relative w-full">
             <img
-              src={getFullUrl(selectedImage || '')}
+              src={selectedImage || ''}
               alt="Preview"
               className="w-full h-auto max-h-[70vh] object-contain rounded"
             />

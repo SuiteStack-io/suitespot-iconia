@@ -101,11 +101,8 @@ export function SlideMenu({ isAdmin }: SlideMenuProps) {
           <PanelLeft className="h-5 w-5" />
         </Button>
       </SheetTrigger>
-      <SheetContent 
-        side="left" 
-        className="w-72 bg-[hsl(30,5%,20%)] border-[hsl(30,8%,30%)] p-0 transition-all duration-300 ease-in-out"
-      >
-        <div className="flex flex-col h-full py-6 animate-fade-in">
+      <SheetContent side="left" className="w-72 bg-[hsl(30,5%,20%)] border-[hsl(30,8%,30%)] p-0">
+        <div className="flex flex-col h-full py-6">
           {/* Header */}
           <div className="px-6 mb-6">
             <h2 className="text-lg font-semibold text-white">Navigation</h2>
@@ -124,7 +121,7 @@ export function SlideMenu({ isAdmin }: SlideMenuProps) {
 
                 {/* Menu Items */}
                 <div className="space-y-1">
-                  {section.items.map((item, itemIndex) => {
+                  {section.items.map((item) => {
                     const Icon = item.icon;
                     const isActive = location.pathname === item.url;
 
@@ -136,13 +133,10 @@ export function SlideMenu({ isAdmin }: SlideMenuProps) {
                           className={cn(
                             'w-full justify-start gap-3 h-10 px-3 rounded-md',
                             'text-[hsl(30,15%,70%)] hover:text-white hover:bg-[hsl(30,8%,25%)]',
-                            'transition-all duration-200 hover:scale-[1.02]',
-                            'animate-fade-in',
                             isActive && 'bg-cyan-500/10 text-cyan-400 hover:text-cyan-400 hover:bg-cyan-500/20'
                           )}
-                          style={{ animationDelay: `${itemIndex * 30}ms` }}
                         >
-                          <Icon className={cn('h-4 w-4 transition-transform duration-200', isActive && 'text-cyan-400')} />
+                          <Icon className={cn('h-4 w-4', isActive && 'text-cyan-400')} />
                           <span className="text-sm">{item.title}</span>
                         </Button>
                       </SheetTrigger>

@@ -7,57 +7,13 @@ interface SlideshowImage {
   id: string;
   image_url: string;
   sequence_order: number;
-  blur_placeholder?: string;
-  image_url_sm?: string;
-  image_url_md?: string;
-  image_url_lg?: string;
 }
 
 export const OurStorySlideshow = () => {
   const [images, setImages] = useState<SlideshowImage[]>([]);
   const [loading, setLoading] = useState(true);
-  const [loadedImages, setLoadedImages] = useState<Set<string>>(new Set());
   const scrollContainerRef = useRef<HTMLDivElement>(null);
   const isMobile = useIsMobile();
-
-  // Convert path to full URL if needed
-  const getFullUrl = (path: string | null | undefined) => {
-    if (!path) return '';
-    if (path.startsWith('http')) return path; // Already full URL
-    if (path.startsWith('data:')) return path; // Base64 data URL
-    // Relative path - construct full URL
-    const supabaseUrl = import.meta.env.VITE_SUPABASE_URL;
-    return `${supabaseUrl}/storage/v1/object/public${path}`;
-  };
-
-  // Get optimal image URL based on viewport width
-  const getOptimalImageUrl = (image: SlideshowImage) => {
-    if (typeof window === 'undefined') return getFullUrl(image.image_url);
-    const width = window.innerWidth;
-    if (width <= 768 && image.image_url_sm) return getFullUrl(image.image_url_sm);
-    if (width <= 1440 && image.image_url_md) return getFullUrl(image.image_url_md);
-    return getFullUrl(image.image_url_lg || image.image_url);
-  };
-
-  // Preload first image for faster LCP
-  useEffect(() => {
-    if (images.length > 0) {
-      const firstImage = images[0];
-      const optimalUrl = getOptimalImageUrl(firstImage);
-      
-      // Create preload link
-      const link = document.createElement('link');
-      link.rel = 'preload';
-      link.as = 'image';
-      link.href = optimalUrl;
-      link.fetchPriority = 'high';
-      document.head.appendChild(link);
-
-      return () => {
-        document.head.removeChild(link);
-      };
-    }
-  }, [images]);
 
   useEffect(() => {
     fetchImages();
@@ -140,42 +96,19 @@ export const OurStorySlideshow = () => {
           className="flex overflow-x-auto scrollbar-hide scroll-smooth snap-x snap-mandatory h-full"
           style={{ scrollbarWidth: 'none', msOverflowStyle: 'none' }}
         >
-          {images.map((image, index) => {
-            const optimalUrl = getOptimalImageUrl(image);
-            const isLoaded = loadedImages.has(image.id);
-            const isFirstImage = index === 0;
-            
-            return (
-              <div 
-                key={image.id} 
-                className="flex-none w-full h-full snap-start relative"
-              >
-                {/* Blur placeholder */}
-                {image.blur_placeholder && !isLoaded && (
-                  <img
-                    src={image.blur_placeholder}
-                    alt=""
-                    className="absolute inset-0 w-full h-full object-cover blur-xl scale-110"
-                    aria-hidden="true"
-                  />
-                )}
-                
-                {/* Main image */}
-                <img
-                  src={optimalUrl}
-                  alt={`Our Story ${image.sequence_order + 1}`}
-                  className={`w-full h-full object-cover transition-opacity duration-500 ${
-                    isLoaded ? 'opacity-100' : 'opacity-0'
-                  }`}
-                  loading={isFirstImage ? "eager" : "lazy"}
-                  fetchPriority={isFirstImage ? "high" : "auto"}
-                  onLoad={() => {
-                    setLoadedImages(prev => new Set(prev).add(image.id));
-                  }}
-                />
-              </div>
-            );
-          })}
+          {images.map((image) => (
+            <div 
+              key={image.id} 
+              className="flex-none w-full h-full snap-start"
+            >
+              <img
+                src={image.image_url}
+                alt={`Our Story ${image.sequence_order + 1}`}
+                className="w-full h-full object-cover"
+                loading="lazy"
+              />
+            </div>
+          ))}
         </div>
         
         {/* Desktop Navigation Arrows */}

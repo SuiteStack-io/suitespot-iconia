@@ -581,35 +581,23 @@ export type Database = {
       }
       our_story_slideshow: {
         Row: {
-          blur_placeholder: string | null
           created_at: string
           id: string
           image_url: string
-          image_url_lg: string | null
-          image_url_md: string | null
-          image_url_sm: string | null
           sequence_order: number
           updated_at: string
         }
         Insert: {
-          blur_placeholder?: string | null
           created_at?: string
           id?: string
           image_url: string
-          image_url_lg?: string | null
-          image_url_md?: string | null
-          image_url_sm?: string | null
           sequence_order?: number
           updated_at?: string
         }
         Update: {
-          blur_placeholder?: string | null
           created_at?: string
           id?: string
           image_url?: string
-          image_url_lg?: string | null
-          image_url_md?: string | null
-          image_url_sm?: string | null
           sequence_order?: number
           updated_at?: string
         }
@@ -861,35 +849,23 @@ export type Database = {
       }
       slideshow_images: {
         Row: {
-          blur_placeholder: string | null
           created_at: string
           id: string
           image_url: string
-          image_url_lg: string | null
-          image_url_md: string | null
-          image_url_sm: string | null
           sequence_order: number
           updated_at: string
         }
         Insert: {
-          blur_placeholder?: string | null
           created_at?: string
           id?: string
           image_url: string
-          image_url_lg?: string | null
-          image_url_md?: string | null
-          image_url_sm?: string | null
           sequence_order: number
           updated_at?: string
         }
         Update: {
-          blur_placeholder?: string | null
           created_at?: string
           id?: string
           image_url?: string
-          image_url_lg?: string | null
-          image_url_md?: string | null
-          image_url_sm?: string | null
           sequence_order?: number
           updated_at?: string
         }
