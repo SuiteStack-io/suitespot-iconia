@@ -65,32 +65,35 @@ const TicketAnalytics = () => {
 
   return (
     <div className="container mx-auto p-6 space-y-6">
-      <div className="flex items-center gap-3">
-        <SlideMenu isAdmin={userRole === 'admin'} />
-        
-        {/* Mobile back button - icon only */}
-        <Button 
-          variant="ghost" 
-          onClick={() => navigate('/admin')}
-          className="md:hidden"
-          size="icon"
-        >
-          <ArrowLeft className="h-5 w-5" />
-        </Button>
-        
-        {/* Desktop back button with text */}
-        <Button 
-          variant="ghost" 
-          onClick={() => navigate('/admin')}
-          className="hidden md:flex items-center gap-2"
-        >
-          <ArrowLeft className="h-4 w-4" />
-          Back
-        </Button>
-        
-        <BarChart3 className="h-8 w-8 text-primary" />
-        <h1 className="text-3xl font-bold">Tickets Analytics</h1>
-      </div>
+      <header className="border-b bg-card sticky top-0 z-10 -mx-6 px-6 -mt-6 pt-6 pb-4">
+        <AdminBreadcrumb section="ICONIA" currentPage="Tickets Analytics" />
+        <div className="flex items-center gap-3 mt-4">
+          <SlideMenu isAdmin={userRole === 'admin'} />
+          
+          {/* Mobile back button - icon only */}
+          <Button 
+            variant="ghost" 
+            onClick={() => navigate('/admin')}
+            className="md:hidden"
+            size="icon"
+          >
+            <ArrowLeft className="h-5 w-5" />
+          </Button>
+          
+          {/* Desktop back button with text */}
+          <Button 
+            variant="ghost" 
+            onClick={() => navigate('/admin')}
+            className="hidden md:flex items-center gap-2"
+          >
+            <ArrowLeft className="h-4 w-4" />
+            Back
+          </Button>
+          
+          <BarChart3 className="h-8 w-8 text-primary" />
+          <h1 className="text-3xl font-bold">Tickets Analytics</h1>
+        </div>
+      </header>
 
       <TicketMetrics tickets={tickets} />
 
