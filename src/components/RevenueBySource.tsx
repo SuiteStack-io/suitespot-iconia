@@ -16,8 +16,10 @@ import {
   TableHeader,
   TableRow,
 } from '@/components/ui/table';
-import { ChevronDown, ChevronRight } from 'lucide-react';
+import { ChevronDown, ChevronRight, Download, FileSpreadsheet } from 'lucide-react';
 import { Button } from '@/components/ui/button';
+import * as XLSX from 'xlsx';
+import { toast } from 'sonner';
 
 interface BookingDetail {
   guestName: string;
@@ -143,6 +145,135 @@ export const RevenueBySource = () => {
     setLoading(false);
   };
 
+  const handleExportExcel = () => {
+    // Prepare data for export
+    const exportData: any[] = [];
+    
+    // Add Booking.com section
+    if (bookingComSources.length > 0) {
+      exportData.push({
+        Source: 'Booking.com',
+        Bookings: bookingComTotal.count,
+        'Gross Revenue': `$${bookingComTotal.grossRevenue.toFixed(2)}`,
+        'Commission Rate': '17.4%',
+        Commission: `$${bookingComTotal.commission.toFixed(2)}`,
+        'Net Revenue': `$${bookingComTotal.netRevenue.toFixed(2)}`,
+      });
+      
+      // Add individual bookings
+      bookingComDetails.forEach(booking => {
+        exportData.push({
+          Source: `  └ ${booking.guestName}`,
+          Bookings: 1,
+          'Gross Revenue': `$${booking.totalPrice.toFixed(2)}`,
+          'Commission Rate': '17.4%',
+          Commission: `$${(booking.totalPrice * 0.174).toFixed(2)}`,
+          'Net Revenue': `$${booking.netRevenue.toFixed(2)}`,
+        });
+      });
+    }
+    
+    // Add Direct section
+    if (directSources.length > 0) {
+      exportData.push({
+        Source: 'Direct',
+        Bookings: directTotal.count,
+        'Gross Revenue': `$${directTotal.grossRevenue.toFixed(2)}`,
+        'Commission Rate': '10%',
+        Commission: `$${directTotal.commission.toFixed(2)}`,
+        'Net Revenue': `$${directTotal.netRevenue.toFixed(2)}`,
+      });
+      
+      // Add team member breakdown
+      directSourceBreakdown.forEach(source => {
+        exportData.push({
+          Source: `  └ ${source.source}`,
+          Bookings: source.count,
+          'Gross Revenue': `$${source.grossRevenue.toFixed(2)}`,
+          'Commission Rate': '10%',
+          Commission: `$${source.commission.toFixed(2)}`,
+          'Net Revenue': `$${source.netRevenue.toFixed(2)}`,
+        });
+      });
+    }
+    
+    // Add totals row
+    exportData.push({
+      Source: 'TOTAL',
+      Bookings: totals.count,
+      'Gross Revenue': `$${totals.grossRevenue.toFixed(2)}`,
+      'Commission Rate': '-',
+      Commission: `$${totals.commission.toFixed(2)}`,
+      'Net Revenue': `$${totals.netRevenue.toFixed(2)}`,
+    });
+
+    // Create workbook and worksheet
+    const ws = XLSX.utils.json_to_sheet(exportData);
+    const wb = XLSX.utils.book_new();
+    XLSX.utils.book_append_sheet(wb, ws, 'Revenue by Source');
+
+    // Set column widths
+    ws['!cols'] = [
+      { wch: 30 }, // Source
+      { wch: 10 }, // Bookings
+      { wch: 15 }, // Gross Revenue
+      { wch: 15 }, // Commission Rate
+      { wch: 15 }, // Commission
+      { wch: 15 }, // Net Revenue
+    ];
+
+    // Generate filename with current date
+    const date = new Date().toISOString().split('T')[0];
+    const filename = `revenue-by-source-${date}.xlsx`;
+
+    // Download file
+    XLSX.writeFile(wb, filename);
+    toast.success('Excel file downloaded successfully');
+  };
+
+  const handleExportCSV = () => {
+    // Prepare CSV content
+    let csvContent = 'Source,Bookings,Gross Revenue,Commission Rate,Commission,Net Revenue\n';
+    
+    // Add Booking.com section
+    if (bookingComSources.length > 0) {
+      csvContent += `Booking.com,${bookingComTotal.count},$${bookingComTotal.grossRevenue.toFixed(2)},17.4%,$${bookingComTotal.commission.toFixed(2)},$${bookingComTotal.netRevenue.toFixed(2)}\n`;
+      
+      // Add individual bookings
+      bookingComDetails.forEach(booking => {
+        csvContent += `"  └ ${booking.guestName}",1,$${booking.totalPrice.toFixed(2)},17.4%,$${(booking.totalPrice * 0.174).toFixed(2)},$${booking.netRevenue.toFixed(2)}\n`;
+      });
+    }
+    
+    // Add Direct section
+    if (directSources.length > 0) {
+      csvContent += `Direct,${directTotal.count},$${directTotal.grossRevenue.toFixed(2)},10%,$${directTotal.commission.toFixed(2)},$${directTotal.netRevenue.toFixed(2)}\n`;
+      
+      // Add team member breakdown
+      directSourceBreakdown.forEach(source => {
+        csvContent += `"  └ ${source.source}",${source.count},$${source.grossRevenue.toFixed(2)},10%,$${source.commission.toFixed(2)},$${source.netRevenue.toFixed(2)}\n`;
+      });
+    }
+    
+    // Add totals row
+    csvContent += `TOTAL,${totals.count},$${totals.grossRevenue.toFixed(2)},-,$${totals.commission.toFixed(2)},$${totals.netRevenue.toFixed(2)}\n`;
+
+    // Create blob and download
+    const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
+    const link = document.createElement('a');
+    const url = URL.createObjectURL(blob);
+    const date = new Date().toISOString().split('T')[0];
+    
+    link.setAttribute('href', url);
+    link.setAttribute('download', `revenue-by-source-${date}.csv`);
+    link.style.visibility = 'hidden';
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+    
+    toast.success('CSV file downloaded successfully');
+  };
+
   if (loading) {
     return (
       <Card>
@@ -226,21 +357,41 @@ export const RevenueBySource = () => {
 
   return (
     <Card>
-      <CardHeader className="flex flex-row items-center justify-between">
+      <CardHeader className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
         <CardTitle>Revenue by Source</CardTitle>
-        <Select value={selectedSource} onValueChange={setSelectedSource}>
-          <SelectTrigger className="w-[180px]">
-            <SelectValue placeholder="Filter by source" />
-          </SelectTrigger>
-          <SelectContent>
-            <SelectItem value="all">All Sources</SelectItem>
-            {revenueBySource.map((source) => (
-              <SelectItem key={source.source} value={source.source}>
-                {source.source}
-              </SelectItem>
-            ))}
-          </SelectContent>
-        </Select>
+        <div className="flex items-center gap-2 w-full sm:w-auto">
+          <Select value={selectedSource} onValueChange={setSelectedSource}>
+            <SelectTrigger className="w-[180px]">
+              <SelectValue placeholder="Filter by source" />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value="all">All Sources</SelectItem>
+              {revenueBySource.map((source) => (
+                <SelectItem key={source.source} value={source.source}>
+                  {source.source}
+                </SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
+          <Button
+            variant="outline"
+            size="sm"
+            onClick={handleExportExcel}
+            className="gap-2"
+          >
+            <FileSpreadsheet className="h-4 w-4" />
+            <span className="hidden sm:inline">Excel</span>
+          </Button>
+          <Button
+            variant="outline"
+            size="sm"
+            onClick={handleExportCSV}
+            className="gap-2"
+          >
+            <Download className="h-4 w-4" />
+            <span className="hidden sm:inline">CSV</span>
+          </Button>
+        </div>
       </CardHeader>
       <CardContent>
         <div className="border rounded-lg overflow-hidden">
