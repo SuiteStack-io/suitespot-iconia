@@ -51,7 +51,7 @@ export const RevenueBySource = () => {
   const [filteredRevenue, setFilteredRevenue] = useState<SourceRevenue[]>([]);
   const [loading, setLoading] = useState(true);
   const [selectedSource, setSelectedSource] = useState<string>('all');
-  const [isAdminExpanded, setIsAdminExpanded] = useState(false);
+  const [isDirectExpanded, setIsDirectExpanded] = useState(false);
   const [isBookingComExpanded, setIsBookingComExpanded] = useState(false);
 
   useEffect(() => {
@@ -171,22 +171,14 @@ export const RevenueBySource = () => {
     );
   }
 
-  // Group sources into 4 categories: Booking.com, Direct Website, Admin, KSS
+  // Group sources into 2 categories: Booking.com and Direct
   const bookingComSources = filteredRevenue.filter(s => 
     s.source.toLowerCase().includes('booking.com')
   );
   
-  const directWebsiteSources = filteredRevenue.filter(s => 
-    s.source.toLowerCase().includes('direct website')
-  );
-  
-  const adminSources = filteredRevenue.filter(s => 
-    s.source.toLowerCase().includes('admin') || 
-    s.source.toLowerCase().includes('nicol')
-  );
-  
-  const kssSources = filteredRevenue.filter(s => 
-    s.source.toLowerCase().includes('kss')
+  // All non-Booking.com sources are "Direct"
+  const directSources = filteredRevenue.filter(s => 
+    !s.source.toLowerCase().includes('booking.com')
   );
 
   const bookingComTotal = bookingComSources.reduce(
@@ -199,35 +191,14 @@ export const RevenueBySource = () => {
     { count: 0, grossRevenue: 0, commission: 0, netRevenue: 0 }
   );
 
-  const directWebsiteTotal = directWebsiteSources.reduce(
-    (acc, source) => ({
-      count: acc.count + source.count,
-      grossRevenue: acc.grossRevenue + source.grossRevenue,
-      commission: acc.commission + source.commission,
-      netRevenue: acc.netRevenue + source.netRevenue,
-    }),
-    { count: 0, grossRevenue: 0, commission: 0, netRevenue: 0 }
-  );
-
-  const adminTotal = adminSources.reduce(
-    (acc, source) => ({
-      count: acc.count + source.count,
-      grossRevenue: acc.grossRevenue + source.grossRevenue,
-      commission: acc.commission + source.commission,
-      netRevenue: acc.netRevenue + source.netRevenue,
-      guestNames: [...(acc.guestNames || []), ...(source.guestNames || [])],
-      bookingDetails: [...(acc.bookingDetails || []), ...(source.bookingDetails || [])],
-    }),
-    { count: 0, grossRevenue: 0, commission: 0, netRevenue: 0, guestNames: [] as string[], bookingDetails: [] as BookingDetail[] }
-  );
-
-  // Aggregate Booking.com details
+  // Aggregate Booking.com details by guest
   const bookingComDetails = bookingComSources.reduce(
     (acc, source) => [...acc, ...(source.bookingDetails || [])],
     [] as BookingDetail[]
   );
 
-  const kssTotal = kssSources.reduce(
+  // Aggregate Direct total
+  const directTotal = directSources.reduce(
     (acc, source) => ({
       count: acc.count + source.count,
       grossRevenue: acc.grossRevenue + source.grossRevenue,
@@ -237,11 +208,20 @@ export const RevenueBySource = () => {
     { count: 0, grossRevenue: 0, commission: 0, netRevenue: 0 }
   );
 
+  // Keep Direct sources separate for breakdown by team member
+  const directSourceBreakdown = directSources.map(source => ({
+    source: source.source,
+    count: source.count,
+    grossRevenue: source.grossRevenue,
+    commission: source.commission,
+    netRevenue: source.netRevenue,
+  }));
+
   const totals = {
-    count: bookingComTotal.count + directWebsiteTotal.count + adminTotal.count + kssTotal.count,
-    grossRevenue: bookingComTotal.grossRevenue + directWebsiteTotal.grossRevenue + adminTotal.grossRevenue + kssTotal.grossRevenue,
-    commission: bookingComTotal.commission + directWebsiteTotal.commission + adminTotal.commission + kssTotal.commission,
-    netRevenue: bookingComTotal.netRevenue + directWebsiteTotal.netRevenue + adminTotal.netRevenue + kssTotal.netRevenue,
+    count: bookingComTotal.count + directTotal.count,
+    grossRevenue: bookingComTotal.grossRevenue + directTotal.grossRevenue,
+    commission: bookingComTotal.commission + directTotal.commission,
+    netRevenue: bookingComTotal.netRevenue + directTotal.netRevenue,
   };
 
   return (
@@ -308,7 +288,7 @@ export const RevenueBySource = () => {
                     </TableCell>
                   </TableRow>
                   
-                  {/* Individual Booking.com Reservations */}
+                  {/* Individual Booking.com Reservations by Guest */}
                   {isBookingComExpanded && bookingComDetails.map((booking, index) => (
                     <TableRow key={`booking-com-${index}`} className="bg-muted/30">
                       <TableCell className="pl-10 font-normal text-muted-foreground">
@@ -330,26 +310,8 @@ export const RevenueBySource = () => {
                 </>
               )}
 
-              {/* Direct Website */}
-              {directWebsiteSources.length > 0 && (
-                <TableRow className="hover:bg-muted/50">
-                  <TableCell className="font-medium">Direct Website</TableCell>
-                  <TableCell className="text-right">{directWebsiteTotal.count}</TableCell>
-                  <TableCell className="text-right">
-                    ${directWebsiteTotal.grossRevenue.toFixed(2)}
-                  </TableCell>
-                  <TableCell className="text-right">10%</TableCell>
-                  <TableCell className="text-right text-amber-600">
-                    ${directWebsiteTotal.commission.toFixed(2)}
-                  </TableCell>
-                  <TableCell className="text-right text-green-600 font-semibold">
-                    ${directWebsiteTotal.netRevenue.toFixed(2)}
-                  </TableCell>
-                </TableRow>
-              )}
-
-              {/* Admin (Collapsible) */}
-              {adminSources.length > 0 && (
+              {/* Direct (Collapsible) */}
+              {directSources.length > 0 && (
                 <>
                   <TableRow className="hover:bg-muted/50">
                     <TableCell className="font-medium">
@@ -357,67 +319,49 @@ export const RevenueBySource = () => {
                         variant="ghost"
                         size="sm"
                         className="h-auto p-0 hover:bg-transparent"
-                        onClick={() => setIsAdminExpanded(!isAdminExpanded)}
+                        onClick={() => setIsDirectExpanded(!isDirectExpanded)}
                       >
-                        {isAdminExpanded ? (
+                        {isDirectExpanded ? (
                           <ChevronDown className="h-4 w-4 mr-2" />
                         ) : (
                           <ChevronRight className="h-4 w-4 mr-2" />
                         )}
-                        Admin
+                        Direct
                       </Button>
                     </TableCell>
-                    <TableCell className="text-right">{adminTotal.count}</TableCell>
+                    <TableCell className="text-right">{directTotal.count}</TableCell>
                     <TableCell className="text-right">
-                      ${adminTotal.grossRevenue.toFixed(2)}
+                      ${directTotal.grossRevenue.toFixed(2)}
                     </TableCell>
                     <TableCell className="text-right">10%</TableCell>
                     <TableCell className="text-right text-amber-600">
-                      ${adminTotal.commission.toFixed(2)}
+                      ${directTotal.commission.toFixed(2)}
                     </TableCell>
                     <TableCell className="text-right text-green-600 font-semibold">
-                      ${adminTotal.netRevenue.toFixed(2)}
+                      ${directTotal.netRevenue.toFixed(2)}
                     </TableCell>
                   </TableRow>
                   
-                  {/* Individual Admin Bookings by Guest */}
-                  {isAdminExpanded && adminTotal.bookingDetails.map((booking, index) => (
-                    <TableRow key={`admin-${index}`} className="bg-muted/30">
+                  {/* Direct Breakdown by Team Member */}
+                  {isDirectExpanded && directSourceBreakdown.map((source, index) => (
+                    <TableRow key={`direct-${index}`} className="bg-muted/30">
                       <TableCell className="pl-10 font-normal text-muted-foreground">
-                        {booking.guestName}
+                        {source.source}
                       </TableCell>
-                      <TableCell className="text-right text-muted-foreground">1</TableCell>
+                      <TableCell className="text-right text-muted-foreground">{source.count}</TableCell>
                       <TableCell className="text-right text-muted-foreground">
-                        ${booking.totalPrice.toFixed(2)}
+                        ${source.grossRevenue.toFixed(2)}
                       </TableCell>
                       <TableCell className="text-right text-muted-foreground">10%</TableCell>
                       <TableCell className="text-right text-muted-foreground">
-                        ${(booking.totalPrice * 0.10).toFixed(2)}
+                        ${source.commission.toFixed(2)}
                       </TableCell>
                       <TableCell className="text-right text-muted-foreground">
-                        ${booking.netRevenue.toFixed(2)}
+                        ${source.netRevenue.toFixed(2)}
                       </TableCell>
                     </TableRow>
                   ))}
                 </>
-              )}
-
-              {/* KSS */}
-              {kssSources.length > 0 && (
-                <TableRow className="hover:bg-muted/50">
-                  <TableCell className="font-medium">KSS</TableCell>
-                  <TableCell className="text-right">{kssTotal.count}</TableCell>
-                  <TableCell className="text-right">
-                    ${kssTotal.grossRevenue.toFixed(2)}
-                  </TableCell>
-                  <TableCell className="text-right">10%</TableCell>
-                  <TableCell className="text-right text-amber-600">
-                    ${kssTotal.commission.toFixed(2)}
-                  </TableCell>
-                  <TableCell className="text-right text-green-600 font-semibold">
-                    ${kssTotal.netRevenue.toFixed(2)}
-                  </TableCell>
-                </TableRow>
               )}
 
               <TableRow className="bg-muted/50 font-semibold">
