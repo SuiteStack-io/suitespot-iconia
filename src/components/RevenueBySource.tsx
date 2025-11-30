@@ -19,6 +19,12 @@ import {
 import { ChevronDown, ChevronRight } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 
+interface BookingDetail {
+  guestName: string;
+  totalPrice: number;
+  netRevenue: number;
+}
+
 interface SourceRevenue {
   source: string;
   count: number;
@@ -27,6 +33,7 @@ interface SourceRevenue {
   commission: number;
   netRevenue: number;
   guestNames?: string[];
+  bookingDetails?: BookingDetail[];
 }
 
 const COMMISSION_RATES: Record<string, number> = {
@@ -45,6 +52,7 @@ export const RevenueBySource = () => {
   const [loading, setLoading] = useState(true);
   const [selectedSource, setSelectedSource] = useState<string>('all');
   const [isAdminExpanded, setIsAdminExpanded] = useState(false);
+  const [isBookingComExpanded, setIsBookingComExpanded] = useState(false);
 
   useEffect(() => {
     fetchRevenueBySource();
@@ -90,7 +98,7 @@ export const RevenueBySource = () => {
       return;
     }
 
-    // Group by source with guest names for admin bookings
+    // Group by source with guest names and booking details for all sources
     const sourceMap: Record<string, SourceRevenue> = {};
     
     data?.forEach((reservation) => {
@@ -105,6 +113,7 @@ export const RevenueBySource = () => {
           commission: 0,
           netRevenue: 0,
           guestNames: [],
+          bookingDetails: [],
         };
       }
       
@@ -113,10 +122,13 @@ export const RevenueBySource = () => {
       sourceMap[source].commission += reservation.commission_amount || 0;
       sourceMap[source].netRevenue += reservation.net_revenue || 0;
       
-      // Store guest names for admin bookings (including Nicola)
-      const isAdminSource = source.toLowerCase().includes('admin') || 
-                           source.toLowerCase().includes('nicol');
-      if (isAdminSource && reservation.guest_names?.[0]) {
+      // Store booking details for all sources (for expandable breakdowns)
+      if (reservation.guest_names?.[0]) {
+        sourceMap[source].bookingDetails?.push({
+          guestName: reservation.guest_names[0],
+          totalPrice: reservation.total_price || 0,
+          netRevenue: reservation.net_revenue || 0,
+        });
         sourceMap[source].guestNames?.push(reservation.guest_names[0]);
       }
     });
@@ -204,8 +216,15 @@ export const RevenueBySource = () => {
       commission: acc.commission + source.commission,
       netRevenue: acc.netRevenue + source.netRevenue,
       guestNames: [...(acc.guestNames || []), ...(source.guestNames || [])],
+      bookingDetails: [...(acc.bookingDetails || []), ...(source.bookingDetails || [])],
     }),
-    { count: 0, grossRevenue: 0, commission: 0, netRevenue: 0, guestNames: [] as string[] }
+    { count: 0, grossRevenue: 0, commission: 0, netRevenue: 0, guestNames: [] as string[], bookingDetails: [] as BookingDetail[] }
+  );
+
+  // Aggregate Booking.com details
+  const bookingComDetails = bookingComSources.reduce(
+    (acc, source) => [...acc, ...(source.bookingDetails || [])],
+    [] as BookingDetail[]
   );
 
   const kssTotal = kssSources.reduce(
@@ -257,22 +276,58 @@ export const RevenueBySource = () => {
               </TableRow>
             </TableHeader>
             <TableBody>
-              {/* Booking.com */}
+              {/* Booking.com (Collapsible) */}
               {bookingComSources.length > 0 && (
-                <TableRow className="hover:bg-muted/50">
-                  <TableCell className="font-medium">Booking.com</TableCell>
-                  <TableCell className="text-right">{bookingComTotal.count}</TableCell>
-                  <TableCell className="text-right">
-                    ${bookingComTotal.grossRevenue.toFixed(2)}
-                  </TableCell>
-                  <TableCell className="text-right">17.4%</TableCell>
-                  <TableCell className="text-right text-amber-600">
-                    ${bookingComTotal.commission.toFixed(2)}
-                  </TableCell>
-                  <TableCell className="text-right text-green-600 font-semibold">
-                    ${bookingComTotal.netRevenue.toFixed(2)}
-                  </TableCell>
-                </TableRow>
+                <>
+                  <TableRow className="hover:bg-muted/50">
+                    <TableCell className="font-medium">
+                      <Button
+                        variant="ghost"
+                        size="sm"
+                        className="h-auto p-0 hover:bg-transparent"
+                        onClick={() => setIsBookingComExpanded(!isBookingComExpanded)}
+                      >
+                        {isBookingComExpanded ? (
+                          <ChevronDown className="h-4 w-4 mr-2" />
+                        ) : (
+                          <ChevronRight className="h-4 w-4 mr-2" />
+                        )}
+                        Booking.com
+                      </Button>
+                    </TableCell>
+                    <TableCell className="text-right">{bookingComTotal.count}</TableCell>
+                    <TableCell className="text-right">
+                      ${bookingComTotal.grossRevenue.toFixed(2)}
+                    </TableCell>
+                    <TableCell className="text-right">17.4%</TableCell>
+                    <TableCell className="text-right text-amber-600">
+                      ${bookingComTotal.commission.toFixed(2)}
+                    </TableCell>
+                    <TableCell className="text-right text-green-600 font-semibold">
+                      ${bookingComTotal.netRevenue.toFixed(2)}
+                    </TableCell>
+                  </TableRow>
+                  
+                  {/* Individual Booking.com Reservations */}
+                  {isBookingComExpanded && bookingComDetails.map((booking, index) => (
+                    <TableRow key={`booking-com-${index}`} className="bg-muted/30">
+                      <TableCell className="pl-10 font-normal text-muted-foreground">
+                        {booking.guestName}
+                      </TableCell>
+                      <TableCell className="text-right text-muted-foreground">1</TableCell>
+                      <TableCell className="text-right text-muted-foreground">
+                        ${booking.totalPrice.toFixed(2)}
+                      </TableCell>
+                      <TableCell className="text-right text-muted-foreground">17.4%</TableCell>
+                      <TableCell className="text-right text-muted-foreground">
+                        ${(booking.totalPrice * 0.174).toFixed(2)}
+                      </TableCell>
+                      <TableCell className="text-right text-muted-foreground">
+                        ${booking.netRevenue.toFixed(2)}
+                      </TableCell>
+                    </TableRow>
+                  ))}
+                </>
               )}
 
               {/* Direct Website */}
@@ -326,16 +381,22 @@ export const RevenueBySource = () => {
                   </TableRow>
                   
                   {/* Individual Admin Bookings by Guest */}
-                  {isAdminExpanded && adminTotal.guestNames.map((guestName, index) => (
+                  {isAdminExpanded && adminTotal.bookingDetails.map((booking, index) => (
                     <TableRow key={`admin-${index}`} className="bg-muted/30">
                       <TableCell className="pl-10 font-normal text-muted-foreground">
-                        {guestName}
+                        {booking.guestName}
                       </TableCell>
                       <TableCell className="text-right text-muted-foreground">1</TableCell>
-                      <TableCell className="text-right text-muted-foreground">-</TableCell>
-                      <TableCell className="text-right text-muted-foreground">-</TableCell>
-                      <TableCell className="text-right text-muted-foreground">-</TableCell>
-                      <TableCell className="text-right text-muted-foreground">-</TableCell>
+                      <TableCell className="text-right text-muted-foreground">
+                        ${booking.totalPrice.toFixed(2)}
+                      </TableCell>
+                      <TableCell className="text-right text-muted-foreground">10%</TableCell>
+                      <TableCell className="text-right text-muted-foreground">
+                        ${(booking.totalPrice * 0.10).toFixed(2)}
+                      </TableCell>
+                      <TableCell className="text-right text-muted-foreground">
+                        ${booking.netRevenue.toFixed(2)}
+                      </TableCell>
                     </TableRow>
                   ))}
                 </>
