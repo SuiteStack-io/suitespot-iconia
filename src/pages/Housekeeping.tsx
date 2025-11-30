@@ -4,14 +4,15 @@ import { supabase } from '@/integrations/supabase/client';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
-import { CheckCircle, Sparkles, AlertCircle, ArrowLeft, Clock, History, Filter } from 'lucide-react';
-import { format } from 'date-fns';
+import { CheckCircle, Sparkles, AlertCircle, ArrowLeft, Clock, History, Filter, Users, Calendar, Bed } from 'lucide-react';
+import { format, differenceInDays, addDays } from 'date-fns';
 import { useToast } from '@/hooks/use-toast';
 import { useAuth } from '@/lib/auth';
 import { Checkbox } from '@/components/ui/checkbox';
 import { SlideMenu } from '@/components/SlideMenu';
 import { AdminBreadcrumb } from '@/components/AdminBreadcrumb';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
+import { Textarea } from '@/components/ui/textarea';
 
 type FilterType = 'all' | 'urgent' | 'recent';
 
@@ -38,6 +39,24 @@ interface CleaningLog {
   guest_names: string[];
 }
 
+interface OccupiedRoom {
+  id: string;
+  unit_id: string;
+  unit_number: string;
+  unit_name: string;
+  guest_names: string[];
+  number_of_guests: number;
+  check_in_date: string;
+  check_out_date: string;
+  days_occupied: number;
+  days_remaining: number;
+  last_cleaned_date: string | null;
+  next_cleaning_date: string;
+  housekeeping_notes: string | null;
+  estimated_cleaning_minutes?: number;
+  needs_mid_stay_cleaning: boolean;
+}
+
 const Housekeeping = () => {
   const navigate = useNavigate();
   const { toast } = useToast();
@@ -48,6 +67,9 @@ const Housekeeping = () => {
   const [filter, setFilter] = useState<FilterType>('all');
   const [cleaningHistory, setCleaningHistory] = useState<CleaningLog[]>([]);
   const [showHistory, setShowHistory] = useState(false);
+  const [occupiedRooms, setOccupiedRooms] = useState<OccupiedRoom[]>([]);
+  const [editingNotes, setEditingNotes] = useState<string | null>(null);
+  const [activeTab, setActiveTab] = useState<'checkout' | 'occupied'>('checkout');
 
   useEffect(() => {
     if (!loading && !user) {
@@ -57,6 +79,7 @@ const Housekeeping = () => {
     
     fetchRoomsNeedingCleaning();
     fetchCleaningHistory();
+    fetchOccupiedRooms();
     
     // Real-time updates
     const channel = supabase
@@ -70,6 +93,7 @@ const Housekeeping = () => {
         },
         () => {
           fetchRoomsNeedingCleaning();
+          fetchOccupiedRooms();
         }
       )
       .on(
@@ -81,6 +105,7 @@ const Housekeeping = () => {
         },
         () => {
           fetchCleaningHistory();
+          fetchOccupiedRooms();
         }
       )
       .subscribe();
@@ -147,6 +172,95 @@ const Housekeeping = () => {
         guest_names: (log.reservations as any)?.guest_names || [],
       }));
       setCleaningHistory(logs);
+    }
+  };
+
+  const fetchOccupiedRooms = async () => {
+    const today = format(new Date(), 'yyyy-MM-dd');
+    
+    // Fetch checked-in reservations
+    const { data } = await supabase
+      .from('reservations')
+      .select(`
+        id,
+        check_in_date,
+        check_out_date,
+        guest_names,
+        number_of_guests,
+        housekeeping_notes,
+        units(id, name, unit_number, estimated_cleaning_minutes)
+      `)
+      .eq('status', 'checked-in')
+      .order('check_in_date', { ascending: true });
+
+    if (data) {
+      // For each reservation, get the most recent cleaning log
+      const occupiedRoomsPromises = data.map(async (r) => {
+        const { data: lastCleaning } = await supabase
+          .from('housekeeping_logs')
+          .select('cleaning_completed_at')
+          .eq('reservation_id', r.id)
+          .order('cleaning_completed_at', { ascending: false })
+          .limit(1)
+          .maybeSingle();
+
+        const checkInDate = new Date(r.check_in_date);
+        const checkOutDate = new Date(r.check_out_date);
+        const todayDate = new Date(today);
+        
+        const daysOccupied = differenceInDays(todayDate, checkInDate) + 1;
+        const daysRemaining = differenceInDays(checkOutDate, todayDate);
+        
+        // Next cleaning is on the 4th day (check-in + 3 days)
+        const nextCleaningDate = format(addDays(checkInDate, 3), 'yyyy-MM-dd');
+        const needsMidStayCleaning = daysOccupied >= 4 && !lastCleaning;
+
+        return {
+          id: r.id,
+          unit_id: (r.units as any).id,
+          unit_number: (r.units as any).unit_number || '',
+          unit_name: (r.units as any).name || '',
+          guest_names: r.guest_names,
+          number_of_guests: r.number_of_guests,
+          check_in_date: r.check_in_date,
+          check_out_date: r.check_out_date,
+          days_occupied: daysOccupied,
+          days_remaining: daysRemaining,
+          last_cleaned_date: lastCleaning?.cleaning_completed_at || null,
+          next_cleaning_date: nextCleaningDate,
+          housekeeping_notes: r.housekeeping_notes,
+          estimated_cleaning_minutes: (r.units as any).estimated_cleaning_minutes || 45,
+          needs_mid_stay_cleaning: needsMidStayCleaning,
+        } as OccupiedRoom;
+      });
+
+      const occupiedRoomsData = await Promise.all(occupiedRoomsPromises);
+      setOccupiedRooms(occupiedRoomsData.filter(r => r.unit_id));
+    }
+  };
+
+  const handleUpdateNotes = async (reservationId: string, notes: string) => {
+    try {
+      const { error } = await supabase
+        .from('reservations')
+        .update({ housekeeping_notes: notes })
+        .eq('id', reservationId);
+
+      if (error) throw error;
+
+      toast({
+        title: 'Success',
+        description: 'Housekeeping notes updated',
+      });
+
+      setEditingNotes(null);
+      fetchOccupiedRooms();
+    } catch (error: any) {
+      toast({
+        title: 'Error',
+        description: error.message,
+        variant: 'destructive',
+      });
     }
   };
 
@@ -316,103 +430,112 @@ const Housekeeping = () => {
       <main className="container mx-auto px-4 py-8">
         <div className="max-w-6xl mx-auto space-y-6">
           
-          {/* Filter and History Toggle */}
-          <div className="flex flex-col sm:flex-row gap-4 items-start sm:items-center justify-between">
-            <div className="flex gap-2">
-              <Button
-                variant={filter === 'all' ? 'default' : 'outline'}
-                size="sm"
-                onClick={() => setFilter('all')}
-                className="gap-2"
-              >
-                <Filter className="h-4 w-4" />
-                All ({rooms.length})
-              </Button>
-              <Button
-                variant={filter === 'urgent' ? 'default' : 'outline'}
-                size="sm"
-                onClick={() => setFilter('urgent')}
-                className="gap-2"
-              >
-                <AlertCircle className="h-4 w-4" />
-                Urgent ({rooms.filter(r => r.priority === 'urgent').length})
-              </Button>
-              <Button
-                variant={filter === 'recent' ? 'default' : 'outline'}
-                size="sm"
-                onClick={() => setFilter('recent')}
-                className="gap-2"
-              >
-                <Clock className="h-4 w-4" />
-                Recent ({rooms.filter(r => r.priority === 'normal').length})
-              </Button>
-            </div>
-            
-            <Button
-              variant="outline"
-              size="sm"
-              onClick={() => setShowHistory(!showHistory)}
-              className="gap-2"
-            >
-              <History className="h-4 w-4" />
-              {showHistory ? 'Hide' : 'Show'} History
-            </Button>
-          </div>
+          {/* Main Tabs */}
+          <Tabs value={activeTab} onValueChange={(v) => setActiveTab(v as 'checkout' | 'occupied')}>
+            <TabsList className="grid w-full grid-cols-2">
+              <TabsTrigger value="checkout">After Checkout</TabsTrigger>
+              <TabsTrigger value="occupied">Occupied Rooms</TabsTrigger>
+            </TabsList>
 
-          {/* Cleaning History */}
-          {showHistory && (
-            <Card>
-              <CardHeader>
-                <CardTitle className="flex items-center gap-2">
-                  <History className="h-5 w-5" />
-                  Recent Cleaning History
-                </CardTitle>
-              </CardHeader>
-              <CardContent>
-                <div className="space-y-3">
-                  {cleaningHistory.length === 0 ? (
-                    <p className="text-sm text-muted-foreground text-center py-4">
-                      No cleaning history yet
-                    </p>
-                  ) : (
-                    cleaningHistory.map((log) => (
-                      <Card key={log.id} className="bg-accent/20">
-                        <CardContent className="p-4">
-                          <div className="flex items-center justify-between">
-                            <div className="flex-1">
-                              <p className="font-bold text-primary">
-                                Room #{log.unit_number} - {log.unit_name}
-                              </p>
-                              <p className="text-sm text-muted-foreground">
-                                Guest: {log.guest_names[0] || 'N/A'}
-                              </p>
-                              <p className="text-sm">
-                                Cleaned by: {log.cleaned_by_name}
-                              </p>
-                              <p className="text-xs text-muted-foreground">
-                                {format(new Date(log.cleaning_completed_at), 'MMM dd, yyyy HH:mm')}
-                              </p>
-                            </div>
-                            <div className="text-right">
-                              <Badge variant="outline" className="gap-1">
-                                <Clock className="h-3 w-3" />
-                                Est: {log.estimated_minutes}min
-                              </Badge>
-                              {log.actual_duration_minutes && (
-                                <p className="text-xs text-muted-foreground mt-1">
-                                  Actual: {Math.round(log.actual_duration_minutes)}min
-                                </p>
-                              )}
-                            </div>
-                          </div>
-                        </CardContent>
-                      </Card>
-                    ))
-                  )}
+            {/* After Checkout Tab */}
+            <TabsContent value="checkout" className="space-y-6 mt-6">
+              {/* Filter and History Toggle */}
+              <div className="flex flex-col sm:flex-row gap-4 items-start sm:items-center justify-between">
+                <div className="flex gap-2">
+                  <Button
+                    variant={filter === 'all' ? 'default' : 'outline'}
+                    size="sm"
+                    onClick={() => setFilter('all')}
+                    className="gap-2"
+                  >
+                    <Filter className="h-4 w-4" />
+                    All ({rooms.length})
+                  </Button>
+                  <Button
+                    variant={filter === 'urgent' ? 'default' : 'outline'}
+                    size="sm"
+                    onClick={() => setFilter('urgent')}
+                    className="gap-2"
+                  >
+                    <AlertCircle className="h-4 w-4" />
+                    Urgent ({rooms.filter(r => r.priority === 'urgent').length})
+                  </Button>
+                  <Button
+                    variant={filter === 'recent' ? 'default' : 'outline'}
+                    size="sm"
+                    onClick={() => setFilter('recent')}
+                    className="gap-2"
+                  >
+                    <Clock className="h-4 w-4" />
+                    Recent ({rooms.filter(r => r.priority === 'normal').length})
+                  </Button>
                 </div>
-              </CardContent>
-            </Card>
-          )}
+                
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={() => setShowHistory(!showHistory)}
+                  className="gap-2"
+                >
+                  <History className="h-4 w-4" />
+                  {showHistory ? 'Hide' : 'Show'} History
+                </Button>
+              </div>
+
+              {/* Cleaning History */}
+              {showHistory && (
+                <Card>
+                  <CardHeader>
+                    <CardTitle className="flex items-center gap-2">
+                      <History className="h-5 w-5" />
+                      Recent Cleaning History
+                    </CardTitle>
+                  </CardHeader>
+                  <CardContent>
+                    <div className="space-y-3">
+                      {cleaningHistory.length === 0 ? (
+                        <p className="text-sm text-muted-foreground text-center py-4">
+                          No cleaning history yet
+                        </p>
+                      ) : (
+                        cleaningHistory.map((log) => (
+                          <Card key={log.id} className="bg-accent/20">
+                            <CardContent className="p-4">
+                              <div className="flex items-center justify-between">
+                                <div className="flex-1">
+                                  <p className="font-bold text-primary">
+                                    Room #{log.unit_number} - {log.unit_name}
+                                  </p>
+                                  <p className="text-sm text-muted-foreground">
+                                    Guest: {log.guest_names[0] || 'N/A'}
+                                  </p>
+                                  <p className="text-sm">
+                                    Cleaned by: {log.cleaned_by_name}
+                                  </p>
+                                  <p className="text-xs text-muted-foreground">
+                                    {format(new Date(log.cleaning_completed_at), 'MMM dd, yyyy HH:mm')}
+                                  </p>
+                                </div>
+                                <div className="text-right">
+                                  <Badge variant="outline" className="gap-1">
+                                    <Clock className="h-3 w-3" />
+                                    Est: {log.estimated_minutes}min
+                                  </Badge>
+                                  {log.actual_duration_minutes && (
+                                    <p className="text-xs text-muted-foreground mt-1">
+                                      Actual: {Math.round(log.actual_duration_minutes)}min
+                                    </p>
+                                  )}
+                                </div>
+                              </div>
+                            </CardContent>
+                          </Card>
+                        ))
+                      )}
+                    </div>
+                  </CardContent>
+                </Card>
+              )}
 
           {/* Bulk Actions */}
           {selectedRooms.size > 0 && (
@@ -568,17 +691,159 @@ const Housekeeping = () => {
             </Card>
           )}
 
-          {rooms.length === 0 && (
-            <Card>
-              <CardContent className="p-12 text-center">
-                <Sparkles className="h-12 w-12 mx-auto mb-4 text-muted-foreground" />
-                <p className="text-lg font-medium mb-2">All Clean!</p>
-                <p className="text-muted-foreground">
-                  No rooms need cleaning at the moment
-                </p>
-              </CardContent>
-            </Card>
-          )}
+              {rooms.length === 0 && (
+                <Card>
+                  <CardContent className="p-12 text-center">
+                    <Sparkles className="h-12 w-12 mx-auto mb-4 text-muted-foreground" />
+                    <p className="text-lg font-medium mb-2">All Clean!</p>
+                    <p className="text-muted-foreground">
+                      No rooms need cleaning at the moment
+                    </p>
+                  </CardContent>
+                </Card>
+              )}
+            </TabsContent>
+
+            {/* Occupied Rooms Tab */}
+            <TabsContent value="occupied" className="space-y-6 mt-6">
+              {occupiedRooms.length === 0 ? (
+                <Card>
+                  <CardContent className="p-12 text-center">
+                    <Bed className="h-12 w-12 mx-auto mb-4 text-muted-foreground" />
+                    <p className="text-lg font-medium mb-2">No Occupied Rooms</p>
+                    <p className="text-muted-foreground">
+                      No guests are currently checked in
+                    </p>
+                  </CardContent>
+                </Card>
+              ) : (
+                <div className="space-y-4">
+                  {occupiedRooms.map((room) => (
+                    <Card key={room.id} className={room.needs_mid_stay_cleaning ? 'border-orange-200' : ''}>
+                      <CardContent className="p-6">
+                        <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+                          {/* Left Column - Room & Guest Info */}
+                          <div>
+                            <div className="flex items-center gap-2 mb-2">
+                              <p className="text-lg font-bold text-primary">
+                                Room #{room.unit_number}
+                              </p>
+                              {room.needs_mid_stay_cleaning && (
+                                <Badge variant="destructive" className="text-xs">
+                                  Cleaning Due
+                                </Badge>
+                              )}
+                            </div>
+                            <p className="text-sm text-muted-foreground mb-3">{room.unit_name}</p>
+                            
+                            <div className="space-y-2">
+                              <div className="flex items-center gap-2 text-sm">
+                                <Users className="h-4 w-4 text-muted-foreground" />
+                                <span className="font-medium">{room.guest_names[0]}</span>
+                              </div>
+                              <div className="flex items-center gap-2 text-sm text-muted-foreground">
+                                <Users className="h-4 w-4" />
+                                <span>{room.number_of_guests} guest{room.number_of_guests !== 1 ? 's' : ''}</span>
+                              </div>
+                              <Badge variant="outline" className="gap-1">
+                                <Clock className="h-3 w-3" />
+                                Est. {room.estimated_cleaning_minutes} min
+                              </Badge>
+                            </div>
+                          </div>
+
+                          {/* Middle Column - Dates & Status */}
+                          <div>
+                            <div className="space-y-3">
+                              <div>
+                                <p className="text-xs text-muted-foreground mb-1">Check-in / Check-out</p>
+                                <div className="flex items-center gap-2 text-sm">
+                                  <Calendar className="h-4 w-4 text-muted-foreground" />
+                                  <span>{format(new Date(room.check_in_date), 'MMM dd')} - {format(new Date(room.check_out_date), 'MMM dd')}</span>
+                                </div>
+                              </div>
+                              
+                              <div>
+                                <p className="text-xs text-muted-foreground mb-1">Stay Duration</p>
+                                <div className="flex gap-4 text-sm">
+                                  <Badge variant="secondary">Day {room.days_occupied}</Badge>
+                                  <span className="text-muted-foreground">{room.days_remaining} days left</span>
+                                </div>
+                              </div>
+
+                              <div>
+                                <p className="text-xs text-muted-foreground mb-1">Last Cleaned</p>
+                                <p className="text-sm">
+                                  {room.last_cleaned_date 
+                                    ? format(new Date(room.last_cleaned_date), 'MMM dd, yyyy')
+                                    : <span className="text-muted-foreground">Not cleaned yet</span>
+                                  }
+                                </p>
+                              </div>
+
+                              <div>
+                                <p className="text-xs text-muted-foreground mb-1">Next Cleaning (Day 4)</p>
+                                <div className="flex items-center gap-2">
+                                  <p className="text-sm font-medium">
+                                    {format(new Date(room.next_cleaning_date), 'MMM dd, yyyy')}
+                                  </p>
+                                  {new Date(room.next_cleaning_date) <= new Date() && (
+                                    <Badge variant="destructive" className="text-xs">Due Now</Badge>
+                                  )}
+                                </div>
+                              </div>
+                            </div>
+                          </div>
+
+                          {/* Right Column - Notes */}
+                          <div>
+                            <p className="text-xs text-muted-foreground mb-2">Housekeeping Notes</p>
+                            {editingNotes === room.id ? (
+                              <div className="space-y-2">
+                                <Textarea
+                                  defaultValue={room.housekeeping_notes || ''}
+                                  placeholder="Add housekeeping notes..."
+                                  className="min-h-[100px] text-sm"
+                                  id={`notes-${room.id}`}
+                                />
+                                <div className="flex gap-2">
+                                  <Button
+                                    size="sm"
+                                    onClick={() => {
+                                      const textarea = document.getElementById(`notes-${room.id}`) as HTMLTextAreaElement;
+                                      handleUpdateNotes(room.id, textarea.value);
+                                    }}
+                                  >
+                                    Save
+                                  </Button>
+                                  <Button
+                                    size="sm"
+                                    variant="outline"
+                                    onClick={() => setEditingNotes(null)}
+                                  >
+                                    Cancel
+                                  </Button>
+                                </div>
+                              </div>
+                            ) : (
+                              <div
+                                onClick={() => setEditingNotes(room.id)}
+                                className="min-h-[100px] text-sm p-3 rounded-md border bg-accent/20 cursor-pointer hover:bg-accent/30 transition-colors"
+                              >
+                                {room.housekeeping_notes || (
+                                  <span className="text-muted-foreground italic">Click to add notes...</span>
+                                )}
+                              </div>
+                            )}
+                          </div>
+                        </div>
+                      </CardContent>
+                    </Card>
+                  ))}
+                </div>
+              )}
+            </TabsContent>
+          </Tabs>
         </div>
       </main>
     </div>
