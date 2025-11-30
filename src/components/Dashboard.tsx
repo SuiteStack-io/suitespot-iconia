@@ -216,6 +216,17 @@ export const Dashboard = () => {
         }
       }
 
+      // Send check-out notification to housekeeping if status changed to checked-out
+      if (newStatus === 'checked-out') {
+        try {
+          await supabase.functions.invoke('send-checkout-notification', {
+            body: { reservationId }
+          });
+        } catch (notifError) {
+          console.error('Failed to send check-out notification:', notifError);
+        }
+      }
+
       toast({
         title: 'Success',
         description: `Status updated to ${newStatus}`,
