@@ -56,6 +56,7 @@ export function SlideMenu({ isAdmin }: SlideMenuProps) {
         { title: 'KYC Management', url: '/kyc-management', icon: ClipboardList },
         { title: 'KYC Results', url: '/selection-sessions', icon: FileText },
         { title: 'Session Audit Log', url: '/session-audit-log', icon: ScrollText },
+        { title: 'Tickets Analytics', url: '/ticket-analytics', icon: BarChart3 },
       ],
     },
     {
@@ -70,7 +71,6 @@ export function SlideMenu({ isAdmin }: SlideMenuProps) {
         { title: 'App Accounts', url: '/guest-accounts', icon: Shield },
         { title: 'Guests', url: '/guests', icon: Users },
         { title: 'Revenue Analytics', url: '/analytics', icon: DollarSign },
-        { title: 'Tickets Analytics', url: '/ticket-analytics', icon: BarChart3 },
       ],
     },
     {
