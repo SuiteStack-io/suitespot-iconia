@@ -3,11 +3,15 @@ import { supabase } from "@/integrations/supabase/client";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Star, ThumbsUp, Home, Sparkles, MapPin, DollarSign } from "lucide-react";
 
-const StaySurveyAnalytics = () => {
+interface StaySurveyAnalyticsProps {
+  dateRange?: { startDate: string; endDate: string };
+}
+
+const StaySurveyAnalytics = ({ dateRange }: StaySurveyAnalyticsProps) => {
   const { data: surveys } = useQuery({
-    queryKey: ["stay-surveys"],
+    queryKey: ["stay-surveys", dateRange],
     queryFn: async () => {
-      const { data, error } = await supabase
+      let query = supabase
         .from("stay_surveys")
         .select(`
           *,
@@ -17,8 +21,15 @@ const StaySurveyAnalytics = () => {
             check_out_date,
             units (name)
           )
-        `)
-        .order("submitted_at", { ascending: false });
+        `);
+
+      if (dateRange) {
+        query = query
+          .gte('submitted_at', dateRange.startDate)
+          .lte('submitted_at', dateRange.endDate + 'T23:59:59');
+      }
+
+      const { data, error } = await query.order("submitted_at", { ascending: false });
 
       if (error) throw error;
       return data;
@@ -29,7 +40,7 @@ const StaySurveyAnalytics = () => {
     return (
       <Card>
         <CardContent className="pt-6 text-center text-muted-foreground">
-          No guest feedback yet
+          {dateRange ? "No guest feedback for the selected period" : "No guest feedback yet"}
         </CardContent>
       </Card>
     );
