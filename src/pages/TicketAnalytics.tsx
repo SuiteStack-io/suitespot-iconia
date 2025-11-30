@@ -89,7 +89,7 @@ const TicketAnalytics = () => {
         </Button>
         
         <BarChart3 className="h-8 w-8 text-primary" />
-        <h1 className="text-3xl font-bold">Ticket Analytics</h1>
+        <h1 className="text-3xl font-bold">Tickets Analytics</h1>
       </div>
 
       <TicketMetrics tickets={tickets} />
