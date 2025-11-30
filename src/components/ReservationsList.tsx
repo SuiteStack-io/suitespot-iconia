@@ -3,6 +3,7 @@ import { supabase } from '@/integrations/supabase/client';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
+import { Checkbox } from '@/components/ui/checkbox';
 import {
   Table,
   TableBody,
@@ -26,8 +27,9 @@ import {
   DialogTitle,
 } from '@/components/ui/dialog';
 import { format } from 'date-fns';
-import { Search, Users } from 'lucide-react';
+import { Search, Users, Check } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
+import { toast } from 'sonner';
 
 interface Reservation {
   id: string;
@@ -63,10 +65,23 @@ type SortOrder = 'asc' | 'desc';
 
 const statusColors = {
   confirmed: 'bg-blue-100 text-blue-800 hover:bg-blue-100',
+  'checked-in': 'bg-green-100 text-green-800 hover:bg-green-100',
+  'checked-out': 'bg-gray-100 text-gray-800 hover:bg-gray-100',
+  completed: 'bg-purple-100 text-purple-800 hover:bg-purple-100',
+  cancelled: 'bg-red-100 text-red-800 hover:bg-red-100',
+  // Legacy status values for backwards compatibility
   Upcoming: 'bg-blue-100 text-blue-800 hover:bg-blue-100',
   'In-House': 'bg-green-100 text-green-800 hover:bg-green-100',
   'Checked-Out': 'bg-gray-100 text-gray-800 hover:bg-gray-100',
   Cancelled: 'bg-red-100 text-red-800 hover:bg-red-100',
+};
+
+const statusLabels = {
+  confirmed: 'Confirmed',
+  'checked-in': 'Checked-In',
+  'checked-out': 'Checked-Out',
+  completed: 'Completed',
+  cancelled: 'Cancelled',
 };
 
 export const ReservationsList = () => {
@@ -80,6 +95,9 @@ export const ReservationsList = () => {
   const [sortOrder, setSortOrder] = useState<SortOrder>('desc');
   const [selectedGroup, setSelectedGroup] = useState<Reservation[] | null>(null);
   const [showGroupDialog, setShowGroupDialog] = useState(false);
+  const [selectedReservations, setSelectedReservations] = useState<Set<string>>(new Set());
+  const [bulkStatus, setBulkStatus] = useState<string>('');
+  const [isUpdating, setIsUpdating] = useState(false);
   const navigate = useNavigate();
 
   useEffect(() => {
@@ -267,6 +285,61 @@ export const ReservationsList = () => {
     return sortOrder === 'asc' ? ' ↑' : ' ↓';
   };
 
+  const handleSelectAll = (checked: boolean) => {
+    if (checked) {
+      const allIds = new Set(filteredReservations.map(r => r.id));
+      setSelectedReservations(allIds);
+    } else {
+      setSelectedReservations(new Set());
+    }
+  };
+
+  const handleSelectReservation = (id: string, checked: boolean) => {
+    const newSelected = new Set(selectedReservations);
+    if (checked) {
+      newSelected.add(id);
+    } else {
+      newSelected.delete(id);
+    }
+    setSelectedReservations(newSelected);
+  };
+
+  const handleBulkStatusUpdate = async () => {
+    if (selectedReservations.size === 0) {
+      toast.error('Please select at least one reservation');
+      return;
+    }
+    
+    if (!bulkStatus) {
+      toast.error('Please select a status');
+      return;
+    }
+
+    setIsUpdating(true);
+    
+    try {
+      const { error } = await supabase
+        .from('reservations')
+        .update({ status: bulkStatus })
+        .in('id', Array.from(selectedReservations));
+
+      if (error) {
+        toast.error('Failed to update reservations');
+        console.error('Bulk update error:', error);
+      } else {
+        toast.success(`Successfully updated ${selectedReservations.size} reservation(s)`);
+        setSelectedReservations(new Set());
+        setBulkStatus('');
+        fetchReservations();
+      }
+    } catch (error) {
+      toast.error('An error occurred while updating reservations');
+      console.error('Bulk update error:', error);
+    } finally {
+      setIsUpdating(false);
+    }
+  };
+
   return (
     <div className="space-y-4">
       <div className="flex flex-col sm:flex-row gap-4">
@@ -286,10 +359,10 @@ export const ReservationsList = () => {
           <SelectContent>
             <SelectItem value="all">All Statuses</SelectItem>
             <SelectItem value="confirmed">Confirmed</SelectItem>
-            <SelectItem value="Upcoming">Upcoming</SelectItem>
-            <SelectItem value="In-House">In-House</SelectItem>
-            <SelectItem value="Checked-Out">Checked-Out</SelectItem>
-            <SelectItem value="Cancelled">Cancelled</SelectItem>
+            <SelectItem value="checked-in">Checked-In</SelectItem>
+            <SelectItem value="checked-out">Checked-Out</SelectItem>
+            <SelectItem value="completed">Completed</SelectItem>
+            <SelectItem value="cancelled">Cancelled</SelectItem>
           </SelectContent>
         </Select>
         <Select value={unitFilter} onValueChange={setUnitFilter}>
@@ -307,10 +380,58 @@ export const ReservationsList = () => {
         </Select>
       </div>
 
+      {/* Bulk Actions Toolbar */}
+      {selectedReservations.size > 0 && (
+        <div className="bg-primary/10 border border-primary/20 rounded-lg p-4">
+          <div className="flex flex-col sm:flex-row items-start sm:items-center gap-4">
+            <div className="flex items-center gap-2">
+              <Check className="h-5 w-5 text-primary" />
+              <span className="font-medium">
+                {selectedReservations.size} reservation(s) selected
+              </span>
+            </div>
+            <div className="flex items-center gap-2 flex-1">
+              <Select value={bulkStatus} onValueChange={setBulkStatus}>
+                <SelectTrigger className="w-[200px]">
+                  <SelectValue placeholder="Select new status" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="confirmed">Confirmed</SelectItem>
+                  <SelectItem value="checked-in">Checked-In</SelectItem>
+                  <SelectItem value="checked-out">Checked-Out</SelectItem>
+                  <SelectItem value="completed">Completed</SelectItem>
+                  <SelectItem value="cancelled">Cancelled</SelectItem>
+                </SelectContent>
+              </Select>
+              <Button 
+                onClick={handleBulkStatusUpdate} 
+                disabled={isUpdating || !bulkStatus}
+                size="sm"
+              >
+                {isUpdating ? 'Updating...' : 'Update Status'}
+              </Button>
+              <Button 
+                variant="outline" 
+                onClick={() => setSelectedReservations(new Set())}
+                size="sm"
+              >
+                Clear Selection
+              </Button>
+            </div>
+          </div>
+        </div>
+      )}
+
       <div className="border rounded-lg">
         <Table>
           <TableHeader>
             <TableRow>
+              <TableHead className="w-[50px]">
+                <Checkbox
+                  checked={selectedReservations.size === filteredReservations.length && filteredReservations.length > 0}
+                  onCheckedChange={handleSelectAll}
+                />
+              </TableHead>
               <TableHead 
                 className="cursor-pointer hover:bg-muted/50"
                 onClick={() => handleSort('units')}
@@ -397,7 +518,7 @@ export const ReservationsList = () => {
           <TableBody>
             {filteredReservations.length === 0 ? (
               <TableRow>
-                <TableCell colSpan={14} className="text-center text-muted-foreground">
+                <TableCell colSpan={15} className="text-center text-muted-foreground">
                   No reservations found
                 </TableCell>
               </TableRow>
@@ -405,10 +526,18 @@ export const ReservationsList = () => {
               filteredReservations.map((reservation) => (
                 <TableRow
                   key={reservation.id}
-                  className="cursor-pointer hover:bg-muted/50"
-                  onClick={() => navigate(`/reservation/${reservation.id}`)}
+                  className="hover:bg-muted/50"
                 >
-                  <TableCell className="font-medium">
+                  <TableCell onClick={(e) => e.stopPropagation()}>
+                    <Checkbox
+                      checked={selectedReservations.has(reservation.id)}
+                      onCheckedChange={(checked) => handleSelectReservation(reservation.id, checked as boolean)}
+                    />
+                  </TableCell>
+                  <TableCell 
+                    className="font-medium cursor-pointer"
+                    onClick={() => navigate(`/reservation/${reservation.id}`)}
+                  >
                     <div className="flex items-center gap-2">
                       {reservation.units?.name || 'N/A'}
                       {reservation.isGrouped && reservation.groupCount && (
@@ -423,33 +552,80 @@ export const ReservationsList = () => {
                       )}
                     </div>
                   </TableCell>
-                  <TableCell>
+                  <TableCell 
+                    className="cursor-pointer"
+                    onClick={() => navigate(`/reservation/${reservation.id}`)}
+                  >
                     {reservation.isGrouped && reservation.groupCount ? (
                       <span className="text-muted-foreground text-xs">Multiple</span>
                     ) : (
                       reservation.units?.unit_number || '-'
                     )}
                   </TableCell>
-                  <TableCell>{reservation.guest_names?.length > 0 ? reservation.guest_names.join(', ') : 'N/A'}</TableCell>
-                  <TableCell>{format(new Date(reservation.check_in_date), 'dd MMM yyyy')}</TableCell>
-                  <TableCell>{format(new Date(reservation.check_out_date), 'dd MMM yyyy')}</TableCell>
-                  <TableCell>{reservation.nights}</TableCell>
-                  <TableCell>{reservation.number_of_guests}</TableCell>
-                  <TableCell>{reservation.guest_nationality || 'N/A'}</TableCell>
-                  <TableCell>
+                  <TableCell 
+                    className="cursor-pointer"
+                    onClick={() => navigate(`/reservation/${reservation.id}`)}
+                  >
+                    {reservation.guest_names?.length > 0 ? reservation.guest_names.join(', ') : 'N/A'}
+                  </TableCell>
+                  <TableCell 
+                    className="cursor-pointer"
+                    onClick={() => navigate(`/reservation/${reservation.id}`)}
+                  >
+                    {format(new Date(reservation.check_in_date), 'dd MMM yyyy')}
+                  </TableCell>
+                  <TableCell 
+                    className="cursor-pointer"
+                    onClick={() => navigate(`/reservation/${reservation.id}`)}
+                  >
+                    {format(new Date(reservation.check_out_date), 'dd MMM yyyy')}
+                  </TableCell>
+                  <TableCell 
+                    className="cursor-pointer"
+                    onClick={() => navigate(`/reservation/${reservation.id}`)}
+                  >
+                    {reservation.nights}
+                  </TableCell>
+                  <TableCell 
+                    className="cursor-pointer"
+                    onClick={() => navigate(`/reservation/${reservation.id}`)}
+                  >
+                    {reservation.number_of_guests}
+                  </TableCell>
+                  <TableCell 
+                    className="cursor-pointer"
+                    onClick={() => navigate(`/reservation/${reservation.id}`)}
+                  >
+                    {reservation.guest_nationality || 'N/A'}
+                  </TableCell>
+                  <TableCell 
+                    className="cursor-pointer"
+                    onClick={() => navigate(`/reservation/${reservation.id}`)}
+                  >
                     <Badge className={statusColors[reservation.status as keyof typeof statusColors]}>
-                      {reservation.status}
+                      {statusLabels[reservation.status as keyof typeof statusLabels] || reservation.status}
                     </Badge>
                   </TableCell>
-                  <TableCell>{reservation.source}</TableCell>
-                  <TableCell className="text-right">
+                  <TableCell 
+                    className="cursor-pointer"
+                    onClick={() => navigate(`/reservation/${reservation.id}`)}
+                  >
+                    {reservation.source}
+                  </TableCell>
+                  <TableCell 
+                    className="text-right cursor-pointer"
+                    onClick={() => navigate(`/reservation/${reservation.id}`)}
+                  >
                     {reservation.isGrouped && reservation.groupCount ? (
                       <span className="text-muted-foreground text-xs">Various</span>
                     ) : (
                       reservation.price_per_night ? `$${Number(reservation.price_per_night).toFixed(2)}` : '-'
                     )}
                   </TableCell>
-                  <TableCell className="text-right font-medium">
+                  <TableCell 
+                    className="text-right font-medium cursor-pointer"
+                    onClick={() => navigate(`/reservation/${reservation.id}`)}
+                  >
                     {reservation.isGrouped && reservation.groupRooms ? (
                       <div>
                         ${reservation.groupRooms.reduce((sum, r) => sum + (Number(r.total_price) || 0), 0).toFixed(2)}
@@ -459,8 +635,18 @@ export const ReservationsList = () => {
                       reservation.total_price ? `$${Number(reservation.total_price).toFixed(2)}` : '-'
                     )}
                   </TableCell>
-                  <TableCell className="font-mono text-sm">{reservation.booking_reference}</TableCell>
-                  <TableCell>{format(new Date(reservation.created_at), 'dd MMM yyyy')}</TableCell>
+                  <TableCell 
+                    className="font-mono text-sm cursor-pointer"
+                    onClick={() => navigate(`/reservation/${reservation.id}`)}
+                  >
+                    {reservation.booking_reference}
+                  </TableCell>
+                  <TableCell 
+                    className="cursor-pointer"
+                    onClick={() => navigate(`/reservation/${reservation.id}`)}
+                  >
+                    {format(new Date(reservation.created_at), 'dd MMM yyyy')}
+                  </TableCell>
                 </TableRow>
               ))
             )}
