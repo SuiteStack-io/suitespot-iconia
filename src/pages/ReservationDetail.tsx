@@ -109,6 +109,7 @@ const statusColors = {
   'checked-in': 'bg-green-100 text-green-800 hover:bg-green-100',
   'checked-out': 'bg-gray-100 text-gray-800 hover:bg-gray-100',
   completed: 'bg-purple-100 text-purple-800 hover:bg-purple-100',
+  cancelled: 'bg-red-100 text-red-800 hover:bg-red-100',
 };
 
 const statusLabels = {
@@ -116,6 +117,7 @@ const statusLabels = {
   'checked-in': 'Checked-In',
   'checked-out': 'Checked-Out',
   completed: 'Completed',
+  cancelled: 'Cancelled',
 };
 
 const ReservationDetail = () => {
@@ -953,6 +955,7 @@ const ReservationDetail = () => {
                       <SelectItem value="checked-in">Checked-In</SelectItem>
                       <SelectItem value="checked-out">Checked-Out</SelectItem>
                       <SelectItem value="completed">Completed</SelectItem>
+                      <SelectItem value="cancelled">Cancelled</SelectItem>
                     </SelectContent>
                   </Select>
                 </div>
