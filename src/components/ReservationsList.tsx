@@ -26,10 +26,14 @@ import {
   DialogHeader,
   DialogTitle,
 } from '@/components/ui/dialog';
+import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
+import { Calendar } from '@/components/ui/calendar';
 import { format } from 'date-fns';
-import { Search, Users, Check } from 'lucide-react';
+import { Search, Users, Check, CalendarIcon, Download, FileSpreadsheet, X } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
 import { toast } from 'sonner';
+import { cn } from '@/lib/utils';
+import * as XLSX from 'xlsx';
 
 interface Reservation {
   id: string;
@@ -98,6 +102,8 @@ export const ReservationsList = () => {
   const [selectedReservations, setSelectedReservations] = useState<Set<string>>(new Set());
   const [bulkStatus, setBulkStatus] = useState<string>('');
   const [isUpdating, setIsUpdating] = useState(false);
+  const [startDate, setStartDate] = useState<Date | undefined>(undefined);
+  const [endDate, setEndDate] = useState<Date | undefined>(undefined);
   const navigate = useNavigate();
 
   useEffect(() => {
@@ -147,7 +153,7 @@ export const ReservationsList = () => {
 
   useEffect(() => {
     filterReservations();
-  }, [reservations, searchQuery, statusFilter, unitFilter, sortField, sortOrder]);
+  }, [reservations, searchQuery, statusFilter, unitFilter, sortField, sortOrder, startDate, endDate]);
 
   const fetchReservations = async () => {
     const { data, error } = await supabase
@@ -230,6 +236,14 @@ export const ReservationsList = () => {
 
     if (unitFilter !== 'all') {
       filtered = filtered.filter((r) => r.units?.name === unitFilter);
+    }
+
+    // Date range filtering
+    if (startDate) {
+      filtered = filtered.filter(r => new Date(r.check_in_date) >= startDate);
+    }
+    if (endDate) {
+      filtered = filtered.filter(r => new Date(r.check_in_date) <= endDate);
     }
 
     // Apply sorting
@@ -340,6 +354,63 @@ export const ReservationsList = () => {
     }
   };
 
+  const getExportData = () => {
+    const dataToExport = selectedReservations.size > 0
+      ? filteredReservations.filter(r => selectedReservations.has(r.id))
+      : filteredReservations;
+
+    return dataToExport.map(r => ({
+      'Suite Name': r.units?.name || 'N/A',
+      'Room #': r.units?.unit_number || '-',
+      'Guest Name(s)': r.guest_names.join(', '),
+      'Check-in': format(new Date(r.check_in_date), 'dd MMM yyyy'),
+      'Check-out': format(new Date(r.check_out_date), 'dd MMM yyyy'),
+      'Nights': r.nights,
+      'Guests': r.number_of_guests,
+      'Nationality': r.guest_nationality || 'N/A',
+      'Status': statusLabels[r.status as keyof typeof statusLabels] || r.status,
+      'Source': r.source,
+      'Price/Night': r.price_per_night ? `$${Number(r.price_per_night).toFixed(2)}` : '-',
+      'Total': r.total_price ? `$${Number(r.total_price).toFixed(2)}` : '-',
+      'Reference': r.booking_reference,
+      'Created': format(new Date(r.created_at), 'dd MMM yyyy'),
+    }));
+  };
+
+  const handleExportExcel = () => {
+    const data = getExportData();
+    if (data.length === 0) {
+      toast.error('No reservations to export');
+      return;
+    }
+
+    const ws = XLSX.utils.json_to_sheet(data);
+    const wb = XLSX.utils.book_new();
+    XLSX.utils.book_append_sheet(wb, ws, 'Reservations');
+    
+    const filename = `reservations_${format(new Date(), 'yyyy-MM-dd_HH-mm')}.xlsx`;
+    XLSX.writeFile(wb, filename);
+    toast.success(`Exported ${data.length} reservation(s) to Excel`);
+  };
+
+  const handleExportCSV = () => {
+    const data = getExportData();
+    if (data.length === 0) {
+      toast.error('No reservations to export');
+      return;
+    }
+
+    const ws = XLSX.utils.json_to_sheet(data);
+    const csv = XLSX.utils.sheet_to_csv(ws);
+    
+    const blob = new Blob([csv], { type: 'text/csv;charset=utf-8;' });
+    const link = document.createElement('a');
+    link.href = URL.createObjectURL(blob);
+    link.download = `reservations_${format(new Date(), 'yyyy-MM-dd_HH-mm')}.csv`;
+    link.click();
+    toast.success(`Exported ${data.length} reservation(s) to CSV`);
+  };
+
   return (
     <div className="space-y-4">
       <div className="flex flex-col sm:flex-row gap-4">
@@ -378,6 +449,105 @@ export const ReservationsList = () => {
             ))}
           </SelectContent>
         </Select>
+      </div>
+
+      {/* Date Range and Export Filters */}
+      <div className="flex flex-col sm:flex-row gap-4 items-end">
+        <div className="flex-1 space-y-2">
+          <label className="text-sm font-medium">From Date</label>
+          <Popover>
+            <PopoverTrigger asChild>
+              <Button
+                variant="outline"
+                className={cn(
+                  "w-full justify-start text-left font-normal",
+                  !startDate && "text-muted-foreground"
+                )}
+              >
+                <CalendarIcon className="mr-2 h-4 w-4" />
+                {startDate ? format(startDate, "PPP") : <span>Pick a date</span>}
+              </Button>
+            </PopoverTrigger>
+            <PopoverContent className="w-auto p-0" align="start">
+              <Calendar
+                mode="single"
+                selected={startDate}
+                onSelect={setStartDate}
+                initialFocus
+                className="pointer-events-auto"
+              />
+            </PopoverContent>
+          </Popover>
+        </div>
+
+        <div className="flex-1 space-y-2">
+          <label className="text-sm font-medium">To Date</label>
+          <Popover>
+            <PopoverTrigger asChild>
+              <Button
+                variant="outline"
+                className={cn(
+                  "w-full justify-start text-left font-normal",
+                  !endDate && "text-muted-foreground"
+                )}
+              >
+                <CalendarIcon className="mr-2 h-4 w-4" />
+                {endDate ? format(endDate, "PPP") : <span>Pick a date</span>}
+              </Button>
+            </PopoverTrigger>
+            <PopoverContent className="w-auto p-0" align="start">
+              <Calendar
+                mode="single"
+                selected={endDate}
+                onSelect={setEndDate}
+                initialFocus
+                className="pointer-events-auto"
+              />
+            </PopoverContent>
+          </Popover>
+        </div>
+
+        {(startDate || endDate) && (
+          <Button
+            variant="outline"
+            onClick={() => {
+              setStartDate(undefined);
+              setEndDate(undefined);
+            }}
+            className="sm:w-auto"
+          >
+            <X className="h-4 w-4 mr-2" />
+            Clear Dates
+          </Button>
+        )}
+
+        <Button
+          variant="default"
+          onClick={handleExportExcel}
+          className="sm:w-auto"
+        >
+          <FileSpreadsheet className="h-4 w-4 mr-2" />
+          Export Excel
+          {(selectedReservations.size > 0 || filteredReservations.length > 0) && (
+            <Badge variant="secondary" className="ml-2">
+              {selectedReservations.size > 0 ? selectedReservations.size : filteredReservations.length}
+            </Badge>
+          )}
+        </Button>
+
+        <Button
+          variant="outline"
+          onClick={handleExportCSV}
+          className="sm:w-auto"
+        >
+          <Download className="h-4 w-4 mr-2" />
+          Export CSV
+          {(selectedReservations.size > 0 || filteredReservations.length > 0) && (
+            <Badge variant="secondary" className="ml-2">
+              {selectedReservations.size > 0 ? selectedReservations.size : filteredReservations.length}
+            </Badge>
+          )}
+        </Button>
       </div>
 
       {/* Bulk Actions Toolbar */}
