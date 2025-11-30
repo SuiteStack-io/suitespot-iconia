@@ -3,11 +3,15 @@ import { supabase } from "@/integrations/supabase/client";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Star, ThumbsUp, TrendingUp, MessageSquare } from "lucide-react";
 
-const SurveyAnalytics = () => {
+interface SurveyAnalyticsProps {
+  dateRange?: { startDate: string; endDate: string };
+}
+
+const SurveyAnalytics = ({ dateRange }: SurveyAnalyticsProps) => {
   const { data: surveys } = useQuery({
-    queryKey: ["surveys"],
+    queryKey: ["surveys", dateRange],
     queryFn: async () => {
-      const { data, error } = await supabase
+      let query = supabase
         .from("ticket_surveys")
         .select(`
           *,
@@ -15,8 +19,15 @@ const SurveyAnalytics = () => {
             title,
             ticket_type
           )
-        `)
-        .order("submitted_at", { ascending: false });
+        `);
+
+      if (dateRange) {
+        query = query
+          .gte('submitted_at', dateRange.startDate)
+          .lte('submitted_at', dateRange.endDate + 'T23:59:59');
+      }
+
+      const { data, error } = await query.order("submitted_at", { ascending: false });
 
       if (error) throw error;
       return data;
@@ -27,7 +38,7 @@ const SurveyAnalytics = () => {
     return (
       <Card>
         <CardContent className="pt-6 text-center text-muted-foreground">
-          No survey responses yet
+          {dateRange ? "No survey responses for the selected period" : "No survey responses yet"}
         </CardContent>
       </Card>
     );
