@@ -205,6 +205,17 @@ export const Dashboard = () => {
 
       if (error) throw error;
 
+      // Send check-in notification if status changed to checked-in
+      if (newStatus === 'checked-in') {
+        try {
+          await supabase.functions.invoke('send-checkin-notification', {
+            body: { reservationId }
+          });
+        } catch (notifError) {
+          console.error('Failed to send check-in notification:', notifError);
+        }
+      }
+
       toast({
         title: 'Success',
         description: `Status updated to ${newStatus}`,

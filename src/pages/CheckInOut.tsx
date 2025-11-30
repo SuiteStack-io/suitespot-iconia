@@ -144,6 +144,15 @@ const CheckInOut = () => {
 
       if (error) throw error;
 
+      // Send check-in notification to all admins
+      try {
+        await supabase.functions.invoke('send-checkin-notification', {
+          body: { reservationId }
+        });
+      } catch (notifError) {
+        console.error('Failed to send check-in notification:', notifError);
+      }
+
       toast({
         title: 'Success',
         description: 'Guest checked in successfully',
@@ -198,6 +207,15 @@ const CheckInOut = () => {
       );
 
       await Promise.all(updates);
+
+      // Send check-in notifications for all checked-in guests
+      const notificationPromises = Array.from(selectedArrivals).map(reservationId =>
+        supabase.functions.invoke('send-checkin-notification', {
+          body: { reservationId }
+        }).catch(err => console.error('Failed to send check-in notification:', err))
+      );
+      
+      await Promise.all(notificationPromises);
 
       toast({
         title: 'Success',
