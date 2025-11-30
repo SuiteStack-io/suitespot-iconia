@@ -25,6 +25,7 @@ import {
   Image as ImageIcon,
   Map,
   BarChart3,
+  DollarSign,
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 
@@ -68,7 +69,8 @@ export function SlideMenu({ isAdmin }: SlideMenuProps) {
         { title: 'Tickets', url: '/guest-tickets', icon: Ticket },
         { title: 'App Accounts', url: '/guest-accounts', icon: Shield },
         { title: 'Guests', url: '/guests', icon: Users },
-        { title: 'Analytics', url: '/ticket-analytics', icon: BarChart3 },
+        { title: 'Revenue Analytics', url: '/analytics', icon: DollarSign },
+        { title: 'Tickets Analytics', url: '/ticket-analytics', icon: BarChart3 },
       ],
     },
     {
