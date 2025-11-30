@@ -3,6 +3,8 @@ import { useNavigate } from 'react-router-dom';
 import { useAuth } from '@/lib/auth';
 import { Button } from '@/components/ui/button';
 import { ArrowLeft, DollarSign, TrendingUp, Calendar as CalendarIcon, BarChart3, Users, ChevronRight, Download, FileSpreadsheet } from 'lucide-react';
+import { SlideMenu } from '@/components/SlideMenu';
+import { AdminBreadcrumb } from '@/components/AdminBreadcrumb';
 import { RevenueBySource } from '@/components/RevenueBySource';
 import { RevenueByRoom } from '@/components/RevenueByRoom';
 import { RevenueByGuests } from '@/components/RevenueByGuests';
@@ -776,24 +778,47 @@ const Analytics = () => {
 
   return (
     <div className="min-h-screen bg-background">
-      <header className="border-b bg-card">
-        <div className="container mx-auto px-4 py-4 flex items-center gap-4 justify-between">
-          <div className="flex items-center gap-4">
-            <Button variant="ghost" size="sm" onClick={() => navigate('/admin')}>
-              <ArrowLeft className="h-4 w-4 mr-2" />
-              Back
-            </Button>
-            <h1 className="text-xl font-bold">Suitespot Analytics</h1>
-          </div>
-          <div className="flex gap-2">
-            <Button variant="default" size="sm" onClick={handleExportExcel}>
-              <FileSpreadsheet className="h-4 w-4 mr-2" />
-              Export Excel
-            </Button>
-            <Button variant="outline" size="sm" onClick={handleExportCSV}>
-              <Download className="h-4 w-4 mr-2" />
-              Export CSV
-            </Button>
+      <header className="border-b bg-card sticky top-0 z-10">
+        <div className="container mx-auto px-4 py-4">
+          <AdminBreadcrumb section="ICONIA" currentPage="Revenue Analytics" />
+          <div className="flex items-center gap-4 mt-4 justify-between">
+            <div className="flex items-center gap-4">
+              <SlideMenu isAdmin={userRole === 'admin'} />
+              
+              {/* Mobile back button - icon only */}
+              <Button 
+                variant="ghost" 
+                onClick={() => navigate('/admin')}
+                className="md:hidden"
+                size="icon"
+              >
+                <ArrowLeft className="h-5 w-5" />
+              </Button>
+              
+              {/* Desktop back button with text */}
+              <Button 
+                variant="ghost" 
+                onClick={() => navigate('/admin')}
+                className="hidden md:flex items-center gap-2"
+              >
+                <ArrowLeft className="h-4 w-4" />
+                Back
+              </Button>
+              
+              <h1 className="text-xl font-bold">SuiteSpot Analytics</h1>
+            </div>
+            
+            {/* Export buttons */}
+            <div className="flex gap-2">
+              <Button variant="default" size="sm" onClick={handleExportExcel}>
+                <FileSpreadsheet className="h-4 w-4 mr-2" />
+                Export Excel
+              </Button>
+              <Button variant="outline" size="sm" onClick={handleExportCSV}>
+                <Download className="h-4 w-4 mr-2" />
+                Export CSV
+              </Button>
+            </div>
           </div>
         </div>
       </header>
