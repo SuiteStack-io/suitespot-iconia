@@ -16,6 +16,7 @@ import {
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { useToast } from '@/hooks/use-toast';
+import { Checkbox } from '@/components/ui/checkbox';
 
 interface DashboardStats {
   todayArrivals: number;
@@ -66,6 +67,7 @@ export const Dashboard = () => {
   const [dialogTitle, setDialogTitle] = useState('');
   const [dialogReservations, setDialogReservations] = useState<Reservation[]>([]);
   const [updating, setUpdating] = useState<string | null>(null);
+  const [selectedReservations, setSelectedReservations] = useState<Set<string>>(new Set());
 
   useEffect(() => {
     fetchStats();
@@ -192,6 +194,7 @@ export const Dashboard = () => {
     
     const { data } = await query.order('check_in_date', { ascending: true });
     setDialogReservations((data as any) || []);
+    setSelectedReservations(new Set());
     setDialogOpen(true);
   };
 
@@ -250,6 +253,73 @@ export const Dashboard = () => {
       });
     } finally {
       setUpdating(null);
+    }
+  };
+
+  const handleBulkCheckOut = async () => {
+    if (selectedReservations.size === 0) return;
+    
+    setUpdating('bulk');
+    try {
+      const { data: { user } } = await supabase.auth.getUser();
+      
+      // Update all selected reservations
+      const updates = Array.from(selectedReservations).map(id =>
+        supabase.from('reservations').update({ status: 'checked-out' }).eq('id', id)
+      );
+
+      await Promise.all(updates);
+
+      // Send check-out notifications for all checked-out guests
+      const notificationPromises = Array.from(selectedReservations).map(reservationId =>
+        supabase.functions.invoke('send-checkout-notification', {
+          body: { reservationId, userId: user?.id }
+        }).catch(err => console.error('Failed to send check-out notification:', err))
+      );
+      
+      await Promise.all(notificationPromises);
+
+      toast({
+        title: 'Success',
+        description: `${selectedReservations.size} guests checked out successfully`,
+      });
+
+      setSelectedReservations(new Set());
+      fetchStats();
+      
+      // Re-fetch the current dialog data
+      const currentType = dialogReservations.length > 0 && dialogTitle.includes('Arrivals') ? 'arrivals' : 
+                          dialogTitle.includes('Departures') ? 'departures' : 
+                          dialogTitle.includes('In-House') ? 'inhouse' : 'newbookings';
+      if (dialogOpen) {
+        handleCardClick(currentType);
+      }
+    } catch (error: any) {
+      toast({
+        title: 'Error',
+        description: error.message,
+        variant: 'destructive',
+      });
+    } finally {
+      setUpdating(null);
+    }
+  };
+
+  const toggleReservationSelection = (id: string) => {
+    const newSelection = new Set(selectedReservations);
+    if (newSelection.has(id)) {
+      newSelection.delete(id);
+    } else {
+      newSelection.add(id);
+    }
+    setSelectedReservations(newSelection);
+  };
+
+  const selectAllReservations = () => {
+    if (selectedReservations.size === dialogReservations.length) {
+      setSelectedReservations(new Set());
+    } else {
+      setSelectedReservations(new Set(dialogReservations.map(r => r.id)));
     }
   };
 
@@ -327,7 +397,30 @@ export const Dashboard = () => {
       <Dialog open={dialogOpen} onOpenChange={setDialogOpen}>
         <DialogContent className="max-w-3xl max-h-[80vh] overflow-y-auto">
           <DialogHeader>
-            <DialogTitle>{dialogTitle}</DialogTitle>
+            <DialogTitle className="flex items-center justify-between">
+              <span>{dialogTitle}</span>
+              {dialogTitle.includes('Departures') && dialogReservations.length > 0 && (
+                <div className="flex items-center gap-2">
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    onClick={selectAllReservations}
+                  >
+                    {selectedReservations.size === dialogReservations.length ? 'Deselect All' : 'Select All'}
+                  </Button>
+                  {selectedReservations.size > 0 && (
+                    <Button
+                      size="sm"
+                      variant="outline"
+                      onClick={handleBulkCheckOut}
+                      disabled={updating === 'bulk'}
+                    >
+                      Check Out ({selectedReservations.size})
+                    </Button>
+                  )}
+                </div>
+              )}
+            </DialogTitle>
           </DialogHeader>
           <div className="space-y-2">
             {dialogReservations.length === 0 ? (
@@ -336,15 +429,25 @@ export const Dashboard = () => {
               dialogReservations.map((reservation) => (
                 <Card 
                   key={reservation.id}
-                  className="cursor-pointer hover:bg-accent/50 transition-colors"
-                  onClick={() => {
-                    setDialogOpen(false);
-                    navigate(`/reservation/${reservation.id}`);
-                  }}
+                  className="hover:bg-accent/50 transition-colors"
                 >
                   <CardContent className="p-4">
                     <div className="flex flex-col md:flex-row md:items-center justify-between gap-2">
-                      <div className="space-y-1 flex-1">
+                      <div className="flex items-start gap-3 flex-1">
+                        {dialogTitle.includes('Departures') && (
+                          <Checkbox
+                            checked={selectedReservations.has(reservation.id)}
+                            onCheckedChange={() => toggleReservationSelection(reservation.id)}
+                            onClick={(e) => e.stopPropagation()}
+                          />
+                        )}
+                        <div 
+                          className="space-y-1 flex-1 cursor-pointer"
+                          onClick={() => {
+                            setDialogOpen(false);
+                            navigate(`/reservation/${reservation.id}`);
+                          }}
+                        >
                         {reservation.units?.unit_number && (
                           <p className="text-lg font-bold text-primary">
                             Room #{reservation.units.unit_number}
@@ -389,6 +492,7 @@ export const Dashboard = () => {
                           {reservation.units?.name || 'No unit assigned'}
                         </p>
                       </div>
+                    </div>
                       <div className="flex flex-col gap-2">
                         <div className="text-sm space-y-1">
                           <p>Check-in: {format(new Date(reservation.check_in_date), 'MMM dd, yyyy')}</p>
