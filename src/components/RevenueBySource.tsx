@@ -113,8 +113,10 @@ export const RevenueBySource = () => {
       sourceMap[source].commission += reservation.commission_amount || 0;
       sourceMap[source].netRevenue += reservation.net_revenue || 0;
       
-      // Store guest names for admin bookings
-      if (source.toLowerCase().includes('admin') && reservation.guest_names?.[0]) {
+      // Store guest names for admin bookings (including Nicola)
+      const isAdminSource = source.toLowerCase().includes('admin') || 
+                           source.toLowerCase().includes('nicol');
+      if (isAdminSource && reservation.guest_names?.[0]) {
         sourceMap[source].guestNames?.push(reservation.guest_names[0]);
       }
     });
@@ -167,7 +169,8 @@ export const RevenueBySource = () => {
   );
   
   const adminSources = filteredRevenue.filter(s => 
-    s.source.toLowerCase().includes('admin')
+    s.source.toLowerCase().includes('admin') || 
+    s.source.toLowerCase().includes('nicol')
   );
   
   const kssSources = filteredRevenue.filter(s => 
