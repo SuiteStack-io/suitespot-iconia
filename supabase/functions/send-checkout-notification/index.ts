@@ -11,6 +11,7 @@ const corsHeaders = {
 
 interface CheckOutNotificationRequest {
   reservationId: string;
+  userId?: string;
 }
 
 serve(async (req) => {
@@ -23,9 +24,23 @@ serve(async (req) => {
     const supabaseServiceKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!;
     const supabase = createClient(supabaseUrl, supabaseServiceKey);
 
-    const { reservationId }: CheckOutNotificationRequest = await req.json();
+    const { reservationId, userId }: CheckOutNotificationRequest = await req.json();
 
     console.log('Sending check-out notification for reservation:', reservationId);
+
+    // Get user who performed the check-out (if provided)
+    let performedByName = 'Staff member';
+    if (userId) {
+      const { data: userData } = await supabase
+        .from('profiles')
+        .select('full_name')
+        .eq('id', userId)
+        .single();
+      
+      if (userData?.full_name) {
+        performedByName = userData.full_name;
+      }
+    }
 
     // Get reservation details
     const { data: reservation, error: reservationError } = await supabase
@@ -48,16 +63,21 @@ serve(async (req) => {
       throw new Error('Failed to fetch users');
     }
 
-    // Filter for housekeeping and admin staff
-    const housekeepingStaff = userData.filter((user: any) => 
-      user.role === 'housekeeping' || user.role === 'admin'
-    );
-    console.log(`Found ${housekeepingStaff.length} housekeeping/admin staff`);
+    // Get admins for notification
+    const admins = userData.filter((user: any) => user.role === 'admin');
+    console.log(`Found ${admins.length} admin users`);
 
-    if (housekeepingStaff.length === 0) {
-      console.log('No housekeeping staff found, skipping email notification');
+    // Get housekeeping staff for cleaning notification
+    const housekeepingStaff = userData.filter((user: any) => user.role === 'housekeeping');
+    console.log(`Found ${housekeepingStaff.length} housekeeping staff`);
+
+    // Combine both groups for notification
+    const allRecipients = [...admins, ...housekeepingStaff];
+
+    if (allRecipients.length === 0) {
+      console.log('No staff found, skipping email notification');
       return new Response(
-        JSON.stringify({ message: 'No housekeeping staff to notify' }),
+        JSON.stringify({ message: 'No staff to notify' }),
         { headers: { ...corsHeaders, 'Content-Type': 'application/json' }, status: 200 }
       );
     }
@@ -67,8 +87,8 @@ serve(async (req) => {
     const roomNumber = reservation.units?.unit_number || 'N/A';
     const estimatedMinutes = reservation.units?.estimated_cleaning_minutes || 45;
 
-    // Send email to housekeeping and admin staff
-    const emailPromises = housekeepingStaff.map(async (staff: any) => {
+    // Send email to all recipients
+    const emailPromises = allRecipients.map(async (staff: any) => {
       try {
         const emailResponse = await resend.emails.send({
           from: "SuiteSpot Housekeeping <housekeeping@bookings.suitespoteg.com>",
@@ -78,6 +98,7 @@ serve(async (req) => {
             <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto;">
               <h2 style="color: #ea580c;">Guest Checked Out - Room Ready for Cleaning</h2>
               <p style="color: #374151; font-size: 16px;">A guest has checked out and the room is ready for cleaning.</p>
+              <p style="color: #6b7280; font-size: 14px; font-style: italic;">Checked out by: ${performedByName}</p>
               
               <div style="background: #fef3c7; padding: 16px; border-radius: 8px; margin: 16px 0; border-left: 4px solid #f59e0b;">
                 <h3 style="margin: 0 0 12px 0; font-size: 16px; color: #92400e;">Room Details</h3>
@@ -144,13 +165,15 @@ serve(async (req) => {
     const results = await Promise.all(emailPromises);
     const successCount = results.filter(r => r.success).length;
 
-    console.log(`Check-out notification emails sent: ${successCount}/${housekeepingStaff.length}`);
+    console.log(`Check-out notification emails sent: ${successCount}/${allRecipients.length}`);
 
     return new Response(
       JSON.stringify({
-        message: 'Check-out notifications sent to housekeeping',
+        message: 'Check-out notifications sent to admins and housekeeping',
         sent: successCount,
-        total: housekeepingStaff.length,
+        total: allRecipients.length,
+        admins: admins.length,
+        housekeeping: housekeepingStaff.length,
         results
       }),
       {

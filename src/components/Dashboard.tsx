@@ -216,11 +216,12 @@ export const Dashboard = () => {
         }
       }
 
-      // Send check-out notification to housekeeping if status changed to checked-out
+      // Send check-out notification to admins and housekeeping if status changed to checked-out
       if (newStatus === 'checked-out') {
         try {
+          const { data: { user } } = await supabase.auth.getUser();
           await supabase.functions.invoke('send-checkout-notification', {
-            body: { reservationId }
+            body: { reservationId, userId: user?.id }
           });
         } catch (notifError) {
           console.error('Failed to send check-out notification:', notifError);
