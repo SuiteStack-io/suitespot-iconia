@@ -62,6 +62,33 @@ const Analytics = () => {
     commission: number;
     netRevenue: number;
   }>>([]);
+  const [showOccupancyDialog, setShowOccupancyDialog] = useState(false);
+  const [showBookingsDialog, setShowBookingsDialog] = useState(false);
+  const [showGuestsDialog, setShowGuestsDialog] = useState(false);
+  const [showSourcesDialog, setShowSourcesDialog] = useState(false);
+  const [occupancyDetails, setOccupancyDetails] = useState<Array<{
+    unitName: string;
+    unitNumber: string;
+    nightsBooked: number;
+    nightsAvailable: number;
+    occupancyRate: number;
+  }>>([]);
+  const [bookingsDetails, setBookingsDetails] = useState<Array<{
+    guestNames: string;
+    unitName: string;
+    checkIn: string;
+    checkOut: string;
+    nights: number;
+    guests: number;
+    source: string;
+  }>>([]);
+  const [guestsDetails, setGuestsDetails] = useState<Array<{
+    guestNames: string;
+    numberOfGuests: number;
+    unitName: string;
+    checkIn: string;
+    checkOut: string;
+  }>>([]);
 
   useEffect(() => {
     if (!loading && userRole !== 'admin') {
@@ -294,6 +321,171 @@ const Analytics = () => {
     setShowDirectDialog(true);
   };
 
+  const fetchOccupancyDetails = async () => {
+    const { startDate, endDate } = getDateRange();
+    
+    // Get all units
+    const { data: units } = await supabase
+      .from('units')
+      .select('id, name, unit_number')
+      .eq('location', 'ICONIA')
+      .order('unit_number');
+
+    // Calculate days in period
+    let days = 1;
+    if (customDateRange?.from && customDateRange?.to) {
+      days = Math.ceil((customDateRange.to.getTime() - customDateRange.from.getTime()) / (1000 * 60 * 60 * 24)) + 1;
+    } else {
+      const now = new Date();
+      switch (timePeriod) {
+        case 'week':
+          days = 7;
+          break;
+        case 'month':
+          days = 30;
+          break;
+        case 'quarter':
+          days = 90;
+          break;
+        case 'ytd':
+          const ytdStart = new Date(2025, 0, 1);
+          days = Math.ceil((now.getTime() - ytdStart.getTime()) / (1000 * 60 * 60 * 24));
+          break;
+      }
+    }
+
+    const details = await Promise.all(
+      (units || []).map(async (unit) => {
+        const { data: reservations } = await supabase
+          .from('reservations')
+          .select('nights')
+          .eq('unit_id', unit.id)
+          .neq('status', 'Cancelled')
+          .gte('check_in_date', startDate)
+          .lte('check_in_date', endDate);
+
+        const nightsBooked = reservations?.reduce((sum, r) => sum + (r.nights || 0), 0) || 0;
+        const nightsAvailable = days;
+        const occupancyRate = nightsAvailable > 0 ? (nightsBooked / nightsAvailable) * 100 : 0;
+
+        return {
+          unitName: unit.name,
+          unitNumber: unit.unit_number || 'N/A',
+          nightsBooked,
+          nightsAvailable,
+          occupancyRate,
+        };
+      })
+    );
+
+    setOccupancyDetails(details);
+  };
+
+  const fetchBookingsDetails = async () => {
+    const { startDate, endDate } = getDateRange();
+    
+    const { data } = await supabase
+      .from('reservations')
+      .select('guest_names, check_in_date, check_out_date, nights, number_of_guests, source, units(name)')
+      .neq('status', 'Cancelled')
+      .gte('check_in_date', startDate)
+      .lte('check_in_date', endDate)
+      .order('check_in_date', { ascending: false });
+
+    const details = (data || []).map((r: any) => ({
+      guestNames: r.guest_names.join(', '),
+      unitName: r.units?.name || 'N/A',
+      checkIn: format(new Date(r.check_in_date), 'MMM dd, yyyy'),
+      checkOut: format(new Date(r.check_out_date), 'MMM dd, yyyy'),
+      nights: r.nights || 0,
+      guests: r.number_of_guests,
+      source: r.source,
+    }));
+
+    setBookingsDetails(details);
+  };
+
+  const fetchGuestsDetails = async () => {
+    const { startDate, endDate } = getDateRange();
+    
+    const { data } = await supabase
+      .from('reservations')
+      .select('guest_names, number_of_guests, check_in_date, check_out_date, units(name)')
+      .neq('status', 'Cancelled')
+      .gte('check_in_date', startDate)
+      .lte('check_in_date', endDate)
+      .order('number_of_guests', { ascending: false });
+
+    const details = (data || []).map((r: any) => ({
+      guestNames: r.guest_names.join(', '),
+      numberOfGuests: r.number_of_guests,
+      unitName: r.units?.name || 'N/A',
+      checkIn: format(new Date(r.check_in_date), 'MMM dd, yyyy'),
+      checkOut: format(new Date(r.check_out_date), 'MMM dd, yyyy'),
+    }));
+
+    setGuestsDetails(details);
+  };
+
+  const fetchSourcesDetails = async () => {
+    const { startDate, endDate } = getDateRange();
+    
+    const { data } = await supabase
+      .from('reservations')
+      .select('source, total_price, commission_amount, net_revenue')
+      .neq('status', 'Cancelled')
+      .gte('check_in_date', startDate)
+      .lte('check_in_date', endDate);
+
+    // Group by source
+    const sourceMap: Record<string, any> = {};
+    
+    (data || []).forEach((reservation: any) => {
+      const source = reservation.source || 'Unknown';
+      
+      if (!sourceMap[source]) {
+        sourceMap[source] = {
+          source,
+          count: 0,
+          grossRevenue: 0,
+          commission: 0,
+          netRevenue: 0,
+        };
+      }
+      
+      sourceMap[source].count += 1;
+      sourceMap[source].grossRevenue += reservation.total_price || 0;
+      sourceMap[source].commission += reservation.commission_amount || 0;
+      sourceMap[source].netRevenue += reservation.net_revenue || 0;
+    });
+
+    const sourceArray = Object.values(sourceMap).sort(
+      (a: any, b: any) => b.grossRevenue - a.grossRevenue
+    );
+
+    setDirectSourceDetails(sourceArray);
+  };
+
+  const handleOccupancyClick = () => {
+    fetchOccupancyDetails();
+    setShowOccupancyDialog(true);
+  };
+
+  const handleBookingsClick = () => {
+    fetchBookingsDetails();
+    setShowBookingsDialog(true);
+  };
+
+  const handleGuestsClick = () => {
+    fetchGuestsDetails();
+    setShowGuestsDialog(true);
+  };
+
+  const handleSourcesClick = () => {
+    fetchSourcesDetails();
+    setShowSourcesDialog(true);
+  };
+
   const getExportData = () => {
     const adr = totalNights > 0 ? (revenueStats.totalRevenue / totalNights) : 0;
     const revpar = totalAvailableRooms > 0 ? (revenueStats.totalRevenue / totalAvailableRooms) : 0;
@@ -483,7 +675,7 @@ const Analytics = () => {
         </div>
 
         <div className="grid gap-4 md:grid-cols-4">
-          <Card>
+          <Card className="cursor-pointer hover:shadow-lg transition-shadow" onClick={handleOccupancyClick}>
             <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
               <CardTitle className="text-sm font-medium">Occupancy Rate</CardTitle>
               <TrendingUp className="h-4 w-4 text-blue-600" />
@@ -498,7 +690,7 @@ const Analytics = () => {
             </CardContent>
           </Card>
 
-          <Card>
+          <Card className="cursor-pointer hover:shadow-lg transition-shadow" onClick={handleBookingsClick}>
             <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
               <CardTitle className="text-sm font-medium">Total Bookings</CardTitle>
               <CalendarIcon className="h-4 w-4 text-purple-600" />
@@ -513,7 +705,7 @@ const Analytics = () => {
             </CardContent>
           </Card>
 
-          <Card>
+          <Card className="cursor-pointer hover:shadow-lg transition-shadow" onClick={handleGuestsClick}>
             <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
               <CardTitle className="text-sm font-medium">Guests</CardTitle>
               <Users className="h-4 w-4 text-teal-600" />
@@ -528,7 +720,7 @@ const Analytics = () => {
             </CardContent>
           </Card>
 
-          <Card>
+          <Card className="cursor-pointer hover:shadow-lg transition-shadow" onClick={handleSourcesClick}>
             <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
               <CardTitle className="text-sm font-medium">Booking Sources</CardTitle>
               <BarChart3 className="h-4 w-4 text-indigo-600" />
@@ -691,6 +883,264 @@ const Analytics = () => {
         </section>
       </main>
 
+      {/* Occupancy Rate Dialog */}
+      <Dialog open={showOccupancyDialog} onOpenChange={setShowOccupancyDialog}>
+        <DialogContent className="max-w-4xl max-h-[80vh] overflow-y-auto">
+          <DialogHeader>
+            <DialogTitle>Occupancy Rate Breakdown</DialogTitle>
+          </DialogHeader>
+          <div className="mt-4">
+            <Table>
+              <TableHeader>
+                <TableRow>
+                  <TableHead className="font-semibold">Unit</TableHead>
+                  <TableHead className="font-semibold">Room #</TableHead>
+                  <TableHead className="text-right font-semibold">Nights Booked</TableHead>
+                  <TableHead className="text-right font-semibold">Available Nights</TableHead>
+                  <TableHead className="text-right font-semibold">Occupancy Rate</TableHead>
+                </TableRow>
+              </TableHeader>
+              <TableBody>
+                {occupancyDetails.length === 0 ? (
+                  <TableRow>
+                    <TableCell colSpan={5} className="text-center text-muted-foreground py-8">
+                      No occupancy data available
+                    </TableCell>
+                  </TableRow>
+                ) : (
+                  <>
+                    {occupancyDetails.map((unit, index) => (
+                      <TableRow key={index}>
+                        <TableCell className="font-medium">{unit.unitName}</TableCell>
+                        <TableCell>{unit.unitNumber}</TableCell>
+                        <TableCell className="text-right">{unit.nightsBooked}</TableCell>
+                        <TableCell className="text-right">{unit.nightsAvailable}</TableCell>
+                        <TableCell className="text-right">
+                          <span className={cn(
+                            "font-semibold",
+                            unit.occupancyRate >= 80 ? "text-green-600" :
+                            unit.occupancyRate >= 50 ? "text-yellow-600" :
+                            "text-red-600"
+                          )}>
+                            {unit.occupancyRate.toFixed(1)}%
+                          </span>
+                        </TableCell>
+                      </TableRow>
+                    ))}
+                    <TableRow className="bg-muted/50 font-semibold">
+                      <TableCell colSpan={2}>Total</TableCell>
+                      <TableCell className="text-right">
+                        {occupancyDetails.reduce((sum, u) => sum + u.nightsBooked, 0)}
+                      </TableCell>
+                      <TableCell className="text-right">
+                        {occupancyDetails.reduce((sum, u) => sum + u.nightsAvailable, 0)}
+                      </TableCell>
+                      <TableCell className="text-right text-blue-600">
+                        {occupancyRate.toFixed(1)}%
+                      </TableCell>
+                    </TableRow>
+                  </>
+                )}
+              </TableBody>
+            </Table>
+          </div>
+        </DialogContent>
+      </Dialog>
+
+      {/* Total Bookings Dialog */}
+      <Dialog open={showBookingsDialog} onOpenChange={setShowBookingsDialog}>
+        <DialogContent className="max-w-6xl max-h-[80vh] overflow-y-auto">
+          <DialogHeader>
+            <DialogTitle>Total Bookings Breakdown</DialogTitle>
+          </DialogHeader>
+          <div className="mt-4">
+            <Table>
+              <TableHeader>
+                <TableRow>
+                  <TableHead className="font-semibold">Guest Name(s)</TableHead>
+                  <TableHead className="font-semibold">Unit</TableHead>
+                  <TableHead className="font-semibold">Check-in</TableHead>
+                  <TableHead className="font-semibold">Check-out</TableHead>
+                  <TableHead className="text-right font-semibold">Nights</TableHead>
+                  <TableHead className="text-right font-semibold">Guests</TableHead>
+                  <TableHead className="font-semibold">Source</TableHead>
+                </TableRow>
+              </TableHeader>
+              <TableBody>
+                {bookingsDetails.length === 0 ? (
+                  <TableRow>
+                    <TableCell colSpan={7} className="text-center text-muted-foreground py-8">
+                      No bookings found for this period
+                    </TableCell>
+                  </TableRow>
+                ) : (
+                  <>
+                    {bookingsDetails.map((booking, index) => (
+                      <TableRow key={index}>
+                        <TableCell className="font-medium">{booking.guestNames}</TableCell>
+                        <TableCell>{booking.unitName}</TableCell>
+                        <TableCell>{booking.checkIn}</TableCell>
+                        <TableCell>{booking.checkOut}</TableCell>
+                        <TableCell className="text-right">{booking.nights}</TableCell>
+                        <TableCell className="text-right">{booking.guests}</TableCell>
+                        <TableCell>
+                          <span className={cn(
+                            "text-xs px-2 py-1 rounded-full",
+                            booking.source.toLowerCase().includes('direct') 
+                              ? "bg-green-100 text-green-700"
+                              : "bg-blue-100 text-blue-700"
+                          )}>
+                            {booking.source}
+                          </span>
+                        </TableCell>
+                      </TableRow>
+                    ))}
+                    <TableRow className="bg-muted/50 font-semibold">
+                      <TableCell colSpan={4}>Total</TableCell>
+                      <TableCell className="text-right">
+                        {bookingsDetails.reduce((sum, b) => sum + b.nights, 0)}
+                      </TableCell>
+                      <TableCell className="text-right">
+                        {bookingsDetails.reduce((sum, b) => sum + b.guests, 0)}
+                      </TableCell>
+                      <TableCell></TableCell>
+                    </TableRow>
+                  </>
+                )}
+              </TableBody>
+            </Table>
+          </div>
+        </DialogContent>
+      </Dialog>
+
+      {/* Guests Dialog */}
+      <Dialog open={showGuestsDialog} onOpenChange={setShowGuestsDialog}>
+        <DialogContent className="max-w-5xl max-h-[80vh] overflow-y-auto">
+          <DialogHeader>
+            <DialogTitle>Guests Breakdown</DialogTitle>
+          </DialogHeader>
+          <div className="mt-4">
+            <Table>
+              <TableHeader>
+                <TableRow>
+                  <TableHead className="font-semibold">Guest Name(s)</TableHead>
+                  <TableHead className="text-right font-semibold">Number of Guests</TableHead>
+                  <TableHead className="font-semibold">Unit</TableHead>
+                  <TableHead className="font-semibold">Check-in</TableHead>
+                  <TableHead className="font-semibold">Check-out</TableHead>
+                </TableRow>
+              </TableHeader>
+              <TableBody>
+                {guestsDetails.length === 0 ? (
+                  <TableRow>
+                    <TableCell colSpan={5} className="text-center text-muted-foreground py-8">
+                      No guest data available
+                    </TableCell>
+                  </TableRow>
+                ) : (
+                  <>
+                    {guestsDetails.map((guest, index) => (
+                      <TableRow key={index}>
+                        <TableCell className="font-medium">{guest.guestNames}</TableCell>
+                        <TableCell className="text-right">
+                          <span className="font-semibold text-teal-600">
+                            {guest.numberOfGuests}
+                          </span>
+                        </TableCell>
+                        <TableCell>{guest.unitName}</TableCell>
+                        <TableCell>{guest.checkIn}</TableCell>
+                        <TableCell>{guest.checkOut}</TableCell>
+                      </TableRow>
+                    ))}
+                    <TableRow className="bg-muted/50 font-semibold">
+                      <TableCell>Total Guests</TableCell>
+                      <TableCell className="text-right text-teal-600">
+                        {guestsDetails.reduce((sum, g) => sum + g.numberOfGuests, 0)}
+                      </TableCell>
+                      <TableCell colSpan={3}></TableCell>
+                    </TableRow>
+                  </>
+                )}
+              </TableBody>
+            </Table>
+          </div>
+        </DialogContent>
+      </Dialog>
+
+      {/* Booking Sources Dialog */}
+      <Dialog open={showSourcesDialog} onOpenChange={setShowSourcesDialog}>
+        <DialogContent className="max-w-4xl max-h-[80vh] overflow-y-auto">
+          <DialogHeader>
+            <DialogTitle>Booking Sources Breakdown</DialogTitle>
+          </DialogHeader>
+          <div className="mt-4">
+            <Table>
+              <TableHeader>
+                <TableRow>
+                  <TableHead className="font-semibold">Source</TableHead>
+                  <TableHead className="text-right font-semibold">Bookings</TableHead>
+                  <TableHead className="text-right font-semibold">Gross Revenue</TableHead>
+                  <TableHead className="text-right font-semibold">Commission</TableHead>
+                  <TableHead className="text-right font-semibold">Net Revenue</TableHead>
+                </TableRow>
+              </TableHeader>
+              <TableBody>
+                {directSourceDetails.length === 0 ? (
+                  <TableRow>
+                    <TableCell colSpan={5} className="text-center text-muted-foreground py-8">
+                      No booking sources found for this period
+                    </TableCell>
+                  </TableRow>
+                ) : (
+                  <>
+                    {directSourceDetails.map((source) => (
+                      <TableRow key={source.source}>
+                        <TableCell className="font-medium">
+                          <span className={cn(
+                            "text-xs px-2 py-1 rounded-full",
+                            source.source.toLowerCase().includes('direct') 
+                              ? "bg-green-100 text-green-700"
+                              : "bg-blue-100 text-blue-700"
+                          )}>
+                            {source.source}
+                          </span>
+                        </TableCell>
+                        <TableCell className="text-right">{source.count}</TableCell>
+                        <TableCell className="text-right">
+                          ${source.grossRevenue.toFixed(2)}
+                        </TableCell>
+                        <TableCell className="text-right text-amber-600">
+                          ${source.commission.toFixed(2)}
+                        </TableCell>
+                        <TableCell className="text-right text-green-600 font-semibold">
+                          ${source.netRevenue.toFixed(2)}
+                        </TableCell>
+                      </TableRow>
+                    ))}
+                    <TableRow className="bg-muted/50 font-semibold">
+                      <TableCell>Total</TableCell>
+                      <TableCell className="text-right">
+                        {directSourceDetails.reduce((sum, s) => sum + s.count, 0)}
+                      </TableCell>
+                      <TableCell className="text-right">
+                        ${directSourceDetails.reduce((sum, s) => sum + s.grossRevenue, 0).toFixed(2)}
+                      </TableCell>
+                      <TableCell className="text-right text-amber-600">
+                        ${directSourceDetails.reduce((sum, s) => sum + s.commission, 0).toFixed(2)}
+                      </TableCell>
+                      <TableCell className="text-right text-green-600">
+                        ${directSourceDetails.reduce((sum, s) => sum + s.netRevenue, 0).toFixed(2)}
+                      </TableCell>
+                    </TableRow>
+                  </>
+                )}
+              </TableBody>
+            </Table>
+          </div>
+        </DialogContent>
+      </Dialog>
+
+      {/* Direct Sources Commission Dialog */}
       <Dialog open={showDirectDialog} onOpenChange={setShowDirectDialog}>
         <DialogContent className="max-w-4xl max-h-[80vh] overflow-y-auto">
           <DialogHeader>
