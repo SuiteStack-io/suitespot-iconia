@@ -2,7 +2,7 @@ import { useEffect, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useAuth } from '@/lib/auth';
 import { Button } from '@/components/ui/button';
-import { ArrowLeft, DollarSign, TrendingUp, Calendar as CalendarIcon, BarChart3, Users, ChevronRight } from 'lucide-react';
+import { ArrowLeft, DollarSign, TrendingUp, Calendar as CalendarIcon, BarChart3, Users, ChevronRight, Download, FileSpreadsheet } from 'lucide-react';
 import { RevenueBySource } from '@/components/RevenueBySource';
 import { RevenueByRoom } from '@/components/RevenueByRoom';
 import { RevenueByGuests } from '@/components/RevenueByGuests';
@@ -29,6 +29,8 @@ import {
   TableHeader,
   TableRow,
 } from '@/components/ui/table';
+import * as XLSX from 'xlsx';
+import { toast } from 'sonner';
 
 type TimePeriod = 'week' | 'month' | 'quarter' | 'ytd';
 
@@ -292,6 +294,118 @@ const Analytics = () => {
     setShowDirectDialog(true);
   };
 
+  const getExportData = () => {
+    const adr = totalNights > 0 ? (revenueStats.totalRevenue / totalNights) : 0;
+    const revpar = totalAvailableRooms > 0 ? (revenueStats.totalRevenue / totalAvailableRooms) : 0;
+    
+    return [
+      {
+        'Metric': 'Period',
+        'Value': getFormattedDateRange(),
+      },
+      {},
+      {
+        'Metric': 'Occupancy Rate',
+        'Value': `${occupancyRate.toFixed(1)}%`,
+      },
+      {
+        'Metric': 'Total Bookings',
+        'Value': totalBookings,
+      },
+      {
+        'Metric': 'Total Guests',
+        'Value': totalGuests,
+      },
+      {
+        'Metric': 'Total Nights',
+        'Value': totalNights,
+      },
+      {},
+      {
+        'Metric': 'Direct Bookings',
+        'Value': `${bookingSources.direct} (${totalBookings > 0 ? ((bookingSources.direct / totalBookings) * 100).toFixed(1) : 0}%)`,
+      },
+      {
+        'Metric': 'Indirect Bookings',
+        'Value': `${bookingSources.indirect} (${totalBookings > 0 ? ((bookingSources.indirect / totalBookings) * 100).toFixed(1) : 0}%)`,
+      },
+      {},
+      {
+        'Metric': 'ADR (Average Daily Rate)',
+        'Value': `$${adr.toFixed(2)}`,
+      },
+      {
+        'Metric': 'RevPAR (Revenue per Available Room)',
+        'Value': `$${revpar.toFixed(2)}`,
+      },
+      {},
+      {
+        'Metric': 'Total Revenue (Gross)',
+        'Value': `$${revenueStats.totalRevenue.toFixed(2)}`,
+      },
+      {
+        'Metric': 'Total Commission',
+        'Value': `$${revenueStats.totalCommission.toFixed(2)}`,
+      },
+      {
+        'Metric': 'Total Revenue (Net)',
+        'Value': `$${revenueStats.netRevenue.toFixed(2)}`,
+      },
+      {},
+      {
+        'Metric': 'Direct Commission',
+        'Value': `$${directCommission.toFixed(2)}`,
+      },
+      {
+        'Metric': 'Booking.com Commission',
+        'Value': `$${bookingComCommission.toFixed(2)}`,
+      },
+      {},
+      {
+        'Metric': `Landlord Revenue (${landlordPercentage}%)`,
+        'Value': `$${landlordNetRevenue.toFixed(2)}`,
+      },
+      {
+        'Metric': `SuiteSpot Revenue (${100 - landlordPercentage}%)`,
+        'Value': `$${suitespotNetRevenue.toFixed(2)}`,
+      },
+    ];
+  };
+
+  const handleExportExcel = () => {
+    const data = getExportData();
+    if (data.length === 0) {
+      toast.error('No analytics data to export');
+      return;
+    }
+
+    const ws = XLSX.utils.json_to_sheet(data);
+    const wb = XLSX.utils.book_new();
+    XLSX.utils.book_append_sheet(wb, ws, 'Revenue Analytics');
+    
+    const filename = `revenue_analytics_${format(new Date(), 'yyyy-MM-dd_HH-mm')}.xlsx`;
+    XLSX.writeFile(wb, filename);
+    toast.success('Analytics data exported to Excel');
+  };
+
+  const handleExportCSV = () => {
+    const data = getExportData();
+    if (data.length === 0) {
+      toast.error('No analytics data to export');
+      return;
+    }
+
+    const ws = XLSX.utils.json_to_sheet(data);
+    const csv = XLSX.utils.sheet_to_csv(ws);
+    
+    const blob = new Blob([csv], { type: 'text/csv;charset=utf-8;' });
+    const link = document.createElement('a');
+    link.href = URL.createObjectURL(blob);
+    link.download = `revenue_analytics_${format(new Date(), 'yyyy-MM-dd_HH-mm')}.csv`;
+    link.click();
+    toast.success('Analytics data exported to CSV');
+  };
+
   if (loading || userRole !== 'admin') {
     return null;
   }
@@ -305,12 +419,24 @@ const Analytics = () => {
   return (
     <div className="min-h-screen bg-background">
       <header className="border-b bg-card">
-        <div className="container mx-auto px-4 py-4 flex items-center gap-4">
-          <Button variant="ghost" size="sm" onClick={() => navigate('/admin')}>
-            <ArrowLeft className="h-4 w-4 mr-2" />
-            Back
-          </Button>
-          <h1 className="text-xl font-bold">Suitespot Analytics</h1>
+        <div className="container mx-auto px-4 py-4 flex items-center gap-4 justify-between">
+          <div className="flex items-center gap-4">
+            <Button variant="ghost" size="sm" onClick={() => navigate('/admin')}>
+              <ArrowLeft className="h-4 w-4 mr-2" />
+              Back
+            </Button>
+            <h1 className="text-xl font-bold">Suitespot Analytics</h1>
+          </div>
+          <div className="flex gap-2">
+            <Button variant="default" size="sm" onClick={handleExportExcel}>
+              <FileSpreadsheet className="h-4 w-4 mr-2" />
+              Export Excel
+            </Button>
+            <Button variant="outline" size="sm" onClick={handleExportCSV}>
+              <Download className="h-4 w-4 mr-2" />
+              Export CSV
+            </Button>
+          </div>
         </div>
       </header>
 
