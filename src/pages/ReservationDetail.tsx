@@ -105,10 +105,17 @@ interface Unit {
 }
 
 const statusColors = {
-  Upcoming: 'bg-blue-100 text-blue-800 hover:bg-blue-100',
-  'In-House': 'bg-green-100 text-green-800 hover:bg-green-100',
-  'Checked-Out': 'bg-gray-100 text-gray-800 hover:bg-gray-100',
-  Cancelled: 'bg-red-100 text-red-800 hover:bg-red-100',
+  confirmed: 'bg-blue-100 text-blue-800 hover:bg-blue-100',
+  'checked-in': 'bg-green-100 text-green-800 hover:bg-green-100',
+  'checked-out': 'bg-gray-100 text-gray-800 hover:bg-gray-100',
+  completed: 'bg-purple-100 text-purple-800 hover:bg-purple-100',
+};
+
+const statusLabels = {
+  confirmed: 'Confirmed',
+  'checked-in': 'Checked-In',
+  'checked-out': 'Checked-Out',
+  completed: 'Completed',
 };
 
 const ReservationDetail = () => {
@@ -942,10 +949,10 @@ const ReservationDetail = () => {
                       <SelectValue />
                     </SelectTrigger>
                     <SelectContent>
-                      <SelectItem value="Upcoming">Upcoming</SelectItem>
-                      <SelectItem value="In-House">In-House</SelectItem>
-                      <SelectItem value="Checked-Out">Checked-Out</SelectItem>
-                      <SelectItem value="Cancelled">Cancelled</SelectItem>
+                      <SelectItem value="confirmed">Confirmed</SelectItem>
+                      <SelectItem value="checked-in">Checked-In</SelectItem>
+                      <SelectItem value="checked-out">Checked-Out</SelectItem>
+                      <SelectItem value="completed">Completed</SelectItem>
                     </SelectContent>
                   </Select>
                 </div>
@@ -966,7 +973,7 @@ const ReservationDetail = () => {
                   <Label>Status</Label>
                   <div className="mt-2">
                     <Badge className={statusColors[reservation.status as keyof typeof statusColors]}>
-                      {reservation.status}
+                      {statusLabels[reservation.status as keyof typeof statusLabels] || reservation.status}
                     </Badge>
                   </div>
                 </div>
