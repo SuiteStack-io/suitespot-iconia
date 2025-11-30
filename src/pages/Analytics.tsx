@@ -89,6 +89,33 @@ const Analytics = () => {
     checkIn: string;
     checkOut: string;
   }>>([]);
+  const [showTotalRevenueDialog, setShowTotalRevenueDialog] = useState(false);
+  const [totalRevenueDetails, setTotalRevenueDetails] = useState<Array<{
+    unitName: string;
+    unitNumber: string;
+    bookings: number;
+    grossRevenue: number;
+    landlordShare: number;
+    suitespotShare: number;
+  }>>([]);
+  const [showNetRevenueDialog, setShowNetRevenueDialog] = useState(false);
+  const [netRevenueDetails, setNetRevenueDetails] = useState<Array<{
+    unitName: string;
+    unitNumber: string;
+    grossRevenue: number;
+    commission: number;
+    netRevenue: number;
+    landlordShare: number;
+    suitespotShare: number;
+  }>>([]);
+  const [showCommissionDialog, setShowCommissionDialog] = useState(false);
+  const [commissionDetails, setCommissionDetails] = useState<Array<{
+    source: string;
+    bookings: number;
+    grossRevenue: number;
+    commissionRate: number;
+    commissionAmount: number;
+  }>>([]);
 
   useEffect(() => {
     if (!loading && userRole !== 'admin') {
@@ -486,6 +513,136 @@ const Analytics = () => {
     setShowSourcesDialog(true);
   };
 
+  const fetchTotalRevenueDetails = async () => {
+    const { startDate, endDate } = getDateRange();
+    
+    const { data: units } = await supabase
+      .from('units')
+      .select('id, name, unit_number')
+      .eq('location', 'ICONIA')
+      .order('unit_number');
+
+    const details = await Promise.all(
+      (units || []).map(async (unit) => {
+        const { data: reservations } = await supabase
+          .from('reservations')
+          .select('total_price')
+          .eq('unit_id', unit.id)
+          .neq('status', 'Cancelled')
+          .gte('check_in_date', startDate)
+          .lte('check_in_date', endDate);
+
+        const grossRevenue = reservations?.reduce((sum, r) => sum + (r.total_price || 0), 0) || 0;
+        const bookings = reservations?.length || 0;
+        const landlordShare = grossRevenue * (landlordPercentage / 100);
+        const suitespotShare = grossRevenue * ((100 - landlordPercentage) / 100);
+
+        return {
+          unitName: unit.name,
+          unitNumber: unit.unit_number || 'N/A',
+          bookings,
+          grossRevenue,
+          landlordShare,
+          suitespotShare,
+        };
+      })
+    );
+
+    setTotalRevenueDetails(details.filter(d => d.bookings > 0));
+  };
+
+  const fetchNetRevenueDetails = async () => {
+    const { startDate, endDate } = getDateRange();
+    
+    const { data: units } = await supabase
+      .from('units')
+      .select('id, name, unit_number')
+      .eq('location', 'ICONIA')
+      .order('unit_number');
+
+    const details = await Promise.all(
+      (units || []).map(async (unit) => {
+        const { data: reservations } = await supabase
+          .from('reservations')
+          .select('total_price, commission_amount, net_revenue')
+          .eq('unit_id', unit.id)
+          .neq('status', 'Cancelled')
+          .gte('check_in_date', startDate)
+          .lte('check_in_date', endDate);
+
+        const grossRevenue = reservations?.reduce((sum, r) => sum + (r.total_price || 0), 0) || 0;
+        const commission = reservations?.reduce((sum, r) => sum + (r.commission_amount || 0), 0) || 0;
+        const netRevenue = reservations?.reduce((sum, r) => sum + (r.net_revenue || 0), 0) || 0;
+        const landlordShare = netRevenue * (landlordPercentage / 100);
+        const suitespotShare = netRevenue * ((100 - landlordPercentage) / 100);
+
+        return {
+          unitName: unit.name,
+          unitNumber: unit.unit_number || 'N/A',
+          grossRevenue,
+          commission,
+          netRevenue,
+          landlordShare,
+          suitespotShare,
+        };
+      })
+    );
+
+    setNetRevenueDetails(details.filter(d => d.grossRevenue > 0));
+  };
+
+  const fetchCommissionDetails = async () => {
+    const { startDate, endDate } = getDateRange();
+    
+    const { data } = await supabase
+      .from('reservations')
+      .select('source, total_price, commission_amount, commission_rate')
+      .neq('status', 'Cancelled')
+      .gte('check_in_date', startDate)
+      .lte('check_in_date', endDate);
+
+    const sourceMap: Record<string, any> = {};
+    
+    (data || []).forEach((reservation) => {
+      const source = reservation.source || 'Unknown';
+      
+      if (!sourceMap[source]) {
+        sourceMap[source] = {
+          source,
+          bookings: 0,
+          grossRevenue: 0,
+          commissionAmount: 0,
+          commissionRate: reservation.commission_rate || 10,
+        };
+      }
+      
+      sourceMap[source].bookings += 1;
+      sourceMap[source].grossRevenue += reservation.total_price || 0;
+      sourceMap[source].commissionAmount += reservation.commission_amount || 0;
+    });
+
+    const sourceArray = Object.values(sourceMap).sort(
+      (a: any, b: any) => b.grossRevenue - a.grossRevenue
+    );
+
+    setCommissionDetails(sourceArray);
+  };
+
+  const handleTotalRevenueClick = () => {
+    fetchTotalRevenueDetails();
+    setShowTotalRevenueDialog(true);
+  };
+
+  const handleNetRevenueClick = () => {
+    fetchNetRevenueDetails();
+    setShowNetRevenueDialog(true);
+  };
+
+  const handleCommissionClick = () => {
+    fetchCommissionDetails();
+    setShowCommissionDialog(true);
+  };
+
   const getExportData = () => {
     const adr = totalNights > 0 ? (revenueStats.totalRevenue / totalNights) : 0;
     const revpar = totalAvailableRooms > 0 ? (revenueStats.totalRevenue / totalAvailableRooms) : 0;
@@ -796,7 +953,7 @@ const Analytics = () => {
         </div>
 
         <div className="grid gap-4 md:grid-cols-3">
-          <Card>
+          <Card className="cursor-pointer hover:shadow-lg transition-shadow" onClick={handleTotalRevenueClick}>
             <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
               <CardTitle className="text-sm font-medium">Total Revenue</CardTitle>
               <DollarSign className="h-4 w-4 text-emerald-600" />
@@ -819,7 +976,7 @@ const Analytics = () => {
             </CardContent>
           </Card>
 
-          <Card>
+          <Card className="cursor-pointer hover:shadow-lg transition-shadow" onClick={handleNetRevenueClick}>
             <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
               <CardTitle className="text-sm font-medium">Net Revenue</CardTitle>
               <DollarSign className="h-4 w-4 text-green-600" />
@@ -842,7 +999,7 @@ const Analytics = () => {
             </CardContent>
           </Card>
 
-          <Card>
+          <Card className="cursor-pointer hover:shadow-lg transition-shadow" onClick={handleCommissionClick}>
             <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
               <CardTitle className="text-sm font-medium">Commission Paid</CardTitle>
               <DollarSign className="h-4 w-4 text-amber-600" />
@@ -855,7 +1012,7 @@ const Analytics = () => {
               <div className="mt-3 pt-3 border-t space-y-1">
                 <div className="flex justify-between text-xs group">
                   <button 
-                    onClick={handleDirectClick}
+                    onClick={(e) => { e.stopPropagation(); handleDirectClick(); }}
                     className="text-muted-foreground hover:text-foreground transition-colors flex items-center gap-1"
                   >
                     Direct
@@ -1130,6 +1287,198 @@ const Analytics = () => {
                       </TableCell>
                       <TableCell className="text-right text-green-600">
                         ${directSourceDetails.reduce((sum, s) => sum + s.netRevenue, 0).toFixed(2)}
+                      </TableCell>
+                    </TableRow>
+                  </>
+                )}
+              </TableBody>
+            </Table>
+          </div>
+        </DialogContent>
+      </Dialog>
+
+      {/* Total Revenue Dialog */}
+      <Dialog open={showTotalRevenueDialog} onOpenChange={setShowTotalRevenueDialog}>
+        <DialogContent className="max-w-4xl max-h-[80vh] overflow-y-auto">
+          <DialogHeader>
+            <DialogTitle>Total Revenue Breakdown</DialogTitle>
+          </DialogHeader>
+          <div className="mt-4">
+            <Table>
+              <TableHeader>
+                <TableRow>
+                  <TableHead className="font-semibold">Unit</TableHead>
+                  <TableHead className="font-semibold">Room #</TableHead>
+                  <TableHead className="text-right font-semibold">Bookings</TableHead>
+                  <TableHead className="text-right font-semibold">Gross Revenue</TableHead>
+                  <TableHead className="text-right font-semibold">Landlord Share</TableHead>
+                  <TableHead className="text-right font-semibold">SuiteSpot Share</TableHead>
+                </TableRow>
+              </TableHeader>
+              <TableBody>
+                {totalRevenueDetails.length === 0 ? (
+                  <TableRow>
+                    <TableCell colSpan={6} className="text-center text-muted-foreground py-8">
+                      No revenue data available
+                    </TableCell>
+                  </TableRow>
+                ) : (
+                  <>
+                    {totalRevenueDetails.map((unit, index) => (
+                      <TableRow key={index}>
+                        <TableCell className="font-medium">{unit.unitName}</TableCell>
+                        <TableCell>{unit.unitNumber}</TableCell>
+                        <TableCell className="text-right">{unit.bookings}</TableCell>
+                        <TableCell className="text-right">${unit.grossRevenue.toFixed(2)}</TableCell>
+                        <TableCell className="text-right">${unit.landlordShare.toFixed(2)}</TableCell>
+                        <TableCell className="text-right">${unit.suitespotShare.toFixed(2)}</TableCell>
+                      </TableRow>
+                    ))}
+                    <TableRow className="bg-muted/50 font-semibold">
+                      <TableCell colSpan={2}>Total</TableCell>
+                      <TableCell className="text-right">
+                        {totalRevenueDetails.reduce((sum, u) => sum + u.bookings, 0)}
+                      </TableCell>
+                      <TableCell className="text-right text-emerald-600">
+                        ${totalRevenueDetails.reduce((sum, u) => sum + u.grossRevenue, 0).toFixed(2)}
+                      </TableCell>
+                      <TableCell className="text-right">
+                        ${totalRevenueDetails.reduce((sum, u) => sum + u.landlordShare, 0).toFixed(2)}
+                      </TableCell>
+                      <TableCell className="text-right">
+                        ${totalRevenueDetails.reduce((sum, u) => sum + u.suitespotShare, 0).toFixed(2)}
+                      </TableCell>
+                    </TableRow>
+                  </>
+                )}
+              </TableBody>
+            </Table>
+          </div>
+        </DialogContent>
+      </Dialog>
+
+      {/* Net Revenue Dialog */}
+      <Dialog open={showNetRevenueDialog} onOpenChange={setShowNetRevenueDialog}>
+        <DialogContent className="max-w-5xl max-h-[80vh] overflow-y-auto">
+          <DialogHeader>
+            <DialogTitle>Net Revenue Breakdown</DialogTitle>
+          </DialogHeader>
+          <div className="mt-4">
+            <Table>
+              <TableHeader>
+                <TableRow>
+                  <TableHead className="font-semibold">Unit</TableHead>
+                  <TableHead className="font-semibold">Room #</TableHead>
+                  <TableHead className="text-right font-semibold">Gross Revenue</TableHead>
+                  <TableHead className="text-right font-semibold">Commission</TableHead>
+                  <TableHead className="text-right font-semibold">Net Revenue</TableHead>
+                  <TableHead className="text-right font-semibold">Landlord</TableHead>
+                  <TableHead className="text-right font-semibold">SuiteSpot</TableHead>
+                </TableRow>
+              </TableHeader>
+              <TableBody>
+                {netRevenueDetails.length === 0 ? (
+                  <TableRow>
+                    <TableCell colSpan={7} className="text-center text-muted-foreground py-8">
+                      No net revenue data available
+                    </TableCell>
+                  </TableRow>
+                ) : (
+                  <>
+                    {netRevenueDetails.map((unit, index) => (
+                      <TableRow key={index}>
+                        <TableCell className="font-medium">{unit.unitName}</TableCell>
+                        <TableCell>{unit.unitNumber}</TableCell>
+                        <TableCell className="text-right">${unit.grossRevenue.toFixed(2)}</TableCell>
+                        <TableCell className="text-right text-amber-600">${unit.commission.toFixed(2)}</TableCell>
+                        <TableCell className="text-right font-semibold">${unit.netRevenue.toFixed(2)}</TableCell>
+                        <TableCell className="text-right">${unit.landlordShare.toFixed(2)}</TableCell>
+                        <TableCell className="text-right">${unit.suitespotShare.toFixed(2)}</TableCell>
+                      </TableRow>
+                    ))}
+                    <TableRow className="bg-muted/50 font-semibold">
+                      <TableCell colSpan={2}>Total</TableCell>
+                      <TableCell className="text-right">
+                        ${netRevenueDetails.reduce((sum, u) => sum + u.grossRevenue, 0).toFixed(2)}
+                      </TableCell>
+                      <TableCell className="text-right text-amber-600">
+                        ${netRevenueDetails.reduce((sum, u) => sum + u.commission, 0).toFixed(2)}
+                      </TableCell>
+                      <TableCell className="text-right text-green-600">
+                        ${netRevenueDetails.reduce((sum, u) => sum + u.netRevenue, 0).toFixed(2)}
+                      </TableCell>
+                      <TableCell className="text-right">
+                        ${netRevenueDetails.reduce((sum, u) => sum + u.landlordShare, 0).toFixed(2)}
+                      </TableCell>
+                      <TableCell className="text-right">
+                        ${netRevenueDetails.reduce((sum, u) => sum + u.suitespotShare, 0).toFixed(2)}
+                      </TableCell>
+                    </TableRow>
+                  </>
+                )}
+              </TableBody>
+            </Table>
+          </div>
+        </DialogContent>
+      </Dialog>
+
+      {/* Commission Paid Dialog */}
+      <Dialog open={showCommissionDialog} onOpenChange={setShowCommissionDialog}>
+        <DialogContent className="max-w-4xl max-h-[80vh] overflow-y-auto">
+          <DialogHeader>
+            <DialogTitle>Commission Breakdown by Source</DialogTitle>
+          </DialogHeader>
+          <div className="mt-4">
+            <Table>
+              <TableHeader>
+                <TableRow>
+                  <TableHead className="font-semibold">Booking Source</TableHead>
+                  <TableHead className="text-right font-semibold">Bookings</TableHead>
+                  <TableHead className="text-right font-semibold">Gross Revenue</TableHead>
+                  <TableHead className="text-right font-semibold">Commission Rate</TableHead>
+                  <TableHead className="text-right font-semibold">Commission Amount</TableHead>
+                </TableRow>
+              </TableHeader>
+              <TableBody>
+                {commissionDetails.length === 0 ? (
+                  <TableRow>
+                    <TableCell colSpan={5} className="text-center text-muted-foreground py-8">
+                      No commission data available
+                    </TableCell>
+                  </TableRow>
+                ) : (
+                  <>
+                    {commissionDetails.map((source, index) => (
+                      <TableRow key={index}>
+                        <TableCell className="font-medium">
+                          <span className={cn(
+                            "text-xs px-2 py-1 rounded-full",
+                            source.source.toLowerCase().includes('direct') 
+                              ? "bg-green-100 text-green-700"
+                              : "bg-blue-100 text-blue-700"
+                          )}>
+                            {source.source}
+                          </span>
+                        </TableCell>
+                        <TableCell className="text-right">{source.bookings}</TableCell>
+                        <TableCell className="text-right">${source.grossRevenue.toFixed(2)}</TableCell>
+                        <TableCell className="text-right">{source.commissionRate}%</TableCell>
+                        <TableCell className="text-right text-amber-600 font-semibold">
+                          ${source.commissionAmount.toFixed(2)}
+                        </TableCell>
+                      </TableRow>
+                    ))}
+                    <TableRow className="bg-muted/50 font-semibold">
+                      <TableCell>Total</TableCell>
+                      <TableCell className="text-right">
+                        {commissionDetails.reduce((sum, s) => sum + s.bookings, 0)}
+                      </TableCell>
+                      <TableCell className="text-right">
+                        ${commissionDetails.reduce((sum, s) => sum + s.grossRevenue, 0).toFixed(2)}
+                      </TableCell>
+                      <TableCell className="text-right">-</TableCell>
+                      <TableCell className="text-right text-amber-600">
+                        ${commissionDetails.reduce((sum, s) => sum + s.commissionAmount, 0).toFixed(2)}
                       </TableCell>
                     </TableRow>
                   </>
