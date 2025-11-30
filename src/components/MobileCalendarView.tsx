@@ -99,7 +99,7 @@ export const MobileCalendarView = () => {
     const { data: reservationsData } = await supabase
       .from('reservations')
       .select('*')
-      .eq('status', 'confirmed')
+      .in('status', ['confirmed', 'checked-in', 'checked-out'])
       .or(`and(check_in_date.lte.${endDate},check_out_date.gte.${startDate})`);
     if (reservationsData) setReservations(reservationsData);
 

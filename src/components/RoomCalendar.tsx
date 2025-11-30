@@ -117,7 +117,7 @@ export const RoomCalendar = () => {
     const { data, error } = await supabase
       .from('reservations')
       .select('*')
-      .eq('status', 'confirmed');
+      .in('status', ['confirmed', 'checked-in', 'checked-out']);
     
     if (error) {
       console.error('Error fetching reservations:', error);
@@ -140,7 +140,7 @@ export const RoomCalendar = () => {
     if (!unitInCurrentLocation) return false;
     
     const conflictingReservations = reservations.filter(res => {
-      if (res.unit_id !== unitId || res.status !== 'confirmed') return false;
+      if (res.unit_id !== unitId || !['confirmed', 'checked-in', 'checked-out'].includes(res.status)) return false;
       const checkIn = new Date(res.check_in_date);
       const checkOut = new Date(res.check_out_date);
       return date >= checkIn && date < checkOut;

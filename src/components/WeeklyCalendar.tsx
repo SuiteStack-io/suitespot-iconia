@@ -70,7 +70,7 @@ export const WeeklyCalendar = () => {
     const { data, error } = await supabase
       .from('reservations')
       .select('id, unit_id, check_in_date, check_out_date, status, source, guest_names')
-      .eq('status', 'confirmed');
+      .in('status', ['confirmed', 'checked-in', 'checked-out']);
     
     if (error) {
       console.error('Error fetching reservations:', error);
@@ -89,7 +89,7 @@ export const WeeklyCalendar = () => {
 
   const hasConflict = (date: Date, unitId: string) => {
     const conflictingReservations = reservations.filter(res => {
-      if (res.unit_id !== unitId || res.status !== 'confirmed') return false;
+      if (res.unit_id !== unitId || !['confirmed', 'checked-in', 'checked-out'].includes(res.status)) return false;
       const checkIn = new Date(res.check_in_date);
       const checkOut = new Date(res.check_out_date);
       return date >= checkIn && date < checkOut;
