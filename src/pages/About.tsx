@@ -311,9 +311,7 @@ This is more than a place to sleep. It’s a better way to stay.
                     <Briefcase className="w-8 h-8 text-primary" />
                   </div>
                 </div>
-                <h3 className="font-playfair text-[20px] font-medium text-center mb-3 text-foreground">
-                  Remote Workers
-                </h3>
+                <h3 className="font-playfair text-[20px] font-medium text-center mb-3 text-foreground">Digital Nomads</h3>
                 <p className="font-playfair text-[16px] font-normal text-muted-foreground leading-[1.5] text-center">
                   Fast WiFi, dedicated workspaces, and flexible stay durations
                 </p>
