@@ -9,7 +9,7 @@ const About = () => {
 
       <div className="pt-20">
         {/* Hero Section */}
-        <section className="relative py-20 md:py-32 bg-gradient-to-b from-primary/5 to-background px-[20px] mx-[40px] my-0 border-0">
+        <section className="relative py-8 md:py-13 bg-gradient-to-b from-primary/5 to-background px-[20px] mx-[40px] my-0 border-0">
           <div className="container mx-auto max-w-5xl text-center">
             <h1 className="font-playfair text-[40px] md:text-[80px] font-semibold tracking-[-0.02em] text-foreground mb-6 leading-[1.1]">
               About SuiteSpot Hospitality
@@ -19,7 +19,7 @@ const About = () => {
         </section>
 
         {/* Brand Introduction */}
-        <section className="py-16 md:py-24 px-6">
+        <section className="py-6 md:py-10 px-6">
           <div className="container mx-auto max-w-4xl">
             <div className="space-y-6">
               <p className="font-playfair text-[18px] md:text-[20px] font-normal leading-[1.5] text-foreground">
