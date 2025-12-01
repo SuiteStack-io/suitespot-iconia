@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useAuth } from '@/lib/auth';
 import { supabase } from '@/integrations/supabase/client';
@@ -7,7 +7,8 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/com
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Progress } from '@/components/ui/progress';
-import { Upload, Loader2, CheckCircle, AlertTriangle, ArrowLeft } from 'lucide-react';
+import { Upload, Loader2, CheckCircle, AlertTriangle, ArrowLeft, Download } from 'lucide-react';
+import { toPng } from 'html-to-image';
 import { useToast } from '@/hooks/use-toast';
 import {
   Dialog,
@@ -71,6 +72,8 @@ const BookingComReservations = () => {
   const [sameTypeAlternatives, setSameTypeAlternatives] = useState<any[]>([]);
   const [otherAlternatives, setOtherAlternatives] = useState<any[]>([]);
   const [selectedAlternativeId, setSelectedAlternativeId] = useState<string>('');
+  const [downloadingImage, setDownloadingImage] = useState(false);
+  const reservationCardRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
     if (!loading && !user) {
@@ -473,6 +476,38 @@ const BookingComReservations = () => {
     return unit ? unit.name : 'Unknown room';
   };
 
+  const handleDownloadReservation = async () => {
+    if (!reservationCardRef.current || !parsedData) return;
+
+    setDownloadingImage(true);
+    try {
+      const dataUrl = await toPng(reservationCardRef.current, {
+        cacheBust: true,
+        backgroundColor: '#ffffff',
+        pixelRatio: 2,
+      });
+
+      const link = document.createElement('a');
+      link.download = `reservation-${parsedData.bookingReference}.png`;
+      link.href = dataUrl;
+      link.click();
+
+      toast({
+        title: 'Success',
+        description: 'Reservation image downloaded successfully',
+      });
+    } catch (error) {
+      console.error('Error downloading reservation:', error);
+      toast({
+        title: 'Error',
+        description: 'Failed to download reservation image',
+        variant: 'destructive',
+      });
+    } finally {
+      setDownloadingImage(false);
+    }
+  };
+
   return (
     <div className="min-h-screen bg-background">
       <header className="border-b bg-card">
@@ -715,7 +750,7 @@ const BookingComReservations = () => {
           </DialogHeader>
 
           {parsedData && (
-            <div className="space-y-4">
+            <div ref={reservationCardRef} className="space-y-4 bg-background p-6 rounded-lg">
               <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                 <div>
                   <Label className="text-xs text-muted-foreground">Booking Reference</Label>
@@ -844,20 +879,40 @@ const BookingComReservations = () => {
             </div>
           )}
 
-          <DialogFooter>
-            <Button variant="outline" onClick={() => setShowPreview(false)} disabled={creating}>
-              Cancel
-            </Button>
-            <Button onClick={handleConfirmReservation} disabled={creating}>
-              {creating ? (
+          <DialogFooter className="flex-col sm:flex-row gap-2">
+            <Button 
+              variant="outline" 
+              onClick={handleDownloadReservation} 
+              disabled={creating || downloadingImage}
+              className="w-full sm:w-auto"
+            >
+              {downloadingImage ? (
                 <>
                   <Loader2 className="h-4 w-4 mr-2 animate-spin" />
-                  Creating...
+                  Downloading...
                 </>
               ) : (
-                'Confirm & Create'
+                <>
+                  <Download className="h-4 w-4 mr-2" />
+                  Download Image
+                </>
               )}
             </Button>
+            <div className="flex gap-2 w-full sm:w-auto">
+              <Button variant="outline" onClick={() => setShowPreview(false)} disabled={creating} className="flex-1 sm:flex-none">
+                Cancel
+              </Button>
+              <Button onClick={handleConfirmReservation} disabled={creating} className="flex-1 sm:flex-none">
+                {creating ? (
+                  <>
+                    <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+                    Creating...
+                  </>
+                ) : (
+                  'Confirm & Create'
+                )}
+              </Button>
+            </div>
           </DialogFooter>
         </DialogContent>
       </Dialog>
