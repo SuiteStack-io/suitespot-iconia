@@ -26,7 +26,6 @@ import {
   Map,
   BarChart3,
   DollarSign,
-  BookOpen,
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 
@@ -78,7 +77,6 @@ export function SlideMenu({ isAdmin }: SlideMenuProps) {
       label: 'WEBSITE',
       items: [
         { title: 'Content', url: '/homepage-management', icon: Home },
-        { title: 'Our Story', url: '/our-story', icon: BookOpen },
         { title: 'Media Library', url: '/media-library', icon: ImageIcon },
         { title: 'Locations', url: '/locations-management', icon: Map },
       ],
