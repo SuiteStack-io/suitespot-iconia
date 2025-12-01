@@ -2,7 +2,7 @@ import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
 import { Link } from "react-router-dom";
 import { PublicNav } from "@/components/PublicNav";
-import { Building2, MapPin, Users, Calendar, Home, Sparkles, Leaf, Palette, Headphones, Briefcase, Plane, Heart, Baby, Waves, Coffee, BookOpen } from "lucide-react";
+import { Building2, MapPin, Users, Calendar, Home, Sparkles, Leaf, Headphones, Briefcase, Plane, Baby, Waves, Coffee, BookOpen } from "lucide-react";
 const About = () => {
   return <div className="min-h-screen bg-background">
       <PublicNav />
@@ -225,7 +225,7 @@ This is more than a place to sleep. It’s a better way to stay.
               <Card className="p-8 hover:shadow-lg transition-shadow">
                 <div className="flex justify-center mb-6">
                   <div className="p-4 rounded-full bg-purple-500/10">
-                    <Palette className="w-10 h-10 text-purple-600" />
+                    <Home className="w-10 h-10 text-purple-600" />
                   </div>
                 </div>
                 <h3 className="font-playfair text-[24px] md:text-[28px] font-medium text-center mb-4 text-foreground">Residential Suites</h3>
