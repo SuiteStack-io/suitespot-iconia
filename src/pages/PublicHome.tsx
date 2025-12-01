@@ -8,31 +8,29 @@ import { BookingWidget } from "@/components/BookingWidget";
 import { PublicNav } from "@/components/PublicNav";
 import { HeroSlideshow } from "@/components/HeroSlideshow";
 import { useRef } from "react";
-
 const PublicHome = () => {
   const touchStartX = useRef<number>(0);
   const touchEndX = useRef<number>(0);
-
   const handleHeroTouchStart = (e: React.TouchEvent) => {
     touchStartX.current = e.touches[0].clientX;
   };
-
   const handleHeroTouchMove = (e: React.TouchEvent) => {
     touchEndX.current = e.touches[0].clientX;
   };
-
   const handleHeroTouchEnd = () => {
     const swipeThreshold = 50;
     const diff = touchStartX.current - touchEndX.current;
-    
     if (Math.abs(diff) > swipeThreshold) {
       // Trigger slideshow navigation by dispatching a custom event
       const direction = diff > 0 ? 'right' : 'left';
-      const event = new CustomEvent('hero-swipe', { detail: { direction } });
+      const event = new CustomEvent('hero-swipe', {
+        detail: {
+          direction
+        }
+      });
       window.dispatchEvent(event);
     }
   };
-
   return <div className="min-h-screen">
       {/* Navigation */}
       <PublicNav />
@@ -43,19 +41,14 @@ const PublicHome = () => {
         <HeroSlideshow />
         
         {/* Hero Content */}
-        <div 
-          className="relative z-10 text-center px-6 max-w-4xl mt-16 md:mt-0"
-          onTouchStart={handleHeroTouchStart}
-          onTouchMove={handleHeroTouchMove}
-          onTouchEnd={handleHeroTouchEnd}
-        >
+        <div className="relative z-10 text-center px-6 max-w-4xl mt-16 md:mt-0" onTouchStart={handleHeroTouchStart} onTouchMove={handleHeroTouchMove} onTouchEnd={handleHeroTouchEnd}>
           <h1 className="text-3xl md:text-7xl font-serif font-bold text-white mb-6 animate-fade-in" style={{
-            textShadow: "1px 1px 3px rgba(0,0,0,0.6), 0 0 15px rgba(0,0,0,0.4)"
-          }}>Welcome Home</h1>
+          textShadow: "1px 1px 3px rgba(0,0,0,0.6), 0 0 15px rgba(0,0,0,0.4)"
+        }}>Welcome Home</h1>
           <p className="text-xl md:text-2xl text-white/90 mb-48 md:mb-8 animate-fade-in" style={{
-            animationDelay: "0.2s",
-            textShadow: "2px 2px 4px rgba(0,0,0,0.8), 0 0 20px rgba(0,0,0,0.6)"
-          }}>Blending the comfort of home with the service of a boutique hotel in Zamalek</p>
+          animationDelay: "0.2s",
+          textShadow: "2px 2px 4px rgba(0,0,0,0.8), 0 0 20px rgba(0,0,0,0.6)"
+        }}>Blending the comfort of home with the service of a boutique hotel in Cairo</p>
           
           {/* Desktop buttons only */}
           <div className="hidden sm:flex gap-4 justify-center animate-fade-in mb-8 mt-16" style={{
@@ -117,11 +110,7 @@ const PublicHome = () => {
         <div className="grid md:grid-cols-3">
           {/* Suites */}
           <Link to="/suites" className="relative h-[500px] md:h-[650px] overflow-hidden group cursor-pointer">
-            <img 
-              src={suitesFeature} 
-              alt="Luxurious suites" 
-              className="w-full h-full object-cover object-[50%_10%] md:object-[50%_20%] transition-transform duration-700 group-hover:scale-105" 
-            />
+            <img src={suitesFeature} alt="Luxurious suites" className="w-full h-full object-cover object-[50%_10%] md:object-[50%_20%] transition-transform duration-700 group-hover:scale-105" />
             <div className="absolute inset-0 bg-black/40 transition-opacity duration-300 group-hover:bg-black/50" />
             <div className="absolute inset-0 flex flex-col items-center justify-center text-white px-8 text-center">
               <h3 className="text-3xl md:text-4xl font-serif font-bold mb-6 uppercase tracking-wider">
@@ -136,11 +125,7 @@ const PublicHome = () => {
 
           {/* Wellness */}
           <Link to="/wellness" className="relative h-[500px] md:h-[650px] overflow-hidden group cursor-pointer">
-            <img 
-              src={wellnessFeature} 
-              alt="Wellness and yoga" 
-              className="w-full h-full object-cover transition-transform duration-700 group-hover:scale-105" 
-            />
+            <img src={wellnessFeature} alt="Wellness and yoga" className="w-full h-full object-cover transition-transform duration-700 group-hover:scale-105" />
             <div className="absolute inset-0 bg-black/40 transition-opacity duration-300 group-hover:bg-black/50" />
             <div className="absolute inset-0 flex flex-col items-center justify-center text-white px-8 text-center">
               <h3 className="text-3xl md:text-4xl font-serif font-bold mb-6 uppercase tracking-wider">
@@ -158,11 +143,7 @@ const PublicHome = () => {
 
           {/* Experiences */}
           <Link to="/experiences" className="relative h-[500px] md:h-[650px] overflow-hidden group cursor-pointer">
-            <img 
-              src={experiencesFeature} 
-              alt="Egyptian experiences" 
-              className="w-full h-full object-cover transition-transform duration-700 group-hover:scale-105" 
-            />
+            <img src={experiencesFeature} alt="Egyptian experiences" className="w-full h-full object-cover transition-transform duration-700 group-hover:scale-105" />
             <div className="absolute inset-0 bg-black/40 transition-opacity duration-300 group-hover:bg-black/50" />
             <div className="absolute inset-0 flex flex-col items-center justify-center text-white px-8 text-center">
               <h3 className="text-3xl md:text-4xl font-serif font-bold mb-6 uppercase tracking-wider">
