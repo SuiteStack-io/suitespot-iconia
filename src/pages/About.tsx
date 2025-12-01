@@ -2,25 +2,9 @@ import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
 import { Link } from "react-router-dom";
 import { PublicNav } from "@/components/PublicNav";
-import { 
-  Building2, 
-  MapPin, 
-  Users, 
-  Calendar, 
-  Home,
-  Sparkles,
-  Leaf,
-  Palette,
-  Headphones,
-  Briefcase,
-  Plane,
-  Heart,
-  Baby
-} from "lucide-react";
-
+import { Building2, MapPin, Users, Calendar, Home, Sparkles, Leaf, Palette, Headphones, Briefcase, Plane, Heart, Baby } from "lucide-react";
 const About = () => {
-  return (
-    <div className="min-h-screen bg-background">
+  return <div className="min-h-screen bg-background">
       <PublicNav />
 
       <div className="pt-20">
@@ -30,9 +14,7 @@ const About = () => {
             <h1 className="font-playfair text-[40px] md:text-[80px] font-semibold tracking-[-0.02em] text-foreground mb-6 leading-[1.1]">
               About SuiteSpot Hospitality
             </h1>
-            <p className="font-playfair text-[24px] md:text-[36px] font-medium text-muted-foreground">
-              Where modern hospitality meets Egyptian charm
-            </p>
+            <p className="font-playfair text-[24px] md:text-[36px] font-medium text-muted-foreground">Welcome! We’re so happy you’ve crossed our path.</p>
           </div>
         </section>
 
@@ -507,8 +489,6 @@ const About = () => {
           </div>
         </footer>
       </div>
-    </div>
-  );
+    </div>;
 };
-
 export default About;
