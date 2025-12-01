@@ -119,9 +119,7 @@ This is more than a place to sleep. It’s a better way to stay.
                     <h3 className="font-playfair text-[18px] md:text-[20px] font-medium mb-2 text-foreground">
                       Positioning
                     </h3>
-                    <p className="font-playfair text-[16px] font-normal text-muted-foreground leading-[1.5]">
-                      Better than Airbnb with professional service and consistency, more homely than hotels with full kitchens and living spaces
-                    </p>
+                    <p className="font-playfair text-[16px] font-normal text-muted-foreground leading-[1.5]">Better than Airbnb with professional service and wellness classes, more homely than hotels with full kitchens and living spaces</p>
                   </div>
                 </div>
               </Card>
