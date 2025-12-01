@@ -23,7 +23,7 @@ const About = () => {
           <div className="container mx-auto max-w-4xl">
             <div className="space-y-6">
               <p className="font-playfair text-[18px] md:text-[20px] font-normal leading-[1.5] text-foreground">
-                SuiteSpot Hospitality is redefining serviced apartment living in Egypt. We create spaces that combine the professional service and amenities of a boutique hotel with the comfort, space, and flexibility of a fully-furnished apartment. Each property is carefully curated to reflect local culture while meeting the needs of today's modern traveler.
+                SuiteSpot Hospitality is redefining serviced apartment living in Egypt. At SuiteSpot, we’re redefining the way you stay. Positioned at the sweet spot between a hotel and a serviced apartment, we blend the comfort of home with the service and style of a boutique hotel, transforming iconic spaces into wellness-focused, design-driven stays.
               </p>
               <p className="font-playfair text-[18px] md:text-[20px] font-normal leading-[1.5] text-foreground">
                 Whether you're staying for three nights or three months, SuiteSpot offers a seamless experience that bridges the gap between the impersonal feel of traditional hotels and the inconsistency of home-sharing platforms. We're here to make you feel at home while inspiring you to explore all that Egypt has to offer.
