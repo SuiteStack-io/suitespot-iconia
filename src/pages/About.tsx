@@ -2,7 +2,7 @@ import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
 import { Link } from "react-router-dom";
 import { PublicNav } from "@/components/PublicNav";
-import { Building2, MapPin, Users, Calendar, Home, Sparkles, Leaf, Palette, Headphones, Briefcase, Plane, Heart, Baby } from "lucide-react";
+import { Building2, MapPin, Users, Calendar, Home, Sparkles, Leaf, Palette, Headphones, Briefcase, Plane, Heart, Baby, Waves, Coffee, BookOpen } from "lucide-react";
 const About = () => {
   return <div className="min-h-screen bg-background">
       <PublicNav />
@@ -216,20 +216,9 @@ This is more than a place to sleep. It’s a better way to stay.
                 <h3 className="font-playfair text-[24px] md:text-[28px] font-medium text-center mb-4 text-foreground">
                   Wellness
                 </h3>
-                <ul className="space-y-3">
-                  <li className="font-playfair text-[16px] font-normal text-muted-foreground leading-[1.5]">
-                    • Yoga classes for all levels
-                  </li>
-                  <li className="font-playfair text-[16px] font-normal text-muted-foreground leading-[1.5]">
-                    • Fitness and cardio sessions
-                  </li>
-                  <li className="font-playfair text-[16px] font-normal text-muted-foreground leading-[1.5]">
-                    • Mindfulness and meditation
-                  </li>
-                  <li className="font-playfair text-[16px] font-normal text-muted-foreground leading-[1.5]">
-                    • Powered by OnTrack wellness
-                  </li>
-                </ul>
+                <p className="font-playfair text-[16px] font-normal text-muted-foreground leading-[1.5] text-center">
+                  Yoga classes for all levels, fitness and cardio sessions, mindfulness and meditation—powered by OnTrack wellness.
+                </p>
               </Card>
 
               {/* Design */}
@@ -242,20 +231,9 @@ This is more than a place to sleep. It’s a better way to stay.
                 <h3 className="font-playfair text-[24px] md:text-[28px] font-medium text-center mb-4 text-foreground">
                   Design
                 </h3>
-                <ul className="space-y-3">
-                  <li className="font-playfair text-[16px] font-normal text-muted-foreground leading-[1.5]">
-                    • Thoughtfully curated interiors
-                  </li>
-                  <li className="font-playfair text-[16px] font-normal text-muted-foreground leading-[1.5]">
-                    • Local Egyptian artwork
-                  </li>
-                  <li className="font-playfair text-[16px] font-normal text-muted-foreground leading-[1.5]">
-                    • Modern, functional furniture
-                  </li>
-                  <li className="font-playfair text-[16px] font-normal text-muted-foreground leading-[1.5]">
-                    • Full kitchens and living spaces
-                  </li>
-                </ul>
+                <p className="font-playfair text-[16px] font-normal text-muted-foreground leading-[1.5] text-center">
+                  Thoughtfully curated interiors featuring local Egyptian artwork, modern functional furniture, and full kitchens and living spaces.
+                </p>
               </Card>
 
               {/* Service */}
@@ -268,20 +246,54 @@ This is more than a place to sleep. It’s a better way to stay.
                 <h3 className="font-playfair text-[24px] md:text-[28px] font-medium text-center mb-4 text-foreground">
                   Service
                 </h3>
-                <ul className="space-y-3">
-                  <li className="font-playfair text-[16px] font-normal text-muted-foreground leading-[1.5]">
-                    • 24/7 support and assistance
-                  </li>
-                  <li className="font-playfair text-[16px] font-normal text-muted-foreground leading-[1.5]">
-                    • Professional housekeeping
-                  </li>
-                  <li className="font-playfair text-[16px] font-normal text-muted-foreground leading-[1.5]">
-                    • Concierge services
-                  </li>
-                  <li className="font-playfair text-[16px] font-normal text-muted-foreground leading-[1.5]">
-                    • Local recommendations
-                  </li>
-                </ul>
+                <p className="font-playfair text-[16px] font-normal text-muted-foreground leading-[1.5] text-center">
+                  24/7 support and assistance, professional housekeeping, concierge services, and maintenance and repairs.
+                </p>
+              </Card>
+
+              {/* Outdoor Pool */}
+              <Card className="p-8 hover:shadow-lg transition-shadow">
+                <div className="flex justify-center mb-6">
+                  <div className="p-4 rounded-full bg-cyan-500/10">
+                    <Waves className="w-10 h-10 text-cyan-600" />
+                  </div>
+                </div>
+                <h3 className="font-playfair text-[24px] md:text-[28px] font-medium text-center mb-4 text-foreground">
+                  Outdoor Pool
+                </h3>
+                <p className="font-playfair text-[16px] font-normal text-muted-foreground leading-[1.5] text-center">
+                  A serene open-air pool designed for slow mornings, sunset dips, and unwinding after a day of exploring.
+                </p>
+              </Card>
+
+              {/* Restaurant & Coffee Bar */}
+              <Card className="p-8 hover:shadow-lg transition-shadow">
+                <div className="flex justify-center mb-6">
+                  <div className="p-4 rounded-full bg-amber-500/10">
+                    <Coffee className="w-10 h-10 text-amber-600" />
+                  </div>
+                </div>
+                <h3 className="font-playfair text-[24px] md:text-[28px] font-medium text-center mb-4 text-foreground">
+                  On-Premise Restaurant & Specialty Coffee Bar
+                </h3>
+                <p className="font-playfair text-[16px] font-normal text-muted-foreground leading-[1.5] text-center">
+                  Savor single-origin coffee brewed by expert baristas, along with thoughtfully crafted lunch and dinner menus inspired by local flavors and global comfort.
+                </p>
+              </Card>
+
+              {/* Bookstore & Gift Shop */}
+              <Card className="p-8 hover:shadow-lg transition-shadow">
+                <div className="flex justify-center mb-6">
+                  <div className="p-4 rounded-full bg-rose-500/10">
+                    <BookOpen className="w-10 h-10 text-rose-600" />
+                  </div>
+                </div>
+                <h3 className="font-playfair text-[24px] md:text-[28px] font-medium text-center mb-4 text-foreground">
+                  Boutique Bookstore & Egyptian Gift Shop
+                </h3>
+                <p className="font-playfair text-[16px] font-normal text-muted-foreground leading-[1.5] text-center">
+                  Discover curated reads, locally made crafts, and meaningful keepsakes to take a piece of Egypt home with you.
+                </p>
               </Card>
             </div>
           </div>
