@@ -304,31 +304,16 @@ This is more than a place to sleep. It’s a better way to stay.
               Who Is This Ideal For?
             </h2>
             <div className="grid md:grid-cols-2 lg:grid-cols-4 gap-6">
-              {/* Remote Workers */}
+              {/* Families */}
               <Card className="p-6 hover:shadow-lg transition-shadow">
                 <div className="flex justify-center mb-4">
                   <div className="p-3 rounded-full bg-primary/10">
-                    <Briefcase className="w-8 h-8 text-primary" />
+                    <Baby className="w-8 h-8 text-primary" />
                   </div>
                 </div>
-                <h3 className="font-playfair text-[20px] font-medium text-center mb-3 text-foreground">Digital Nomads</h3>
+                <h3 className="font-playfair text-[20px] font-medium text-center mb-3 text-foreground">Families & Tourists</h3>
                 <p className="font-playfair text-[16px] font-normal text-muted-foreground leading-[1.5] text-center">
-                  Fast WiFi, dedicated workspaces, and flexible stay durations
-                </p>
-              </Card>
-
-              {/* Relocations */}
-              <Card className="p-6 hover:shadow-lg transition-shadow">
-                <div className="flex justify-center mb-4">
-                  <div className="p-3 rounded-full bg-primary/10">
-                    <Home className="w-8 h-8 text-primary" />
-                  </div>
-                </div>
-                <h3 className="font-playfair text-[20px] font-medium text-center mb-3 text-foreground">
-                  Relocations
-                </h3>
-                <p className="font-playfair text-[16px] font-normal text-muted-foreground leading-[1.5] text-center">
-                  Hassle-free moves with fully furnished apartments and monthly rates
+                  Spacious suites, full kitchens, and kid-friendly amenities
                 </p>
               </Card>
 
@@ -347,16 +332,31 @@ This is more than a place to sleep. It’s a better way to stay.
                 </p>
               </Card>
 
-              {/* Families */}
+              {/* Relocations */}
               <Card className="p-6 hover:shadow-lg transition-shadow">
                 <div className="flex justify-center mb-4">
                   <div className="p-3 rounded-full bg-primary/10">
-                    <Baby className="w-8 h-8 text-primary" />
+                    <Home className="w-8 h-8 text-primary" />
                   </div>
                 </div>
-                <h3 className="font-playfair text-[20px] font-medium text-center mb-3 text-foreground">Families & Tourists</h3>
+                <h3 className="font-playfair text-[20px] font-medium text-center mb-3 text-foreground">
+                  Relocations
+                </h3>
                 <p className="font-playfair text-[16px] font-normal text-muted-foreground leading-[1.5] text-center">
-                  Spacious suites, full kitchens, and kid-friendly amenities
+                  Hassle-free moves with fully furnished apartments and monthly rates
+                </p>
+              </Card>
+
+              {/* Remote Workers */}
+              <Card className="p-6 hover:shadow-lg transition-shadow">
+                <div className="flex justify-center mb-4">
+                  <div className="p-3 rounded-full bg-primary/10">
+                    <Briefcase className="w-8 h-8 text-primary" />
+                  </div>
+                </div>
+                <h3 className="font-playfair text-[20px] font-medium text-center mb-3 text-foreground">Digital Nomads</h3>
+                <p className="font-playfair text-[16px] font-normal text-muted-foreground leading-[1.5] text-center">
+                  Fast WiFi, dedicated workspaces, and flexible stay durations
                 </p>
               </Card>
             </div>
