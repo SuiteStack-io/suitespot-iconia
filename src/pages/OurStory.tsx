@@ -77,11 +77,14 @@ const OurStory = () => {
                 <h2 className="text-3xl font-serif font-bold text-foreground mb-4">
                   Looking Forward
                 </h2>
-                <p className="text-lg text-muted-foreground leading-relaxed">
+                <p className="text-lg text-muted-foreground leading-relaxed mb-6">
                   Starting with our flagship property, Iconia in Zamalek, we're expanding our vision across Egypt's 
                   most vibrant neighborhoods. Each new location will bring the same commitment to design, wellness, 
                   and authentic hospitality that defines the SuiteSpot experience.
                 </p>
+                <Button asChild variant="outline" size="lg">
+                  <Link to="/about">Learn More About SuiteSpot →</Link>
+                </Button>
               </div>
             </div>
           </div>

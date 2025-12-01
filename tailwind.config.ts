@@ -16,6 +16,7 @@ export default {
       fontFamily: {
         sans: ['Spectral', 'serif'],
         playfair: ['Playfair Display', 'serif'],
+        bricolage: ['Bricolage Grotesque', 'sans-serif'],
       },
       colors: {
         border: "hsl(var(--border))",

@@ -1,0 +1,514 @@
+import { Button } from "@/components/ui/button";
+import { Card } from "@/components/ui/card";
+import { Link } from "react-router-dom";
+import { PublicNav } from "@/components/PublicNav";
+import { 
+  Building2, 
+  MapPin, 
+  Users, 
+  Calendar, 
+  Home,
+  Sparkles,
+  Leaf,
+  Palette,
+  Headphones,
+  Briefcase,
+  Plane,
+  Heart,
+  Baby
+} from "lucide-react";
+
+const About = () => {
+  return (
+    <div className="min-h-screen bg-background">
+      <PublicNav />
+
+      <div className="pt-20">
+        {/* Hero Section */}
+        <section className="relative py-20 md:py-32 px-6 bg-gradient-to-b from-primary/5 to-background">
+          <div className="container mx-auto max-w-5xl text-center">
+            <h1 className="font-bricolage text-[40px] md:text-[80px] font-semibold tracking-[-0.02em] text-foreground mb-6 leading-[1.1]">
+              About SuiteSpot Hospitality
+            </h1>
+            <p className="font-bricolage text-[24px] md:text-[36px] font-medium text-muted-foreground">
+              Where modern hospitality meets Egyptian charm
+            </p>
+          </div>
+        </section>
+
+        {/* Brand Introduction */}
+        <section className="py-16 md:py-24 px-6">
+          <div className="container mx-auto max-w-4xl">
+            <div className="space-y-6">
+              <p className="font-bricolage text-[18px] md:text-[20px] font-normal leading-[1.5] text-foreground">
+                SuiteSpot Hospitality is redefining serviced apartment living in Egypt. We create spaces that combine the professional service and amenities of a boutique hotel with the comfort, space, and flexibility of a fully-furnished apartment. Each property is carefully curated to reflect local culture while meeting the needs of today's modern traveler.
+              </p>
+              <p className="font-bricolage text-[18px] md:text-[20px] font-normal leading-[1.5] text-foreground">
+                Whether you're staying for three nights or three months, SuiteSpot offers a seamless experience that bridges the gap between the impersonal feel of traditional hotels and the inconsistency of home-sharing platforms. We're here to make you feel at home while inspiring you to explore all that Egypt has to offer.
+              </p>
+            </div>
+          </div>
+        </section>
+
+        {/* Key Facts Section */}
+        <section className="py-16 md:py-24 px-6 bg-muted/30">
+          <div className="container mx-auto max-w-6xl">
+            <h2 className="font-bricolage text-[32px] md:text-[48px] font-semibold tracking-[-0.02em] text-center text-foreground mb-12">
+              Key Facts
+            </h2>
+            <div className="grid md:grid-cols-2 lg:grid-cols-3 gap-6">
+              {/* Brand Type */}
+              <Card className="p-6 hover:shadow-lg transition-shadow">
+                <div className="flex items-start gap-4">
+                  <div className="p-3 rounded-lg bg-primary/10">
+                    <Building2 className="w-6 h-6 text-primary" />
+                  </div>
+                  <div>
+                    <h3 className="font-bricolage text-[18px] md:text-[20px] font-medium mb-2 text-foreground">
+                      Brand Type
+                    </h3>
+                    <p className="font-bricolage text-[16px] font-normal text-muted-foreground leading-[1.5]">
+                      Premium serviced apartments with hotel-level service
+                    </p>
+                  </div>
+                </div>
+              </Card>
+
+              {/* Locations */}
+              <Card className="p-6 hover:shadow-lg transition-shadow">
+                <div className="flex items-start gap-4">
+                  <div className="p-3 rounded-lg bg-primary/10">
+                    <MapPin className="w-6 h-6 text-primary" />
+                  </div>
+                  <div>
+                    <h3 className="font-bricolage text-[18px] md:text-[20px] font-medium mb-2 text-foreground">
+                      Current Location
+                    </h3>
+                    <p className="font-bricolage text-[16px] font-normal text-muted-foreground leading-[1.5]">
+                      Zamalek, Cairo (Iconia Building)
+                    </p>
+                  </div>
+                </div>
+              </Card>
+
+              {/* Target Guests */}
+              <Card className="p-6 hover:shadow-lg transition-shadow">
+                <div className="flex items-start gap-4">
+                  <div className="p-3 rounded-lg bg-primary/10">
+                    <Users className="w-6 h-6 text-primary" />
+                  </div>
+                  <div>
+                    <h3 className="font-bricolage text-[18px] md:text-[20px] font-medium mb-2 text-foreground">
+                      Target Guests
+                    </h3>
+                    <p className="font-bricolage text-[16px] font-normal text-muted-foreground leading-[1.5]">
+                      Business travelers, relocations, digital nomads, families
+                    </p>
+                  </div>
+                </div>
+              </Card>
+
+              {/* Stay Lengths */}
+              <Card className="p-6 hover:shadow-lg transition-shadow">
+                <div className="flex items-start gap-4">
+                  <div className="p-3 rounded-lg bg-primary/10">
+                    <Calendar className="w-6 h-6 text-primary" />
+                  </div>
+                  <div>
+                    <h3 className="font-bricolage text-[18px] md:text-[20px] font-medium mb-2 text-foreground">
+                      Stay Lengths
+                    </h3>
+                    <p className="font-bricolage text-[16px] font-normal text-muted-foreground leading-[1.5]">
+                      From 3 nights to 12+ months
+                    </p>
+                  </div>
+                </div>
+              </Card>
+
+              {/* Positioning */}
+              <Card className="p-6 hover:shadow-lg transition-shadow md:col-span-2 lg:col-span-2">
+                <div className="flex items-start gap-4">
+                  <div className="p-3 rounded-lg bg-primary/10">
+                    <Home className="w-6 h-6 text-primary" />
+                  </div>
+                  <div>
+                    <h3 className="font-bricolage text-[18px] md:text-[20px] font-medium mb-2 text-foreground">
+                      Positioning
+                    </h3>
+                    <p className="font-bricolage text-[16px] font-normal text-muted-foreground leading-[1.5]">
+                      Better than Airbnb with professional service and consistency, more homely than hotels with full kitchens and living spaces
+                    </p>
+                  </div>
+                </div>
+              </Card>
+            </div>
+          </div>
+        </section>
+
+        {/* What is SuiteSpot? Section */}
+        <section className="py-16 md:py-24 px-6">
+          <div className="container mx-auto max-w-4xl">
+            <h2 className="font-bricolage text-[32px] md:text-[48px] font-semibold tracking-[-0.02em] text-foreground mb-8">
+              What is SuiteSpot?
+            </h2>
+            <div className="bg-accent/5 border-l-4 border-accent p-6 md:p-8 rounded-r-lg">
+              <p className="font-bricolage text-[18px] md:text-[20px] font-normal leading-[1.5] text-foreground mb-4">
+                SuiteSpot is a new category of hospitality—we combine the professional service and amenities of a boutique hotel with the space, comfort, and flexibility of a fully-furnished apartment.
+              </p>
+              <p className="font-bricolage text-[18px] md:text-[20px] font-normal leading-[1.5] text-foreground mb-4">
+                We transform iconic buildings in Egypt's most vibrant neighborhoods into wellness-focused, design-driven stays. Each property features thoughtfully curated interiors, full kitchens, spacious living areas, and access to wellness programs including yoga, fitness, and mindfulness sessions.
+              </p>
+              <p className="font-bricolage text-[18px] md:text-[20px] font-normal leading-[1.5] text-foreground">
+                Unlike traditional hotels that can feel impersonal or Airbnb properties that lack consistency, SuiteSpot delivers reliable, high-quality experiences with 24/7 support, professional housekeeping, and concierge services—all while making you feel truly at home.
+              </p>
+            </div>
+          </div>
+        </section>
+
+        {/* Why Zamalek? Section */}
+        <section className="py-16 md:py-24 px-6 bg-muted/30">
+          <div className="container mx-auto max-w-6xl">
+            <h2 className="font-bricolage text-[32px] md:text-[48px] font-semibold tracking-[-0.02em] text-center text-foreground mb-12">
+              Why Zamalek?
+            </h2>
+            <div className="grid md:grid-cols-3 gap-8">
+              <Card className="p-6 text-center hover:shadow-lg transition-shadow">
+                <div className="flex justify-center mb-4">
+                  <div className="p-4 rounded-full bg-primary/10">
+                    <Sparkles className="w-8 h-8 text-primary" />
+                  </div>
+                </div>
+                <h3 className="font-bricolage text-[20px] md:text-[24px] font-medium mb-3 text-foreground">
+                  Cultural Heart
+                </h3>
+                <p className="font-bricolage text-[16px] font-normal text-muted-foreground leading-[1.5]">
+                  Zamalek is Cairo's most prestigious island neighborhood, known for tree-lined streets, art galleries, and authentic Egyptian culture.
+                </p>
+              </Card>
+
+              <Card className="p-6 text-center hover:shadow-lg transition-shadow">
+                <div className="flex justify-center mb-4">
+                  <div className="p-4 rounded-full bg-primary/10">
+                    <Building2 className="w-8 h-8 text-primary" />
+                  </div>
+                </div>
+                <h3 className="font-bricolage text-[20px] md:text-[24px] font-medium mb-3 text-foreground">
+                  Iconic Building
+                </h3>
+                <p className="font-bricolage text-[16px] font-normal text-muted-foreground leading-[1.5]">
+                  The Iconia building, once the historic AUC dormitory, has been transformed into a modern mixed-use development with character and charm.
+                </p>
+              </Card>
+
+              <Card className="p-6 text-center hover:shadow-lg transition-shadow">
+                <div className="flex justify-center mb-4">
+                  <div className="p-4 rounded-full bg-primary/10">
+                    <MapPin className="w-8 h-8 text-primary" />
+                  </div>
+                </div>
+                <h3 className="font-bricolage text-[20px] md:text-[24px] font-medium mb-3 text-foreground">
+                  Prime Location
+                </h3>
+                <p className="font-bricolage text-[16px] font-normal text-muted-foreground leading-[1.5]">
+                  Walking distance to embassies, world-class restaurants, cultural sites, and stunning Nile views—everything you need is nearby.
+                </p>
+              </Card>
+            </div>
+          </div>
+        </section>
+
+        {/* Amenities & Services Section */}
+        <section className="py-16 md:py-24 px-6">
+          <div className="container mx-auto max-w-6xl">
+            <h2 className="font-bricolage text-[32px] md:text-[48px] font-semibold tracking-[-0.02em] text-center text-foreground mb-12">
+              Amenities & Services
+            </h2>
+            <div className="grid md:grid-cols-3 gap-8">
+              {/* Wellness */}
+              <Card className="p-8 hover:shadow-lg transition-shadow">
+                <div className="flex justify-center mb-6">
+                  <div className="p-4 rounded-full bg-green-500/10">
+                    <Leaf className="w-10 h-10 text-green-600" />
+                  </div>
+                </div>
+                <h3 className="font-bricolage text-[24px] md:text-[28px] font-medium text-center mb-4 text-foreground">
+                  Wellness
+                </h3>
+                <ul className="space-y-3">
+                  <li className="font-bricolage text-[16px] font-normal text-muted-foreground leading-[1.5]">
+                    • Yoga classes for all levels
+                  </li>
+                  <li className="font-bricolage text-[16px] font-normal text-muted-foreground leading-[1.5]">
+                    • Fitness and cardio sessions
+                  </li>
+                  <li className="font-bricolage text-[16px] font-normal text-muted-foreground leading-[1.5]">
+                    • Mindfulness and meditation
+                  </li>
+                  <li className="font-bricolage text-[16px] font-normal text-muted-foreground leading-[1.5]">
+                    • Powered by OnTrack wellness
+                  </li>
+                </ul>
+              </Card>
+
+              {/* Design */}
+              <Card className="p-8 hover:shadow-lg transition-shadow">
+                <div className="flex justify-center mb-6">
+                  <div className="p-4 rounded-full bg-purple-500/10">
+                    <Palette className="w-10 h-10 text-purple-600" />
+                  </div>
+                </div>
+                <h3 className="font-bricolage text-[24px] md:text-[28px] font-medium text-center mb-4 text-foreground">
+                  Design
+                </h3>
+                <ul className="space-y-3">
+                  <li className="font-bricolage text-[16px] font-normal text-muted-foreground leading-[1.5]">
+                    • Thoughtfully curated interiors
+                  </li>
+                  <li className="font-bricolage text-[16px] font-normal text-muted-foreground leading-[1.5]">
+                    • Local Egyptian artwork
+                  </li>
+                  <li className="font-bricolage text-[16px] font-normal text-muted-foreground leading-[1.5]">
+                    • Modern, functional furniture
+                  </li>
+                  <li className="font-bricolage text-[16px] font-normal text-muted-foreground leading-[1.5]">
+                    • Full kitchens and living spaces
+                  </li>
+                </ul>
+              </Card>
+
+              {/* Service */}
+              <Card className="p-8 hover:shadow-lg transition-shadow">
+                <div className="flex justify-center mb-6">
+                  <div className="p-4 rounded-full bg-blue-500/10">
+                    <Headphones className="w-10 h-10 text-blue-600" />
+                  </div>
+                </div>
+                <h3 className="font-bricolage text-[24px] md:text-[28px] font-medium text-center mb-4 text-foreground">
+                  Service
+                </h3>
+                <ul className="space-y-3">
+                  <li className="font-bricolage text-[16px] font-normal text-muted-foreground leading-[1.5]">
+                    • 24/7 support and assistance
+                  </li>
+                  <li className="font-bricolage text-[16px] font-normal text-muted-foreground leading-[1.5]">
+                    • Professional housekeeping
+                  </li>
+                  <li className="font-bricolage text-[16px] font-normal text-muted-foreground leading-[1.5]">
+                    • Concierge services
+                  </li>
+                  <li className="font-bricolage text-[16px] font-normal text-muted-foreground leading-[1.5]">
+                    • Local recommendations
+                  </li>
+                </ul>
+              </Card>
+            </div>
+          </div>
+        </section>
+
+        {/* Who Is This Ideal For? Section */}
+        <section className="py-16 md:py-24 px-6 bg-muted/30">
+          <div className="container mx-auto max-w-6xl">
+            <h2 className="font-bricolage text-[32px] md:text-[48px] font-semibold tracking-[-0.02em] text-center text-foreground mb-12">
+              Who Is This Ideal For?
+            </h2>
+            <div className="grid md:grid-cols-2 lg:grid-cols-4 gap-6">
+              {/* Remote Workers */}
+              <Card className="p-6 hover:shadow-lg transition-shadow">
+                <div className="flex justify-center mb-4">
+                  <div className="p-3 rounded-full bg-primary/10">
+                    <Briefcase className="w-8 h-8 text-primary" />
+                  </div>
+                </div>
+                <h3 className="font-bricolage text-[20px] font-medium text-center mb-3 text-foreground">
+                  Remote Workers
+                </h3>
+                <p className="font-bricolage text-[16px] font-normal text-muted-foreground leading-[1.5] text-center">
+                  Fast WiFi, dedicated workspaces, and flexible stay durations
+                </p>
+              </Card>
+
+              {/* Relocations */}
+              <Card className="p-6 hover:shadow-lg transition-shadow">
+                <div className="flex justify-center mb-4">
+                  <div className="p-3 rounded-full bg-primary/10">
+                    <Home className="w-8 h-8 text-primary" />
+                  </div>
+                </div>
+                <h3 className="font-bricolage text-[20px] font-medium text-center mb-3 text-foreground">
+                  Relocations
+                </h3>
+                <p className="font-bricolage text-[16px] font-normal text-muted-foreground leading-[1.5] text-center">
+                  Hassle-free moves with fully furnished apartments and monthly rates
+                </p>
+              </Card>
+
+              {/* Business Travelers */}
+              <Card className="p-6 hover:shadow-lg transition-shadow">
+                <div className="flex justify-center mb-4">
+                  <div className="p-3 rounded-full bg-primary/10">
+                    <Plane className="w-8 h-8 text-primary" />
+                  </div>
+                </div>
+                <h3 className="font-bricolage text-[20px] font-medium text-center mb-3 text-foreground">
+                  Business Travelers
+                </h3>
+                <p className="font-bricolage text-[16px] font-normal text-muted-foreground leading-[1.5] text-center">
+                  Central location, professional environment, and executive service
+                </p>
+              </Card>
+
+              {/* Families */}
+              <Card className="p-6 hover:shadow-lg transition-shadow">
+                <div className="flex justify-center mb-4">
+                  <div className="p-3 rounded-full bg-primary/10">
+                    <Baby className="w-8 h-8 text-primary" />
+                  </div>
+                </div>
+                <h3 className="font-bricolage text-[20px] font-medium text-center mb-3 text-foreground">
+                  Families
+                </h3>
+                <p className="font-bricolage text-[16px] font-normal text-muted-foreground leading-[1.5] text-center">
+                  Spacious suites, full kitchens, and kid-friendly amenities
+                </p>
+              </Card>
+            </div>
+          </div>
+        </section>
+
+        {/* Internal Navigation Links */}
+        <section className="py-16 md:py-24 px-6">
+          <div className="container mx-auto max-w-6xl">
+            <h2 className="font-bricolage text-[32px] md:text-[48px] font-semibold tracking-[-0.02em] text-center text-foreground mb-12">
+              Explore More
+            </h2>
+            <div className="grid md:grid-cols-3 gap-6">
+              <Link to="/our-story" className="group">
+                <Card className="p-6 hover:shadow-lg transition-all hover:scale-105">
+                  <h3 className="font-bricolage text-[20px] font-medium mb-2 text-foreground group-hover:text-primary transition-colors">
+                    Our Story →
+                  </h3>
+                  <p className="font-bricolage text-[16px] font-normal text-muted-foreground leading-[1.5]">
+                    Learn about our journey and vision
+                  </p>
+                </Card>
+              </Link>
+
+              <Link to="/suites" className="group">
+                <Card className="p-6 hover:shadow-lg transition-all hover:scale-105">
+                  <h3 className="font-bricolage text-[20px] font-medium mb-2 text-foreground group-hover:text-primary transition-colors">
+                    View Suites →
+                  </h3>
+                  <p className="font-bricolage text-[16px] font-normal text-muted-foreground leading-[1.5]">
+                    Explore our property collection
+                  </p>
+                </Card>
+              </Link>
+
+              <Link to="/wellness" className="group">
+                <Card className="p-6 hover:shadow-lg transition-all hover:scale-105">
+                  <h3 className="font-bricolage text-[20px] font-medium mb-2 text-foreground group-hover:text-primary transition-colors">
+                    Wellness Programs →
+                  </h3>
+                  <p className="font-bricolage text-[16px] font-normal text-muted-foreground leading-[1.5]">
+                    Discover yoga and fitness options
+                  </p>
+                </Card>
+              </Link>
+
+              <Link to="/experiences" className="group">
+                <Card className="p-6 hover:shadow-lg transition-all hover:scale-105">
+                  <h3 className="font-bricolage text-[20px] font-medium mb-2 text-foreground group-hover:text-primary transition-colors">
+                    Local Experiences →
+                  </h3>
+                  <p className="font-bricolage text-[16px] font-normal text-muted-foreground leading-[1.5]">
+                    Explore curated Egyptian adventures
+                  </p>
+                </Card>
+              </Link>
+
+              <Link to="/nearby" className="group">
+                <Card className="p-6 hover:shadow-lg transition-all hover:scale-105">
+                  <h3 className="font-bricolage text-[20px] font-medium mb-2 text-foreground group-hover:text-primary transition-colors">
+                    Nearby Amenities →
+                  </h3>
+                  <p className="font-bricolage text-[16px] font-normal text-muted-foreground leading-[1.5]">
+                    Find restaurants and attractions
+                  </p>
+                </Card>
+              </Link>
+
+              <Link to="/book" className="group">
+                <Card className="p-6 hover:shadow-lg transition-all hover:scale-105 bg-accent/5 border-accent">
+                  <h3 className="font-bricolage text-[20px] font-medium mb-2 text-accent group-hover:text-accent/80 transition-colors">
+                    Book Your Stay →
+                  </h3>
+                  <p className="font-bricolage text-[16px] font-normal text-muted-foreground leading-[1.5]">
+                    Reserve your SuiteSpot experience
+                  </p>
+                </Card>
+              </Link>
+            </div>
+          </div>
+        </section>
+
+        {/* CTA Section */}
+        <section className="py-16 md:py-24 px-6 bg-gradient-to-b from-accent/5 to-background">
+          <div className="container mx-auto max-w-3xl text-center">
+            <h2 className="font-bricolage text-[36px] md:text-[60px] font-semibold tracking-[-0.02em] text-foreground mb-6">
+              Ready to Experience SuiteSpot?
+            </h2>
+            <p className="font-bricolage text-[18px] md:text-[20px] font-normal text-muted-foreground mb-8 leading-[1.5]">
+              Book your stay today and discover a new way to experience Egypt
+            </p>
+            <Button asChild size="lg" className="font-bricolage text-[16px] font-medium bg-accent hover:bg-accent/90 text-white h-12 px-8">
+              <Link to="/book">Book Now</Link>
+            </Button>
+          </div>
+        </section>
+
+        {/* Footer */}
+        <footer className="py-12 px-6 bg-card border-t border-border">
+          <div className="container mx-auto">
+            <div className="grid md:grid-cols-4 gap-8 mb-8">
+              <div>
+                <h3 className="text-xl font-serif font-bold text-foreground mb-4">SuiteSpot</h3>
+                <p className="text-sm text-muted-foreground">
+                  Redefining serviced apartment living in Egypt
+                </p>
+              </div>
+              <div>
+                <h4 className="font-semibold text-foreground mb-4">Explore</h4>
+                <div className="space-y-2">
+                  <Link to="/about" className="block text-sm text-muted-foreground hover:text-foreground">About</Link>
+                  <Link to="/our-story" className="block text-sm text-muted-foreground hover:text-foreground">Our Story</Link>
+                  <Link to="/locations" className="block text-sm text-muted-foreground hover:text-foreground">Locations</Link>
+                  <Link to="/suites" className="block text-sm text-muted-foreground hover:text-foreground">Suites</Link>
+                </div>
+              </div>
+              <div>
+                <h4 className="font-semibold text-foreground mb-4">Experience</h4>
+                <div className="space-y-2">
+                  <Link to="/wellness" className="block text-sm text-muted-foreground hover:text-foreground">Wellness</Link>
+                  <Link to="/experiences" className="block text-sm text-muted-foreground hover:text-foreground">Experiences</Link>
+                  <Link to="/nearby" className="block text-sm text-muted-foreground hover:text-foreground">Nearby Amenities</Link>
+                </div>
+              </div>
+              <div>
+                <h4 className="font-semibold text-foreground mb-4">Contact</h4>
+                <p className="text-sm text-muted-foreground">
+                  Iconia, Zamalek<br />
+                  Cairo, Egypt
+                </p>
+              </div>
+            </div>
+            <div className="pt-8 border-t border-border text-center text-sm text-muted-foreground">
+              <p>&copy; 2025 SuiteSpot Hospitality. All rights reserved.</p>
+            </div>
+          </div>
+        </footer>
+      </div>
+    </div>
+  );
+};
+
+export default About;

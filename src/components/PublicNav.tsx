@@ -30,6 +30,9 @@ export const PublicNav = () => {
           </Link>
         </div>
         <div className="hidden md:flex items-center gap-8">
+          <Link to="/about" className="text-sm text-white hover:text-white/80 transition-colors">
+            About
+          </Link>
           <Link to="/our-story" className="text-sm text-white hover:text-white/80 transition-colors">
             Our Story
           </Link>
@@ -79,6 +82,13 @@ export const PublicNav = () => {
       {mobileMenuOpen && (
         <div className={`md:hidden absolute top-full left-0 right-0 bg-background border-b border-border shadow-lg z-50 ${isClosing ? 'animate-slide-up' : 'animate-slide-down'}`}>
           <div className="container mx-auto px-6 py-4 space-y-3">
+            <Link 
+              to="/about" 
+              className="block py-3 text-foreground hover:text-accent transition-colors border-b border-border"
+              onClick={handleMenuClose}
+            >
+              About
+            </Link>
             <Link 
               to="/our-story" 
               className="block py-3 text-foreground hover:text-accent transition-colors border-b border-border"
