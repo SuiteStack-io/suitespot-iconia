@@ -1,12 +1,21 @@
 import { Button } from "@/components/ui/button";
 import { Link } from "react-router-dom";
 import { User } from "lucide-react";
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import logo from "@/assets/suitespot-logo.png";
 import menuIcon from "@/assets/menu-icon.png";
 
 export const PublicNav = () => {
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
+  const [isClosing, setIsClosing] = useState(false);
+
+  const handleMenuClose = () => {
+    setIsClosing(true);
+    setTimeout(() => {
+      setMobileMenuOpen(false);
+      setIsClosing(false);
+    }, 300); // Match animation duration
+  };
 
   return (
     <nav className="fixed top-0 left-0 right-0 z-50 bg-transparent">
@@ -45,7 +54,7 @@ export const PublicNav = () => {
         </div>
         <div className="flex items-center gap-4">
           <button
-            onClick={() => setMobileMenuOpen(!mobileMenuOpen)}
+            onClick={() => mobileMenuOpen ? handleMenuClose() : setMobileMenuOpen(true)}
             className="md:hidden p-2 rounded-full bg-muted hover:bg-accent transition-colors"
             aria-label="Toggle menu"
           >
@@ -68,54 +77,54 @@ export const PublicNav = () => {
 
       {/* Mobile Dropdown Menu */}
       {mobileMenuOpen && (
-        <div className="md:hidden absolute top-full left-0 right-0 bg-background border-b border-border shadow-lg animate-slide-down z-50">
+        <div className={`md:hidden absolute top-full left-0 right-0 bg-background border-b border-border shadow-lg z-50 ${isClosing ? 'animate-slide-up' : 'animate-slide-down'}`}>
           <div className="container mx-auto px-6 py-4 space-y-3">
             <Link 
               to="/our-story" 
               className="block py-3 text-foreground hover:text-accent transition-colors border-b border-border"
-              onClick={() => setMobileMenuOpen(false)}
+              onClick={handleMenuClose}
             >
               Our Story
             </Link>
             <Link 
               to="/locations" 
               className="block py-3 text-foreground hover:text-accent transition-colors border-b border-border"
-              onClick={() => setMobileMenuOpen(false)}
+              onClick={handleMenuClose}
             >
               Locations
             </Link>
             <Link 
               to="/suites" 
               className="block py-3 text-foreground hover:text-accent transition-colors border-b border-border"
-              onClick={() => setMobileMenuOpen(false)}
+              onClick={handleMenuClose}
             >
               Suites
             </Link>
             <Link 
               to="/wellness" 
               className="block py-3 text-foreground hover:text-accent transition-colors border-b border-border"
-              onClick={() => setMobileMenuOpen(false)}
+              onClick={handleMenuClose}
             >
               Wellness
             </Link>
             <Link 
               to="/experiences" 
               className="block py-3 text-foreground hover:text-accent transition-colors border-b border-border"
-              onClick={() => setMobileMenuOpen(false)}
+              onClick={handleMenuClose}
             >
               Experiences
             </Link>
             <Link 
               to="/nearby" 
               className="block py-3 text-foreground hover:text-accent transition-colors border-b border-border"
-              onClick={() => setMobileMenuOpen(false)}
+              onClick={handleMenuClose}
             >
               Nearby Amenities
             </Link>
             <Link 
               to="/blog" 
               className="block py-3 text-foreground hover:text-accent transition-colors border-b border-border"
-              onClick={() => setMobileMenuOpen(false)}
+              onClick={handleMenuClose}
             >
               Blog
             </Link>
@@ -124,12 +133,12 @@ export const PublicNav = () => {
               target="_blank"
               rel="noopener noreferrer"
               className="block py-3 text-foreground hover:text-accent transition-colors border-b border-border"
-              onClick={() => setMobileMenuOpen(false)}
+              onClick={handleMenuClose}
             >
               Admin
             </a>
             <Button asChild className="w-full bg-accent hover:bg-accent/90 mt-4">
-              <Link to="/book" onClick={() => setMobileMenuOpen(false)}>Book Now</Link>
+              <Link to="/book" onClick={handleMenuClose}>Book Now</Link>
             </Button>
           </div>
         </div>
