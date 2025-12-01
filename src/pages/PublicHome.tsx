@@ -205,6 +205,7 @@ const PublicHome = () => {
             <div>
               <h4 className="font-semibold text-foreground mb-4">Explore</h4>
               <div className="space-y-2">
+                <Link to="/about" className="block text-sm text-muted-foreground hover:text-foreground">About</Link>
                 <Link to="/our-story" className="block text-sm text-muted-foreground hover:text-foreground">Our Story</Link>
                 <Link to="/locations" className="block text-sm text-muted-foreground hover:text-foreground">Locations</Link>
                 <Link to="/suites" className="block text-sm text-muted-foreground hover:text-foreground">Suites</Link>

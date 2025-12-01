@@ -24,6 +24,7 @@ import PublicHome from "./pages/PublicHome";
 import BookingFlow from "./pages/BookingFlow";
 import BookingConfirmation from "./pages/BookingConfirmation";
 import OurStory from "./pages/OurStory";
+import About from "./pages/About";
 import Locations from "./pages/Locations";
 import Suites from "./pages/Suites";
 import Wellness from "./pages/Wellness";
@@ -70,6 +71,7 @@ const App = () => (
               <Route path="/book" element={<BookingFlow />} />
               <Route path="/booking-confirmation" element={<BookingConfirmation />} />
               <Route path="/our-story" element={<OurStory />} />
+              <Route path="/about" element={<About />} />
               <Route path="/locations" element={<Locations />} />
               <Route path="/suites" element={<Suites />} />
               <Route path="/wellness" element={<Wellness />} />
