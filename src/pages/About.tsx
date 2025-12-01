@@ -86,7 +86,7 @@ This is more than a place to sleep. It’s a better way to stay.
                       Target Guests
                     </h3>
                     <p className="font-playfair text-[16px] font-normal text-muted-foreground leading-[1.5]">
-                      Business travelers, relocations, digital nomads, families
+                      Families from around the world, Business travelers, relocations, &amp; digital nomads.
                     </p>
                   </div>
                 </div>
