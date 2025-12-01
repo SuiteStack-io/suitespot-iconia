@@ -33,9 +33,6 @@ export const PublicNav = () => {
           <Link to="/about" className="text-sm text-white hover:text-white/80 transition-colors">
             About
           </Link>
-          <Link to="/our-story" className="text-sm text-white hover:text-white/80 transition-colors">
-            Our Story
-          </Link>
           <Link to="/locations" className="text-sm text-white hover:text-white/80 transition-colors">
             Locations
           </Link>
@@ -53,6 +50,9 @@ export const PublicNav = () => {
           </Link>
           <Link to="/blog" className="text-sm text-white hover:text-white/80 transition-colors">
             Blog
+          </Link>
+          <Link to="/our-story" className="text-sm text-white hover:text-white/80 transition-colors">
+            Our Story
           </Link>
         </div>
         <div className="flex items-center gap-4">
@@ -88,13 +88,6 @@ export const PublicNav = () => {
               onClick={handleMenuClose}
             >
               About
-            </Link>
-            <Link 
-              to="/our-story" 
-              className="block py-3 text-foreground hover:text-accent transition-colors border-b border-border"
-              onClick={handleMenuClose}
-            >
-              Our Story
             </Link>
             <Link 
               to="/locations" 
@@ -137,6 +130,13 @@ export const PublicNav = () => {
               onClick={handleMenuClose}
             >
               Blog
+            </Link>
+            <Link 
+              to="/our-story" 
+              className="block py-3 text-foreground hover:text-accent transition-colors border-b border-border"
+              onClick={handleMenuClose}
+            >
+              Our Story
             </Link>
             <a 
               href="/auth" 
