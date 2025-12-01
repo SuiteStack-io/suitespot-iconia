@@ -228,9 +228,7 @@ This is more than a place to sleep. It’s a better way to stay.
                     <Palette className="w-10 h-10 text-purple-600" />
                   </div>
                 </div>
-                <h3 className="font-playfair text-[24px] md:text-[28px] font-medium text-center mb-4 text-foreground">
-                  Design
-                </h3>
+                <h3 className="font-playfair text-[24px] md:text-[28px] font-medium text-center mb-4 text-foreground">Residential Suites</h3>
                 <p className="font-playfair text-[16px] font-normal text-muted-foreground leading-[1.5] text-center">
                   Thoughtfully curated interiors featuring local Egyptian artwork, modern functional furniture, and full kitchens and living spaces.
                 </p>
