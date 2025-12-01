@@ -26,7 +26,9 @@ const About = () => {
                 SuiteSpot Hospitality is redefining serviced apartment living in Egypt. At SuiteSpot, we’re redefining the way you stay. Positioned at the sweet spot between a hotel and a serviced apartment, we blend the comfort of home with the service and style of a boutique hotel, transforming iconic spaces into wellness-focused, design-driven stays.
               </p>
               <p className="font-playfair text-[18px] md:text-[20px] font-normal leading-[1.5] text-foreground">
-                Whether you're staying for three nights or three months, SuiteSpot offers a seamless experience that bridges the gap between the impersonal feel of traditional hotels and the inconsistency of home-sharing platforms. We're here to make you feel at home while inspiring you to explore all that Egypt has to offer.
+                Whether you're here for a few nights, a week, or longer, SuiteSpot offers a consistent brand experience across every location without sacrificing individuality. Each Suite is architecturally unique and culturally rooted, with wellbeing at the core of everything we do.
+
+This is more than a place to sleep. It’s a better way to stay.
               </p>
             </div>
           </div>
