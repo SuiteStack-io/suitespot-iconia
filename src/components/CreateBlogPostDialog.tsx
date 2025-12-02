@@ -7,7 +7,7 @@ import { Label } from '@/components/ui/label';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from '@/components/ui/collapsible';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
-import { Plus, Loader2, Upload, X, Image as ImageIcon, HelpCircle, ChevronDown, Bold, Italic, Type, Eye, Edit } from 'lucide-react';
+import { Plus, Loader2, Upload, X, Image as ImageIcon, HelpCircle, ChevronDown, Bold, Italic, Type, Eye, Edit, Link } from 'lucide-react';
 import { supabase } from '@/integrations/supabase/client';
 import { toast } from 'sonner';
 import { Progress } from '@/components/ui/progress';
@@ -96,6 +96,26 @@ export function CreateBlogPostDialog({ onPostCreated, editPost, open, onOpenChan
       newText = content.substring(0, lineStart) + prefix + content.substring(lineStart);
     }
     
+    setContent(newText);
+    
+    setTimeout(() => {
+      textarea.focus();
+    }, 0);
+  };
+
+  const insertLink = () => {
+    const textarea = contentTextareaRef.current;
+    if (!textarea) return;
+
+    const start = textarea.selectionStart;
+    const end = textarea.selectionEnd;
+    const selectedText = content.substring(start, end);
+    
+    const url = prompt('Enter URL:', 'https://');
+    if (!url) return;
+    
+    const linkText = selectedText || 'link text';
+    const newText = content.substring(0, start) + `[${linkText}](${url})` + content.substring(end);
     setContent(newText);
     
     setTimeout(() => {
@@ -416,6 +436,17 @@ export function CreateBlogPostDialog({ onPostCreated, editPost, open, onOpenChan
                       title="Italic (select text first)"
                     >
                       <Italic className="h-4 w-4" />
+                    </Button>
+                    
+                    <Button
+                      type="button"
+                      variant="ghost"
+                      size="sm"
+                      className="h-8 w-8 p-0"
+                      onClick={insertLink}
+                      title="Insert link"
+                    >
+                      <Link className="h-4 w-4" />
                     </Button>
                   </div>
                   
