@@ -3,6 +3,7 @@ import { Card } from "@/components/ui/card";
 import { Link } from "react-router-dom";
 import { Palmtree, Camera, Sailboat, Sparkles } from "lucide-react";
 import { PublicNav } from "@/components/PublicNav";
+import { PublicFooter } from "@/components/PublicFooter";
 
 const Experiences = () => {
   return (
@@ -154,6 +155,8 @@ const Experiences = () => {
           </div>
         </section>
       </div>
+
+      <PublicFooter />
     </div>
   );
 };

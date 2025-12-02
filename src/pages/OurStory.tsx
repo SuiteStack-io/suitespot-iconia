@@ -3,6 +3,7 @@ import { Link } from "react-router-dom";
 import logo from "@/assets/suitespot-logo.png";
 import { OurStorySlideshow } from "@/components/OurStorySlideshow";
 import { PublicNav } from "@/components/PublicNav";
+import { PublicFooter } from "@/components/PublicFooter";
 
 const OurStory = () => {
   return <div className="min-h-screen bg-background">
@@ -105,6 +106,8 @@ const OurStory = () => {
           </div>
         </section>
       </div>
+
+      <PublicFooter />
     </div>;
 };
 export default OurStory;
