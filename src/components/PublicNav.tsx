@@ -30,28 +30,28 @@ export const PublicNav = () => {
           </Link>
         </div>
         <div className="hidden md:flex items-center gap-8">
-          <Link to="/about" className="text-sm text-white hover:text-white/80 transition-colors">
+          <Link to="/about" className="font-playfair font-medium text-[14px] text-white hover:text-white/80 transition-colors">
             About
           </Link>
-          <Link to="/locations" className="text-sm text-white hover:text-white/80 transition-colors">
+          <Link to="/locations" className="font-playfair font-medium text-[14px] text-white hover:text-white/80 transition-colors">
             Locations
           </Link>
-          <Link to="/suites" className="text-sm text-white hover:text-white/80 transition-colors">
+          <Link to="/suites" className="font-playfair font-medium text-[14px] text-white hover:text-white/80 transition-colors">
             Suites
           </Link>
-          <Link to="/wellness" className="text-sm text-white hover:text-white/80 transition-colors">
+          <Link to="/wellness" className="font-playfair font-medium text-[14px] text-white hover:text-white/80 transition-colors">
             Wellness
           </Link>
-          <Link to="/experiences" className="text-sm text-white hover:text-white/80 transition-colors">
+          <Link to="/experiences" className="font-playfair font-medium text-[14px] text-white hover:text-white/80 transition-colors">
             Experiences
           </Link>
-          <Link to="/nearby" className="text-sm text-white hover:text-white/80 transition-colors">
+          <Link to="/nearby" className="font-playfair font-medium text-[14px] text-white hover:text-white/80 transition-colors">
             Nearby Amenities
           </Link>
-          <Link to="/blog" className="text-sm text-white hover:text-white/80 transition-colors">
+          <Link to="/blog" className="font-playfair font-medium text-[14px] text-white hover:text-white/80 transition-colors">
             Blog
           </Link>
-          <Link to="/our-story" className="text-sm text-white hover:text-white/80 transition-colors">
+          <Link to="/our-story" className="font-playfair font-medium text-[14px] text-white hover:text-white/80 transition-colors">
             Our Story
           </Link>
         </div>
