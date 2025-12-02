@@ -31,6 +31,7 @@ import Wellness from "./pages/Wellness";
 import Experiences from "./pages/Experiences";
 import Nearby from "./pages/Nearby";
 import Blog from "./pages/Blog";
+import BlogPost from "./pages/BlogPost";
 import HomepageManagement from "./pages/HomepageManagement";
 import Settings from "./pages/Settings";
 import BookingComReservations from "./pages/BookingComReservations";
@@ -78,6 +79,7 @@ const App = () => (
               <Route path="/experiences" element={<Experiences />} />
               <Route path="/nearby" element={<Nearby />} />
               <Route path="/blog" element={<Blog />} />
+              <Route path="/blog/:slug" element={<BlogPost />} />
             <Route path="/kyc/:token" element={<KYCLanding />} />
             <Route path="/kyc-management" element={<ProtectedRoute><KYCManagement /></ProtectedRoute>} />
             <Route path="/selection-sessions" element={<ProtectedRoute><SelectionSessions /></ProtectedRoute>} />
