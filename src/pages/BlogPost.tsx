@@ -59,13 +59,22 @@ const renderContent = (content: string) => {
   };
 
   const renderInlineStyles = (text: string) => {
-    // Handle bold text **text**
-    const parts = text.split(/(\*\*[^*]+\*\*)/g);
-    return parts.map((part, i) => {
-      if (part.startsWith('**') && part.endsWith('**')) {
-        return <strong key={i} className="font-semibold">{part.slice(2, -2)}</strong>;
+    // First handle bold text **text**, then italic *text*
+    const boldParts = text.split(/(\*\*[^*]+\*\*)/g);
+    
+    return boldParts.map((boldPart, boldIndex) => {
+      if (boldPart.startsWith('**') && boldPart.endsWith('**')) {
+        return <strong key={`b-${boldIndex}`} className="font-semibold">{boldPart.slice(2, -2)}</strong>;
       }
-      return part;
+      
+      // Handle italic within non-bold parts
+      const italicParts = boldPart.split(/(\*[^*]+\*)/g);
+      return italicParts.map((italicPart, italicIndex) => {
+        if (italicPart.startsWith('*') && italicPart.endsWith('*') && italicPart.length > 2) {
+          return <em key={`i-${boldIndex}-${italicIndex}`} className="italic">{italicPart.slice(1, -1)}</em>;
+        }
+        return italicPart;
+      });
     });
   };
 
