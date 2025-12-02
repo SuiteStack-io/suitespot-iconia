@@ -150,9 +150,9 @@ export const BookingWidget = () => {
                 <div className="flex items-start gap-2 w-full">
                   <CalendarIcon className="h-5 w-5 text-muted-foreground mt-0.5 flex-shrink-0" />
                   <div className="flex flex-col min-w-0">
-                    <span className="text-xs md:text-sm font-semibold text-foreground md:hidden">Dates</span>
-                    <span className="text-xs md:text-sm font-semibold text-foreground hidden md:block">Check in</span>
-                    <span className={cn("text-xs md:text-sm truncate", !dateRange?.from && "text-muted-foreground")}>
+                    <span className="text-xs md:text-sm font-playfair font-medium text-foreground md:hidden">Dates</span>
+                    <span className="text-xs md:text-sm font-playfair font-medium text-foreground hidden md:block">Check in</span>
+                    <span className={cn("text-xs md:text-sm font-playfair truncate", !dateRange?.from && "text-muted-foreground")}>
                       {dateRange?.from ? (
                         <span className="md:hidden">
                           {format(dateRange.from, "MMM dd")} - {dateRange?.to ? format(dateRange.to, "MMM dd") : "..."}
@@ -203,8 +203,8 @@ export const BookingWidget = () => {
                 <div className="flex items-start gap-2 w-full">
                   <CalendarIcon className="h-5 w-5 text-muted-foreground mt-0.5 flex-shrink-0" />
                   <div className="flex flex-col min-w-0">
-                    <span className="text-xs md:text-sm font-semibold text-foreground">Check out</span>
-                    <span className={cn("text-xs md:text-sm truncate", !dateRange?.to && "text-muted-foreground")}>
+                    <span className="text-xs md:text-sm font-playfair font-medium text-foreground">Check out</span>
+                    <span className={cn("text-xs md:text-sm font-playfair truncate", !dateRange?.to && "text-muted-foreground")}>
                       {dateRange?.to ? format(dateRange.to, "MMM dd") : "Add date"}
                     </span>
                   </div>
@@ -242,9 +242,9 @@ export const BookingWidget = () => {
           <div className="flex items-start gap-2 w-full">
             <Users className="h-5 w-5 text-muted-foreground mt-0.5 flex-shrink-0" />
             <div className="flex flex-col w-full min-w-0">
-              <span className="text-xs md:text-sm font-semibold text-foreground">Guests</span>
+              <span className="text-xs md:text-sm font-playfair font-medium text-foreground">Guests</span>
               <Select value={guests} onValueChange={setGuests}>
-                <SelectTrigger className="h-auto p-0 border-0 focus:ring-0 text-xs md:text-sm text-muted-foreground">
+                <SelectTrigger className="h-auto p-0 border-0 focus:ring-0 text-xs md:text-sm font-playfair text-muted-foreground">
                   <SelectValue />
                 </SelectTrigger>
                 <SelectContent>
@@ -262,7 +262,7 @@ export const BookingWidget = () => {
         {/* Search Button */}
         <Button 
           onClick={handleSearch}
-          className="w-full bg-accent hover:bg-accent/90 h-full col-span-2 md:col-span-1"
+          className="w-full bg-accent hover:bg-accent/90 h-full col-span-2 md:col-span-1 font-playfair font-medium text-[14px]"
         >
           Search
         </Button>
