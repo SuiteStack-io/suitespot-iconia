@@ -6,11 +6,13 @@ import { Textarea } from '@/components/ui/textarea';
 import { Label } from '@/components/ui/label';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from '@/components/ui/collapsible';
-import { Plus, Loader2, Upload, X, Image as ImageIcon, HelpCircle, ChevronDown, Bold, Italic, Type } from 'lucide-react';
+import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
+import { Plus, Loader2, Upload, X, Image as ImageIcon, HelpCircle, ChevronDown, Bold, Italic, Type, Eye, Edit } from 'lucide-react';
 import { supabase } from '@/integrations/supabase/client';
 import { toast } from 'sonner';
 import { Progress } from '@/components/ui/progress';
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from '@/components/ui/dropdown-menu';
+import { BlogContentRenderer } from '@/components/BlogContentRenderer';
 
 interface CreateBlogPostDialogProps {
   onPostCreated: () => void;
@@ -370,59 +372,89 @@ export function CreateBlogPostDialog({ onPostCreated, editPost, open, onOpenChan
             <div className="space-y-2">
               <Label htmlFor="content">Main Content</Label>
               
-              {/* Formatting Toolbar */}
-              <div className="flex items-center gap-1 p-1 border rounded-md bg-muted/30 w-fit">
-                <DropdownMenu>
-                  <DropdownMenuTrigger asChild>
-                    <Button variant="ghost" size="sm" className="gap-1 h-8 px-2">
-                      <Type className="h-4 w-4" />
-                      <span className="text-xs">Heading</span>
-                      <ChevronDown className="h-3 w-3" />
+              <Tabs defaultValue="write" className="w-full">
+                <div className="flex items-center justify-between gap-2 mb-2">
+                  {/* Formatting Toolbar */}
+                  <div className="flex items-center gap-1 p-1 border rounded-md bg-muted/30 w-fit">
+                    <DropdownMenu>
+                      <DropdownMenuTrigger asChild>
+                        <Button variant="ghost" size="sm" className="gap-1 h-8 px-2">
+                          <Type className="h-4 w-4" />
+                          <span className="text-xs">Heading</span>
+                          <ChevronDown className="h-3 w-3" />
+                        </Button>
+                      </DropdownMenuTrigger>
+                      <DropdownMenuContent align="start">
+                        <DropdownMenuItem onClick={() => insertHeading('h2')}>
+                          <span className="font-semibold text-lg">Heading 2</span>
+                        </DropdownMenuItem>
+                        <DropdownMenuItem onClick={() => insertHeading('h3')}>
+                          <span className="font-medium">Heading 3</span>
+                        </DropdownMenuItem>
+                      </DropdownMenuContent>
+                    </DropdownMenu>
+                    
+                    <div className="w-px h-6 bg-border mx-1" />
+                    
+                    <Button
+                      type="button"
+                      variant="ghost"
+                      size="sm"
+                      className="h-8 w-8 p-0 font-bold"
+                      onClick={() => wrapSelectedText('**', '**')}
+                      title="Bold (select text first)"
+                    >
+                      <Bold className="h-4 w-4" />
                     </Button>
-                  </DropdownMenuTrigger>
-                  <DropdownMenuContent align="start">
-                    <DropdownMenuItem onClick={() => insertHeading('h2')}>
-                      <span className="font-semibold text-lg">Heading 2</span>
-                    </DropdownMenuItem>
-                    <DropdownMenuItem onClick={() => insertHeading('h3')}>
-                      <span className="font-medium">Heading 3</span>
-                    </DropdownMenuItem>
-                  </DropdownMenuContent>
-                </DropdownMenu>
+                    
+                    <Button
+                      type="button"
+                      variant="ghost"
+                      size="sm"
+                      className="h-8 w-8 p-0 italic"
+                      onClick={() => wrapSelectedText('*', '*')}
+                      title="Italic (select text first)"
+                    >
+                      <Italic className="h-4 w-4" />
+                    </Button>
+                  </div>
+                  
+                  {/* Write/Preview Toggle */}
+                  <TabsList className="h-8">
+                    <TabsTrigger value="write" className="h-7 px-3 gap-1 text-xs">
+                      <Edit className="h-3 w-3" />
+                      Write
+                    </TabsTrigger>
+                    <TabsTrigger value="preview" className="h-7 px-3 gap-1 text-xs">
+                      <Eye className="h-3 w-3" />
+                      Preview
+                    </TabsTrigger>
+                  </TabsList>
+                </div>
                 
-                <div className="w-px h-6 bg-border mx-1" />
+                <TabsContent value="write" className="mt-0">
+                  <Textarea
+                    id="content"
+                    ref={contentTextareaRef}
+                    value={content}
+                    onChange={(e) => setContent(e.target.value)}
+                    placeholder="Write your blog post content here..."
+                    rows={10}
+                  />
+                </TabsContent>
                 
-                <Button
-                  type="button"
-                  variant="ghost"
-                  size="sm"
-                  className="h-8 w-8 p-0 font-bold"
-                  onClick={() => wrapSelectedText('**', '**')}
-                  title="Bold (select text first)"
-                >
-                  <Bold className="h-4 w-4" />
-                </Button>
-                
-                <Button
-                  type="button"
-                  variant="ghost"
-                  size="sm"
-                  className="h-8 w-8 p-0 italic"
-                  onClick={() => wrapSelectedText('*', '*')}
-                  title="Italic (select text first)"
-                >
-                  <Italic className="h-4 w-4" />
-                </Button>
-              </div>
-              
-              <Textarea
-                id="content"
-                ref={contentTextareaRef}
-                value={content}
-                onChange={(e) => setContent(e.target.value)}
-                placeholder="Write your blog post content here..."
-                rows={10}
-              />
+                <TabsContent value="preview" className="mt-0">
+                  <div className="min-h-[240px] max-h-[300px] overflow-y-auto p-4 border rounded-md bg-background">
+                    {content ? (
+                      <BlogContentRenderer content={content} className="prose prose-sm max-w-none" />
+                    ) : (
+                      <p className="text-muted-foreground text-sm italic">
+                        Start writing to see preview...
+                      </p>
+                    )}
+                  </div>
+                </TabsContent>
+              </Tabs>
               
               {/* Formatting Guide */}
               <Collapsible>

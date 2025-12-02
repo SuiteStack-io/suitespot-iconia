@@ -5,6 +5,7 @@ import { supabase } from '@/integrations/supabase/client';
 import { Loader2, ArrowLeft } from 'lucide-react';
 import { format } from 'date-fns';
 import { Helmet } from 'react-helmet-async';
+import { BlogContentRenderer } from '@/components/BlogContentRenderer';
 
 interface BlogPostData {
   id: string;
@@ -18,121 +19,6 @@ interface BlogPostData {
   meta_description: string | null;
   published_at: string | null;
 }
-
-// Simple markdown-style content renderer
-const renderContent = (content: string) => {
-  const lines = content.split('\n');
-  const elements: JSX.Element[] = [];
-  let currentBulletList: string[] = [];
-  let currentNumberedList: string[] = [];
-  let listKey = 0;
-
-  const flushBulletList = () => {
-    if (currentBulletList.length > 0) {
-      elements.push(
-        <ul key={`ul-${listKey++}`} className="list-disc list-inside mb-6 space-y-2">
-          {currentBulletList.map((item, i) => (
-            <li key={i} className="text-foreground">{renderInlineStyles(item)}</li>
-          ))}
-        </ul>
-      );
-      currentBulletList = [];
-    }
-  };
-
-  const flushNumberedList = () => {
-    if (currentNumberedList.length > 0) {
-      elements.push(
-        <ol key={`ol-${listKey++}`} className="list-decimal list-inside mb-6 space-y-2">
-          {currentNumberedList.map((item, i) => (
-            <li key={i} className="text-foreground">{renderInlineStyles(item)}</li>
-          ))}
-        </ol>
-      );
-      currentNumberedList = [];
-    }
-  };
-
-  const flushLists = () => {
-    flushBulletList();
-    flushNumberedList();
-  };
-
-  const renderInlineStyles = (text: string) => {
-    // First handle bold text **text**, then italic *text*
-    const boldParts = text.split(/(\*\*[^*]+\*\*)/g);
-    
-    return boldParts.map((boldPart, boldIndex) => {
-      if (boldPart.startsWith('**') && boldPart.endsWith('**')) {
-        return <strong key={`b-${boldIndex}`} className="font-semibold">{boldPart.slice(2, -2)}</strong>;
-      }
-      
-      // Handle italic within non-bold parts
-      const italicParts = boldPart.split(/(\*[^*]+\*)/g);
-      return italicParts.map((italicPart, italicIndex) => {
-        if (italicPart.startsWith('*') && italicPart.endsWith('*') && italicPart.length > 2) {
-          return <em key={`i-${boldIndex}-${italicIndex}`} className="italic">{italicPart.slice(1, -1)}</em>;
-        }
-        return italicPart;
-      });
-    });
-  };
-
-  lines.forEach((line, index) => {
-    const trimmedLine = line.trim();
-    
-    if (!trimmedLine) {
-      flushLists();
-      return;
-    }
-
-    // Heading 2: ## text
-    if (trimmedLine.startsWith('## ')) {
-      flushLists();
-      elements.push(
-        <h2 key={index} className="font-playfair font-semibold text-[24px] md:text-[28px] text-foreground mt-10 mb-4">
-          {renderInlineStyles(trimmedLine.slice(3))}
-        </h2>
-      );
-      return;
-    }
-
-    // Heading 3: ### text
-    if (trimmedLine.startsWith('### ')) {
-      flushLists();
-      elements.push(
-        <h3 key={index} className="font-playfair font-semibold text-[20px] md:text-[22px] text-foreground mt-8 mb-3">
-          {renderInlineStyles(trimmedLine.slice(4))}
-        </h3>
-      );
-      return;
-    }
-
-    // Numbered list: 1. text, 2. text, etc.
-    const numberedMatch = trimmedLine.match(/^\d+\.\s(.+)/);
-    if (numberedMatch) {
-      flushBulletList();
-      currentNumberedList.push(numberedMatch[1]);
-      return;
-    }
-
-    // Bullet points: - text or * text
-    if (trimmedLine.startsWith('- ') || trimmedLine.startsWith('* ')) {
-      flushNumberedList();
-      currentBulletList.push(trimmedLine.slice(2));
-      return;
-    }
-
-    // Regular paragraph
-    flushLists();
-    elements.push(
-      <p key={index} className="mb-6">{renderInlineStyles(trimmedLine)}</p>
-    );
-  });
-
-  flushLists();
-  return elements;
-};
 
 const BlogPost = () => {
   const { slug } = useParams<{ slug: string }>();
@@ -248,9 +134,10 @@ const BlogPost = () => {
         </header>
 
         {post.content && (
-          <div className="prose prose-lg max-w-none font-playfair text-[16px] leading-[1.8] text-foreground">
-            {renderContent(post.content)}
-          </div>
+          <BlogContentRenderer 
+            content={post.content} 
+            className="prose prose-lg max-w-none font-playfair text-[16px] leading-[1.8] text-foreground" 
+          />
         )}
       </article>
 
