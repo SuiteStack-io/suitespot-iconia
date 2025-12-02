@@ -44,22 +44,71 @@ export const BlogContentRenderer: React.FC<BlogContentRendererProps> = ({ conten
   };
 
   const renderInlineStyles = (text: string): React.ReactNode => {
-    // First handle bold text **text**, then italic *text*
-    const boldParts = text.split(/(\*\*[^*]+\*\*)/g);
-    
-    return boldParts.map((boldPart, boldIndex) => {
-      if (boldPart.startsWith('**') && boldPart.endsWith('**')) {
-        return <strong key={`b-${boldIndex}`} className="font-semibold">{boldPart.slice(2, -2)}</strong>;
+    // First handle links [text](url)
+    const linkRegex = /\[([^\]]+)\]\(([^)]+)\)/g;
+    const processLinks = (str: string, keyPrefix: string): React.ReactNode[] => {
+      const parts: React.ReactNode[] = [];
+      let lastIndex = 0;
+      let match;
+      
+      while ((match = linkRegex.exec(str)) !== null) {
+        // Add text before the link
+        if (match.index > lastIndex) {
+          parts.push(str.slice(lastIndex, match.index));
+        }
+        // Add the link
+        parts.push(
+          <a 
+            key={`${keyPrefix}-link-${match.index}`}
+            href={match[2]}
+            target="_blank"
+            rel="noopener noreferrer"
+            className="text-primary underline hover:text-primary/80 transition-colors"
+          >
+            {match[1]}
+          </a>
+        );
+        lastIndex = match.index + match[0].length;
       }
       
-      // Handle italic within non-bold parts
-      const italicParts = boldPart.split(/(\*[^*]+\*)/g);
-      return italicParts.map((italicPart, italicIndex) => {
-        if (italicPart.startsWith('*') && italicPart.endsWith('*') && italicPart.length > 2) {
-          return <em key={`i-${boldIndex}-${italicIndex}`} className="italic">{italicPart.slice(1, -1)}</em>;
+      // Add remaining text
+      if (lastIndex < str.length) {
+        parts.push(str.slice(lastIndex));
+      }
+      
+      return parts.length > 0 ? parts : [str];
+    };
+
+    // Process links first, then bold and italic within non-link parts
+    const processTextStyles = (input: string | React.ReactNode, keyPrefix: string): React.ReactNode => {
+      if (typeof input !== 'string') return input;
+      
+      // Handle bold text **text**
+      const boldParts = input.split(/(\*\*[^*]+\*\*)/g);
+      
+      return boldParts.map((boldPart, boldIndex) => {
+        if (boldPart.startsWith('**') && boldPart.endsWith('**')) {
+          return <strong key={`${keyPrefix}-b-${boldIndex}`} className="font-semibold">{boldPart.slice(2, -2)}</strong>;
         }
-        return italicPart;
+        
+        // Handle italic within non-bold parts
+        const italicParts = boldPart.split(/(\*[^*]+\*)/g);
+        return italicParts.map((italicPart, italicIndex) => {
+          if (italicPart.startsWith('*') && italicPart.endsWith('*') && italicPart.length > 2) {
+            return <em key={`${keyPrefix}-i-${boldIndex}-${italicIndex}`} className="italic">{italicPart.slice(1, -1)}</em>;
+          }
+          return italicPart;
+        });
       });
+    };
+
+    // First process links, then styles within each part
+    const linkedParts = processLinks(text, 'main');
+    return linkedParts.map((part, idx) => {
+      if (typeof part === 'string') {
+        return <React.Fragment key={`frag-${idx}`}>{processTextStyles(part, `style-${idx}`)}</React.Fragment>;
+      }
+      return part;
     });
   };
 

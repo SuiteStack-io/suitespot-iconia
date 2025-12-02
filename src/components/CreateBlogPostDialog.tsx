@@ -456,6 +456,15 @@ export function CreateBlogPostDialog({ onPostCreated, editPost, open, onOpenChan
                 </TabsContent>
               </Tabs>
               
+              {/* Content Stats */}
+              {content && (
+                <div className="flex items-center gap-4 text-xs text-muted-foreground">
+                  <span>{content.length.toLocaleString()} characters</span>
+                  <span>{content.trim().split(/\s+/).filter(Boolean).length.toLocaleString()} words</span>
+                  <span>~{Math.max(1, Math.ceil(content.trim().split(/\s+/).filter(Boolean).length / 200))} min read</span>
+                </div>
+              )}
+              
               {/* Formatting Guide */}
               <Collapsible>
                 <CollapsibleTrigger asChild>
@@ -489,6 +498,10 @@ export function CreateBlogPostDialog({ onPostCreated, editPost, open, onOpenChan
                     <div>
                       <p className="font-medium mb-1">Italic Text</p>
                       <code className="block bg-background px-2 py-1 rounded text-xs">*italic text*</code>
+                    </div>
+                    <div>
+                      <p className="font-medium mb-1">Links</p>
+                      <code className="block bg-background px-2 py-1 rounded text-xs">[link text](https://example.com)</code>
                     </div>
                   </div>
                 </CollapsibleContent>
