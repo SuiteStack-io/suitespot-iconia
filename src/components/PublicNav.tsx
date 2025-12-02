@@ -84,56 +84,56 @@ export const PublicNav = () => {
           <div className="container mx-auto px-6 py-4 space-y-3">
             <Link 
               to="/about" 
-              className="block py-3 text-foreground hover:text-accent transition-colors border-b border-border"
+              className="block py-3 font-playfair font-medium text-[14px] text-foreground hover:text-accent transition-colors border-b border-border"
               onClick={handleMenuClose}
             >
               About
             </Link>
             <Link 
               to="/locations" 
-              className="block py-3 text-foreground hover:text-accent transition-colors border-b border-border"
+              className="block py-3 font-playfair font-medium text-[14px] text-foreground hover:text-accent transition-colors border-b border-border"
               onClick={handleMenuClose}
             >
               Locations
             </Link>
             <Link 
               to="/suites" 
-              className="block py-3 text-foreground hover:text-accent transition-colors border-b border-border"
+              className="block py-3 font-playfair font-medium text-[14px] text-foreground hover:text-accent transition-colors border-b border-border"
               onClick={handleMenuClose}
             >
               Suites
             </Link>
             <Link 
               to="/wellness" 
-              className="block py-3 text-foreground hover:text-accent transition-colors border-b border-border"
+              className="block py-3 font-playfair font-medium text-[14px] text-foreground hover:text-accent transition-colors border-b border-border"
               onClick={handleMenuClose}
             >
               Wellness
             </Link>
             <Link 
               to="/experiences" 
-              className="block py-3 text-foreground hover:text-accent transition-colors border-b border-border"
+              className="block py-3 font-playfair font-medium text-[14px] text-foreground hover:text-accent transition-colors border-b border-border"
               onClick={handleMenuClose}
             >
               Experiences
             </Link>
             <Link 
               to="/nearby" 
-              className="block py-3 text-foreground hover:text-accent transition-colors border-b border-border"
+              className="block py-3 font-playfair font-medium text-[14px] text-foreground hover:text-accent transition-colors border-b border-border"
               onClick={handleMenuClose}
             >
               Nearby Amenities
             </Link>
             <Link 
               to="/blog" 
-              className="block py-3 text-foreground hover:text-accent transition-colors border-b border-border"
+              className="block py-3 font-playfair font-medium text-[14px] text-foreground hover:text-accent transition-colors border-b border-border"
               onClick={handleMenuClose}
             >
               Blog
             </Link>
             <Link 
               to="/our-story" 
-              className="block py-3 text-foreground hover:text-accent transition-colors border-b border-border"
+              className="block py-3 font-playfair font-medium text-[14px] text-foreground hover:text-accent transition-colors border-b border-border"
               onClick={handleMenuClose}
             >
               Our Story
@@ -142,12 +142,12 @@ export const PublicNav = () => {
               href="/auth" 
               target="_blank"
               rel="noopener noreferrer"
-              className="block py-3 text-foreground hover:text-accent transition-colors border-b border-border"
+              className="block py-3 font-playfair font-medium text-[14px] text-foreground hover:text-accent transition-colors border-b border-border"
               onClick={handleMenuClose}
             >
               Admin
             </a>
-            <Button asChild className="w-full bg-accent hover:bg-accent/90 mt-4">
+            <Button asChild className="w-full bg-accent hover:bg-accent/90 mt-4 font-playfair font-medium text-[14px]">
               <Link to="/book" onClick={handleMenuClose}>Book Now</Link>
             </Button>
           </div>
