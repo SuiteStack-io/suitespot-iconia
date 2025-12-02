@@ -1,13 +1,14 @@
-import { useState } from 'react';
+import { useState, useRef } from 'react';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from '@/components/ui/dialog';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Textarea } from '@/components/ui/textarea';
 import { Label } from '@/components/ui/label';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
-import { Plus, Loader2 } from 'lucide-react';
+import { Plus, Loader2, Upload, X, Image as ImageIcon } from 'lucide-react';
 import { supabase } from '@/integrations/supabase/client';
 import { toast } from 'sonner';
+import { Progress } from '@/components/ui/progress';
 
 interface CreateBlogPostDialogProps {
   onPostCreated: () => void;
@@ -40,6 +41,12 @@ export function CreateBlogPostDialog({ onPostCreated, editPost, open, onOpenChan
   const [metaTitle, setMetaTitle] = useState(editPost?.meta_title || '');
   const [metaDescription, setMetaDescription] = useState(editPost?.meta_description || '');
   const [status, setStatus] = useState(editPost?.status || 'draft');
+  
+  // Image upload state
+  const [isUploading, setIsUploading] = useState(false);
+  const [uploadProgress, setUploadProgress] = useState(0);
+  const [previewUrl, setPreviewUrl] = useState(editPost?.featured_image_url || '');
+  const fileInputRef = useRef<HTMLInputElement>(null);
 
   const dialogOpen = open !== undefined ? open : isOpen;
   const setDialogOpen = onOpenChange || setIsOpen;
@@ -68,6 +75,74 @@ export function CreateBlogPostDialog({ onPostCreated, editPost, open, onOpenChan
     setMetaTitle('');
     setMetaDescription('');
     setStatus('draft');
+    setPreviewUrl('');
+    if (fileInputRef.current) fileInputRef.current.value = '';
+  };
+
+  const handleImageSelect = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+
+    // Validate file type
+    if (!file.type.startsWith('image/')) {
+      toast.error('Please select an image file');
+      return;
+    }
+
+    // Validate file size (max 10MB)
+    if (file.size > 10 * 1024 * 1024) {
+      toast.error('Image must be less than 10MB');
+      return;
+    }
+
+    // Show preview immediately
+    const localPreview = URL.createObjectURL(file);
+    setPreviewUrl(localPreview);
+
+    setIsUploading(true);
+    setUploadProgress(30);
+
+    try {
+      // Generate unique file path
+      const timestamp = Date.now();
+      const randomString = Math.random().toString(36).substring(7);
+      const fileExt = file.name.split('.').pop();
+      const fileName = `blog/${timestamp}-${randomString}.${fileExt}`;
+
+      setUploadProgress(50);
+
+      // Upload to storage
+      const { error: uploadError } = await supabase.storage
+        .from('property-photos')
+        .upload(fileName, file);
+
+      if (uploadError) throw uploadError;
+
+      setUploadProgress(80);
+
+      // Get public URL
+      const { data: { publicUrl } } = supabase.storage
+        .from('property-photos')
+        .getPublicUrl(fileName);
+
+      setFeaturedImageUrl(publicUrl);
+      setPreviewUrl(publicUrl);
+      setUploadProgress(100);
+      toast.success('Image uploaded successfully');
+    } catch (error: any) {
+      console.error('Upload error:', error);
+      toast.error(error.message || 'Failed to upload image');
+      setPreviewUrl('');
+    } finally {
+      setIsUploading(false);
+      setUploadProgress(0);
+    }
+  };
+
+  const removeImage = () => {
+    setFeaturedImageUrl('');
+    setPreviewUrl('');
+    if (fileInputRef.current) fileInputRef.current.value = '';
   };
 
   const handleSubmit = async (e: React.FormEvent) => {
@@ -250,14 +325,72 @@ export function CreateBlogPostDialog({ onPostCreated, editPost, open, onOpenChan
               />
             </div>
 
+            {/* Featured Image Upload */}
             <div className="space-y-2">
-              <Label htmlFor="featuredImage">Featured Image URL</Label>
-              <Input
-                id="featuredImage"
-                value={featuredImageUrl}
-                onChange={(e) => setFeaturedImageUrl(e.target.value)}
-                placeholder="https://example.com/image.jpg"
+              <Label>Featured Image</Label>
+              
+              {previewUrl ? (
+                <div className="relative">
+                  <img
+                    src={previewUrl}
+                    alt="Featured image preview"
+                    className="w-full h-48 object-cover rounded-lg border"
+                  />
+                  <Button
+                    type="button"
+                    size="icon"
+                    variant="destructive"
+                    className="absolute top-2 right-2"
+                    onClick={removeImage}
+                    disabled={isUploading}
+                  >
+                    <X className="h-4 w-4" />
+                  </Button>
+                  {isUploading && (
+                    <div className="absolute inset-0 bg-background/80 flex items-center justify-center rounded-lg">
+                      <div className="w-3/4">
+                        <Progress value={uploadProgress} className="h-2" />
+                        <p className="text-sm text-center mt-2">Uploading...</p>
+                      </div>
+                    </div>
+                  )}
+                </div>
+              ) : (
+                <div
+                  className="border-2 border-dashed rounded-lg p-8 text-center cursor-pointer hover:border-primary/50 transition-colors"
+                  onClick={() => fileInputRef.current?.click()}
+                >
+                  <ImageIcon className="h-10 w-10 mx-auto text-muted-foreground mb-2" />
+                  <p className="text-sm text-muted-foreground mb-1">
+                    Click to upload featured image
+                  </p>
+                  <p className="text-xs text-muted-foreground">
+                    JPG, PNG, WebP (max 10MB)
+                  </p>
+                </div>
+              )}
+              
+              <input
+                ref={fileInputRef}
+                type="file"
+                accept="image/jpeg,image/jpg,image/png,image/webp"
+                onChange={handleImageSelect}
+                className="hidden"
               />
+
+              {/* Or enter URL manually */}
+              <div className="flex items-center gap-2 mt-2">
+                <span className="text-xs text-muted-foreground">Or enter URL:</span>
+                <Input
+                  value={featuredImageUrl}
+                  onChange={(e) => {
+                    setFeaturedImageUrl(e.target.value);
+                    setPreviewUrl(e.target.value);
+                  }}
+                  placeholder="https://example.com/image.jpg"
+                  className="flex-1 text-sm"
+                />
+              </div>
             </div>
           </div>
 
@@ -283,7 +416,7 @@ export function CreateBlogPostDialog({ onPostCreated, editPost, open, onOpenChan
             <Button type="button" variant="outline" onClick={() => setDialogOpen(false)}>
               Cancel
             </Button>
-            <Button type="submit" disabled={isSubmitting}>
+            <Button type="submit" disabled={isSubmitting || isUploading}>
               {isSubmitting && <Loader2 className="h-4 w-4 animate-spin mr-2" />}
               {editPost ? 'Update Post' : 'Create Post'}
             </Button>
