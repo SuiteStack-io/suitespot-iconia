@@ -6,6 +6,7 @@ import { Wifi, Tv, Coffee, Wind, Users, Bed, Loader2 } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { useToast } from "@/hooks/use-toast";
 import { PublicNav } from "@/components/PublicNav";
+import { PublicFooter } from "@/components/PublicFooter";
 
 interface Unit {
   id: string;
@@ -249,6 +250,8 @@ const Suites = () => {
           </div>
         </section>
       </div>
+
+      <PublicFooter />
     </div>
   );
 };

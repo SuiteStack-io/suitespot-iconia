@@ -3,6 +3,7 @@ import { Card } from "@/components/ui/card";
 import { Link } from "react-router-dom";
 import { Dumbbell, Heart, Sunrise, Users } from "lucide-react";
 import { PublicNav } from "@/components/PublicNav";
+import { PublicFooter } from "@/components/PublicFooter";
 
 const Wellness = () => {
   return (
@@ -153,6 +154,8 @@ const Wellness = () => {
           </div>
         </section>
       </div>
+
+      <PublicFooter />
     </div>
   );
 };

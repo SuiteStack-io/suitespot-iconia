@@ -5,6 +5,7 @@ import { Card } from "@/components/ui/card";
 import { Link } from "react-router-dom";
 import { MapPin, Home, Waves, Dumbbell, Lock, Tv, Wifi, Wind, Package, Sparkles } from "lucide-react";
 import { PublicNav } from "@/components/PublicNav";
+import { PublicFooter } from "@/components/PublicFooter";
 import InteractivePropertyMap from "@/components/InteractivePropertyMap";
 import northCoast from "@/assets/north-coast.webp";
 
@@ -174,6 +175,8 @@ const Locations = () => {
           </div>
         </section>
       </div>
+
+      <PublicFooter />
     </div>
   );
 };
