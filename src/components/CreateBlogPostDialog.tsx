@@ -5,7 +5,8 @@ import { Input } from '@/components/ui/input';
 import { Textarea } from '@/components/ui/textarea';
 import { Label } from '@/components/ui/label';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
-import { Plus, Loader2, Upload, X, Image as ImageIcon } from 'lucide-react';
+import { Collapsible, CollapsibleContent, CollapsibleTrigger } from '@/components/ui/collapsible';
+import { Plus, Loader2, Upload, X, Image as ImageIcon, HelpCircle, ChevronDown } from 'lucide-react';
 import { supabase } from '@/integrations/supabase/client';
 import { toast } from 'sonner';
 import { Progress } from '@/components/ui/progress';
@@ -323,6 +324,40 @@ export function CreateBlogPostDialog({ onPostCreated, editPost, open, onOpenChan
                 placeholder="Write your blog post content here..."
                 rows={10}
               />
+              
+              {/* Formatting Guide */}
+              <Collapsible>
+                <CollapsibleTrigger asChild>
+                  <Button variant="ghost" size="sm" className="gap-2 text-muted-foreground hover:text-foreground">
+                    <HelpCircle className="h-4 w-4" />
+                    Formatting Guide
+                    <ChevronDown className="h-3 w-3" />
+                  </Button>
+                </CollapsibleTrigger>
+                <CollapsibleContent>
+                  <div className="mt-2 p-4 bg-muted/50 rounded-lg text-sm space-y-3">
+                    <div>
+                      <p className="font-medium mb-1">Headings</p>
+                      <code className="block bg-background px-2 py-1 rounded text-xs">## Section Heading</code>
+                      <code className="block bg-background px-2 py-1 rounded text-xs mt-1">### Subsection Heading</code>
+                    </div>
+                    <div>
+                      <p className="font-medium mb-1">Bullet Lists</p>
+                      <code className="block bg-background px-2 py-1 rounded text-xs">- First item</code>
+                      <code className="block bg-background px-2 py-1 rounded text-xs mt-1">- Second item</code>
+                    </div>
+                    <div>
+                      <p className="font-medium mb-1">Numbered Lists</p>
+                      <code className="block bg-background px-2 py-1 rounded text-xs">1. First step</code>
+                      <code className="block bg-background px-2 py-1 rounded text-xs mt-1">2. Second step</code>
+                    </div>
+                    <div>
+                      <p className="font-medium mb-1">Bold Text</p>
+                      <code className="block bg-background px-2 py-1 rounded text-xs">**bold text**</code>
+                    </div>
+                  </div>
+                </CollapsibleContent>
+              </Collapsible>
             </div>
 
             {/* Featured Image Upload */}

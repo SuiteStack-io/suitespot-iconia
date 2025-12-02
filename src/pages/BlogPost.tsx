@@ -23,20 +23,39 @@ interface BlogPostData {
 const renderContent = (content: string) => {
   const lines = content.split('\n');
   const elements: JSX.Element[] = [];
-  let currentList: string[] = [];
+  let currentBulletList: string[] = [];
+  let currentNumberedList: string[] = [];
   let listKey = 0;
 
-  const flushList = () => {
-    if (currentList.length > 0) {
+  const flushBulletList = () => {
+    if (currentBulletList.length > 0) {
       elements.push(
-        <ul key={`list-${listKey++}`} className="list-disc list-inside mb-6 space-y-2">
-          {currentList.map((item, i) => (
+        <ul key={`ul-${listKey++}`} className="list-disc list-inside mb-6 space-y-2">
+          {currentBulletList.map((item, i) => (
             <li key={i} className="text-foreground">{renderInlineStyles(item)}</li>
           ))}
         </ul>
       );
-      currentList = [];
+      currentBulletList = [];
     }
+  };
+
+  const flushNumberedList = () => {
+    if (currentNumberedList.length > 0) {
+      elements.push(
+        <ol key={`ol-${listKey++}`} className="list-decimal list-inside mb-6 space-y-2">
+          {currentNumberedList.map((item, i) => (
+            <li key={i} className="text-foreground">{renderInlineStyles(item)}</li>
+          ))}
+        </ol>
+      );
+      currentNumberedList = [];
+    }
+  };
+
+  const flushLists = () => {
+    flushBulletList();
+    flushNumberedList();
   };
 
   const renderInlineStyles = (text: string) => {
@@ -54,13 +73,13 @@ const renderContent = (content: string) => {
     const trimmedLine = line.trim();
     
     if (!trimmedLine) {
-      flushList();
+      flushLists();
       return;
     }
 
     // Heading 2: ## text
     if (trimmedLine.startsWith('## ')) {
-      flushList();
+      flushLists();
       elements.push(
         <h2 key={index} className="font-playfair font-semibold text-[24px] md:text-[28px] text-foreground mt-10 mb-4">
           {renderInlineStyles(trimmedLine.slice(3))}
@@ -71,7 +90,7 @@ const renderContent = (content: string) => {
 
     // Heading 3: ### text
     if (trimmedLine.startsWith('### ')) {
-      flushList();
+      flushLists();
       elements.push(
         <h3 key={index} className="font-playfair font-semibold text-[20px] md:text-[22px] text-foreground mt-8 mb-3">
           {renderInlineStyles(trimmedLine.slice(4))}
@@ -80,20 +99,29 @@ const renderContent = (content: string) => {
       return;
     }
 
+    // Numbered list: 1. text, 2. text, etc.
+    const numberedMatch = trimmedLine.match(/^\d+\.\s(.+)/);
+    if (numberedMatch) {
+      flushBulletList();
+      currentNumberedList.push(numberedMatch[1]);
+      return;
+    }
+
     // Bullet points: - text or * text
     if (trimmedLine.startsWith('- ') || trimmedLine.startsWith('* ')) {
-      currentList.push(trimmedLine.slice(2));
+      flushNumberedList();
+      currentBulletList.push(trimmedLine.slice(2));
       return;
     }
 
     // Regular paragraph
-    flushList();
+    flushLists();
     elements.push(
       <p key={index} className="mb-6">{renderInlineStyles(trimmedLine)}</p>
     );
   });
 
-  flushList();
+  flushLists();
   return elements;
 };
 
