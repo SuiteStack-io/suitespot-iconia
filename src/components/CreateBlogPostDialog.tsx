@@ -6,10 +6,11 @@ import { Textarea } from '@/components/ui/textarea';
 import { Label } from '@/components/ui/label';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from '@/components/ui/collapsible';
-import { Plus, Loader2, Upload, X, Image as ImageIcon, HelpCircle, ChevronDown } from 'lucide-react';
+import { Plus, Loader2, Upload, X, Image as ImageIcon, HelpCircle, ChevronDown, Bold, Italic, Type } from 'lucide-react';
 import { supabase } from '@/integrations/supabase/client';
 import { toast } from 'sonner';
 import { Progress } from '@/components/ui/progress';
+import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from '@/components/ui/dropdown-menu';
 
 interface CreateBlogPostDialogProps {
   onPostCreated: () => void;
@@ -48,6 +49,57 @@ export function CreateBlogPostDialog({ onPostCreated, editPost, open, onOpenChan
   const [uploadProgress, setUploadProgress] = useState(0);
   const [previewUrl, setPreviewUrl] = useState(editPost?.featured_image_url || '');
   const fileInputRef = useRef<HTMLInputElement>(null);
+  const contentTextareaRef = useRef<HTMLTextAreaElement>(null);
+
+  // Text formatting helper functions
+  const wrapSelectedText = (prefix: string, suffix: string) => {
+    const textarea = contentTextareaRef.current;
+    if (!textarea) return;
+
+    const start = textarea.selectionStart;
+    const end = textarea.selectionEnd;
+    const selectedText = content.substring(start, end);
+    
+    const newText = content.substring(0, start) + prefix + selectedText + suffix + content.substring(end);
+    setContent(newText);
+    
+    // Restore focus and selection
+    setTimeout(() => {
+      textarea.focus();
+      textarea.setSelectionRange(start + prefix.length, end + prefix.length);
+    }, 0);
+  };
+
+  const insertHeading = (level: 'h2' | 'h3') => {
+    const textarea = contentTextareaRef.current;
+    if (!textarea) return;
+
+    const start = textarea.selectionStart;
+    const prefix = level === 'h2' ? '## ' : '### ';
+    
+    // Find the start of the current line
+    const beforeCursor = content.substring(0, start);
+    const lineStart = beforeCursor.lastIndexOf('\n') + 1;
+    
+    // Check if line already has a heading prefix
+    const lineContent = content.substring(lineStart);
+    const existingMatch = lineContent.match(/^(#{2,3}\s)/);
+    
+    let newText;
+    if (existingMatch) {
+      // Replace existing heading
+      newText = content.substring(0, lineStart) + prefix + content.substring(lineStart + existingMatch[1].length);
+    } else {
+      // Insert new heading prefix
+      newText = content.substring(0, lineStart) + prefix + content.substring(lineStart);
+    }
+    
+    setContent(newText);
+    
+    setTimeout(() => {
+      textarea.focus();
+    }, 0);
+  };
 
   const dialogOpen = open !== undefined ? open : isOpen;
   const setDialogOpen = onOpenChange || setIsOpen;
@@ -317,8 +369,55 @@ export function CreateBlogPostDialog({ onPostCreated, editPost, open, onOpenChan
 
             <div className="space-y-2">
               <Label htmlFor="content">Main Content</Label>
+              
+              {/* Formatting Toolbar */}
+              <div className="flex items-center gap-1 p-1 border rounded-md bg-muted/30 w-fit">
+                <DropdownMenu>
+                  <DropdownMenuTrigger asChild>
+                    <Button variant="ghost" size="sm" className="gap-1 h-8 px-2">
+                      <Type className="h-4 w-4" />
+                      <span className="text-xs">Heading</span>
+                      <ChevronDown className="h-3 w-3" />
+                    </Button>
+                  </DropdownMenuTrigger>
+                  <DropdownMenuContent align="start">
+                    <DropdownMenuItem onClick={() => insertHeading('h2')}>
+                      <span className="font-semibold text-lg">Heading 2</span>
+                    </DropdownMenuItem>
+                    <DropdownMenuItem onClick={() => insertHeading('h3')}>
+                      <span className="font-medium">Heading 3</span>
+                    </DropdownMenuItem>
+                  </DropdownMenuContent>
+                </DropdownMenu>
+                
+                <div className="w-px h-6 bg-border mx-1" />
+                
+                <Button
+                  type="button"
+                  variant="ghost"
+                  size="sm"
+                  className="h-8 w-8 p-0 font-bold"
+                  onClick={() => wrapSelectedText('**', '**')}
+                  title="Bold (select text first)"
+                >
+                  <Bold className="h-4 w-4" />
+                </Button>
+                
+                <Button
+                  type="button"
+                  variant="ghost"
+                  size="sm"
+                  className="h-8 w-8 p-0 italic"
+                  onClick={() => wrapSelectedText('*', '*')}
+                  title="Italic (select text first)"
+                >
+                  <Italic className="h-4 w-4" />
+                </Button>
+              </div>
+              
               <Textarea
                 id="content"
+                ref={contentTextareaRef}
                 value={content}
                 onChange={(e) => setContent(e.target.value)}
                 placeholder="Write your blog post content here..."
@@ -354,6 +453,10 @@ export function CreateBlogPostDialog({ onPostCreated, editPost, open, onOpenChan
                     <div>
                       <p className="font-medium mb-1">Bold Text</p>
                       <code className="block bg-background px-2 py-1 rounded text-xs">**bold text**</code>
+                    </div>
+                    <div>
+                      <p className="font-medium mb-1">Italic Text</p>
+                      <code className="block bg-background px-2 py-1 rounded text-xs">*italic text*</code>
                     </div>
                   </div>
                 </CollapsibleContent>
