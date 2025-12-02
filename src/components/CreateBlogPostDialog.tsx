@@ -7,7 +7,7 @@ import { Label } from '@/components/ui/label';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from '@/components/ui/collapsible';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
-import { Plus, Loader2, Upload, X, Image as ImageIcon, HelpCircle, ChevronDown, Bold, Italic, Type, Eye, Edit, Link } from 'lucide-react';
+import { Plus, Loader2, Upload, X, Image as ImageIcon, HelpCircle, ChevronDown, Bold, Italic, Type, Eye, Edit, Link, Undo2, Redo2 } from 'lucide-react';
 import { supabase } from '@/integrations/supabase/client';
 import { toast } from 'sonner';
 import { Progress } from '@/components/ui/progress';
@@ -46,6 +46,30 @@ export function CreateBlogPostDialog({ onPostCreated, editPost, open, onOpenChan
   const [metaDescription, setMetaDescription] = useState(editPost?.meta_description || '');
   const [status, setStatus] = useState(editPost?.status || 'draft');
   
+  // Undo/redo history
+  const [history, setHistory] = useState<string[]>([editPost?.content || '']);
+  const [historyIndex, setHistoryIndex] = useState(0);
+  
+  const updateContentWithHistory = (newContent: string) => {
+    setContent(newContent);
+    setHistory(prev => [...prev.slice(0, historyIndex + 1), newContent]);
+    setHistoryIndex(prev => prev + 1);
+  };
+  
+  const undo = () => {
+    if (historyIndex > 0) {
+      setHistoryIndex(prev => prev - 1);
+      setContent(history[historyIndex - 1]);
+    }
+  };
+  
+  const redo = () => {
+    if (historyIndex < history.length - 1) {
+      setHistoryIndex(prev => prev + 1);
+      setContent(history[historyIndex + 1]);
+    }
+  };
+  
   // Image upload state
   const [isUploading, setIsUploading] = useState(false);
   const [uploadProgress, setUploadProgress] = useState(0);
@@ -63,7 +87,7 @@ export function CreateBlogPostDialog({ onPostCreated, editPost, open, onOpenChan
     const selectedText = content.substring(start, end);
     
     const newText = content.substring(0, start) + prefix + selectedText + suffix + content.substring(end);
-    setContent(newText);
+    updateContentWithHistory(newText);
     
     // Restore focus and selection
     setTimeout(() => {
@@ -96,7 +120,7 @@ export function CreateBlogPostDialog({ onPostCreated, editPost, open, onOpenChan
       newText = content.substring(0, lineStart) + prefix + content.substring(lineStart);
     }
     
-    setContent(newText);
+    updateContentWithHistory(newText);
     
     setTimeout(() => {
       textarea.focus();
@@ -116,7 +140,7 @@ export function CreateBlogPostDialog({ onPostCreated, editPost, open, onOpenChan
     
     const linkText = selectedText || 'link text';
     const newText = content.substring(0, start) + `[${linkText}](${url})` + content.substring(end);
-    setContent(newText);
+    updateContentWithHistory(newText);
     
     setTimeout(() => {
       textarea.focus();
@@ -137,6 +161,18 @@ export function CreateBlogPostDialog({ onPostCreated, editPost, open, onOpenChan
         case 'k':
           e.preventDefault();
           insertLink();
+          break;
+        case 'z':
+          e.preventDefault();
+          if (e.shiftKey) {
+            redo();
+          } else {
+            undo();
+          }
+          break;
+        case 'y':
+          e.preventDefault();
+          redo();
           break;
       }
     }
@@ -463,9 +499,35 @@ export function CreateBlogPostDialog({ onPostCreated, editPost, open, onOpenChan
                       size="sm"
                       className="h-8 w-8 p-0"
                       onClick={insertLink}
-                      title="Insert link"
+                      title="Insert link (Ctrl+K)"
                     >
                       <Link className="h-4 w-4" />
+                    </Button>
+                    
+                    <div className="w-px h-6 bg-border mx-1" />
+                    
+                    <Button
+                      type="button"
+                      variant="ghost"
+                      size="sm"
+                      className="h-8 w-8 p-0"
+                      onClick={undo}
+                      disabled={historyIndex <= 0}
+                      title="Undo (Ctrl+Z)"
+                    >
+                      <Undo2 className="h-4 w-4" />
+                    </Button>
+                    
+                    <Button
+                      type="button"
+                      variant="ghost"
+                      size="sm"
+                      className="h-8 w-8 p-0"
+                      onClick={redo}
+                      disabled={historyIndex >= history.length - 1}
+                      title="Redo (Ctrl+Shift+Z)"
+                    >
+                      <Redo2 className="h-4 w-4" />
                     </Button>
                   </div>
                   
