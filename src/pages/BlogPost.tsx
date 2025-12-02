@@ -19,6 +19,84 @@ interface BlogPostData {
   published_at: string | null;
 }
 
+// Simple markdown-style content renderer
+const renderContent = (content: string) => {
+  const lines = content.split('\n');
+  const elements: JSX.Element[] = [];
+  let currentList: string[] = [];
+  let listKey = 0;
+
+  const flushList = () => {
+    if (currentList.length > 0) {
+      elements.push(
+        <ul key={`list-${listKey++}`} className="list-disc list-inside mb-6 space-y-2">
+          {currentList.map((item, i) => (
+            <li key={i} className="text-foreground">{renderInlineStyles(item)}</li>
+          ))}
+        </ul>
+      );
+      currentList = [];
+    }
+  };
+
+  const renderInlineStyles = (text: string) => {
+    // Handle bold text **text**
+    const parts = text.split(/(\*\*[^*]+\*\*)/g);
+    return parts.map((part, i) => {
+      if (part.startsWith('**') && part.endsWith('**')) {
+        return <strong key={i} className="font-semibold">{part.slice(2, -2)}</strong>;
+      }
+      return part;
+    });
+  };
+
+  lines.forEach((line, index) => {
+    const trimmedLine = line.trim();
+    
+    if (!trimmedLine) {
+      flushList();
+      return;
+    }
+
+    // Heading 2: ## text
+    if (trimmedLine.startsWith('## ')) {
+      flushList();
+      elements.push(
+        <h2 key={index} className="font-playfair font-semibold text-[24px] md:text-[28px] text-foreground mt-10 mb-4">
+          {renderInlineStyles(trimmedLine.slice(3))}
+        </h2>
+      );
+      return;
+    }
+
+    // Heading 3: ### text
+    if (trimmedLine.startsWith('### ')) {
+      flushList();
+      elements.push(
+        <h3 key={index} className="font-playfair font-semibold text-[20px] md:text-[22px] text-foreground mt-8 mb-3">
+          {renderInlineStyles(trimmedLine.slice(4))}
+        </h3>
+      );
+      return;
+    }
+
+    // Bullet points: - text or * text
+    if (trimmedLine.startsWith('- ') || trimmedLine.startsWith('* ')) {
+      currentList.push(trimmedLine.slice(2));
+      return;
+    }
+
+    // Regular paragraph
+    flushList();
+    elements.push(
+      <p key={index} className="mb-6">{renderInlineStyles(trimmedLine)}</p>
+    );
+  });
+
+  flushList();
+  return elements;
+};
+
 const BlogPost = () => {
   const { slug } = useParams<{ slug: string }>();
   const [post, setPost] = useState<BlogPostData | null>(null);
@@ -134,9 +212,7 @@ const BlogPost = () => {
 
         {post.content && (
           <div className="prose prose-lg max-w-none font-playfair text-[16px] leading-[1.8] text-foreground">
-            {post.content.split('\n').map((paragraph, index) => (
-              paragraph.trim() && <p key={index} className="mb-6">{paragraph}</p>
-            ))}
+            {renderContent(post.content)}
           </div>
         )}
       </article>
