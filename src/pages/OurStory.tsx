@@ -10,10 +10,10 @@ const OurStory = () => {
 
       <div className="pt-20">
         {/* Hero Section */}
-        <section className="py-24 px-6 bg-background/80 backdrop-blur-md">
+        <section className="py-8 md:py-13 px-[20px] mx-[40px] bg-gradient-to-b from-primary/5 to-background">
           <div className="container mx-auto max-w-4xl text-center">
-            <h1 className="text-5xl md:text-6xl font-serif font-bold mb-6">Our Story</h1>
-            <p className="text-xl opacity-90">Transforming iconic spaces into wellness-focused, design-driven stays.</p>
+            <h1 className="font-playfair font-semibold text-[40px] md:text-[80px] tracking-[-0.02em] leading-[1.1] text-foreground mb-6">Our Story</h1>
+            <p className="font-playfair font-medium text-[24px] md:text-[36px] text-muted-foreground">Transforming iconic spaces into wellness-focused, design-driven stays.</p>
           </div>
         </section>
 
