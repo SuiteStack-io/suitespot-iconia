@@ -123,6 +123,25 @@ export function CreateBlogPostDialog({ onPostCreated, editPost, open, onOpenChan
     }, 0);
   };
 
+  const handleKeyDown = (e: React.KeyboardEvent<HTMLTextAreaElement>) => {
+    if (e.ctrlKey || e.metaKey) {
+      switch (e.key.toLowerCase()) {
+        case 'b':
+          e.preventDefault();
+          wrapSelectedText('**', '**');
+          break;
+        case 'i':
+          e.preventDefault();
+          wrapSelectedText('*', '*');
+          break;
+        case 'k':
+          e.preventDefault();
+          insertLink();
+          break;
+      }
+    }
+  };
+
   const dialogOpen = open !== undefined ? open : isOpen;
   const setDialogOpen = onOpenChange || setIsOpen;
 
@@ -469,7 +488,8 @@ export function CreateBlogPostDialog({ onPostCreated, editPost, open, onOpenChan
                     ref={contentTextareaRef}
                     value={content}
                     onChange={(e) => setContent(e.target.value)}
-                    placeholder="Write your blog post content here..."
+                    onKeyDown={handleKeyDown}
+                    placeholder="Write your blog post content here... (Ctrl+B bold, Ctrl+I italic, Ctrl+K link)"
                     rows={10}
                   />
                 </TabsContent>
