@@ -128,7 +128,7 @@ const Rooms = () => {
   const [roomToDelete, setRoomToDelete] = useState<Unit | null>(null);
   const [photoGalleryOpen, setPhotoGalleryOpen] = useState(false);
   const [currentUnitPhotos, setCurrentUnitPhotos] = useState<{ id: string; photos: string[] } | null>(null);
-  const [sortField, setSortField] = useState<'unit_number' | 'unit_type' | 'view' | null>(null);
+  const [sortField, setSortField] = useState<'unit_number' | 'unit_type' | 'view' | 'booking_com_name' | null>(null);
   const [sortDirection, setSortDirection] = useState<'asc' | 'desc'>('asc');
 
   const sensors = useSensors(
@@ -138,7 +138,7 @@ const Rooms = () => {
     })
   );
 
-  const handleSort = (field: 'unit_number' | 'unit_type' | 'view') => {
+  const handleSort = (field: 'unit_number' | 'unit_type' | 'view' | 'booking_com_name') => {
     if (sortField === field) {
       setSortDirection(sortDirection === 'asc' ? 'desc' : 'asc');
     } else {
@@ -900,7 +900,14 @@ const Rooms = () => {
                     )}
                   </div>
                 </TableHead>
-                <TableHead className="min-w-[160px]">Booking.com Name</TableHead>
+                <TableHead className="min-w-[160px] cursor-pointer hover:bg-muted/50" onClick={() => handleSort('booking_com_name')}>
+                  <div className="flex items-center gap-1">
+                    Booking.com Name
+                    {sortField === 'booking_com_name' && (
+                      <ChevronDown className={`h-4 w-4 transition-transform ${sortDirection === 'desc' ? 'rotate-180' : ''}`} />
+                    )}
+                  </div>
+                </TableHead>
                 <TableHead className="min-w-[120px]">Size</TableHead>
                 <TableHead className="min-w-[80px]">Beds</TableHead>
                 <TableHead className="min-w-[80px]">Baths</TableHead>
