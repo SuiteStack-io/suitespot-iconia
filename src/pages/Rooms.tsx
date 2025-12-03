@@ -128,6 +128,8 @@ const Rooms = () => {
   const [roomToDelete, setRoomToDelete] = useState<Unit | null>(null);
   const [photoGalleryOpen, setPhotoGalleryOpen] = useState(false);
   const [currentUnitPhotos, setCurrentUnitPhotos] = useState<{ id: string; photos: string[] } | null>(null);
+  const [sortField, setSortField] = useState<'unit_number' | 'unit_type' | 'view' | null>(null);
+  const [sortDirection, setSortDirection] = useState<'asc' | 'desc'>('asc');
 
   const sensors = useSensors(
     useSensor(PointerSensor),
@@ -135,6 +137,23 @@ const Rooms = () => {
       coordinateGetter: sortableKeyboardCoordinates,
     })
   );
+
+  const handleSort = (field: 'unit_number' | 'unit_type' | 'view') => {
+    if (sortField === field) {
+      setSortDirection(sortDirection === 'asc' ? 'desc' : 'asc');
+    } else {
+      setSortField(field);
+      setSortDirection('asc');
+    }
+  };
+
+  const sortedUnits = [...units].sort((a, b) => {
+    if (!sortField) return 0;
+    const aVal = a[sortField] || '';
+    const bVal = b[sortField] || '';
+    const comparison = aVal.toString().localeCompare(bVal.toString(), undefined, { numeric: true });
+    return sortDirection === 'asc' ? comparison : -comparison;
+  });
 
   useEffect(() => {
     if (!loading && !user) {
@@ -857,9 +876,30 @@ const Rooms = () => {
               <TableRow>
                 <TableHead className="min-w-[50px] sticky left-0 z-20 bg-background">Nr</TableHead>
                 <TableHead className="min-w-[200px] sticky left-[50px] z-20 bg-background">Suite Name</TableHead>
-                <TableHead className="min-w-[100px] sticky left-[250px] z-20 bg-background border-r">Room #</TableHead>
-                <TableHead className="min-w-[140px]">Type</TableHead>
-                <TableHead className="min-w-[140px]">Room View</TableHead>
+                <TableHead className="min-w-[100px] sticky left-[250px] z-20 bg-background border-r cursor-pointer hover:bg-muted/50" onClick={() => handleSort('unit_number')}>
+                  <div className="flex items-center gap-1">
+                    Room #
+                    {sortField === 'unit_number' && (
+                      <ChevronDown className={`h-4 w-4 transition-transform ${sortDirection === 'desc' ? 'rotate-180' : ''}`} />
+                    )}
+                  </div>
+                </TableHead>
+                <TableHead className="min-w-[140px] cursor-pointer hover:bg-muted/50" onClick={() => handleSort('unit_type')}>
+                  <div className="flex items-center gap-1">
+                    Type
+                    {sortField === 'unit_type' && (
+                      <ChevronDown className={`h-4 w-4 transition-transform ${sortDirection === 'desc' ? 'rotate-180' : ''}`} />
+                    )}
+                  </div>
+                </TableHead>
+                <TableHead className="min-w-[140px] cursor-pointer hover:bg-muted/50" onClick={() => handleSort('view')}>
+                  <div className="flex items-center gap-1">
+                    Room View
+                    {sortField === 'view' && (
+                      <ChevronDown className={`h-4 w-4 transition-transform ${sortDirection === 'desc' ? 'rotate-180' : ''}`} />
+                    )}
+                  </div>
+                </TableHead>
                 <TableHead className="min-w-[160px]">Booking.com Name</TableHead>
                 <TableHead className="min-w-[120px]">Size</TableHead>
                 <TableHead className="min-w-[80px]">Beds</TableHead>
@@ -1040,7 +1080,7 @@ const Rooms = () => {
                   </TableCell>
                 </TableRow>
               )}
-              {units.map((unit, index) => {
+              {sortedUnits.map((unit, index) => {
                 const isEditing = isBulkEdit || editingId === unit.id;
                 const currentUnit = isBulkEdit ? bulkEditUnits[unit.id] : editedUnit;
                 
