@@ -855,7 +855,7 @@ const Rooms = () => {
           <Table className="min-w-[1800px]">
             <TableHeader>
               <TableRow>
-                <TableHead className="min-w-[50px]">Nr</TableHead>
+                <TableHead className="min-w-[50px] sticky left-0 z-20 bg-background">Nr</TableHead>
                 <TableHead className="min-w-[200px]">Suite Name</TableHead>
                 <TableHead className="min-w-[100px]">Room #</TableHead>
                 <TableHead className="min-w-[140px]">Type</TableHead>
@@ -878,7 +878,7 @@ const Rooms = () => {
             <TableBody>
               {isAdding && (
                 <TableRow className="bg-muted/50">
-                  <TableCell className="text-muted-foreground">-</TableCell>
+                  <TableCell className="text-muted-foreground sticky left-0 z-10 bg-muted/50">-</TableCell>
                   <TableCell>
                     <Input
                       value={newUnit.name}
@@ -1046,7 +1046,7 @@ const Rooms = () => {
                 
                 return (
                   <TableRow key={unit.id}>
-                    <TableCell className="min-w-[50px] text-muted-foreground font-medium">{index + 1}</TableCell>
+                    <TableCell className="min-w-[50px] text-muted-foreground font-medium sticky left-0 z-10 bg-background">{index + 1}</TableCell>
                     <TableCell className="min-w-[200px]">
                       {isEditing ? (
                         <Input
