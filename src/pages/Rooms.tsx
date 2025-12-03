@@ -856,8 +856,8 @@ const Rooms = () => {
             <TableHeader>
               <TableRow>
                 <TableHead className="min-w-[50px] sticky left-0 z-20 bg-background">Nr</TableHead>
-                <TableHead className="min-w-[200px]">Suite Name</TableHead>
-                <TableHead className="min-w-[100px]">Room #</TableHead>
+                <TableHead className="min-w-[200px] sticky left-[50px] z-20 bg-background">Suite Name</TableHead>
+                <TableHead className="min-w-[100px] sticky left-[250px] z-20 bg-background border-r">Room #</TableHead>
                 <TableHead className="min-w-[140px]">Type</TableHead>
                 <TableHead className="min-w-[140px]">Room View</TableHead>
                 <TableHead className="min-w-[160px]">Booking.com Name</TableHead>
@@ -879,14 +879,14 @@ const Rooms = () => {
               {isAdding && (
                 <TableRow className="bg-muted/50">
                   <TableCell className="text-muted-foreground sticky left-0 z-10 bg-muted/50">-</TableCell>
-                  <TableCell>
+                  <TableCell className="sticky left-[50px] z-10 bg-muted/50">
                     <Input
                       value={newUnit.name}
                       onChange={(e) => setNewUnit({ ...newUnit, name: e.target.value })}
                       placeholder="Room name"
                     />
                   </TableCell>
-                  <TableCell>
+                  <TableCell className="sticky left-[250px] z-10 bg-muted/50 border-r">
                     <Input
                       value={newUnit.unit_number || ''}
                       onChange={(e) => setNewUnit({ ...newUnit, unit_number: e.target.value })}
@@ -1047,7 +1047,7 @@ const Rooms = () => {
                 return (
                   <TableRow key={unit.id}>
                     <TableCell className="min-w-[50px] text-muted-foreground font-medium sticky left-0 z-10 bg-background">{index + 1}</TableCell>
-                    <TableCell className="min-w-[200px]">
+                    <TableCell className="min-w-[200px] sticky left-[50px] z-10 bg-background">
                       {isEditing ? (
                         <Input
                           className="w-full min-w-[180px]"
@@ -1062,7 +1062,7 @@ const Rooms = () => {
                         unit.name
                       )}
                     </TableCell>
-                    <TableCell className="min-w-[100px]">
+                    <TableCell className="min-w-[100px] sticky left-[250px] z-10 bg-background border-r">
                       {isEditing ? (
                         <Input
                           className="w-full min-w-[80px]"
