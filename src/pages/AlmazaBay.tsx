@@ -1605,8 +1605,9 @@ const AlmazaBay = () => {
           <Table className="min-w-[1600px]">
             <TableHeader>
               <TableRow>
+                <TableHead className="min-w-[50px] text-base font-medium sticky left-0 z-20 bg-background">Nr</TableHead>
                 <TableHead 
-                  className="min-w-[200px] text-base font-medium cursor-pointer hover:bg-muted/50"
+                  className="min-w-[200px] text-base font-medium cursor-pointer hover:bg-muted/50 sticky left-[50px] z-20 bg-background"
                   onClick={() => handleSort('name')}
                 >
                   <div className="flex items-center gap-1">
@@ -1616,7 +1617,7 @@ const AlmazaBay = () => {
                     )}
                   </div>
                 </TableHead>
-                <TableHead className="min-w-[100px] text-base font-medium">Unit #</TableHead>
+                <TableHead className="min-w-[100px] text-base font-medium sticky left-[250px] z-20 bg-background border-r">Unit #</TableHead>
                 <TableHead className="min-w-[140px] text-base font-medium">Type</TableHead>
                 <TableHead className="min-w-[140px] text-base font-medium">View</TableHead>
                 <TableHead className="min-w-[120px] text-base font-medium">Size</TableHead>
@@ -1699,7 +1700,8 @@ const AlmazaBay = () => {
             <TableBody>
               {isAdding && (
                 <TableRow className="bg-muted/50">
-                  <TableCell>
+                  <TableCell className="text-muted-foreground sticky left-0 z-10 bg-muted/50">-</TableCell>
+                  <TableCell className="sticky left-[50px] z-10 bg-muted/50">
                     <Input
                       value={newProperty.name}
                       onChange={(e) => setNewProperty({ ...newProperty, name: e.target.value })}
@@ -1707,7 +1709,7 @@ const AlmazaBay = () => {
                       className="font-['Playfair_Display']"
                     />
                   </TableCell>
-                  <TableCell>
+                  <TableCell className="sticky left-[250px] z-10 bg-muted/50 border-r">
                     <Input
                       value={newProperty.unit_number || ''}
                       onChange={(e) => setNewProperty({ ...newProperty, unit_number: e.target.value })}
@@ -1889,12 +1891,13 @@ const AlmazaBay = () => {
                   </TableCell>
                 </TableRow>
               )}
-              {sortedProperties.map((property) => {
+              {sortedProperties.map((property, index) => {
                 const isEditing = editingId === property.id;
                 
                 return (
                   <TableRow key={property.id}>
-                    <TableCell className="min-w-[200px]">
+                    <TableCell className="min-w-[50px] text-muted-foreground font-medium sticky left-0 z-10 bg-background">{index + 1}</TableCell>
+                    <TableCell className="min-w-[200px] sticky left-[50px] z-10 bg-background">
                       {isEditing ? (
                         <Input
                           className="w-full min-w-[180px]"
@@ -1905,7 +1908,7 @@ const AlmazaBay = () => {
                         <span className="font-medium">{property.name}</span>
                       )}
                     </TableCell>
-                    <TableCell className="min-w-[100px]">
+                    <TableCell className="min-w-[100px] sticky left-[250px] z-10 bg-background border-r">
                       {isEditing ? (
                         <Input
                           className="w-full min-w-[80px]"
