@@ -4,10 +4,8 @@ import { Link } from "react-router-dom";
 import { Palmtree, Camera, Sailboat, Sparkles } from "lucide-react";
 import { PublicNav } from "@/components/PublicNav";
 import { PublicFooter } from "@/components/PublicFooter";
-
 const Experiences = () => {
-  return (
-    <div className="min-h-screen bg-background">
+  return <div className="min-h-screen bg-background">
       <PublicNav />
 
       <div className="pt-20">
@@ -24,11 +22,7 @@ const Experiences = () => {
         {/* Introduction */}
         <section className="py-24 px-6">
           <div className="container mx-auto max-w-4xl text-center">
-            <p className="text-lg text-muted-foreground leading-relaxed">
-              Beyond comfortable accommodation, we offer exclusive access to Egypt's most captivating 
-              experiences. Our concierge team has curated a collection of cultural, culinary, and 
-              adventure activities that showcase the best of Cairo and beyond.
-            </p>
+            <p className="text-lg text-muted-foreground leading-relaxed">Beyond comfortable accommodation, we offer exclusive access to Egypt's most captivating experiences. Our team has curated a collection of cultural, culinary, and adventure activities that showcase the best of Cairo and beyond.</p>
           </div>
         </section>
 
@@ -157,8 +151,6 @@ const Experiences = () => {
       </div>
 
       <PublicFooter />
-    </div>
-  );
+    </div>;
 };
-
 export default Experiences;
