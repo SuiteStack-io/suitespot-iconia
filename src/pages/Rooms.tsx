@@ -858,6 +858,7 @@ const Rooms = () => {
                 <TableHead className="min-w-[200px]">Suite Name</TableHead>
                 <TableHead className="min-w-[100px]">Room #</TableHead>
                 <TableHead className="min-w-[140px]">Type</TableHead>
+                <TableHead className="min-w-[140px]">Room View</TableHead>
                 <TableHead className="min-w-[160px]">Booking.com Name</TableHead>
                 <TableHead className="min-w-[120px]">Size</TableHead>
                 <TableHead className="min-w-[80px]">Beds</TableHead>
@@ -870,7 +871,6 @@ const Rooms = () => {
                 <TableHead className="min-w-[120px]">Status</TableHead>
                 <TableHead className="min-w-[140px]">Booking.com Room ID</TableHead>
                 <TableHead className="min-w-[130px]">Next Reservation</TableHead>
-                <TableHead className="min-w-[140px]">View</TableHead>
                 {isAdmin && !isBulkEdit && <TableHead className="min-w-[100px]">Actions</TableHead>}
               </TableRow>
             </TableHeader>
@@ -897,6 +897,9 @@ const Rooms = () => {
                       onChange={(e) => setNewUnit({ ...newUnit, unit_type: e.target.value })}
                       placeholder="Type"
                     />
+                  </TableCell>
+                  <TableCell>
+                    <span className="text-muted-foreground">-</span>
                   </TableCell>
                   <TableCell>
                     <Input
@@ -1001,9 +1004,6 @@ const Rooms = () => {
                     <span className="text-muted-foreground">-</span>
                   </TableCell>
                   <TableCell>
-                    <span className="text-muted-foreground">-</span>
-                  </TableCell>
-                  <TableCell>
                     <div className="flex gap-2">
                       <Button size="sm" onClick={handleAddRoom}>
                         <Save className="h-4 w-4" />
@@ -1088,6 +1088,66 @@ const Rooms = () => {
                       ) : (
                         unit.unit_type || '-'
                       )}
+                    </TableCell>
+                    <TableCell className="min-w-[140px]">
+                      <DropdownMenu>
+                        <DropdownMenuTrigger asChild>
+                          <Button 
+                            size="sm" 
+                            variant="ghost"
+                          >
+                            <Eye className="h-4 w-4 mr-1" />
+                            <span className="text-xs">{unit.view || 'Select'}</span>
+                            <ChevronDown className="h-3 w-3 ml-1" />
+                          </Button>
+                        </DropdownMenuTrigger>
+                        <DropdownMenuContent align="end">
+                          <DropdownMenuItem onClick={async () => {
+                            const { error } = await supabase
+                              .from('units')
+                              .update({ view: 'Main street' })
+                              .eq('id', unit.id);
+                            
+                            if (error) {
+                              toast({
+                                variant: 'destructive',
+                                title: 'Error',
+                                description: 'Failed to update room view',
+                              });
+                            } else {
+                              fetchUnits();
+                              toast({
+                                title: 'Success',
+                                description: 'Room view updated',
+                              });
+                            }
+                          }}>
+                            Main street
+                          </DropdownMenuItem>
+                          <DropdownMenuItem onClick={async () => {
+                            const { error } = await supabase
+                              .from('units')
+                              .update({ view: 'Courtyard' })
+                              .eq('id', unit.id);
+                            
+                            if (error) {
+                              toast({
+                                variant: 'destructive',
+                                title: 'Error',
+                                description: 'Failed to update room view',
+                              });
+                            } else {
+                              fetchUnits();
+                              toast({
+                                title: 'Success',
+                                description: 'Room view updated',
+                              });
+                            }
+                          }}>
+                            Courtyard
+                          </DropdownMenuItem>
+                        </DropdownMenuContent>
+                      </DropdownMenu>
                     </TableCell>
                     <TableCell className="min-w-[160px]">
                       {isEditing ? (
@@ -1327,66 +1387,6 @@ const Rooms = () => {
                       <span className="text-sm">
                         {getNextReservation(unit.id) || '-'}
                       </span>
-                    </TableCell>
-                    <TableCell className="min-w-[140px]">
-                      <DropdownMenu>
-                        <DropdownMenuTrigger asChild>
-                          <Button 
-                            size="sm" 
-                            variant="ghost"
-                          >
-                            <Eye className="h-4 w-4 mr-1" />
-                            <span className="text-xs">{unit.view || 'Select'}</span>
-                            <ChevronDown className="h-3 w-3 ml-1" />
-                          </Button>
-                        </DropdownMenuTrigger>
-                        <DropdownMenuContent align="end">
-                          <DropdownMenuItem onClick={async () => {
-                            const { error } = await supabase
-                              .from('units')
-                              .update({ view: 'Main street' })
-                              .eq('id', unit.id);
-                            
-                            if (error) {
-                              toast({
-                                variant: 'destructive',
-                                title: 'Error',
-                                description: 'Failed to update room view',
-                              });
-                            } else {
-                              fetchUnits();
-                              toast({
-                                title: 'Success',
-                                description: 'Room view updated',
-                              });
-                            }
-                          }}>
-                            Main street
-                          </DropdownMenuItem>
-                          <DropdownMenuItem onClick={async () => {
-                            const { error } = await supabase
-                              .from('units')
-                              .update({ view: 'Courtyard' })
-                              .eq('id', unit.id);
-                            
-                            if (error) {
-                              toast({
-                                variant: 'destructive',
-                                title: 'Error',
-                                description: 'Failed to update room view',
-                              });
-                            } else {
-                              fetchUnits();
-                              toast({
-                                title: 'Success',
-                                description: 'Room view updated',
-                              });
-                            }
-                          }}>
-                            Courtyard
-                          </DropdownMenuItem>
-                        </DropdownMenuContent>
-                      </DropdownMenu>
                     </TableCell>
                     {isAdmin && !isBulkEdit && (
                       <TableCell>
