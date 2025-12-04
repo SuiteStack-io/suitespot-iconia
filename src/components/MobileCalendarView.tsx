@@ -380,6 +380,7 @@ export const MobileCalendarView = () => {
                 const previousUnit = index > 0 ? units[index - 1] : null;
                 const previousRoomType = previousUnit ? (previousUnit.booking_com_name || previousUnit.name) : null;
                 const showSeparator = sortByRoomType && (index === 0 || currentRoomType !== previousRoomType);
+                const roomTypeCount = units.filter(u => (u.booking_com_name || u.name) === currentRoomType).length;
 
                 return (
                   <div key={unit.id}>
@@ -388,6 +389,9 @@ export const MobileCalendarView = () => {
                         <Building2 className="h-4 w-4 text-muted-foreground" />
                         <span className="text-sm font-semibold text-muted-foreground">
                           {currentRoomType}
+                        </span>
+                        <span className="text-xs text-muted-foreground">
+                          ({roomTypeCount} {roomTypeCount === 1 ? 'room' : 'rooms'})
                         </span>
                         <div className="flex-1 h-px bg-border" />
                       </div>
