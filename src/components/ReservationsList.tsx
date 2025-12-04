@@ -29,7 +29,7 @@ import {
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
 import { Calendar } from '@/components/ui/calendar';
 import { format } from 'date-fns';
-import { Search, Users, Check, CalendarIcon, Download, FileSpreadsheet, X } from 'lucide-react';
+import { Search, Users, Check, CalendarIcon, Download, FileSpreadsheet, X, Mail, CheckCircle2, XCircle, Clock } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
 import { toast } from 'sonner';
 import { cn } from '@/lib/utils';
@@ -56,6 +56,9 @@ interface Reservation {
   created_at: string;
   group_id: string | null;
   unit_id: string;
+  contact_email: string | null;
+  confirmation_email_status: string | null;
+  confirmation_email_sent_at: string | null;
 }
 
 interface GroupedReservation extends Reservation {
@@ -158,7 +161,7 @@ export const ReservationsList = () => {
   const fetchReservations = async () => {
     const { data, error } = await supabase
       .from('reservations')
-      .select('id, booking_reference, check_in_date, check_out_date, nights, number_of_guests, guest_names, guest_nationality, status, source, price_per_night, total_price, commission_rate, commission_amount, net_revenue, currency, created_at, group_id, unit_id, units(name, unit_number)')
+      .select('id, booking_reference, check_in_date, check_out_date, nights, number_of_guests, guest_names, guest_nationality, status, source, price_per_night, total_price, commission_rate, commission_amount, net_revenue, currency, created_at, group_id, unit_id, contact_email, confirmation_email_status, confirmation_email_sent_at, units(name, unit_number)')
       .order('check_in_date', { ascending: false });
 
     if (!error && data) {
@@ -683,12 +686,13 @@ export const ReservationsList = () => {
               >
                 Date Created {getSortIcon('created_at')}
               </TableHead>
+              <TableHead>Email</TableHead>
             </TableRow>
           </TableHeader>
           <TableBody>
             {filteredReservations.length === 0 ? (
               <TableRow>
-                <TableCell colSpan={15} className="text-center text-muted-foreground">
+                <TableCell colSpan={16} className="text-center text-muted-foreground">
                   No reservations found
                 </TableCell>
               </TableRow>
@@ -816,6 +820,29 @@ export const ReservationsList = () => {
                     onClick={() => navigate(`/reservation/${reservation.id}`)}
                   >
                     {format(new Date(reservation.created_at), 'dd MMM yyyy')}
+                  </TableCell>
+                  <TableCell>
+                    {!reservation.contact_email ? (
+                      <span className="text-muted-foreground text-xs flex items-center gap-1">
+                        <Clock className="h-3 w-3" />
+                        No email
+                      </span>
+                    ) : reservation.confirmation_email_status === 'sent' ? (
+                      <span className="text-green-600 flex items-center gap-1" title={`Sent ${reservation.confirmation_email_sent_at ? format(new Date(reservation.confirmation_email_sent_at), 'dd MMM HH:mm') : ''}`}>
+                        <CheckCircle2 className="h-4 w-4" />
+                        <span className="text-xs">Sent</span>
+                      </span>
+                    ) : reservation.confirmation_email_status === 'failed' ? (
+                      <span className="text-destructive flex items-center gap-1" title="Email failed to send">
+                        <XCircle className="h-4 w-4" />
+                        <span className="text-xs">Failed</span>
+                      </span>
+                    ) : (
+                      <span className="text-amber-500 flex items-center gap-1" title="Email not yet sent">
+                        <Mail className="h-3 w-3" />
+                        <span className="text-xs">Pending</span>
+                      </span>
+                    )}
                   </TableCell>
                 </TableRow>
               ))
