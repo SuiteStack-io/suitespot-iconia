@@ -890,8 +890,27 @@ export const AvailabilityCalendar = () => {
                 </div>
 
                 {/* Unit Rows */}
-                {units.map((unit) => (
-                  <DroppableUnitRow key={unit.id} unit={unit}>
+                {units.map((unit, index) => {
+                  const currentRoomType = unit.booking_com_name || unit.name;
+                  const previousUnit = index > 0 ? units[index - 1] : null;
+                  const previousRoomType = previousUnit ? (previousUnit.booking_com_name || previousUnit.name) : null;
+                  const showSeparator = sortByRoomType && (index === 0 || currentRoomType !== previousRoomType);
+
+                  return (
+                    <div key={unit.id}>
+                      {showSeparator && (
+                        <div 
+                          className="flex items-center gap-2 py-2 px-2 bg-muted/50 border-y border-border mb-1 rounded"
+                          style={{ gridColumn: `1 / -1` }}
+                        >
+                          <Building2 className="h-4 w-4 text-muted-foreground" />
+                          <span className="text-sm font-semibold text-muted-foreground">
+                            {currentRoomType}
+                          </span>
+                          <div className="flex-1 h-px bg-border" />
+                        </div>
+                      )}
+                      <DroppableUnitRow unit={unit}>
                     <div
                       className="grid gap-1 mb-1"
                       style={{ gridTemplateColumns: `160px repeat(${displayDays.length}, 70px)` }}
@@ -996,7 +1015,9 @@ export const AvailabilityCalendar = () => {
                       })}
                     </div>
                   </DroppableUnitRow>
-                ))}
+                    </div>
+                  );
+                })}
               </div>
             </TooltipProvider>
 
