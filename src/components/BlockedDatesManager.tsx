@@ -58,6 +58,8 @@ export const BlockedDatesManager = () => {
   const [editDialogOpen, setEditDialogOpen] = useState(false);
   const [editingGroup, setEditingGroup] = useState<GroupedBlockedDates | null>(null);
   const [editReason, setEditReason] = useState("");
+  const [editDateRange, setEditDateRange] = useState<DateRange | undefined>();
+  const [editLoading, setEditLoading] = useState(false);
   
   // Filter state
   const [filterUnitId, setFilterUnitId] = useState<string>("all");
@@ -359,28 +361,85 @@ export const BlockedDatesManager = () => {
   const handleOpenEditDialog = (group: GroupedBlockedDates) => {
     setEditingGroup(group);
     setEditReason(group.reason || "");
+    setEditDateRange({
+      from: parseISO(group.startDate),
+      to: parseISO(group.endDate),
+    });
     setEditDialogOpen(true);
   };
 
-  const handleUpdateReason = async () => {
-    if (!editingGroup) return;
+  const handleUpdateBlockedDates = async () => {
+    if (!editingGroup || !editDateRange?.from) return;
 
+    setEditLoading(true);
     try {
-      const { error } = await supabase
-        .from("blocked_dates")
-        .update({ reason: editReason.trim() || null })
-        .in("id", editingGroup.ids);
+      const newStartDate = format(editDateRange.from, "yyyy-MM-dd");
+      const newEndDate = format(editDateRange.to || editDateRange.from, "yyyy-MM-dd");
+      const reasonChanged = (editReason.trim() || null) !== editingGroup.reason;
+      const datesChanged = newStartDate !== editingGroup.startDate || newEndDate !== editingGroup.endDate;
 
-      if (error) throw error;
+      if (!datesChanged && !reasonChanged) {
+        toast.info("No changes to save");
+        setEditDialogOpen(false);
+        return;
+      }
 
-      toast.success("Reason updated successfully");
+      if (datesChanged) {
+        // Delete old records and insert new ones
+        const { error: deleteError } = await supabase
+          .from("blocked_dates")
+          .delete()
+          .in("id", editingGroup.ids);
+
+        if (deleteError) throw deleteError;
+
+        // Generate new date records
+        const datesInRange = eachDayOfInterval({
+          start: editDateRange.from,
+          end: editDateRange.to || editDateRange.from,
+        });
+
+        const insertRecords = datesInRange.map(date => ({
+          blocked_date: format(date, "yyyy-MM-dd"),
+          unit_id: editingGroup.unit_id,
+          reason: editReason.trim() || null,
+        }));
+
+        const { error: insertError } = await supabase
+          .from("blocked_dates")
+          .insert(insertRecords);
+
+        if (insertError) {
+          if (insertError.code === "23505") {
+            toast.error("Some dates are already blocked for this room");
+          } else {
+            throw insertError;
+          }
+          return;
+        }
+
+        toast.success("Blocked dates updated successfully");
+      } else {
+        // Only reason changed, just update
+        const { error } = await supabase
+          .from("blocked_dates")
+          .update({ reason: editReason.trim() || null })
+          .in("id", editingGroup.ids);
+
+        if (error) throw error;
+        toast.success("Reason updated successfully");
+      }
+
       setEditDialogOpen(false);
       setEditingGroup(null);
       setEditReason("");
+      setEditDateRange(undefined);
       fetchBlockedDates();
     } catch (error: any) {
-      console.error("Error updating reason:", error);
-      toast.error("Failed to update reason");
+      console.error("Error updating blocked dates:", error);
+      toast.error("Failed to update blocked dates");
+    } finally {
+      setEditLoading(false);
     }
   };
 
@@ -755,22 +814,59 @@ export const BlockedDatesManager = () => {
               </DialogDescription>
             </DialogHeader>
             <div className="space-y-4">
+              {/* Date Range Picker */}
               <div className="space-y-2">
-                <Label htmlFor="edit-reason">Reason</Label>
+                <Label>Date Range</Label>
+                <Popover>
+                  <PopoverTrigger asChild>
+                    <Button
+                      variant="outline"
+                      className="w-full justify-start text-left font-normal"
+                    >
+                      <CalendarIcon className="h-4 w-4 mr-2 text-muted-foreground" />
+                      {editDateRange?.from ? (
+                        editDateRange.to && editDateRange.to.getTime() !== editDateRange.from.getTime() ? (
+                          <>
+                            {format(editDateRange.from, "MMM d, yyyy")} - {format(editDateRange.to, "MMM d, yyyy")}
+                          </>
+                        ) : (
+                          format(editDateRange.from, "MMM d, yyyy")
+                        )
+                      ) : (
+                        <span className="text-muted-foreground">Select date range</span>
+                      )}
+                    </Button>
+                  </PopoverTrigger>
+                  <PopoverContent className="w-auto p-0 bg-background z-50" align="start">
+                    <Calendar
+                      mode="range"
+                      selected={editDateRange}
+                      onSelect={setEditDateRange}
+                      initialFocus
+                      numberOfMonths={2}
+                      className="pointer-events-auto"
+                    />
+                  </PopoverContent>
+                </Popover>
+              </div>
+
+              {/* Reason */}
+              <div className="space-y-2">
+                <Label htmlFor="edit-reason">Reason (Optional)</Label>
                 <Input
                   id="edit-reason"
                   placeholder="e.g., Maintenance, Private event"
                   value={editReason}
                   onChange={(e) => setEditReason(e.target.value)}
-                  autoFocus
                 />
               </div>
+
               <div className="flex justify-end gap-2">
                 <Button variant="outline" onClick={() => setEditDialogOpen(false)}>
                   Cancel
                 </Button>
-                <Button onClick={handleUpdateReason}>
-                  Save Reason
+                <Button onClick={handleUpdateBlockedDates} disabled={!editDateRange?.from || editLoading}>
+                  {editLoading ? "Saving..." : "Save Changes"}
                 </Button>
               </div>
             </div>
