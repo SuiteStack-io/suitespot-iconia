@@ -17,6 +17,7 @@ import type { DateRange } from "react-day-picker";
 interface Unit {
   id: string;
   name: string;
+  unit_number: string | null;
 }
 
 interface BlockedDate {
@@ -27,6 +28,7 @@ interface BlockedDate {
   unit_id: string | null;
   units?: {
     name: string;
+    unit_number: string | null;
   } | null;
 }
 
@@ -48,9 +50,9 @@ export const BlockedDatesManager = () => {
     try {
       const { data, error } = await supabase
         .from("units")
-        .select("id, name")
+        .select("id, name, unit_number")
         .eq("status", "available")
-        .order("name", { ascending: true });
+        .order("unit_number", { ascending: true });
 
       if (error) throw error;
       setUnits(data || []);
@@ -67,7 +69,8 @@ export const BlockedDatesManager = () => {
         .select(`
           *,
           units (
-            name
+            name,
+            unit_number
           )
         `)
         .order("blocked_date", { ascending: true });
@@ -193,7 +196,7 @@ export const BlockedDatesManager = () => {
                       <SelectItem value="all">All Rooms</SelectItem>
                       {units.map((unit) => (
                         <SelectItem key={unit.id} value={unit.id}>
-                          {unit.name}
+                          #{unit.unit_number} - {unit.name}
                         </SelectItem>
                       ))}
                     </SelectContent>
@@ -320,7 +323,7 @@ export const BlockedDatesManager = () => {
                   </div>
                   <div className="text-sm text-muted-foreground">
                     {blockedDate.unit_id ? (
-                      <span>Room: {blockedDate.units?.name || "Unknown"}</span>
+                      <span>#{blockedDate.units?.unit_number} - {blockedDate.units?.name || "Unknown"}</span>
                     ) : (
                       <span>All Rooms</span>
                     )}
