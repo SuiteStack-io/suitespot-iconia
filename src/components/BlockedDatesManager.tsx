@@ -11,7 +11,7 @@ import { Checkbox } from "@/components/ui/checkbox";
 import { supabase } from "@/integrations/supabase/client";
 import { format, parseISO, eachDayOfInterval, differenceInDays, addDays, isAfter, isBefore, startOfDay, endOfMonth, startOfMonth } from "date-fns";
 import { toast } from "sonner";
-import { CalendarX, Plus, Trash2, CalendarIcon, Filter, X, ChevronDown, ChevronRight } from "lucide-react";
+import { CalendarX, Plus, Trash2, CalendarIcon, Filter, X, ChevronDown, ChevronRight, Pencil } from "lucide-react";
 import { cn } from "@/lib/utils";
 import type { DateRange } from "react-day-picker";
 
@@ -53,6 +53,11 @@ export const BlockedDatesManager = () => {
   const [reason, setReason] = useState("");
   const [loading, setLoading] = useState(false);
   const [dialogOpen, setDialogOpen] = useState(false);
+  
+  // Edit dialog state
+  const [editDialogOpen, setEditDialogOpen] = useState(false);
+  const [editingGroup, setEditingGroup] = useState<GroupedBlockedDates | null>(null);
+  const [editReason, setEditReason] = useState("");
   
   // Filter state
   const [filterUnitId, setFilterUnitId] = useState<string>("all");
@@ -351,6 +356,34 @@ export const BlockedDatesManager = () => {
     });
   };
 
+  const handleOpenEditDialog = (group: GroupedBlockedDates) => {
+    setEditingGroup(group);
+    setEditReason(group.reason || "");
+    setEditDialogOpen(true);
+  };
+
+  const handleUpdateReason = async () => {
+    if (!editingGroup) return;
+
+    try {
+      const { error } = await supabase
+        .from("blocked_dates")
+        .update({ reason: editReason.trim() || null })
+        .in("id", editingGroup.ids);
+
+      if (error) throw error;
+
+      toast.success("Reason updated successfully");
+      setEditDialogOpen(false);
+      setEditingGroup(null);
+      setEditReason("");
+      fetchBlockedDates();
+    } catch (error: any) {
+      console.error("Error updating reason:", error);
+      toast.error("Failed to update reason");
+    }
+  };
+
   const formatDateRange = (start: string, end: string) => {
     const startDate = parseISO(start);
     const endDate = parseISO(end);
@@ -611,7 +644,17 @@ export const BlockedDatesManager = () => {
                 key={group.key}
                 className="border rounded-lg bg-card overflow-hidden"
               >
-                <div className="flex items-center gap-3 p-3 hover:bg-accent/50 transition-colors">
+                <div 
+                  className="flex items-center gap-3 p-3 hover:bg-accent/50 transition-colors cursor-pointer group"
+                  onClick={(e) => {
+                    // Don't open edit dialog if clicking on checkbox, expand button, or delete button
+                    const target = e.target as HTMLElement;
+                    if (target.closest('button') || target.closest('[role="checkbox"]')) {
+                      return;
+                    }
+                    handleOpenEditDialog(group);
+                  }}
+                >
                   <Checkbox
                     checked={selectedGroups.has(group.key)}
                     onCheckedChange={() => toggleGroupSelection(group.key)}
@@ -649,11 +692,16 @@ export const BlockedDatesManager = () => {
                           ? `#${group.unitNumber} - ${group.unitName}` 
                           : "All Rooms"}
                       </span>
-                      {group.reason && (
+                      {group.reason ? (
                         <>
                           <span>•</span>
                           <span className="truncate">{group.reason}</span>
                         </>
+                      ) : (
+                        <span className="text-muted-foreground/60 italic flex items-center gap-1">
+                          <Pencil className="h-3 w-3 opacity-0 group-hover:opacity-100 transition-opacity" />
+                          <span className="opacity-0 group-hover:opacity-100 transition-opacity">Click to add reason</span>
+                        </span>
                       )}
                     </div>
                   </div>
@@ -688,6 +736,46 @@ export const BlockedDatesManager = () => {
             ))}
           </div>
         )}
+
+        {/* Edit Reason Dialog */}
+        <Dialog open={editDialogOpen} onOpenChange={setEditDialogOpen}>
+          <DialogContent className="max-w-md">
+            <DialogHeader>
+              <DialogTitle>Edit Blocked Date Reason</DialogTitle>
+              <DialogDescription>
+                {editingGroup && (
+                  <>
+                    {formatDateRange(editingGroup.startDate, editingGroup.endDate)}
+                    {" • "}
+                    {editingGroup.unit_id 
+                      ? `#${editingGroup.unitNumber} - ${editingGroup.unitName}` 
+                      : "All Rooms"}
+                  </>
+                )}
+              </DialogDescription>
+            </DialogHeader>
+            <div className="space-y-4">
+              <div className="space-y-2">
+                <Label htmlFor="edit-reason">Reason</Label>
+                <Input
+                  id="edit-reason"
+                  placeholder="e.g., Maintenance, Private event"
+                  value={editReason}
+                  onChange={(e) => setEditReason(e.target.value)}
+                  autoFocus
+                />
+              </div>
+              <div className="flex justify-end gap-2">
+                <Button variant="outline" onClick={() => setEditDialogOpen(false)}>
+                  Cancel
+                </Button>
+                <Button onClick={handleUpdateReason}>
+                  Save Reason
+                </Button>
+              </div>
+            </div>
+          </DialogContent>
+        </Dialog>
       </CardContent>
     </Card>
   );
