@@ -11,6 +11,7 @@ import { useToast } from "@/hooks/use-toast";
 import jsPDF from 'jspdf';
 import autoTable from 'jspdf-autotable';
 import * as XLSX from 'xlsx';
+import { ReservationQuickActions } from "./ReservationQuickActions";
 
 interface Unit {
   id: string;
@@ -27,6 +28,7 @@ interface Reservation {
   booking_reference: string;
   guest_names: string[];
   status: string;
+  source?: string;
 }
 
 interface BlockedDate {
@@ -59,6 +61,9 @@ export const AvailabilityCalendar = () => {
   });
   const [conflicts, setConflicts] = useState<Set<string>>(new Set());
   const [exporting, setExporting] = useState(false);
+  const [quickActionsOpen, setQuickActionsOpen] = useState(false);
+  const [selectedReservation, setSelectedReservation] = useState<Reservation | null>(null);
+  const [selectedUnit, setSelectedUnit] = useState<Unit | null>(null);
   const navigate = useNavigate();
   const { toast } = useToast();
 
@@ -256,7 +261,13 @@ export const AvailabilityCalendar = () => {
     if (availability.isBlocked || availability.reservations.length === 0) {
       return;
     }
-    navigate(`/reservation/${availability.reservations[0].id}`);
+    setSelectedReservation(availability.reservations[0]);
+    setSelectedUnit(unit);
+    setQuickActionsOpen(true);
+  };
+
+  const handleMoveComplete = () => {
+    fetchData();
   };
 
   const exportToPDF = () => {
@@ -672,6 +683,14 @@ export const AvailabilityCalendar = () => {
           </div>
         )}
       </CardContent>
+
+      <ReservationQuickActions
+        open={quickActionsOpen}
+        onOpenChange={setQuickActionsOpen}
+        reservation={selectedReservation}
+        currentUnit={selectedUnit}
+        onMoveComplete={handleMoveComplete}
+      />
     </Card>
   );
 };
