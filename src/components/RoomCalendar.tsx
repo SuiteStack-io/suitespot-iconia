@@ -9,12 +9,14 @@ import { Badge } from '@/components/ui/badge';
 import { Tabs, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { useNavigate } from 'react-router-dom';
 import { useIsMobile } from '@/hooks/use-mobile';
+import { ReservationQuickActions } from './ReservationQuickActions';
 
 interface Unit {
   id: string;
   unit_number: string;
   name: string;
   unit_type: string;
+  status?: string;
 }
 
 interface Reservation {
@@ -57,6 +59,9 @@ export const RoomCalendar = () => {
   const [sheetOpen, setSheetOpen] = useState(false);
   const [iconiaCount, setIconiaCount] = useState(0);
   const [almazaBayCount, setAlmazaBayCount] = useState(0);
+  const [quickActionsOpen, setQuickActionsOpen] = useState(false);
+  const [selectedReservation, setSelectedReservation] = useState<Reservation | null>(null);
+  const [selectedUnit, setSelectedUnit] = useState<Unit | null>(null);
 
   useEffect(() => {
     fetchUnitCounts();
@@ -221,6 +226,17 @@ export const RoomCalendar = () => {
       setSelectedDay(dayData);
       setSheetOpen(true);
     }
+  };
+
+  const handleReservationClick = (reservation: Reservation, unit: Unit) => {
+    setSelectedReservation(reservation);
+    setSelectedUnit(unit);
+    setQuickActionsOpen(true);
+  };
+
+  const handleMoveComplete = () => {
+    fetchReservations();
+    setSheetOpen(false);
   };
 
   const getSourceColor = (reservation: Reservation) => {
@@ -579,7 +595,7 @@ export const RoomCalendar = () => {
                         <div
                           key={reservation.id}
                           className="bg-muted/50 rounded p-2 space-y-1 cursor-pointer hover:bg-muted"
-                          onClick={() => navigate(`/reservation/${reservation.id}`)}
+                          onClick={() => handleReservationClick(reservation, { ...unit, status: 'available' })}
                         >
                           <div className="flex items-center gap-2 flex-wrap">
                             <span className="font-medium text-sm">{reservation.guest_names[0]}</span>
@@ -605,6 +621,14 @@ export const RoomCalendar = () => {
           )}
         </SheetContent>
       </Sheet>
+
+      <ReservationQuickActions
+        open={quickActionsOpen}
+        onOpenChange={setQuickActionsOpen}
+        reservation={selectedReservation}
+        currentUnit={selectedUnit}
+        onMoveComplete={handleMoveComplete}
+      />
     </Card>
   );
 };
