@@ -59,6 +59,7 @@ export const BlockedDatesManager = () => {
   const [editingGroup, setEditingGroup] = useState<GroupedBlockedDates | null>(null);
   const [editReason, setEditReason] = useState("");
   const [editDateRange, setEditDateRange] = useState<DateRange | undefined>();
+  const [editUnitId, setEditUnitId] = useState<string | null>(null);
   const [editLoading, setEditLoading] = useState(false);
   
   // Filter state
@@ -365,6 +366,7 @@ export const BlockedDatesManager = () => {
       from: parseISO(group.startDate),
       to: parseISO(group.endDate),
     });
+    setEditUnitId(group.unit_id);
     setEditDialogOpen(true);
   };
 
@@ -377,14 +379,15 @@ export const BlockedDatesManager = () => {
       const newEndDate = format(editDateRange.to || editDateRange.from, "yyyy-MM-dd");
       const reasonChanged = (editReason.trim() || null) !== editingGroup.reason;
       const datesChanged = newStartDate !== editingGroup.startDate || newEndDate !== editingGroup.endDate;
+      const unitChanged = editUnitId !== editingGroup.unit_id;
 
-      if (!datesChanged && !reasonChanged) {
+      if (!datesChanged && !reasonChanged && !unitChanged) {
         toast.info("No changes to save");
         setEditDialogOpen(false);
         return;
       }
 
-      if (datesChanged) {
+      if (datesChanged || unitChanged) {
         // Delete old records and insert new ones
         const { error: deleteError } = await supabase
           .from("blocked_dates")
@@ -401,7 +404,7 @@ export const BlockedDatesManager = () => {
 
         const insertRecords = datesInRange.map(date => ({
           blocked_date: format(date, "yyyy-MM-dd"),
-          unit_id: editingGroup.unit_id,
+          unit_id: editUnitId,
           reason: editReason.trim() || null,
         }));
 
@@ -434,6 +437,7 @@ export const BlockedDatesManager = () => {
       setEditingGroup(null);
       setEditReason("");
       setEditDateRange(undefined);
+      setEditUnitId(null);
       fetchBlockedDates();
     } catch (error: any) {
       console.error("Error updating blocked dates:", error);
@@ -814,6 +818,27 @@ export const BlockedDatesManager = () => {
               </DialogDescription>
             </DialogHeader>
             <div className="space-y-4">
+              {/* Room/Unit Selector */}
+              <div className="space-y-2">
+                <Label>Room/Unit</Label>
+                <Select
+                  value={editUnitId || "all"}
+                  onValueChange={(value) => setEditUnitId(value === "all" ? null : value)}
+                >
+                  <SelectTrigger className="w-full">
+                    <SelectValue placeholder="Select room" />
+                  </SelectTrigger>
+                  <SelectContent className="z-[60]">
+                    <SelectItem value="all">All Rooms</SelectItem>
+                    {units.map((unit) => (
+                      <SelectItem key={unit.id} value={unit.id}>
+                        #{unit.unit_number} - {unit.name}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
+
               {/* Date Range Picker */}
               <div className="space-y-2">
                 <Label>Date Range</Label>
