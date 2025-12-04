@@ -6,14 +6,6 @@ import { Upload, Trash2, GripVertical } from 'lucide-react';
 import { Progress } from '@/components/ui/progress';
 import { Card } from '@/components/ui/card';
 import {
-  Table,
-  TableBody,
-  TableCell,
-  TableHead,
-  TableHeader,
-  TableRow,
-} from '@/components/ui/table';
-import {
   Dialog,
   DialogContent,
   DialogHeader,
@@ -343,63 +335,54 @@ export function SlideshowManager({ tableName, bucketName, title }: SlideshowMana
         )}
       </Card>
 
-      <Card>
-        <Table>
-          <TableHeader>
-            <TableRow>
-              <TableHead className="w-12"></TableHead>
-              <TableHead>Preview</TableHead>
-              <TableHead>Image URL</TableHead>
-              <TableHead>Order</TableHead>
-              <TableHead className="w-24">Actions</TableHead>
-            </TableRow>
-          </TableHeader>
-          <TableBody>
-            {images.length === 0 ? (
-              <TableRow>
-                <TableCell colSpan={5} className="text-center py-8 text-muted-foreground">
-                  No images uploaded yet. Upload your first image to get started.
-                </TableCell>
-              </TableRow>
-            ) : (
-              images.map((image, index) => (
-                <TableRow
-                  key={image.id}
-                  draggable
-                  onDragStart={() => handleDragStart(index)}
-                  onDragOver={(e) => handleDragOver(e, index)}
-                  onDragEnd={handleDragEnd}
-                  className="cursor-move"
-                >
-                  <TableCell>
-                    <GripVertical className="h-5 w-5 text-muted-foreground" />
-                  </TableCell>
-                  <TableCell>
-                    <img
-                      src={image.image_url}
-                      alt={`Slide ${index + 1}`}
-                      className="w-20 h-12 object-cover rounded cursor-pointer hover:opacity-80 transition-opacity"
-                      onClick={() => setSelectedImage(image.image_url)}
-                    />
-                  </TableCell>
-                  <TableCell className="max-w-md truncate">
-                    {image.image_url}
-                  </TableCell>
-                  <TableCell>{index + 1}</TableCell>
-                  <TableCell>
-                    <Button
-                      variant="destructive"
-                      size="icon"
-                      onClick={() => handleDelete(image.id, image.image_url)}
-                    >
-                      <Trash2 className="h-4 w-4" />
-                    </Button>
-                  </TableCell>
-                </TableRow>
-              ))
-            )}
-          </TableBody>
-        </Table>
+      {/* Clean minimal image list */}
+      <Card className="overflow-hidden">
+        <div className="px-4 py-3 border-b bg-muted/30">
+          <h3 className="text-sm font-medium text-muted-foreground">Preview</h3>
+        </div>
+        
+        <div className="divide-y">
+          {images.length === 0 ? (
+            <div className="px-4 py-12 text-center text-muted-foreground">
+              No images uploaded yet. Upload your first image to get started.
+            </div>
+          ) : (
+            images.map((image, index) => (
+              <div
+                key={image.id}
+                draggable
+                onDragStart={() => handleDragStart(index)}
+                onDragOver={(e) => handleDragOver(e, index)}
+                onDragEnd={handleDragEnd}
+                className={`flex items-center gap-4 px-4 py-3 cursor-move hover:bg-muted/30 transition-colors group ${
+                  draggedIndex === index ? 'bg-muted/50' : ''
+                }`}
+              >
+                <GripVertical className="h-5 w-5 text-muted-foreground/50 flex-shrink-0" />
+                
+                <div className="relative flex-1">
+                  <img
+                    src={image.image_url}
+                    alt={`Slide ${index + 1}`}
+                    className="w-full h-24 sm:h-32 object-cover rounded-lg cursor-pointer hover:opacity-90 transition-opacity"
+                    onClick={() => setSelectedImage(image.image_url)}
+                  />
+                  
+                  {/* Delete button overlay on hover */}
+                  <button
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      handleDelete(image.id, image.image_url);
+                    }}
+                    className="absolute top-2 right-2 p-2 bg-destructive/90 hover:bg-destructive text-destructive-foreground rounded-lg opacity-0 group-hover:opacity-100 transition-opacity"
+                  >
+                    <Trash2 className="h-4 w-4" />
+                  </button>
+                </div>
+              </div>
+            ))
+          )}
+        </div>
       </Card>
 
       <Dialog open={!!selectedImage} onOpenChange={() => setSelectedImage(null)}>
