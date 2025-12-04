@@ -870,59 +870,60 @@ const Rooms = () => {
             </p>
           </div>
         )}
-        <div className="rounded-md border overflow-hidden">
-          <Table className="min-w-[1800px]">
-            <TableHeader className="sticky top-[73px] z-20 bg-background shadow-[0_1px_3px_rgba(0,0,0,0.1)]">
-              <TableRow>
-                <TableHead className="min-w-[50px] sticky left-0 z-10 bg-background">Nr</TableHead>
-                <TableHead className="min-w-[200px] sticky left-[50px] z-10 bg-background">Suite Name</TableHead>
-                <TableHead className="min-w-[100px] sticky left-[250px] z-10 bg-background border-r cursor-pointer hover:bg-muted/50" onClick={() => handleSort('unit_number')}>
-                  <div className="flex items-center gap-1">
-                    Room #
-                    {sortField === 'unit_number' && (
-                      <ChevronDown className={`h-4 w-4 transition-transform ${sortDirection === 'desc' ? 'rotate-180' : ''}`} />
-                    )}
-                  </div>
-                </TableHead>
-                <TableHead className="min-w-[140px] cursor-pointer hover:bg-muted/50" onClick={() => handleSort('unit_type')}>
-                  <div className="flex items-center gap-1">
-                    Type
-                    {sortField === 'unit_type' && (
-                      <ChevronDown className={`h-4 w-4 transition-transform ${sortDirection === 'desc' ? 'rotate-180' : ''}`} />
-                    )}
-                  </div>
-                </TableHead>
-                <TableHead className="min-w-[140px] cursor-pointer hover:bg-muted/50" onClick={() => handleSort('view')}>
-                  <div className="flex items-center gap-1">
-                    Room View
-                    {sortField === 'view' && (
-                      <ChevronDown className={`h-4 w-4 transition-transform ${sortDirection === 'desc' ? 'rotate-180' : ''}`} />
-                    )}
-                  </div>
-                </TableHead>
-                <TableHead className="min-w-[160px] cursor-pointer hover:bg-muted/50" onClick={() => handleSort('booking_com_name')}>
-                  <div className="flex items-center gap-1">
-                    Booking.com Name
-                    {sortField === 'booking_com_name' && (
-                      <ChevronDown className={`h-4 w-4 transition-transform ${sortDirection === 'desc' ? 'rotate-180' : ''}`} />
-                    )}
-                  </div>
-                </TableHead>
-                <TableHead className="min-w-[120px]">Size</TableHead>
-                <TableHead className="min-w-[80px]">Beds</TableHead>
-                <TableHead className="min-w-[80px]">Baths</TableHead>
-                <TableHead className="min-w-[100px]">Max Guests</TableHead>
-                <TableHead className="min-w-[100px]">Sofa Bed</TableHead>
-                <TableHead className="min-w-[110px]">Price/Night</TableHead>
-                <TableHead className="min-w-[80px]">Tax %</TableHead>
-                <TableHead className="min-w-[160px]">Photos</TableHead>
-                <TableHead className="min-w-[120px]">Status</TableHead>
-                <TableHead className="min-w-[140px]">Booking.com Room ID</TableHead>
-                <TableHead className="min-w-[130px]">Next Reservation</TableHead>
-                {isAdmin && !isBulkEdit && <TableHead className="min-w-[100px]">Actions</TableHead>}
-              </TableRow>
-            </TableHeader>
-            <TableBody>
+        <div className="rounded-md border" style={{ height: 'calc(100vh - 220px)' }}>
+          <div className="overflow-auto h-full">
+            <table className="min-w-[1800px] w-full caption-bottom text-sm">
+              <thead className="sticky top-0 z-20 bg-background shadow-[0_1px_3px_rgba(0,0,0,0.1)] [&_tr]:border-b">
+                <tr className="border-b transition-colors hover:bg-muted/50">
+                  <th className="h-10 px-2 text-left align-middle font-medium text-muted-foreground min-w-[50px] sticky left-0 z-10 bg-background">Nr</th>
+                  <th className="h-10 px-2 text-left align-middle font-medium text-muted-foreground min-w-[200px] sticky left-[50px] z-10 bg-background">Suite Name</th>
+                  <th className="h-10 px-2 text-left align-middle font-medium text-muted-foreground min-w-[100px] sticky left-[250px] z-10 bg-background border-r cursor-pointer hover:bg-muted/50" onClick={() => handleSort('unit_number')}>
+                    <div className="flex items-center gap-1">
+                      Room #
+                      {sortField === 'unit_number' && (
+                        <ChevronDown className={`h-4 w-4 transition-transform ${sortDirection === 'desc' ? 'rotate-180' : ''}`} />
+                      )}
+                    </div>
+                  </th>
+                  <th className="h-10 px-2 text-left align-middle font-medium text-muted-foreground min-w-[140px] cursor-pointer hover:bg-muted/50 bg-background" onClick={() => handleSort('unit_type')}>
+                    <div className="flex items-center gap-1">
+                      Type
+                      {sortField === 'unit_type' && (
+                        <ChevronDown className={`h-4 w-4 transition-transform ${sortDirection === 'desc' ? 'rotate-180' : ''}`} />
+                      )}
+                    </div>
+                  </th>
+                  <th className="h-10 px-2 text-left align-middle font-medium text-muted-foreground min-w-[140px] cursor-pointer hover:bg-muted/50 bg-background" onClick={() => handleSort('view')}>
+                    <div className="flex items-center gap-1">
+                      Room View
+                      {sortField === 'view' && (
+                        <ChevronDown className={`h-4 w-4 transition-transform ${sortDirection === 'desc' ? 'rotate-180' : ''}`} />
+                      )}
+                    </div>
+                  </th>
+                  <th className="h-10 px-2 text-left align-middle font-medium text-muted-foreground min-w-[160px] cursor-pointer hover:bg-muted/50 bg-background" onClick={() => handleSort('booking_com_name')}>
+                    <div className="flex items-center gap-1">
+                      Booking.com Name
+                      {sortField === 'booking_com_name' && (
+                        <ChevronDown className={`h-4 w-4 transition-transform ${sortDirection === 'desc' ? 'rotate-180' : ''}`} />
+                      )}
+                    </div>
+                  </th>
+                  <th className="h-10 px-2 text-left align-middle font-medium text-muted-foreground min-w-[120px] bg-background">Size</th>
+                  <th className="h-10 px-2 text-left align-middle font-medium text-muted-foreground min-w-[80px] bg-background">Beds</th>
+                  <th className="h-10 px-2 text-left align-middle font-medium text-muted-foreground min-w-[80px] bg-background">Baths</th>
+                  <th className="h-10 px-2 text-left align-middle font-medium text-muted-foreground min-w-[100px] bg-background">Max Guests</th>
+                  <th className="h-10 px-2 text-left align-middle font-medium text-muted-foreground min-w-[100px] bg-background">Sofa Bed</th>
+                  <th className="h-10 px-2 text-left align-middle font-medium text-muted-foreground min-w-[110px] bg-background">Price/Night</th>
+                  <th className="h-10 px-2 text-left align-middle font-medium text-muted-foreground min-w-[80px] bg-background">Tax %</th>
+                  <th className="h-10 px-2 text-left align-middle font-medium text-muted-foreground min-w-[160px] bg-background">Photos</th>
+                  <th className="h-10 px-2 text-left align-middle font-medium text-muted-foreground min-w-[120px] bg-background">Status</th>
+                  <th className="h-10 px-2 text-left align-middle font-medium text-muted-foreground min-w-[140px] bg-background">Booking.com Room ID</th>
+                  <th className="h-10 px-2 text-left align-middle font-medium text-muted-foreground min-w-[130px] bg-background">Next Reservation</th>
+                  {isAdmin && !isBulkEdit && <th className="h-10 px-2 text-left align-middle font-medium text-muted-foreground min-w-[100px] bg-background">Actions</th>}
+                </tr>
+              </thead>
+              <TableBody>
               {isAdding && (
                 <TableRow className="bg-muted/50">
                   <TableCell className="text-muted-foreground sticky left-0 z-[5] bg-muted/50">-</TableCell>
@@ -1487,7 +1488,8 @@ const Rooms = () => {
                 );
               })}
             </TableBody>
-          </Table>
+          </table>
+          </div>
         </div>
       </main>
 
