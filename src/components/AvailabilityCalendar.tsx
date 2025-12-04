@@ -2,8 +2,8 @@ import { useState, useEffect } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
-import { ChevronLeft, ChevronRight, AlertCircle, CheckCircle, Calendar as CalendarIcon, Download, FileSpreadsheet, FileText, GripVertical, ArrowUpDown, Hash, Building2 } from "lucide-react";
-import { format, addDays, startOfWeek, isSameDay, startOfMonth, endOfMonth, getDaysInMonth, eachDayOfInterval, startOfDay } from "date-fns";
+import { ChevronLeft, ChevronRight, AlertCircle, CheckCircle, Calendar as CalendarIcon, Download, FileSpreadsheet, FileText, GripVertical, ArrowUpDown, Hash, Building2, Lock } from "lucide-react";
+import { format, addDays, startOfWeek, isSameDay, startOfMonth, endOfMonth, getDaysInMonth, eachDayOfInterval, startOfDay, differenceInDays, parseISO } from "date-fns";
 import { Badge } from "@/components/ui/badge";
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
@@ -15,6 +15,8 @@ import * as XLSX from 'xlsx';
 import { ReservationQuickActions } from "./ReservationQuickActions";
 import { DndContext, DragEndEvent, DragOverlay, DragStartEvent, useDraggable, useDroppable, PointerSensor, useSensor, useSensors } from "@dnd-kit/core";
 import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
+import { Label } from "@/components/ui/label";
 
 interface Unit {
   id: string;
@@ -153,6 +155,15 @@ export const AvailabilityCalendar = () => {
     const saved = localStorage.getItem('calendarSortByRoomType');
     return saved === 'true';
   });
+  const [blockedDateDialogOpen, setBlockedDateDialogOpen] = useState(false);
+  const [selectedBlockedDateInfo, setSelectedBlockedDateInfo] = useState<{
+    unitName: string;
+    unitNumber: string;
+    startDate: string;
+    endDate: string;
+    reason: string | null;
+    daysCount: number;
+  } | null>(null);
   const navigate = useNavigate();
   const { toast, dismiss } = useToast();
 
@@ -353,12 +364,88 @@ export const AvailabilityCalendar = () => {
       return "bg-red-600 border-red-700 hover:bg-red-700 animate-pulse cursor-pointer";
     }
     if (availability.isBlocked) {
-      return "bg-muted text-muted-foreground border border-border cursor-default";
+      return "bg-muted text-muted-foreground border border-border cursor-pointer hover:bg-muted/80";
     }
     if (!availability.isAvailable) {
       return "bg-blue-100 dark:bg-blue-900/30 border-blue-300 dark:border-blue-700 hover:bg-blue-200 dark:hover:bg-blue-800/40 cursor-pointer";
     }
     return "bg-green-50 dark:bg-green-950/30 border-green-200 dark:border-green-800 hover:bg-green-100 dark:hover:bg-green-900/40";
+  };
+
+  // Get the full date range for a blocked period
+  const getBlockedDateRange = (date: Date, unitId: string) => {
+    // Find all blocked dates for this unit with the same reason
+    const clickedBlockedDate = blockedDates.find(b => 
+      isSameDay(parseISO(b.blocked_date), date) && 
+      (b.unit_id === null || b.unit_id === unitId)
+    );
+    
+    if (!clickedBlockedDate) return null;
+    
+    const reason = clickedBlockedDate.reason;
+    const targetUnitId = clickedBlockedDate.unit_id;
+    
+    // Get all blocked dates for this unit with the same reason
+    const relevantBlocked = blockedDates
+      .filter(b => 
+        (b.unit_id === targetUnitId) && 
+        b.reason === reason
+      )
+      .sort((a, b) => a.blocked_date.localeCompare(b.blocked_date));
+    
+    if (relevantBlocked.length === 0) return null;
+    
+    // Find the consecutive range containing the clicked date
+    const clickedDateStr = format(date, 'yyyy-MM-dd');
+    let startIdx = relevantBlocked.findIndex(b => b.blocked_date === clickedDateStr);
+    let endIdx = startIdx;
+    
+    if (startIdx === -1) return null;
+    
+    // Expand backwards to find start of range
+    while (startIdx > 0) {
+      const prevDate = parseISO(relevantBlocked[startIdx - 1].blocked_date);
+      const currentDate = parseISO(relevantBlocked[startIdx].blocked_date);
+      const diff = differenceInDays(currentDate, prevDate);
+      if (diff === 1) {
+        startIdx--;
+      } else {
+        break;
+      }
+    }
+    
+    // Expand forwards to find end of range
+    while (endIdx < relevantBlocked.length - 1) {
+      const currentDate = parseISO(relevantBlocked[endIdx].blocked_date);
+      const nextDate = parseISO(relevantBlocked[endIdx + 1].blocked_date);
+      const diff = differenceInDays(nextDate, currentDate);
+      if (diff === 1) {
+        endIdx++;
+      } else {
+        break;
+      }
+    }
+    
+    const startDate = relevantBlocked[startIdx].blocked_date;
+    const endDate = relevantBlocked[endIdx].blocked_date;
+    const daysCount = endIdx - startIdx + 1;
+    
+    return { startDate, endDate, reason, daysCount };
+  };
+
+  const handleBlockedCellClick = (date: Date, unit: Unit) => {
+    const blockInfo = getBlockedDateRange(date, unit.id);
+    if (!blockInfo) return;
+    
+    setSelectedBlockedDateInfo({
+      unitName: unit.booking_com_name || unit.name,
+      unitNumber: unit.unit_number || '',
+      startDate: blockInfo.startDate,
+      endDate: blockInfo.endDate,
+      reason: blockInfo.reason,
+      daysCount: blockInfo.daysCount,
+    });
+    setBlockedDateDialogOpen(true);
   };
 
   const handlePrevious = () => {
@@ -390,8 +477,12 @@ export const AvailabilityCalendar = () => {
     setViewMode(viewMode === 'weekly' ? 'monthly' : 'weekly');
   };
 
-  const handleCellClick = (availability: DayAvailability, unit: Unit) => {
-    if (availability.isBlocked || availability.reservations.length === 0) {
+  const handleCellClick = (availability: DayAvailability, unit: Unit, date: Date) => {
+    if (availability.isBlocked) {
+      handleBlockedCellClick(date, unit);
+      return;
+    }
+    if (availability.reservations.length === 0) {
       return;
     }
     setSelectedReservation(availability.reservations[0]);
@@ -955,12 +1046,12 @@ export const AvailabilityCalendar = () => {
                                   availability={availability}
                                   unit={unit}
                                   getCellClassName={getCellClassName}
-                                  onClick={() => handleCellClick(availability, unit)}
+                                  onClick={() => handleCellClick(availability, unit, day)}
                                 />
                               ) : (
                                 <div
                                   className={`h-14 border rounded transition-colors ${getCellClassName(availability)}`}
-                                  onClick={() => handleCellClick(availability, unit)}
+                                  onClick={() => handleCellClick(availability, unit, day)}
                                 >
                                   {availability.hasConflict && (
                                     <div className="flex items-center justify-center h-full">
@@ -1064,6 +1155,43 @@ export const AvailabilityCalendar = () => {
         currentUnit={selectedUnit}
         onMoveComplete={handleMoveComplete}
       />
+
+      {/* Blocked Date Info Dialog */}
+      <Dialog open={blockedDateDialogOpen} onOpenChange={setBlockedDateDialogOpen}>
+        <DialogContent className="sm:max-w-md">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2">
+              <Lock className="h-5 w-5 text-muted-foreground" />
+              Blocked Period
+            </DialogTitle>
+          </DialogHeader>
+          {selectedBlockedDateInfo && (
+            <div className="space-y-4 pt-2">
+              <div>
+                <Label className="text-muted-foreground text-xs">Room</Label>
+                <p className="font-medium text-lg">
+                  {selectedBlockedDateInfo.unitName} #{selectedBlockedDateInfo.unitNumber}
+                </p>
+              </div>
+              <div>
+                <Label className="text-muted-foreground text-xs">Date Range</Label>
+                <p className="font-medium">
+                  {format(parseISO(selectedBlockedDateInfo.startDate), 'MMM d, yyyy')} - {format(parseISO(selectedBlockedDateInfo.endDate), 'MMM d, yyyy')}
+                  <span className="text-muted-foreground ml-2">
+                    ({selectedBlockedDateInfo.daysCount} {selectedBlockedDateInfo.daysCount === 1 ? 'day' : 'days'})
+                  </span>
+                </p>
+              </div>
+              <div>
+                <Label className="text-muted-foreground text-xs">Reason</Label>
+                <p className="font-medium">
+                  {selectedBlockedDateInfo.reason || 'No reason provided'}
+                </p>
+              </div>
+            </div>
+          )}
+        </DialogContent>
+      </Dialog>
     </Card>
   );
 };
