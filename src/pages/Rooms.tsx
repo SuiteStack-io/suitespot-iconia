@@ -872,7 +872,7 @@ const Rooms = () => {
         )}
         <div className="rounded-md border overflow-x-auto">
           <Table className="min-w-[1800px]">
-            <TableHeader>
+            <TableHeader className="sticky top-[73px] z-20 bg-background">
               <TableRow>
                 <TableHead className="min-w-[50px] sticky left-0 z-10 bg-background">Nr</TableHead>
                 <TableHead className="min-w-[200px] sticky left-[50px] z-10 bg-background">Suite Name</TableHead>
