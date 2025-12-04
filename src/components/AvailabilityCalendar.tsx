@@ -17,6 +17,8 @@ import { DndContext, DragEndEvent, DragOverlay, DragStartEvent, useDraggable, us
 import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Label } from "@/components/ui/label";
+import { Calendar } from "@/components/ui/calendar";
+import { DateRange } from "react-day-picker";
 
 interface Unit {
   id: string;
@@ -164,6 +166,9 @@ export const AvailabilityCalendar = () => {
     reason: string | null;
     daysCount: number;
   } | null>(null);
+  const [exportDialogOpen, setExportDialogOpen] = useState(false);
+  const [exportType, setExportType] = useState<'pdf' | 'excel'>('pdf');
+  const [exportDateRange, setExportDateRange] = useState<DateRange | undefined>(undefined);
   const navigate = useNavigate();
   const { toast, dismiss } = useToast();
 
@@ -477,6 +482,24 @@ export const AvailabilityCalendar = () => {
     setViewMode(viewMode === 'weekly' ? 'monthly' : 'weekly');
   };
 
+  const handleExportClick = (type: 'pdf' | 'excel') => {
+    setExportType(type);
+    setExportDateRange({
+      from: displayDays[0],
+      to: displayDays[displayDays.length - 1]
+    });
+    setExportDialogOpen(true);
+  };
+
+  const handleExportConfirm = () => {
+    if (exportType === 'pdf') {
+      exportToPDF();
+    } else {
+      exportToExcel();
+    }
+    setExportDialogOpen(false);
+  };
+
   const handleCellClick = (availability: DayAvailability, unit: Unit, date: Date) => {
     if (availability.isBlocked) {
       handleBlockedCellClick(date, unit);
@@ -635,13 +658,14 @@ export const AvailabilityCalendar = () => {
   };
 
   const exportToPDF = () => {
+    if (!exportDateRange?.from || !exportDateRange?.to) return;
+    
     setExporting(true);
     try {
       const doc = new jsPDF('l', 'mm', 'a4'); // landscape orientation
       
-      const title = viewMode === 'monthly' 
-        ? `Unit Availability - ${format(currentMonth, 'MMMM yyyy')}`
-        : `Unit Availability - ${format(displayDays[0], 'MMM d')} to ${format(displayDays[displayDays.length - 1], 'MMM d, yyyy')}`;
+      const exportDays = eachDayOfInterval({ start: exportDateRange.from, end: exportDateRange.to });
+      const title = `Unit Availability - ${format(exportDateRange.from, 'MMM d')} to ${format(exportDateRange.to, 'MMM d, yyyy')}`;
       
       // Title
       doc.setFontSize(16);
@@ -656,10 +680,10 @@ export const AvailabilityCalendar = () => {
       }
 
       // Prepare table data
-      const headers = ['Unit', ...displayDays.map(day => format(day, 'MMM d'))];
+      const headers = ['Unit', ...exportDays.map(day => format(day, 'MMM d'))];
       const tableData = units.map(unit => {
         const row = [unit.name];
-        displayDays.forEach(day => {
+        exportDays.forEach(day => {
           const availability = getDayAvailability(unit, day);
           if (availability.hasConflict) {
             row.push('⚠️ CONFLICT');
@@ -732,15 +756,17 @@ export const AvailabilityCalendar = () => {
   };
 
   const exportToExcel = () => {
+    if (!exportDateRange?.from || !exportDateRange?.to) return;
+    
     setExporting(true);
     try {
+      const exportDays = eachDayOfInterval({ start: exportDateRange.from, end: exportDateRange.to });
+      
       // Prepare worksheet data
       const wsData: any[][] = [];
       
       // Title row
-      const title = viewMode === 'monthly' 
-        ? `Unit Availability - ${format(currentMonth, 'MMMM yyyy')}`
-        : `Unit Availability - ${format(displayDays[0], 'MMM d')} to ${format(displayDays[displayDays.length - 1], 'MMM d, yyyy')}`;
+      const title = `Unit Availability - ${format(exportDateRange.from, 'MMM d')} to ${format(exportDateRange.to, 'MMM d, yyyy')}`;
       wsData.push([title]);
       
       // Conflict warning
@@ -750,13 +776,13 @@ export const AvailabilityCalendar = () => {
       wsData.push([]); // Empty row
       
       // Headers
-      const headers = ['Unit', ...displayDays.map(day => format(day, 'MMM d, yyyy'))];
+      const headers = ['Unit', ...exportDays.map(day => format(day, 'MMM d, yyyy'))];
       wsData.push(headers);
       
       // Data rows
       units.forEach(unit => {
         const row: any[] = [unit.name];
-        displayDays.forEach(day => {
+        exportDays.forEach(day => {
           const availability = getDayAvailability(unit, day);
           if (availability.hasConflict) {
             const guests = availability.reservations.map(r => r.guest_names[0]).join(' & ');
@@ -782,7 +808,7 @@ export const AvailabilityCalendar = () => {
       const ws = XLSX.utils.aoa_to_sheet(wsData);
 
       // Set column widths
-      const colWidths = [{ wch: 30 }, ...displayDays.map(() => ({ wch: 25 }))];
+      const colWidths = [{ wch: 30 }, ...exportDays.map(() => ({ wch: 25 }))];
       ws['!cols'] = colWidths;
 
       // Add worksheet to workbook
@@ -925,7 +951,7 @@ export const AvailabilityCalendar = () => {
             <Button 
               variant="outline" 
               size="sm" 
-              onClick={exportToPDF}
+              onClick={() => handleExportClick('pdf')}
               disabled={exporting}
             >
               <FileText className="h-4 w-4 mr-1" />
@@ -934,7 +960,7 @@ export const AvailabilityCalendar = () => {
             <Button 
               variant="outline" 
               size="sm" 
-              onClick={exportToExcel}
+              onClick={() => handleExportClick('excel')}
               disabled={exporting}
             >
               <FileSpreadsheet className="h-4 w-4 mr-1" />
@@ -1190,6 +1216,51 @@ export const AvailabilityCalendar = () => {
               </div>
             </div>
           )}
+        </DialogContent>
+      </Dialog>
+
+      {/* Export Date Range Dialog */}
+      <Dialog open={exportDialogOpen} onOpenChange={setExportDialogOpen}>
+        <DialogContent className="sm:max-w-md">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2">
+              {exportType === 'pdf' ? <FileText className="h-5 w-5" /> : <FileSpreadsheet className="h-5 w-5" />}
+              Export {exportType === 'pdf' ? 'PDF' : 'Excel'}
+            </DialogTitle>
+          </DialogHeader>
+          
+          <div className="space-y-4">
+            <div>
+              <Label className="text-sm font-medium mb-2 block">Select Date Range</Label>
+              {exportDateRange?.from && exportDateRange?.to && (
+                <p className="text-sm text-muted-foreground mb-2">
+                  {format(exportDateRange.from, 'MMM d, yyyy')} - {format(exportDateRange.to, 'MMM d, yyyy')}
+                </p>
+              )}
+            </div>
+            
+            <div className="flex justify-center border rounded-lg p-2">
+              <Calendar
+                mode="range"
+                selected={exportDateRange}
+                onSelect={setExportDateRange}
+                numberOfMonths={2}
+                className="pointer-events-auto"
+              />
+            </div>
+            
+            <div className="flex justify-end gap-2 pt-4">
+              <Button variant="outline" onClick={() => setExportDialogOpen(false)}>
+                Cancel
+              </Button>
+              <Button 
+                onClick={handleExportConfirm}
+                disabled={!exportDateRange?.from || !exportDateRange?.to || exporting}
+              >
+                {exporting ? 'Exporting...' : 'Export'}
+              </Button>
+            </div>
+          </div>
         </DialogContent>
       </Dialog>
     </Card>
