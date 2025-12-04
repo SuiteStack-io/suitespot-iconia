@@ -2,7 +2,7 @@ import { useState, useEffect } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
-import { ChevronLeft, ChevronRight, AlertCircle, CheckCircle, Calendar as CalendarIcon, Download, FileSpreadsheet, FileText } from "lucide-react";
+import { ChevronLeft, ChevronRight, AlertCircle, CheckCircle, Calendar as CalendarIcon, Download, FileSpreadsheet, FileText, GripVertical } from "lucide-react";
 import { format, addDays, startOfWeek, isSameDay, startOfMonth, endOfMonth, getDaysInMonth, eachDayOfInterval, startOfDay } from "date-fns";
 import { Badge } from "@/components/ui/badge";
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
@@ -12,6 +12,7 @@ import jsPDF from 'jspdf';
 import autoTable from 'jspdf-autotable';
 import * as XLSX from 'xlsx';
 import { ReservationQuickActions } from "./ReservationQuickActions";
+import { DndContext, DragEndEvent, DragOverlay, DragStartEvent, useDraggable, useDroppable, PointerSensor, useSensor, useSensors } from "@dnd-kit/core";
 
 interface Unit {
   id: string;
@@ -49,6 +50,77 @@ interface DayAvailability {
 
 type ViewMode = 'weekly' | 'monthly';
 
+// Droppable Unit Row Component
+const DroppableUnitRow = ({ unit, children }: { unit: Unit; children: React.ReactNode }) => {
+  const { isOver, setNodeRef } = useDroppable({
+    id: unit.id,
+  });
+
+  return (
+    <div
+      ref={setNodeRef}
+      className={`transition-colors ${isOver ? 'bg-primary/10 ring-2 ring-primary ring-inset rounded' : ''}`}
+    >
+      {children}
+    </div>
+  );
+};
+
+// Draggable Reservation Cell Component
+const DraggableReservationCell = ({
+  reservation,
+  availability,
+  unit,
+  getCellClassName,
+  onClick,
+}: {
+  reservation: Reservation;
+  availability: DayAvailability;
+  unit: Unit;
+  getCellClassName: (availability: DayAvailability) => string;
+  onClick: () => void;
+}) => {
+  const { attributes, listeners, setNodeRef, transform, isDragging } = useDraggable({
+    id: reservation.id,
+  });
+
+  const style = transform
+    ? {
+        transform: `translate3d(${transform.x}px, ${transform.y}px, 0)`,
+        zIndex: isDragging ? 100 : undefined,
+      }
+    : undefined;
+
+  const fullName = reservation.guest_names[0] || '';
+  const nameParts = fullName.split(' ');
+  const firstName = nameParts[0];
+  const lastName = nameParts.slice(1).join(' ');
+
+  return (
+    <div
+      ref={setNodeRef}
+      style={style}
+      {...listeners}
+      {...attributes}
+      className={`h-14 border rounded transition-colors cursor-grab active:cursor-grabbing ${getCellClassName(availability)} ${
+        isDragging ? 'opacity-50 shadow-lg' : ''
+      }`}
+      onClick={onClick}
+    >
+      <div className="flex flex-col items-center justify-center h-full px-1 overflow-hidden">
+        <span className="text-[10px] text-blue-600 dark:text-blue-400 font-medium text-center leading-tight">
+          {firstName}
+        </span>
+        {lastName && (
+          <span className="text-[10px] text-blue-600 dark:text-blue-400 font-medium text-center leading-tight">
+            {lastName}
+          </span>
+        )}
+      </div>
+    </div>
+  );
+};
+
 export const AvailabilityCalendar = () => {
   const [units, setUnits] = useState<Unit[]>([]);
   const [reservations, setReservations] = useState<Reservation[]>([]);
@@ -64,8 +136,17 @@ export const AvailabilityCalendar = () => {
   const [quickActionsOpen, setQuickActionsOpen] = useState(false);
   const [selectedReservation, setSelectedReservation] = useState<Reservation | null>(null);
   const [selectedUnit, setSelectedUnit] = useState<Unit | null>(null);
+  const [activeReservation, setActiveReservation] = useState<Reservation | null>(null);
   const navigate = useNavigate();
   const { toast } = useToast();
+
+  const sensors = useSensors(
+    useSensor(PointerSensor, {
+      activationConstraint: {
+        distance: 8,
+      },
+    })
+  );
 
   const displayDays = viewMode === 'monthly' 
     ? eachDayOfInterval({ start: startOfMonth(currentMonth), end: endOfMonth(currentMonth) })
@@ -268,6 +349,70 @@ export const AvailabilityCalendar = () => {
 
   const handleMoveComplete = () => {
     fetchData();
+  };
+
+  const handleDragStart = (event: DragStartEvent) => {
+    const { active } = event;
+    const reservation = reservations.find(r => r.id === active.id);
+    if (reservation) {
+      setActiveReservation(reservation);
+    }
+  };
+
+  const handleDragEnd = async (event: DragEndEvent) => {
+    const { active, over } = event;
+    setActiveReservation(null);
+
+    if (!over || !active) return;
+
+    const reservationId = active.id as string;
+    const targetUnitId = over.id as string;
+    const reservation = reservations.find(r => r.id === reservationId);
+
+    if (!reservation || reservation.unit_id === targetUnitId) return;
+
+    // Check for conflicts in target unit
+    const hasConflict = reservations.some(r => {
+      if (r.unit_id !== targetUnitId || r.id === reservationId) return false;
+      const rCheckIn = new Date(r.check_in_date);
+      const rCheckOut = new Date(r.check_out_date);
+      const resCheckIn = new Date(reservation.check_in_date);
+      const resCheckOut = new Date(reservation.check_out_date);
+      return resCheckIn < rCheckOut && resCheckOut > rCheckIn;
+    });
+
+    if (hasConflict) {
+      toast({
+        title: "Cannot Move",
+        description: "Target room has conflicting reservations for these dates.",
+        variant: "destructive",
+      });
+      return;
+    }
+
+    try {
+      const { error } = await supabase
+        .from('reservations')
+        .update({ unit_id: targetUnitId })
+        .eq('id', reservationId);
+
+      if (error) throw error;
+
+      const targetUnit = units.find(u => u.id === targetUnitId);
+      toast({
+        title: "Reservation Moved",
+        description: `${reservation.guest_names[0]} moved to ${targetUnit?.name} #${targetUnit?.unit_number}`,
+      });
+
+      fetchData();
+    } catch (error) {
+      console.error('Error moving reservation:', error);
+      toast({
+        title: "Move Failed",
+        description: "Failed to move reservation. Please try again.",
+        variant: "destructive",
+      });
+    }
   };
 
   const exportToPDF = () => {
@@ -547,134 +692,138 @@ export const AvailabilityCalendar = () => {
 
         {/* Calendar Grid */}
         <div className="overflow-x-auto relative">
-          <TooltipProvider>
-            <div className="min-w-max">
-              {/* Header Row */}
-              <div className="grid gap-1 mb-2" style={{ gridTemplateColumns: `160px repeat(${displayDays.length}, 70px)` }}>
-                <div className="font-medium text-sm p-2 sticky left-0 bg-card z-10 border-r border-border">Unit</div>
-                {displayDays.map((day) => (
-                  <div
-                    key={day.toISOString()}
-                    className={`text-center text-xs p-2 rounded ${
-                      isSameDay(day, new Date())
-                        ? 'bg-primary text-primary-foreground font-semibold'
-                        : 'text-muted-foreground'
-                    }`}
-                  >
-                    <div>{format(day, 'EEE')}</div>
-                    <div className="font-medium">{format(day, 'd')}</div>
-                    <div className="text-[10px]">{format(day, 'MMM')}</div>
-                  </div>
+          <DndContext sensors={sensors} onDragStart={handleDragStart} onDragEnd={handleDragEnd}>
+            <TooltipProvider>
+              <div className="min-w-max">
+                {/* Header Row */}
+                <div className="grid gap-1 mb-2" style={{ gridTemplateColumns: `160px repeat(${displayDays.length}, 70px)` }}>
+                  <div className="font-medium text-sm p-2 sticky left-0 bg-card z-10 border-r border-border">Unit</div>
+                  {displayDays.map((day) => (
+                    <div
+                      key={day.toISOString()}
+                      className={`text-center text-xs p-2 rounded ${
+                        isSameDay(day, new Date())
+                          ? 'bg-primary text-primary-foreground font-semibold'
+                          : 'text-muted-foreground'
+                      }`}
+                    >
+                      <div>{format(day, 'EEE')}</div>
+                      <div className="font-medium">{format(day, 'd')}</div>
+                      <div className="text-[10px]">{format(day, 'MMM')}</div>
+                    </div>
+                  ))}
+                </div>
+
+                {/* Unit Rows */}
+                {units.map((unit) => (
+                  <DroppableUnitRow key={unit.id} unit={unit}>
+                    <div
+                      className="grid gap-1 mb-1"
+                      style={{ gridTemplateColumns: `160px repeat(${displayDays.length}, 70px)` }}
+                    >
+                      <div className="flex items-center text-sm font-medium p-2 bg-card rounded sticky left-0 z-10 border-r border-border">
+                        <div>
+                          <div>{unit.name}</div>
+                          <div className="text-xs text-muted-foreground">#{unit.unit_number}</div>
+                        </div>
+                      </div>
+                      {displayDays.map((day) => {
+                        const availability = getDayAvailability(unit, day);
+                        const blockedInfo = blockedDates.filter(b => 
+                          isSameDay(new Date(b.blocked_date), day) && 
+                          (b.unit_id === null || b.unit_id === unit.id)
+                        );
+                        const reservation = availability.reservations[0];
+                        const isDraggable = !availability.isAvailable && !availability.hasConflict && !availability.isBlocked && reservation;
+                        
+                        return (
+                          <Tooltip key={day.toISOString()}>
+                            <TooltipTrigger asChild>
+                              {isDraggable ? (
+                                <DraggableReservationCell
+                                  reservation={reservation}
+                                  availability={availability}
+                                  unit={unit}
+                                  getCellClassName={getCellClassName}
+                                  onClick={() => handleCellClick(availability, unit)}
+                                />
+                              ) : (
+                                <div
+                                  className={`h-14 border rounded transition-colors ${getCellClassName(availability)}`}
+                                  onClick={() => handleCellClick(availability, unit)}
+                                >
+                                  {availability.hasConflict && (
+                                    <div className="flex items-center justify-center h-full">
+                                      <AlertCircle className="h-4 w-4 text-white" />
+                                    </div>
+                                  )}
+                                  {availability.isBlocked && !availability.hasConflict && (
+                                    <div className="flex items-center justify-center h-full px-1 overflow-hidden">
+                                      <span className="text-[10px] font-medium text-muted-foreground">Blocked</span>
+                                    </div>
+                                  )}
+                                </div>
+                              )}
+                            </TooltipTrigger>
+                            <TooltipContent>
+                              <div className="text-sm">
+                                <div className="font-medium">{format(day, 'MMM d, yyyy')}</div>
+                                {availability.hasConflict ? (
+                                  <div className="text-red-500 font-semibold">
+                                    ⚠️ DOUBLE BOOKING CONFLICT!
+                                    <div className="mt-1">
+                                      {availability.reservations.map((r, idx) => (
+                                        <div key={idx} className="text-xs">
+                                          • {r.guest_names[0]} ({r.booking_reference})
+                                        </div>
+                                      ))}
+                                    </div>
+                                  </div>
+                                ) : availability.isBlocked ? (
+                                  <div className="text-muted-foreground">
+                                    <div>Blocked</div>
+                                    {blockedInfo.map((b) => (
+                                      <div key={b.id} className="text-xs mt-1">
+                                        {b.reason || 'No reason provided'}
+                                      </div>
+                                    ))}
+                                  </div>
+                                ) : availability.isAvailable ? (
+                                  <div className="text-green-600 dark:text-green-400">Available</div>
+                                ) : (
+                                  <div>
+                                    <div className="text-blue-600 dark:text-blue-400">Booked (drag to move)</div>
+                                    {availability.reservations.map((r, idx) => (
+                                      <div key={idx} className="text-xs mt-1">
+                                        {r.guest_names[0]}
+                                        <br />
+                                        {r.booking_reference}
+                                      </div>
+                                    ))}
+                                  </div>
+                                )}
+                              </div>
+                            </TooltipContent>
+                          </Tooltip>
+                        );
+                      })}
+                    </div>
+                  </DroppableUnitRow>
                 ))}
               </div>
+            </TooltipProvider>
 
-              {/* Unit Rows */}
-              {units.map((unit) => (
-                <div
-                  key={unit.id}
-                  className="grid gap-1 mb-1"
-                  style={{ gridTemplateColumns: `160px repeat(${displayDays.length}, 70px)` }}
-                >
-                  <div className="flex items-center text-sm font-medium p-2 bg-card rounded sticky left-0 z-10 border-r border-border">
-                    <div>
-                      <div>{unit.name}</div>
-                      <div className="text-xs text-muted-foreground">#{unit.unit_number}</div>
-                    </div>
-                  </div>
-                  {displayDays.map((day) => {
-                    const availability = getDayAvailability(unit, day);
-                    const blockedInfo = blockedDates.filter(b => 
-                      isSameDay(new Date(b.blocked_date), day) && 
-                      (b.unit_id === null || b.unit_id === unit.id)
-                    );
-                    
-                    return (
-                      <Tooltip key={day.toISOString()}>
-                        <TooltipTrigger asChild>
-                          <div
-                            className={`h-14 border rounded transition-colors ${getCellClassName(availability)}`}
-                            onClick={() => handleCellClick(availability, unit)}
-                          >
-                            {availability.hasConflict && (
-                              <div className="flex items-center justify-center h-full">
-                                <AlertCircle className="h-4 w-4 text-white" />
-                              </div>
-                            )}
-                            {availability.isBlocked && !availability.hasConflict && (
-                              <div className="flex items-center justify-center h-full px-1 overflow-hidden">
-                                <span className="text-[10px] font-medium text-muted-foreground">Blocked</span>
-                              </div>
-                            )}
-                            {!availability.isAvailable && !availability.hasConflict && !availability.isBlocked && (
-                              <div className="flex flex-col items-center justify-center h-full px-1 overflow-hidden">
-                                {(() => {
-                                  const fullName = availability.reservations[0]?.guest_names[0] || '';
-                                  const nameParts = fullName.split(' ');
-                                  const firstName = nameParts[0];
-                                  const lastName = nameParts.slice(1).join(' ');
-                                  return (
-                                    <>
-                                      <span className="text-[10px] text-blue-600 dark:text-blue-400 font-medium text-center leading-tight">
-                                        {firstName}
-                                      </span>
-                                      {lastName && (
-                                        <span className="text-[10px] text-blue-600 dark:text-blue-400 font-medium text-center leading-tight">
-                                          {lastName}
-                                        </span>
-                                      )}
-                                    </>
-                                  );
-                                })()}
-                              </div>
-                            )}
-                          </div>
-                        </TooltipTrigger>
-                        <TooltipContent>
-                          <div className="text-sm">
-                            <div className="font-medium">{format(day, 'MMM d, yyyy')}</div>
-                            {availability.hasConflict ? (
-                              <div className="text-red-500 font-semibold">
-                                ⚠️ DOUBLE BOOKING CONFLICT!
-                                <div className="mt-1">
-                                  {availability.reservations.map((r, idx) => (
-                                    <div key={idx} className="text-xs">
-                                      • {r.guest_names[0]} ({r.booking_reference})
-                                    </div>
-                                  ))}
-                                </div>
-                              </div>
-                            ) : availability.isBlocked ? (
-                              <div className="text-muted-foreground">
-                                <div>Blocked</div>
-                                {blockedInfo.map((b) => (
-                                  <div key={b.id} className="text-xs mt-1">
-                                    {b.reason || 'No reason provided'}
-                                  </div>
-                                ))}
-                              </div>
-                            ) : availability.isAvailable ? (
-                              <div className="text-green-600 dark:text-green-400">Available</div>
-                            ) : (
-                              <div>
-                                <div className="text-blue-600 dark:text-blue-400">Booked</div>
-                                {availability.reservations.map((r, idx) => (
-                                  <div key={idx} className="text-xs mt-1">
-                                    {r.guest_names[0]}
-                                    <br />
-                                    {r.booking_reference}
-                                  </div>
-                                ))}
-                              </div>
-                            )}
-                          </div>
-                        </TooltipContent>
-                      </Tooltip>
-                    );
-                  })}
+            {/* Drag Overlay */}
+            <DragOverlay>
+              {activeReservation && (
+                <div className="h-14 w-16 border rounded bg-blue-500 text-white flex flex-col items-center justify-center shadow-lg opacity-90">
+                  <span className="text-[10px] font-medium text-center px-1">
+                    {activeReservation.guest_names[0].split(' ')[0]}
+                  </span>
                 </div>
-              ))}
-            </div>
-          </TooltipProvider>
+              )}
+            </DragOverlay>
+          </DndContext>
         </div>
 
         {units.length === 0 && (
