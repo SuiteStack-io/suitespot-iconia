@@ -372,12 +372,27 @@ export const MobileCalendarView = () => {
                 </div>
               )}
               
-              {units.map(unit => {
+              {units.map((unit, index) => {
                 const unitReservations = selectedDay.reservations.filter(r => r.unit_id === unit.id);
                 if (unitReservations.length === 0) return null;
 
+                const currentRoomType = unit.booking_com_name || unit.name;
+                const previousUnit = index > 0 ? units[index - 1] : null;
+                const previousRoomType = previousUnit ? (previousUnit.booking_com_name || previousUnit.name) : null;
+                const showSeparator = sortByRoomType && (index === 0 || currentRoomType !== previousRoomType);
+
                 return (
-                  <div key={unit.id} className="border rounded-lg p-3 space-y-2">
+                  <div key={unit.id}>
+                    {showSeparator && (
+                      <div className="flex items-center gap-2 py-2 px-2 bg-muted/50 border-y border-border mb-2 -mx-4">
+                        <Building2 className="h-4 w-4 text-muted-foreground" />
+                        <span className="text-sm font-semibold text-muted-foreground">
+                          {currentRoomType}
+                        </span>
+                        <div className="flex-1 h-px bg-border" />
+                      </div>
+                    )}
+                    <div className="border rounded-lg p-3 space-y-2">
                     <Popover>
                       <PopoverTrigger asChild>
                         <div className="font-semibold text-sm text-primary hover:underline cursor-pointer w-fit">
@@ -418,6 +433,7 @@ export const MobileCalendarView = () => {
                         </div>
                       );
                     })}
+                    </div>
                   </div>
                 );
               })}
