@@ -747,6 +747,9 @@ export type Database = {
           children: number | null
           commission_amount: number | null
           commission_rate: number | null
+          confirmation_email_error: string | null
+          confirmation_email_sent_at: string | null
+          confirmation_email_status: string | null
           contact_email: string | null
           contact_phone: string | null
           created_at: string
@@ -788,6 +791,9 @@ export type Database = {
           children?: number | null
           commission_amount?: number | null
           commission_rate?: number | null
+          confirmation_email_error?: string | null
+          confirmation_email_sent_at?: string | null
+          confirmation_email_status?: string | null
           contact_email?: string | null
           contact_phone?: string | null
           created_at?: string
@@ -829,6 +835,9 @@ export type Database = {
           children?: number | null
           commission_amount?: number | null
           commission_rate?: number | null
+          confirmation_email_error?: string | null
+          confirmation_email_sent_at?: string | null
+          confirmation_email_status?: string | null
           contact_email?: string | null
           contact_phone?: string | null
           created_at?: string

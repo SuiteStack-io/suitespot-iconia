@@ -303,8 +303,41 @@ const handler = async (req: Request): Promise<Response> => {
           `,
         });
         console.log(`Customer confirmation sent successfully:`, customerResult);
-      } catch (error) {
+        
+        // Update reservation with email sent status
+        if (reservationId) {
+          const { error: updateError } = await supabaseClient
+            .from('reservations')
+            .update({
+              confirmation_email_sent_at: new Date().toISOString(),
+              confirmation_email_status: 'sent',
+              confirmation_email_error: null
+            })
+            .eq('booking_reference', reservationId);
+          
+          if (updateError) {
+            console.error('Failed to update email status:', updateError);
+          } else {
+            console.log('Email status updated to sent');
+          }
+        }
+      } catch (error: any) {
         console.error(`Failed to send customer confirmation:`, error);
+        
+        // Update reservation with email failed status
+        if (reservationId) {
+          const { error: updateError } = await supabaseClient
+            .from('reservations')
+            .update({
+              confirmation_email_status: 'failed',
+              confirmation_email_error: error?.message || 'Unknown error'
+            })
+            .eq('booking_reference', reservationId);
+          
+          if (updateError) {
+            console.error('Failed to update email error status:', updateError);
+          }
+        }
       }
       
       // Add delay before sending internal notifications
