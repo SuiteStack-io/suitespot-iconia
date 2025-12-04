@@ -2,7 +2,8 @@ import { useState, useEffect } from 'react';
 import { format, addDays, isSameDay, startOfDay, startOfMonth, endOfMonth, eachDayOfInterval, startOfWeek, endOfWeek, isSameMonth, addMonths } from 'date-fns';
 import { supabase } from '@/integrations/supabase/client';
 import { Button } from '@/components/ui/button';
-import { ChevronLeft, ChevronRight, AlertTriangle, Building2, Hash } from 'lucide-react';
+import { ChevronLeft, ChevronRight, AlertTriangle, Building2, Hash, Search } from 'lucide-react';
+import { Input } from '@/components/ui/input';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Sheet, SheetContent, SheetHeader, SheetTitle } from '@/components/ui/sheet';
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
@@ -66,8 +67,10 @@ export const RoomCalendar = () => {
   const [selectedUnit, setSelectedUnit] = useState<Unit | null>(null);
   const [sortByRoomType, setSortByRoomType] = useState<boolean>(() => {
     const saved = localStorage.getItem('calendarSortByRoomType');
-    return saved === 'true';
+    return saved === null ? true : saved === 'true';
   });
+  const [roomNameFilter, setRoomNameFilter] = useState('');
+  const [roomNumberFilter, setRoomNumberFilter] = useState('');
 
   useEffect(() => {
     fetchUnitCounts();
@@ -309,6 +312,15 @@ export const RoomCalendar = () => {
   const isCurrentWeek = isSameDay(currentWeekStart, startOfDay(new Date()));
   const isCurrentMonth = isSameMonth(currentMonth, new Date());
 
+  // Filter units based on room name and room number
+  const filteredUnits = units.filter(unit => {
+    const roomName = (unit.booking_com_name || unit.name || '').toLowerCase();
+    const roomNumber = (unit.unit_number || '').toLowerCase();
+    const nameMatch = roomNameFilter === '' || roomName.includes(roomNameFilter.toLowerCase());
+    const numberMatch = roomNumberFilter === '' || roomNumber.includes(roomNumberFilter.toLowerCase());
+    return nameMatch && numberMatch;
+  });
+
   // Desktop Monthly Calendar View
   const renderMonthlyCalendar = () => {
     const monthStart = startOfMonth(currentMonth);
@@ -448,6 +460,28 @@ export const RoomCalendar = () => {
               </>
             )}
           </div>
+
+          {/* Filters */}
+          <div className="flex flex-wrap gap-2">
+            <div className="relative">
+              <Search className="absolute left-2.5 top-2.5 h-4 w-4 text-muted-foreground" />
+              <Input
+                placeholder="Filter by room name..."
+                value={roomNameFilter}
+                onChange={(e) => setRoomNameFilter(e.target.value)}
+                className="pl-8 w-[180px] h-9"
+              />
+            </div>
+            <div className="relative">
+              <Hash className="absolute left-2.5 top-2.5 h-4 w-4 text-muted-foreground" />
+              <Input
+                placeholder="Filter by room #..."
+                value={roomNumberFilter}
+                onChange={(e) => setRoomNumberFilter(e.target.value)}
+                className="pl-8 w-[140px] h-9"
+              />
+            </div>
+          </div>
         </div>
       </CardHeader>
       <CardContent>
@@ -525,12 +559,12 @@ export const RoomCalendar = () => {
                   })}
                 </div>
 
-                {units.map((unit, index) => {
+                {filteredUnits.map((unit, index) => {
                   const currentRoomType = unit.booking_com_name || unit.name;
-                  const previousUnit = index > 0 ? units[index - 1] : null;
+                  const previousUnit = index > 0 ? filteredUnits[index - 1] : null;
                   const previousRoomType = previousUnit ? (previousUnit.booking_com_name || previousUnit.name) : null;
                   const showSeparator = sortByRoomType && (index === 0 || currentRoomType !== previousRoomType);
-                  const roomTypeCount = units.filter(u => (u.booking_com_name || u.name) === currentRoomType).length;
+                  const roomTypeCount = filteredUnits.filter(u => (u.booking_com_name || u.name) === currentRoomType).length;
 
                   return (
                     <div key={unit.id}>
@@ -629,9 +663,11 @@ export const RoomCalendar = () => {
           </>
         )}
 
-        {units.length === 0 && (
+        {filteredUnits.length === 0 && (
           <div className="text-center text-muted-foreground py-8">
-            No units found. Add units to see availability.
+            {units.length === 0 
+              ? 'No units found. Add units to see availability.'
+              : 'No rooms match your filter criteria.'}
           </div>
         )}
       </CardContent>
