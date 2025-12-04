@@ -2,8 +2,8 @@ import { useState, useEffect } from 'react';
 import { format, addDays, isSameDay, startOfDay, startOfMonth, endOfMonth, eachDayOfInterval, startOfWeek, endOfWeek, isSameMonth, addMonths } from 'date-fns';
 import { supabase } from '@/integrations/supabase/client';
 import { Button } from '@/components/ui/button';
-import { ChevronLeft, ChevronRight, AlertTriangle, Building2, Hash, Search } from 'lucide-react';
-import { Input } from '@/components/ui/input';
+import { ChevronLeft, ChevronRight, AlertTriangle, Building2, Hash } from 'lucide-react';
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Sheet, SheetContent, SheetHeader, SheetTitle } from '@/components/ui/sheet';
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
@@ -314,10 +314,10 @@ export const RoomCalendar = () => {
 
   // Filter units based on room name and room number
   const filteredUnits = units.filter(unit => {
-    const roomName = (unit.booking_com_name || unit.name || '').toLowerCase();
-    const roomNumber = (unit.unit_number || '').toLowerCase();
-    const nameMatch = roomNameFilter === '' || roomName.includes(roomNameFilter.toLowerCase());
-    const numberMatch = roomNumberFilter === '' || roomNumber.includes(roomNumberFilter.toLowerCase());
+    const roomName = unit.booking_com_name || unit.name || '';
+    const roomNumber = unit.unit_number || '';
+    const nameMatch = roomNameFilter === '' || roomNameFilter === 'all' || roomName === roomNameFilter;
+    const numberMatch = roomNumberFilter === '' || roomNumberFilter === 'all' || roomNumber === roomNumberFilter;
     return nameMatch && numberMatch;
   });
 
@@ -463,24 +463,28 @@ export const RoomCalendar = () => {
 
           {/* Filters */}
           <div className="flex flex-wrap gap-2">
-            <div className="relative">
-              <Search className="absolute left-2.5 top-2.5 h-4 w-4 text-muted-foreground" />
-              <Input
-                placeholder="Filter by room name..."
-                value={roomNameFilter}
-                onChange={(e) => setRoomNameFilter(e.target.value)}
-                className="pl-8 w-[180px] h-9"
-              />
-            </div>
-            <div className="relative">
-              <Hash className="absolute left-2.5 top-2.5 h-4 w-4 text-muted-foreground" />
-              <Input
-                placeholder="Filter by room #..."
-                value={roomNumberFilter}
-                onChange={(e) => setRoomNumberFilter(e.target.value)}
-                className="pl-8 w-[140px] h-9"
-              />
-            </div>
+            <Select value={roomNameFilter} onValueChange={setRoomNameFilter}>
+              <SelectTrigger className="w-[200px] h-9 bg-background">
+                <SelectValue placeholder="All Room Types" />
+              </SelectTrigger>
+              <SelectContent className="bg-background z-50">
+                <SelectItem value="all">All Room Types</SelectItem>
+                {[...new Set(units.map(u => u.booking_com_name || u.name))].sort().map(name => (
+                  <SelectItem key={name} value={name}>{name}</SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+            <Select value={roomNumberFilter} onValueChange={setRoomNumberFilter}>
+              <SelectTrigger className="w-[140px] h-9 bg-background">
+                <SelectValue placeholder="All Rooms" />
+              </SelectTrigger>
+              <SelectContent className="bg-background z-50">
+                <SelectItem value="all">All Rooms</SelectItem>
+                {[...new Set(units.map(u => u.unit_number))].filter(Boolean).sort().map(num => (
+                  <SelectItem key={num} value={num!}>#{num}</SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
           </div>
         </div>
       </CardHeader>
