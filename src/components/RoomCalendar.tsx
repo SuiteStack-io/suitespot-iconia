@@ -2,7 +2,7 @@ import { useState, useEffect } from 'react';
 import { format, addDays, isSameDay, startOfDay, startOfMonth, endOfMonth, eachDayOfInterval, startOfWeek, endOfWeek, isSameMonth, addMonths } from 'date-fns';
 import { supabase } from '@/integrations/supabase/client';
 import { Button } from '@/components/ui/button';
-import { ChevronLeft, ChevronRight, AlertTriangle } from 'lucide-react';
+import { ChevronLeft, ChevronRight, AlertTriangle, Building2, Hash } from 'lucide-react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Sheet, SheetContent, SheetHeader, SheetTitle } from '@/components/ui/sheet';
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
@@ -64,6 +64,10 @@ export const RoomCalendar = () => {
   const [quickActionsOpen, setQuickActionsOpen] = useState(false);
   const [selectedReservation, setSelectedReservation] = useState<Reservation | null>(null);
   const [selectedUnit, setSelectedUnit] = useState<Unit | null>(null);
+  const [sortByRoomType, setSortByRoomType] = useState<boolean>(() => {
+    const saved = localStorage.getItem('calendarSortByRoomType');
+    return saved === 'true';
+  });
 
   useEffect(() => {
     fetchUnitCounts();
@@ -84,7 +88,11 @@ export const RoomCalendar = () => {
     return () => {
       supabase.removeChannel(channel);
     };
-  }, [selectedLocation]);
+  }, [selectedLocation, sortByRoomType]);
+
+  useEffect(() => {
+    localStorage.setItem('calendarSortByRoomType', String(sortByRoomType));
+  }, [sortByRoomType]);
 
   const fetchUnitCounts = async () => {
     // Fetch ICONIA count
@@ -117,13 +125,15 @@ export const RoomCalendar = () => {
       return;
     }
     
-    // Sort by booking_com_name (or name as fallback), then by unit_number
+    // Sort based on user preference
     const sortedUnits = (data || []).sort((a, b) => {
-      const nameA = (a.booking_com_name || a.name || '').toLowerCase();
-      const nameB = (b.booking_com_name || b.name || '').toLowerCase();
-      
-      if (nameA !== nameB) {
-        return nameA.localeCompare(nameB);
+      if (sortByRoomType) {
+        const nameA = (a.booking_com_name || a.name || '').toLowerCase();
+        const nameB = (b.booking_com_name || b.name || '').toLowerCase();
+        
+        if (nameA !== nameB) {
+          return nameA.localeCompare(nameB);
+        }
       }
       return (a.unit_number || '').localeCompare(b.unit_number || '');
     });
@@ -447,31 +457,51 @@ export const RoomCalendar = () => {
         ) : (
           // Mobile: 2-week Timeline View
           <>
-            <div className="flex gap-4 mb-4 text-xs flex-wrap">
-              <div className="flex items-center gap-2">
-                <div className="w-4 h-4 bg-green-50 dark:bg-green-950/30 border border-green-200 dark:border-green-800 rounded" />
-                <span>Available</span>
+            <div className="flex gap-4 mb-4 text-xs flex-wrap items-center justify-between">
+              <div className="flex gap-4 flex-wrap">
+                <div className="flex items-center gap-2">
+                  <div className="w-4 h-4 bg-green-50 dark:bg-green-950/30 border border-green-200 dark:border-green-800 rounded" />
+                  <span>Available</span>
+                </div>
+                <div className="flex items-center gap-2">
+                  <div className="w-4 h-4 bg-[#003580] rounded" />
+                  <span>Booking.com</span>
+                </div>
+                <div className="flex items-center gap-2">
+                  <div className="w-4 h-4 bg-green-500/80 rounded" />
+                  <span>Admin Booking</span>
+                </div>
+                <div className="flex items-center gap-2">
+                  <div className="w-4 h-4 bg-red-500/80 rounded" />
+                  <span>Direct Website</span>
+                </div>
+                <div className="flex items-center gap-2">
+                  <div className="w-4 h-4 bg-black rounded" />
+                  <span>Blocked</span>
+                </div>
+                <div className="flex items-center gap-2">
+                  <div className="w-4 h-4 bg-red-600 border border-red-700 rounded animate-pulse" />
+                  <span className="font-medium">Double Booking Conflict</span>
+                </div>
               </div>
-              <div className="flex items-center gap-2">
-                <div className="w-4 h-4 bg-[#003580] rounded" />
-                <span>Booking.com</span>
-              </div>
-              <div className="flex items-center gap-2">
-                <div className="w-4 h-4 bg-green-500/80 rounded" />
-                <span>Admin Booking</span>
-              </div>
-              <div className="flex items-center gap-2">
-                <div className="w-4 h-4 bg-red-500/80 rounded" />
-                <span>Direct Website</span>
-              </div>
-              <div className="flex items-center gap-2">
-                <div className="w-4 h-4 bg-black rounded" />
-                <span>Blocked</span>
-              </div>
-              <div className="flex items-center gap-2">
-                <div className="w-4 h-4 bg-red-600 border border-red-700 rounded animate-pulse" />
-                <span className="font-medium">Double Booking Conflict</span>
-              </div>
+              <Button 
+                variant={sortByRoomType ? "default" : "outline"}
+                size="sm" 
+                onClick={() => setSortByRoomType(!sortByRoomType)}
+                title={sortByRoomType ? "Sorted by room type" : "Sorted by room number"}
+              >
+                {sortByRoomType ? (
+                  <>
+                    <Building2 className="h-4 w-4 mr-1" />
+                    By Type
+                  </>
+                ) : (
+                  <>
+                    <Hash className="h-4 w-4 mr-1" />
+                    By Number
+                  </>
+                )}
+              </Button>
             </div>
 
             <div className="overflow-x-auto">
