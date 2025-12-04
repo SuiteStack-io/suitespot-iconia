@@ -19,7 +19,7 @@ serve(async (req) => {
     const supabaseKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!;
     const supabase = createClient(supabaseUrl, supabaseKey);
 
-    console.log('Starting mid-stay cleaning notification check...');
+    console.log('Starting scheduled cleaning notification check...');
 
     // Call the database function to create in-app notifications
     const { error: functionError } = await supabase.rpc('notify_mid_stay_cleaning');
@@ -29,7 +29,7 @@ serve(async (req) => {
       throw functionError;
     }
 
-    // Fetch reservations on their 4th day that need cleaning
+    // Fetch checked-in reservations that need cleaning today (every 4 days)
     const { data: reservations, error: reservationsError } = await supabase
       .from('reservations')
       .select(`
@@ -38,38 +38,60 @@ serve(async (req) => {
         check_in_date,
         check_out_date,
         unit_id,
+        last_cleaning_notification_date,
         units (
           name,
           unit_number
         )
       `)
-      .eq('status', 'checked-in')
-      .eq('mid_stay_cleaning_completed', false)
-      .gte('check_in_date', new Date(Date.now() - 4 * 24 * 60 * 60 * 1000).toISOString().split('T')[0])
-      .lte('check_in_date', new Date(Date.now() - 3 * 24 * 60 * 60 * 1000).toISOString().split('T')[0]);
+      .eq('status', 'checked-in');
 
     if (reservationsError) {
       console.error('Error fetching reservations:', reservationsError);
       throw reservationsError;
     }
 
-    // Filter to only reservations that are exactly on their 4th day
+    // Filter to reservations that need cleaning today (every 4 days: day 4, 8, 12, 16...)
     const today = new Date();
     today.setHours(0, 0, 0, 0);
     
     const reservationsNeedingCleaning = (reservations || []).filter((r: any) => {
       const checkInDate = new Date(r.check_in_date);
       checkInDate.setHours(0, 0, 0, 0);
+      
+      // Calculate day of stay (1-indexed: day 1 is check-in day)
       const daysSinceCheckIn = Math.floor((today.getTime() - checkInDate.getTime()) / (1000 * 60 * 60 * 24));
-      return daysSinceCheckIn === 3; // 4th day (0-indexed)
+      const dayOfStay = daysSinceCheckIn + 1;
+      
+      // Check if today is a cleaning day (every 4 days: day 4, 8, 12, 16...)
+      const isCleaningDay = dayOfStay >= 4 && dayOfStay % 4 === 0;
+      
+      // Check if we already sent notification today
+      const lastNotificationDate = r.last_cleaning_notification_date ? new Date(r.last_cleaning_notification_date) : null;
+      const alreadyNotifiedToday = lastNotificationDate && 
+        lastNotificationDate.toISOString().split('T')[0] === today.toISOString().split('T')[0];
+      
+      return isCleaningDay && !alreadyNotifiedToday;
+    }).map((r: any) => {
+      const checkInDate = new Date(r.check_in_date);
+      checkInDate.setHours(0, 0, 0, 0);
+      const daysSinceCheckIn = Math.floor((today.getTime() - checkInDate.getTime()) / (1000 * 60 * 60 * 24));
+      const dayOfStay = daysSinceCheckIn + 1;
+      const cleaningNumber = Math.floor(dayOfStay / 4);
+      
+      return {
+        ...r,
+        dayOfStay,
+        cleaningNumber
+      };
     });
 
-    console.log(`Found ${reservationsNeedingCleaning.length} rooms needing mid-stay cleaning`);
+    console.log(`Found ${reservationsNeedingCleaning.length} rooms needing scheduled cleaning`);
 
     if (reservationsNeedingCleaning.length === 0) {
       return new Response(
         JSON.stringify({ 
-          message: 'No rooms need mid-stay cleaning today',
+          message: 'No rooms need scheduled cleaning today',
           emailsSent: 0 
         }),
         {
@@ -112,7 +134,7 @@ serve(async (req) => {
     console.log(`Sending emails to ${targetUsers.length} users`);
 
     // Build email content
-    const emailSubject = `Mid-Stay Cleaning Required - ${reservationsNeedingCleaning.length} Room${reservationsNeedingCleaning.length > 1 ? 's' : ''}`;
+    const emailSubject = `Scheduled Cleaning Required - ${reservationsNeedingCleaning.length} Room${reservationsNeedingCleaning.length > 1 ? 's' : ''}`;
     
     const formatDate = (dateString: string) => {
       const date = new Date(dateString);
@@ -120,8 +142,8 @@ serve(async (req) => {
     };
 
     const emailHtml = `
-      <h2>Mid-Stay Cleaning Notification</h2>
-      <p>The following room${reservationsNeedingCleaning.length > 1 ? 's need' : ' needs'} mid-stay cleaning today (4th day of stay):</p>
+      <h2>Scheduled Cleaning Notification</h2>
+      <p>The following room${reservationsNeedingCleaning.length > 1 ? 's need' : ' needs'} scheduled cleaning today (every 4 days of stay):</p>
       <ul style="list-style: none; padding-left: 0;">
         ${reservationsNeedingCleaning.map((r: any) => {
           const unit = Array.isArray(r.units) ? r.units[0] : r.units;
@@ -133,18 +155,20 @@ serve(async (req) => {
           const cleaningCount = cleaningCounts[r.id] || 0;
           return `
             <li style="margin-bottom: 20px; padding: 15px; background-color: #f9f9f9; border-left: 4px solid #4CAF50;">
-              <strong style="font-size: 16px;">${unitName}${unitNumber ? ` (${unitNumber})` : ''}</strong> - Guest: ${guestName}
+              <strong style="font-size: 16px;">${unitName}${unitNumber ? ` (#${unitNumber})` : ''}</strong> - Guest: ${guestName}
               <br/>
               <span style="color: #666; font-size: 14px;">
+                <strong>Cleaning #${r.cleaningNumber}</strong> (Day ${r.dayOfStay} of stay)
+                <br/>
                 Check-in: ${checkIn} | Check-out: ${checkOut}
                 <br/>
-                Previous cleanings this stay: ${cleaningCount}
+                Previous cleanings completed this stay: ${cleaningCount}
               </span>
             </li>
           `;
         }).join('')}
       </ul>
-      <p>Please ensure these rooms receive their mid-stay cleaning service today.</p>
+      <p>Please ensure these rooms receive their scheduled cleaning service today.</p>
       <p><em>This is an automated notification sent by the SuiteSpot system.</em></p>
     `;
 
@@ -179,11 +203,23 @@ serve(async (req) => {
       }
     }
 
+    // Update last_cleaning_notification_date for all notified reservations
+    for (const reservation of reservationsNeedingCleaning) {
+      const { error: updateError } = await supabase
+        .from('reservations')
+        .update({ last_cleaning_notification_date: today.toISOString().split('T')[0] })
+        .eq('id', reservation.id);
+      
+      if (updateError) {
+        console.error(`Failed to update last_cleaning_notification_date for reservation ${reservation.id}:`, updateError);
+      }
+    }
+
     console.log(`Completed: ${emailsSent} emails sent, ${emailsFailed} failed`);
 
     return new Response(
       JSON.stringify({ 
-        message: 'Mid-stay cleaning notifications sent',
+        message: 'Scheduled cleaning notifications sent',
         roomsNeedingCleaning: reservationsNeedingCleaning.length,
         emailsSent,
         emailsFailed
