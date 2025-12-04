@@ -462,7 +462,7 @@ export const RoomCalendar = () => {
           </div>
 
           {/* Filters */}
-          <div className="flex flex-wrap gap-2">
+          <div className="flex flex-wrap gap-2 items-center">
             <Select value={roomNameFilter} onValueChange={setRoomNameFilter}>
               <SelectTrigger className="w-[200px] h-9 bg-background">
                 <SelectValue placeholder="All Room Types" />
@@ -485,6 +485,19 @@ export const RoomCalendar = () => {
                 ))}
               </SelectContent>
             </Select>
+            {(roomNameFilter !== 'all' || roomNumberFilter !== 'all') && (
+              <Button
+                variant="ghost"
+                size="sm"
+                onClick={() => {
+                  setRoomNameFilter('all');
+                  setRoomNumberFilter('all');
+                }}
+                className="h-9 px-3 text-muted-foreground hover:text-foreground"
+              >
+                Clear Filters
+              </Button>
+            )}
           </div>
         </div>
       </CardHeader>
