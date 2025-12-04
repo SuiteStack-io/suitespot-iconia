@@ -1244,7 +1244,7 @@ export const AvailabilityCalendar = () => {
                 mode="range"
                 selected={exportDateRange}
                 onSelect={setExportDateRange}
-                numberOfMonths={2}
+                numberOfMonths={1}
                 className="pointer-events-auto"
               />
             </div>
