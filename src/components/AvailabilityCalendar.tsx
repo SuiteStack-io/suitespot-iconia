@@ -153,7 +153,7 @@ export const AvailabilityCalendar = () => {
   const [almazaBayCount, setAlmazaBayCount] = useState(0);
   const [sortByRoomType, setSortByRoomType] = useState<boolean>(() => {
     const saved = localStorage.getItem('calendarSortByRoomType');
-    return saved === 'true';
+    return saved === null ? true : saved === 'true';
   });
   const [blockedDateDialogOpen, setBlockedDateDialogOpen] = useState(false);
   const [selectedBlockedDateInfo, setSelectedBlockedDateInfo] = useState<{
