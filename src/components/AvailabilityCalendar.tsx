@@ -137,8 +137,14 @@ export const AvailabilityCalendar = () => {
   const [selectedReservation, setSelectedReservation] = useState<Reservation | null>(null);
   const [selectedUnit, setSelectedUnit] = useState<Unit | null>(null);
   const [activeReservation, setActiveReservation] = useState<Reservation | null>(null);
+  const [lastMove, setLastMove] = useState<{
+    reservationId: string;
+    originalUnitId: string;
+    guestName: string;
+    timestamp: number;
+  } | null>(null);
   const navigate = useNavigate();
-  const { toast } = useToast();
+  const { toast, dismiss } = useToast();
 
   const sensors = useSensors(
     useSensor(PointerSensor, {
@@ -359,6 +365,46 @@ export const AvailabilityCalendar = () => {
     }
   };
 
+  const handleUndoMove = async () => {
+    if (!lastMove) return;
+    
+    const timeSinceMove = Date.now() - lastMove.timestamp;
+    if (timeSinceMove > 10000) {
+      toast({
+        title: "Undo Expired",
+        description: "The undo window has expired (10 seconds).",
+        variant: "destructive",
+      });
+      setLastMove(null);
+      return;
+    }
+
+    try {
+      const { error } = await supabase
+        .from('reservations')
+        .update({ unit_id: lastMove.originalUnitId })
+        .eq('id', lastMove.reservationId);
+
+      if (error) throw error;
+
+      const originalUnit = units.find(u => u.id === lastMove.originalUnitId);
+      toast({
+        title: "Move Undone",
+        description: `${lastMove.guestName} moved back to ${originalUnit?.name} #${originalUnit?.unit_number}`,
+      });
+
+      setLastMove(null);
+      fetchData();
+    } catch (error) {
+      console.error('Error undoing move:', error);
+      toast({
+        title: "Undo Failed",
+        description: "Failed to undo the move. Please try again.",
+        variant: "destructive",
+      });
+    }
+  };
+
   const handleDragEnd = async (event: DragEndEvent) => {
     const { active, over } = event;
     setActiveReservation(null);
@@ -370,6 +416,8 @@ export const AvailabilityCalendar = () => {
     const reservation = reservations.find(r => r.id === reservationId);
 
     if (!reservation || reservation.unit_id === targetUnitId) return;
+
+    const originalUnitId = reservation.unit_id;
 
     // Check for conflicts in target unit
     const hasConflict = reservations.some(r => {
@@ -399,10 +447,44 @@ export const AvailabilityCalendar = () => {
       if (error) throw error;
 
       const targetUnit = units.find(u => u.id === targetUnitId);
-      toast({
-        title: "Reservation Moved",
-        description: `${reservation.guest_names[0]} moved to ${targetUnit?.name} #${targetUnit?.unit_number}`,
+      const guestName = reservation.guest_names[0] || 'Guest';
+
+      // Store the move for undo
+      setLastMove({
+        reservationId,
+        originalUnitId: originalUnitId!,
+        guestName,
+        timestamp: Date.now(),
       });
+
+      // Show toast with undo button
+      const toastId = toast({
+        title: "Reservation Moved",
+        description: `${guestName} moved to ${targetUnit?.name} #${targetUnit?.unit_number}`,
+        action: (
+          <Button
+            variant="outline"
+            size="sm"
+            onClick={() => {
+              handleUndoMove();
+              dismiss(toastId.id);
+            }}
+          >
+            Undo
+          </Button>
+        ),
+        duration: 10000,
+      });
+
+      // Clear lastMove after 10 seconds
+      setTimeout(() => {
+        setLastMove(prev => {
+          if (prev && prev.reservationId === reservationId) {
+            return null;
+          }
+          return prev;
+        });
+      }, 10000);
 
       fetchData();
     } catch (error) {
