@@ -96,9 +96,21 @@ export const MobileCalendarView = () => {
     const { data: unitsData } = await supabase
       .from('units')
       .select('*')
-      .eq('status', 'available')
-      .order('unit_number');
-    if (unitsData) setUnits(unitsData);
+      .eq('status', 'available');
+    
+    if (unitsData) {
+      // Sort by booking_com_name (or name as fallback), then by unit_number
+      const sortedUnits = unitsData.sort((a, b) => {
+        const nameA = (a.booking_com_name || a.name || '').toLowerCase();
+        const nameB = (b.booking_com_name || b.name || '').toLowerCase();
+        
+        if (nameA !== nameB) {
+          return nameA.localeCompare(nameB);
+        }
+        return (a.unit_number || '').localeCompare(b.unit_number || '');
+      });
+      setUnits(sortedUnits);
+    }
 
     const startDate = format(startOfMonth(currentMonth), 'yyyy-MM-dd');
     const endDate = format(endOfMonth(addMonths(currentMonth, 2)), 'yyyy-MM-dd');

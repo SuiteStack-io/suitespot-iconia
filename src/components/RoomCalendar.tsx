@@ -110,14 +110,24 @@ export const RoomCalendar = () => {
       .from('units')
       .select('id, unit_number, name, unit_type, booking_com_name')
       .eq('location', selectedLocation)
-      .eq('status', 'available')
-      .order('unit_number');
+      .eq('status', 'available');
     
     if (error) {
       console.error('Error fetching units:', error);
       return;
     }
-    setUnits(data || []);
+    
+    // Sort by booking_com_name (or name as fallback), then by unit_number
+    const sortedUnits = (data || []).sort((a, b) => {
+      const nameA = (a.booking_com_name || a.name || '').toLowerCase();
+      const nameB = (b.booking_com_name || b.name || '').toLowerCase();
+      
+      if (nameA !== nameB) {
+        return nameA.localeCompare(nameB);
+      }
+      return (a.unit_number || '').localeCompare(b.unit_number || '');
+    });
+    setUnits(sortedUnits);
   };
 
   const fetchReservations = async () => {
