@@ -7,11 +7,13 @@ import { Sheet, SheetContent, SheetHeader, SheetTitle } from "@/components/ui/sh
 import { Badge } from "@/components/ui/badge";
 import { useNavigate } from "react-router-dom";
 import { useSwipeable } from "react-swipeable";
+import { ReservationQuickActions } from "./ReservationQuickActions";
 
 interface Unit {
   id: string;
   name: string;
   unit_number: string;
+  status?: string;
 }
 
 interface Reservation {
@@ -48,6 +50,9 @@ export const MobileCalendarView = () => {
   const [blockedDates, setBlockedDates] = useState<BlockedDate[]>([]);
   const [selectedDay, setSelectedDay] = useState<DayData | null>(null);
   const [sheetOpen, setSheetOpen] = useState(false);
+  const [quickActionsOpen, setQuickActionsOpen] = useState(false);
+  const [selectedReservation, setSelectedReservation] = useState<Reservation | null>(null);
+  const [selectedUnit, setSelectedUnit] = useState<Unit | null>(null);
   const navigate = useNavigate();
 
   const triggerHaptic = () => {
@@ -180,6 +185,17 @@ export const MobileCalendarView = () => {
       setSelectedDay(dayData);
       setSheetOpen(true);
     }
+  };
+
+  const handleReservationClick = (reservation: Reservation, unit: Unit) => {
+    setSelectedReservation(reservation);
+    setSelectedUnit(unit);
+    setQuickActionsOpen(true);
+  };
+
+  const handleMoveComplete = () => {
+    fetchData();
+    setSheetOpen(false);
   };
 
   const renderMonth = (monthDate: Date) => {
@@ -337,7 +353,7 @@ export const MobileCalendarView = () => {
                         <div
                           key={reservation.id}
                           className="bg-muted/50 rounded p-2 space-y-1 cursor-pointer hover:bg-muted"
-                          onClick={() => navigate(`/reservation/${reservation.id}`)}
+                          onClick={() => handleReservationClick(reservation, unit)}
                         >
                           <div className="flex items-center gap-2 flex-wrap">
                             <span className="font-medium text-sm">{reservation.guest_names[0]}</span>
@@ -363,6 +379,14 @@ export const MobileCalendarView = () => {
           )}
         </SheetContent>
       </Sheet>
+
+      <ReservationQuickActions
+        open={quickActionsOpen}
+        onOpenChange={setQuickActionsOpen}
+        reservation={selectedReservation}
+        currentUnit={selectedUnit}
+        onMoveComplete={handleMoveComplete}
+      />
     </div>
   );
 };
