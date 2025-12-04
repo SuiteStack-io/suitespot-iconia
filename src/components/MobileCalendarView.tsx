@@ -1,7 +1,7 @@
 import { useState, useEffect } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { Button } from "@/components/ui/button";
-import { ChevronLeft, ChevronRight, AlertTriangle } from "lucide-react";
+import { ChevronLeft, ChevronRight, AlertTriangle, Building2, Hash } from "lucide-react";
 import { format, addMonths, startOfMonth, endOfMonth, eachDayOfInterval, startOfWeek, endOfWeek, isSameDay, isSameMonth, addDays } from "date-fns";
 import { Sheet, SheetContent, SheetHeader, SheetTitle } from "@/components/ui/sheet";
 import { Badge } from "@/components/ui/badge";
@@ -55,6 +55,10 @@ export const MobileCalendarView = () => {
   const [quickActionsOpen, setQuickActionsOpen] = useState(false);
   const [selectedReservation, setSelectedReservation] = useState<Reservation | null>(null);
   const [selectedUnit, setSelectedUnit] = useState<Unit | null>(null);
+  const [sortByRoomType, setSortByRoomType] = useState<boolean>(() => {
+    const saved = localStorage.getItem('calendarSortByRoomType');
+    return saved === 'true';
+  });
   const navigate = useNavigate();
 
   const triggerHaptic = () => {
@@ -90,7 +94,11 @@ export const MobileCalendarView = () => {
     return () => {
       supabase.removeChannel(channel);
     };
-  }, [currentMonth]);
+  }, [currentMonth, sortByRoomType]);
+
+  useEffect(() => {
+    localStorage.setItem('calendarSortByRoomType', String(sortByRoomType));
+  }, [sortByRoomType]);
 
   const fetchData = async () => {
     const { data: unitsData } = await supabase
@@ -99,13 +107,15 @@ export const MobileCalendarView = () => {
       .eq('status', 'available');
     
     if (unitsData) {
-      // Sort by booking_com_name (or name as fallback), then by unit_number
+      // Sort based on user preference
       const sortedUnits = unitsData.sort((a, b) => {
-        const nameA = (a.booking_com_name || a.name || '').toLowerCase();
-        const nameB = (b.booking_com_name || b.name || '').toLowerCase();
-        
-        if (nameA !== nameB) {
-          return nameA.localeCompare(nameB);
+        if (sortByRoomType) {
+          const nameA = (a.booking_com_name || a.name || '').toLowerCase();
+          const nameB = (b.booking_com_name || b.name || '').toLowerCase();
+          
+          if (nameA !== nameB) {
+            return nameA.localeCompare(nameB);
+          }
         }
         return (a.unit_number || '').localeCompare(b.unit_number || '');
       });
@@ -322,9 +332,19 @@ export const MobileCalendarView = () => {
         <Button variant="outline" size="sm" onClick={() => setCurrentMonth(addMonths(currentMonth, -1))}>
           <ChevronLeft className="h-4 w-4" />
         </Button>
-        <Button variant="outline" size="sm" onClick={() => setCurrentMonth(startOfMonth(new Date()))}>
-          Today
-        </Button>
+        <div className="flex items-center gap-2">
+          <Button variant="outline" size="sm" onClick={() => setCurrentMonth(startOfMonth(new Date()))}>
+            Today
+          </Button>
+          <Button 
+            variant={sortByRoomType ? "default" : "outline"}
+            size="sm" 
+            onClick={() => setSortByRoomType(!sortByRoomType)}
+            title={sortByRoomType ? "Sorted by room type" : "Sorted by room number"}
+          >
+            {sortByRoomType ? <Building2 className="h-4 w-4" /> : <Hash className="h-4 w-4" />}
+          </Button>
+        </div>
         <Button variant="outline" size="sm" onClick={() => setCurrentMonth(addMonths(currentMonth, 1))}>
           <ChevronRight className="h-4 w-4" />
         </Button>

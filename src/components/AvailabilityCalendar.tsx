@@ -2,7 +2,7 @@ import { useState, useEffect } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
-import { ChevronLeft, ChevronRight, AlertCircle, CheckCircle, Calendar as CalendarIcon, Download, FileSpreadsheet, FileText, GripVertical } from "lucide-react";
+import { ChevronLeft, ChevronRight, AlertCircle, CheckCircle, Calendar as CalendarIcon, Download, FileSpreadsheet, FileText, GripVertical, ArrowUpDown, Hash, Building2 } from "lucide-react";
 import { format, addDays, startOfWeek, isSameDay, startOfMonth, endOfMonth, getDaysInMonth, eachDayOfInterval, startOfDay } from "date-fns";
 import { Badge } from "@/components/ui/badge";
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
@@ -149,6 +149,10 @@ export const AvailabilityCalendar = () => {
   const [selectedLocation, setSelectedLocation] = useState<'ICONIA' | 'Almaza Bay'>('ICONIA');
   const [iconiaCount, setIconiaCount] = useState(0);
   const [almazaBayCount, setAlmazaBayCount] = useState(0);
+  const [sortByRoomType, setSortByRoomType] = useState<boolean>(() => {
+    const saved = localStorage.getItem('calendarSortByRoomType');
+    return saved === 'true';
+  });
   const navigate = useNavigate();
   const { toast, dismiss } = useToast();
 
@@ -167,6 +171,10 @@ export const AvailabilityCalendar = () => {
   useEffect(() => {
     localStorage.setItem('calendarViewMode', viewMode);
   }, [viewMode]);
+
+  useEffect(() => {
+    localStorage.setItem('calendarSortByRoomType', String(sortByRoomType));
+  }, [sortByRoomType]);
 
   const fetchUnitCounts = async () => {
     const { count: iconiaTotal } = await supabase
@@ -219,7 +227,7 @@ export const AvailabilityCalendar = () => {
     return () => {
       supabase.removeChannel(channel);
     };
-  }, [currentWeekStart, currentMonth, viewMode, selectedLocation]);
+  }, [currentWeekStart, currentMonth, viewMode, selectedLocation, sortByRoomType]);
 
   const fetchData = async () => {
     // Fetch units filtered by location
@@ -230,13 +238,15 @@ export const AvailabilityCalendar = () => {
       .eq('location', selectedLocation);
 
     if (unitsData) {
-      // Sort by booking_com_name (or name as fallback), then by unit_number
+      // Sort based on user preference
       const sortedUnits = unitsData.sort((a, b) => {
-        const nameA = (a.booking_com_name || a.name || '').toLowerCase();
-        const nameB = (b.booking_com_name || b.name || '').toLowerCase();
-        
-        if (nameA !== nameB) {
-          return nameA.localeCompare(nameB);
+        if (sortByRoomType) {
+          const nameA = (a.booking_com_name || a.name || '').toLowerCase();
+          const nameB = (b.booking_com_name || b.name || '').toLowerCase();
+          
+          if (nameA !== nameB) {
+            return nameA.localeCompare(nameB);
+          }
         }
         return (a.unit_number || '').localeCompare(b.unit_number || '');
       });
@@ -803,6 +813,24 @@ export const AvailabilityCalendar = () => {
             </div>
           </div>
           <div className="flex gap-2">
+            <Button 
+              variant={sortByRoomType ? "default" : "outline"}
+              size="sm" 
+              onClick={() => setSortByRoomType(!sortByRoomType)}
+              title={sortByRoomType ? "Sorted by room type" : "Sorted by room number"}
+            >
+              {sortByRoomType ? (
+                <>
+                  <Building2 className="h-4 w-4 mr-1" />
+                  By Type
+                </>
+              ) : (
+                <>
+                  <Hash className="h-4 w-4 mr-1" />
+                  By Number
+                </>
+              )}
+            </Button>
             <Button 
               variant="outline" 
               size="sm" 
