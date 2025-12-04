@@ -118,9 +118,9 @@ export const BlockedDatesManager = () => {
 
     const groups: GroupedBlockedDates[] = [];
     const sorted = [...blockedDates].sort((a, b) => 
-      a.blocked_date.localeCompare(b.blocked_date) || 
       (a.unit_id || '').localeCompare(b.unit_id || '') ||
-      (a.reason || '').localeCompare(b.reason || '')
+      (a.reason || '').localeCompare(b.reason || '') ||
+      a.blocked_date.localeCompare(b.blocked_date)
     );
 
     let currentGroup: GroupedBlockedDates | null = null;
