@@ -772,9 +772,22 @@ export const AvailabilityCalendar = () => {
           </div>
         </div>
 
-        {/* Calendar Grid */}
-        <div className="overflow-x-auto relative">
-          <DndContext sensors={sensors} onDragStart={handleDragStart} onDragEnd={handleDragEnd}>
+        {/* Calendar Grid with Side Navigation */}
+        <div className="flex items-stretch gap-2">
+          {/* Left Arrow */}
+          <Button
+            variant="ghost"
+            size="icon"
+            onClick={() => setCurrentWeekStart(addDays(currentWeekStart, -14))}
+            className="flex-shrink-0 h-auto min-h-[100px] w-10 hover:bg-muted self-center"
+            title="Previous 2 weeks"
+          >
+            <ChevronLeft className="h-6 w-6" />
+          </Button>
+
+          {/* Calendar Grid */}
+          <div className="overflow-x-auto relative flex-1">
+            <DndContext sensors={sensors} onDragStart={handleDragStart} onDragEnd={handleDragEnd}>
             <TooltipProvider>
               <div className="min-w-max">
                 {/* Header Row */}
@@ -905,7 +918,19 @@ export const AvailabilityCalendar = () => {
                 </div>
               )}
             </DragOverlay>
-          </DndContext>
+            </DndContext>
+          </div>
+
+          {/* Right Arrow */}
+          <Button
+            variant="ghost"
+            size="icon"
+            onClick={() => setCurrentWeekStart(addDays(currentWeekStart, 14))}
+            className="flex-shrink-0 h-auto min-h-[100px] w-10 hover:bg-muted self-center"
+            title="Next 2 weeks"
+          >
+            <ChevronRight className="h-6 w-6" />
+          </Button>
         </div>
 
         {units.length === 0 && (
