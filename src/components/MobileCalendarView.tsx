@@ -5,6 +5,7 @@ import { ChevronLeft, ChevronRight, AlertTriangle } from "lucide-react";
 import { format, addMonths, startOfMonth, endOfMonth, eachDayOfInterval, startOfWeek, endOfWeek, isSameDay, isSameMonth, addDays } from "date-fns";
 import { Sheet, SheetContent, SheetHeader, SheetTitle } from "@/components/ui/sheet";
 import { Badge } from "@/components/ui/badge";
+import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { useNavigate } from "react-router-dom";
 import { useSwipeable } from "react-swipeable";
 import { ReservationQuickActions } from "./ReservationQuickActions";
@@ -14,6 +15,7 @@ interface Unit {
   name: string;
   unit_number: string;
   status?: string;
+  booking_com_name?: string | null;
 }
 
 interface Reservation {
@@ -344,7 +346,19 @@ export const MobileCalendarView = () => {
 
                 return (
                   <div key={unit.id} className="border rounded-lg p-3 space-y-2">
-                    <div className="font-semibold text-sm">{unit.name}</div>
+                    <Popover>
+                      <PopoverTrigger asChild>
+                        <div className="font-semibold text-sm text-primary hover:underline cursor-pointer w-fit">
+                          {unit.booking_com_name || unit.name}
+                        </div>
+                      </PopoverTrigger>
+                      <PopoverContent side="right" align="start" className="w-auto p-3">
+                        <div className="text-sm">
+                          <span className="text-muted-foreground">Suite Name: </span>
+                          <span className="font-medium">{unit.name}</span>
+                        </div>
+                      </PopoverContent>
+                    </Popover>
                     {unitReservations.map(reservation => {
                       const isCheckIn = isSameDay(selectedDay.date, new Date(reservation.check_in_date));
                       const isCheckOut = isSameDay(addDays(selectedDay.date, 1), new Date(reservation.check_out_date));
