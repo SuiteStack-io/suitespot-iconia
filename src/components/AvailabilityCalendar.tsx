@@ -13,6 +13,7 @@ import autoTable from 'jspdf-autotable';
 import * as XLSX from 'xlsx';
 import { ReservationQuickActions } from "./ReservationQuickActions";
 import { DndContext, DragEndEvent, DragOverlay, DragStartEvent, useDraggable, useDroppable, PointerSensor, useSensor, useSensors } from "@dnd-kit/core";
+import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
 
 interface Unit {
   id: string;
@@ -143,6 +144,9 @@ export const AvailabilityCalendar = () => {
     guestName: string;
     timestamp: number;
   } | null>(null);
+  const [selectedLocation, setSelectedLocation] = useState<'ICONIA' | 'Almaza Bay'>('ICONIA');
+  const [iconiaCount, setIconiaCount] = useState(0);
+  const [almazaBayCount, setAlmazaBayCount] = useState(0);
   const navigate = useNavigate();
   const { toast, dismiss } = useToast();
 
@@ -162,7 +166,25 @@ export const AvailabilityCalendar = () => {
     localStorage.setItem('calendarViewMode', viewMode);
   }, [viewMode]);
 
+  const fetchUnitCounts = async () => {
+    const { count: iconiaTotal } = await supabase
+      .from('units')
+      .select('*', { count: 'exact', head: true })
+      .eq('location', 'ICONIA')
+      .eq('status', 'available');
+    
+    const { count: almazaTotal } = await supabase
+      .from('units')
+      .select('*', { count: 'exact', head: true })
+      .eq('location', 'Almaza Bay')
+      .eq('status', 'available');
+    
+    setIconiaCount(iconiaTotal || 0);
+    setAlmazaBayCount(almazaTotal || 0);
+  };
+
   useEffect(() => {
+    fetchUnitCounts();
     fetchData();
     
     // Real-time subscription
@@ -195,14 +217,15 @@ export const AvailabilityCalendar = () => {
     return () => {
       supabase.removeChannel(channel);
     };
-  }, [currentWeekStart, currentMonth, viewMode]);
+  }, [currentWeekStart, currentMonth, viewMode, selectedLocation]);
 
   const fetchData = async () => {
-    // Fetch units
+    // Fetch units filtered by location
     const { data: unitsData } = await supabase
       .from('units')
       .select('*')
       .eq('status', 'available')
+      .eq('location', selectedLocation)
       .order('unit_number');
 
     if (unitsData) setUnits(unitsData);
@@ -676,7 +699,7 @@ export const AvailabilityCalendar = () => {
   return (
     <Card className="w-full">
       <CardHeader>
-        <div className="flex items-center justify-between">
+        <div className="flex items-center justify-between flex-wrap gap-4">
           <div>
             <CardTitle className="flex items-center gap-2">
               <CalendarIcon className="h-5 w-5" />
@@ -686,13 +709,29 @@ export const AvailabilityCalendar = () => {
               Real-time availability across all units with conflict detection
             </CardDescription>
           </div>
-          {totalConflicts > 0 && (
-            <Badge variant="destructive" className="flex items-center gap-1">
-              <AlertCircle className="h-3 w-3" />
-              {totalConflicts} Conflict{totalConflicts > 1 ? 's' : ''}
-            </Badge>
-          )}
+          <div className="flex items-center gap-3">
+            {totalConflicts > 0 && (
+              <Badge variant="destructive" className="flex items-center gap-1">
+                <AlertCircle className="h-3 w-3" />
+                {totalConflicts} Conflict{totalConflicts > 1 ? 's' : ''}
+              </Badge>
+            )}
+          </div>
         </div>
+        <Tabs 
+          value={selectedLocation} 
+          onValueChange={(value) => setSelectedLocation(value as 'ICONIA' | 'Almaza Bay')}
+          className="mt-4"
+        >
+          <TabsList>
+            <TabsTrigger value="ICONIA">
+              ICONIA <span className="ml-1.5 text-xs opacity-70">({iconiaCount})</span>
+            </TabsTrigger>
+            <TabsTrigger value="Almaza Bay">
+              Almaza Bay <span className="ml-1.5 text-xs opacity-70">({almazaBayCount})</span>
+            </TabsTrigger>
+          </TabsList>
+        </Tabs>
       </CardHeader>
       <CardContent>
         {/* Navigation */}
