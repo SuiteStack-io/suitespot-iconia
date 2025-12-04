@@ -63,7 +63,6 @@ const Calendar = () => {
           </Button>
           
           <img src={suitespotLogo} alt="SuiteSpot Logo" className="h-10 w-10 object-contain" />
-          <img src={suitespotLogo} alt="SuiteSpot Logo" className="h-10 w-10 object-contain" />
           <div>
             <h1 className="text-xl font-bold">Room Calendar</h1>
             <p className="text-sm text-muted-foreground">View and manage room bookings</p>
