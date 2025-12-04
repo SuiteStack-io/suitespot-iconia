@@ -5,6 +5,7 @@ import { Button } from '@/components/ui/button';
 import { ChevronLeft, ChevronRight, AlertTriangle } from 'lucide-react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Sheet, SheetContent, SheetHeader, SheetTitle } from '@/components/ui/sheet';
+import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
 import { Badge } from '@/components/ui/badge';
 import { Tabs, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { useNavigate } from 'react-router-dom';
@@ -17,6 +18,7 @@ interface Unit {
   name: string;
   unit_type: string;
   status?: string;
+  booking_com_name?: string | null;
 }
 
 interface Reservation {
@@ -106,7 +108,7 @@ export const RoomCalendar = () => {
   const fetchUnits = async () => {
     const { data, error } = await supabase
       .from('units')
-      .select('id, unit_number, name, unit_type')
+      .select('id, unit_number, name, unit_type, booking_com_name')
       .eq('location', selectedLocation)
       .eq('status', 'available')
       .order('unit_number');
@@ -489,12 +491,22 @@ export const RoomCalendar = () => {
                     className="grid gap-1 mb-1"
                     style={{ gridTemplateColumns: `160px repeat(${weekDays.length}, 70px)` }}
                   >
-                    <div className="flex items-center text-sm font-medium p-2 bg-muted/50 rounded">
-                      <div>
-                        <div>{unit.name}</div>
-                        <div className="text-xs text-muted-foreground">#{unit.unit_number}</div>
-                      </div>
-                    </div>
+                    <Popover>
+                      <PopoverTrigger asChild>
+                        <div className="flex items-center text-sm font-medium p-2 bg-muted/50 rounded cursor-pointer hover:bg-muted transition-colors">
+                          <div>
+                            <div className="text-primary hover:underline">{unit.booking_com_name || unit.name}</div>
+                            <div className="text-xs text-muted-foreground">#{unit.unit_number}</div>
+                          </div>
+                        </div>
+                      </PopoverTrigger>
+                      <PopoverContent side="right" align="start" className="w-auto p-3">
+                        <div className="text-sm">
+                          <span className="text-muted-foreground">Suite Name: </span>
+                          <span className="font-medium">{unit.name}</span>
+                        </div>
+                      </PopoverContent>
+                    </Popover>
                     {weekDays.map((day, index) => {
                       const { checkingOut, checkingIn, staying } = getReservationsForDate(day, unit.id);
                       const blocked = isDateBlocked(day, unit.id);
@@ -586,7 +598,19 @@ export const RoomCalendar = () => {
 
                 return (
                   <div key={unit.id} className="border rounded-lg p-3 space-y-2">
-                    <div className="font-semibold text-sm">{unit.name}</div>
+                    <Popover>
+                      <PopoverTrigger asChild>
+                        <div className="font-semibold text-sm text-primary hover:underline cursor-pointer w-fit">
+                          {unit.booking_com_name || unit.name}
+                        </div>
+                      </PopoverTrigger>
+                      <PopoverContent side="right" align="start" className="w-auto p-3">
+                        <div className="text-sm">
+                          <span className="text-muted-foreground">Suite Name: </span>
+                          <span className="font-medium">{unit.name}</span>
+                        </div>
+                      </PopoverContent>
+                    </Popover>
                     {unitReservations.map(reservation => {
                       const isCheckIn = isSameDay(selectedDay.date, new Date(reservation.check_in_date));
                       const isCheckOut = isSameDay(addDays(selectedDay.date, 1), new Date(reservation.check_out_date));
