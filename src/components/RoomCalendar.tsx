@@ -272,11 +272,20 @@ export const RoomCalendar = () => {
     return 'bg-muted';
   };
 
+  // Filter units based on room name and room number
+  const filteredUnits = units.filter(unit => {
+    const roomName = unit.booking_com_name || unit.name || '';
+    const roomNumber = unit.unit_number || '';
+    const nameMatch = roomNameFilter === '' || roomNameFilter === 'all' || roomName === roomNameFilter;
+    const numberMatch = roomNumberFilter === '' || roomNumberFilter === 'all' || roomNumber === roomNumberFilter;
+    return nameMatch && numberMatch;
+  });
+
   const getDayData = (date: Date): DayData => {
     const dayReservations = reservations.filter(r => {
-      // Only include reservations for units in the current location
-      const unitInCurrentLocation = units.some(u => u.id === r.unit_id);
-      if (!unitInCurrentLocation) return false;
+      // Only include reservations for units in the filtered list
+      const unitInFilteredList = filteredUnits.some(u => u.id === r.unit_id);
+      if (!unitInFilteredList) return false;
       
       const checkIn = new Date(r.check_in_date);
       const checkOut = new Date(r.check_out_date);
@@ -295,8 +304,8 @@ export const RoomCalendar = () => {
 
     const hasConflict = Array.from(bookingsByUnit.values()).some(bookings => bookings.length > 1);
     const bookingCount = dayReservations.length;
-    const availableRooms = units.length - bookingCount;
-    const isSoldOut = bookingCount >= units.length;
+    const availableRooms = filteredUnits.length - bookingCount;
+    const isSoldOut = bookingCount >= filteredUnits.length;
 
     return {
       date,
@@ -311,15 +320,6 @@ export const RoomCalendar = () => {
   const weekDays = getWeekDays();
   const isCurrentWeek = isSameDay(currentWeekStart, startOfDay(new Date()));
   const isCurrentMonth = isSameMonth(currentMonth, new Date());
-
-  // Filter units based on room name and room number
-  const filteredUnits = units.filter(unit => {
-    const roomName = unit.booking_com_name || unit.name || '';
-    const roomNumber = unit.unit_number || '';
-    const nameMatch = roomNameFilter === '' || roomNameFilter === 'all' || roomName === roomNameFilter;
-    const numberMatch = roomNumberFilter === '' || roomNumberFilter === 'all' || roomNumber === roomNumberFilter;
-    return nameMatch && numberMatch;
-  });
 
   // Desktop Monthly Calendar View
   const renderMonthlyCalendar = () => {
@@ -371,7 +371,7 @@ export const RoomCalendar = () => {
                   <div className="text-sm font-semibold mb-1">{format(date, 'd')}</div>
                   
                   {/* Availability badge */}
-                  {isCurrentMonthDay && dayData.bookingCount > 0 && dayData.bookingCount < units.length && (
+                  {isCurrentMonthDay && dayData.bookingCount > 0 && dayData.bookingCount < filteredUnits.length && (
                     <div className="text-xs text-center mb-1">
                       {dayData.availableRooms} left to sell
                     </div>
