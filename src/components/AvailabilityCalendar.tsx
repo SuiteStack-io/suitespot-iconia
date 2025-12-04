@@ -6,6 +6,7 @@ import { ChevronLeft, ChevronRight, AlertCircle, CheckCircle, Calendar as Calend
 import { format, addDays, startOfWeek, isSameDay, startOfMonth, endOfMonth, getDaysInMonth, eachDayOfInterval, startOfDay } from "date-fns";
 import { Badge } from "@/components/ui/badge";
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
+import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { useNavigate } from "react-router-dom";
 import { useToast } from "@/hooks/use-toast";
 import jsPDF from 'jspdf';
@@ -20,6 +21,7 @@ interface Unit {
   name: string;
   unit_number: string;
   status: string;
+  booking_com_name?: string | null;
 }
 
 interface Reservation {
@@ -855,12 +857,24 @@ export const AvailabilityCalendar = () => {
                       className="grid gap-1 mb-1"
                       style={{ gridTemplateColumns: `160px repeat(${displayDays.length}, 70px)` }}
                     >
-                      <div className="flex items-center text-sm font-medium p-2 bg-card rounded sticky left-0 z-10 border-r border-border">
-                        <div>
-                          <div>{unit.name}</div>
-                          <div className="text-xs text-muted-foreground">#{unit.unit_number}</div>
-                        </div>
-                      </div>
+                      <Popover>
+                        <PopoverTrigger asChild>
+                          <div className="flex items-center text-sm font-medium p-2 bg-card rounded sticky left-0 z-10 border-r border-border cursor-pointer hover:bg-muted/50 transition-colors">
+                            <div>
+                              <div className="text-primary hover:underline">
+                                {unit.booking_com_name || unit.name}
+                              </div>
+                              <div className="text-xs text-muted-foreground">#{unit.unit_number}</div>
+                            </div>
+                          </div>
+                        </PopoverTrigger>
+                        <PopoverContent side="right" align="start" className="w-auto p-3">
+                          <div className="text-sm">
+                            <span className="text-muted-foreground">Suite Name: </span>
+                            <span className="font-medium">{unit.name}</span>
+                          </div>
+                        </PopoverContent>
+                      </Popover>
                       {displayDays.map((day) => {
                         const availability = getDayAvailability(unit, day);
                         const blockedInfo = blockedDates.filter(b => 
