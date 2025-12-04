@@ -20,7 +20,6 @@ interface Unit {
   name: string;
   unit_number: string;
   status: string;
-  booking_com_name?: string;
 }
 
 interface Reservation {
@@ -860,9 +859,6 @@ export const AvailabilityCalendar = () => {
                         <div>
                           <div>{unit.name}</div>
                           <div className="text-xs text-muted-foreground">#{unit.unit_number}</div>
-                          {unit.booking_com_name && (
-                            <div className="text-xs text-blue-600 dark:text-blue-400">{unit.booking_com_name}</div>
-                          )}
                         </div>
                       </div>
                       {displayDays.map((day) => {
