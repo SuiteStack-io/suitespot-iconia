@@ -4,7 +4,7 @@ import { supabase } from '@/integrations/supabase/client';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
-import { CheckCircle, Sparkles, AlertCircle, ArrowLeft, Clock, History, Filter, Users, Calendar, Bed } from 'lucide-react';
+import { CheckCircle, Sparkles, AlertCircle, ArrowLeft, Clock, History, Filter, Users, Calendar, Bed, Mail } from 'lucide-react';
 import { format, differenceInDays, addDays } from 'date-fns';
 import { useToast } from '@/hooks/use-toast';
 import { useAuth } from '@/lib/auth';
@@ -70,6 +70,7 @@ const Housekeeping = () => {
   const [occupiedRooms, setOccupiedRooms] = useState<OccupiedRoom[]>([]);
   const [editingNotes, setEditingNotes] = useState<string | null>(null);
   const [activeTab, setActiveTab] = useState<'checkout' | 'occupied'>('checkout');
+  const [triggeringNotifications, setTriggeringNotifications] = useState(false);
 
   useEffect(() => {
     if (!loading && !user) {
@@ -360,6 +361,28 @@ const Housekeeping = () => {
     }
   };
 
+  const handleTriggerCleaningNotifications = async () => {
+    setTriggeringNotifications(true);
+    try {
+      const { data, error } = await supabase.functions.invoke('send-mid-stay-cleaning-notifications');
+      
+      if (error) throw error;
+      
+      toast({
+        title: 'Success',
+        description: data?.message || 'Cleaning notifications sent successfully',
+      });
+    } catch (error: any) {
+      toast({
+        title: 'Error',
+        description: error.message || 'Failed to send cleaning notifications',
+        variant: 'destructive',
+      });
+    } finally {
+      setTriggeringNotifications(false);
+    }
+  };
+
   if (loading) {
     return (
       <div className="flex min-h-screen items-center justify-center">
@@ -414,7 +437,7 @@ const Housekeeping = () => {
               Back
             </Button>
             
-            <div>
+            <div className="flex-1">
               <h1 className="text-3xl font-bold mb-2 flex items-center gap-2">
                 <Sparkles className="h-8 w-8 text-primary" />
                 Housekeeping Dashboard
@@ -423,6 +446,17 @@ const Housekeeping = () => {
                 Rooms that need cleaning after checkout
               </p>
             </div>
+            
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={handleTriggerCleaningNotifications}
+              disabled={triggeringNotifications}
+              className="gap-2"
+            >
+              <Mail className="h-4 w-4" />
+              {triggeringNotifications ? 'Sending...' : 'Send Cleaning Alerts'}
+            </Button>
           </div>
         </div>
       </header>
