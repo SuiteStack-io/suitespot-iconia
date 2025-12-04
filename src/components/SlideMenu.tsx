@@ -107,7 +107,14 @@ export function SlideMenu({ isAdmin }: SlideMenuProps) {
         <div className="flex flex-col h-full py-6">
           {/* Header */}
           <div className="px-6 mb-6">
-            <h2 className="text-lg font-semibold text-white">Navigation</h2>
+            <SheetTrigger asChild>
+              <button
+                onClick={() => navigate('/admin')}
+                className="text-lg font-semibold text-white hover:text-cyan-400 transition-colors cursor-pointer"
+              >
+                Admin
+              </button>
+            </SheetTrigger>
           </div>
 
           {/* Menu Sections */}
