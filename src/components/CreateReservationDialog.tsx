@@ -910,9 +910,11 @@ export function CreateReservationDialog() {
         if (!unitIdValue) return null;
 
         const priceForRoom = Number(roomPrices[roomIndex]);
-        const totalForRoom = priceForRoom * nights;
-        const commissionAmount = (totalForRoom * commissionRate) / 100;
-        const netRevenue = totalForRoom - commissionAmount;
+        const subtotalForRoom = priceForRoom * nights;
+        const taxAmountForRoom = subtotalForRoom * (taxPercentage / 100);
+        const totalForRoomWithTax = subtotalForRoom + taxAmountForRoom;
+        const commissionAmount = (totalForRoomWithTax * commissionRate) / 100;
+        const netRevenue = totalForRoomWithTax - commissionAmount;
 
         const reservationData = {
           booking_reference: `MAN-${Date.now()}-${roomIndex + 1}`,
@@ -933,7 +935,7 @@ export function CreateReservationDialog() {
           status: "confirmed",
           channel: "Manual",
           price_per_night: priceForRoom,
-          total_price: totalForRoom,
+          total_price: totalForRoomWithTax,
           commission_rate: commissionRate,
           commission_amount: commissionAmount,
           net_revenue: netRevenue,
