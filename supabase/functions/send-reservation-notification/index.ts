@@ -19,6 +19,9 @@ interface ReservationNotification {
   unitId?: string;
   unitType: string;
   totalPrice: number;
+  subtotal?: number;
+  taxAmount?: number;
+  taxPercentage?: number;
   numberOfGuests: number;
   adults: number;
   children: number;
@@ -50,6 +53,9 @@ const handler = async (req: Request): Promise<Response> => {
       unitId,
       unitType,
       totalPrice,
+      subtotal,
+      taxAmount,
+      taxPercentage,
       numberOfGuests,
       adults,
       children,
@@ -252,8 +258,20 @@ const handler = async (req: Request): Promise<Response> => {
                   </div>
                   
                   <div class="highlight">
-                    <div style="font-size: 14px; color: #6b7280; margin-bottom: 5px;">Total Amount</div>
-                    <div style="font-size: 32px; font-weight: bold; color: #0f172a;">$${totalPrice.toFixed(2)}</div>
+                    ${subtotal && taxAmount ? `
+                    <div style="display: flex; justify-content: space-between; margin-bottom: 8px;">
+                      <span style="font-size: 14px; color: #6b7280;">Subtotal</span>
+                      <span style="font-size: 14px; color: #374151;">$${subtotal.toFixed(2)}</span>
+                    </div>
+                    <div style="display: flex; justify-content: space-between; margin-bottom: 12px; padding-bottom: 12px; border-bottom: 1px dashed #d1d5db;">
+                      <span style="font-size: 14px; color: #6b7280;">VAT (${taxPercentage || 14}%)</span>
+                      <span style="font-size: 14px; color: #374151;">$${taxAmount.toFixed(2)}</span>
+                    </div>
+                    ` : ''}
+                    <div style="display: flex; justify-content: space-between; align-items: center;">
+                      <span style="font-size: 14px; color: #6b7280;">Total Amount</span>
+                      <span style="font-size: 28px; font-weight: bold; color: #0f172a;">$${totalPrice.toFixed(2)}</span>
+                    </div>
                   </div>
 
                   <div class="info-box">
