@@ -969,6 +969,11 @@ export function CreateReservationDialog() {
         const unitName = selectedUnit ? `${selectedUnit.name} ${selectedUnit.unit_number || ''}`.trim() : 'Unit';
         const unitType = selectedUnit?.unit_type || '';
 
+        // Calculate subtotal and tax for email
+        const priceForRoom = Number(roomPrices[insertedReservations.indexOf(reservation)]);
+        const subtotalForRoom = priceForRoom * nights;
+        const taxAmountForRoom = subtotalForRoom * (taxPercentage / 100);
+
         try {
           await supabase.functions.invoke('send-reservation-notification', {
             body: {
@@ -980,6 +985,9 @@ export function CreateReservationDialog() {
               unitId: reservation.unit_id,
               unitType,
               totalPrice: reservation.total_price,
+              subtotal: subtotalForRoom,
+              taxAmount: taxAmountForRoom,
+              taxPercentage: taxPercentage,
               numberOfGuests,
               adults,
               children,
