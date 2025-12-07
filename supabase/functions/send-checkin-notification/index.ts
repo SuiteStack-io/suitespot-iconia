@@ -69,7 +69,7 @@ serve(async (req) => {
         const emailResponse = await resend.emails.send({
           from: "SuiteSpot Reservations <reservations@bookings.suitespoteg.com>",
           to: [admin.email],
-          subject: `✅ Guest Checked In - ${unitName} - Room #${roomNumber}`,
+          subject: `New Guest Checked In - ${unitName} - Room #${roomNumber}`,
           html: `
             <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto;">
               <h2 style="color: #16a34a;">Guest Checked In</h2>
