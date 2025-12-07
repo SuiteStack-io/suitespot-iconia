@@ -349,7 +349,11 @@ export const AvailabilityCalendar = () => {
       const checkOut = new Date(r.check_out_date);
       const isCheckInDay = isSameDay(date, checkIn);
       const isStayingDay = date > checkIn && date < checkOut;
-      return isCheckInDay || isStayingDay;
+      // For completed/checked-out reservations, also show on checkout day
+      const isCheckoutDayForCompleted = 
+        (r.status === 'completed' || r.status === 'checked-out') && 
+        isSameDay(date, checkOut);
+      return isCheckInDay || isStayingDay || isCheckoutDayForCompleted;
     });
 
     const conflictKey = `${unit.id}-${dateKey}`;
