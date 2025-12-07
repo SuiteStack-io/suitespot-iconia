@@ -7,7 +7,7 @@ import { Badge } from "@/components/ui/badge";
 import { useToast } from "@/hooks/use-toast";
 import { useNavigate } from "react-router-dom";
 import { format } from "date-fns";
-import { AlertTriangle, ArrowRight, Eye, Loader2 } from "lucide-react";
+import { AlertTriangle, ArrowRight, Eye, Loader2, LogIn, LogOut, CheckCircle } from "lucide-react";
 
 interface Reservation {
   id: string;
@@ -52,6 +52,7 @@ export const ReservationQuickActions = ({
   const [unitConflicts, setUnitConflicts] = useState<Map<string, ConflictInfo>>(new Map());
   const [loading, setLoading] = useState(false);
   const [moving, setMoving] = useState(false);
+  const [updatingStatus, setUpdatingStatus] = useState(false);
   const { toast } = useToast();
   const navigate = useNavigate();
 
@@ -79,7 +80,7 @@ export const ReservationQuickActions = ({
       const { data: conflictingReservations, error: resError } = await supabase
         .from("reservations")
         .select("*")
-        .in("status", ["confirmed", "checked-in", "checked-out"])
+        .in("status", ["confirmed", "checked-in", "checked-out", "completed"])
         .neq("id", reservation.id)
         .or(`and(check_in_date.lt.${reservation.check_out_date},check_out_date.gt.${reservation.check_in_date})`);
 
@@ -160,6 +161,57 @@ export const ReservationQuickActions = ({
     }
   };
 
+  const handleStatusChange = async (newStatus: string) => {
+    if (!reservation) return;
+    setUpdatingStatus(true);
+    
+    try {
+      const { error } = await supabase
+        .from("reservations")
+        .update({ status: newStatus })
+        .eq("id", reservation.id);
+
+      if (error) throw error;
+
+      // Send notifications for check-in/check-out
+      if (newStatus === 'checked-in') {
+        try {
+          await supabase.functions.invoke('send-checkin-notification', {
+            body: { reservationId: reservation.id }
+          });
+        } catch (notifError) {
+          console.error('Failed to send check-in notification:', notifError);
+        }
+      } else if (newStatus === 'checked-out') {
+        try {
+          const { data: { user } } = await supabase.auth.getUser();
+          await supabase.functions.invoke('send-checkout-notification', {
+            body: { reservationId: reservation.id, userId: user?.id }
+          });
+        } catch (notifError) {
+          console.error('Failed to send check-out notification:', notifError);
+        }
+      }
+
+      toast({
+        title: "Status Updated",
+        description: `Reservation status changed to ${newStatus.replace('-', ' ')}`,
+      });
+
+      onOpenChange(false);
+      onMoveComplete();
+    } catch (error) {
+      console.error("Error updating status:", error);
+      toast({
+        title: "Update Failed",
+        description: "Failed to update reservation status. Please try again.",
+        variant: "destructive",
+      });
+    } finally {
+      setUpdatingStatus(false);
+    }
+  };
+
   if (!reservation) return null;
 
   const nights = Math.ceil(
@@ -201,9 +253,14 @@ export const ReservationQuickActions = ({
           <div className="p-4 bg-muted/50 rounded-lg space-y-2">
             <div className="flex items-center justify-between">
               <span className="font-semibold text-lg">{reservation.guest_names[0]}</span>
-              <Badge variant={getSourceBadgeColor(reservation.source)}>
-                {reservation.source || "Unknown"}
-              </Badge>
+              <div className="flex items-center gap-2">
+                <Badge variant={reservation.status === 'completed' ? 'secondary' : reservation.status === 'checked-out' ? 'outline' : 'default'}>
+                  {reservation.status.replace('-', ' ')}
+                </Badge>
+                <Badge variant={getSourceBadgeColor(reservation.source)}>
+                  {reservation.source || "Unknown"}
+                </Badge>
+              </div>
             </div>
             <div className="text-sm text-muted-foreground">
               {format(new Date(reservation.check_in_date), "MMM d, yyyy")} 
@@ -213,6 +270,50 @@ export const ReservationQuickActions = ({
             </div>
             <div className="text-xs text-muted-foreground">
               Ref: {reservation.booking_reference}
+            </div>
+          </div>
+
+          {/* Status Actions */}
+          <div className="space-y-2">
+            <label className="text-sm font-medium">Update Status</label>
+            <div className="flex flex-wrap gap-2">
+              {reservation.status === 'confirmed' && (
+                <Button
+                  size="sm"
+                  variant="outline"
+                  onClick={() => handleStatusChange('checked-in')}
+                  disabled={updatingStatus}
+                  className="gap-1"
+                >
+                  <LogIn className="h-3 w-3" />
+                  Check In
+                </Button>
+              )}
+              {(reservation.status === 'confirmed' || reservation.status === 'checked-in') && (
+                <Button
+                  size="sm"
+                  variant="outline"
+                  onClick={() => handleStatusChange('checked-out')}
+                  disabled={updatingStatus}
+                  className="gap-1"
+                >
+                  <LogOut className="h-3 w-3" />
+                  Check Out
+                </Button>
+              )}
+              {(reservation.status === 'checked-out' || reservation.status === 'completed') && (
+                <Button
+                  size="sm"
+                  variant="outline"
+                  onClick={() => handleStatusChange('confirmed')}
+                  disabled={updatingStatus}
+                  className="gap-1"
+                >
+                  <CheckCircle className="h-3 w-3" />
+                  Reset to Confirmed
+                </Button>
+              )}
+              {updatingStatus && <Loader2 className="h-4 w-4 animate-spin ml-2" />}
             </div>
           </div>
 
