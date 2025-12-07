@@ -19,6 +19,8 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/u
 import { Label } from "@/components/ui/label";
 import { Calendar } from "@/components/ui/calendar";
 import { DateRange } from "react-day-picker";
+import { useIsMobile } from "@/hooks/use-mobile";
+import { useSwipeable } from "react-swipeable";
 
 interface Unit {
   id: string;
@@ -171,6 +173,20 @@ export const AvailabilityCalendar = () => {
   const [exportDateRange, setExportDateRange] = useState<DateRange | undefined>(undefined);
   const navigate = useNavigate();
   const { toast, dismiss } = useToast();
+  const isMobile = useIsMobile();
+
+  // Swipe handlers for mobile navigation
+  const swipeHandlers = useSwipeable({
+    onSwipedLeft: () => {
+      setCurrentWeekStart(addDays(currentWeekStart, 14));
+    },
+    onSwipedRight: () => {
+      setCurrentWeekStart(addDays(currentWeekStart, -14));
+    },
+    trackMouse: false,
+    trackTouch: true,
+    preventScrollOnSwipe: false,
+  });
 
   const sensors = useSensors(
     useSensor(PointerSensor, {
@@ -961,33 +977,41 @@ export const AvailabilityCalendar = () => {
               <FileText className="h-4 w-4 mr-1" />
               Export PDF
             </Button>
-            <Button 
-              variant="outline" 
-              size="sm" 
-              onClick={() => handleExportClick('excel')}
-              disabled={exporting}
-            >
-              <FileSpreadsheet className="h-4 w-4 mr-1" />
-              Export Excel
-            </Button>
+            {!isMobile && (
+              <Button 
+                variant="outline" 
+                size="sm" 
+                onClick={() => handleExportClick('excel')}
+                disabled={exporting}
+              >
+                <FileSpreadsheet className="h-4 w-4 mr-1" />
+                Export Excel
+              </Button>
+            )}
           </div>
         </div>
 
         {/* Calendar Grid with Side Navigation */}
         <div className="flex items-stretch gap-2">
-          {/* Left Arrow */}
-          <Button
-            variant="ghost"
-            size="icon"
-            onClick={() => setCurrentWeekStart(addDays(currentWeekStart, -14))}
-            className="flex-shrink-0 h-auto min-h-[100px] w-10 hover:bg-muted self-center"
-            title="Previous 2 weeks"
-          >
-            <ChevronLeft className="h-6 w-6" />
-          </Button>
+          {/* Left Arrow - Desktop only */}
+          {!isMobile && (
+            <Button
+              variant="ghost"
+              size="icon"
+              onClick={() => setCurrentWeekStart(addDays(currentWeekStart, -14))}
+              className="flex-shrink-0 h-auto min-h-[100px] w-10 hover:bg-muted self-center"
+              title="Previous 2 weeks"
+            >
+              <ChevronLeft className="h-6 w-6" />
+            </Button>
+          )}
 
           {/* Calendar Grid */}
-          <div className="overflow-auto relative flex-1" style={{ maxHeight: 'calc(100vh - 320px)' }}>
+          <div 
+            {...(isMobile ? swipeHandlers : {})} 
+            className="overflow-auto relative flex-1" 
+            style={{ maxHeight: 'calc(100vh - 320px)' }}
+          >
             <DndContext sensors={sensors} onDragStart={handleDragStart} onDragEnd={handleDragEnd}>
             <TooltipProvider>
               <div className="min-w-max">
@@ -1159,16 +1183,18 @@ export const AvailabilityCalendar = () => {
             </DndContext>
           </div>
 
-          {/* Right Arrow */}
-          <Button
-            variant="ghost"
-            size="icon"
-            onClick={() => setCurrentWeekStart(addDays(currentWeekStart, 14))}
-            className="flex-shrink-0 h-auto min-h-[100px] w-10 hover:bg-muted self-center"
-            title="Next 2 weeks"
-          >
-            <ChevronRight className="h-6 w-6" />
-          </Button>
+          {/* Right Arrow - Desktop only */}
+          {!isMobile && (
+            <Button
+              variant="ghost"
+              size="icon"
+              onClick={() => setCurrentWeekStart(addDays(currentWeekStart, 14))}
+              className="flex-shrink-0 h-auto min-h-[100px] w-10 hover:bg-muted self-center"
+              title="Next 2 weeks"
+            >
+              <ChevronRight className="h-6 w-6" />
+            </Button>
+          )}
         </div>
 
         {units.length === 0 && (
