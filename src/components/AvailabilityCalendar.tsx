@@ -1008,7 +1008,6 @@ export const AvailabilityCalendar = () => {
 
           {/* Calendar Grid */}
           <div 
-            {...(isMobile ? swipeHandlers : {})} 
             className="overflow-auto relative flex-1" 
             style={{ maxHeight: 'calc(100vh - 320px)' }}
           >
@@ -1034,7 +1033,8 @@ export const AvailabilityCalendar = () => {
                   ))}
                 </div>
 
-                {/* Unit Rows */}
+                {/* Unit Rows - Swipeable on mobile */}
+                <div {...(isMobile ? swipeHandlers : {})}>
                 {units.map((unit, index) => {
                   const currentRoomType = unit.booking_com_name || unit.name;
                   const previousUnit = index > 0 ? units[index - 1] : null;
@@ -1167,6 +1167,7 @@ export const AvailabilityCalendar = () => {
                     </div>
                   );
                 })}
+                </div>
               </div>
             </TooltipProvider>
 
