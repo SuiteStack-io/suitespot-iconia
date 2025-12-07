@@ -319,10 +319,13 @@ export const MobileCalendarView = () => {
 
   const getSourceColor = (reservation: Reservation) => {
     const source = reservation.channel || reservation.source || '';
-    if (source.toLowerCase().includes('booking')) return 'bg-blue-500';
-    if (source.toLowerCase().includes('airbnb')) return 'bg-pink-500';
-    if (source.toLowerCase().includes('direct')) return 'bg-green-500';
-    return 'bg-muted';
+    const isDimmed = reservation.status === 'completed' || reservation.status === 'checked-out';
+    const opacity = isDimmed ? 'opacity-50' : '';
+    
+    if (source.toLowerCase().includes('booking')) return `bg-blue-500 ${opacity}`;
+    if (source.toLowerCase().includes('airbnb')) return `bg-pink-500 ${opacity}`;
+    if (source.toLowerCase().includes('direct')) return `bg-green-500 ${opacity}`;
+    return `bg-muted ${opacity}`;
   };
 
   return (
@@ -417,11 +420,16 @@ export const MobileCalendarView = () => {
                       return (
                         <div
                           key={reservation.id}
-                          className="bg-muted/50 rounded p-2 space-y-1 cursor-pointer hover:bg-muted"
+                          className={`bg-muted/50 rounded p-2 space-y-1 cursor-pointer hover:bg-muted ${reservation.status === 'completed' || reservation.status === 'checked-out' ? 'opacity-60' : ''}`}
                           onClick={() => handleReservationClick(reservation, unit)}
                         >
                           <div className="flex items-center gap-2 flex-wrap">
                             <span className="font-medium text-sm">{reservation.guest_names[0]}</span>
+                            {(reservation.status === 'completed' || reservation.status === 'checked-out') && (
+                              <Badge variant="secondary" className="text-xs">
+                                {reservation.status.replace('-', ' ')}
+                              </Badge>
+                            )}
                             <Badge className={`${getSourceColor(reservation)} text-black text-xs`}>
                               {reservation.channel || reservation.source}
                             </Badge>
