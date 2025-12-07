@@ -79,12 +79,12 @@ const CheckInOut = () => {
       .eq('status', 'confirmed')
       .order('created_at', { ascending: false });
 
-    // Fetch departures (check-out today, status = checked-in)
+    // Fetch departures (check-out today, status = checked-in OR confirmed - for guests who weren't formally checked in)
     const { data: departuresData } = await supabase
       .from('reservations')
       .select('id, booking_reference, guest_names, guest_types, check_in_date, check_out_date, status, number_of_guests, units(name, unit_number)')
       .eq('check_out_date', today)
-      .eq('status', 'checked-in')
+      .in('status', ['checked-in', 'confirmed'])
       .order('created_at', { ascending: false });
 
     setArrivals(arrivalsData || []);
