@@ -208,15 +208,19 @@ export const RoomCalendar = () => {
     return { checkingOut, checkingIn, staying };
   };
 
-  const getReservationColor = (source: string) => {
+  const getReservationColor = (source: string, status?: string) => {
+    // Apply dimmed styling for completed/checked-out reservations
+    const isDimmed = status === 'completed' || status === 'checked-out';
+    const opacity = isDimmed ? 'opacity-50' : '';
+    
     const lowerSource = source.toLowerCase();
     if (lowerSource.includes('admin') || lowerSource.includes('manager')) {
-      return 'bg-green-500/80 text-white';
+      return `bg-green-500/80 text-white ${opacity}`;
     }
     if (lowerSource.includes('booking')) {
-      return 'bg-[#003580] text-white';
+      return `bg-[#003580] text-white ${opacity}`;
     }
-    return 'bg-red-500/80 text-white';
+    return `bg-red-500/80 text-white ${opacity}`;
   };
 
   const renderGuestName = (guestName: string) => {
@@ -266,10 +270,13 @@ export const RoomCalendar = () => {
 
   const getSourceColor = (reservation: Reservation) => {
     const source = reservation.source || '';
-    if (source.toLowerCase().includes('booking')) return 'bg-blue-500';
-    if (source.toLowerCase().includes('airbnb')) return 'bg-pink-500';
-    if (source.toLowerCase().includes('direct')) return 'bg-green-500';
-    return 'bg-muted';
+    const isDimmed = reservation.status === 'completed' || reservation.status === 'checked-out';
+    const opacity = isDimmed ? 'opacity-50' : '';
+    
+    if (source.toLowerCase().includes('booking')) return `bg-blue-500 ${opacity}`;
+    if (source.toLowerCase().includes('airbnb')) return `bg-pink-500 ${opacity}`;
+    if (source.toLowerCase().includes('direct')) return `bg-green-500 ${opacity}`;
+    return `bg-muted ${opacity}`;
   };
 
   // Filter units based on room name and room number
@@ -648,23 +655,23 @@ export const RoomCalendar = () => {
                             </div>
                           ) : hasBothCheckOutAndIn ? (
                             <div className="flex flex-col h-full">
-                              <div className={`flex-1 flex items-center justify-center text-[10px] border-b ${getReservationColor(checkingOut.source)}`}>
+                              <div className={`flex-1 flex items-center justify-center text-[10px] border-b ${getReservationColor(checkingOut.source, checkingOut.status)}`}>
                                 OUT
                               </div>
-                              <div className={`flex-1 flex items-center justify-center text-[10px] ${getReservationColor(checkingIn.source)}`}>
+                              <div className={`flex-1 flex items-center justify-center text-[10px] ${getReservationColor(checkingIn.source, checkingIn.status)}`}>
                                 IN
                               </div>
                             </div>
                           ) : checkingOut ? (
-                            <div className={`h-full flex items-center justify-center text-xs ${getReservationColor(checkingOut.source)}`}>
+                            <div className={`h-full flex items-center justify-center text-xs ${getReservationColor(checkingOut.source, checkingOut.status)}`}>
                               OUT
                             </div>
                           ) : checkingIn ? (
-                            <div className={`h-full flex flex-col items-center justify-center ${getReservationColor(checkingIn.source)} px-1`}>
+                            <div className={`h-full flex flex-col items-center justify-center ${getReservationColor(checkingIn.source, checkingIn.status)} px-1`}>
                               {renderGuestName(checkingIn.guest_names[0])}
                             </div>
                           ) : staying ? (
-                            <div className={`h-full flex flex-col items-center justify-center ${getReservationColor(staying.source)} px-1`}>
+                            <div className={`h-full flex flex-col items-center justify-center ${getReservationColor(staying.source, staying.status)} px-1`}>
                               {renderGuestName(staying.guest_names[0])}
                             </div>
                           ) : null}
@@ -734,11 +741,16 @@ export const RoomCalendar = () => {
                       return (
                         <div
                           key={reservation.id}
-                          className="bg-muted/50 rounded p-2 space-y-1 cursor-pointer hover:bg-muted"
+                          className={`bg-muted/50 rounded p-2 space-y-1 cursor-pointer hover:bg-muted ${reservation.status === 'completed' || reservation.status === 'checked-out' ? 'opacity-60' : ''}`}
                           onClick={() => handleReservationClick(reservation, { ...unit, status: 'available' })}
                         >
                           <div className="flex items-center gap-2 flex-wrap">
                             <span className="font-medium text-sm">{reservation.guest_names[0]}</span>
+                            {(reservation.status === 'completed' || reservation.status === 'checked-out') && (
+                              <Badge variant="secondary" className="text-xs">
+                                {reservation.status.replace('-', ' ')}
+                              </Badge>
+                            )}
                             <Badge className={`${getSourceColor(reservation)} text-black text-xs`}>
                               {reservation.source}
                             </Badge>

@@ -127,15 +127,19 @@ export const WeeklyCalendar = () => {
     return { checkingOut, checkingIn, staying };
   };
 
-  const getReservationColor = (source: string) => {
+  const getReservationColor = (source: string, status?: string) => {
+    // Apply dimmed styling for completed/checked-out reservations
+    const isDimmed = status === 'completed' || status === 'checked-out';
+    const opacity = isDimmed ? 'opacity-50' : '';
+    
     const lowerSource = source.toLowerCase();
     if (lowerSource.includes('admin') || lowerSource.includes('manager')) {
-      return 'bg-green-500/80 text-white';
+      return `bg-green-500/80 text-white ${opacity}`;
     }
     if (lowerSource.includes('booking')) {
-      return 'bg-[#003580] text-white';
+      return `bg-[#003580] text-white ${opacity}`;
     }
-    return 'bg-red-500/80 text-white';
+    return `bg-red-500/80 text-white ${opacity}`;
   };
 
   const navigatePreviousWeek = () => setCurrentWeekStart(prev => addDays(prev, -7));
@@ -259,23 +263,23 @@ export const WeeklyCalendar = () => {
                         </div>
                       ) : hasBothCheckOutAndIn ? (
                         <div className="flex flex-col h-full">
-                          <div className={`flex-1 flex items-center justify-center text-[10px] border-b ${getReservationColor(checkingOut.source)}`}>
+                          <div className={`flex-1 flex items-center justify-center text-[10px] border-b ${getReservationColor(checkingOut.source, checkingOut.status)}`}>
                             OUT
                           </div>
-                          <div className={`flex-1 flex items-center justify-center text-[10px] ${getReservationColor(checkingIn.source)}`}>
+                          <div className={`flex-1 flex items-center justify-center text-[10px] ${getReservationColor(checkingIn.source, checkingIn.status)}`}>
                             IN
                           </div>
                         </div>
                       ) : checkingOut ? (
-                        <div className={`h-full flex items-center justify-center text-xs ${getReservationColor(checkingOut.source)}`}>
+                        <div className={`h-full flex items-center justify-center text-xs ${getReservationColor(checkingOut.source, checkingOut.status)}`}>
                           OUT
                         </div>
                       ) : checkingIn ? (
-                        <div className={`h-full flex items-center justify-center text-xs ${getReservationColor(checkingIn.source)}`}>
+                        <div className={`h-full flex items-center justify-center text-xs ${getReservationColor(checkingIn.source, checkingIn.status)}`}>
                           IN
                         </div>
                       ) : staying ? (
-                        <div className={`h-full flex items-center justify-center ${getReservationColor(staying.source)}`}>
+                        <div className={`h-full flex items-center justify-center ${getReservationColor(staying.source, staying.status)}`}>
                           <div className="w-2 h-2 rounded-full bg-white"></div>
                         </div>
                       ) : null}
