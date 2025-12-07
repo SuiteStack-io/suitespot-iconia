@@ -1046,8 +1046,12 @@ export const AvailabilityCalendar = () => {
                       {/* Room type separator - NOT swipeable */}
                       {showSeparator && (
                         <div 
-                          className="flex items-center gap-2 py-2 px-2 bg-muted/50 border-y border-border mb-1 rounded"
-                          style={{ gridColumn: `1 / -1` }}
+                          className="flex items-center gap-2 py-2 px-2 bg-muted/50 border-y border-border mb-1 rounded sticky left-0 z-10"
+                          style={{ 
+                            gridColumn: `1 / -1`,
+                            width: 'fit-content',
+                            minWidth: '100%'
+                          }}
                         >
                           <Building2 className="h-4 w-4 text-muted-foreground" />
                           <span className="text-sm font-semibold text-muted-foreground">
