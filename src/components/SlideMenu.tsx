@@ -63,6 +63,7 @@ export function SlideMenu({ isAdmin }: SlideMenuProps) {
       label: 'ICONIA',
       items: [
         { title: 'Rooms', url: '/rooms', icon: DoorOpen },
+        { title: 'Reservations List', url: '/reservations-list', icon: ClipboardList },
         { title: 'Calendar', url: '/calendar', icon: CalendarDays },
         { title: 'Check-In/Out', url: '/check-in-out', icon: DoorClosed },
         { title: 'Housekeeping', url: '/housekeeping', icon: Sparkles },
