@@ -987,20 +987,20 @@ export const AvailabilityCalendar = () => {
           </Button>
 
           {/* Calendar Grid */}
-          <div className="overflow-x-auto relative flex-1">
+          <div className="overflow-auto relative flex-1" style={{ maxHeight: 'calc(100vh - 320px)' }}>
             <DndContext sensors={sensors} onDragStart={handleDragStart} onDragEnd={handleDragEnd}>
             <TooltipProvider>
               <div className="min-w-max">
-                {/* Header Row */}
-                <div className="grid gap-1 mb-2" style={{ gridTemplateColumns: `160px repeat(${displayDays.length}, 70px)` }}>
-                  <div className="font-medium text-sm p-2 sticky left-0 bg-card z-10 border-r border-border">Unit</div>
+                {/* Header Row - Sticky */}
+                <div className="grid gap-1 mb-2 sticky top-0 z-20 bg-card pb-1" style={{ gridTemplateColumns: `160px repeat(${displayDays.length}, 70px)` }}>
+                  <div className="font-medium text-sm p-2 sticky left-0 bg-card z-30 border-r border-border">Unit</div>
                   {displayDays.map((day) => (
                     <div
                       key={day.toISOString()}
                       className={`text-center text-xs p-2 rounded ${
                         isSameDay(day, new Date())
                           ? 'bg-primary text-primary-foreground font-semibold'
-                          : 'text-muted-foreground'
+                          : 'bg-card text-muted-foreground'
                       }`}
                     >
                       <div>{format(day, 'EEE')}</div>
