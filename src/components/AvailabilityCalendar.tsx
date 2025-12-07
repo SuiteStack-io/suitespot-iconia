@@ -1033,8 +1033,7 @@ export const AvailabilityCalendar = () => {
                   ))}
                 </div>
 
-                {/* Unit Rows - Swipeable on mobile */}
-                <div {...(isMobile ? swipeHandlers : {})}>
+                {/* Unit Rows */}
                 {units.map((unit, index) => {
                   const currentRoomType = unit.booking_com_name || unit.name;
                   const previousUnit = index > 0 ? units[index - 1] : null;
@@ -1044,6 +1043,7 @@ export const AvailabilityCalendar = () => {
 
                   return (
                     <div key={unit.id}>
+                      {/* Room type separator - NOT swipeable */}
                       {showSeparator && (
                         <div 
                           className="flex items-center gap-2 py-2 px-2 bg-muted/50 border-y border-border mb-1 rounded"
@@ -1059,8 +1059,10 @@ export const AvailabilityCalendar = () => {
                           <div className="flex-1 h-px bg-border" />
                         </div>
                       )}
+                      {/* Room row - Swipeable on mobile */}
                       <DroppableUnitRow unit={unit}>
                     <div
+                      {...(isMobile ? swipeHandlers : {})}
                       className="grid gap-1 mb-1"
                       style={{ gridTemplateColumns: `160px repeat(${displayDays.length}, 70px)` }}
                     >
@@ -1167,7 +1169,6 @@ export const AvailabilityCalendar = () => {
                     </div>
                   );
                 })}
-                </div>
               </div>
             </TooltipProvider>
 
