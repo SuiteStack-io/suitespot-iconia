@@ -53,6 +53,7 @@ import SelectionSessions from "./pages/SelectionSessions";
 import SessionAuditLog from "./pages/SessionAuditLog";
 import CheckInOut from "./pages/CheckInOut";
 import Housekeeping from "./pages/Housekeeping";
+import ReservationsListPage from "./pages/ReservationsListPage";
 
 const queryClient = new QueryClient();
 
@@ -107,6 +108,7 @@ const App = () => (
               <Route path="/auth" element={<Auth />} />
               <Route path="/check-in-out" element={<ProtectedRoute><CheckInOut /></ProtectedRoute>} />
               <Route path="/housekeeping" element={<ProtectedRoute><Housekeeping /></ProtectedRoute>} />
+              <Route path="/reservations-list" element={<ProtectedRoute><ReservationsListPage /></ProtectedRoute>} />
               <Route path="/calendar" element={<ProtectedRoute><Calendar /></ProtectedRoute>} />
               <Route path="/reservation/:id" element={<ProtectedRoute><ReservationDetail /></ProtectedRoute>} />
               <Route path="/users" element={<ProtectedRoute><Users /></ProtectedRoute>} />
