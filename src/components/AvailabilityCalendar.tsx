@@ -192,7 +192,7 @@ export const AvailabilityCalendar = () => {
     return () => document.removeEventListener('keydown', handleEscape);
   }, [isFullscreen]);
 
-  // Swipe handlers for mobile navigation
+  // Swipe handlers for mobile navigation - optimized for touch scrolling
   const swipeHandlers = useSwipeable({
     onSwipedLeft: () => {
       setCurrentWeekStart(addDays(currentWeekStart, 14));
@@ -203,6 +203,8 @@ export const AvailabilityCalendar = () => {
     trackMouse: false,
     trackTouch: true,
     preventScrollOnSwipe: false,
+    delta: 80, // Require 80px minimum swipe distance to avoid interfering with scroll
+    swipeDuration: 250, // Maximum time for swipe gesture
   });
 
   const sensors = useSensors(
@@ -1347,10 +1349,14 @@ export const AvailabilityCalendar = () => {
             </Button>
           )}
 
-          {/* Calendar Grid */}
+          {/* Calendar Grid - Optimized for mobile touch scrolling */}
           <div 
-            className="overflow-auto relative flex-1" 
-            style={{ maxHeight: isFullscreen ? 'calc(100vh - 80px)' : 'calc(100vh - 320px)' }}
+            {...(isMobile ? swipeHandlers : {})}
+            className={`overflow-auto relative flex-1 ${isMobile ? 'touch-pan-x touch-pan-y overscroll-contain' : ''}`}
+            style={{ 
+              maxHeight: isFullscreen ? 'calc(100vh - 80px)' : 'calc(100vh - 320px)',
+              WebkitOverflowScrolling: 'touch',
+            }}
           >
             <DndContext sensors={sensors} onDragStart={handleDragStart} onDragEnd={handleDragEnd}>
             <TooltipProvider>
@@ -1406,11 +1412,10 @@ export const AvailabilityCalendar = () => {
                           ))}
                         </div>
                       )}
-                      {/* Room row - Swipeable on mobile */}
+                      {/* Room row */}
                       <DroppableUnitRow unit={unit}>
                     <div
-                      {...(isMobile ? swipeHandlers : {})}
-                      className="grid gap-1 mb-1"
+                      className={`grid gap-1 mb-1 ${isMobile ? 'touch-manipulation' : ''}`}
                       style={{ gridTemplateColumns: `160px repeat(${displayDays.length}, 70px)` }}
                     >
                       <Popover>
