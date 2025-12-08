@@ -677,43 +677,86 @@ export const AvailabilityCalendar = () => {
     }
   };
 
-  const exportToPDF = () => {
+  const exportToPDF = async () => {
     if (!exportDateRange?.from || !exportDateRange?.to) return;
     
     setExporting(true);
     try {
       const doc = new jsPDF('l', 'mm', 'a4'); // landscape orientation
+      const pageWidth = doc.internal.pageSize.width;
       
       const exportDays = eachDayOfInterval({ start: exportDateRange.from, end: exportDateRange.to });
-      const title = `Unit Availability - ${format(exportDateRange.from, 'MMM d')} to ${format(exportDateRange.to, 'MMM d, yyyy')}`;
       
-      // Title
-      doc.setFontSize(16);
-      doc.text(title, 14, 15);
+      // Load and add SuiteSpot logo
+      const logoImg = new Image();
+      logoImg.crossOrigin = 'anonymous';
+      
+      await new Promise<void>((resolve) => {
+        logoImg.onload = () => {
+          // Add logo (25mm width, maintain aspect ratio)
+          const logoWidth = 25;
+          const logoHeight = (logoImg.height / logoImg.width) * logoWidth;
+          doc.addImage(logoImg, 'PNG', 14, 8, logoWidth, logoHeight);
+          resolve();
+        };
+        logoImg.onerror = () => {
+          console.warn('Failed to load logo');
+          resolve();
+        };
+        logoImg.src = '/suitespot-logo-3.png';
+      });
+      
+      // Title and date range (next to logo)
+      doc.setFontSize(18);
+      doc.setFont('helvetica', 'bold');
+      doc.text('Unit Availability Calendar', 45, 16);
+      
+      doc.setFontSize(11);
+      doc.setFont('helvetica', 'normal');
+      doc.text(`${format(exportDateRange.from, 'MMMM d, yyyy')} - ${format(exportDateRange.to, 'MMMM d, yyyy')}`, 45, 24);
+      
+      // Generated timestamp (right side)
+      doc.setFontSize(8);
+      doc.setTextColor(100, 100, 100);
+      doc.text(`Generated: ${format(new Date(), 'MMM d, yyyy h:mm a')}`, pageWidth - 14, 12, { align: 'right' });
+      doc.setTextColor(0, 0, 0);
       
       // Add conflict warning if any
+      let startY = 35;
       if (totalConflicts > 0) {
         doc.setFontSize(10);
-        doc.setTextColor(255, 0, 0);
-        doc.text(`⚠️ ${totalConflicts} CONFLICT${totalConflicts > 1 ? 'S' : ''} DETECTED`, 14, 22);
+        doc.setTextColor(220, 38, 38);
+        doc.setFont('helvetica', 'bold');
+        doc.text(`⚠️ ${totalConflicts} CONFLICT${totalConflicts > 1 ? 'S' : ''} DETECTED`, 14, 32);
         doc.setTextColor(0, 0, 0);
+        doc.setFont('helvetica', 'normal');
+        startY = 38;
       }
 
-      // Prepare table data
-      const headers = ['Unit', ...exportDays.map(day => format(day, 'MMM d'))];
-      const tableData = units.map(unit => {
-        const row = [unit.name];
-        exportDays.forEach(day => {
+      // Prepare table data with booking.com name + room number
+      const headers = ['Room', ...exportDays.map(day => format(day, 'MMM d'))];
+      
+      // Create availability matrix for cell coloring
+      const availabilityMatrix: string[][] = units.map(unit => {
+        return exportDays.map(day => {
           const availability = getDayAvailability(unit, day);
-          if (availability.hasConflict) {
-            row.push('⚠️ CONFLICT');
-          } else if (availability.isBlocked) {
-            row.push('Blocked');
-          } else if (!availability.isAvailable) {
-            row.push('Booked');
-          } else {
-            row.push('Available');
-          }
+          if (availability.hasConflict) return 'conflict';
+          if (availability.isBlocked) return 'blocked';
+          if (!availability.isAvailable) return 'booked';
+          return 'available';
+        });
+      });
+      
+      const tableData = units.map((unit, unitIndex) => {
+        // First column: Booking.com name + room number
+        const roomName = unit.booking_com_name || unit.name;
+        const roomNumber = unit.unit_number ? `#${unit.unit_number}` : '';
+        const row = [`${roomName}\n${roomNumber}`];
+        
+        // Date columns: empty cells (color only), except conflict shows ⚠️
+        exportDays.forEach((day, dayIndex) => {
+          const status = availabilityMatrix[unitIndex][dayIndex];
+          row.push(status === 'conflict' ? '⚠️' : '');
         });
         return row;
       });
@@ -721,39 +764,99 @@ export const AvailabilityCalendar = () => {
       autoTable(doc, {
         head: [headers],
         body: tableData,
-        startY: totalConflicts > 0 ? 25 : 20,
+        startY: startY,
         theme: 'grid',
-        styles: { fontSize: 8, cellPadding: 2 },
-        headStyles: { fillColor: [66, 66, 66], textColor: 255 },
+        styles: { 
+          fontSize: 7, 
+          cellPadding: 2,
+          halign: 'center',
+          valign: 'middle',
+          minCellHeight: 10,
+        },
+        headStyles: { 
+          fillColor: [55, 65, 81], // gray-700
+          textColor: 255,
+          fontSize: 7,
+          fontStyle: 'bold',
+          halign: 'center',
+        },
         columnStyles: {
-          0: { fontStyle: 'bold', cellWidth: 40 }
+          0: { 
+            fontStyle: 'bold', 
+            cellWidth: 45,
+            halign: 'left',
+            fontSize: 7,
+          }
         },
         didParseCell: (data) => {
-          if (data.cell.text[0] === '⚠️ CONFLICT') {
-            data.cell.styles.fillColor = [220, 38, 38];
-            data.cell.styles.textColor = 255;
-            data.cell.styles.fontStyle = 'bold';
-          } else if (data.cell.text[0] === 'Blocked') {
-            data.cell.styles.fillColor = [30, 30, 30];
-            data.cell.styles.textColor = 255;
-          } else if (data.cell.text[0] === 'Booked') {
-            data.cell.styles.fillColor = [219, 234, 254];
-            data.cell.styles.textColor = [30, 64, 175];
-          } else if (data.cell.text[0] === 'Available') {
-            data.cell.styles.fillColor = [240, 253, 244];
-            data.cell.styles.textColor = [22, 101, 52];
+          // Skip header row and first column
+          if (data.section === 'head' || data.column.index === 0) return;
+          
+          const unitIndex = data.row.index;
+          const dayIndex = data.column.index - 1;
+          
+          if (unitIndex >= 0 && unitIndex < availabilityMatrix.length && 
+              dayIndex >= 0 && dayIndex < availabilityMatrix[unitIndex].length) {
+            const status = availabilityMatrix[unitIndex][dayIndex];
+            
+            switch (status) {
+              case 'conflict':
+                data.cell.styles.fillColor = [254, 202, 202]; // red-200
+                data.cell.styles.textColor = [153, 27, 27]; // red-800
+                data.cell.styles.fontStyle = 'bold';
+                break;
+              case 'blocked':
+                data.cell.styles.fillColor = [55, 65, 81]; // gray-700
+                data.cell.styles.textColor = [255, 255, 255];
+                break;
+              case 'booked':
+                data.cell.styles.fillColor = [191, 219, 254]; // blue-200
+                data.cell.styles.textColor = [30, 64, 175]; // blue-800
+                break;
+              case 'available':
+                data.cell.styles.fillColor = [220, 252, 231]; // green-200
+                data.cell.styles.textColor = [22, 101, 52]; // green-800
+                break;
+            }
           }
         }
       });
 
-      // Add legend
-      const finalY = (doc as any).lastAutoTable.finalY + 10;
-      doc.setFontSize(8);
+      // Add visual color legend with colored rectangles
+      const finalY = (doc as any).lastAutoTable.finalY + 8;
+      doc.setFontSize(9);
+      doc.setFont('helvetica', 'bold');
       doc.text('Legend:', 14, finalY);
-      doc.text('• Available: Room is free', 14, finalY + 5);
-      doc.text('• Booked: Room is occupied', 14, finalY + 10);
-      doc.text('• Blocked: Room is unavailable for booking', 14, finalY + 15);
-      doc.text('• ⚠️ CONFLICT: Double booking detected', 14, finalY + 20);
+      doc.setFont('helvetica', 'normal');
+      
+      const legendY = finalY + 5;
+      const legendSpacing = 45;
+      
+      // Available - green
+      doc.setFillColor(220, 252, 231);
+      doc.rect(14, legendY - 3, 8, 5, 'F');
+      doc.setDrawColor(180, 180, 180);
+      doc.rect(14, legendY - 3, 8, 5, 'S');
+      doc.setFontSize(8);
+      doc.text('Available', 24, legendY);
+      
+      // Booked - blue
+      doc.setFillColor(191, 219, 254);
+      doc.rect(14 + legendSpacing, legendY - 3, 8, 5, 'F');
+      doc.rect(14 + legendSpacing, legendY - 3, 8, 5, 'S');
+      doc.text('Booked', 24 + legendSpacing, legendY);
+      
+      // Blocked - dark gray
+      doc.setFillColor(55, 65, 81);
+      doc.rect(14 + legendSpacing * 2, legendY - 3, 8, 5, 'F');
+      doc.rect(14 + legendSpacing * 2, legendY - 3, 8, 5, 'S');
+      doc.text('Blocked', 24 + legendSpacing * 2, legendY);
+      
+      // Conflict - red
+      doc.setFillColor(254, 202, 202);
+      doc.rect(14 + legendSpacing * 3, legendY - 3, 8, 5, 'F');
+      doc.rect(14 + legendSpacing * 3, legendY - 3, 8, 5, 'S');
+      doc.text('⚠️ Conflict', 24 + legendSpacing * 3, legendY);
 
       // Save
       const filename = `availability-calendar-${format(new Date(), 'yyyy-MM-dd')}.pdf`;
