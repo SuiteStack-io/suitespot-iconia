@@ -176,6 +176,18 @@ export const AvailabilityCalendar = () => {
   const isMobile = useIsMobile();
   const [isFullscreen, setIsFullscreen] = useState(false);
 
+  // Escape key handler for fullscreen
+  useEffect(() => {
+    const handleEscape = (e: KeyboardEvent) => {
+      if (e.key === 'Escape' && isFullscreen) {
+        setIsFullscreen(false);
+      }
+    };
+    
+    document.addEventListener('keydown', handleEscape);
+    return () => document.removeEventListener('keydown', handleEscape);
+  }, [isFullscreen]);
+
   // Swipe handlers for mobile navigation
   const swipeHandlers = useSwipeable({
     onSwipedLeft: () => {
