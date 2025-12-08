@@ -16,6 +16,7 @@ import { ReservationQuickActions } from "./ReservationQuickActions";
 import { DndContext, DragEndEvent, DragOverlay, DragStartEvent, useDraggable, useDroppable, PointerSensor, useSensor, useSensors } from "@dnd-kit/core";
 import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
+import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from "@/components/ui/alert-dialog";
 import { Label } from "@/components/ui/label";
 import { Calendar } from "@/components/ui/calendar";
 import { DateRange } from "react-day-picker";
@@ -170,6 +171,7 @@ export const AvailabilityCalendar = () => {
     daysCount: number;
   } | null>(null);
   const [deletingBlockedDates, setDeletingBlockedDates] = useState(false);
+  const [deleteConfirmOpen, setDeleteConfirmOpen] = useState(false);
   const [exportDialogOpen, setExportDialogOpen] = useState(false);
   const [exportType, setExportType] = useState<'pdf' | 'excel'>('pdf');
   const [exportDateRange, setExportDateRange] = useState<DateRange | undefined>(undefined);
@@ -522,6 +524,7 @@ export const AvailabilityCalendar = () => {
       
       // Update local state
       setBlockedDates(prev => prev.filter(bd => !idsToDelete.includes(bd.id)));
+      setDeleteConfirmOpen(false);
       setBlockedDateDialogOpen(false);
       setSelectedBlockedDateInfo(null);
       
@@ -1594,16 +1597,39 @@ export const AvailabilityCalendar = () => {
               <Button
                 variant="destructive"
                 className="w-full mt-4"
-                onClick={handleDeleteBlockedDates}
-                disabled={deletingBlockedDates}
+                onClick={() => setDeleteConfirmOpen(true)}
               >
                 <Trash2 className="h-4 w-4 mr-2" />
-                {deletingBlockedDates ? 'Deleting...' : 'Delete Blocked Dates'}
+                Delete Blocked Dates
               </Button>
             </div>
           )}
         </DialogContent>
       </Dialog>
+
+      {/* Delete Confirmation Dialog */}
+      <AlertDialog open={deleteConfirmOpen} onOpenChange={setDeleteConfirmOpen}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Delete Blocked Dates?</AlertDialogTitle>
+            <AlertDialogDescription>
+              This will permanently delete {selectedBlockedDateInfo?.daysCount} blocked date{selectedBlockedDateInfo?.daysCount !== 1 ? 's' : ''} for {selectedBlockedDateInfo?.unitName}
+              {selectedBlockedDateInfo?.unitNumber ? ` (Room #${selectedBlockedDateInfo.unitNumber})` : ''}.
+              This action cannot be undone.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>Cancel</AlertDialogCancel>
+            <AlertDialogAction 
+              onClick={handleDeleteBlockedDates}
+              disabled={deletingBlockedDates}
+              className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
+            >
+              {deletingBlockedDates ? 'Deleting...' : 'Delete'}
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
 
       {/* Export Date Range Dialog */}
       <Dialog open={exportDialogOpen} onOpenChange={setExportDialogOpen}>
