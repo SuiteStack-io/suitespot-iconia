@@ -1104,135 +1104,161 @@ export const AvailabilityCalendar = () => {
             )}
           </div>
         </div>
-        <Tabs 
-          value={selectedLocation} 
-          onValueChange={(value) => setSelectedLocation(value as 'ICONIA' | 'Almaza Bay')}
-          className="mt-4"
-        >
-          <TabsList>
-            <TabsTrigger value="ICONIA">
-              ICONIA <span className="ml-1.5 text-xs opacity-70">({iconiaCount})</span>
-            </TabsTrigger>
-            <TabsTrigger value="Almaza Bay">
-              Almaza Bay <span className="ml-1.5 text-xs opacity-70">({almazaBayCount})</span>
-            </TabsTrigger>
-          </TabsList>
-        </Tabs>
+        {!isFullscreen && (
+          <Tabs 
+            value={selectedLocation} 
+            onValueChange={(value) => setSelectedLocation(value as 'ICONIA' | 'Almaza Bay')}
+            className="mt-4"
+          >
+            <TabsList>
+              <TabsTrigger value="ICONIA">
+                ICONIA <span className="ml-1.5 text-xs opacity-70">({iconiaCount})</span>
+              </TabsTrigger>
+              <TabsTrigger value="Almaza Bay">
+                Almaza Bay <span className="ml-1.5 text-xs opacity-70">({almazaBayCount})</span>
+              </TabsTrigger>
+            </TabsList>
+          </Tabs>
+        )}
       </CardHeader>
       <CardContent>
-        {/* Navigation */}
-        <div className="flex items-center justify-between mb-4 flex-wrap gap-2">
-          <Button variant="outline" size="sm" onClick={handlePrevious}>
-            <ChevronLeft className="h-4 w-4" />
-            Previous
-          </Button>
-          <div className="flex gap-2 items-center flex-wrap">
-            {viewMode === 'weekly' && !isSameDay(currentWeekStart, startOfDay(new Date())) && (
-              <Button variant="outline" size="sm" onClick={handleToday}>
-                Today
-              </Button>
-            )}
-            {viewMode === 'monthly' && !isSameDay(currentMonth, startOfMonth(new Date())) && (
-              <Button variant="outline" size="sm" onClick={handleToday}>
-                Today
-              </Button>
-            )}
-            <span className="text-base font-semibold flex items-center">
+        {/* Fullscreen Header - Only date range and exit button */}
+        {isFullscreen && (
+          <div className="flex items-center justify-between mb-4 px-2">
+            <span className="text-lg font-semibold">
               {viewMode === 'monthly' 
                 ? format(currentMonth, 'MMMM yyyy')
                 : `${format(displayDays[0], 'MMM d')} - ${format(displayDays[displayDays.length - 1], 'MMM d, yyyy')}`
               }
             </span>
-          </div>
-          <div className="flex gap-2 items-center">
-            <Button variant="outline" size="sm" onClick={toggleViewMode}>
-              {viewMode === 'monthly' ? 'Weekly View' : 'Monthly View'}
-            </Button>
-            <Button variant="outline" size="sm" onClick={handleNext}>
-              Next
-              <ChevronRight className="h-4 w-4" />
-            </Button>
-          </div>
-        </div>
-
-        {/* Legend */}
-        <div className="flex gap-4 mb-4 text-xs flex-wrap items-center justify-between">
-          <div className="flex gap-4 flex-wrap">
-            <div className="flex items-center gap-2">
-              <div className="w-4 h-4 bg-green-50 dark:bg-green-950/30 border border-green-200 dark:border-green-800 rounded" />
-              <span>Available</span>
-            </div>
-            <div className="flex items-center gap-2">
-              <div className="w-4 h-4 bg-blue-100 dark:bg-blue-900/30 border border-blue-300 dark:border-blue-700 rounded" />
-              <span>Booked</span>
-            </div>
-            <div className="flex items-center gap-2">
-              <div className="w-4 h-4 bg-muted border border-border rounded" />
-              <span>Blocked</span>
-            </div>
-            <div className="flex items-center gap-2">
-              <div className="w-4 h-4 bg-red-600 border border-red-700 rounded animate-pulse" />
-              <span className="font-medium">Double Booking Conflict</span>
-            </div>
-          </div>
-          <div className="flex gap-2 flex-wrap">
-            <Button 
-              variant={sortByRoomType ? "default" : "outline"}
-              size="sm" 
-              onClick={() => setSortByRoomType(!sortByRoomType)}
-              title={sortByRoomType ? "Sorted by room type" : "Sorted by room number"}
-            >
-              {sortByRoomType ? (
-                <>
-                  <Building2 className="h-4 w-4 mr-1" />
-                  By Type
-                </>
-              ) : (
-                <>
-                  <Hash className="h-4 w-4 mr-1" />
-                  By Number
-                </>
-              )}
-            </Button>
             <Button 
               variant="outline" 
               size="sm" 
-              onClick={() => handleExportClick('pdf')}
-              disabled={exporting}
+              onClick={() => setIsFullscreen(false)}
+              title="Exit fullscreen (Esc)"
             >
-              <FileText className="h-4 w-4 mr-1" />
-              Export PDF
+              <Minimize2 className="h-4 w-4" />
             </Button>
-            {!isMobile && (
+          </div>
+        )}
+
+        {/* Navigation - Hidden in fullscreen */}
+        {!isFullscreen && (
+          <div className="flex items-center justify-between mb-4 flex-wrap gap-2">
+            <Button variant="outline" size="sm" onClick={handlePrevious}>
+              <ChevronLeft className="h-4 w-4" />
+              Previous
+            </Button>
+            <div className="flex gap-2 items-center flex-wrap">
+              {viewMode === 'weekly' && !isSameDay(currentWeekStart, startOfDay(new Date())) && (
+                <Button variant="outline" size="sm" onClick={handleToday}>
+                  Today
+                </Button>
+              )}
+              {viewMode === 'monthly' && !isSameDay(currentMonth, startOfMonth(new Date())) && (
+                <Button variant="outline" size="sm" onClick={handleToday}>
+                  Today
+                </Button>
+              )}
+              <span className="text-base font-semibold flex items-center">
+                {viewMode === 'monthly' 
+                  ? format(currentMonth, 'MMMM yyyy')
+                  : `${format(displayDays[0], 'MMM d')} - ${format(displayDays[displayDays.length - 1], 'MMM d, yyyy')}`
+                }
+              </span>
+            </div>
+            <div className="flex gap-2 items-center">
+              <Button variant="outline" size="sm" onClick={toggleViewMode}>
+                {viewMode === 'monthly' ? 'Weekly View' : 'Monthly View'}
+              </Button>
+              <Button variant="outline" size="sm" onClick={handleNext}>
+                Next
+                <ChevronRight className="h-4 w-4" />
+              </Button>
+            </div>
+          </div>
+        )}
+
+        {/* Legend - Hidden in fullscreen */}
+        {!isFullscreen && (
+          <div className="flex gap-4 mb-4 text-xs flex-wrap items-center justify-between">
+            <div className="flex gap-4 flex-wrap">
+              <div className="flex items-center gap-2">
+                <div className="w-4 h-4 bg-green-50 dark:bg-green-950/30 border border-green-200 dark:border-green-800 rounded" />
+                <span>Available</span>
+              </div>
+              <div className="flex items-center gap-2">
+                <div className="w-4 h-4 bg-blue-100 dark:bg-blue-900/30 border border-blue-300 dark:border-blue-700 rounded" />
+                <span>Booked</span>
+              </div>
+              <div className="flex items-center gap-2">
+                <div className="w-4 h-4 bg-muted border border-border rounded" />
+                <span>Blocked</span>
+              </div>
+              <div className="flex items-center gap-2">
+                <div className="w-4 h-4 bg-red-600 border border-red-700 rounded animate-pulse" />
+                <span className="font-medium">Double Booking Conflict</span>
+              </div>
+            </div>
+            <div className="flex gap-2 flex-wrap">
+              <Button 
+                variant={sortByRoomType ? "default" : "outline"}
+                size="sm" 
+                onClick={() => setSortByRoomType(!sortByRoomType)}
+                title={sortByRoomType ? "Sorted by room type" : "Sorted by room number"}
+              >
+                {sortByRoomType ? (
+                  <>
+                    <Building2 className="h-4 w-4 mr-1" />
+                    By Type
+                  </>
+                ) : (
+                  <>
+                    <Hash className="h-4 w-4 mr-1" />
+                    By Number
+                  </>
+                )}
+              </Button>
               <Button 
                 variant="outline" 
                 size="sm" 
-                onClick={() => handleExportClick('excel')}
+                onClick={() => handleExportClick('pdf')}
                 disabled={exporting}
               >
-                <FileSpreadsheet className="h-4 w-4 mr-1" />
-                Export Excel
+                <FileText className="h-4 w-4 mr-1" />
+                Export PDF
               </Button>
-            )}
-            <Button 
-              variant="outline" 
-              size="sm" 
-              onClick={() => setIsFullscreen(!isFullscreen)}
-              title={isFullscreen ? "Exit fullscreen" : "Fullscreen"}
-            >
-              {isFullscreen ? (
-                <Minimize2 className="h-4 w-4" />
-              ) : (
-                <Maximize2 className="h-4 w-4" />
+              {!isMobile && (
+                <Button 
+                  variant="outline" 
+                  size="sm" 
+                  onClick={() => handleExportClick('excel')}
+                  disabled={exporting}
+                >
+                  <FileSpreadsheet className="h-4 w-4 mr-1" />
+                  Export Excel
+                </Button>
               )}
-            </Button>
+              <Button 
+                variant="outline" 
+                size="sm" 
+                onClick={() => setIsFullscreen(!isFullscreen)}
+                title={isFullscreen ? "Exit fullscreen" : "Fullscreen"}
+              >
+                {isFullscreen ? (
+                  <Minimize2 className="h-4 w-4" />
+                ) : (
+                  <Maximize2 className="h-4 w-4" />
+                )}
+              </Button>
+            </div>
           </div>
-        </div>
+        )}
 
         {/* Calendar Grid with Side Navigation */}
         <div className="flex items-stretch gap-2">
-          {/* Left Arrow - Desktop only */}
-          {!isMobile && (
+          {/* Left Arrow - Desktop only, hidden in fullscreen */}
+          {!isMobile && !isFullscreen && (
             <Button
               variant="ghost"
               size="icon"
@@ -1247,7 +1273,7 @@ export const AvailabilityCalendar = () => {
           {/* Calendar Grid */}
           <div 
             className="overflow-auto relative flex-1" 
-            style={{ maxHeight: 'calc(100vh - 320px)' }}
+            style={{ maxHeight: isFullscreen ? 'calc(100vh - 80px)' : 'calc(100vh - 320px)' }}
           >
             <DndContext sensors={sensors} onDragStart={handleDragStart} onDragEnd={handleDragEnd}>
             <TooltipProvider>
@@ -1429,8 +1455,8 @@ export const AvailabilityCalendar = () => {
             </DndContext>
           </div>
 
-          {/* Right Arrow - Desktop only */}
-          {!isMobile && (
+          {/* Right Arrow - Desktop only, hidden in fullscreen */}
+          {!isMobile && !isFullscreen && (
             <Button
               variant="ghost"
               size="icon"
