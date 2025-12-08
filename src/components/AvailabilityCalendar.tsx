@@ -736,8 +736,16 @@ export const AvailabilityCalendar = () => {
       // Prepare table data with booking.com name + room number
       const headers = ['Room', ...exportDays.map(day => format(day, 'MMM d'))];
       
-      // Create availability matrix for cell coloring
-      const availabilityMatrix: string[][] = units.map(unit => {
+      // Group units by room type for separator headers
+      const sortedUnits = [...units].sort((a, b) => {
+        const nameA = a.booking_com_name || a.name || '';
+        const nameB = b.booking_com_name || b.name || '';
+        if (nameA !== nameB) return nameA.localeCompare(nameB);
+        return (a.unit_number || '').localeCompare(b.unit_number || '');
+      });
+      
+      // Create availability matrix for cell coloring (aligned with sortedUnits)
+      const availabilityMatrix: string[][] = sortedUnits.map(unit => {
         return exportDays.map(day => {
           const availability = getDayAvailability(unit, day);
           if (availability.hasConflict) return 'conflict';
@@ -747,30 +755,53 @@ export const AvailabilityCalendar = () => {
         });
       });
       
-      const tableData = units.map((unit, unitIndex) => {
-        // First column: Booking.com name + room number
-        const roomName = unit.booking_com_name || unit.name;
-        const roomNumber = unit.unit_number ? `#${unit.unit_number}` : '';
-        const row = [`${roomName}\n${roomNumber}`];
+      // Build table data with room type separator rows
+      const tableData: string[][] = [];
+      const separatorRowIndices: number[] = [];
+      let currentRoomType = '';
+      
+      sortedUnits.forEach((unit, unitIndex) => {
+        const roomType = unit.booking_com_name || unit.name || 'Unknown';
+        
+        // Add separator row when room type changes
+        if (roomType !== currentRoomType) {
+          const roomCount = sortedUnits.filter(u => (u.booking_com_name || u.name) === roomType).length;
+          const separatorRow = [`${roomType} (${roomCount} room${roomCount > 1 ? 's' : ''})`, ...exportDays.map(() => '')];
+          separatorRowIndices.push(tableData.length);
+          tableData.push(separatorRow);
+          currentRoomType = roomType;
+        }
+        
+        // Room row: room number only (since room type is in separator)
+        const roomNumber = unit.unit_number ? `#${unit.unit_number}` : unit.name;
+        const row = [roomNumber];
         
         // Date columns: show guest names, "Blocked", or empty for available
         exportDays.forEach((day) => {
           const availability = getDayAvailability(unit, day);
           if (availability.hasConflict) {
-            // Show conflicting guest names
             const guests = availability.reservations.map(r => r.guest_names?.[0] || 'Guest').join(' & ');
             row.push(guests);
           } else if (availability.isBlocked) {
             row.push('Blocked');
           } else if (!availability.isAvailable && availability.reservations.length > 0) {
-            // Show first guest name for booked cells
             const guestName = availability.reservations[0]?.guest_names?.[0] || 'Booked';
             row.push(guestName);
           } else {
             row.push('');
           }
         });
-        return row;
+        tableData.push(row);
+      });
+      
+      // Map original unit indices to table row indices (accounting for separators)
+      const unitToTableRowMap: number[] = [];
+      let separatorCount = 0;
+      sortedUnits.forEach((_, idx) => {
+        while (separatorRowIndices.includes(idx + separatorCount)) {
+          separatorCount++;
+        }
+        unitToTableRowMap.push(idx + separatorCount);
       });
 
       autoTable(doc, {
@@ -802,15 +833,37 @@ export const AvailabilityCalendar = () => {
           }
         },
         didParseCell: (data) => {
-          // Skip header row and first column
-          if (data.section === 'head' || data.column.index === 0) return;
+          if (data.section === 'head') return;
           
-          const unitIndex = data.row.index;
+          const rowIndex = data.row.index;
+          
+          // Style separator rows
+          if (separatorRowIndices.includes(rowIndex)) {
+            data.cell.styles.fillColor = [229, 231, 235]; // gray-200
+            data.cell.styles.textColor = [55, 65, 81]; // gray-700
+            data.cell.styles.fontStyle = 'bold';
+            data.cell.styles.fontSize = 7;
+            return;
+          }
+          
+          // Skip first column for availability coloring
+          if (data.column.index === 0) return;
+          
+          // Find the unit index for this row
+          const unitIndex = unitToTableRowMap.findIndex((tableRow, idx) => {
+            // Count separators before this unit
+            const separatorsBefore = separatorRowIndices.filter(s => s <= tableRow).length;
+            return tableRow === rowIndex;
+          });
+          
+          // Alternative: calculate unit index by subtracting separator rows before this row
+          const separatorsBefore = separatorRowIndices.filter(s => s < rowIndex).length;
+          const actualUnitIndex = rowIndex - separatorsBefore;
           const dayIndex = data.column.index - 1;
           
-          if (unitIndex >= 0 && unitIndex < availabilityMatrix.length && 
-              dayIndex >= 0 && dayIndex < availabilityMatrix[unitIndex].length) {
-            const status = availabilityMatrix[unitIndex][dayIndex];
+          if (actualUnitIndex >= 0 && actualUnitIndex < availabilityMatrix.length && 
+              dayIndex >= 0 && dayIndex < availabilityMatrix[actualUnitIndex].length) {
+            const status = availabilityMatrix[actualUnitIndex][dayIndex];
             
             switch (status) {
               case 'conflict':
