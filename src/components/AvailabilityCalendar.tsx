@@ -1043,24 +1043,26 @@ export const AvailabilityCalendar = () => {
 
                   return (
                     <div key={unit.id}>
-                      {/* Room type separator - NOT swipeable */}
+                      {/* Room type separator - with sticky first cell */}
                       {showSeparator && (
                         <div 
-                          className="flex items-center gap-2 py-2 px-2 bg-muted/50 border-y border-border mb-1 rounded sticky left-0 z-10"
-                          style={{ 
-                            gridColumn: `1 / -1`,
-                            width: 'fit-content',
-                            minWidth: '100%'
-                          }}
+                          className="grid gap-1 mb-1 bg-muted/50 border-y border-border"
+                          style={{ gridTemplateColumns: `160px repeat(${displayDays.length}, 70px)` }}
                         >
-                          <Building2 className="h-4 w-4 text-muted-foreground" />
-                          <span className="text-sm font-semibold text-muted-foreground">
-                            {currentRoomType}
-                          </span>
-                          <span className="text-xs text-muted-foreground">
-                            ({roomTypeCount} {roomTypeCount === 1 ? 'room' : 'rooms'})
-                          </span>
-                          <div className="flex-1 h-px bg-border" />
+                          {/* Sticky first cell with separator content */}
+                          <div className="flex items-center gap-2 py-2 px-2 sticky left-0 z-10 bg-muted/50">
+                            <Building2 className="h-4 w-4 text-muted-foreground" />
+                            <span className="text-sm font-semibold text-muted-foreground truncate">
+                              {currentRoomType}
+                            </span>
+                            <span className="text-xs text-muted-foreground whitespace-nowrap">
+                              ({roomTypeCount})
+                            </span>
+                          </div>
+                          {/* Empty cells for the rest of the grid */}
+                          {displayDays.map((day) => (
+                            <div key={day.toISOString()} className="py-2" />
+                          ))}
                         </div>
                       )}
                       {/* Room row - Swipeable on mobile */}
