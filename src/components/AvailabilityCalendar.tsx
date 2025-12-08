@@ -693,10 +693,10 @@ export const AvailabilityCalendar = () => {
       
       await new Promise<void>((resolve) => {
         logoImg.onload = () => {
-          // Add logo (25mm width, maintain aspect ratio)
-          const logoWidth = 25;
+          // Add logo (15mm width, maintain aspect ratio)
+          const logoWidth = 15;
           const logoHeight = (logoImg.height / logoImg.width) * logoWidth;
-          doc.addImage(logoImg, 'PNG', 14, 8, logoWidth, logoHeight);
+          doc.addImage(logoImg, 'PNG', 14, 10, logoWidth, logoHeight);
           resolve();
         };
         logoImg.onerror = () => {
@@ -753,10 +753,22 @@ export const AvailabilityCalendar = () => {
         const roomNumber = unit.unit_number ? `#${unit.unit_number}` : '';
         const row = [`${roomName}\n${roomNumber}`];
         
-        // Date columns: empty cells (color only), except conflict shows ⚠️
-        exportDays.forEach((day, dayIndex) => {
-          const status = availabilityMatrix[unitIndex][dayIndex];
-          row.push(status === 'conflict' ? '⚠️' : '');
+        // Date columns: show guest names, "Blocked", or empty for available
+        exportDays.forEach((day) => {
+          const availability = getDayAvailability(unit, day);
+          if (availability.hasConflict) {
+            // Show conflicting guest names
+            const guests = availability.reservations.map(r => r.guest_names?.[0] || 'Guest').join(' & ');
+            row.push(guests);
+          } else if (availability.isBlocked) {
+            row.push('Blocked');
+          } else if (!availability.isAvailable && availability.reservations.length > 0) {
+            // Show first guest name for booked cells
+            const guestName = availability.reservations[0]?.guest_names?.[0] || 'Booked';
+            row.push(guestName);
+          } else {
+            row.push('');
+          }
         });
         return row;
       });
@@ -767,11 +779,12 @@ export const AvailabilityCalendar = () => {
         startY: startY,
         theme: 'grid',
         styles: { 
-          fontSize: 7, 
-          cellPadding: 2,
+          fontSize: 6, 
+          cellPadding: 1.5,
           halign: 'center',
           valign: 'middle',
-          minCellHeight: 10,
+          minCellHeight: 8,
+          overflow: 'ellipsize',
         },
         headStyles: { 
           fillColor: [55, 65, 81], // gray-700
