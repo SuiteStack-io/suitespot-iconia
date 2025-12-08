@@ -1356,7 +1356,7 @@ export const AvailabilityCalendar = () => {
             <TooltipProvider>
               <div className="min-w-max">
                 {/* Header Row - Sticky */}
-                <div className="grid gap-1 mb-2 sticky top-0 z-20 bg-card pb-1" style={{ gridTemplateColumns: `160px repeat(${displayDays.length}, 70px)` }}>
+                <div className={`grid gap-1 mb-2 pb-1 ${isFullscreen ? 'sticky top-0 z-20 bg-card' : ''}`} style={{ gridTemplateColumns: `160px repeat(${displayDays.length}, 70px)` }}>
                   <div className="font-medium text-sm p-2 sticky left-0 bg-card z-30 border-r border-border">Unit</div>
                   {displayDays.map((day) => (
                     <div
