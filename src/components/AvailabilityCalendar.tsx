@@ -1352,9 +1352,12 @@ export const AvailabilityCalendar = () => {
           {/* Calendar Grid - Optimized for mobile touch scrolling */}
           <div 
             {...(isMobile ? swipeHandlers : {})}
-            className={`overflow-auto relative flex-1 ${isMobile ? 'touch-pan-x touch-pan-y overscroll-contain' : ''}`}
+            className={`overflow-x-auto relative flex-1 ${isMobile ? 'touch-pan-x touch-pan-y overscroll-contain' : ''}`}
             style={{ 
-              maxHeight: isFullscreen ? 'calc(100vh - 80px)' : 'calc(100vh - 320px)',
+              ...(isFullscreen && { 
+                maxHeight: 'calc(100vh - 80px)', 
+                overflowY: 'auto' 
+              }),
               WebkitOverflowScrolling: 'touch',
             }}
           >
