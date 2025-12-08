@@ -2,7 +2,7 @@ import { useState, useEffect } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
-import { ChevronLeft, ChevronRight, AlertCircle, CheckCircle, Calendar as CalendarIcon, Download, FileSpreadsheet, FileText, GripVertical, ArrowUpDown, Hash, Building2, Lock, Maximize2, Minimize2 } from "lucide-react";
+import { ChevronLeft, ChevronRight, AlertCircle, CheckCircle, Calendar as CalendarIcon, Download, FileSpreadsheet, FileText, GripVertical, ArrowUpDown, Hash, Building2, Lock, Maximize2, Minimize2, Trash2 } from "lucide-react";
 import { format, addDays, startOfWeek, isSameDay, startOfMonth, endOfMonth, getDaysInMonth, eachDayOfInterval, startOfDay, differenceInDays, parseISO } from "date-fns";
 import { Badge } from "@/components/ui/badge";
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
@@ -161,6 +161,7 @@ export const AvailabilityCalendar = () => {
   });
   const [blockedDateDialogOpen, setBlockedDateDialogOpen] = useState(false);
   const [selectedBlockedDateInfo, setSelectedBlockedDateInfo] = useState<{
+    unitId: string;
     unitName: string;
     unitNumber: string;
     startDate: string;
@@ -168,6 +169,7 @@ export const AvailabilityCalendar = () => {
     reason: string | null;
     daysCount: number;
   } | null>(null);
+  const [deletingBlockedDates, setDeletingBlockedDates] = useState(false);
   const [exportDialogOpen, setExportDialogOpen] = useState(false);
   const [exportType, setExportType] = useState<'pdf' | 'excel'>('pdf');
   const [exportDateRange, setExportDateRange] = useState<DateRange | undefined>(undefined);
@@ -476,6 +478,7 @@ export const AvailabilityCalendar = () => {
     if (!blockInfo) return;
     
     setSelectedBlockedDateInfo({
+      unitId: unit.id,
       unitName: unit.booking_com_name || unit.name,
       unitNumber: unit.unit_number || '',
       startDate: blockInfo.startDate,
@@ -484,6 +487,54 @@ export const AvailabilityCalendar = () => {
       daysCount: blockInfo.daysCount,
     });
     setBlockedDateDialogOpen(true);
+  };
+
+  const handleDeleteBlockedDates = async () => {
+    if (!selectedBlockedDateInfo) return;
+    
+    setDeletingBlockedDates(true);
+    try {
+      // Find all blocked date IDs matching the unit, date range, and reason
+      const startDate = parseISO(selectedBlockedDateInfo.startDate);
+      const endDate = parseISO(selectedBlockedDateInfo.endDate);
+      
+      const idsToDelete = blockedDates
+        .filter(bd => {
+          const bdDate = parseISO(bd.blocked_date);
+          return bd.unit_id === selectedBlockedDateInfo.unitId &&
+                 bdDate >= startDate &&
+                 bdDate <= endDate &&
+                 bd.reason === selectedBlockedDateInfo.reason;
+        })
+        .map(bd => bd.id);
+      
+      if (idsToDelete.length === 0) {
+        toast({ title: "No blocked dates found to delete", variant: "destructive" });
+        return;
+      }
+      
+      const { error } = await supabase
+        .from('blocked_dates')
+        .delete()
+        .in('id', idsToDelete);
+      
+      if (error) throw error;
+      
+      // Update local state
+      setBlockedDates(prev => prev.filter(bd => !idsToDelete.includes(bd.id)));
+      setBlockedDateDialogOpen(false);
+      setSelectedBlockedDateInfo(null);
+      
+      toast({ 
+        title: "Blocked dates deleted", 
+        description: `Removed ${idsToDelete.length} blocked date${idsToDelete.length > 1 ? 's' : ''}` 
+      });
+    } catch (error) {
+      console.error('Error deleting blocked dates:', error);
+      toast({ title: "Failed to delete blocked dates", variant: "destructive" });
+    } finally {
+      setDeletingBlockedDates(false);
+    }
   };
 
   const handlePrevious = () => {
@@ -1533,12 +1584,22 @@ export const AvailabilityCalendar = () => {
                   </span>
                 </p>
               </div>
-              <div>
+            <div>
                 <Label className="text-muted-foreground text-xs">Reason</Label>
                 <p className="font-medium">
                   {selectedBlockedDateInfo.reason || 'No reason provided'}
                 </p>
               </div>
+              
+              <Button
+                variant="destructive"
+                className="w-full mt-4"
+                onClick={handleDeleteBlockedDates}
+                disabled={deletingBlockedDates}
+              >
+                <Trash2 className="h-4 w-4 mr-2" />
+                {deletingBlockedDates ? 'Deleting...' : 'Delete Blocked Dates'}
+              </Button>
             </div>
           )}
         </DialogContent>
