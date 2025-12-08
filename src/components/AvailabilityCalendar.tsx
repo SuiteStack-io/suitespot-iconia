@@ -1131,14 +1131,37 @@ export const AvailabilityCalendar = () => {
                 : `${format(displayDays[0], 'MMM d')} - ${format(displayDays[displayDays.length - 1], 'MMM d, yyyy')}`
               }
             </span>
-            <Button 
-              variant="outline" 
-              size="sm" 
-              onClick={() => setIsFullscreen(false)}
-              title="Exit fullscreen (Esc)"
-            >
-              <Minimize2 className="h-4 w-4" />
-            </Button>
+            <div className="flex items-center gap-2">
+              {/* Desktop-only navigation arrows in fullscreen */}
+              {!isMobile && (
+                <>
+                  <Button 
+                    variant="outline" 
+                    size="sm" 
+                    onClick={() => setCurrentWeekStart(addDays(currentWeekStart, -14))}
+                    title="Previous 2 weeks"
+                  >
+                    <ChevronLeft className="h-4 w-4" />
+                  </Button>
+                  <Button 
+                    variant="outline" 
+                    size="sm" 
+                    onClick={() => setCurrentWeekStart(addDays(currentWeekStart, 14))}
+                    title="Next 2 weeks"
+                  >
+                    <ChevronRight className="h-4 w-4" />
+                  </Button>
+                </>
+              )}
+              <Button 
+                variant="outline" 
+                size="sm" 
+                onClick={() => setIsFullscreen(false)}
+                title="Exit fullscreen (Esc)"
+              >
+                <Minimize2 className="h-4 w-4" />
+              </Button>
+            </div>
           </div>
         )}
 
