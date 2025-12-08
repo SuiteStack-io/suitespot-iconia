@@ -2,7 +2,7 @@ import { useState, useEffect } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
-import { ChevronLeft, ChevronRight, AlertCircle, CheckCircle, Calendar as CalendarIcon, Download, FileSpreadsheet, FileText, GripVertical, ArrowUpDown, Hash, Building2, Lock } from "lucide-react";
+import { ChevronLeft, ChevronRight, AlertCircle, CheckCircle, Calendar as CalendarIcon, Download, FileSpreadsheet, FileText, GripVertical, ArrowUpDown, Hash, Building2, Lock, Maximize2, Minimize2 } from "lucide-react";
 import { format, addDays, startOfWeek, isSameDay, startOfMonth, endOfMonth, getDaysInMonth, eachDayOfInterval, startOfDay, differenceInDays, parseISO } from "date-fns";
 import { Badge } from "@/components/ui/badge";
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
@@ -174,6 +174,7 @@ export const AvailabilityCalendar = () => {
   const navigate = useNavigate();
   const { toast, dismiss } = useToast();
   const isMobile = useIsMobile();
+  const [isFullscreen, setIsFullscreen] = useState(false);
 
   // Swipe handlers for mobile navigation
   const swipeHandlers = useSwipeable({
@@ -1070,7 +1071,7 @@ export const AvailabilityCalendar = () => {
   const totalConflicts = conflicts.size;
 
   return (
-    <Card className="w-full">
+    <Card className={`w-full transition-all duration-300 ${isFullscreen ? 'fixed inset-0 z-50 rounded-none overflow-auto' : ''}`}>
       <CardHeader>
         <div className="flex items-center justify-between flex-wrap gap-4">
           <div>
@@ -1162,7 +1163,7 @@ export const AvailabilityCalendar = () => {
               <span className="font-medium">Double Booking Conflict</span>
             </div>
           </div>
-          <div className="flex gap-2">
+          <div className="flex gap-2 flex-wrap">
             <Button 
               variant={sortByRoomType ? "default" : "outline"}
               size="sm" 
@@ -1201,6 +1202,18 @@ export const AvailabilityCalendar = () => {
                 Export Excel
               </Button>
             )}
+            <Button 
+              variant="outline" 
+              size="sm" 
+              onClick={() => setIsFullscreen(!isFullscreen)}
+              title={isFullscreen ? "Exit fullscreen" : "Fullscreen"}
+            >
+              {isFullscreen ? (
+                <Minimize2 className="h-4 w-4" />
+              ) : (
+                <Maximize2 className="h-4 w-4" />
+              )}
+            </Button>
           </div>
         </div>
 
