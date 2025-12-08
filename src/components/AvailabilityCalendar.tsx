@@ -734,7 +734,10 @@ export const AvailabilityCalendar = () => {
       }
 
       // Prepare table data with booking.com name + room number
-      const headers = ['Room', ...exportDays.map(day => format(day, 'MMM d'))];
+      // Format dates as multi-line: Day of week, Day number, Month
+      const headers = ['Room', ...exportDays.map(day => 
+        `${format(day, 'EEE')}\n${format(day, 'd')}\n${format(day, 'MMM')}`
+      )];
       
       // Group units by room type for separator headers
       const sortedUnits = [...units].sort((a, b) => {
@@ -823,6 +826,9 @@ export const AvailabilityCalendar = () => {
           fontSize: 7,
           fontStyle: 'bold',
           halign: 'center',
+          valign: 'middle',
+          cellPadding: 2,
+          minCellHeight: 14, // Taller to fit 3 lines (EEE\nd\nMMM)
         },
         columnStyles: {
           0: { 
