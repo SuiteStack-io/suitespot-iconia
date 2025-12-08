@@ -687,6 +687,44 @@ export const AvailabilityCalendar = () => {
       
       const exportDays = eachDayOfInterval({ start: exportDateRange.from, end: exportDateRange.to });
       
+      // Fetch reservations specifically for the export date range
+      const startDate = format(exportDateRange.from, 'yyyy-MM-dd');
+      const endDate = format(exportDateRange.to, 'yyyy-MM-dd');
+      
+      const { data: exportReservations } = await supabase
+        .from('reservations')
+        .select('*')
+        .in('status', ['confirmed', 'checked-in', 'checked-out', 'completed'])
+        .lte('check_in_date', endDate)
+        .gte('check_out_date', startDate);
+      
+      // Local function to get availability using fetched export data
+      const getExportDayAvailability = (unit: Unit, date: Date): DayAvailability => {
+        const isBlocked = isDateBlocked(date, unit.id);
+        
+        const dayReservations = (exportReservations || []).filter((r: Reservation) => {
+          if (r.unit_id !== unit.id) return false;
+          const checkIn = new Date(r.check_in_date);
+          const checkOut = new Date(r.check_out_date);
+          const isCheckInDay = isSameDay(date, checkIn);
+          const isStayingDay = date > checkIn && date < checkOut;
+          const isCheckoutDayForCompleted = 
+            (r.status === 'completed' || r.status === 'checked-out') && 
+            isSameDay(date, checkOut);
+          return isCheckInDay || isStayingDay || isCheckoutDayForCompleted;
+        });
+
+        const hasConflict = dayReservations.length > 1;
+
+        return {
+          date,
+          isAvailable: dayReservations.length === 0 && !isBlocked,
+          hasConflict,
+          isBlocked,
+          reservations: dayReservations,
+        };
+      };
+      
       // Load and add SuiteSpot logo
       const logoImg = new Image();
       logoImg.crossOrigin = 'anonymous';
@@ -750,7 +788,7 @@ export const AvailabilityCalendar = () => {
       // Create availability matrix for cell coloring (aligned with sortedUnits)
       const availabilityMatrix: string[][] = sortedUnits.map(unit => {
         return exportDays.map(day => {
-          const availability = getDayAvailability(unit, day);
+          const availability = getExportDayAvailability(unit, day);
           if (availability.hasConflict) return 'conflict';
           if (availability.isBlocked) return 'blocked';
           if (!availability.isAvailable) return 'booked';
@@ -781,7 +819,7 @@ export const AvailabilityCalendar = () => {
         
         // Date columns: show guest names, "Blocked", or empty for available
         exportDays.forEach((day) => {
-          const availability = getDayAvailability(unit, day);
+          const availability = getExportDayAvailability(unit, day);
           if (availability.hasConflict) {
             const guests = availability.reservations.map(r => r.guest_names?.[0] || 'Guest').join(' & ');
             row.push(guests);
