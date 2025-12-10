@@ -55,6 +55,9 @@ interface DayAvailability {
   hasConflict: boolean;
   isBlocked: boolean;
   reservations: Reservation[];
+  checkingOutReservation?: Reservation;
+  checkingInReservation?: Reservation;
+  isTurnoverDay: boolean;
 }
 
 
@@ -126,6 +129,40 @@ const DraggableReservationCell = ({
             {lastName}
           </span>
         )}
+      </div>
+    </div>
+  );
+};
+
+// Split Turnover Cell Component - shows departing and arriving guest
+const SplitTurnoverCell = ({
+  checkingOutReservation,
+  checkingInReservation,
+  onClick,
+}: {
+  checkingOutReservation: Reservation;
+  checkingInReservation: Reservation;
+  onClick: () => void;
+}) => {
+  const departingName = checkingOutReservation.guest_names[0]?.split(' ')[0] || 'Guest';
+  const arrivingName = checkingInReservation.guest_names[0]?.split(' ')[0] || 'Guest';
+
+  return (
+    <div 
+      className="h-14 border rounded overflow-hidden cursor-pointer hover:ring-2 hover:ring-primary/50 transition-all"
+      onClick={onClick}
+    >
+      {/* Top half - departing guest (muted/faded) */}
+      <div className="h-1/2 bg-orange-100 dark:bg-orange-900/30 flex items-center justify-center border-b border-orange-200 dark:border-orange-800">
+        <span className="text-[9px] text-orange-600 dark:text-orange-400 font-medium truncate px-1 flex items-center gap-0.5">
+          <span className="opacity-70">↑</span> {departingName}
+        </span>
+      </div>
+      {/* Bottom half - arriving guest (bold/active) */}
+      <div className="h-1/2 bg-blue-200 dark:bg-blue-800/50 flex items-center justify-center">
+        <span className="text-[9px] text-blue-700 dark:text-blue-300 font-semibold truncate px-1 flex items-center gap-0.5">
+          <span className="opacity-70">↓</span> {arrivingName}
+        </span>
       </div>
     </div>
   );
@@ -391,6 +428,20 @@ export const AvailabilityCalendar = () => {
       return isCheckInDay || isStayingDay || isCheckoutDayForCompleted;
     });
 
+    // Find check-out reservation (departing today) - any status
+    const checkingOutReservation = reservations.find(r => 
+      r.unit_id === unit.id && isSameDay(new Date(r.check_out_date), date)
+    );
+    
+    // Find check-in reservation (arriving today) - confirmed or checked-in
+    const checkingInReservation = reservations.find(r => 
+      r.unit_id === unit.id && 
+      isSameDay(new Date(r.check_in_date), date) &&
+      (r.status === 'confirmed' || r.status === 'checked-in')
+    );
+    
+    const isTurnoverDay = !!checkingOutReservation && !!checkingInReservation;
+
     const conflictKey = `${unit.id}-${dateKey}`;
     const hasConflict = conflicts.has(conflictKey);
 
@@ -400,6 +451,9 @@ export const AvailabilityCalendar = () => {
       hasConflict,
       isBlocked,
       reservations: dayReservations,
+      checkingOutReservation,
+      checkingInReservation,
+      isTurnoverDay,
     };
   };
 
@@ -791,6 +845,7 @@ export const AvailabilityCalendar = () => {
           hasConflict,
           isBlocked,
           reservations: dayReservations,
+          isTurnoverDay: false,
         };
       };
       
@@ -1451,7 +1506,14 @@ export const AvailabilityCalendar = () => {
                         return (
                           <Tooltip key={day.toISOString()}>
                             <TooltipTrigger asChild>
-                              {isDraggable ? (
+                              {/* Turnover day - split cell */}
+                              {availability.isTurnoverDay && availability.checkingOutReservation && availability.checkingInReservation ? (
+                                <SplitTurnoverCell
+                                  checkingOutReservation={availability.checkingOutReservation}
+                                  checkingInReservation={availability.checkingInReservation}
+                                  onClick={() => handleCellClick(availability, unit, day)}
+                                />
+                              ) : isDraggable ? (
                                 <DraggableReservationCell
                                   reservation={reservation}
                                   availability={availability}
@@ -1480,7 +1542,17 @@ export const AvailabilityCalendar = () => {
                             <TooltipContent>
                               <div className="text-sm">
                                 <div className="font-medium">{format(day, 'MMM d, yyyy')}</div>
-                                {availability.hasConflict ? (
+                                {availability.isTurnoverDay && availability.checkingOutReservation && availability.checkingInReservation ? (
+                                  <div>
+                                    <div className="text-orange-500 font-semibold">Turnover Day</div>
+                                    <div className="text-xs mt-1 text-orange-600 dark:text-orange-400">
+                                      ↑ OUT: {availability.checkingOutReservation.guest_names[0]}
+                                    </div>
+                                    <div className="text-xs text-blue-600 dark:text-blue-400">
+                                      ↓ IN: {availability.checkingInReservation.guest_names[0]}
+                                    </div>
+                                  </div>
+                                ) : availability.hasConflict ? (
                                   <div className="text-red-500 font-semibold">
                                     ⚠️ DOUBLE BOOKING CONFLICT!
                                     <div className="mt-1">
