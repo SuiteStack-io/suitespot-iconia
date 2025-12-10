@@ -73,7 +73,7 @@ serve(async (req) => {
   "commissionableAmount": number or null (look for "Commissionable amount" - this is the net revenue),
   "commissionAmount": number or null (look for "Commission and charges" - this is the commission amount),
   "nationality": "string or null (extract full country name from country code like 'Kw' = 'Kuwait', 'Us' = 'United States', etc)",
-  "preferredLanguage": "string or null (look for 'Preferred language' or 'Guest language' field)"
+  "preferredLanguage": "string or null (ONLY extract if explicitly shown as 'Preferred language' or 'Guest language' field - do NOT infer from nationality)"
 }
 
 Important:
@@ -84,7 +84,7 @@ Important:
 - Look for "Commissionable amount" field and extract that as commissionableAmount (this represents net revenue)
 - Look for "Commission and charges" field and extract that as commissionAmount
 - For nationality, convert country codes to full country names (e.g., 'Kw' → 'Kuwait', 'Us' → 'United States', 'Eg' → 'Egypt')
-- Look for "Preferred language" or "Guest language" and extract the language name (e.g., 'Arabic', 'English', 'French')
+- For preferredLanguage, ONLY extract if the screenshot explicitly shows a 'Preferred language' or 'Guest language' field. Do NOT infer or guess a language based on nationality or country. Return null if not explicitly shown.
 - Extract numeric values only (remove currency symbols)
 - Return ONLY the JSON, no markdown or extra text`
               },
