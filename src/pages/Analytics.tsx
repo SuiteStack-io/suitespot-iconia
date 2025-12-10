@@ -1055,7 +1055,10 @@ const Analytics = () => {
 
         <section className="space-y-8">
           <RevenueBySource />
-          <RevenueByRoom />
+          <RevenueByRoom mainDateRange={customDateRange || {
+            from: new Date(getDateRange().startDate),
+            to: new Date(getDateRange().endDate)
+          }} />
           <RevenueByGuests />
         </section>
       </main>

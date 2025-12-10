@@ -12,6 +12,7 @@ import {
 import { Button } from '@/components/ui/button';
 import { Calendar } from '@/components/ui/calendar';
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
+import { Tabs, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { CalendarIcon, ChevronDown, ChevronRight } from 'lucide-react';
 import { format } from 'date-fns';
 import { DateRange } from 'react-day-picker';
@@ -36,15 +37,32 @@ interface GroupedRoomRevenue {
   avgOccupancy: number;
 }
 
-export const RevenueByRoom = () => {
+interface RevenueByRoomProps {
+  mainDateRange?: DateRange;
+}
+
+export const RevenueByRoom = ({ mainDateRange }: RevenueByRoomProps) => {
   const [revenueByRoom, setRevenueByRoom] = useState<RoomRevenue[]>([]);
   const [groupedRevenue, setGroupedRevenue] = useState<GroupedRoomRevenue[]>([]);
   const [expandedGroups, setExpandedGroups] = useState<Set<string>>(new Set());
   const [loading, setLoading] = useState(true);
-  const [dateRange, setDateRange] = useState<DateRange | undefined>({
-    from: new Date(new Date().setMonth(new Date().getMonth() - 1)),
-    to: new Date(),
+  const [selectedLocation, setSelectedLocation] = useState<'ICONIA' | 'Almaza Bay'>('ICONIA');
+  const [dateRange, setDateRange] = useState<DateRange | undefined>(() => {
+    if (mainDateRange?.from && mainDateRange?.to) {
+      return mainDateRange;
+    }
+    return {
+      from: new Date(new Date().setMonth(new Date().getMonth() - 1)),
+      to: new Date(),
+    };
   });
+
+  // Sync with main date range when it changes
+  useEffect(() => {
+    if (mainDateRange?.from && mainDateRange?.to) {
+      setDateRange(mainDateRange);
+    }
+  }, [mainDateRange?.from?.getTime(), mainDateRange?.to?.getTime()]);
 
   useEffect(() => {
     fetchRevenueByRoom();
@@ -67,7 +85,7 @@ export const RevenueByRoom = () => {
     return () => {
       supabase.removeChannel(channel);
     };
-  }, [dateRange]);
+  }, [dateRange, selectedLocation]);
 
   // Group rooms by suite name whenever revenueByRoom changes
   useEffect(() => {
@@ -143,10 +161,11 @@ export const RevenueByRoom = () => {
     // Calculate total days in the date range
     const daysDiff = Math.ceil((dateRange.to.getTime() - dateRange.from.getTime()) / (1000 * 60 * 60 * 24)) + 1;
 
-    // Fetch all units
+    // Fetch all units for selected location
     const { data: units, error: unitsError } = await supabase
       .from('units')
       .select('id, name, unit_number, unit_size, unit_type')
+      .eq('location', selectedLocation)
       .order('unit_number', { ascending: true });
 
     if (unitsError) {
@@ -257,7 +276,13 @@ export const RevenueByRoom = () => {
       <CardHeader className="space-y-4">
         <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-4">
           <CardTitle>Revenue by Room</CardTitle>
-          <div className="flex gap-2">
+          <div className="flex flex-wrap items-center gap-2">
+            <Tabs value={selectedLocation} onValueChange={(value) => setSelectedLocation(value as 'ICONIA' | 'Almaza Bay')}>
+              <TabsList className="h-8">
+                <TabsTrigger value="ICONIA" className="text-xs px-3">ICONIA</TabsTrigger>
+                <TabsTrigger value="Almaza Bay" className="text-xs px-3">Almaza Bay</TabsTrigger>
+              </TabsList>
+            </Tabs>
             <Button
               variant="ghost"
               size="sm"
