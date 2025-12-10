@@ -564,12 +564,18 @@ export const Dashboard = () => {
                           <p>Check-out: {format(new Date(reservation.check_out_date), 'MMM dd, yyyy')}</p>
                           {reservation.checked_in_at && (
                             <p className="text-green-600 text-xs">
-                              Checked in: {format(new Date(reservation.checked_in_at), 'MMM dd, h:mm a')}
+                              Checked in: {new Date(reservation.checked_in_at).toLocaleString('en-US', { 
+                                timeZone: 'Africa/Cairo',
+                                month: 'short', day: 'numeric', hour: 'numeric', minute: '2-digit', hour12: true 
+                              })}
                             </p>
                           )}
                           {reservation.checked_out_at && (
                             <p className="text-orange-600 text-xs">
-                              Checked out: {format(new Date(reservation.checked_out_at), 'MMM dd, h:mm a')}
+                              Checked out: {new Date(reservation.checked_out_at).toLocaleString('en-US', { 
+                                timeZone: 'Africa/Cairo',
+                                month: 'short', day: 'numeric', hour: 'numeric', minute: '2-digit', hour12: true 
+                              })}
                             </p>
                           )}
                           <p className="font-semibold">${reservation.total_price.toFixed(2)}</p>
