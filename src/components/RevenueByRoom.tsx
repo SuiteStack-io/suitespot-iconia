@@ -123,6 +123,17 @@ export const RevenueByRoom = () => {
     });
   };
 
+  const expandAll = () => {
+    const allGroups = new Set(groupedRevenue.map(g => g.suiteName));
+    setExpandedGroups(allGroups);
+  };
+
+  const collapseAll = () => {
+    setExpandedGroups(new Set());
+  };
+
+  const allExpanded = groupedRevenue.length > 0 && expandedGroups.size === groupedRevenue.length;
+
   const fetchRevenueByRoom = async () => {
     if (!dateRange?.from || !dateRange?.to) return;
     
@@ -247,6 +258,14 @@ export const RevenueByRoom = () => {
         <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-4">
           <CardTitle>Revenue by Room</CardTitle>
           <div className="flex gap-2">
+            <Button
+              variant="ghost"
+              size="sm"
+              onClick={allExpanded ? collapseAll : expandAll}
+              className="text-muted-foreground"
+            >
+              {allExpanded ? 'Collapse All' : 'Expand All'}
+            </Button>
             <Popover>
               <PopoverTrigger asChild>
                 <Button
