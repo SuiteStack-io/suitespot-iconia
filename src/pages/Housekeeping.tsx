@@ -438,8 +438,7 @@ const Housekeeping = () => {
             </Button>
             
             <div className="flex-1">
-              <h1 className="text-3xl font-bold mb-2 flex items-center gap-2">
-                <Sparkles className="h-8 w-8 text-primary" />
+              <h1 className="text-3xl font-bold mb-2">
                 Housekeeping Dashboard
               </h1>
               <p className="text-muted-foreground">
