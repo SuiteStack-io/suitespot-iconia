@@ -1059,7 +1059,10 @@ const Analytics = () => {
             from: new Date(getDateRange().startDate),
             to: new Date(getDateRange().endDate)
           }} />
-          <RevenueByGuests />
+<RevenueByGuests mainDateRange={customDateRange || {
+            from: new Date(getDateRange().startDate),
+            to: new Date(getDateRange().endDate)
+          }} />
         </section>
       </main>
 

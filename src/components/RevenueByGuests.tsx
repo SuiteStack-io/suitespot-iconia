@@ -24,11 +24,27 @@ interface GuestRevenue {
 type SortField = 'guestName' | 'roomId' | 'pricePerNight' | 'total' | 'nationality' | 'nights';
 type SortOrder = 'asc' | 'desc';
 
-export const RevenueByGuests = () => {
-  const [dateRange, setDateRange] = useState<DateRange | undefined>({
-    from: new Date(new Date().setMonth(new Date().getMonth() - 1)),
-    to: new Date(),
+interface RevenueByGuestsProps {
+  mainDateRange?: DateRange;
+}
+
+export const RevenueByGuests = ({ mainDateRange }: RevenueByGuestsProps) => {
+  const [dateRange, setDateRange] = useState<DateRange | undefined>(() => {
+    if (mainDateRange?.from && mainDateRange?.to) {
+      return mainDateRange;
+    }
+    return {
+      from: new Date(new Date().setMonth(new Date().getMonth() - 1)),
+      to: new Date(),
+    };
   });
+
+  // Sync with main date range when it changes
+  useEffect(() => {
+    if (mainDateRange?.from && mainDateRange?.to) {
+      setDateRange(mainDateRange);
+    }
+  }, [mainDateRange?.from?.getTime(), mainDateRange?.to?.getTime()]);
   const [guestRevenues, setGuestRevenues] = useState<GuestRevenue[]>([]);
   const [filteredRevenues, setFilteredRevenues] = useState<GuestRevenue[]>([]);
   const [nationalities, setNationalities] = useState<string[]>([]);
