@@ -10,8 +10,9 @@ import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover
 import { useToast } from "@/hooks/use-toast";
 import { useNavigate } from "react-router-dom";
 import { format, differenceInCalendarDays, addDays } from "date-fns";
-import { AlertTriangle, ArrowRight, Eye, Loader2, LogIn, LogOut, CheckCircle, CalendarIcon, Plus, X } from "lucide-react";
+import { AlertTriangle, ArrowRight, Eye, Loader2, LogIn, LogOut, CheckCircle, CalendarIcon, Plus, X, User } from "lucide-react";
 import { cn } from "@/lib/utils";
+import { useAuth } from "@/lib/auth";
 
 interface Reservation {
   id: string;
@@ -25,6 +26,7 @@ interface Reservation {
   total_price?: number;
   nights?: number;
   commission_rate?: number;
+  group_id?: string;
 }
 
 interface Unit {
@@ -68,9 +70,28 @@ export const ReservationQuickActions = ({
   const [extendConflict, setExtendConflict] = useState(false);
   const [extending, setExtending] = useState(false);
   const [fullReservation, setFullReservation] = useState<any>(null);
+  const [currentUserName, setCurrentUserName] = useState<string>("");
   
   const { toast } = useToast();
   const navigate = useNavigate();
+  const { user } = useAuth();
+
+  // Fetch current user's name on mount
+  useEffect(() => {
+    const fetchUserName = async () => {
+      if (user?.id) {
+        const { data } = await supabase
+          .from("profiles")
+          .select("full_name")
+          .eq("id", user.id)
+          .maybeSingle();
+        if (data?.full_name) {
+          setCurrentUserName(data.full_name);
+        }
+      }
+    };
+    fetchUserName();
+  }, [user?.id]);
 
   useEffect(() => {
     if (open && reservation) {
@@ -313,32 +334,58 @@ export const ReservationQuickActions = ({
       const extensionSubtotal = additionalNights * pricePerNight;
       const extensionVAT = extensionSubtotal * 0.14;
       const extensionTotal = extensionSubtotal + extensionVAT;
+      const extensionCommissionRate = 10; // Standard direct rate for extensions
+      const extensionCommission = extensionTotal * (extensionCommissionRate / 100);
+      const extensionNetRevenue = extensionTotal - extensionCommission;
 
-      const originalTotal = fullReservation.total_price || 0;
-      const originalNights = fullReservation.nights || nights;
-      const commissionRate = fullReservation.commission_rate || 10;
+      // Generate or use existing group_id to link reservations
+      const groupId = fullReservation.group_id || crypto.randomUUID();
 
-      const newTotal = originalTotal + extensionTotal;
-      const newNights = originalNights + additionalNights;
-      const newCommission = newTotal * (commissionRate / 100);
-      const newNetRevenue = newTotal - newCommission;
+      // Create a new reservation for the extension (attributed to current user)
+      const extensionReservation = {
+        unit_id: reservation.unit_id,
+        check_in_date: reservation.check_out_date, // Extension starts where original ends
+        check_out_date: format(newCheckoutDate, "yyyy-MM-dd"),
+        nights: additionalNights,
+        guest_names: fullReservation.guest_names,
+        contact_email: fullReservation.contact_email,
+        contact_phone: fullReservation.contact_phone,
+        booking_reference: `${reservation.booking_reference}-EXT`,
+        source: currentUserName || "Admin", // Attribute to current user
+        channel: "Direct",
+        status: fullReservation.status,
+        number_of_guests: fullReservation.number_of_guests,
+        adults: fullReservation.adults,
+        children: fullReservation.children,
+        guest_nationality: fullReservation.guest_nationality,
+        total_price: extensionTotal,
+        price_per_night: pricePerNight,
+        commission_rate: extensionCommissionRate,
+        commission_amount: extensionCommission,
+        net_revenue: extensionNetRevenue,
+        group_id: groupId,
+        currency: fullReservation.currency || "USD",
+        notes: `Extension of original booking ${reservation.booking_reference}`,
+      };
 
-      const { error } = await supabase
+      // Insert the extension reservation
+      const { error: insertError } = await supabase
         .from("reservations")
-        .update({
-          check_out_date: format(newCheckoutDate, "yyyy-MM-dd"),
-          nights: newNights,
-          total_price: newTotal,
-          commission_amount: newCommission,
-          net_revenue: newNetRevenue,
-        })
-        .eq("id", reservation.id);
+        .insert(extensionReservation);
 
-      if (error) throw error;
+      if (insertError) throw insertError;
+
+      // Update the original reservation's group_id if not already set
+      if (!fullReservation.group_id) {
+        await supabase
+          .from("reservations")
+          .update({ group_id: groupId })
+          .eq("id", reservation.id);
+      }
 
       toast({
-        title: "Stay Extended",
-        description: `Extended by ${additionalNights} night${additionalNights > 1 ? 's' : ''} (+$${extensionTotal.toFixed(2)} incl. VAT)`,
+        title: "Extension Created",
+        description: `${additionalNights} night${additionalNights > 1 ? 's' : ''} attributed to ${currentUserName || "Admin"} (+$${extensionTotal.toFixed(2)} incl. VAT)`,
       });
 
       onOpenChange(false);
@@ -655,6 +702,18 @@ export const ReservationQuickActions = ({
                   </div>
                 </div>
               )}
+
+              {/* Attribution Notice */}
+              <div className="p-3 bg-primary/5 border border-primary/20 rounded-lg">
+                <div className="flex items-center gap-2 text-sm">
+                  <User className="h-4 w-4 text-primary" />
+                  <span className="text-muted-foreground">Extension attributed to:</span>
+                  <span className="font-medium">{currentUserName || "Admin"}</span>
+                </div>
+                <p className="text-xs text-muted-foreground mt-1">
+                  This creates a new reservation linked to the original. Commission (10%) will be credited to you.
+                </p>
+              </div>
 
               {extendConflict && (
                 <div className="p-3 bg-destructive/10 border border-destructive/30 rounded-lg text-sm">
