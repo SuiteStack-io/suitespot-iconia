@@ -364,9 +364,11 @@ export const ReservationQuickActions = ({
 
   const currentCheckout = new Date(reservation.check_out_date);
   const additionalNights = newCheckoutDate ? differenceInDays(newCheckoutDate, currentCheckout) : 0;
-  const extensionTotal = additionalNights > 0 && extensionPricePerNight 
-    ? additionalNights * parseFloat(extensionPricePerNight) * 1.14 
+  const extensionSubtotal = additionalNights > 0 && extensionPricePerNight 
+    ? additionalNights * parseFloat(extensionPricePerNight) 
     : 0;
+  const extensionVAT = extensionSubtotal * 0.14;
+  const extensionTotal = extensionSubtotal + extensionVAT;
 
   const getSourceBadgeColor = (source?: string) => {
     if (!source) return "secondary";
@@ -621,10 +623,10 @@ export const ReservationQuickActions = ({
               )}
 
               <div className="space-y-2">
-                <label className="text-sm font-medium">Price/Night (Extension)</label>
+                <label className="text-sm font-medium">Price/Night (Net)</label>
                 <Input
                   type="number"
-                  placeholder="Enter price per night"
+                  placeholder="Enter net price per night"
                   value={extensionPricePerNight}
                   onChange={(e) => setExtensionPricePerNight(e.target.value)}
                   min="0"
@@ -635,11 +637,21 @@ export const ReservationQuickActions = ({
                 </p>
               </div>
 
-              {extensionTotal > 0 && (
-                <div className="p-3 bg-primary/10 border border-primary/20 rounded-lg">
-                  <div className="text-sm text-muted-foreground">Extension Total (incl. 14% VAT)</div>
-                  <div className="text-2xl font-bold text-primary">
-                    ${extensionTotal.toFixed(2)}
+              {extensionSubtotal > 0 && (
+                <div className="p-3 bg-muted/50 rounded-lg space-y-2">
+                  <div className="flex justify-between text-sm">
+                    <span className="text-muted-foreground">
+                      Subtotal ({additionalNights} × ${parseFloat(extensionPricePerNight).toFixed(2)})
+                    </span>
+                    <span>${extensionSubtotal.toFixed(2)}</span>
+                  </div>
+                  <div className="flex justify-between text-sm">
+                    <span className="text-muted-foreground">VAT (14%)</span>
+                    <span>+${extensionVAT.toFixed(2)}</span>
+                  </div>
+                  <div className="border-t pt-2 flex justify-between font-semibold">
+                    <span>Extension Total</span>
+                    <span className="text-primary">${extensionTotal.toFixed(2)}</span>
                   </div>
                 </div>
               )}
@@ -656,10 +668,10 @@ export const ReservationQuickActions = ({
                 </div>
               )}
 
-              <div className="flex gap-2 pt-2">
+              <div className="flex gap-2 pt-2 relative z-50">
                 <Button 
                   variant="outline" 
-                  className="flex-1"
+                  className="flex-1 pointer-events-auto"
                   onClick={() => {
                     setExtendMode(false);
                     setNewCheckoutDate(undefined);
@@ -670,7 +682,7 @@ export const ReservationQuickActions = ({
                   Cancel
                 </Button>
                 <Button
-                  className="flex-1"
+                  className="flex-1 pointer-events-auto"
                   onClick={handleExtendStay}
                   disabled={!canExtend || extending}
                 >
