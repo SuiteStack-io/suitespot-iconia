@@ -61,6 +61,14 @@ const ReservationsListPage = () => {
               </p>
             </div>
             
+            {/* Desktop: Create button in header */}
+            <div className="hidden md:block">
+              <CreateReservationDialog />
+            </div>
+          </div>
+          
+          {/* Mobile: Create button below subtitle, centered */}
+          <div className="flex justify-center md:hidden mt-4">
             <CreateReservationDialog />
           </div>
         </div>
