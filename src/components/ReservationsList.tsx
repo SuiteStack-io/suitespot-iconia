@@ -105,8 +105,7 @@ export const ReservationsList = () => {
   const [selectedReservations, setSelectedReservations] = useState<Set<string>>(new Set());
   const [bulkStatus, setBulkStatus] = useState<string>('');
   const [isUpdating, setIsUpdating] = useState(false);
-  const [startDate, setStartDate] = useState<Date | undefined>(undefined);
-  const [endDate, setEndDate] = useState<Date | undefined>(undefined);
+  const [dateRange, setDateRange] = useState<{ from: Date | undefined; to: Date | undefined }>({ from: undefined, to: undefined });
   const navigate = useNavigate();
 
   useEffect(() => {
@@ -156,7 +155,7 @@ export const ReservationsList = () => {
 
   useEffect(() => {
     filterReservations();
-  }, [reservations, searchQuery, statusFilter, unitFilter, sortField, sortOrder, startDate, endDate]);
+  }, [reservations, searchQuery, statusFilter, unitFilter, sortField, sortOrder, dateRange]);
 
   const fetchReservations = async () => {
     const { data, error } = await supabase
@@ -242,11 +241,11 @@ export const ReservationsList = () => {
     }
 
     // Date range filtering
-    if (startDate) {
-      filtered = filtered.filter(r => new Date(r.check_in_date) >= startDate);
+    if (dateRange.from) {
+      filtered = filtered.filter(r => new Date(r.check_in_date) >= dateRange.from!);
     }
-    if (endDate) {
-      filtered = filtered.filter(r => new Date(r.check_in_date) <= endDate);
+    if (dateRange.to) {
+      filtered = filtered.filter(r => new Date(r.check_in_date) <= dateRange.to!);
     }
 
     // Apply sorting
@@ -457,25 +456,36 @@ export const ReservationsList = () => {
       {/* Date Range and Export Filters */}
       <div className="flex flex-col sm:flex-row gap-4 items-end">
         <div className="flex-1 space-y-2">
-          <label className="text-sm font-medium">From Date</label>
+          <label className="text-sm font-medium">Date Range</label>
           <Popover>
             <PopoverTrigger asChild>
               <Button
                 variant="outline"
                 className={cn(
                   "w-full justify-start text-left font-normal",
-                  !startDate && "text-muted-foreground"
+                  !dateRange.from && "text-muted-foreground"
                 )}
               >
                 <CalendarIcon className="mr-2 h-4 w-4" />
-                {startDate ? format(startDate, "PPP") : <span>Pick a date</span>}
+                {dateRange.from ? (
+                  dateRange.to ? (
+                    <>
+                      {format(dateRange.from, "MMM dd, yyyy")} - {format(dateRange.to, "MMM dd, yyyy")}
+                    </>
+                  ) : (
+                    format(dateRange.from, "MMM dd, yyyy")
+                  )
+                ) : (
+                  <span>Select date range</span>
+                )}
               </Button>
             </PopoverTrigger>
             <PopoverContent className="w-auto p-0" align="start">
               <Calendar
-                mode="single"
-                selected={startDate}
-                onSelect={setStartDate}
+                mode="range"
+                selected={dateRange}
+                onSelect={(range) => setDateRange({ from: range?.from, to: range?.to })}
+                numberOfMonths={2}
                 initialFocus
                 className="pointer-events-auto"
               />
@@ -483,40 +493,10 @@ export const ReservationsList = () => {
           </Popover>
         </div>
 
-        <div className="flex-1 space-y-2">
-          <label className="text-sm font-medium">To Date</label>
-          <Popover>
-            <PopoverTrigger asChild>
-              <Button
-                variant="outline"
-                className={cn(
-                  "w-full justify-start text-left font-normal",
-                  !endDate && "text-muted-foreground"
-                )}
-              >
-                <CalendarIcon className="mr-2 h-4 w-4" />
-                {endDate ? format(endDate, "PPP") : <span>Pick a date</span>}
-              </Button>
-            </PopoverTrigger>
-            <PopoverContent className="w-auto p-0" align="start">
-              <Calendar
-                mode="single"
-                selected={endDate}
-                onSelect={setEndDate}
-                initialFocus
-                className="pointer-events-auto"
-              />
-            </PopoverContent>
-          </Popover>
-        </div>
-
-        {(startDate || endDate) && (
+        {(dateRange.from || dateRange.to) && (
           <Button
             variant="outline"
-            onClick={() => {
-              setStartDate(undefined);
-              setEndDate(undefined);
-            }}
+            onClick={() => setDateRange({ from: undefined, to: undefined })}
             className="sm:w-auto"
           >
             <X className="h-4 w-4 mr-2" />
@@ -524,10 +504,11 @@ export const ReservationsList = () => {
           </Button>
         )}
 
+        {/* Export buttons - hidden on mobile */}
         <Button
           variant="default"
           onClick={handleExportExcel}
-          className="sm:w-auto"
+          className="hidden md:flex sm:w-auto"
         >
           <FileSpreadsheet className="h-4 w-4 mr-2" />
           Export Excel
@@ -541,7 +522,7 @@ export const ReservationsList = () => {
         <Button
           variant="outline"
           onClick={handleExportCSV}
-          className="sm:w-auto"
+          className="hidden md:flex sm:w-auto"
         >
           <Download className="h-4 w-4 mr-2" />
           Export CSV
