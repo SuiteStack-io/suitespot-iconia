@@ -94,9 +94,10 @@ serve(async (req) => {
     const unitName = reservation.units?.name || 'Unknown Unit';
     const roomNumber = reservation.units?.unit_number || 'N/A';
     
-    // Format check-in timestamp
+    // Format check-in timestamp in Cairo time
     const checkedInAt = reservation.checked_in_at 
       ? new Date(reservation.checked_in_at).toLocaleString('en-US', {
+          timeZone: 'Africa/Cairo',
           year: 'numeric',
           month: 'short',
           day: 'numeric',

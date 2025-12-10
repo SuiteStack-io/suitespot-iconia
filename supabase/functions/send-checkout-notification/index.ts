@@ -117,9 +117,10 @@ serve(async (req) => {
     const roomNumber = reservation.units?.unit_number || 'N/A';
     const estimatedMinutes = reservation.units?.estimated_cleaning_minutes || 45;
     
-    // Format check-out timestamp
+    // Format check-out timestamp in Cairo time
     const checkedOutAt = reservation.checked_out_at 
       ? new Date(reservation.checked_out_at).toLocaleString('en-US', {
+          timeZone: 'Africa/Cairo',
           year: 'numeric',
           month: 'short',
           day: 'numeric',
