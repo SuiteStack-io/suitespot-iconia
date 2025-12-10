@@ -744,6 +744,8 @@ export type Database = {
           channel: string
           check_in_date: string
           check_out_date: string
+          checked_in_at: string | null
+          checked_out_at: string | null
           children: number | null
           commission_amount: number | null
           commission_rate: number | null
@@ -788,6 +790,8 @@ export type Database = {
           channel?: string
           check_in_date: string
           check_out_date: string
+          checked_in_at?: string | null
+          checked_out_at?: string | null
           children?: number | null
           commission_amount?: number | null
           commission_rate?: number | null
@@ -832,6 +836,8 @@ export type Database = {
           channel?: string
           check_in_date?: string
           check_out_date?: string
+          checked_in_at?: string | null
+          checked_out_at?: string | null
           children?: number | null
           commission_amount?: number | null
           commission_rate?: number | null

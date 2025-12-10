@@ -42,7 +42,7 @@ serve(async (req) => {
       }
     }
 
-    // Get reservation details
+    // Get reservation details including checkout timestamp
     const { data: reservation, error: reservationError } = await supabase
       .from('reservations')
       .select('*, units(name, unit_number, estimated_cleaning_minutes)')
@@ -116,6 +116,18 @@ serve(async (req) => {
     const unitName = reservation.units?.name || 'Unknown Unit';
     const roomNumber = reservation.units?.unit_number || 'N/A';
     const estimatedMinutes = reservation.units?.estimated_cleaning_minutes || 45;
+    
+    // Format check-out timestamp
+    const checkedOutAt = reservation.checked_out_at 
+      ? new Date(reservation.checked_out_at).toLocaleString('en-US', {
+          year: 'numeric',
+          month: 'short',
+          day: 'numeric',
+          hour: 'numeric',
+          minute: '2-digit',
+          hour12: true
+        })
+      : 'Not recorded';
 
     // Send email to all recipients
     const emailPromises = allRecipients.map(async (staff: any) => {
@@ -140,6 +152,10 @@ serve(async (req) => {
                   <tr>
                     <td style="padding: 8px 0; color: #78350f; font-size: 14px;">Previous Guest:</td>
                     <td style="padding: 8px 0; color: #1f2937; font-size: 14px;">${guestName}</td>
+                  </tr>
+                  <tr style="background: #fde68a;">
+                    <td style="padding: 8px; color: #92400e; font-size: 14px; font-weight: 600;">Checked Out At:</td>
+                    <td style="padding: 8px; color: #92400e; font-size: 14px; font-weight: 600;">${checkedOutAt}</td>
                   </tr>
                   <tr>
                     <td style="padding: 8px 0; color: #78350f; font-size: 14px;">Check-out Date:</td>

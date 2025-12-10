@@ -27,7 +27,7 @@ serve(async (req) => {
 
     console.log('Sending check-in notification for reservation:', reservationId);
 
-    // Get reservation details
+    // Get reservation details including check-in timestamp
     const { data: reservation, error: reservationError } = await supabase
       .from('reservations')
       .select('*, units(name, unit_number)')
@@ -93,6 +93,18 @@ serve(async (req) => {
     const guestName = reservation.guest_names[0] || 'Guest';
     const unitName = reservation.units?.name || 'Unknown Unit';
     const roomNumber = reservation.units?.unit_number || 'N/A';
+    
+    // Format check-in timestamp
+    const checkedInAt = reservation.checked_in_at 
+      ? new Date(reservation.checked_in_at).toLocaleString('en-US', {
+          year: 'numeric',
+          month: 'short',
+          day: 'numeric',
+          hour: 'numeric',
+          minute: '2-digit',
+          hour12: true
+        })
+      : 'Not recorded';
 
     // Send email to all admins
     const emailPromises = admins.map(async (admin: any) => {
@@ -120,6 +132,10 @@ serve(async (req) => {
                   <tr>
                     <td style="padding: 8px 0; color: #6b7280; font-size: 14px;">Booking Reference:</td>
                     <td style="padding: 8px 0; color: #1f2937; font-size: 14px; font-weight: 600;">${reservation.booking_reference}</td>
+                  </tr>
+                  <tr style="background: #dcfce7;">
+                    <td style="padding: 8px; color: #166534; font-size: 14px; font-weight: 600;">Checked In At:</td>
+                    <td style="padding: 8px; color: #166534; font-size: 14px; font-weight: 600;">${checkedInAt}</td>
                   </tr>
                   <tr>
                     <td style="padding: 8px 0; color: #6b7280; font-size: 14px;">Check-in Date:</td>
