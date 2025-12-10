@@ -14,7 +14,7 @@ export const PublicNav = () => {
     setTimeout(() => {
       setMobileMenuOpen(false);
       setIsClosing(false);
-    }, 300); // Match animation duration
+    }, 500); // Match animation duration
   };
 
   return (
