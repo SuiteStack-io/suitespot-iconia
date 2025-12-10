@@ -402,7 +402,7 @@ export const Dashboard = () => {
               {dialogTitle.includes('Departures') && dialogReservations.length > 0 && (
                 <div className="flex items-center gap-2">
                   {/* Direct checkout for single departure */}
-                  {dialogReservations.length === 1 && dialogReservations[0].status === 'checked-in' && (
+                  {dialogReservations.length === 1 && (dialogReservations[0].status === 'checked-in' || dialogReservations[0].status === 'confirmed') && (
                     <Button
                       size="sm"
                       onClick={() => handleStatusChange(dialogReservations[0].id, 'checked-out')}
@@ -516,7 +516,7 @@ export const Dashboard = () => {
                           <p className="font-semibold">${reservation.total_price.toFixed(2)}</p>
                         </div>
                         <div className="flex gap-2">
-                          {reservation.status === 'confirmed' && (
+                          {reservation.status === 'confirmed' && !dialogTitle.includes('Departures') && (
                             <Button
                               size="sm"
                               onClick={(e) => {
@@ -528,6 +528,21 @@ export const Dashboard = () => {
                             >
                               <CheckCircle className="h-3 w-3" />
                               Check In
+                            </Button>
+                          )}
+                          {reservation.status === 'confirmed' && dialogTitle.includes('Departures') && (
+                            <Button
+                              size="sm"
+                              variant="outline"
+                              onClick={(e) => {
+                                e.stopPropagation();
+                                handleStatusChange(reservation.id, 'checked-out');
+                              }}
+                              disabled={updating === reservation.id}
+                              className="gap-1"
+                            >
+                              <CheckCircle className="h-3 w-3" />
+                              Check Out
                             </Button>
                           )}
                           {reservation.status === 'checked-in' && (
@@ -551,7 +566,7 @@ export const Dashboard = () => {
                               variant="ghost"
                               onClick={(e) => {
                                 e.stopPropagation();
-                                handleStatusChange(reservation.id, 'confirmed');
+                                handleStatusChange(reservation.id, 'checked-in');
                               }}
                               disabled={updating === reservation.id}
                               className="gap-1 text-orange-600 hover:text-orange-700 hover:bg-orange-50"
