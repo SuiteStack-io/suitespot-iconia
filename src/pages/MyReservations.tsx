@@ -6,9 +6,13 @@ import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { Badge } from '@/components/ui/badge';
-import { DollarSign, TrendingUp, Calendar, ArrowLeft, Wallet, BarChart3 } from 'lucide-react';
-import { format } from 'date-fns';
+import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
+import { Calendar as CalendarComponent } from '@/components/ui/calendar';
+import { DollarSign, TrendingUp, Calendar, ArrowLeft, Wallet, BarChart3, CalendarIcon, X } from 'lucide-react';
+import { format, startOfMonth, endOfMonth } from 'date-fns';
 import { SlideMenu } from '@/components/SlideMenu';
+import { cn } from '@/lib/utils';
+import { DateRange } from 'react-day-picker';
 
 interface Reservation {
   id: string;
@@ -29,9 +33,11 @@ const MyReservations = () => {
   const { user, loading, userRole } = useAuth();
   const navigate = useNavigate();
   const [reservations, setReservations] = useState<Reservation[]>([]);
+  const [filteredReservations, setFilteredReservations] = useState<Reservation[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [userName, setUserName] = useState('');
-  const [monthlyStats, setMonthlyStats] = useState({
+  const [dateRange, setDateRange] = useState<DateRange | undefined>(undefined);
+  const [filteredStats, setFilteredStats] = useState({
     totalReservations: 0,
     totalCommission: 0,
     totalNights: 0,
@@ -53,6 +59,48 @@ const MyReservations = () => {
       fetchUserReservations();
     }
   }, [user]);
+
+  // Filter reservations and calculate stats when dateRange changes
+  useEffect(() => {
+    if (!dateRange?.from) {
+      setFilteredReservations(reservations);
+      // Calculate current month stats as default
+      const currentMonth = new Date().getMonth();
+      const currentYear = new Date().getFullYear();
+      const monthlyReservations = reservations.filter(res => {
+        const checkInDate = new Date(res.check_in_date);
+        return checkInDate.getMonth() === currentMonth && checkInDate.getFullYear() === currentYear;
+      });
+      calculateFilteredStats(monthlyReservations);
+    } else {
+      const filtered = reservations.filter(res => {
+        const checkInDate = new Date(res.check_in_date);
+        const from = dateRange.from!;
+        const to = dateRange.to || dateRange.from!;
+        return checkInDate >= from && checkInDate <= to;
+      });
+      setFilteredReservations(filtered);
+      calculateFilteredStats(filtered);
+    }
+  }, [dateRange, reservations]);
+
+  const calculateFilteredStats = (data: Reservation[]) => {
+    const stats = data.reduce(
+      (acc, res) => {
+        const checkIn = new Date(res.check_in_date);
+        const checkOut = new Date(res.check_out_date);
+        const nights = Math.ceil((checkOut.getTime() - checkIn.getTime()) / (1000 * 60 * 60 * 24));
+        
+        return {
+          totalReservations: acc.totalReservations + 1,
+          totalCommission: acc.totalCommission + (res.commission_amount || 0),
+          totalNights: acc.totalNights + nights,
+        };
+      },
+      { totalReservations: 0, totalCommission: 0, totalNights: 0 }
+    );
+    setFilteredStats(stats);
+  };
 
   const fetchUserReservations = async () => {
     try {
@@ -81,32 +129,6 @@ const MyReservations = () => {
 
       setReservations(data || []);
 
-      // Calculate monthly stats (current month)
-      const currentMonth = new Date().getMonth();
-      const currentYear = new Date().getFullYear();
-      
-      const monthlyReservations = (data || []).filter(res => {
-        const checkInDate = new Date(res.check_in_date);
-        return checkInDate.getMonth() === currentMonth && checkInDate.getFullYear() === currentYear;
-      });
-
-      const stats = monthlyReservations.reduce(
-        (acc, res) => {
-          const checkIn = new Date(res.check_in_date);
-          const checkOut = new Date(res.check_out_date);
-          const nights = Math.ceil((checkOut.getTime() - checkIn.getTime()) / (1000 * 60 * 60 * 24));
-          
-          return {
-            totalReservations: acc.totalReservations + 1,
-            totalCommission: acc.totalCommission + (res.commission_amount || 0),
-            totalNights: acc.totalNights + nights,
-          };
-        },
-        { totalReservations: 0, totalCommission: 0, totalNights: 0 }
-      );
-
-      setMonthlyStats(stats);
-
       // Calculate lifetime stats
       const lifetime = (data || []).reduce(
         (acc, res) => ({
@@ -122,6 +144,28 @@ const MyReservations = () => {
       console.error('Error fetching reservations:', error);
     } finally {
       setIsLoading(false);
+    }
+  };
+
+  const getDateRangeLabel = () => {
+    if (!dateRange?.from) {
+      return format(new Date(), 'MMMM yyyy');
+    }
+    if (!dateRange.to) {
+      return format(dateRange.from, 'MMM dd, yyyy');
+    }
+    return `${format(dateRange.from, 'MMM dd')} - ${format(dateRange.to, 'MMM dd, yyyy')}`;
+  };
+
+  const handleQuickFilter = (type: 'thisMonth' | 'lastMonth' | 'all') => {
+    const now = new Date();
+    if (type === 'thisMonth') {
+      setDateRange({ from: startOfMonth(now), to: endOfMonth(now) });
+    } else if (type === 'lastMonth') {
+      const lastMonth = new Date(now.getFullYear(), now.getMonth() - 1, 1);
+      setDateRange({ from: startOfMonth(lastMonth), to: endOfMonth(lastMonth) });
+    } else {
+      setDateRange(undefined);
     }
   };
 
@@ -202,30 +246,114 @@ const MyReservations = () => {
           </Card>
         </div>
 
-        {/* Monthly Stats */}
+        {/* Date Range Filter */}
+        <Card>
+          <CardHeader className="pb-4">
+            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+              <CardTitle className="text-lg">Filter by Date Range</CardTitle>
+              <div className="flex flex-wrap items-center gap-2">
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={() => handleQuickFilter('thisMonth')}
+                  className={cn(dateRange?.from && format(dateRange.from, 'MM-yyyy') === format(new Date(), 'MM-yyyy') && 'bg-primary/10')}
+                >
+                  This Month
+                </Button>
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={() => handleQuickFilter('lastMonth')}
+                >
+                  Last Month
+                </Button>
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={() => handleQuickFilter('all')}
+                  className={cn(!dateRange?.from && 'bg-primary/10')}
+                >
+                  All Time
+                </Button>
+              </div>
+            </div>
+          </CardHeader>
+          <CardContent>
+            <div className="flex flex-wrap items-center gap-2">
+              <Popover>
+                <PopoverTrigger asChild>
+                  <Button
+                    variant="outline"
+                    className={cn(
+                      "justify-start text-left font-normal w-full sm:w-auto",
+                      !dateRange && "text-muted-foreground"
+                    )}
+                  >
+                    <CalendarIcon className="mr-2 h-4 w-4" />
+                    {dateRange?.from ? (
+                      dateRange.to ? (
+                        <>
+                          {format(dateRange.from, "LLL dd, y")} -{" "}
+                          {format(dateRange.to, "LLL dd, y")}
+                        </>
+                      ) : (
+                        format(dateRange.from, "LLL dd, y")
+                      )
+                    ) : (
+                      <span>Pick a date range</span>
+                    )}
+                  </Button>
+                </PopoverTrigger>
+                <PopoverContent className="w-auto p-0" align="start">
+                  <CalendarComponent
+                    initialFocus
+                    mode="range"
+                    defaultMonth={dateRange?.from}
+                    selected={dateRange}
+                    onSelect={setDateRange}
+                    numberOfMonths={2}
+                    className="pointer-events-auto"
+                  />
+                </PopoverContent>
+              </Popover>
+              {dateRange?.from && (
+                <Button
+                  variant="ghost"
+                  size="icon"
+                  onClick={() => setDateRange(undefined)}
+                  className="h-9 w-9"
+                >
+                  <X className="h-4 w-4" />
+                </Button>
+              )}
+            </div>
+          </CardContent>
+        </Card>
+
+        {/* Filtered Period Stats */}
         <div className="grid gap-4 md:grid-cols-3">
           <Card>
             <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-              <CardTitle className="text-sm font-medium">This Month's Reservations</CardTitle>
+              <CardTitle className="text-sm font-medium">Reservations</CardTitle>
               <TrendingUp className="h-4 w-4 text-muted-foreground" />
             </CardHeader>
             <CardContent>
-              <div className="text-2xl font-bold">{monthlyStats.totalReservations}</div>
+              <div className="text-2xl font-bold">{filteredStats.totalReservations}</div>
               <p className="text-xs text-muted-foreground">
-                {format(new Date(), 'MMMM yyyy')}
+                {getDateRangeLabel()}
               </p>
             </CardContent>
           </Card>
 
           <Card>
             <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-              <CardTitle className="text-sm font-medium">Monthly Commission</CardTitle>
+              <CardTitle className="text-sm font-medium">Commission</CardTitle>
               <DollarSign className="h-4 w-4 text-muted-foreground" />
             </CardHeader>
             <CardContent>
-              <div className="text-2xl font-bold">${monthlyStats.totalCommission.toFixed(2)}</div>
+              <div className="text-2xl font-bold">${filteredStats.totalCommission.toFixed(2)}</div>
               <p className="text-xs text-muted-foreground">
-                Earned this month
+                Earned in period
               </p>
             </CardContent>
           </Card>
@@ -236,26 +364,29 @@ const MyReservations = () => {
               <Calendar className="h-4 w-4 text-muted-foreground" />
             </CardHeader>
             <CardContent>
-              <div className="text-2xl font-bold">{monthlyStats.totalNights}</div>
+              <div className="text-2xl font-bold">{filteredStats.totalNights}</div>
               <p className="text-xs text-muted-foreground">
-                Across all rooms this month
+                Across all rooms in period
               </p>
             </CardContent>
           </Card>
         </div>
 
-        {/* All Reservations Table */}
+        {/* Reservations Table */}
         <Card>
           <CardHeader>
-            <CardTitle>All My Reservations</CardTitle>
+            <CardTitle>Reservations</CardTitle>
             <CardDescription>
-              Showing all reservations assigned to {userName}
+              {dateRange?.from 
+                ? `Showing ${filteredReservations.length} reservations for selected period`
+                : `Showing ${filteredReservations.length} reservations for ${format(new Date(), 'MMMM yyyy')}`
+              }
             </CardDescription>
           </CardHeader>
           <CardContent>
-            {reservations.length === 0 ? (
+            {filteredReservations.length === 0 ? (
               <div className="text-center py-8 text-muted-foreground">
-                No reservations found
+                No reservations found for selected period
               </div>
             ) : (
               <div className="rounded-md border overflow-x-auto">
@@ -273,7 +404,7 @@ const MyReservations = () => {
                     </TableRow>
                   </TableHeader>
                   <TableBody>
-                    {reservations.map((reservation) => (
+                    {filteredReservations.map((reservation) => (
                       <TableRow
                         key={reservation.id}
                         className="cursor-pointer hover:bg-muted/50"
