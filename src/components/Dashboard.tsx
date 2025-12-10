@@ -55,6 +55,8 @@ interface Reservation {
   number_of_guests: number;
   children: number | null;
   adults: number | null;
+  source: string;
+  channel: string;
   units: { name: string; unit_number: string | null } | null;
 }
 
@@ -188,7 +190,7 @@ export const Dashboard = () => {
     
     let query = supabase
       .from('reservations')
-      .select('id, booking_reference, guest_names, guest_types, guest_genders, check_in_date, check_out_date, checked_in_at, checked_out_at, status, total_price, number_of_guests, children, adults, units(name, unit_number)');
+      .select('id, booking_reference, guest_names, guest_types, guest_genders, check_in_date, check_out_date, checked_in_at, checked_out_at, status, total_price, number_of_guests, children, adults, source, channel, units(name, unit_number)');
     
     switch (cardType) {
       case 'arrivals':
@@ -531,13 +533,21 @@ export const Dashboard = () => {
                             Room #{reservation.units.unit_number}
                           </p>
                         )}
-                        <div className="flex items-center gap-2">
+                        <div className="flex items-center gap-2 flex-wrap">
                           <p className="font-semibold">{reservation.booking_reference}</p>
                           <Badge 
                             variant="outline" 
                             className={statusColors[reservation.status as keyof typeof statusColors]}
                           >
                             {reservation.status}
+                          </Badge>
+                          <Badge 
+                            variant="secondary"
+                            className={reservation.channel === 'Booking.com' 
+                              ? 'bg-blue-100 text-blue-800' 
+                              : 'bg-emerald-100 text-emerald-800'}
+                          >
+                            {reservation.channel === 'Booking.com' ? 'Booking.com' : reservation.source}
                           </Badge>
                         </div>
                         <div className="space-y-1">
