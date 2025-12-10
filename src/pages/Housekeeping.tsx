@@ -4,7 +4,7 @@ import { supabase } from '@/integrations/supabase/client';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
-import { CheckCircle, Sparkles, AlertCircle, ArrowLeft, Clock, History, Filter, Users, Calendar, Bed, Mail } from 'lucide-react';
+import { CheckCircle, Sparkles, AlertCircle, ArrowLeft, Clock, History, Filter, Users, Calendar, Bed, Mail, AlertTriangle } from 'lucide-react';
 import { format, differenceInDays, addDays } from 'date-fns';
 import { useToast } from '@/hooks/use-toast';
 import { useAuth } from '@/lib/auth';
@@ -13,6 +13,17 @@ import { SlideMenu } from '@/components/SlideMenu';
 import { AdminBreadcrumb } from '@/components/AdminBreadcrumb';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Textarea } from '@/components/ui/textarea';
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
+
+const ISSUE_TYPES = [
+  'TV broke',
+  'Sofa bed damaged',
+  'Bed damaged',
+  'Kitchen broke',
+  'Replacement needed',
+] as const;
+
+type IssueType = typeof ISSUE_TYPES[number];
 
 type FilterType = 'all' | 'urgent' | 'recent';
 
@@ -71,6 +82,9 @@ const Housekeeping = () => {
   const [editingNotes, setEditingNotes] = useState<string | null>(null);
   const [activeTab, setActiveTab] = useState<'checkout' | 'occupied'>('checkout');
   const [triggeringNotifications, setTriggeringNotifications] = useState(false);
+  const [selectedIssues, setSelectedIssues] = useState<Record<string, IssueType | null>>({});
+  const [issueNotes, setIssueNotes] = useState<Record<string, string>>({});
+  const [submittingIssue, setSubmittingIssue] = useState<string | null>(null);
 
   useEffect(() => {
     if (!loading && !user) {
@@ -380,6 +394,76 @@ const Housekeeping = () => {
       });
     } finally {
       setTriggeringNotifications(false);
+    }
+  };
+
+  const handleSubmitIssue = async (room: OccupiedRoom) => {
+    const issueType = selectedIssues[room.id];
+    if (!issueType) {
+      toast({
+        title: 'Error',
+        description: 'Please select an issue type',
+        variant: 'destructive',
+      });
+      return;
+    }
+
+    const notes = issueType === 'Replacement needed' ? issueNotes[room.id] || '' : null;
+
+    setSubmittingIssue(room.id);
+    try {
+      // Log the issue in housekeeping_logs
+      const { error: logError } = await supabase
+        .from('housekeeping_logs')
+        .insert({
+          reservation_id: room.id,
+          unit_id: room.unit_id,
+          cleaned_by: user?.id,
+          cleaning_completed_at: new Date().toISOString(),
+          issue_type: issueType,
+          notes: notes,
+        });
+
+      if (logError) throw logError;
+
+      // Send notification to admins
+      const { error: notifyError } = await supabase.functions.invoke('send-admin-notification', {
+        body: {
+          type: 'housekeeping_issue',
+          title: `Housekeeping Issue Reported - Room #${room.unit_number}`,
+          message: `Issue: ${issueType}${notes ? ` - Details: ${notes}` : ''}`,
+          metadata: {
+            room_number: room.unit_number,
+            room_name: room.unit_name,
+            guest_name: room.guest_names[0],
+            issue_type: issueType,
+            notes: notes,
+            reported_at: new Date().toISOString(),
+          }
+        }
+      });
+
+      if (notifyError) {
+        console.error('Failed to send notification:', notifyError);
+      }
+
+      toast({
+        title: 'Issue Reported',
+        description: `${issueType} reported for Room #${room.unit_number}`,
+      });
+
+      // Clear the form
+      setSelectedIssues(prev => ({ ...prev, [room.id]: null }));
+      setIssueNotes(prev => ({ ...prev, [room.id]: '' }));
+      fetchCleaningHistory();
+    } catch (error: any) {
+      toast({
+        title: 'Error',
+        description: error.message,
+        variant: 'destructive',
+      });
+    } finally {
+      setSubmittingIssue(null);
     }
   };
 
@@ -828,46 +912,96 @@ const Housekeeping = () => {
                             </div>
                           </div>
 
-                          {/* Right Column - Notes */}
-                          <div>
-                            <p className="text-xs text-muted-foreground mb-2">Housekeeping Notes</p>
-                            {editingNotes === room.id ? (
+                          {/* Right Column - Issue Reporting & Notes */}
+                          <div className="space-y-4">
+                            {/* Issue Reporting Section */}
+                            <div>
+                              <p className="text-xs text-muted-foreground mb-2 flex items-center gap-1">
+                                <AlertTriangle className="h-3 w-3" />
+                                Report Issue
+                              </p>
                               <div className="space-y-2">
-                                <Textarea
-                                  defaultValue={room.housekeeping_notes || ''}
-                                  placeholder="Add housekeeping notes..."
-                                  className="min-h-[100px] text-sm"
-                                  id={`notes-${room.id}`}
-                                />
-                                <div className="flex gap-2">
+                                <Select
+                                  value={selectedIssues[room.id] || ''}
+                                  onValueChange={(value) => setSelectedIssues(prev => ({ ...prev, [room.id]: value as IssueType }))}
+                                >
+                                  <SelectTrigger className="w-full bg-background">
+                                    <SelectValue placeholder="Select an issue..." />
+                                  </SelectTrigger>
+                                  <SelectContent className="bg-background z-50">
+                                    {ISSUE_TYPES.map((issue) => (
+                                      <SelectItem key={issue} value={issue}>
+                                        {issue}
+                                      </SelectItem>
+                                    ))}
+                                  </SelectContent>
+                                </Select>
+
+                                {selectedIssues[room.id] === 'Replacement needed' && (
+                                  <Textarea
+                                    value={issueNotes[room.id] || ''}
+                                    onChange={(e) => setIssueNotes(prev => ({ ...prev, [room.id]: e.target.value }))}
+                                    placeholder="What needs to be replaced?"
+                                    className="min-h-[60px] text-sm"
+                                  />
+                                )}
+
+                                {selectedIssues[room.id] && (
                                   <Button
                                     size="sm"
-                                    onClick={() => {
-                                      const textarea = document.getElementById(`notes-${room.id}`) as HTMLTextAreaElement;
-                                      handleUpdateNotes(room.id, textarea.value);
-                                    }}
+                                    variant="destructive"
+                                    onClick={() => handleSubmitIssue(room)}
+                                    disabled={submittingIssue === room.id}
+                                    className="w-full gap-2"
                                   >
-                                    Save
+                                    <AlertTriangle className="h-4 w-4" />
+                                    {submittingIssue === room.id ? 'Submitting...' : 'Submit Issue'}
                                   </Button>
-                                  <Button
-                                    size="sm"
-                                    variant="outline"
-                                    onClick={() => setEditingNotes(null)}
-                                  >
-                                    Cancel
-                                  </Button>
-                                </div>
-                              </div>
-                            ) : (
-                              <div
-                                onClick={() => setEditingNotes(room.id)}
-                                className="min-h-[100px] text-sm p-3 rounded-md border bg-accent/20 cursor-pointer hover:bg-accent/30 transition-colors"
-                              >
-                                {room.housekeeping_notes || (
-                                  <span className="text-muted-foreground italic">Click to add notes...</span>
                                 )}
                               </div>
-                            )}
+                            </div>
+
+                            {/* Notes Section */}
+                            <div>
+                              <p className="text-xs text-muted-foreground mb-2">Housekeeping Notes</p>
+                              {editingNotes === room.id ? (
+                                <div className="space-y-2">
+                                  <Textarea
+                                    defaultValue={room.housekeeping_notes || ''}
+                                    placeholder="Add housekeeping notes..."
+                                    className="min-h-[80px] text-sm"
+                                    id={`notes-${room.id}`}
+                                  />
+                                  <div className="flex gap-2">
+                                    <Button
+                                      size="sm"
+                                      onClick={() => {
+                                        const textarea = document.getElementById(`notes-${room.id}`) as HTMLTextAreaElement;
+                                        handleUpdateNotes(room.id, textarea.value);
+                                      }}
+                                    >
+                                      Save
+                                    </Button>
+                                    <Button
+                                      size="sm"
+                                      variant="outline"
+                                      onClick={() => setEditingNotes(null)}
+                                    >
+                                      Cancel
+                                    </Button>
+                                  </div>
+                                </div>
+                              ) : (
+                                <div
+                                  onClick={() => setEditingNotes(room.id)}
+                                  className="min-h-[60px] text-sm p-3 rounded-md border bg-accent/20 cursor-pointer hover:bg-accent/30 transition-colors"
+                                >
+                                  {room.housekeeping_notes || (
+                                    <span className="text-muted-foreground italic">Click to add notes...</span>
+                                  )}
+                                </div>
+                              )}
+                            </div>
                           </div>
                         </div>
                       </CardContent>

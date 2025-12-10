@@ -383,6 +383,7 @@ export type Database = {
           cleaning_started_at: string | null
           created_at: string
           id: string
+          issue_type: string | null
           notes: string | null
           reservation_id: string
           unit_id: string
@@ -394,6 +395,7 @@ export type Database = {
           cleaning_started_at?: string | null
           created_at?: string
           id?: string
+          issue_type?: string | null
           notes?: string | null
           reservation_id: string
           unit_id: string
@@ -405,6 +407,7 @@ export type Database = {
           cleaning_started_at?: string | null
           created_at?: string
           id?: string
+          issue_type?: string | null
           notes?: string | null
           reservation_id?: string
           unit_id?: string
