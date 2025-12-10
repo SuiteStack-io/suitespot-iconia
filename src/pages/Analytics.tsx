@@ -267,27 +267,10 @@ const Analytics = () => {
     const totalNights = reservations?.reduce((sum, r) => sum + (r.nights || 0), 0) || 0;
     setTotalNights(totalNights);
     
-    let days = 1;
-    if (customDateRange?.from && customDateRange?.to) {
-      days = Math.ceil((customDateRange.to.getTime() - customDateRange.from.getTime()) / (1000 * 60 * 60 * 24)) + 1;
-    } else {
-      const now = new Date();
-      switch (timePeriod) {
-        case 'week':
-          days = 7;
-          break;
-        case 'month':
-          days = 30;
-          break;
-        case 'quarter':
-          days = 90;
-          break;
-        case 'ytd':
-          const ytdStart = new Date(2025, 0, 1);
-          days = Math.ceil((now.getTime() - ytdStart.getTime()) / (1000 * 60 * 60 * 24));
-          break;
-      }
-    }
+    // Calculate days dynamically from actual date range
+    const start = new Date(startDate);
+    const end = new Date(endDate);
+    const days = Math.ceil((end.getTime() - start.getTime()) / (1000 * 60 * 60 * 24)) + 1;
     
     const totalAvailableNights = totalUnits * days;
     const occupancy = totalAvailableNights > 0 ? (totalNights / totalAvailableNights) * 100 : 0;
@@ -360,28 +343,10 @@ const Analytics = () => {
       .eq('location', 'ICONIA')
       .order('unit_number');
 
-    // Calculate days in period
-    let days = 1;
-    if (customDateRange?.from && customDateRange?.to) {
-      days = Math.ceil((customDateRange.to.getTime() - customDateRange.from.getTime()) / (1000 * 60 * 60 * 24)) + 1;
-    } else {
-      const now = new Date();
-      switch (timePeriod) {
-        case 'week':
-          days = 7;
-          break;
-        case 'month':
-          days = 30;
-          break;
-        case 'quarter':
-          days = 90;
-          break;
-        case 'ytd':
-          const ytdStart = new Date(2025, 0, 1);
-          days = Math.ceil((now.getTime() - ytdStart.getTime()) / (1000 * 60 * 60 * 24));
-          break;
-      }
-    }
+    // Calculate days dynamically from actual date range
+    const start = new Date(startDate);
+    const end = new Date(endDate);
+    const days = Math.ceil((end.getTime() - start.getTime()) / (1000 * 60 * 60 * 24)) + 1;
 
     const details = await Promise.all(
       (units || []).map(async (unit) => {
