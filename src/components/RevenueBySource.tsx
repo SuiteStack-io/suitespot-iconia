@@ -68,6 +68,13 @@ export const RevenueBySource = () => {
   const [isBookingComExpanded, setIsBookingComExpanded] = useState(false);
   const [modalOpen, setModalOpen] = useState(false);
   const [selectedSourceDetail, setSelectedSourceDetail] = useState<SourceRevenue | null>(null);
+  const [bookingModalOpen, setBookingModalOpen] = useState(false);
+  const [selectedBooking, setSelectedBooking] = useState<BookingDetail | null>(null);
+
+  const handleBookingClick = (booking: BookingDetail) => {
+    setSelectedBooking(booking);
+    setBookingModalOpen(true);
+  };
 
   useEffect(() => {
     fetchRevenueBySource();
@@ -465,7 +472,12 @@ export const RevenueBySource = () => {
                   {isBookingComExpanded && bookingComDetails.map((booking, index) => (
                     <TableRow key={`booking-com-${index}`} className="bg-muted/30">
                       <TableCell className="pl-10 font-normal text-muted-foreground">
-                        {booking.guestName}
+                        <button
+                          onClick={() => handleBookingClick(booking)}
+                          className="hover:underline hover:text-primary cursor-pointer text-left"
+                        >
+                          {booking.guestName}
+                        </button>
                       </TableCell>
                       <TableCell className="text-right text-muted-foreground">1</TableCell>
                       <TableCell className="text-right text-muted-foreground">
@@ -473,7 +485,7 @@ export const RevenueBySource = () => {
                       </TableCell>
                       <TableCell className="text-right text-muted-foreground">17.4%</TableCell>
                       <TableCell className="text-right text-muted-foreground">
-                        ${(booking.totalPrice * 0.174).toFixed(2)}
+                        ${(booking.commission || booking.totalPrice * 0.174).toFixed(2)}
                       </TableCell>
                       <TableCell className="text-right text-muted-foreground">
                         ${booking.netRevenue.toFixed(2)}
@@ -641,6 +653,55 @@ export const RevenueBySource = () => {
                     ))}
                   </TableBody>
                 </Table>
+              </div>
+            </div>
+          )}
+        </DialogContent>
+      </Dialog>
+
+      {/* Individual Booking Detail Modal */}
+      <Dialog open={bookingModalOpen} onOpenChange={setBookingModalOpen}>
+        <DialogContent className="max-w-md">
+          <DialogHeader>
+            <DialogTitle className="text-xl">{selectedBooking?.guestName}</DialogTitle>
+          </DialogHeader>
+          
+          {selectedBooking && (
+            <div className="space-y-4">
+              <div className="grid grid-cols-2 gap-4">
+                <div className="bg-muted/50 rounded-lg p-3">
+                  <p className="text-xs text-muted-foreground">Check-in</p>
+                  <p className="font-semibold">
+                    {selectedBooking.checkInDate ? format(new Date(selectedBooking.checkInDate), 'MMM d, yyyy') : '-'}
+                  </p>
+                </div>
+                <div className="bg-muted/50 rounded-lg p-3">
+                  <p className="text-xs text-muted-foreground">Check-out</p>
+                  <p className="font-semibold">
+                    {selectedBooking.checkOutDate ? format(new Date(selectedBooking.checkOutDate), 'MMM d, yyyy') : '-'}
+                  </p>
+                </div>
+              </div>
+              
+              <div className="border rounded-lg divide-y">
+                <div className="flex justify-between p-3">
+                  <span className="text-muted-foreground">Nights</span>
+                  <span className="font-medium">{selectedBooking.nights || '-'}</span>
+                </div>
+                <div className="flex justify-between p-3">
+                  <span className="text-muted-foreground">Gross Revenue</span>
+                  <span className="font-medium">${selectedBooking.totalPrice.toFixed(2)}</span>
+                </div>
+                <div className="flex justify-between p-3">
+                  <span className="text-muted-foreground">Commission (17.4%)</span>
+                  <span className="font-medium text-amber-600">
+                    ${(selectedBooking.commission || selectedBooking.totalPrice * 0.174).toFixed(2)}
+                  </span>
+                </div>
+                <div className="flex justify-between p-3 bg-muted/30">
+                  <span className="font-semibold">Net Revenue</span>
+                  <span className="font-semibold text-green-600">${selectedBooking.netRevenue.toFixed(2)}</span>
+                </div>
               </div>
             </div>
           )}
