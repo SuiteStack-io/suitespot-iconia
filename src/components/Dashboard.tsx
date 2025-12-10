@@ -2,7 +2,7 @@ import { useEffect, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { supabase } from '@/integrations/supabase/client';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
-import { Calendar, LogIn, LogOut, TrendingUp, DollarSign, CheckCircle } from 'lucide-react';
+import { Calendar, LogIn, LogOut, TrendingUp, DollarSign, CheckCircle, Undo2 } from 'lucide-react';
 import { format } from 'date-fns';
 import { ConflictAlert } from './ConflictAlert';
 import { PendingAssignmentsAlert } from './PendingAssignmentsAlert';
@@ -401,22 +401,38 @@ export const Dashboard = () => {
               <span>{dialogTitle}</span>
               {dialogTitle.includes('Departures') && dialogReservations.length > 0 && (
                 <div className="flex items-center gap-2">
-                  <Button
-                    variant="outline"
-                    size="sm"
-                    onClick={selectAllReservations}
-                  >
-                    {selectedReservations.size === dialogReservations.length ? 'Deselect All' : 'Select All'}
-                  </Button>
-                  {selectedReservations.size > 0 && (
+                  {/* Direct checkout for single departure */}
+                  {dialogReservations.length === 1 && dialogReservations[0].status === 'checked-in' && (
                     <Button
                       size="sm"
-                      variant="outline"
-                      onClick={handleBulkCheckOut}
-                      disabled={updating === 'bulk'}
+                      onClick={() => handleStatusChange(dialogReservations[0].id, 'checked-out')}
+                      disabled={updating === dialogReservations[0].id}
+                      className="gap-1"
                     >
-                      Check Out ({selectedReservations.size})
+                      <CheckCircle className="h-3 w-3" />
+                      Check Out
                     </Button>
+                  )}
+                  {dialogReservations.length > 1 && (
+                    <>
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        onClick={selectAllReservations}
+                      >
+                        {selectedReservations.size === dialogReservations.length ? 'Deselect All' : 'Select All'}
+                      </Button>
+                      {selectedReservations.size > 0 && (
+                        <Button
+                          size="sm"
+                          variant="outline"
+                          onClick={handleBulkCheckOut}
+                          disabled={updating === 'bulk'}
+                        >
+                          Check Out ({selectedReservations.size})
+                        </Button>
+                      )}
+                    </>
                   )}
                 </div>
               )}
@@ -527,6 +543,21 @@ export const Dashboard = () => {
                             >
                               <CheckCircle className="h-3 w-3" />
                               Check Out
+                            </Button>
+                          )}
+                          {dialogTitle.includes('Departures') && (reservation.status === 'checked-out' || reservation.status === 'completed') && (
+                            <Button
+                              size="sm"
+                              variant="ghost"
+                              onClick={(e) => {
+                                e.stopPropagation();
+                                handleStatusChange(reservation.id, 'confirmed');
+                              }}
+                              disabled={updating === reservation.id}
+                              className="gap-1 text-orange-600 hover:text-orange-700 hover:bg-orange-50"
+                            >
+                              <Undo2 className="h-3 w-3" />
+                              Undo
                             </Button>
                           )}
                         </div>

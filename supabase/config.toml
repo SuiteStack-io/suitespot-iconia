@@ -23,3 +23,9 @@ verify_jwt = false
 
 [functions.send-mid-stay-cleaning-notifications]
 verify_jwt = false
+
+[functions.send-checkin-notification]
+verify_jwt = false
+
+[functions.send-checkout-notification]
+verify_jwt = false
