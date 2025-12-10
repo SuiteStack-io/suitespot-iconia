@@ -568,6 +568,22 @@ export function CreateReservationDialog() {
     setRoomPrices(newRoomPrices);
   };
 
+  // Helper to get minimum price for a room based on selected unit
+  const getMinPriceForRoom = (roomIndex: number): number | null => {
+    const unitId = selectedUnitIds[roomIndex];
+    if (!unitId) return null;
+    const unit = allUnits.find(u => u.id === unitId);
+    return unit?.price_per_night ?? null;
+  };
+
+  // Check if room price is valid (>= minimum)
+  const isRoomPriceValid = (roomIndex: number): boolean => {
+    const price = roomPrices[roomIndex];
+    const minPrice = getMinPriceForRoom(roomIndex);
+    if (minPrice === null || price === "") return true;
+    return Number(price) >= minPrice;
+  };
+
   const handleIdPassportUpload = async (file: File, isBack: boolean = false) => {
     if (isBack) {
       setIdPassportFileBack(file);
@@ -1075,7 +1091,8 @@ export function CreateReservationDialog() {
     contactPhone.trim() !== "" &&
     source &&
     (source !== "Others" || sourceSpecification.trim() !== "") &&
-    roomPrices.every((price, index) => selectedUnitIds[index] ? price && Number(price) > 0 : true);
+    roomPrices.every((price, index) => selectedUnitIds[index] ? price && Number(price) > 0 : true) &&
+    selectedUnitIds.every((_, index) => isRoomPriceValid(index));
 
   const resetForm = () => {
     setDateRange(undefined);
@@ -1275,9 +1292,20 @@ export function CreateReservationDialog() {
                     value={roomPrices[roomIndex]}
                     onChange={(e) => updateRoomPrice(roomIndex, e.target.value ? Number(e.target.value) : "")}
                     placeholder="Enter price"
-                    min="0"
+                    min={getMinPriceForRoom(roomIndex) || 0}
                     step="1"
+                    className={cn(!isRoomPriceValid(roomIndex) && "border-destructive focus-visible:ring-destructive")}
                   />
+                  {getMinPriceForRoom(roomIndex) !== null && (
+                    <p className="text-xs text-muted-foreground">
+                      Min: ${getMinPriceForRoom(roomIndex)?.toFixed(2)}
+                    </p>
+                  )}
+                  {!isRoomPriceValid(roomIndex) && (
+                    <p className="text-xs text-destructive">
+                      Price must be at least ${getMinPriceForRoom(roomIndex)?.toFixed(2)} for this room
+                    </p>
+                  )}
                 </div>
               </div>
             </div>
