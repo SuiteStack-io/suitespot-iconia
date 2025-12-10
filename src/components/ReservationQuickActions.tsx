@@ -362,7 +362,7 @@ export const ReservationQuickActions = ({
         unit_id: reservation.unit_id,
         check_in_date: reservation.check_out_date, // Extension starts where original ends
         check_out_date: format(newCheckoutDate, "yyyy-MM-dd"),
-        nights: additionalNights,
+        
         guest_names: fullReservation.guest_names,
         contact_email: fullReservation.contact_email,
         contact_phone: fullReservation.contact_phone,
@@ -439,7 +439,7 @@ export const ReservationQuickActions = ({
         unit_id: reservation.unit_id,
         check_in_date: reservation.check_out_date,
         check_out_date: reservation.check_out_date, // Same day
-        nights: 0,
+        
         guest_names: fullReservation.guest_names,
         contact_email: fullReservation.contact_email,
         contact_phone: fullReservation.contact_phone,
