@@ -272,7 +272,20 @@ const Analytics = () => {
     const end = new Date(endDate);
     const days = Math.ceil((end.getTime() - start.getTime()) / (1000 * 60 * 60 * 24)) + 1;
     
-    const totalAvailableNights = totalUnits * days;
+    // Get total blocked nights for all ICONIA units in date range
+    const { data: unitIds } = await supabase
+      .from('units')
+      .select('id')
+      .eq('location', 'ICONIA');
+
+    const { count: totalBlockedNights } = await supabase
+      .from('blocked_dates')
+      .select('*', { count: 'exact', head: true })
+      .in('unit_id', unitIds?.map(u => u.id) || [])
+      .gte('blocked_date', startDate)
+      .lte('blocked_date', endDate);
+    
+    const totalAvailableNights = (totalUnits * days) - (totalBlockedNights || 0);
     const occupancy = totalAvailableNights > 0 ? (totalNights / totalAvailableNights) * 100 : 0;
     
     setOccupancyRate(occupancy);
@@ -358,8 +371,16 @@ const Analytics = () => {
           .gte('check_in_date', startDate)
           .lte('check_in_date', endDate);
 
+        // Get blocked dates for this unit in the date range
+        const { count: blockedNights } = await supabase
+          .from('blocked_dates')
+          .select('*', { count: 'exact', head: true })
+          .eq('unit_id', unit.id)
+          .gte('blocked_date', startDate)
+          .lte('blocked_date', endDate);
+
         const nightsBooked = reservations?.reduce((sum, r) => sum + (r.nights || 0), 0) || 0;
-        const nightsAvailable = days;
+        const nightsAvailable = days - (blockedNights || 0);
         const occupancyRate = nightsAvailable > 0 ? (nightsBooked / nightsAvailable) * 100 : 0;
 
         return {
