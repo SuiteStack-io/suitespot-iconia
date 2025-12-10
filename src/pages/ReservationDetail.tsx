@@ -27,7 +27,7 @@ import {
 } from '@/components/ui/command';
 import { toast } from 'sonner';
 import { format } from 'date-fns';
-import { Edit2, X, CalendarIcon, Trash2, FileText, Download, Check, ChevronsUpDown, ArrowLeft } from 'lucide-react';
+import { Edit2, X, CalendarIcon, Trash2, FileText, Download, Check, ChevronsUpDown, ArrowLeft, Clock, Plus, Link2 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { CreateGuestAccountDialog } from '@/components/CreateGuestAccountDialog';
 import { SlideMenu } from '@/components/SlideMenu';
@@ -104,6 +104,18 @@ interface Unit {
   name: string;
 }
 
+interface LinkedCharge {
+  id: string;
+  booking_reference: string;
+  type: 'late_checkout' | 'extension';
+  total_price: number;
+  source: string;
+  check_in_date: string;
+  check_out_date: string;
+  nights: number;
+  created_at: string;
+}
+
 const statusColors = {
   confirmed: 'bg-blue-100 text-blue-800 hover:bg-blue-100',
   'checked-in': 'bg-green-100 text-green-800 hover:bg-green-100',
@@ -137,6 +149,7 @@ const ReservationDetail = () => {
     marriage_certificate_url?: boolean;
     booking_screenshot_url?: boolean;
   }>({});
+  const [linkedCharges, setLinkedCharges] = useState<LinkedCharge[]>([]);
   
   // Form state
   const [formData, setFormData] = useState({
@@ -167,6 +180,23 @@ const ReservationDetail = () => {
     fetchUnits();
   }, [id]);
 
+  const fetchLinkedCharges = async (groupId: string, currentId: string) => {
+    const { data } = await supabase
+      .from('reservations')
+      .select('id, booking_reference, total_price, source, check_in_date, check_out_date, nights, created_at')
+      .eq('group_id', groupId)
+      .neq('id', currentId)
+      .order('created_at', { ascending: true });
+
+    if (data) {
+      const charges: LinkedCharge[] = data.map(r => ({
+        ...r,
+        type: r.booking_reference?.endsWith('-LC') ? 'late_checkout' : 'extension',
+      }));
+      setLinkedCharges(charges);
+    }
+  };
+
   const fetchReservation = async () => {
     const { data, error } = await supabase
       .from('reservations')
@@ -176,6 +206,12 @@ const ReservationDetail = () => {
 
     if (!error && data) {
       setReservation(data as any as Reservation);
+      // Fetch linked charges if group_id exists
+      if (data.group_id) {
+        fetchLinkedCharges(data.group_id, data.id);
+      } else {
+        setLinkedCharges([]);
+      }
       // Initialize form data
       setFormData({
         unit_id: data.unit_id || '',
@@ -1086,6 +1122,66 @@ const ReservationDetail = () => {
           </Card>
         )}
       </div>
+
+      {/* Linked Charges Section */}
+      {linkedCharges.length > 0 && (
+        <Card>
+          <CardHeader>
+            <CardTitle className="flex items-center gap-2">
+              <Link2 className="h-5 w-5" />
+              Linked Charges
+            </CardTitle>
+          </CardHeader>
+          <CardContent>
+            <div className="space-y-3">
+              {linkedCharges.map((charge) => (
+                <div
+                  key={charge.id}
+                  className="flex items-center justify-between p-4 border rounded-lg hover:bg-muted/50 cursor-pointer transition-colors"
+                  onClick={() => navigate(`/reservation/${charge.id}`)}
+                >
+                  <div className="flex items-center gap-3">
+                    <div className={cn(
+                      "p-2 rounded-full",
+                      charge.type === 'late_checkout' 
+                        ? "bg-amber-100 text-amber-700" 
+                        : "bg-blue-100 text-blue-700"
+                    )}>
+                      {charge.type === 'late_checkout' ? (
+                        <Clock className="h-4 w-4" />
+                      ) : (
+                        <Plus className="h-4 w-4" />
+                      )}
+                    </div>
+                    <div>
+                      <div className="font-medium">
+                        {charge.type === 'late_checkout' ? 'Late Checkout Fee' : `Extension (${charge.nights} night${charge.nights !== 1 ? 's' : ''})`}
+                      </div>
+                      <div className="text-sm text-muted-foreground">
+                        Attributed to: {charge.source || 'Admin'} • {format(new Date(charge.created_at), 'MMM d, yyyy')}
+                      </div>
+                    </div>
+                  </div>
+                  <div className="text-right">
+                    <div className="font-semibold text-lg">${charge.total_price?.toFixed(2)}</div>
+                    <Badge variant="outline" className="text-xs">
+                      {charge.booking_reference}
+                    </Badge>
+                  </div>
+                </div>
+              ))}
+              <div className="pt-3 border-t">
+                <div className="flex justify-between text-sm font-medium">
+                  <span>Total Additional Charges</span>
+                  <span className="text-primary">
+                    ${linkedCharges.reduce((sum, c) => sum + (c.total_price || 0), 0).toFixed(2)}
+                  </span>
+                </div>
+              </div>
+            </div>
+          </CardContent>
+        </Card>
+      )}
 
       <AlertDialog open={showDeleteDialog} onOpenChange={setShowDeleteDialog}>
         <AlertDialogContent>
