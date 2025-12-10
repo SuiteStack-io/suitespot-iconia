@@ -39,16 +39,47 @@ serve(async (req) => {
       throw new Error('Failed to fetch reservation details');
     }
 
-    // Get all admin users with emails
-    const { data: adminData, error: adminError } = await supabase
-      .rpc('get_all_users_with_emails');
+    // Get all users with emails - query directly instead of using RPC (service role bypasses RLS)
+    const { data: profiles, error: profilesError } = await supabase
+      .from('profiles')
+      .select('id, full_name');
 
-    if (adminError) {
-      console.error('Error fetching admins:', adminError);
-      throw new Error('Failed to fetch admin users');
+    if (profilesError) {
+      console.error('Error fetching profiles:', profilesError);
+      throw new Error('Failed to fetch profiles');
     }
 
-    const admins = adminData.filter((user: any) => user.role === 'admin');
+    const { data: userRoles, error: rolesError } = await supabase
+      .from('user_roles')
+      .select('user_id, role');
+
+    if (rolesError) {
+      console.error('Error fetching user roles:', rolesError);
+      throw new Error('Failed to fetch user roles');
+    }
+
+    // We need auth.users emails - use admin API
+    const { data: authUsers, error: authError } = await supabase.auth.admin.listUsers();
+
+    if (authError) {
+      console.error('Error fetching auth users:', authError);
+      throw new Error('Failed to fetch auth users');
+    }
+
+    // Combine data to get admins with emails
+    const admins = profiles
+      .map((profile: any) => {
+        const authUser = authUsers.users.find((u: any) => u.id === profile.id);
+        const roleRecord = userRoles.find((r: any) => r.user_id === profile.id);
+        return {
+          user_id: profile.id,
+          email: authUser?.email,
+          full_name: profile.full_name,
+          role: roleRecord?.role
+        };
+      })
+      .filter((u: any) => u.email && u.role === 'admin');
+
     console.log(`Found ${admins.length} admin users`);
 
     if (admins.length === 0) {
