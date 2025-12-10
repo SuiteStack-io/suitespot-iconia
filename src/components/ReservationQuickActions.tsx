@@ -84,6 +84,13 @@ export const ReservationQuickActions = ({
   const [deletingLateCheckout, setDeletingLateCheckout] = useState(false);
   const [savingLateCheckoutEdit, setSavingLateCheckoutEdit] = useState(false);
   
+  // Edit/Delete extension state
+  const [editExtensionMode, setEditExtensionMode] = useState(false);
+  const [editExtensionFee, setEditExtensionFee] = useState<string>("");
+  const [showDeleteExtensionConfirm, setShowDeleteExtensionConfirm] = useState(false);
+  const [deletingExtension, setDeletingExtension] = useState(false);
+  const [savingExtensionEdit, setSavingExtensionEdit] = useState(false);
+  
   const { toast } = useToast();
   const navigate = useNavigate();
   const { user } = useAuth();
@@ -115,6 +122,9 @@ export const ReservationQuickActions = ({
       setEditLateCheckoutMode(false);
       setEditLateCheckoutFee("");
       setShowDeleteConfirm(false);
+      setEditExtensionMode(false);
+      setEditExtensionFee("");
+      setShowDeleteExtensionConfirm(false);
       setNewCheckoutDate(undefined);
       setExtensionPricePerNight("");
       setExtendConflict(false);
@@ -567,6 +577,78 @@ export const ReservationQuickActions = ({
     }
   };
 
+  const handleEditExtension = async () => {
+    if (!reservation || !editExtensionFee) return;
+    
+    setSavingExtensionEdit(true);
+    try {
+      const newTotal = parseFloat(editExtensionFee);
+      const commissionRate = 10;
+      const commissionAmount = newTotal * (commissionRate / 100);
+      const netRevenue = newTotal - commissionAmount;
+
+      const { error } = await supabase
+        .from("reservations")
+        .update({
+          total_price: newTotal,
+          commission_amount: commissionAmount,
+          net_revenue: netRevenue,
+        })
+        .eq("id", reservation.id);
+
+      if (error) throw error;
+
+      toast({
+        title: "Extension Updated",
+        description: `Total updated to $${newTotal.toFixed(2)}`,
+      });
+
+      onOpenChange(false);
+      onMoveComplete();
+    } catch (error) {
+      console.error("Error updating extension:", error);
+      toast({
+        title: "Update Failed",
+        description: "Failed to update extension. Please try again.",
+        variant: "destructive",
+      });
+    } finally {
+      setSavingExtensionEdit(false);
+    }
+  };
+
+  const handleDeleteExtension = async () => {
+    if (!reservation) return;
+    
+    setDeletingExtension(true);
+    try {
+      const { error } = await supabase
+        .from("reservations")
+        .delete()
+        .eq("id", reservation.id);
+
+      if (error) throw error;
+
+      toast({
+        title: "Extension Removed",
+        description: "Extension has been deleted.",
+      });
+
+      setShowDeleteExtensionConfirm(false);
+      onOpenChange(false);
+      onMoveComplete();
+    } catch (error) {
+      console.error("Error deleting extension:", error);
+      toast({
+        title: "Delete Failed",
+        description: "Failed to delete extension. Please try again.",
+        variant: "destructive",
+      });
+    } finally {
+      setDeletingExtension(false);
+    }
+  };
+
   if (!reservation) return null;
 
   const nights = Math.ceil(
@@ -606,6 +688,10 @@ export const ReservationQuickActions = ({
   // Check if this is a late checkout fee (ends with -LC and nights = 0)
   const isLateCheckout = reservation.booking_reference?.endsWith("-LC") && nights === 0;
   const lateCheckoutCurrentFee = reservation.total_price || 50;
+  
+  // Check if this is an extension (ends with -EXT)
+  const isExtension = reservation.booking_reference?.endsWith("-EXT") && !isLateCheckout;
+  const extensionCurrentTotal = reservation.total_price || 0;
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
@@ -615,11 +701,13 @@ export const ReservationQuickActions = ({
           <DialogDescription>
             {isLateCheckout 
               ? "Manage late checkout fee" 
-              : extendMode 
-                ? "Extend the guest's stay" 
-                : lateCheckoutMode 
-                  ? "Add late checkout fee" 
-                  : "View details, update status, or move this reservation"}
+              : isExtension
+                ? "Manage stay extension"
+                : extendMode 
+                  ? "Extend the guest's stay" 
+                  : lateCheckoutMode 
+                    ? "Add late checkout fee" 
+                    : "View details, update status, or move this reservation"}
           </DialogDescription>
         </DialogHeader>
 
@@ -746,6 +834,108 @@ export const ReservationQuickActions = ({
                       disabled={!editLateCheckoutFee || parseFloat(editLateCheckoutFee) <= 0 || savingLateCheckoutEdit}
                     >
                       {savingLateCheckoutEdit ? (
+                        <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+                      ) : (
+                        <Pencil className="h-4 w-4 mr-2" />
+                      )}
+                      Save Changes
+                    </Button>
+                  </div>
+                </>
+              )}
+            </div>
+          ) : isExtension ? (
+            /* Extension Management Mode */
+            <div className="space-y-4">
+              <div className="p-4 bg-blue-500/10 border border-blue-500/30 rounded-lg">
+                <div className="flex items-center gap-2 mb-2">
+                  <Plus className="h-5 w-5 text-blue-600" />
+                  <span className="font-semibold text-blue-800">Stay Extension</span>
+                </div>
+                <div className="text-sm text-muted-foreground">
+                  Linked to: {reservation.booking_reference.replace("-EXT", "")}
+                </div>
+              </div>
+
+              {!editExtensionMode ? (
+                <>
+                  <div className="p-4 bg-muted/50 rounded-lg">
+                    <div className="text-center">
+                      <div className="text-sm text-muted-foreground mb-1">Extension Total</div>
+                      <div className="text-3xl font-bold text-primary">${extensionCurrentTotal.toFixed(2)}</div>
+                      <div className="text-xs text-muted-foreground mt-1">
+                        {nights} night{nights !== 1 ? 's' : ''} • Attributed to: {reservation.source || "Admin"}
+                      </div>
+                    </div>
+                  </div>
+
+                  <div className="flex gap-2 pt-2">
+                    <Button 
+                      variant="outline" 
+                      className="flex-1"
+                      onClick={() => {
+                        setEditExtensionMode(true);
+                        setEditExtensionFee(extensionCurrentTotal.toString());
+                      }}
+                    >
+                      <Pencil className="h-4 w-4 mr-2" />
+                      Edit Total
+                    </Button>
+                    <Button
+                      variant="destructive"
+                      className="flex-1"
+                      onClick={() => setShowDeleteExtensionConfirm(true)}
+                    >
+                      <Trash2 className="h-4 w-4 mr-2" />
+                      Remove
+                    </Button>
+                  </div>
+                </>
+              ) : (
+                <>
+                  <div className="space-y-2">
+                    <label className="text-sm font-medium">New Total Amount ($)</label>
+                    <Input
+                      type="number"
+                      placeholder="Enter new total amount"
+                      value={editExtensionFee}
+                      onChange={(e) => setEditExtensionFee(e.target.value)}
+                      min="0"
+                      step="0.01"
+                    />
+                  </div>
+
+                  {editExtensionFee && parseFloat(editExtensionFee) > 0 && (
+                    <div className="p-3 bg-muted/50 rounded-lg space-y-1.5">
+                      <div className="flex justify-between text-sm">
+                        <span className="text-muted-foreground">Commission (10%)</span>
+                        <span>${(parseFloat(editExtensionFee) * 0.1).toFixed(2)}</span>
+                      </div>
+                      <div className="border-t pt-2 flex justify-between font-semibold">
+                        <span>Net Revenue</span>
+                        <span className="text-primary">${(parseFloat(editExtensionFee) * 0.9).toFixed(2)}</span>
+                      </div>
+                    </div>
+                  )}
+
+                  <div className="flex gap-2 pt-2">
+                    <Button 
+                      variant="outline" 
+                      className="flex-1"
+                      onClick={() => {
+                        setEditExtensionMode(false);
+                        setEditExtensionFee("");
+                      }}
+                    >
+                      <X className="h-4 w-4 mr-2" />
+                      Cancel
+                    </Button>
+                    <Button
+                      className="flex-1"
+                      onClick={handleEditExtension}
+                      disabled={!editExtensionFee || parseFloat(editExtensionFee) <= 0 || savingExtensionEdit}
+                    >
+                      {savingExtensionEdit ? (
                         <Loader2 className="h-4 w-4 mr-2 animate-spin" />
                       ) : (
                         <Pencil className="h-4 w-4 mr-2" />
@@ -1122,6 +1312,33 @@ export const ReservationQuickActions = ({
                 className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
               >
                 {deletingLateCheckout ? (
+                  <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+                ) : (
+                  <Trash2 className="h-4 w-4 mr-2" />
+                )}
+                Delete
+              </AlertDialogAction>
+            </AlertDialogFooter>
+          </AlertDialogContent>
+        </AlertDialog>
+
+        {/* Delete Extension Confirmation Dialog */}
+        <AlertDialog open={showDeleteExtensionConfirm} onOpenChange={setShowDeleteExtensionConfirm}>
+          <AlertDialogContent>
+            <AlertDialogHeader>
+              <AlertDialogTitle>Delete Extension?</AlertDialogTitle>
+              <AlertDialogDescription>
+                This will permanently remove the ${extensionCurrentTotal?.toFixed(2)} extension ({nights} night{nights !== 1 ? 's' : ''}) for {reservation?.guest_names[0]}. This action cannot be undone.
+              </AlertDialogDescription>
+            </AlertDialogHeader>
+            <AlertDialogFooter>
+              <AlertDialogCancel disabled={deletingExtension}>Cancel</AlertDialogCancel>
+              <AlertDialogAction
+                onClick={handleDeleteExtension}
+                disabled={deletingExtension}
+                className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
+              >
+                {deletingExtension ? (
                   <Loader2 className="h-4 w-4 mr-2 animate-spin" />
                 ) : (
                   <Trash2 className="h-4 w-4 mr-2" />

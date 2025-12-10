@@ -96,6 +96,7 @@ interface Reservation {
   booking_screenshot_url: string | null;
   created_at: string;
   updated_at: string;
+  group_id: string | null;
   units: { name: string; unit_number: string | null } | null;
 }
 
@@ -150,6 +151,9 @@ const ReservationDetail = () => {
     booking_screenshot_url?: boolean;
   }>({});
   const [linkedCharges, setLinkedCharges] = useState<LinkedCharge[]>([]);
+  const [showDeleteChargeDialog, setShowDeleteChargeDialog] = useState(false);
+  const [chargeToDelete, setChargeToDelete] = useState<LinkedCharge | null>(null);
+  const [deletingCharge, setDeletingCharge] = useState(false);
   
   // Form state
   const [formData, setFormData] = useState({
@@ -406,6 +410,33 @@ const ReservationDetail = () => {
     } else {
       toast.success('Reservation deleted successfully');
       navigate('/admin');
+    }
+  };
+
+  const handleDeleteLinkedCharge = async () => {
+    if (!chargeToDelete) return;
+    
+    setDeletingCharge(true);
+    try {
+      const { error } = await supabase
+        .from('reservations')
+        .delete()
+        .eq('id', chargeToDelete.id);
+
+      if (error) throw error;
+
+      toast.success(`${chargeToDelete.type === 'late_checkout' ? 'Late checkout' : 'Extension'} deleted successfully`);
+      setShowDeleteChargeDialog(false);
+      setChargeToDelete(null);
+      // Refresh linked charges
+      if (reservation?.group_id) {
+        fetchLinkedCharges(reservation.group_id, reservation.id);
+      }
+    } catch (error) {
+      console.error('Error deleting linked charge:', error);
+      toast.error('Failed to delete. You may not have permission.');
+    } finally {
+      setDeletingCharge(false);
     }
   };
 
@@ -1137,10 +1168,12 @@ const ReservationDetail = () => {
               {linkedCharges.map((charge) => (
                 <div
                   key={charge.id}
-                  className="flex items-center justify-between p-4 border rounded-lg hover:bg-muted/50 cursor-pointer transition-colors"
-                  onClick={() => navigate(`/reservation/${charge.id}`)}
+                  className="flex items-center justify-between p-4 border rounded-lg hover:bg-muted/50 transition-colors"
                 >
-                  <div className="flex items-center gap-3">
+                  <div 
+                    className="flex items-center gap-3 flex-1 cursor-pointer"
+                    onClick={() => navigate(`/reservation/${charge.id}`)}
+                  >
                     <div className={cn(
                       "p-2 rounded-full",
                       charge.type === 'late_checkout' 
@@ -1162,11 +1195,27 @@ const ReservationDetail = () => {
                       </div>
                     </div>
                   </div>
-                  <div className="text-right">
-                    <div className="font-semibold text-lg">${charge.total_price?.toFixed(2)}</div>
-                    <Badge variant="outline" className="text-xs">
-                      {charge.booking_reference}
-                    </Badge>
+                  <div className="flex items-center gap-3">
+                    <div className="text-right">
+                      <div className="font-semibold text-lg">${charge.total_price?.toFixed(2)}</div>
+                      <Badge variant="outline" className="text-xs">
+                        {charge.booking_reference}
+                      </Badge>
+                    </div>
+                    {canEdit && (
+                      <Button
+                        variant="ghost"
+                        size="icon"
+                        className="h-8 w-8 text-destructive hover:text-destructive hover:bg-destructive/10"
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          setChargeToDelete(charge);
+                          setShowDeleteChargeDialog(true);
+                        }}
+                      >
+                        <Trash2 className="h-4 w-4" />
+                      </Button>
+                    )}
                   </div>
                 </div>
               ))}
@@ -1199,6 +1248,29 @@ const ReservationDetail = () => {
               className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
             >
               {deleting ? 'Deleting...' : 'Yes'}
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
+
+      <AlertDialog open={showDeleteChargeDialog} onOpenChange={setShowDeleteChargeDialog}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>
+              Delete {chargeToDelete?.type === 'late_checkout' ? 'Late Checkout Fee' : 'Extension'}?
+            </AlertDialogTitle>
+            <AlertDialogDescription>
+              This will permanently remove the ${chargeToDelete?.total_price?.toFixed(2)} {chargeToDelete?.type === 'late_checkout' ? 'late checkout fee' : 'extension'}. This action cannot be undone.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel disabled={deletingCharge}>Cancel</AlertDialogCancel>
+            <AlertDialogAction 
+              onClick={handleDeleteLinkedCharge}
+              disabled={deletingCharge}
+              className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
+            >
+              {deletingCharge ? 'Deleting...' : 'Delete'}
             </AlertDialogAction>
           </AlertDialogFooter>
         </AlertDialogContent>
