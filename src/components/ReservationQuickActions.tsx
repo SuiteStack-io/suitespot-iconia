@@ -9,7 +9,7 @@ import { Calendar } from "@/components/ui/calendar";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { useToast } from "@/hooks/use-toast";
 import { useNavigate } from "react-router-dom";
-import { format, differenceInDays, addDays } from "date-fns";
+import { format, differenceInCalendarDays, addDays } from "date-fns";
 import { AlertTriangle, ArrowRight, Eye, Loader2, LogIn, LogOut, CheckCircle, CalendarIcon, Plus, X } from "lucide-react";
 import { cn } from "@/lib/utils";
 
@@ -286,8 +286,8 @@ export const ReservationQuickActions = ({
   const handleExtendStay = async () => {
     if (!reservation || !newCheckoutDate || !extensionPricePerNight || !fullReservation) return;
     
-    const currentCheckout = new Date(reservation.check_out_date);
-    const additionalNights = differenceInDays(newCheckoutDate, currentCheckout);
+    const currentCheckout = new Date(reservation.check_out_date + 'T00:00:00');
+    const additionalNights = differenceInCalendarDays(newCheckoutDate, currentCheckout);
     
     if (additionalNights <= 0) {
       toast({
@@ -362,8 +362,8 @@ export const ReservationQuickActions = ({
     (1000 * 60 * 60 * 24)
   );
 
-  const currentCheckout = new Date(reservation.check_out_date);
-  const additionalNights = newCheckoutDate ? differenceInDays(newCheckoutDate, currentCheckout) : 0;
+  const currentCheckout = new Date(reservation.check_out_date + 'T00:00:00');
+  const additionalNights = newCheckoutDate ? differenceInCalendarDays(newCheckoutDate, currentCheckout) : 0;
   const extensionSubtotal = additionalNights > 0 && extensionPricePerNight 
     ? additionalNights * parseFloat(extensionPricePerNight) 
     : 0;
