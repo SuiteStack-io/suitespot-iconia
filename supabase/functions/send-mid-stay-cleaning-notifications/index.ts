@@ -51,7 +51,7 @@ serve(async (req) => {
       throw reservationsError;
     }
 
-    // Filter to reservations that need cleaning today (every 4 days: day 4, 8, 12, 16...)
+    // Filter to reservations that need cleaning today OR have overdue cleanings
     const today = new Date();
     today.setHours(0, 0, 0, 0);
     
@@ -63,26 +63,39 @@ serve(async (req) => {
       const daysSinceCheckIn = Math.floor((today.getTime() - checkInDate.getTime()) / (1000 * 60 * 60 * 24));
       const dayOfStay = daysSinceCheckIn + 1;
       
-      // Check if today is a cleaning day (every 4 days: day 4, 8, 12, 16...)
-      const isCleaningDay = dayOfStay >= 4 && dayOfStay % 4 === 0;
+      // Calculate next cleaning day (every 4 days: day 4, 8, 12, 16...)
+      // Find if today is a cleaning day OR if there's an overdue cleaning
+      const cleaningInterval = 4;
+      const nextCleaningDay = dayOfStay >= cleaningInterval 
+        ? Math.ceil(dayOfStay / cleaningInterval) * cleaningInterval 
+        : cleaningInterval;
+      
+      // Check if cleaning is due today OR overdue
+      const isCleaningDueOrOverdue = dayOfStay >= cleaningInterval && dayOfStay >= nextCleaningDay - (dayOfStay % cleaningInterval);
+      
+      // More simply: if day >= 4 and we're at or past a cleaning milestone
+      const totalCleaningsExpected = Math.floor(dayOfStay / cleaningInterval);
+      const needsCleaning = totalCleaningsExpected > 0;
       
       // Check if we already sent notification today
       const lastNotificationDate = r.last_cleaning_notification_date ? new Date(r.last_cleaning_notification_date) : null;
       const alreadyNotifiedToday = lastNotificationDate && 
         lastNotificationDate.toISOString().split('T')[0] === today.toISOString().split('T')[0];
       
-      return isCleaningDay && !alreadyNotifiedToday;
+      return needsCleaning && !alreadyNotifiedToday;
     }).map((r: any) => {
       const checkInDate = new Date(r.check_in_date);
       checkInDate.setHours(0, 0, 0, 0);
       const daysSinceCheckIn = Math.floor((today.getTime() - checkInDate.getTime()) / (1000 * 60 * 60 * 24));
       const dayOfStay = daysSinceCheckIn + 1;
       const cleaningNumber = Math.floor(dayOfStay / 4);
+      const isOverdue = dayOfStay % 4 !== 0; // Not exactly on a cleaning day = overdue
       
       return {
         ...r,
         dayOfStay,
-        cleaningNumber
+        cleaningNumber,
+        isOverdue
       };
     });
 
@@ -153,9 +166,10 @@ serve(async (req) => {
           const checkIn = formatDate(r.check_in_date);
           const checkOut = formatDate(r.check_out_date);
           const cleaningCount = cleaningCounts[r.id] || 0;
+          const overdueText = r.isOverdue ? ' <span style="color: #dc2626; font-weight: bold;">[OVERDUE]</span>' : '';
           return `
-            <li style="margin-bottom: 20px; padding: 15px; background-color: #f9f9f9; border-left: 4px solid #4CAF50;">
-              <strong style="font-size: 16px;">${unitName}${unitNumber ? ` (#${unitNumber})` : ''}</strong> - Guest: ${guestName}
+            <li style="margin-bottom: 20px; padding: 15px; background-color: ${r.isOverdue ? '#fef2f2' : '#f9f9f9'}; border-left: 4px solid ${r.isOverdue ? '#dc2626' : '#4CAF50'};">
+              <strong style="font-size: 16px;">${unitName}${unitNumber ? ` (#${unitNumber})` : ''}</strong>${overdueText} - Guest: ${guestName}
               <br/>
               <span style="color: #666; font-size: 14px;">
                 <strong>Cleaning #${r.cleaningNumber}</strong> (Day ${r.dayOfStay} of stay)
