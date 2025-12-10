@@ -86,6 +86,7 @@ export const Dashboard = () => {
   // Undo confirmation modal state
   const [undoConfirmOpen, setUndoConfirmOpen] = useState(false);
   const [undoReservationId, setUndoReservationId] = useState<string | null>(null);
+  const [undoType, setUndoType] = useState<'checkin' | 'checkout'>('checkout');
 
   useEffect(() => {
     fetchStats();
@@ -229,8 +230,13 @@ export const Dashboard = () => {
       }
       
       // If undoing checkout, clear the checked_out_at
-      if (newStatus === 'checked-in' && !sendNotification) {
+      if (newStatus === 'checked-in') {
         updatePayload.checked_out_at = null;
+      }
+      
+      // If undoing checkin (reverting to confirmed), clear checked_in_at
+      if (newStatus === 'confirmed') {
+        updatePayload.checked_in_at = null;
       }
 
       const { error } = await supabase
@@ -288,15 +294,22 @@ export const Dashboard = () => {
     }
   };
 
-  const handleUndoClick = (reservationId: string) => {
+  const handleUndoClick = (reservationId: string, type: 'checkin' | 'checkout') => {
     setUndoReservationId(reservationId);
+    setUndoType(type);
     setUndoConfirmOpen(true);
   };
 
   const handleUndoConfirm = async (sendNotification: boolean) => {
     if (!undoReservationId) return;
     
-    await handleStatusChange(undoReservationId, 'checked-in', sendNotification);
+    if (undoType === 'checkout') {
+      // Undo check-out → back to checked-in
+      await handleStatusChange(undoReservationId, 'checked-in', sendNotification);
+    } else {
+      // Undo check-in → back to confirmed
+      await handleStatusChange(undoReservationId, 'confirmed', sendNotification);
+    }
     setUndoConfirmOpen(false);
     setUndoReservationId(null);
   };
@@ -631,7 +644,22 @@ export const Dashboard = () => {
                               variant="ghost"
                               onClick={(e) => {
                                 e.stopPropagation();
-                                handleUndoClick(reservation.id);
+                                handleUndoClick(reservation.id, 'checkout');
+                              }}
+                              disabled={updating === reservation.id}
+                              className="gap-1 text-orange-600 hover:text-orange-700 hover:bg-orange-50"
+                            >
+                              <Undo2 className="h-3 w-3" />
+                              Undo
+                            </Button>
+                          )}
+                          {dialogTitle.includes('Arrivals') && reservation.status === 'checked-in' && (
+                            <Button
+                              size="sm"
+                              variant="ghost"
+                              onClick={(e) => {
+                                e.stopPropagation();
+                                handleUndoClick(reservation.id, 'checkin');
                               }}
                               disabled={updating === reservation.id}
                               className="gap-1 text-orange-600 hover:text-orange-700 hover:bg-orange-50"
@@ -655,9 +683,14 @@ export const Dashboard = () => {
       <AlertDialog open={undoConfirmOpen} onOpenChange={setUndoConfirmOpen}>
         <AlertDialogContent>
           <AlertDialogHeader>
-            <AlertDialogTitle>Undo Check-Out</AlertDialogTitle>
+            <AlertDialogTitle>
+              {undoType === 'checkout' ? 'Undo Check-Out' : 'Undo Check-In'}
+            </AlertDialogTitle>
             <AlertDialogDescription>
-              This will restore the guest's status to checked-in. Do you want to send a check-in notification email to admins?
+              {undoType === 'checkout' 
+                ? "This will restore the guest's status to checked-in. Do you want to send a check-in notification email to admins?"
+                : "This will restore the guest's status to confirmed and clear the check-in timestamp. Do you want to send a notification email?"
+              }
             </AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter className="flex-col sm:flex-row gap-2">
