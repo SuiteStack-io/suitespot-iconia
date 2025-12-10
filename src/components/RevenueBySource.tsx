@@ -16,15 +16,26 @@ import {
   TableHeader,
   TableRow,
 } from '@/components/ui/table';
-import { ChevronDown, ChevronRight, Download, FileSpreadsheet } from 'lucide-react';
+import {
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+} from '@/components/ui/dialog';
+import { ChevronDown, ChevronRight, Download, FileSpreadsheet, DollarSign, Users, Percent, TrendingUp } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import * as XLSX from 'xlsx';
 import { toast } from 'sonner';
+import { format } from 'date-fns';
 
 interface BookingDetail {
   guestName: string;
   totalPrice: number;
   netRevenue: number;
+  checkInDate?: string;
+  checkOutDate?: string;
+  nights?: number;
+  commission?: number;
 }
 
 interface SourceRevenue {
@@ -55,6 +66,8 @@ export const RevenueBySource = () => {
   const [selectedSource, setSelectedSource] = useState<string>('all');
   const [isDirectExpanded, setIsDirectExpanded] = useState(false);
   const [isBookingComExpanded, setIsBookingComExpanded] = useState(false);
+  const [modalOpen, setModalOpen] = useState(false);
+  const [selectedSourceDetail, setSelectedSourceDetail] = useState<SourceRevenue | null>(null);
 
   useEffect(() => {
     fetchRevenueBySource();
@@ -91,7 +104,7 @@ export const RevenueBySource = () => {
   const fetchRevenueBySource = async () => {
     const { data, error } = await supabase
       .from('reservations')
-      .select('source, total_price, commission_amount, net_revenue, guest_names')
+      .select('source, total_price, commission_amount, net_revenue, guest_names, check_in_date, check_out_date, nights')
       .neq('status', 'Cancelled');
 
     if (error) {
@@ -130,6 +143,10 @@ export const RevenueBySource = () => {
           guestName: reservation.guest_names[0],
           totalPrice: reservation.total_price || 0,
           netRevenue: reservation.net_revenue || 0,
+          checkInDate: reservation.check_in_date,
+          checkOutDate: reservation.check_out_date,
+          nights: reservation.nights || 0,
+          commission: reservation.commission_amount || 0,
         });
         sourceMap[source].guestNames?.push(reservation.guest_names[0]);
       }
@@ -143,6 +160,11 @@ export const RevenueBySource = () => {
     setRevenueBySource(revenueArray);
     setFilteredRevenue(revenueArray);
     setLoading(false);
+  };
+
+  const handleSourceClick = (source: SourceRevenue) => {
+    setSelectedSourceDetail(source);
+    setModalOpen(true);
   };
 
   const handleExportExcel = () => {
@@ -494,24 +516,32 @@ export const RevenueBySource = () => {
                   </TableRow>
                   
                   {/* Direct Breakdown by Team Member */}
-                  {isDirectExpanded && directSourceBreakdown.map((source, index) => (
-                    <TableRow key={`direct-${index}`} className="bg-muted/30">
-                      <TableCell className="pl-10 font-normal text-muted-foreground">
-                        {source.source}
-                      </TableCell>
-                      <TableCell className="text-right text-muted-foreground">{source.count}</TableCell>
-                      <TableCell className="text-right text-muted-foreground">
-                        ${source.grossRevenue.toFixed(2)}
-                      </TableCell>
-                      <TableCell className="text-right text-muted-foreground">10%</TableCell>
-                      <TableCell className="text-right text-muted-foreground">
-                        ${source.commission.toFixed(2)}
-                      </TableCell>
-                      <TableCell className="text-right text-muted-foreground">
-                        ${source.netRevenue.toFixed(2)}
-                      </TableCell>
-                    </TableRow>
-                  ))}
+                  {isDirectExpanded && directSourceBreakdown.map((source, index) => {
+                    const fullSourceData = directSources.find(s => s.source === source.source);
+                    return (
+                      <TableRow key={`direct-${index}`} className="bg-muted/30">
+                        <TableCell className="pl-10 font-normal text-muted-foreground">
+                          <button
+                            onClick={() => fullSourceData && handleSourceClick(fullSourceData)}
+                            className="hover:underline hover:text-primary cursor-pointer text-left"
+                          >
+                            {source.source}
+                          </button>
+                        </TableCell>
+                        <TableCell className="text-right text-muted-foreground">{source.count}</TableCell>
+                        <TableCell className="text-right text-muted-foreground">
+                          ${source.grossRevenue.toFixed(2)}
+                        </TableCell>
+                        <TableCell className="text-right text-muted-foreground">10%</TableCell>
+                        <TableCell className="text-right text-muted-foreground">
+                          ${source.commission.toFixed(2)}
+                        </TableCell>
+                        <TableCell className="text-right text-muted-foreground">
+                          ${source.netRevenue.toFixed(2)}
+                        </TableCell>
+                      </TableRow>
+                    );
+                  })}
                 </>
               )}
 
@@ -537,6 +567,85 @@ export const RevenueBySource = () => {
           <p>* Net Revenue = Gross Revenue - Commission</p>
         </div>
       </CardContent>
+
+      {/* Source Detail Modal */}
+      <Dialog open={modalOpen} onOpenChange={setModalOpen}>
+        <DialogContent className="max-w-3xl max-h-[85vh] overflow-y-auto">
+          <DialogHeader>
+            <DialogTitle className="text-xl">{selectedSourceDetail?.source} - Booking Details</DialogTitle>
+          </DialogHeader>
+          
+          {selectedSourceDetail && (
+            <div className="space-y-6">
+              {/* Summary Stats */}
+              <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+                <div className="bg-muted/50 rounded-lg p-4 text-center">
+                  <div className="flex items-center justify-center gap-2 text-muted-foreground mb-1">
+                    <Users className="h-4 w-4" />
+                    <span className="text-xs">Bookings</span>
+                  </div>
+                  <p className="text-2xl font-bold">{selectedSourceDetail.count}</p>
+                </div>
+                <div className="bg-muted/50 rounded-lg p-4 text-center">
+                  <div className="flex items-center justify-center gap-2 text-muted-foreground mb-1">
+                    <DollarSign className="h-4 w-4" />
+                    <span className="text-xs">Revenue</span>
+                  </div>
+                  <p className="text-2xl font-bold">${selectedSourceDetail.grossRevenue.toFixed(2)}</p>
+                </div>
+                <div className="bg-muted/50 rounded-lg p-4 text-center">
+                  <div className="flex items-center justify-center gap-2 text-amber-600 mb-1">
+                    <Percent className="h-4 w-4" />
+                    <span className="text-xs">Commission</span>
+                  </div>
+                  <p className="text-2xl font-bold text-amber-600">${selectedSourceDetail.commission.toFixed(2)}</p>
+                </div>
+                <div className="bg-muted/50 rounded-lg p-4 text-center">
+                  <div className="flex items-center justify-center gap-2 text-green-600 mb-1">
+                    <TrendingUp className="h-4 w-4" />
+                    <span className="text-xs">Net</span>
+                  </div>
+                  <p className="text-2xl font-bold text-green-600">${selectedSourceDetail.netRevenue.toFixed(2)}</p>
+                </div>
+              </div>
+
+              {/* Bookings Table */}
+              <div className="border rounded-lg overflow-hidden">
+                <Table>
+                  <TableHeader>
+                    <TableRow>
+                      <TableHead>Guest Name</TableHead>
+                      <TableHead>Check-in</TableHead>
+                      <TableHead>Check-out</TableHead>
+                      <TableHead className="text-right">Nights</TableHead>
+                      <TableHead className="text-right">Revenue</TableHead>
+                      <TableHead className="text-right">Commission</TableHead>
+                      <TableHead className="text-right">Net</TableHead>
+                    </TableRow>
+                  </TableHeader>
+                  <TableBody>
+                    {selectedSourceDetail.bookingDetails?.map((booking, index) => (
+                      <TableRow key={index}>
+                        <TableCell className="font-medium">{booking.guestName}</TableCell>
+                        <TableCell>
+                          {booking.checkInDate ? format(new Date(booking.checkInDate), 'MMM d, yy') : '-'}
+                        </TableCell>
+                        <TableCell>
+                          {booking.checkOutDate ? format(new Date(booking.checkOutDate), 'MMM d, yy') : '-'}
+                        </TableCell>
+                        <TableCell className="text-right">{booking.nights || '-'}</TableCell>
+                        <TableCell className="text-right">${booking.totalPrice.toFixed(2)}</TableCell>
+                        <TableCell className="text-right text-amber-600">${(booking.commission || 0).toFixed(2)}</TableCell>
+                        <TableCell className="text-right text-green-600">${booking.netRevenue.toFixed(2)}</TableCell>
+                      </TableRow>
+                    ))}
+                  </TableBody>
+                </Table>
+              </div>
+            </div>
+          )}
+        </DialogContent>
+      </Dialog>
     </Card>
   );
 };
