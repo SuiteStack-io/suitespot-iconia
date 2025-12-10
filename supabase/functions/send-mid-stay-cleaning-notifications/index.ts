@@ -26,7 +26,7 @@ serve(async (req) => {
     
     if (functionError) {
       console.error('Error calling notify_mid_stay_cleaning:', functionError);
-      throw functionError;
+      // Don't throw - continue with email notifications even if in-app notifications fail
     }
 
     // Fetch checked-in reservations that need cleaning today (every 4 days)
@@ -51,6 +51,8 @@ serve(async (req) => {
       throw reservationsError;
     }
 
+    console.log(`Found ${reservations?.length || 0} checked-in reservations`);
+
     // Filter to reservations that need cleaning today OR have overdue cleanings
     const today = new Date();
     today.setHours(0, 0, 0, 0);
@@ -63,17 +65,8 @@ serve(async (req) => {
       const daysSinceCheckIn = Math.floor((today.getTime() - checkInDate.getTime()) / (1000 * 60 * 60 * 24));
       const dayOfStay = daysSinceCheckIn + 1;
       
-      // Calculate next cleaning day (every 4 days: day 4, 8, 12, 16...)
-      // Find if today is a cleaning day OR if there's an overdue cleaning
+      // Calculate cleaning schedule (every 4 days: day 4, 8, 12, 16...)
       const cleaningInterval = 4;
-      const nextCleaningDay = dayOfStay >= cleaningInterval 
-        ? Math.ceil(dayOfStay / cleaningInterval) * cleaningInterval 
-        : cleaningInterval;
-      
-      // Check if cleaning is due today OR overdue
-      const isCleaningDueOrOverdue = dayOfStay >= cleaningInterval && dayOfStay >= nextCleaningDay - (dayOfStay % cleaningInterval);
-      
-      // More simply: if day >= 4 and we're at or past a cleaning milestone
       const totalCleaningsExpected = Math.floor(dayOfStay / cleaningInterval);
       const needsCleaning = totalCleaningsExpected > 0;
       
@@ -81,6 +74,8 @@ serve(async (req) => {
       const lastNotificationDate = r.last_cleaning_notification_date ? new Date(r.last_cleaning_notification_date) : null;
       const alreadyNotifiedToday = lastNotificationDate && 
         lastNotificationDate.toISOString().split('T')[0] === today.toISOString().split('T')[0];
+      
+      console.log(`Reservation ${r.id}: Day ${dayOfStay}, cleanings expected: ${totalCleaningsExpected}, already notified today: ${alreadyNotifiedToday}`);
       
       return needsCleaning && !alreadyNotifiedToday;
     }).map((r: any) => {
@@ -131,20 +126,62 @@ serve(async (req) => {
       return acc;
     }, {} as Record<string, number>);
 
-    // Get all admin and housekeeping users
-    const { data: users, error: usersError } = await supabase
-      .rpc('get_all_users_with_emails');
+    // Get all users with emails - query directly instead of using RPC (service role bypasses RLS)
+    const { data: profiles, error: profilesError } = await supabase
+      .from('profiles')
+      .select('id, full_name');
 
-    if (usersError) {
-      console.error('Error fetching users:', usersError);
-      throw usersError;
+    if (profilesError) {
+      console.error('Error fetching profiles:', profilesError);
+      throw new Error('Failed to fetch profiles');
     }
 
-    const targetUsers = (users || []).filter((u: any) => 
-      u.role === 'admin' || u.role === 'housekeeping'
-    );
+    console.log(`Found ${profiles?.length || 0} profiles`);
 
-    console.log(`Sending emails to ${targetUsers.length} users`);
+    const { data: userRoles, error: rolesError } = await supabase
+      .from('user_roles')
+      .select('user_id, role');
+
+    if (rolesError) {
+      console.error('Error fetching user roles:', rolesError);
+      throw new Error('Failed to fetch user roles');
+    }
+
+    console.log(`Found ${userRoles?.length || 0} user roles`);
+
+    // We need auth.users emails - use admin API
+    const { data: authUsers, error: authError } = await supabase.auth.admin.listUsers();
+
+    if (authError) {
+      console.error('Error fetching auth users:', authError);
+      throw new Error('Failed to fetch auth users');
+    }
+
+    console.log(`Found ${authUsers.users?.length || 0} auth users`);
+
+    // Combine data to get admins and housekeeping users with emails
+    const targetUsers = (profiles || [])
+      .map((profile: any) => {
+        const authUser = authUsers.users.find((u: any) => u.id === profile.id);
+        const roleRecord = userRoles?.find((r: any) => r.user_id === profile.id);
+        return {
+          user_id: profile.id,
+          email: authUser?.email,
+          full_name: profile.full_name,
+          role: roleRecord?.role
+        };
+      })
+      .filter((u: any) => u.email && (u.role === 'admin' || u.role === 'housekeeping'));
+
+    console.log(`Sending emails to ${targetUsers.length} users (admins and housekeeping)`);
+
+    if (targetUsers.length === 0) {
+      console.log('No target users found, skipping email notification');
+      return new Response(
+        JSON.stringify({ message: 'No users to notify', emailsSent: 0 }),
+        { headers: { ...corsHeaders, 'Content-Type': 'application/json' }, status: 200 }
+      );
+    }
 
     // Build email content
     const emailSubject = `Scheduled Cleaning Required - ${reservationsNeedingCleaning.length} Room${reservationsNeedingCleaning.length > 1 ? 's' : ''}`;
