@@ -32,7 +32,7 @@ const ReservationsListPage = () => {
       <div className="container mx-auto">
         <div className="mb-8">
           <div className="flex items-center gap-4">
-            <SlideMenu isAdmin={isAdmin} />
+            <SlideMenu userRole={userRole} />
             
             {/* Mobile back button - icon only */}
             <Button 

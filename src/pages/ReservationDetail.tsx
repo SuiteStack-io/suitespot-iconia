@@ -545,7 +545,7 @@ const ReservationDetail = () => {
       <div className="py-8">
         <div className="flex items-center justify-between">
           <div className="flex items-center gap-4">
-            <SlideMenu isAdmin={canEdit} />
+            <SlideMenu userRole={userRole} />
             
             {/* Mobile back button - icon only */}
             <Button 

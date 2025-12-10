@@ -6,7 +6,7 @@ import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { Badge } from '@/components/ui/badge';
-import { DollarSign, TrendingUp, Calendar, ArrowLeft } from 'lucide-react';
+import { DollarSign, TrendingUp, Calendar, ArrowLeft, Wallet, BarChart3 } from 'lucide-react';
 import { format } from 'date-fns';
 import { SlideMenu } from '@/components/SlideMenu';
 
@@ -35,6 +35,11 @@ const MyReservations = () => {
     totalReservations: 0,
     totalCommission: 0,
     totalNights: 0,
+  });
+  const [lifetimeStats, setLifetimeStats] = useState({
+    totalCommission: 0,
+    totalRevenue: 0,
+    totalReservations: 0,
   });
 
   useEffect(() => {
@@ -101,6 +106,18 @@ const MyReservations = () => {
       );
 
       setMonthlyStats(stats);
+
+      // Calculate lifetime stats
+      const lifetime = (data || []).reduce(
+        (acc, res) => ({
+          totalCommission: acc.totalCommission + (res.commission_amount || 0),
+          totalRevenue: acc.totalRevenue + (res.total_price || 0),
+          totalReservations: acc.totalReservations + 1,
+        }),
+        { totalCommission: 0, totalRevenue: 0, totalReservations: 0 }
+      );
+
+      setLifetimeStats(lifetime);
     } catch (error) {
       console.error('Error fetching reservations:', error);
     } finally {
@@ -121,7 +138,7 @@ const MyReservations = () => {
       <header className="border-b bg-card">
         <div className="container mx-auto px-4 py-4">
           <div className="flex items-center gap-4 mb-2">
-            <SlideMenu isAdmin={userRole === 'admin'} />
+            <SlideMenu userRole={userRole} />
             
             {/* Mobile back button - icon only */}
             <Button 
@@ -143,14 +160,48 @@ const MyReservations = () => {
               Back
             </Button>
             
-            <span>Back to Dashboard</span>
+            <span className="text-sm text-muted-foreground">Back to Dashboard</span>
           </div>
-          <h1 className="text-2xl font-bold">My Reservations</h1>
-          <p className="text-sm text-muted-foreground">View your reservations and commissions</p>
+          <div className="flex items-center gap-3">
+            <Wallet className="h-8 w-8 text-primary" />
+            <div>
+              <h1 className="text-2xl font-bold">My Commissions</h1>
+              <p className="text-sm text-muted-foreground">Track your earnings and reservations</p>
+            </div>
+          </div>
         </div>
       </header>
 
       <main className="container mx-auto px-4 py-8 space-y-6">
+        {/* Lifetime Stats */}
+        <div className="grid gap-4 md:grid-cols-2">
+          <Card className="bg-gradient-to-br from-primary/10 to-primary/5 border-primary/20">
+            <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+              <CardTitle className="text-sm font-medium">Total Commission Earned</CardTitle>
+              <Wallet className="h-5 w-5 text-primary" />
+            </CardHeader>
+            <CardContent>
+              <div className="text-3xl font-bold text-primary">${lifetimeStats.totalCommission.toFixed(2)}</div>
+              <p className="text-xs text-muted-foreground">
+                Lifetime earnings from {lifetimeStats.totalReservations} reservations
+              </p>
+            </CardContent>
+          </Card>
+
+          <Card className="bg-gradient-to-br from-emerald-500/10 to-emerald-500/5 border-emerald-500/20">
+            <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+              <CardTitle className="text-sm font-medium">Total Revenue Generated</CardTitle>
+              <BarChart3 className="h-5 w-5 text-emerald-600" />
+            </CardHeader>
+            <CardContent>
+              <div className="text-3xl font-bold text-emerald-600">${lifetimeStats.totalRevenue.toFixed(2)}</div>
+              <p className="text-xs text-muted-foreground">
+                Total value of all your bookings
+              </p>
+            </CardContent>
+          </Card>
+        </div>
+
         {/* Monthly Stats */}
         <div className="grid gap-4 md:grid-cols-3">
           <Card>
@@ -187,7 +238,7 @@ const MyReservations = () => {
             <CardContent>
               <div className="text-2xl font-bold">{monthlyStats.totalNights}</div>
               <p className="text-xs text-muted-foreground">
-                Across all rooms
+                Across all rooms this month
               </p>
             </CardContent>
           </Card>
@@ -207,15 +258,15 @@ const MyReservations = () => {
                 No reservations found
               </div>
             ) : (
-              <div className="rounded-md border">
+              <div className="rounded-md border overflow-x-auto">
                 <Table>
                   <TableHeader>
                     <TableRow>
                       <TableHead>Booking Ref</TableHead>
                       <TableHead>Guest(s)</TableHead>
-                      <TableHead>Unit</TableHead>
-                      <TableHead>Check-in</TableHead>
-                      <TableHead>Check-out</TableHead>
+                      <TableHead className="hidden md:table-cell">Unit</TableHead>
+                      <TableHead className="hidden md:table-cell">Check-in</TableHead>
+                      <TableHead className="hidden md:table-cell">Check-out</TableHead>
                       <TableHead>Status</TableHead>
                       <TableHead className="text-right">Total</TableHead>
                       <TableHead className="text-right">Commission</TableHead>
@@ -232,18 +283,18 @@ const MyReservations = () => {
                           {reservation.booking_reference}
                         </TableCell>
                         <TableCell>{reservation.guest_names.join(', ')}</TableCell>
-                        <TableCell>{reservation.units?.name || 'N/A'}</TableCell>
-                        <TableCell>
+                        <TableCell className="hidden md:table-cell">{reservation.units?.name || 'N/A'}</TableCell>
+                        <TableCell className="hidden md:table-cell">
                           {format(new Date(reservation.check_in_date), 'MMM dd, yyyy')}
                         </TableCell>
-                        <TableCell>
+                        <TableCell className="hidden md:table-cell">
                           {format(new Date(reservation.check_out_date), 'MMM dd, yyyy')}
                         </TableCell>
                         <TableCell>
                           <Badge variant={
                             reservation.status === 'confirmed' ? 'default' :
-                            reservation.status === 'checked_in' ? 'secondary' :
-                            reservation.status === 'checked_out' ? 'outline' :
+                            reservation.status === 'checked-in' ? 'secondary' :
+                            reservation.status === 'checked-out' ? 'outline' :
                             'destructive'
                           }>
                             {reservation.status}
@@ -252,8 +303,10 @@ const MyReservations = () => {
                         <TableCell className="text-right">
                           ${reservation.total_price?.toFixed(2) || '0.00'}
                         </TableCell>
-                        <TableCell className="text-right font-semibold text-primary">
-                          ${reservation.commission_amount?.toFixed(2) || '0.00'}
+                        <TableCell className="text-right">
+                          <span className="font-semibold text-primary bg-primary/10 px-2 py-1 rounded">
+                            ${reservation.commission_amount?.toFixed(2) || '0.00'}
+                          </span>
                         </TableCell>
                       </TableRow>
                     ))}

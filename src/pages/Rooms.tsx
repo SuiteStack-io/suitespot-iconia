@@ -807,7 +807,7 @@ const Rooms = () => {
           <AdminBreadcrumb section="ICONIA" currentPage="Rooms" />
           <div className="flex items-center justify-between">
             <div className="flex items-center gap-4">
-              <SlideMenu isAdmin={userRole === 'admin'} />
+              <SlideMenu userRole={userRole} />
               
               {/* Mobile back button - icon only */}
               <Button 

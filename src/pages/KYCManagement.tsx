@@ -356,7 +356,7 @@ We'll get back to you within 3 hours with personalized recommendations!`;
         <div className="max-w-7xl mx-auto space-y-6">
         <div className="flex items-center justify-between w-full">
           <div className="flex items-center gap-4">
-            <SlideMenu isAdmin={userRole === 'admin'} />
+            <SlideMenu userRole={userRole} />
             
             {/* Mobile back button - icon only */}
             <Button 

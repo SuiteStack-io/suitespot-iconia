@@ -106,7 +106,7 @@ export default function GuestTickets() {
   return (
     <div className="min-h-screen bg-background p-6 space-y-6">
       <div className="flex items-center gap-4 mb-6">
-        <SlideMenu isAdmin={userRole === 'admin'} />
+        <SlideMenu userRole={userRole} />
         
         {/* Mobile back button - icon only */}
         <Button 

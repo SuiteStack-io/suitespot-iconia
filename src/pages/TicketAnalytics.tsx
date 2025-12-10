@@ -229,7 +229,7 @@ const TicketAnalytics = () => {
         <AdminBreadcrumb section="ICONIA" currentPage="Tickets Analytics" />
         <div className="flex items-center gap-3 mt-4 justify-between">
           <div className="flex items-center gap-3">
-            <SlideMenu isAdmin={userRole === 'admin'} />
+            <SlideMenu userRole={userRole} />
             
             {/* Mobile back button - icon only */}
             <Button 

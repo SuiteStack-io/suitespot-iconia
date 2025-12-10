@@ -62,15 +62,13 @@ const Index = () => {
   if (loading) return <div className="flex min-h-screen items-center justify-center"><div className="text-muted-foreground">Loading...</div></div>;
   if (!user) return null;
 
-  const isAdmin = userRole === 'admin';
-
   return (
     <div className="min-h-screen bg-background">
       <header className="sticky top-0 z-50 border-b bg-card shadow-sm">
         <div className="container mx-auto px-4 py-4 flex items-center justify-between">
           {/* Left side: Hamburger Menu + Logo */}
           <div className="flex items-center gap-3">
-            <SlideMenu isAdmin={isAdmin} />
+            <SlideMenu userRole={userRole} />
             <img src={suitespotLogo} alt="SuiteSpot Logo" className="h-10 w-10" />
             <h1 className="text-base sm:text-xl font-playfair font-semibold tracking-tight sm:font-bold sm:font-sans sm:tracking-normal">SuiteSpot Reservations</h1>
           </div>

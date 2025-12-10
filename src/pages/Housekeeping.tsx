@@ -499,7 +499,7 @@ const Housekeeping = () => {
         <div className="container mx-auto px-4 py-4">
           <AdminBreadcrumb section="ICONIA" currentPage="Housekeeping" />
           <div className="flex items-center gap-4 mt-4">
-            <SlideMenu isAdmin={userRole === 'admin'} />
+            <SlideMenu userRole={userRole} />
             
             {/* Mobile back button - icon only */}
             <Button 
