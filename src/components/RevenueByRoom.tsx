@@ -12,7 +12,7 @@ import {
 import { Button } from '@/components/ui/button';
 import { Calendar } from '@/components/ui/calendar';
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
-import { CalendarIcon } from 'lucide-react';
+import { CalendarIcon, ChevronDown, ChevronRight } from 'lucide-react';
 import { format } from 'date-fns';
 import { DateRange } from 'react-day-picker';
 import { cn } from '@/lib/utils';
@@ -20,7 +20,7 @@ import { cn } from '@/lib/utils';
 interface RoomRevenue {
   roomId: string;
   roomName: string;
-  roomType: string;
+  roomNumber: string;
   area: string;
   terrace: string;
   bookings: number;
@@ -28,8 +28,18 @@ interface RoomRevenue {
   occupancy: number;
 }
 
+interface GroupedRoomRevenue {
+  suiteName: string;
+  rooms: RoomRevenue[];
+  totalBookings: number;
+  totalRevenue: number;
+  avgOccupancy: number;
+}
+
 export const RevenueByRoom = () => {
   const [revenueByRoom, setRevenueByRoom] = useState<RoomRevenue[]>([]);
+  const [groupedRevenue, setGroupedRevenue] = useState<GroupedRoomRevenue[]>([]);
+  const [expandedGroups, setExpandedGroups] = useState<Set<string>>(new Set());
   const [loading, setLoading] = useState(true);
   const [dateRange, setDateRange] = useState<DateRange | undefined>({
     from: new Date(new Date().setMonth(new Date().getMonth() - 1)),
@@ -58,6 +68,60 @@ export const RevenueByRoom = () => {
       supabase.removeChannel(channel);
     };
   }, [dateRange]);
+
+  // Group rooms by suite name whenever revenueByRoom changes
+  useEffect(() => {
+    const grouped = groupRoomsBySuiteName(revenueByRoom);
+    setGroupedRevenue(grouped);
+  }, [revenueByRoom]);
+
+  const groupRoomsBySuiteName = (rooms: RoomRevenue[]): GroupedRoomRevenue[] => {
+    const groupMap: Record<string, RoomRevenue[]> = {};
+
+    rooms.forEach((room) => {
+      const suiteName = room.roomName;
+      if (!groupMap[suiteName]) {
+        groupMap[suiteName] = [];
+      }
+      groupMap[suiteName].push(room);
+    });
+
+    const grouped = Object.entries(groupMap).map(([suiteName, suiteRooms]) => {
+      const totalBookings = suiteRooms.reduce((sum, r) => sum + r.bookings, 0);
+      const totalRevenue = suiteRooms.reduce((sum, r) => sum + r.revenue, 0);
+      const avgOccupancy = suiteRooms.length > 0 
+        ? suiteRooms.reduce((sum, r) => sum + r.occupancy, 0) / suiteRooms.length 
+        : 0;
+
+      // Sort rooms by room number
+      const sortedRooms = [...suiteRooms].sort((a, b) => 
+        a.roomNumber.localeCompare(b.roomNumber, undefined, { numeric: true })
+      );
+
+      return {
+        suiteName,
+        rooms: sortedRooms,
+        totalBookings,
+        totalRevenue,
+        avgOccupancy,
+      };
+    });
+
+    // Sort groups by total revenue descending
+    return grouped.sort((a, b) => b.totalRevenue - a.totalRevenue);
+  };
+
+  const toggleGroup = (suiteName: string) => {
+    setExpandedGroups((prev) => {
+      const newSet = new Set(prev);
+      if (newSet.has(suiteName)) {
+        newSet.delete(suiteName);
+      } else {
+        newSet.add(suiteName);
+      }
+      return newSet;
+    });
+  };
 
   const fetchRevenueByRoom = async () => {
     if (!dateRange?.from || !dateRange?.to) return;
@@ -116,9 +180,6 @@ export const RevenueByRoom = () => {
       // Calculate occupancy percentage
       const occupancy = daysDiff > 0 ? (totalNightsBooked / daysDiff) * 100 : 0;
 
-      // Use the full unit_type as room type
-      const roomType = unit.unit_type || 'N/A';
-
       // Parse area and terrace from unit_size (e.g., "52m2+25m2" -> area: "52m2", terrace: "25m2")
       let area = 'N/A';
       let terrace = 'N/A';
@@ -142,7 +203,7 @@ export const RevenueByRoom = () => {
       roomRevenueMap[unit.id] = {
         roomId: unit.id,
         roomName: unit.name,
-        roomType: unit.unit_number ? `${unit.unit_number}` : roomType,
+        roomNumber: unit.unit_number || 'N/A',
         area,
         terrace,
         bookings: unitReservations.length,
@@ -228,35 +289,80 @@ export const RevenueByRoom = () => {
           <Table>
             <TableHeader>
               <TableRow>
-                <TableHead>Suite Name</TableHead>
+                <TableHead className="w-[300px]">Suite Name</TableHead>
                 <TableHead className="text-center">Room #</TableHead>
                 <TableHead className="text-center">Area</TableHead>
                 <TableHead className="text-center">Terrace</TableHead>
                 <TableHead className="text-right">Occupancy</TableHead>
-                <TableHead className="text-right">Number of Bookings</TableHead>
+                <TableHead className="text-right">Bookings</TableHead>
                 <TableHead className="text-right font-semibold">Revenue</TableHead>
               </TableRow>
             </TableHeader>
             <TableBody>
-              {revenueByRoom.map((room) => (
-                <TableRow key={room.roomId}>
-                  <TableCell className="font-medium">{room.roomName}</TableCell>
-                  <TableCell className="text-center">{room.roomType}</TableCell>
-                  <TableCell className="text-center">{room.area}</TableCell>
-                  <TableCell className="text-center">{room.terrace}</TableCell>
-                  <TableCell className="text-right">
-                    <span className={room.occupancy >= 70 ? 'text-green-600 font-semibold' : room.occupancy >= 40 ? 'text-amber-600' : 'text-red-600'}>
-                      {room.occupancy.toFixed(1)}%
-                    </span>
-                  </TableCell>
-                  <TableCell className="text-right">{room.bookings}</TableCell>
-                  <TableCell className="text-right text-green-600 font-semibold">
-                    ${room.revenue.toFixed(2)}
-                  </TableCell>
-                </TableRow>
-              ))}
+              {groupedRevenue.map((group) => {
+                const isExpanded = expandedGroups.has(group.suiteName);
+                const roomNumbers = group.rooms.map(r => r.roomNumber).join(', ');
+
+                return (
+                  <>
+                    {/* Parent Row - Suite Name */}
+                    <TableRow 
+                      key={group.suiteName}
+                      className="cursor-pointer hover:bg-muted/50 bg-muted/20"
+                      onClick={() => toggleGroup(group.suiteName)}
+                    >
+                      <TableCell className="font-medium">
+                        <div className="flex items-center gap-2">
+                          {isExpanded ? (
+                            <ChevronDown className="h-4 w-4 text-muted-foreground" />
+                          ) : (
+                            <ChevronRight className="h-4 w-4 text-muted-foreground" />
+                          )}
+                          {group.suiteName}
+                        </div>
+                      </TableCell>
+                      <TableCell className="text-center text-muted-foreground text-sm">
+                        {roomNumbers}
+                      </TableCell>
+                      <TableCell className="text-center">-</TableCell>
+                      <TableCell className="text-center">-</TableCell>
+                      <TableCell className="text-right">
+                        <span className={group.avgOccupancy >= 70 ? 'text-green-600 font-semibold' : group.avgOccupancy >= 40 ? 'text-amber-600' : 'text-red-600'}>
+                          {group.avgOccupancy.toFixed(1)}%
+                        </span>
+                        <span className="text-xs text-muted-foreground ml-1">(avg)</span>
+                      </TableCell>
+                      <TableCell className="text-right font-medium">{group.totalBookings}</TableCell>
+                      <TableCell className="text-right text-green-600 font-semibold">
+                        ${group.totalRevenue.toFixed(2)}
+                      </TableCell>
+                    </TableRow>
+
+                    {/* Child Rows - Individual Rooms */}
+                    {isExpanded && group.rooms.map((room) => (
+                      <TableRow key={room.roomId} className="bg-background">
+                        <TableCell className="pl-10 text-muted-foreground">
+                          <span className="text-sm">└</span>
+                        </TableCell>
+                        <TableCell className="text-center font-medium">{room.roomNumber}</TableCell>
+                        <TableCell className="text-center">{room.area}</TableCell>
+                        <TableCell className="text-center">{room.terrace}</TableCell>
+                        <TableCell className="text-right">
+                          <span className={room.occupancy >= 70 ? 'text-green-600 font-semibold' : room.occupancy >= 40 ? 'text-amber-600' : 'text-red-600'}>
+                            {room.occupancy.toFixed(1)}%
+                          </span>
+                        </TableCell>
+                        <TableCell className="text-right">{room.bookings}</TableCell>
+                        <TableCell className="text-right text-green-600">
+                          ${room.revenue.toFixed(2)}
+                        </TableCell>
+                      </TableRow>
+                    ))}
+                  </>
+                );
+              })}
               <TableRow className="bg-muted/50 font-semibold">
-                <TableCell colSpan={6}>Total</TableCell>
+                <TableCell colSpan={5}>Total</TableCell>
                 <TableCell className="text-right">{totals.bookings}</TableCell>
                 <TableCell className="text-right text-green-600">
                   ${totals.revenue.toFixed(2)}
