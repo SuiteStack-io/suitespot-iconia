@@ -48,6 +48,8 @@ interface Reservation {
   guest_genders: string[] | null;
   check_in_date: string;
   check_out_date: string;
+  checked_in_at: string | null;
+  checked_out_at: string | null;
   status: string;
   total_price: number;
   number_of_guests: number;
@@ -185,7 +187,7 @@ export const Dashboard = () => {
     
     let query = supabase
       .from('reservations')
-      .select('id, booking_reference, guest_names, guest_types, guest_genders, check_in_date, check_out_date, status, total_price, number_of_guests, children, adults, units(name, unit_number)');
+      .select('id, booking_reference, guest_names, guest_types, guest_genders, check_in_date, check_out_date, checked_in_at, checked_out_at, status, total_price, number_of_guests, children, adults, units(name, unit_number)');
     
     switch (cardType) {
       case 'arrivals':
@@ -560,6 +562,16 @@ export const Dashboard = () => {
                         <div className="text-sm space-y-1">
                           <p>Check-in: {format(new Date(reservation.check_in_date), 'MMM dd, yyyy')}</p>
                           <p>Check-out: {format(new Date(reservation.check_out_date), 'MMM dd, yyyy')}</p>
+                          {reservation.checked_in_at && (
+                            <p className="text-green-600 text-xs">
+                              Checked in: {format(new Date(reservation.checked_in_at), 'MMM dd, h:mm a')}
+                            </p>
+                          )}
+                          {reservation.checked_out_at && (
+                            <p className="text-orange-600 text-xs">
+                              Checked out: {format(new Date(reservation.checked_out_at), 'MMM dd, h:mm a')}
+                            </p>
+                          )}
                           <p className="font-semibold">${reservation.total_price.toFixed(2)}</p>
                         </div>
                         <div className="flex gap-2">
