@@ -12,11 +12,23 @@ import {
   DialogContent,
   DialogHeader,
   DialogTitle,
+  DialogDescription,
+  DialogFooter,
 } from '@/components/ui/dialog';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { useToast } from '@/hooks/use-toast';
 import { Checkbox } from '@/components/ui/checkbox';
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from '@/components/ui/alert-dialog';
 
 interface DashboardStats {
   todayArrivals: number;
@@ -68,6 +80,10 @@ export const Dashboard = () => {
   const [dialogReservations, setDialogReservations] = useState<Reservation[]>([]);
   const [updating, setUpdating] = useState<string | null>(null);
   const [selectedReservations, setSelectedReservations] = useState<Set<string>>(new Set());
+  
+  // Undo confirmation modal state
+  const [undoConfirmOpen, setUndoConfirmOpen] = useState(false);
+  const [undoReservationId, setUndoReservationId] = useState<string | null>(null);
 
   useEffect(() => {
     fetchStats();
@@ -198,18 +214,32 @@ export const Dashboard = () => {
     setDialogOpen(true);
   };
 
-  const handleStatusChange = async (reservationId: string, newStatus: string) => {
+  const handleStatusChange = async (reservationId: string, newStatus: string, sendNotification: boolean = true) => {
     setUpdating(reservationId);
     try {
+      // Build update payload with timestamps
+      const updatePayload: any = { status: newStatus };
+      
+      if (newStatus === 'checked-in') {
+        updatePayload.checked_in_at = new Date().toISOString();
+      } else if (newStatus === 'checked-out') {
+        updatePayload.checked_out_at = new Date().toISOString();
+      }
+      
+      // If undoing checkout, clear the checked_out_at
+      if (newStatus === 'checked-in' && !sendNotification) {
+        updatePayload.checked_out_at = null;
+      }
+
       const { error } = await supabase
         .from('reservations')
-        .update({ status: newStatus })
+        .update(updatePayload)
         .eq('id', reservationId);
 
       if (error) throw error;
 
-      // Send check-in notification if status changed to checked-in
-      if (newStatus === 'checked-in') {
+      // Send check-in notification if status changed to checked-in AND notification requested
+      if (newStatus === 'checked-in' && sendNotification) {
         try {
           await supabase.functions.invoke('send-checkin-notification', {
             body: { reservationId }
@@ -219,8 +249,8 @@ export const Dashboard = () => {
         }
       }
 
-      // Send check-out notification to admins and housekeeping if status changed to checked-out
-      if (newStatus === 'checked-out') {
+      // Send check-out notification to admins and housekeeping if status changed to checked-out AND notification requested
+      if (newStatus === 'checked-out' && sendNotification) {
         try {
           const { data: { user } } = await supabase.auth.getUser();
           await supabase.functions.invoke('send-checkout-notification', {
@@ -256,16 +286,33 @@ export const Dashboard = () => {
     }
   };
 
+  const handleUndoClick = (reservationId: string) => {
+    setUndoReservationId(reservationId);
+    setUndoConfirmOpen(true);
+  };
+
+  const handleUndoConfirm = async (sendNotification: boolean) => {
+    if (!undoReservationId) return;
+    
+    await handleStatusChange(undoReservationId, 'checked-in', sendNotification);
+    setUndoConfirmOpen(false);
+    setUndoReservationId(null);
+  };
+
   const handleBulkCheckOut = async () => {
     if (selectedReservations.size === 0) return;
     
     setUpdating('bulk');
     try {
       const { data: { user } } = await supabase.auth.getUser();
+      const now = new Date().toISOString();
       
-      // Update all selected reservations
+      // Update all selected reservations with timestamp
       const updates = Array.from(selectedReservations).map(id =>
-        supabase.from('reservations').update({ status: 'checked-out' }).eq('id', id)
+        supabase.from('reservations').update({ 
+          status: 'checked-out',
+          checked_out_at: now
+        }).eq('id', id)
       );
 
       await Promise.all(updates);
@@ -566,7 +613,7 @@ export const Dashboard = () => {
                               variant="ghost"
                               onClick={(e) => {
                                 e.stopPropagation();
-                                handleStatusChange(reservation.id, 'checked-in');
+                                handleUndoClick(reservation.id);
                               }}
                               disabled={updating === reservation.id}
                               className="gap-1 text-orange-600 hover:text-orange-700 hover:bg-orange-50"
@@ -585,6 +632,36 @@ export const Dashboard = () => {
           </div>
         </DialogContent>
       </Dialog>
+
+      {/* Undo Confirmation Dialog */}
+      <AlertDialog open={undoConfirmOpen} onOpenChange={setUndoConfirmOpen}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Undo Check-Out</AlertDialogTitle>
+            <AlertDialogDescription>
+              This will restore the guest's status to checked-in. Do you want to send a check-in notification email to admins?
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter className="flex-col sm:flex-row gap-2">
+            <AlertDialogCancel onClick={() => setUndoConfirmOpen(false)}>
+              Cancel
+            </AlertDialogCancel>
+            <Button
+              variant="outline"
+              onClick={() => handleUndoConfirm(false)}
+              disabled={updating === undoReservationId}
+            >
+              No, just undo
+            </Button>
+            <Button
+              onClick={() => handleUndoConfirm(true)}
+              disabled={updating === undoReservationId}
+            >
+              Yes, send notification
+            </Button>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </>
   );
 };
