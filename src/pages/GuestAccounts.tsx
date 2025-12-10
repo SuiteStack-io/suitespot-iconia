@@ -270,7 +270,7 @@ export default function GuestAccounts() {
     <div className="container mx-auto py-8 px-4">
       <div className="flex items-center justify-between mb-6">
         <div className="flex items-center gap-4">
-          <SlideMenu isAdmin={userRole === 'admin'} />
+          <SlideMenu userRole={userRole} />
           
           {/* Mobile back button - icon only */}
           <Button 

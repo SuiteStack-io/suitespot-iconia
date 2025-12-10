@@ -17,7 +17,7 @@ export default function HomepageManagement() {
     <div className="min-h-screen bg-background">
       <div className="container mx-auto p-6">
         <div className="flex items-center gap-4 mb-6">
-          <SlideMenu isAdmin={userRole === 'admin'} />
+          <SlideMenu userRole={userRole} />
           
           {/* Mobile back button - icon only */}
           <Button 

@@ -783,7 +783,7 @@ const Analytics = () => {
           <AdminBreadcrumb section="ICONIA" currentPage="Revenue Analytics" />
           <div className="flex items-center gap-4 mt-4 justify-between">
             <div className="flex items-center gap-4">
-              <SlideMenu isAdmin={userRole === 'admin'} />
+              <SlideMenu userRole={userRole} />
               
               {/* Mobile back button - icon only */}
               <Button 

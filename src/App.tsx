@@ -115,7 +115,7 @@ const App = () => (
               <Route path="/guest-accounts" element={<ProtectedRoute><GuestAccounts /></ProtectedRoute>} />
               <Route path="/analytics" element={<ProtectedRoute><Analytics /></ProtectedRoute>} />
               <Route path="/guests" element={<ProtectedRoute><Guests /></ProtectedRoute>} />
-              <Route path="/my-reservations" element={<ProtectedRoute><MyReservations /></ProtectedRoute>} />
+              <Route path="/my-commissions" element={<ProtectedRoute><MyReservations /></ProtectedRoute>} />
               <Route path="/rooms" element={<ProtectedRoute><Rooms /></ProtectedRoute>} />
               <Route path="/homepage-management" element={<ProtectedRoute><HomepageManagement /></ProtectedRoute>} />
               <Route path="/settings" element={<ProtectedRoute><Settings /></ProtectedRoute>} />

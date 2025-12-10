@@ -514,7 +514,7 @@ const BookingComReservations = () => {
         <div className="container mx-auto px-4 py-4">
           <AdminBreadcrumb section="ICONIA" currentPage="Booking.com" />
           <div className="flex items-center gap-4">
-          <SlideMenu isAdmin={userRole === 'admin'} />
+          <SlideMenu userRole={userRole} />
           
           {/* Mobile back button - icon only */}
           <Button 

@@ -335,7 +335,7 @@ const CheckInOut = () => {
       <div className="container mx-auto max-w-6xl">
         <div className="mb-8">
           <div className="flex items-center gap-4">
-            <SlideMenu isAdmin={userRole === 'admin'} />
+            <SlideMenu userRole={userRole} />
             
             {/* Mobile back button - icon only */}
             <Button 

@@ -79,7 +79,7 @@ export default function Settings() {
     <div className="min-h-screen bg-background">
       <div className="container mx-auto px-4 py-8 max-w-4xl">
         <div className="flex items-center gap-4 mb-8">
-          <SlideMenu isAdmin={isAdmin} />
+          <SlideMenu userRole={userRole} />
           
           {/* Mobile back button - icon only */}
           <Button 

@@ -27,7 +27,7 @@ const MediaLibrary = () => {
       <div className="container mx-auto px-4 py-8 max-w-7xl">
           <div className="flex items-center justify-between mb-8">
           <div className="flex items-center gap-4">
-            <SlideMenu isAdmin={userRole === 'admin'} />
+            <SlideMenu userRole={userRole} />
             
             {/* Mobile back button - icon only */}
             <Button 

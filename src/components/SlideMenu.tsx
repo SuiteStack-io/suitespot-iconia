@@ -26,25 +26,28 @@ import {
   Map,
   BarChart3,
   DollarSign,
+  Wallet,
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 
 interface SlideMenuProps {
-  isAdmin: boolean;
+  userRole: string | null;
 }
 
 interface MenuItem {
   title: string;
   url: string;
   icon: React.ElementType;
+  showFor?: ('admin' | 'manager' | 'front_desk' | 'housekeeping')[];
 }
 
 interface MenuSection {
   label: string;
   items: MenuItem[];
+  showFor?: ('admin' | 'manager' | 'front_desk' | 'housekeeping')[];
 }
 
-export function SlideMenu({ isAdmin }: SlideMenuProps) {
+export function SlideMenu({ userRole }: SlideMenuProps) {
   const navigate = useNavigate();
   const location = useLocation();
 
@@ -58,6 +61,7 @@ export function SlideMenu({ isAdmin }: SlideMenuProps) {
         { title: 'Session Audit Log', url: '/session-audit-log', icon: ScrollText },
         { title: 'Tickets Analytics', url: '/ticket-analytics', icon: BarChart3 },
       ],
+      showFor: ['admin'],
     },
     {
       label: 'ICONIA',
@@ -71,7 +75,8 @@ export function SlideMenu({ isAdmin }: SlideMenuProps) {
         { title: 'Tickets', url: '/guest-tickets', icon: Ticket },
         { title: 'App Accounts', url: '/guest-accounts', icon: Shield },
         { title: 'Guests', url: '/guests', icon: Users },
-        { title: 'Revenue Analytics', url: '/analytics', icon: DollarSign },
+        { title: 'My Commissions', url: '/my-commissions', icon: Wallet, showFor: ['manager'] },
+        { title: 'Revenue Analytics', url: '/analytics', icon: DollarSign, showFor: ['admin'] },
       ],
     },
     {
@@ -81,6 +86,7 @@ export function SlideMenu({ isAdmin }: SlideMenuProps) {
         { title: 'Media Library', url: '/media-library', icon: ImageIcon },
         { title: 'Locations', url: '/locations-management', icon: Map },
       ],
+      showFor: ['admin'],
     },
     {
       label: 'SYSTEM',
@@ -89,13 +95,23 @@ export function SlideMenu({ isAdmin }: SlideMenuProps) {
         { title: 'Users', url: '/users', icon: Users },
         { title: 'Guest Login', url: '/guest/login', icon: UserCircle },
       ],
+      showFor: ['admin'],
     },
   ];
 
-  // Filter sections based on admin status
-  const filteredSections = isAdmin
-    ? menuSections
-    : menuSections.filter(section => section.label === 'ICONIA');
+  // Filter sections based on user role
+  const filteredSections = menuSections
+    .filter(section => {
+      if (!section.showFor) return true; // Show to all if not specified
+      return section.showFor.includes(userRole as any);
+    })
+    .map(section => ({
+      ...section,
+      items: section.items.filter(item => {
+        if (!item.showFor) return true; // Show to all if not specified
+        return item.showFor.includes(userRole as any);
+      }),
+    }));
 
   return (
     <Sheet>
