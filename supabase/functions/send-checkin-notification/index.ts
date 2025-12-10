@@ -147,8 +147,24 @@ serve(async (req) => {
                     <td style="padding: 8px 0; color: #1f2937; font-size: 14px;">${reservation.check_out_date}</td>
                   </tr>
                   <tr>
+                    <td style="padding: 8px 0; color: #6b7280; font-size: 14px;">Total Nights:</td>
+                    <td style="padding: 8px 0; color: #1f2937; font-size: 14px; font-weight: 600;">${reservation.nights || 'N/A'}</td>
+                  </tr>
+                  <tr>
                     <td style="padding: 8px 0; color: #6b7280; font-size: 14px;">Number of Guests:</td>
                     <td style="padding: 8px 0; color: #1f2937; font-size: 14px;">${reservation.number_of_guests}</td>
+                  </tr>
+                  <tr>
+                    <td style="padding: 8px 0; color: #6b7280; font-size: 14px;">Source:</td>
+                    <td style="padding: 8px 0; color: #1f2937; font-size: 14px; font-weight: 600;">${reservation.channel || 'N/A'}</td>
+                  </tr>
+                  <tr>
+                    <td style="padding: 8px 0; color: #6b7280; font-size: 14px;">Nationality:</td>
+                    <td style="padding: 8px 0; color: #1f2937; font-size: 14px;">${reservation.guest_nationality || 'N/A'}</td>
+                  </tr>
+                  <tr>
+                    <td style="padding: 8px 0; color: #6b7280; font-size: 14px;">Preferred Language:</td>
+                    <td style="padding: 8px 0; color: #1f2937; font-size: 14px;">${reservation.preferred_language || 'N/A'}</td>
                   </tr>
                 </table>
               </div>
