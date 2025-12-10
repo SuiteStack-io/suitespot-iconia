@@ -10,7 +10,8 @@ import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover
 import { useToast } from "@/hooks/use-toast";
 import { useNavigate } from "react-router-dom";
 import { format, differenceInCalendarDays, addDays } from "date-fns";
-import { AlertTriangle, ArrowRight, Eye, Loader2, LogIn, LogOut, CalendarIcon, Plus, X, User, Clock } from "lucide-react";
+import { AlertTriangle, ArrowRight, Eye, Loader2, LogIn, LogOut, CalendarIcon, Plus, X, User, Clock, Pencil, Trash2 } from "lucide-react";
+import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from "@/components/ui/alert-dialog";
 import { cn } from "@/lib/utils";
 import { useAuth } from "@/lib/auth";
 
@@ -76,6 +77,13 @@ export const ReservationQuickActions = ({
   const [lateCheckoutMode, setLateCheckoutMode] = useState(false);
   const [processingLateCheckout, setProcessingLateCheckout] = useState(false);
   
+  // Edit/Delete late checkout state
+  const [editLateCheckoutMode, setEditLateCheckoutMode] = useState(false);
+  const [editLateCheckoutFee, setEditLateCheckoutFee] = useState<string>("");
+  const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
+  const [deletingLateCheckout, setDeletingLateCheckout] = useState(false);
+  const [savingLateCheckoutEdit, setSavingLateCheckoutEdit] = useState(false);
+  
   const { toast } = useToast();
   const navigate = useNavigate();
   const { user } = useAuth();
@@ -104,6 +112,9 @@ export const ReservationQuickActions = ({
       // Reset modes when opening
       setExtendMode(false);
       setLateCheckoutMode(false);
+      setEditLateCheckoutMode(false);
+      setEditLateCheckoutFee("");
+      setShowDeleteConfirm(false);
       setNewCheckoutDate(undefined);
       setExtensionPricePerNight("");
       setExtendConflict(false);
@@ -484,6 +495,78 @@ export const ReservationQuickActions = ({
     }
   };
 
+  const handleEditLateCheckout = async () => {
+    if (!reservation || !editLateCheckoutFee) return;
+    
+    setSavingLateCheckoutEdit(true);
+    try {
+      const newFee = parseFloat(editLateCheckoutFee);
+      const commissionRate = 10;
+      const commissionAmount = newFee * (commissionRate / 100);
+      const netRevenue = newFee - commissionAmount;
+
+      const { error } = await supabase
+        .from("reservations")
+        .update({
+          total_price: newFee,
+          commission_amount: commissionAmount,
+          net_revenue: netRevenue,
+        })
+        .eq("id", reservation.id);
+
+      if (error) throw error;
+
+      toast({
+        title: "Late Checkout Updated",
+        description: `Fee updated to $${newFee.toFixed(2)}`,
+      });
+
+      onOpenChange(false);
+      onMoveComplete();
+    } catch (error) {
+      console.error("Error updating late checkout:", error);
+      toast({
+        title: "Update Failed",
+        description: "Failed to update late checkout fee. Please try again.",
+        variant: "destructive",
+      });
+    } finally {
+      setSavingLateCheckoutEdit(false);
+    }
+  };
+
+  const handleDeleteLateCheckout = async () => {
+    if (!reservation) return;
+    
+    setDeletingLateCheckout(true);
+    try {
+      const { error } = await supabase
+        .from("reservations")
+        .delete()
+        .eq("id", reservation.id);
+
+      if (error) throw error;
+
+      toast({
+        title: "Late Checkout Removed",
+        description: "Late checkout fee has been deleted.",
+      });
+
+      setShowDeleteConfirm(false);
+      onOpenChange(false);
+      onMoveComplete();
+    } catch (error) {
+      console.error("Error deleting late checkout:", error);
+      toast({
+        title: "Delete Failed",
+        description: "Failed to delete late checkout fee. Please try again.",
+        variant: "destructive",
+      });
+    } finally {
+      setDeletingLateCheckout(false);
+    }
+  };
+
   if (!reservation) return null;
 
   const nights = Math.ceil(
@@ -520,13 +603,23 @@ export const ReservationQuickActions = ({
 
   const canExtend = newCheckoutDate && additionalNights > 0 && extensionPricePerNight && parseFloat(extensionPricePerNight) > 0 && !extendConflict;
 
+  // Check if this is a late checkout fee (ends with -LC and nights = 0)
+  const isLateCheckout = reservation.booking_reference?.endsWith("-LC") && nights === 0;
+  const lateCheckoutCurrentFee = reservation.total_price || 50;
+
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent className="sm:max-w-md max-h-[90vh] overflow-y-auto">
         <DialogHeader>
           <DialogTitle>Reservation Quick Actions</DialogTitle>
           <DialogDescription>
-            {extendMode ? "Extend the guest's stay" : lateCheckoutMode ? "Add late checkout fee" : "View details, update status, or move this reservation"}
+            {isLateCheckout 
+              ? "Manage late checkout fee" 
+              : extendMode 
+                ? "Extend the guest's stay" 
+                : lateCheckoutMode 
+                  ? "Add late checkout fee" 
+                  : "View details, update status, or move this reservation"}
           </DialogDescription>
         </DialogHeader>
 
@@ -548,14 +641,122 @@ export const ReservationQuickActions = ({
               {format(new Date(reservation.check_in_date), "MMM d, yyyy")} 
               <ArrowRight className="inline h-3 w-3 mx-1" />
               {format(new Date(reservation.check_out_date), "MMM d, yyyy")}
-              <span className="ml-2">({nights} night{nights > 1 ? "s" : ""})</span>
+              <span className="ml-2">
+                {isLateCheckout ? "(Late Checkout)" : `(${nights} night${nights > 1 ? "s" : ""})`}
+              </span>
             </div>
             <div className="text-xs text-muted-foreground">
               Ref: {reservation.booking_reference}
             </div>
           </div>
 
-          {!extendMode && !lateCheckoutMode ? (
+          {isLateCheckout ? (
+            /* Late Checkout Management Mode */
+            <div className="space-y-4">
+              <div className="p-4 bg-amber-500/10 border border-amber-500/30 rounded-lg">
+                <div className="flex items-center gap-2 mb-2">
+                  <Clock className="h-5 w-5 text-amber-600" />
+                  <span className="font-semibold text-amber-800">Late Checkout Fee</span>
+                </div>
+                <div className="text-sm text-muted-foreground">
+                  Linked to: {reservation.booking_reference.replace("-LC", "")}
+                </div>
+              </div>
+
+              {!editLateCheckoutMode ? (
+                <>
+                  <div className="p-4 bg-muted/50 rounded-lg">
+                    <div className="text-center">
+                      <div className="text-sm text-muted-foreground mb-1">Current Fee</div>
+                      <div className="text-3xl font-bold text-primary">${lateCheckoutCurrentFee.toFixed(2)}</div>
+                      <div className="text-xs text-muted-foreground mt-1">
+                        Attributed to: {reservation.source || "Admin"}
+                      </div>
+                    </div>
+                  </div>
+
+                  <div className="flex gap-2 pt-2">
+                    <Button 
+                      variant="outline" 
+                      className="flex-1"
+                      onClick={() => {
+                        setEditLateCheckoutMode(true);
+                        setEditLateCheckoutFee(lateCheckoutCurrentFee.toString());
+                      }}
+                    >
+                      <Pencil className="h-4 w-4 mr-2" />
+                      Edit Fee
+                    </Button>
+                    <Button
+                      variant="destructive"
+                      className="flex-1"
+                      onClick={() => setShowDeleteConfirm(true)}
+                    >
+                      <Trash2 className="h-4 w-4 mr-2" />
+                      Remove
+                    </Button>
+                  </div>
+                </>
+              ) : (
+                <>
+                  <div className="space-y-2">
+                    <label className="text-sm font-medium">New Fee Amount ($)</label>
+                    <Input
+                      type="number"
+                      placeholder="Enter new fee amount"
+                      value={editLateCheckoutFee}
+                      onChange={(e) => setEditLateCheckoutFee(e.target.value)}
+                      min="0"
+                      step="0.01"
+                    />
+                  </div>
+
+                  {editLateCheckoutFee && parseFloat(editLateCheckoutFee) > 0 && (
+                    <div className="p-3 bg-muted/50 rounded-lg space-y-1.5">
+                      <div className="flex justify-between text-sm">
+                        <span className="text-muted-foreground">Base Amount</span>
+                        <span>${(parseFloat(editLateCheckoutFee) / 1.14).toFixed(2)}</span>
+                      </div>
+                      <div className="flex justify-between text-sm">
+                        <span className="text-muted-foreground">VAT (14%)</span>
+                        <span>${(parseFloat(editLateCheckoutFee) - parseFloat(editLateCheckoutFee) / 1.14).toFixed(2)}</span>
+                      </div>
+                      <div className="border-t pt-2 flex justify-between font-semibold">
+                        <span>Total</span>
+                        <span className="text-primary">${parseFloat(editLateCheckoutFee).toFixed(2)}</span>
+                      </div>
+                    </div>
+                  )}
+
+                  <div className="flex gap-2 pt-2">
+                    <Button 
+                      variant="outline" 
+                      className="flex-1"
+                      onClick={() => {
+                        setEditLateCheckoutMode(false);
+                        setEditLateCheckoutFee("");
+                      }}
+                    >
+                      <X className="h-4 w-4 mr-2" />
+                      Cancel
+                    </Button>
+                    <Button
+                      className="flex-1"
+                      onClick={handleEditLateCheckout}
+                      disabled={!editLateCheckoutFee || parseFloat(editLateCheckoutFee) <= 0 || savingLateCheckoutEdit}
+                    >
+                      {savingLateCheckoutEdit ? (
+                        <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+                      ) : (
+                        <Pencil className="h-4 w-4 mr-2" />
+                      )}
+                      Save Changes
+                    </Button>
+                  </div>
+                </>
+              )}
+            </div>
+          ) : !extendMode && !lateCheckoutMode ? (
             <>
               {/* Status Actions */}
               <div className="space-y-2">
@@ -903,6 +1104,33 @@ export const ReservationQuickActions = ({
             </div>
           )}
         </div>
+
+        {/* Delete Confirmation Dialog */}
+        <AlertDialog open={showDeleteConfirm} onOpenChange={setShowDeleteConfirm}>
+          <AlertDialogContent>
+            <AlertDialogHeader>
+              <AlertDialogTitle>Delete Late Checkout Fee?</AlertDialogTitle>
+              <AlertDialogDescription>
+                This will permanently remove the ${lateCheckoutCurrentFee?.toFixed(2)} late checkout fee for {reservation?.guest_names[0]}. This action cannot be undone.
+              </AlertDialogDescription>
+            </AlertDialogHeader>
+            <AlertDialogFooter>
+              <AlertDialogCancel disabled={deletingLateCheckout}>Cancel</AlertDialogCancel>
+              <AlertDialogAction
+                onClick={handleDeleteLateCheckout}
+                disabled={deletingLateCheckout}
+                className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
+              >
+                {deletingLateCheckout ? (
+                  <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+                ) : (
+                  <Trash2 className="h-4 w-4 mr-2" />
+                )}
+                Delete
+              </AlertDialogAction>
+            </AlertDialogFooter>
+          </AlertDialogContent>
+        </AlertDialog>
       </DialogContent>
     </Dialog>
   );
