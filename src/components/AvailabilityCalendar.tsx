@@ -259,6 +259,9 @@ export const AvailabilityCalendar = () => {
     })
   );
 
+  // Disable drag-and-drop on mobile
+  const effectiveSensors = isMobile ? [] : sensors;
+
   const displayDays = viewMode === 'monthly' 
     ? eachDayOfInterval({ start: startOfMonth(currentMonth), end: endOfMonth(currentMonth) })
     : Array.from({ length: 14 }, (_, i) => addDays(currentWeekStart, i));
@@ -1425,7 +1428,7 @@ export const AvailabilityCalendar = () => {
               WebkitOverflowScrolling: 'touch',
             }}
           >
-            <DndContext sensors={sensors} onDragStart={handleDragStart} onDragEnd={handleDragEnd}>
+            <DndContext sensors={effectiveSensors} onDragStart={handleDragStart} onDragEnd={handleDragEnd}>
             <TooltipProvider>
               <div className="min-w-max">
                 {/* Header Row - Sticky */}
@@ -1510,7 +1513,7 @@ export const AvailabilityCalendar = () => {
                           (b.unit_id === null || b.unit_id === unit.id)
                         );
                         const reservation = availability.reservations[0];
-                        const isDraggable = !availability.isAvailable && !availability.hasConflict && !availability.isBlocked && reservation;
+                        const isDraggable = !isMobile && !availability.isAvailable && !availability.hasConflict && !availability.isBlocked && reservation;
                         
                         return (
                           <Tooltip key={day.toISOString()}>
@@ -1585,7 +1588,7 @@ export const AvailabilityCalendar = () => {
                                   <div className="text-green-600 dark:text-green-400">Available</div>
                                 ) : (
                                   <div>
-                                    <div className="text-blue-600 dark:text-blue-400">Booked (drag to move)</div>
+                                    <div className="text-blue-600 dark:text-blue-400">{isMobile ? 'Booked' : 'Booked (drag to move)'}</div>
                                     {availability.reservations.map((r, idx) => (
                                       <div key={idx} className="text-xs mt-1">
                                         {r.guest_names[0]}
