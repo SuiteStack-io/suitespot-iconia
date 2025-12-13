@@ -1438,7 +1438,7 @@ export const AvailabilityCalendar = () => {
           <div 
             ref={calendarScrollRef}
             {...(isMobile ? {} : {})}
-            className={`overflow-x-auto relative flex-1 ${isMobile ? 'touch-pan-x touch-pan-y overscroll-contain' : ''}`}
+            className={`overflow-x-auto relative flex-1 ${isMobile ? 'touch-pan-x overscroll-x-contain' : ''}`}
             style={{ 
               ...(isFullscreen && { 
                 maxHeight: 'calc(100vh - 80px)', 
