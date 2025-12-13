@@ -217,6 +217,13 @@ export const AvailabilityCalendar = () => {
   const isMobile = useIsMobile();
   const [isFullscreen, setIsFullscreen] = useState(false);
 
+  // Force monthly view on mobile
+  useEffect(() => {
+    if (isMobile) {
+      setViewMode('monthly');
+    }
+  }, [isMobile]);
+
   // Escape key handler for fullscreen
   useEffect(() => {
     const handleEscape = (e: KeyboardEvent) => {
@@ -1302,9 +1309,11 @@ export const AvailabilityCalendar = () => {
               </span>
             </div>
             <div className="flex gap-2 items-center">
-              <Button variant="outline" size="sm" onClick={toggleViewMode}>
-                {viewMode === 'monthly' ? 'Weekly View' : 'Monthly View'}
-              </Button>
+              {!isMobile && (
+                <Button variant="outline" size="sm" onClick={toggleViewMode}>
+                  {viewMode === 'monthly' ? 'Weekly View' : 'Monthly View'}
+                </Button>
+              )}
               <Button variant="outline" size="sm" onClick={handleNext}>
                 Next
                 <ChevronRight className="h-4 w-4" />
