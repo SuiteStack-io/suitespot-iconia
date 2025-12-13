@@ -278,12 +278,12 @@ export function CreateReservationDialog() {
     }
   }, [source]);
 
-  // Arab nationalities that require marriage certificate
+  // Arab nationalities that require marriage certificate (using country names to match dropdown)
   const ARAB_NATIONALITIES = [
-    "Egyptian", "Saudi", "Emirati", "Kuwaiti", "Qatari", "Bahraini", "Omani", 
-    "Yemenite", "Jordanian", "Lebanese", "Syrian", "Iraqi", "Palestinian", 
-    "Libyan", "Tunisian", "Algerian", "Moroccan", "Sudanese", "Somali", 
-    "Djiboutian", "Mauritanian", "Comoran"
+    "Egypt", "Saudi Arabia", "United Arab Emirates", "Kuwait", "Qatar", "Bahrain", "Oman", 
+    "Yemen", "Jordan", "Lebanon", "Syria", "Iraq", "Palestine", 
+    "Libya", "Tunisia", "Algeria", "Morocco", "Sudan", "Somalia", 
+    "Djibouti", "Mauritania", "Comoros"
   ];
 
   // Check if marriage certificate is required
