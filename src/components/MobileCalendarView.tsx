@@ -1,4 +1,4 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { Button } from "@/components/ui/button";
 import { ChevronLeft, ChevronRight, AlertTriangle, Building2, Hash } from "lucide-react";
@@ -60,6 +60,7 @@ export const MobileCalendarView = () => {
     return saved === 'true';
   });
   const navigate = useNavigate();
+  const todayRef = useRef<HTMLDivElement>(null);
 
   const triggerHaptic = () => {
     if ('vibrate' in navigator) {
@@ -99,6 +100,14 @@ export const MobileCalendarView = () => {
   useEffect(() => {
     localStorage.setItem('calendarSortByRoomType', String(sortByRoomType));
   }, [sortByRoomType]);
+
+  // Scroll to today's date on initial load
+  useEffect(() => {
+    const timer = setTimeout(() => {
+      todayRef.current?.scrollIntoView({ behavior: 'smooth', block: 'center' });
+    }, 100);
+    return () => clearTimeout(timer);
+  }, []);
 
   const fetchData = async () => {
     const { data: unitsData } = await supabase
@@ -283,6 +292,7 @@ export const MobileCalendarView = () => {
                 return (
                   <div
                     key={date.toISOString()}
+                    ref={today ? todayRef : null}
                     className={getCellClassName(dayData, date)}
                     onClick={() => handleDayClick(dayData)}
                   >
