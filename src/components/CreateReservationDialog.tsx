@@ -288,8 +288,11 @@ export function CreateReservationDialog() {
 
   // Check if marriage certificate is required
   const isMarriageCertificateRequired = () => {
+    // Count adults from guestTypes array (not the adults counter)
+    const adultCount = guestTypes.filter(type => type === 'adult').length;
+    
     // Must have exactly 2 adults
-    if (adults !== 2) return false;
+    if (adultCount !== 2) return false;
     
     // Must be Arab nationality
     if (!ARAB_NATIONALITIES.includes(nationality)) return false;
