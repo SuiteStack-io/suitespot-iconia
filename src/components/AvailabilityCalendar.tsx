@@ -1538,16 +1538,26 @@ export const AvailabilityCalendar = () => {
                                   className={`h-14 border rounded transition-colors ${getCellClassName(availability)}`}
                                   onClick={() => handleCellClick(availability, unit, day)}
                                 >
-                                  {availability.hasConflict && (
+                                  {availability.hasConflict ? (
                                     <div className="flex items-center justify-center h-full">
                                       <AlertCircle className="h-4 w-4 text-white" />
                                     </div>
-                                  )}
-                                  {availability.isBlocked && !availability.hasConflict && (
+                                  ) : availability.isBlocked ? (
                                     <div className="flex items-center justify-center h-full px-1 overflow-hidden">
                                       <span className="text-[10px] font-medium text-muted-foreground">Blocked</span>
                                     </div>
-                                  )}
+                                  ) : reservation ? (
+                                    <div className="flex flex-col items-center justify-center h-full px-1 overflow-hidden">
+                                      <span className="text-[10px] text-blue-600 dark:text-blue-400 font-medium text-center leading-tight">
+                                        {reservation.guest_names[0]?.split(' ')[0]}
+                                      </span>
+                                      {reservation.guest_names[0]?.split(' ').slice(1).join(' ') && (
+                                        <span className="text-[10px] text-blue-600 dark:text-blue-400 font-medium text-center leading-tight">
+                                          {reservation.guest_names[0]?.split(' ').slice(1).join(' ')}
+                                        </span>
+                                      )}
+                                    </div>
+                                  ) : null}
                                 </div>
                               )}
                             </TooltipTrigger>
