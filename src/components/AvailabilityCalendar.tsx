@@ -1,9 +1,9 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { ChevronLeft, ChevronRight, AlertCircle, CheckCircle, Calendar as CalendarIcon, Download, FileSpreadsheet, FileText, GripVertical, ArrowUpDown, Hash, Building2, Lock, Maximize2, Minimize2, Trash2 } from "lucide-react";
-import { format, addDays, startOfWeek, isSameDay, startOfMonth, endOfMonth, getDaysInMonth, eachDayOfInterval, startOfDay, differenceInDays, parseISO } from "date-fns";
+import { format, addDays, startOfWeek, isSameDay, startOfMonth, endOfMonth, getDaysInMonth, eachDayOfInterval, startOfDay, differenceInDays, parseISO, subDays } from "date-fns";
 import { Badge } from "@/components/ui/badge";
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
@@ -262,9 +262,27 @@ export const AvailabilityCalendar = () => {
   // Disable drag-and-drop on mobile
   const effectiveSensors = isMobile ? [] : sensors;
 
-  const displayDays = viewMode === 'monthly' 
-    ? eachDayOfInterval({ start: startOfMonth(currentMonth), end: endOfMonth(currentMonth) })
-    : Array.from({ length: 14 }, (_, i) => addDays(currentWeekStart, i));
+  // For mobile: show 30 days back and 60 days forward from today (scrollable)
+  // For desktop: use monthly or weekly view as before
+  const displayDays = isMobile 
+    ? eachDayOfInterval({ start: subDays(new Date(), 30), end: addDays(new Date(), 60) })
+    : viewMode === 'monthly' 
+      ? eachDayOfInterval({ start: startOfMonth(currentMonth), end: endOfMonth(currentMonth) })
+      : Array.from({ length: 14 }, (_, i) => addDays(currentWeekStart, i));
+
+  // Ref for calendar scroll container to auto-scroll to today on mobile
+  const calendarScrollRef = useRef<HTMLDivElement>(null);
+
+  // Auto-scroll to today on mobile
+  useEffect(() => {
+    if (isMobile && calendarScrollRef.current) {
+      // Calculate position: 30 days * 71px (70px column + 1px gap) + offset for unit column (160px)
+      const todayPosition = 30 * 71; // 30 days from start to today
+      setTimeout(() => {
+        calendarScrollRef.current?.scrollTo({ left: todayPosition, behavior: 'auto' });
+      }, 100);
+    }
+  }, [isMobile]);
 
   useEffect(() => {
     localStorage.setItem('calendarViewMode', viewMode);
@@ -1418,7 +1436,8 @@ export const AvailabilityCalendar = () => {
 
           {/* Calendar Grid - Optimized for mobile touch scrolling */}
           <div 
-            {...(isMobile ? swipeHandlers : {})}
+            ref={calendarScrollRef}
+            {...(isMobile ? {} : {})}
             className={`overflow-x-auto relative flex-1 ${isMobile ? 'touch-pan-x touch-pan-y overscroll-contain' : ''}`}
             style={{ 
               ...(isFullscreen && { 
