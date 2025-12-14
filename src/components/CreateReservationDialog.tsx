@@ -970,7 +970,7 @@ export function CreateReservationDialog() {
           commission_rate: commissionRate,
           commission_amount: commissionAmount,
           net_revenue: netRevenue,
-          currency: paymentMethod === 'cash' ? cashCurrency : 'USD',
+          currency: paymentMethod === 'credit_card' ? 'EGP' : (paymentMethod === 'cash' ? cashCurrency : 'USD'),
           payment_method: paymentMethod,
           contact_email: contactEmail,
           contact_phone: `${countryCode}${contactPhone}`,
