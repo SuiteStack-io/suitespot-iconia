@@ -447,6 +447,7 @@ const MyReservations = () => {
                           <Badge variant="outline">
                             {reservation.payment_method === 'cash' ? 'Cash' : 
                              reservation.payment_method === 'credit_card' ? 'Credit Card' : 
+                             reservation.payment_method === 'booking_com' ? 'Booking.com' :
                              'N/A'}
                           </Badge>
                         </TableCell>

@@ -567,6 +567,7 @@ serve(async (req) => {
             contact_phone: parsed.contactPhone,
             guest_nationality: parsed.guestNationality,
             notes: notesText,
+            payment_method: 'booking_com',
           })
           .select()
           .single();
