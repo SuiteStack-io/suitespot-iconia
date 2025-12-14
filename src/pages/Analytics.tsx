@@ -741,38 +741,77 @@ const Analytics = () => {
     ];
   };
 
-  const handleExportExcel = () => {
-    const data = getExportData();
-    if (data.length === 0) {
+  const fetchExportBookingsData = async () => {
+    const { startDate, endDate } = getDateRange();
+    
+    const { data } = await supabase
+      .from('reservations')
+      .select('guest_names, check_in_date, check_out_date, nights, number_of_guests, source, total_price, commission_amount, net_revenue, payment_method, currency, units(name, unit_number)')
+      .neq('status', 'Cancelled')
+      .gte('check_in_date', startDate)
+      .lte('check_in_date', endDate)
+      .order('check_in_date', { ascending: false });
+
+    return (data || []).map((r: any) => ({
+      'Guest Names': r.guest_names?.join(', ') || '',
+      'Room': r.units?.name || 'N/A',
+      'Room #': r.units?.unit_number || 'N/A',
+      'Check-In': format(new Date(r.check_in_date), 'MMM dd, yyyy'),
+      'Check-Out': format(new Date(r.check_out_date), 'MMM dd, yyyy'),
+      'Nights': r.nights || 0,
+      'Guests': r.number_of_guests || 0,
+      'Source': r.source || 'N/A',
+      'Gross Revenue': r.total_price ? `$${r.total_price.toFixed(2)}` : '$0.00',
+      'Commission': r.commission_amount ? `$${r.commission_amount.toFixed(2)}` : '$0.00',
+      'Net Revenue': r.net_revenue ? `$${r.net_revenue.toFixed(2)}` : '$0.00',
+      'Payment': formatPaymentMethod(r.payment_method),
+      'Currency': getCurrencyLabel(r.currency),
+    }));
+  };
+
+  const handleExportExcel = async () => {
+    const summaryData = getExportData();
+    const bookingsData = await fetchExportBookingsData();
+    
+    if (summaryData.length === 0 && bookingsData.length === 0) {
       toast.error('No analytics data to export');
       return;
     }
 
-    const ws = XLSX.utils.json_to_sheet(data);
     const wb = XLSX.utils.book_new();
-    XLSX.utils.book_append_sheet(wb, ws, 'Revenue Analytics');
+    
+    // Summary sheet
+    const summaryWs = XLSX.utils.json_to_sheet(summaryData);
+    XLSX.utils.book_append_sheet(wb, summaryWs, 'Summary');
+    
+    // Bookings detail sheet with Payment and Currency
+    if (bookingsData.length > 0) {
+      const bookingsWs = XLSX.utils.json_to_sheet(bookingsData);
+      XLSX.utils.book_append_sheet(wb, bookingsWs, 'Bookings Detail');
+    }
     
     const filename = `revenue_analytics_${format(new Date(), 'yyyy-MM-dd_HH-mm')}.xlsx`;
     XLSX.writeFile(wb, filename);
     toast.success('Analytics data exported to Excel');
   };
 
-  const handleExportCSV = () => {
-    const data = getExportData();
-    if (data.length === 0) {
-      toast.error('No analytics data to export');
+  const handleExportCSV = async () => {
+    const bookingsData = await fetchExportBookingsData();
+    
+    if (bookingsData.length === 0) {
+      toast.error('No bookings data to export');
       return;
     }
 
-    const ws = XLSX.utils.json_to_sheet(data);
+    const ws = XLSX.utils.json_to_sheet(bookingsData);
     const csv = XLSX.utils.sheet_to_csv(ws);
     
     const blob = new Blob([csv], { type: 'text/csv;charset=utf-8;' });
     const link = document.createElement('a');
     link.href = URL.createObjectURL(blob);
-    link.download = `revenue_analytics_${format(new Date(), 'yyyy-MM-dd_HH-mm')}.csv`;
+    link.download = `revenue_analytics_bookings_${format(new Date(), 'yyyy-MM-dd_HH-mm')}.csv`;
     link.click();
-    toast.success('Analytics data exported to CSV');
+    toast.success('Bookings data exported to CSV');
   };
 
   if (loading || userRole !== 'admin') {
