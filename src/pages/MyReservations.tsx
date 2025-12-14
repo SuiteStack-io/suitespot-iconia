@@ -26,7 +26,7 @@ interface Reservation {
   commission_amount: number;
   net_revenue: number;
   source: string;
-  units: { name: string } | null;
+  units: { name: string; unit_number: string | null } | null;
 }
 
 const MyReservations = () => {
@@ -121,7 +121,7 @@ const MyReservations = () => {
       // Fetch reservations where source matches user's name
       const { data, error } = await supabase
         .from('reservations')
-        .select('id, booking_reference, guest_names, check_in_date, check_out_date, status, total_price, commission_rate, commission_amount, net_revenue, source, units(name)')
+        .select('id, booking_reference, guest_names, check_in_date, check_out_date, status, total_price, commission_rate, commission_amount, net_revenue, source, units(name, unit_number)')
         .eq('source', fullName)
         .order('check_in_date', { ascending: false });
 
@@ -394,6 +394,7 @@ const MyReservations = () => {
                   <TableHeader>
                     <TableRow>
                       <TableHead>Booking Ref</TableHead>
+                      <TableHead>Room #</TableHead>
                       <TableHead>Guest(s)</TableHead>
                       <TableHead className="hidden md:table-cell">Unit</TableHead>
                       <TableHead className="hidden md:table-cell">Check-in</TableHead>
@@ -413,6 +414,7 @@ const MyReservations = () => {
                         <TableCell className="font-medium">
                           {reservation.booking_reference}
                         </TableCell>
+                        <TableCell>{reservation.units?.unit_number || 'N/A'}</TableCell>
                         <TableCell>{reservation.guest_names.join(', ')}</TableCell>
                         <TableCell className="hidden md:table-cell">{reservation.units?.name || 'N/A'}</TableCell>
                         <TableCell className="hidden md:table-cell">
