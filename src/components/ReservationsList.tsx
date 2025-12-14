@@ -389,6 +389,26 @@ export const ReservationsList = () => {
     }
   };
 
+  const formatPaymentMethod = (method: string | null): string => {
+    if (!method) return '-';
+    const labels: Record<string, string> = {
+      'credit_card': 'Credit Card',
+      'cash': 'Cash',
+      'bank_transfer': 'Bank Transfer',
+    };
+    return labels[method] || method.split('_').map(word => word.charAt(0).toUpperCase() + word.slice(1)).join(' ');
+  };
+
+  const formatSettled = (settled: string | null): string => {
+    if (!settled) return '-';
+    const labels: Record<string, string> = {
+      'booking_com': 'Booking.com',
+      'yes': 'Yes',
+      'no': 'No',
+    };
+    return labels[settled] || settled;
+  };
+
   const getExportData = () => {
     const dataToExport = selectedReservations.size > 0
       ? filteredReservations.filter(r => selectedReservations.has(r.id))
@@ -407,7 +427,9 @@ export const ReservationsList = () => {
       'Source': r.source,
       'Price/Night': r.price_per_night ? `$${Number(r.price_per_night).toFixed(2)}` : '-',
       'Total': r.total_price ? `$${Number(r.total_price).toFixed(2)}` : '-',
+      'Payment': formatPaymentMethod(r.payment_method),
       'Currency': getCurrencyLabel(r.currency),
+      'Settled': formatSettled(r.settled),
       'Reference': r.booking_reference,
       'Created': format(new Date(r.created_at), 'dd MMM yyyy'),
     }));
