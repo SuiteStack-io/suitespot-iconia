@@ -659,11 +659,11 @@ export const ReservationsList = () => {
               >
                 Suite Name {getSortIcon('units')}
               </TableHead>
-              <TableHead className="w-[80px] min-w-[80px] max-w-[80px] sticky left-[230px] z-20 bg-background border-r border-border shadow-[2px_0_5px_-2px_rgba(0,0,0,0.1)]">
+              <TableHead className="w-[80px] min-w-[80px] max-w-[80px] sticky left-[230px] z-20 bg-background">
                 Room #
               </TableHead>
               <TableHead 
-                className="cursor-pointer hover:bg-muted/50"
+                className="w-[180px] min-w-[180px] max-w-[180px] cursor-pointer hover:bg-muted/50 sticky left-[310px] z-20 bg-background border-r border-border shadow-[2px_0_5px_-2px_rgba(0,0,0,0.1)]"
                 onClick={() => handleSort('guest_names')}
               >
                 Guest Name(s) {getSortIcon('guest_names')}
@@ -776,7 +776,7 @@ export const ReservationsList = () => {
                     </div>
                   </TableCell>
                   <TableCell 
-                    className="w-[80px] min-w-[80px] max-w-[80px] cursor-pointer sticky left-[230px] z-10 bg-background border-r border-border shadow-[2px_0_5px_-2px_rgba(0,0,0,0.1)]"
+                    className="w-[80px] min-w-[80px] max-w-[80px] cursor-pointer sticky left-[230px] z-10 bg-background"
                     onClick={() => navigate(`/reservation/${reservation.id}`)}
                   >
                     {reservation.isGrouped && reservation.groupCount ? (
@@ -786,7 +786,7 @@ export const ReservationsList = () => {
                     )}
                   </TableCell>
                   <TableCell 
-                    className="cursor-pointer"
+                    className="w-[180px] min-w-[180px] max-w-[180px] cursor-pointer sticky left-[310px] z-10 bg-background border-r border-border shadow-[2px_0_5px_-2px_rgba(0,0,0,0.1)]"
                     onClick={() => navigate(`/reservation/${reservation.id}`)}
                   >
                     {reservation.guest_names?.length > 0 ? reservation.guest_names.join(', ') : 'N/A'}
