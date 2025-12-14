@@ -98,7 +98,10 @@ export const ReservationsList = () => {
   const [searchQuery, setSearchQuery] = useState('');
   const [statusFilter, setStatusFilter] = useState<string>('all');
   const [unitFilter, setUnitFilter] = useState<string>('all');
+  const [paymentFilter, setPaymentFilter] = useState<string>('all');
+  const [sourceFilter, setSourceFilter] = useState<string>('all');
   const [units, setUnits] = useState<{ id: string; name: string }[]>([]);
+  const [sources, setSources] = useState<string[]>([]);
   const [sortField, setSortField] = useState<SortField>('created_at');
   const [sortOrder, setSortOrder] = useState<SortOrder>('desc');
   const [selectedGroup, setSelectedGroup] = useState<Reservation[] | null>(null);
@@ -156,7 +159,13 @@ export const ReservationsList = () => {
 
   useEffect(() => {
     filterReservations();
-  }, [reservations, searchQuery, statusFilter, unitFilter, sortField, sortOrder, dateRange]);
+  }, [reservations, searchQuery, statusFilter, unitFilter, paymentFilter, sourceFilter, sortField, sortOrder, dateRange]);
+
+  useEffect(() => {
+    // Extract unique sources from reservations
+    const uniqueSources = [...new Set(reservations.map(r => r.source).filter(Boolean))].sort();
+    setSources(uniqueSources);
+  }, [reservations]);
 
   const fetchReservations = async () => {
     const { data, error } = await supabase
@@ -239,6 +248,16 @@ export const ReservationsList = () => {
 
     if (unitFilter !== 'all') {
       filtered = filtered.filter((r) => r.units?.name === unitFilter);
+    }
+
+    // Payment method filtering
+    if (paymentFilter !== 'all') {
+      filtered = filtered.filter((r) => r.payment_method === paymentFilter);
+    }
+
+    // Source filtering
+    if (sourceFilter !== 'all') {
+      filtered = filtered.filter((r) => r.source === sourceFilter);
     }
 
     // Date range filtering
@@ -469,16 +488,16 @@ export const ReservationsList = () => {
         </Select>
       </div>
 
-      {/* Date Range and Export Filters */}
-      <div className="flex flex-col sm:flex-row gap-4 items-end">
-        <div className="flex-1 space-y-2">
+      {/* Date Range, Payment, Source, and Export Filters */}
+      <div className="flex flex-col sm:flex-row gap-4 items-end flex-wrap">
+        <div className="space-y-2">
           <label className="text-sm font-medium">Date Range</label>
           <Popover>
             <PopoverTrigger asChild>
               <Button
                 variant="outline"
                 className={cn(
-                  "w-full justify-start text-left font-normal",
+                  "w-full sm:w-[240px] justify-start text-left font-normal",
                   !dateRange.from && "text-muted-foreground"
                 )}
               >
@@ -507,6 +526,38 @@ export const ReservationsList = () => {
               />
             </PopoverContent>
           </Popover>
+        </div>
+
+        <div className="space-y-2">
+          <label className="text-sm font-medium">Payment</label>
+          <Select value={paymentFilter} onValueChange={setPaymentFilter}>
+            <SelectTrigger className="w-full sm:w-[140px]">
+              <SelectValue placeholder="All Payments" />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value="all">All Payments</SelectItem>
+              <SelectItem value="cash">Cash</SelectItem>
+              <SelectItem value="credit_card">Credit Card</SelectItem>
+              <SelectItem value="booking_com">Booking.com</SelectItem>
+            </SelectContent>
+          </Select>
+        </div>
+
+        <div className="space-y-2">
+          <label className="text-sm font-medium">Source</label>
+          <Select value={sourceFilter} onValueChange={setSourceFilter}>
+            <SelectTrigger className="w-full sm:w-[160px]">
+              <SelectValue placeholder="All Sources" />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value="all">All Sources</SelectItem>
+              {sources.map((source) => (
+                <SelectItem key={source} value={source}>
+                  {source}
+                </SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
         </div>
 
         {(dateRange.from || dateRange.to) && (
