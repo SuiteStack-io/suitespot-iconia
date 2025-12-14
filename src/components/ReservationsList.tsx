@@ -623,19 +623,6 @@ export const ReservationsList = () => {
           )}
         </Button>
 
-        <Button
-          variant="outline"
-          onClick={handleExportCSV}
-          className="hidden md:flex sm:w-auto"
-        >
-          <Download className="h-4 w-4 mr-2" />
-          Export CSV
-          {(selectedReservations.size > 0 || filteredReservations.length > 0) && (
-            <Badge variant="secondary" className="ml-2">
-              {selectedReservations.size > 0 ? selectedReservations.size : filteredReservations.length}
-            </Badge>
-          )}
-        </Button>
       </div>
 
       {/* Bulk Actions Toolbar */}
