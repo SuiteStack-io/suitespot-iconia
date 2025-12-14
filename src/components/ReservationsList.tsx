@@ -100,6 +100,7 @@ export const ReservationsList = () => {
   const [statusFilter, setStatusFilter] = useState<string>('all');
   const [unitFilter, setUnitFilter] = useState<string>('all');
   const [paymentFilter, setPaymentFilter] = useState<string>('all');
+  const [settledFilter, setSettledFilter] = useState<string>('all');
   const [sourceFilter, setSourceFilter] = useState<string>('all');
   const [units, setUnits] = useState<{ id: string; name: string }[]>([]);
   const [sources, setSources] = useState<string[]>([]);
@@ -259,6 +260,11 @@ export const ReservationsList = () => {
     // Source filtering
     if (sourceFilter !== 'all') {
       filtered = filtered.filter((r) => r.source === sourceFilter);
+    }
+
+    // Settled filtering
+    if (settledFilter !== 'all') {
+      filtered = filtered.filter((r) => r.settled === settledFilter);
     }
 
     // Date range filtering
@@ -555,6 +561,21 @@ export const ReservationsList = () => {
               <SelectItem value="cash">Cash</SelectItem>
               <SelectItem value="credit_card">Credit Card</SelectItem>
               <SelectItem value="booking_com">Booking.com</SelectItem>
+            </SelectContent>
+          </Select>
+        </div>
+
+        <div className="space-y-2">
+          <label className="text-sm font-medium">Settled</label>
+          <Select value={settledFilter} onValueChange={setSettledFilter}>
+            <SelectTrigger className="w-full sm:w-[140px]">
+              <SelectValue placeholder="All Settled" />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value="all">All Settled</SelectItem>
+              <SelectItem value="booking_com">Booking.com</SelectItem>
+              <SelectItem value="yes">Yes</SelectItem>
+              <SelectItem value="no">No</SelectItem>
             </SelectContent>
           </Select>
         </div>
