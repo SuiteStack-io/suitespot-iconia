@@ -101,6 +101,7 @@ export const ReservationsList = () => {
   const [unitFilter, setUnitFilter] = useState<string>('all');
   const [paymentFilter, setPaymentFilter] = useState<string>('all');
   const [settledFilter, setSettledFilter] = useState<string>('all');
+  const [currencyFilter, setCurrencyFilter] = useState<string>('all');
   const [sourceFilter, setSourceFilter] = useState<string>('all');
   const [units, setUnits] = useState<{ id: string; name: string }[]>([]);
   const [sources, setSources] = useState<string[]>([]);
@@ -161,7 +162,7 @@ export const ReservationsList = () => {
 
   useEffect(() => {
     filterReservations();
-  }, [reservations, searchQuery, statusFilter, unitFilter, paymentFilter, sourceFilter, sortField, sortOrder, dateRange]);
+  }, [reservations, searchQuery, statusFilter, unitFilter, paymentFilter, sourceFilter, currencyFilter, sortField, sortOrder, dateRange]);
 
   useEffect(() => {
     // Extract unique sources from reservations
@@ -265,6 +266,11 @@ export const ReservationsList = () => {
     // Settled filtering
     if (settledFilter !== 'all') {
       filtered = filtered.filter((r) => r.settled === settledFilter);
+    }
+
+    // Currency filtering
+    if (currencyFilter !== 'all') {
+      filtered = filtered.filter((r) => r.currency === currencyFilter);
     }
 
     // Date range filtering
@@ -401,6 +407,7 @@ export const ReservationsList = () => {
       'Source': r.source,
       'Price/Night': r.price_per_night ? `$${Number(r.price_per_night).toFixed(2)}` : '-',
       'Total': r.total_price ? `$${Number(r.total_price).toFixed(2)}` : '-',
+      'Currency': getCurrencyLabel(r.currency),
       'Reference': r.booking_reference,
       'Created': format(new Date(r.created_at), 'dd MMM yyyy'),
     }));
@@ -618,6 +625,22 @@ export const ReservationsList = () => {
                   {source}
                 </SelectItem>
               ))}
+            </SelectContent>
+          </Select>
+        </div>
+
+        <div className="space-y-2">
+          <label className="text-sm font-medium">Currency</label>
+          <Select value={currencyFilter} onValueChange={setCurrencyFilter}>
+            <SelectTrigger className="w-full sm:w-[160px]">
+              <SelectValue placeholder="All Currencies" />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value="all">All Currencies</SelectItem>
+              <SelectItem value="USD">Dollars (USD)</SelectItem>
+              <SelectItem value="AED">Dirhams (AED)</SelectItem>
+              <SelectItem value="SAR">Riyals (SAR)</SelectItem>
+              <SelectItem value="EGP">Egyptian Pounds (EGP)</SelectItem>
             </SelectContent>
           </Select>
         </div>
