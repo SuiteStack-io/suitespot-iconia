@@ -853,6 +853,7 @@ export const ReservationsList = () => {
                       <SelectContent>
                         <SelectItem value="cash">Cash</SelectItem>
                         <SelectItem value="credit_card">Credit Card</SelectItem>
+                        <SelectItem value="booking_com">Booking.com</SelectItem>
                       </SelectContent>
                     </Select>
                   </TableCell>
