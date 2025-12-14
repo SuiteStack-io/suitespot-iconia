@@ -569,6 +569,7 @@ serve(async (req) => {
             notes: notesText,
             payment_method: 'booking_com',
             settled: 'booking_com',
+            currency: 'USD',
           })
           .select()
           .single();

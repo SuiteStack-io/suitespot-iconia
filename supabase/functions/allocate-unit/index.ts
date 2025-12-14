@@ -136,6 +136,7 @@ Deno.serve(async (req) => {
         notes: `CONFLICT: All ${units.length} units with Booking.com Room ID ${bookingComRoomId} are booked. Manual assignment required.`,
         payment_method: 'booking_com',
         settled: 'booking_com',
+        currency: 'USD',
       })
       .select()
       .single();

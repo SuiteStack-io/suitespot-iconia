@@ -470,6 +470,31 @@ export const ReservationsList = () => {
     }
   };
 
+  const handleCurrencyChange = async (reservationId: string, currency: string) => {
+    const { error } = await supabase
+      .from('reservations')
+      .update({ currency })
+      .eq('id', reservationId);
+
+    if (error) {
+      toast.error('Failed to update currency');
+      console.error('Currency update error:', error);
+    } else {
+      toast.success('Currency updated');
+      fetchReservations();
+    }
+  };
+
+  const getCurrencyLabel = (currency: string | null) => {
+    switch (currency) {
+      case 'USD': return 'Dollars (USD)';
+      case 'AED': return 'Dirhams (AED)';
+      case 'SAR': return 'Riyals (SAR)';
+      case 'EGP': return 'Egyptian Pounds (EGP)';
+      default: return currency || '-';
+    }
+  };
+
   return (
     <div className="space-y-4">
       <div className="flex flex-col sm:flex-row gap-4">
@@ -760,13 +785,14 @@ export const ReservationsList = () => {
               </TableHead>
               <TableHead>Email</TableHead>
               <TableHead>Payment</TableHead>
+              <TableHead>Currency</TableHead>
               <TableHead>Settled</TableHead>
             </TableRow>
           </TableHeader>
           <TableBody>
             {filteredReservations.length === 0 ? (
               <TableRow>
-                <TableCell colSpan={17} className="text-center text-muted-foreground">
+                <TableCell colSpan={18} className="text-center text-muted-foreground">
                   No reservations found
                 </TableCell>
               </TableRow>
@@ -930,6 +956,22 @@ export const ReservationsList = () => {
                         <SelectItem value="cash">Cash</SelectItem>
                         <SelectItem value="credit_card">Credit Card</SelectItem>
                         <SelectItem value="booking_com">Booking.com</SelectItem>
+                      </SelectContent>
+                    </Select>
+                  </TableCell>
+                  <TableCell onClick={(e) => e.stopPropagation()}>
+                    <Select
+                      value={reservation.currency || ''}
+                      onValueChange={(value) => handleCurrencyChange(reservation.id, value)}
+                    >
+                      <SelectTrigger className="w-[140px] h-8 text-xs">
+                        <SelectValue placeholder="Select..." />
+                      </SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="USD">Dollars (USD)</SelectItem>
+                        <SelectItem value="AED">Dirhams (AED)</SelectItem>
+                        <SelectItem value="SAR">Riyals (SAR)</SelectItem>
+                        <SelectItem value="EGP">Egyptian Pounds (EGP)</SelectItem>
                       </SelectContent>
                     </Select>
                   </TableCell>
