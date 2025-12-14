@@ -211,6 +211,8 @@ export function CreateReservationDialog() {
   const [pricePerNight, setPricePerNight] = useState<number | "">("");
   const [commissionRate, setCommissionRate] = useState<number>(10.00);
   const [notes, setNotes] = useState("");
+  const [paymentMethod, setPaymentMethod] = useState<'cash' | 'credit_card' | ''>('');
+  const [cashCurrency, setCashCurrency] = useState<'USD' | 'AED' | 'SAR' | 'EGP' | ''>('');
   
   // Units data
   const [allUnits, setAllUnits] = useState<Unit[]>([]);
@@ -884,6 +886,16 @@ export function CreateReservationDialog() {
       missingFields.push("Source specification (when selecting Others)");
     }
     
+    // Payment method validation
+    if (!paymentMethod) {
+      missingFields.push("Payment method");
+    }
+    
+    // Currency required for cash payments
+    if (paymentMethod === 'cash' && !cashCurrency) {
+      missingFields.push("Currency (for cash payment)");
+    }
+    
     // Show all missing fields if any
     if (missingFields.length > 0) {
       const fieldsList = missingFields.join(", ");
@@ -958,7 +970,8 @@ export function CreateReservationDialog() {
           commission_rate: commissionRate,
           commission_amount: commissionAmount,
           net_revenue: netRevenue,
-          currency: "USD",
+          currency: paymentMethod === 'cash' ? cashCurrency : 'USD',
+          payment_method: paymentMethod,
           contact_email: contactEmail,
           contact_phone: `${countryCode}${contactPhone}`,
           notes: notes || null,
@@ -1111,6 +1124,8 @@ export function CreateReservationDialog() {
     setSource("");
     setSourceSpecification("");
     setPricePerNight("");
+    setPaymentMethod('');
+    setCashCurrency('');
   };
 
   const handleOpenChange = (isOpen: boolean) => {
@@ -1859,6 +1874,47 @@ export function CreateReservationDialog() {
                 onChange={(e) => setSourceSpecification(e.target.value)}
                 placeholder="Please specify the source"
               />
+            </div>
+          )}
+
+          {/* Payment Method */}
+          <div className="space-y-2">
+            <Label htmlFor="paymentMethod">
+              Payment Method <span className="text-destructive">*</span>
+            </Label>
+            <Select value={paymentMethod} onValueChange={(value: 'cash' | 'credit_card') => {
+              setPaymentMethod(value);
+              if (value !== 'cash') {
+                setCashCurrency('');
+              }
+            }}>
+              <SelectTrigger>
+                <SelectValue placeholder="Select payment method" />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="cash">Cash</SelectItem>
+                <SelectItem value="credit_card">Credit Card</SelectItem>
+              </SelectContent>
+            </Select>
+          </div>
+
+          {/* Currency (only for Cash) */}
+          {paymentMethod === 'cash' && (
+            <div className="space-y-2">
+              <Label htmlFor="cashCurrency">
+                Currency <span className="text-destructive">*</span>
+              </Label>
+              <Select value={cashCurrency} onValueChange={(value: 'USD' | 'AED' | 'SAR' | 'EGP') => setCashCurrency(value)}>
+                <SelectTrigger>
+                  <SelectValue placeholder="Select currency" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="USD">Dollars (USD)</SelectItem>
+                  <SelectItem value="AED">Dirhams (AED)</SelectItem>
+                  <SelectItem value="SAR">Riyals (SAR)</SelectItem>
+                  <SelectItem value="EGP">Egyptian Pounds (EGP)</SelectItem>
+                </SelectContent>
+              </Select>
             </div>
           )}
         </div>

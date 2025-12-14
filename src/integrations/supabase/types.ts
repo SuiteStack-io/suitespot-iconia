@@ -776,6 +776,7 @@ export type Database = {
           nights: number | null
           notes: string | null
           number_of_guests: number
+          payment_method: string | null
           preferred_language: string | null
           price_per_night: number | null
           source: string
@@ -822,6 +823,7 @@ export type Database = {
           nights?: number | null
           notes?: string | null
           number_of_guests: number
+          payment_method?: string | null
           preferred_language?: string | null
           price_per_night?: number | null
           source?: string
@@ -868,6 +870,7 @@ export type Database = {
           nights?: number | null
           notes?: string | null
           number_of_guests?: number
+          payment_method?: string | null
           preferred_language?: string | null
           price_per_night?: number | null
           source?: string
