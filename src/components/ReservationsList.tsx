@@ -596,19 +596,19 @@ export const ReservationsList = () => {
         <Table>
           <TableHeader>
             <TableRow>
-              <TableHead className="w-[50px] sticky left-0 z-20 bg-background">
+              <TableHead className="w-[50px] min-w-[50px] max-w-[50px] sticky left-0 z-20 bg-background">
                 <Checkbox
                   checked={selectedReservations.size === filteredReservations.length && filteredReservations.length > 0}
                   onCheckedChange={handleSelectAll}
                 />
               </TableHead>
               <TableHead 
-                className="cursor-pointer hover:bg-muted/50 sticky left-[50px] z-20 bg-background min-w-[150px]"
+                className="w-[180px] min-w-[180px] max-w-[180px] cursor-pointer hover:bg-muted/50 sticky left-[50px] z-20 bg-background"
                 onClick={() => handleSort('units')}
               >
                 Suite Name {getSortIcon('units')}
               </TableHead>
-              <TableHead className="sticky left-[200px] z-20 bg-background border-r border-border shadow-[2px_0_5px_-2px_rgba(0,0,0,0.1)]">
+              <TableHead className="w-[80px] min-w-[80px] max-w-[80px] sticky left-[230px] z-20 bg-background border-r border-border shadow-[2px_0_5px_-2px_rgba(0,0,0,0.1)]">
                 Room #
               </TableHead>
               <TableHead 
@@ -700,14 +700,14 @@ export const ReservationsList = () => {
                   key={reservation.id}
                   className="hover:bg-muted/50"
                 >
-                  <TableCell onClick={(e) => e.stopPropagation()} className="sticky left-0 z-10 bg-background">
+                  <TableCell onClick={(e) => e.stopPropagation()} className="w-[50px] min-w-[50px] max-w-[50px] sticky left-0 z-10 bg-background">
                     <Checkbox
                       checked={selectedReservations.has(reservation.id)}
                       onCheckedChange={(checked) => handleSelectReservation(reservation.id, checked as boolean)}
                     />
                   </TableCell>
                   <TableCell 
-                    className="font-medium cursor-pointer sticky left-[50px] z-10 bg-background min-w-[150px]"
+                    className="w-[180px] min-w-[180px] max-w-[180px] font-medium cursor-pointer sticky left-[50px] z-10 bg-background"
                     onClick={() => navigate(`/reservation/${reservation.id}`)}
                   >
                     <div className="flex items-center gap-2">
@@ -725,7 +725,7 @@ export const ReservationsList = () => {
                     </div>
                   </TableCell>
                   <TableCell 
-                    className="cursor-pointer sticky left-[200px] z-10 bg-background border-r border-border shadow-[2px_0_5px_-2px_rgba(0,0,0,0.1)]"
+                    className="w-[80px] min-w-[80px] max-w-[80px] cursor-pointer sticky left-[230px] z-10 bg-background border-r border-border shadow-[2px_0_5px_-2px_rgba(0,0,0,0.1)]"
                     onClick={() => navigate(`/reservation/${reservation.id}`)}
                   >
                     {reservation.isGrouped && reservation.groupCount ? (
