@@ -568,6 +568,7 @@ serve(async (req) => {
             guest_nationality: parsed.guestNationality,
             notes: notesText,
             payment_method: 'booking_com',
+            settled: 'booking_com',
           })
           .select()
           .single();

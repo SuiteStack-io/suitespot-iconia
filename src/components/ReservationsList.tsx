@@ -60,6 +60,7 @@ interface Reservation {
   confirmation_email_status: string | null;
   confirmation_email_sent_at: string | null;
   payment_method: string | null;
+  settled: string | null;
 }
 
 interface GroupedReservation extends Reservation {
@@ -170,7 +171,7 @@ export const ReservationsList = () => {
   const fetchReservations = async () => {
     const { data, error } = await supabase
       .from('reservations')
-      .select('id, booking_reference, check_in_date, check_out_date, nights, number_of_guests, guest_names, guest_nationality, status, source, price_per_night, total_price, commission_rate, commission_amount, net_revenue, currency, created_at, group_id, unit_id, contact_email, confirmation_email_status, confirmation_email_sent_at, payment_method, units(name, unit_number)')
+      .select('id, booking_reference, check_in_date, check_out_date, nights, number_of_guests, guest_names, guest_nationality, status, source, price_per_night, total_price, commission_rate, commission_amount, net_revenue, currency, created_at, group_id, unit_id, contact_email, confirmation_email_status, confirmation_email_sent_at, payment_method, settled, units(name, unit_number)')
       .order('check_in_date', { ascending: false });
 
     if (!error && data) {
@@ -444,6 +445,21 @@ export const ReservationsList = () => {
       console.error('Payment method update error:', error);
     } else {
       toast.success('Payment method updated');
+      fetchReservations();
+    }
+  };
+
+  const handleSettledChange = async (reservationId: string, settledValue: string) => {
+    const { error } = await supabase
+      .from('reservations')
+      .update({ settled: settledValue })
+      .eq('id', reservationId);
+
+    if (error) {
+      toast.error('Failed to update settled status');
+      console.error('Settled update error:', error);
+    } else {
+      toast.success('Settled status updated');
       fetchReservations();
     }
   };
@@ -736,6 +752,7 @@ export const ReservationsList = () => {
               </TableHead>
               <TableHead>Email</TableHead>
               <TableHead>Payment</TableHead>
+              <TableHead>Settled</TableHead>
             </TableRow>
           </TableHeader>
           <TableBody>
@@ -905,6 +922,21 @@ export const ReservationsList = () => {
                         <SelectItem value="cash">Cash</SelectItem>
                         <SelectItem value="credit_card">Credit Card</SelectItem>
                         <SelectItem value="booking_com">Booking.com</SelectItem>
+                      </SelectContent>
+                    </Select>
+                  </TableCell>
+                  <TableCell onClick={(e) => e.stopPropagation()}>
+                    <Select
+                      value={reservation.settled || ''}
+                      onValueChange={(value) => handleSettledChange(reservation.id, value)}
+                    >
+                      <SelectTrigger className="w-[110px] h-8 text-xs">
+                        <SelectValue placeholder="Select..." />
+                      </SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="booking_com">Booking.com</SelectItem>
+                        <SelectItem value="yes">Yes</SelectItem>
+                        <SelectItem value="no">No</SelectItem>
                       </SelectContent>
                     </Select>
                   </TableCell>

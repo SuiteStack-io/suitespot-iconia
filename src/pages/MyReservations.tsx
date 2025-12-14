@@ -27,6 +27,7 @@ interface Reservation {
   net_revenue: number;
   source: string;
   payment_method: string | null;
+  settled: string | null;
   units: { name: string; unit_number: string | null } | null;
 }
 
@@ -122,7 +123,7 @@ const MyReservations = () => {
       // Fetch reservations where source matches user's name
       const { data, error } = await supabase
         .from('reservations')
-        .select('id, booking_reference, guest_names, check_in_date, check_out_date, status, total_price, commission_rate, commission_amount, net_revenue, source, payment_method, units(name, unit_number)')
+        .select('id, booking_reference, guest_names, check_in_date, check_out_date, status, total_price, commission_rate, commission_amount, net_revenue, source, payment_method, settled, units(name, unit_number)')
         .eq('source', fullName)
         .order('check_in_date', { ascending: false });
 
@@ -404,6 +405,7 @@ const MyReservations = () => {
                       <TableHead className="text-right">Total</TableHead>
                       <TableHead className="text-right">Commission</TableHead>
                       <TableHead>Payment</TableHead>
+                      <TableHead>Settled</TableHead>
                     </TableRow>
                   </TableHeader>
                   <TableBody>
@@ -448,6 +450,14 @@ const MyReservations = () => {
                             {reservation.payment_method === 'cash' ? 'Cash' : 
                              reservation.payment_method === 'credit_card' ? 'Credit Card' : 
                              reservation.payment_method === 'booking_com' ? 'Booking.com' :
+                             'N/A'}
+                          </Badge>
+                        </TableCell>
+                        <TableCell>
+                          <Badge variant="outline">
+                            {reservation.settled === 'booking_com' ? 'Booking.com' : 
+                             reservation.settled === 'yes' ? 'Yes' : 
+                             reservation.settled === 'no' ? 'No' :
                              'N/A'}
                           </Badge>
                         </TableCell>

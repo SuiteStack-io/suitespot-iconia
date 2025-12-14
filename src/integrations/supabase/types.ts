@@ -779,6 +779,7 @@ export type Database = {
           payment_method: string | null
           preferred_language: string | null
           price_per_night: number | null
+          settled: string | null
           source: string
           status: string
           survey_completed_at: string | null
@@ -826,6 +827,7 @@ export type Database = {
           payment_method?: string | null
           preferred_language?: string | null
           price_per_night?: number | null
+          settled?: string | null
           source?: string
           status: string
           survey_completed_at?: string | null
@@ -873,6 +875,7 @@ export type Database = {
           payment_method?: string | null
           preferred_language?: string | null
           price_per_night?: number | null
+          settled?: string | null
           source?: string
           status?: string
           survey_completed_at?: string | null
