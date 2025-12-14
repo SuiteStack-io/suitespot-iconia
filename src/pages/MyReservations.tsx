@@ -26,6 +26,7 @@ interface Reservation {
   commission_amount: number;
   net_revenue: number;
   source: string;
+  payment_method: string | null;
   units: { name: string; unit_number: string | null } | null;
 }
 
@@ -121,7 +122,7 @@ const MyReservations = () => {
       // Fetch reservations where source matches user's name
       const { data, error } = await supabase
         .from('reservations')
-        .select('id, booking_reference, guest_names, check_in_date, check_out_date, status, total_price, commission_rate, commission_amount, net_revenue, source, units(name, unit_number)')
+        .select('id, booking_reference, guest_names, check_in_date, check_out_date, status, total_price, commission_rate, commission_amount, net_revenue, source, payment_method, units(name, unit_number)')
         .eq('source', fullName)
         .order('check_in_date', { ascending: false });
 
@@ -402,6 +403,7 @@ const MyReservations = () => {
                       <TableHead>Status</TableHead>
                       <TableHead className="text-right">Total</TableHead>
                       <TableHead className="text-right">Commission</TableHead>
+                      <TableHead>Payment</TableHead>
                     </TableRow>
                   </TableHeader>
                   <TableBody>
@@ -440,6 +442,13 @@ const MyReservations = () => {
                           <span className="font-semibold text-primary bg-primary/10 px-2 py-1 rounded">
                             ${reservation.commission_amount?.toFixed(2) || '0.00'}
                           </span>
+                        </TableCell>
+                        <TableCell>
+                          <Badge variant="outline">
+                            {reservation.payment_method === 'cash' ? 'Cash' : 
+                             reservation.payment_method === 'credit_card' ? 'Credit Card' : 
+                             'N/A'}
+                          </Badge>
                         </TableCell>
                       </TableRow>
                     ))}
