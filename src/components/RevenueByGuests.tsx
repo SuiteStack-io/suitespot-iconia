@@ -19,9 +19,11 @@ interface GuestRevenue {
   total: number;
   nationality: string;
   nights: number;
+  paymentMethod: string;
+  currency: string;
 }
 
-type SortField = 'guestName' | 'roomId' | 'pricePerNight' | 'total' | 'nationality' | 'nights';
+type SortField = 'guestName' | 'roomId' | 'pricePerNight' | 'total' | 'nationality' | 'nights' | 'paymentMethod' | 'currency';
 type SortOrder = 'asc' | 'desc';
 
 interface RevenueByGuestsProps {
@@ -60,6 +62,21 @@ export const RevenueByGuests = ({ mainDateRange }: RevenueByGuestsProps) => {
     applyFiltersAndSort();
   }, [guestRevenues, selectedNationality, sortField, sortOrder]);
 
+  const formatPaymentMethod = (method: string | null): string => {
+    if (!method) return '-';
+    return method.split('_').map(word => word.charAt(0).toUpperCase() + word.slice(1)).join(' ');
+  };
+
+  const getCurrencyLabel = (currency: string | null): string => {
+    switch (currency) {
+      case 'USD': return 'USD';
+      case 'EGP': return 'EGP';
+      case 'AED': return 'AED';
+      case 'SAR': return 'SAR';
+      default: return currency || '-';
+    }
+  };
+
   const fetchGuestRevenues = async () => {
     if (!dateRange?.from || !dateRange?.to) return;
     
@@ -68,7 +85,7 @@ export const RevenueByGuests = ({ mainDateRange }: RevenueByGuestsProps) => {
 
     const { data: reservations } = await supabase
       .from('reservations')
-      .select('id, guest_names, unit_id, price_per_night, total_price, guest_nationality, nights, units(unit_number)')
+      .select('id, guest_names, unit_id, price_per_night, total_price, guest_nationality, nights, payment_method, currency, units(unit_number)')
       .neq('status', 'Cancelled')
       .gte('check_in_date', startDate)
       .lte('check_out_date', endDate);
@@ -83,6 +100,8 @@ export const RevenueByGuests = ({ mainDateRange }: RevenueByGuestsProps) => {
           total: r.total_price || 0,
           nationality: r.guest_nationality || 'Unknown',
           nights: r.nights || 0,
+          paymentMethod: formatPaymentMethod(r.payment_method),
+          currency: getCurrencyLabel(r.currency),
         }))
       );
 
@@ -230,12 +249,24 @@ export const RevenueByGuests = ({ mainDateRange }: RevenueByGuestsProps) => {
                 >
                   Total {getSortIcon('total')}
                 </TableHead>
+                <TableHead 
+                  className="cursor-pointer hover:bg-muted/50"
+                  onClick={() => handleSort('paymentMethod')}
+                >
+                  Payment {getSortIcon('paymentMethod')}
+                </TableHead>
+                <TableHead 
+                  className="cursor-pointer hover:bg-muted/50"
+                  onClick={() => handleSort('currency')}
+                >
+                  Currency {getSortIcon('currency')}
+                </TableHead>
               </TableRow>
             </TableHeader>
             <TableBody>
               {filteredRevenues.length === 0 ? (
                 <TableRow>
-                  <TableCell colSpan={6} className="text-center text-muted-foreground">
+                  <TableCell colSpan={8} className="text-center text-muted-foreground">
                     No guest data for this period
                   </TableCell>
                 </TableRow>
@@ -248,6 +279,8 @@ export const RevenueByGuests = ({ mainDateRange }: RevenueByGuestsProps) => {
                     <TableCell>{revenue.nights}</TableCell>
                     <TableCell>${revenue.pricePerNight.toFixed(2)}</TableCell>
                     <TableCell className="font-semibold">${revenue.total.toFixed(2)}</TableCell>
+                    <TableCell>{revenue.paymentMethod}</TableCell>
+                    <TableCell>{revenue.currency}</TableCell>
                   </TableRow>
                 ))
               )}
