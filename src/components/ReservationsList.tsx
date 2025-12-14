@@ -511,7 +511,7 @@ export const ReservationsList = () => {
       </div>
 
       {/* Date Range, Payment, Source, and Export Filters */}
-      <div className="flex flex-col sm:flex-row gap-4 items-end flex-wrap">
+      <div className="flex flex-col sm:flex-row gap-4 items-start sm:items-end flex-wrap">
         <div className="space-y-2">
           <label className="text-sm font-medium">Date Range</label>
           <Popover>
