@@ -59,6 +59,7 @@ interface Reservation {
   contact_email: string | null;
   confirmation_email_status: string | null;
   confirmation_email_sent_at: string | null;
+  payment_method: string | null;
 }
 
 interface GroupedReservation extends Reservation {
@@ -160,7 +161,7 @@ export const ReservationsList = () => {
   const fetchReservations = async () => {
     const { data, error } = await supabase
       .from('reservations')
-      .select('id, booking_reference, check_in_date, check_out_date, nights, number_of_guests, guest_names, guest_nationality, status, source, price_per_night, total_price, commission_rate, commission_amount, net_revenue, currency, created_at, group_id, unit_id, contact_email, confirmation_email_status, confirmation_email_sent_at, units(name, unit_number)')
+      .select('id, booking_reference, check_in_date, check_out_date, nights, number_of_guests, guest_names, guest_nationality, status, source, price_per_night, total_price, commission_rate, commission_amount, net_revenue, currency, created_at, group_id, unit_id, contact_email, confirmation_email_status, confirmation_email_sent_at, payment_method, units(name, unit_number)')
       .order('check_in_date', { ascending: false });
 
     if (!error && data) {
@@ -411,6 +412,21 @@ export const ReservationsList = () => {
     link.download = `reservations_${format(new Date(), 'yyyy-MM-dd_HH-mm')}.csv`;
     link.click();
     toast.success(`Exported ${data.length} reservation(s) to CSV`);
+  };
+
+  const handlePaymentMethodChange = async (reservationId: string, paymentMethod: string) => {
+    const { error } = await supabase
+      .from('reservations')
+      .update({ payment_method: paymentMethod })
+      .eq('id', reservationId);
+
+    if (error) {
+      toast.error('Failed to update payment method');
+      console.error('Payment method update error:', error);
+    } else {
+      toast.success('Payment method updated');
+      fetchReservations();
+    }
   };
 
   return (
@@ -668,12 +684,13 @@ export const ReservationsList = () => {
                 Date Created {getSortIcon('created_at')}
               </TableHead>
               <TableHead>Email</TableHead>
+              <TableHead>Payment</TableHead>
             </TableRow>
           </TableHeader>
           <TableBody>
             {filteredReservations.length === 0 ? (
               <TableRow>
-                <TableCell colSpan={16} className="text-center text-muted-foreground">
+                <TableCell colSpan={17} className="text-center text-muted-foreground">
                   No reservations found
                 </TableCell>
               </TableRow>
@@ -824,6 +841,20 @@ export const ReservationsList = () => {
                         <span className="text-xs">Pending</span>
                       </span>
                     )}
+                  </TableCell>
+                  <TableCell onClick={(e) => e.stopPropagation()}>
+                    <Select
+                      value={reservation.payment_method || ''}
+                      onValueChange={(value) => handlePaymentMethodChange(reservation.id, value)}
+                    >
+                      <SelectTrigger className="w-[110px] h-8 text-xs">
+                        <SelectValue placeholder="Select..." />
+                      </SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="cash">Cash</SelectItem>
+                        <SelectItem value="credit_card">Credit Card</SelectItem>
+                      </SelectContent>
+                    </Select>
                   </TableCell>
                 </TableRow>
               ))
