@@ -83,6 +83,8 @@ const Analytics = () => {
     nights: number;
     guests: number;
     source: string;
+    paymentMethod: string;
+    currency: string;
   }>>([]);
   const [guestsDetails, setGuestsDetails] = useState<Array<{
     guestNames: string;
@@ -90,6 +92,8 @@ const Analytics = () => {
     unitName: string;
     checkIn: string;
     checkOut: string;
+    paymentMethod: string;
+    currency: string;
   }>>([]);
   const [showTotalRevenueDialog, setShowTotalRevenueDialog] = useState(false);
   const [totalRevenueDetails, setTotalRevenueDetails] = useState<Array<{
@@ -396,12 +400,27 @@ const Analytics = () => {
     setOccupancyDetails(details);
   };
 
+  const formatPaymentMethod = (method: string | null): string => {
+    if (!method) return '-';
+    return method.split('_').map(word => word.charAt(0).toUpperCase() + word.slice(1)).join(' ');
+  };
+
+  const getCurrencyLabel = (currency: string | null): string => {
+    switch (currency) {
+      case 'USD': return 'USD';
+      case 'EGP': return 'EGP';
+      case 'AED': return 'AED';
+      case 'SAR': return 'SAR';
+      default: return currency || '-';
+    }
+  };
+
   const fetchBookingsDetails = async () => {
     const { startDate, endDate } = getDateRange();
     
     const { data } = await supabase
       .from('reservations')
-      .select('guest_names, check_in_date, check_out_date, nights, number_of_guests, source, units(name)')
+      .select('guest_names, check_in_date, check_out_date, nights, number_of_guests, source, payment_method, currency, units(name)')
       .neq('status', 'Cancelled')
       .gte('check_in_date', startDate)
       .lte('check_in_date', endDate)
@@ -415,6 +434,8 @@ const Analytics = () => {
       nights: r.nights || 0,
       guests: r.number_of_guests,
       source: r.source,
+      paymentMethod: formatPaymentMethod(r.payment_method),
+      currency: getCurrencyLabel(r.currency),
     }));
 
     setBookingsDetails(details);
@@ -425,7 +446,7 @@ const Analytics = () => {
     
     const { data } = await supabase
       .from('reservations')
-      .select('guest_names, number_of_guests, check_in_date, check_out_date, units(name)')
+      .select('guest_names, number_of_guests, check_in_date, check_out_date, payment_method, currency, units(name)')
       .neq('status', 'Cancelled')
       .gte('check_in_date', startDate)
       .lte('check_in_date', endDate)
@@ -437,6 +458,8 @@ const Analytics = () => {
       unitName: r.units?.name || 'N/A',
       checkIn: format(new Date(r.check_in_date), 'MMM dd, yyyy'),
       checkOut: format(new Date(r.check_out_date), 'MMM dd, yyyy'),
+      paymentMethod: formatPaymentMethod(r.payment_method),
+      currency: getCurrencyLabel(r.currency),
     }));
 
     setGuestsDetails(details);
@@ -1147,12 +1170,14 @@ const Analytics = () => {
                   <TableHead className="text-right font-semibold">Nights</TableHead>
                   <TableHead className="text-right font-semibold">Guests</TableHead>
                   <TableHead className="font-semibold">Source</TableHead>
+                  <TableHead className="font-semibold">Payment</TableHead>
+                  <TableHead className="font-semibold">Currency</TableHead>
                 </TableRow>
               </TableHeader>
               <TableBody>
                 {bookingsDetails.length === 0 ? (
                   <TableRow>
-                    <TableCell colSpan={7} className="text-center text-muted-foreground py-8">
+                    <TableCell colSpan={9} className="text-center text-muted-foreground py-8">
                       No bookings found for this period
                     </TableCell>
                   </TableRow>
@@ -1176,6 +1201,8 @@ const Analytics = () => {
                             {booking.source}
                           </span>
                         </TableCell>
+                        <TableCell>{booking.paymentMethod}</TableCell>
+                        <TableCell>{booking.currency}</TableCell>
                       </TableRow>
                     ))}
                     <TableRow className="bg-muted/50 font-semibold">
@@ -1186,7 +1213,7 @@ const Analytics = () => {
                       <TableCell className="text-right">
                         {bookingsDetails.reduce((sum, b) => sum + b.guests, 0)}
                       </TableCell>
-                      <TableCell></TableCell>
+                      <TableCell colSpan={3}></TableCell>
                     </TableRow>
                   </>
                 )}
@@ -1211,12 +1238,14 @@ const Analytics = () => {
                   <TableHead className="font-semibold">Unit</TableHead>
                   <TableHead className="font-semibold">Check-in</TableHead>
                   <TableHead className="font-semibold">Check-out</TableHead>
+                  <TableHead className="font-semibold">Payment</TableHead>
+                  <TableHead className="font-semibold">Currency</TableHead>
                 </TableRow>
               </TableHeader>
               <TableBody>
                 {guestsDetails.length === 0 ? (
                   <TableRow>
-                    <TableCell colSpan={5} className="text-center text-muted-foreground py-8">
+                    <TableCell colSpan={7} className="text-center text-muted-foreground py-8">
                       No guest data available
                     </TableCell>
                   </TableRow>
@@ -1233,6 +1262,8 @@ const Analytics = () => {
                         <TableCell>{guest.unitName}</TableCell>
                         <TableCell>{guest.checkIn}</TableCell>
                         <TableCell>{guest.checkOut}</TableCell>
+                        <TableCell>{guest.paymentMethod}</TableCell>
+                        <TableCell>{guest.currency}</TableCell>
                       </TableRow>
                     ))}
                     <TableRow className="bg-muted/50 font-semibold">
@@ -1240,7 +1271,7 @@ const Analytics = () => {
                       <TableCell className="text-right text-teal-600">
                         {guestsDetails.reduce((sum, g) => sum + g.numberOfGuests, 0)}
                       </TableCell>
-                      <TableCell colSpan={3}></TableCell>
+                      <TableCell colSpan={5}></TableCell>
                     </TableRow>
                   </>
                 )}

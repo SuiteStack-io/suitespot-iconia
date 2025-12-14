@@ -36,6 +36,8 @@ interface BookingDetail {
   checkOutDate?: string;
   nights?: number;
   commission?: number;
+  paymentMethod?: string;
+  currency?: string;
 }
 
 interface SourceRevenue {
@@ -108,10 +110,25 @@ export const RevenueBySource = () => {
     }
   }, [selectedSource, revenueBySource]);
 
+  const formatPaymentMethod = (method: string | null): string => {
+    if (!method) return '-';
+    return method.split('_').map(word => word.charAt(0).toUpperCase() + word.slice(1)).join(' ');
+  };
+
+  const getCurrencyLabel = (currency: string | null): string => {
+    switch (currency) {
+      case 'USD': return 'USD';
+      case 'EGP': return 'EGP';
+      case 'AED': return 'AED';
+      case 'SAR': return 'SAR';
+      default: return currency || '-';
+    }
+  };
+
   const fetchRevenueBySource = async () => {
     const { data, error } = await supabase
       .from('reservations')
-      .select('source, total_price, commission_amount, net_revenue, guest_names, check_in_date, check_out_date, nights')
+      .select('source, total_price, commission_amount, net_revenue, guest_names, check_in_date, check_out_date, nights, payment_method, currency')
       .neq('status', 'Cancelled');
 
     if (error) {
@@ -154,6 +171,8 @@ export const RevenueBySource = () => {
           checkOutDate: reservation.check_out_date,
           nights: reservation.nights || 0,
           commission: reservation.commission_amount || 0,
+          paymentMethod: formatPaymentMethod(reservation.payment_method),
+          currency: getCurrencyLabel(reservation.currency),
         });
         sourceMap[source].guestNames?.push(reservation.guest_names[0]);
       }
@@ -433,6 +452,8 @@ export const RevenueBySource = () => {
                 <TableHead className="text-right">Commission Rate</TableHead>
                 <TableHead className="text-right">Commission</TableHead>
                 <TableHead className="text-right font-semibold">Net Revenue</TableHead>
+                <TableHead className="text-right">Payment</TableHead>
+                <TableHead className="text-right">Currency</TableHead>
               </TableRow>
             </TableHeader>
             <TableBody>
@@ -466,6 +487,8 @@ export const RevenueBySource = () => {
                     <TableCell className="text-right text-green-600 font-semibold">
                       ${bookingComTotal.netRevenue.toFixed(2)}
                     </TableCell>
+                    <TableCell className="text-right">-</TableCell>
+                    <TableCell className="text-right">-</TableCell>
                   </TableRow>
                   
                   {/* Individual Booking.com Reservations by Guest */}
@@ -489,6 +512,12 @@ export const RevenueBySource = () => {
                       </TableCell>
                       <TableCell className="text-right text-muted-foreground">
                         ${booking.netRevenue.toFixed(2)}
+                      </TableCell>
+                      <TableCell className="text-right text-muted-foreground">
+                        {booking.paymentMethod || '-'}
+                      </TableCell>
+                      <TableCell className="text-right text-muted-foreground">
+                        {booking.currency || '-'}
                       </TableCell>
                     </TableRow>
                   ))}
@@ -525,6 +554,8 @@ export const RevenueBySource = () => {
                     <TableCell className="text-right text-green-600 font-semibold">
                       ${directTotal.netRevenue.toFixed(2)}
                     </TableCell>
+                    <TableCell className="text-right">-</TableCell>
+                    <TableCell className="text-right">-</TableCell>
                   </TableRow>
                   
                   {/* Direct Breakdown by Team Member */}
@@ -551,6 +582,8 @@ export const RevenueBySource = () => {
                         <TableCell className="text-right text-muted-foreground">
                           ${source.netRevenue.toFixed(2)}
                         </TableCell>
+                        <TableCell className="text-right text-muted-foreground">-</TableCell>
+                        <TableCell className="text-right text-muted-foreground">-</TableCell>
                       </TableRow>
                     );
                   })}
@@ -570,6 +603,8 @@ export const RevenueBySource = () => {
                 <TableCell className="text-right text-green-600">
                   ${totals.netRevenue.toFixed(2)}
                 </TableCell>
+                <TableCell className="text-right">-</TableCell>
+                <TableCell className="text-right">-</TableCell>
               </TableRow>
             </TableBody>
           </Table>
@@ -633,6 +668,8 @@ export const RevenueBySource = () => {
                       <TableHead className="text-right">Revenue</TableHead>
                       <TableHead className="text-right">Commission</TableHead>
                       <TableHead className="text-right">Net</TableHead>
+                      <TableHead>Payment</TableHead>
+                      <TableHead>Currency</TableHead>
                     </TableRow>
                   </TableHeader>
                   <TableBody>
@@ -649,6 +686,8 @@ export const RevenueBySource = () => {
                         <TableCell className="text-right">${booking.totalPrice.toFixed(2)}</TableCell>
                         <TableCell className="text-right text-amber-600">${(booking.commission || 0).toFixed(2)}</TableCell>
                         <TableCell className="text-right text-green-600">${booking.netRevenue.toFixed(2)}</TableCell>
+                        <TableCell>{booking.paymentMethod || '-'}</TableCell>
+                        <TableCell>{booking.currency || '-'}</TableCell>
                       </TableRow>
                     ))}
                   </TableBody>
