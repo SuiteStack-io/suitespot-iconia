@@ -90,6 +90,12 @@ interface Reservation {
 
 const STATUS_OPTIONS = ['available', 'occupied', 'maintenance', 'reserved'];
 
+// Calculate weekend rate: 10% higher than weekday rate, rounded up to nearest $5
+const calculateWeekendRate = (weekdayRate: number | null): number | null => {
+  if (!weekdayRate || weekdayRate <= 0) return null;
+  return Math.ceil((weekdayRate * 1.10) / 5) * 5;
+};
+
 const Rooms = () => {
   const { user, loading, userRole } = useAuth();
   const navigate = useNavigate();
@@ -1016,7 +1022,14 @@ const Rooms = () => {
                       type="number"
                       step="0.01"
                       value={newUnit.price_per_night || ''}
-                      onChange={(e) => setNewUnit({ ...newUnit, price_per_night: e.target.value ? parseFloat(e.target.value) : null })}
+                      onChange={(e) => {
+                        const weekdayRate = e.target.value ? parseFloat(e.target.value) : null;
+                        setNewUnit({ 
+                          ...newUnit, 
+                          price_per_night: weekdayRate,
+                          weekend_rate: calculateWeekendRate(weekdayRate)
+                        });
+                      }}
                       placeholder="Weekday"
                     />
                   </TableCell>
@@ -1329,11 +1342,19 @@ const Rooms = () => {
                           type="number"
                           step="0.01"
                           value={isBulkEdit ? (bulkEditUnits[unit.id]?.price_per_night ?? '') : (editedUnit.price_per_night ?? '')}
-                          onChange={(e) =>
-                            isBulkEdit
-                              ? handleBulkEditChange(unit.id, 'price_per_night', e.target.value ? parseFloat(e.target.value) : null)
-                              : setEditedUnit({ ...editedUnit, price_per_night: e.target.value ? parseFloat(e.target.value) : null })
-                          }
+                          onChange={(e) => {
+                            const weekdayRate = e.target.value ? parseFloat(e.target.value) : null;
+                            if (isBulkEdit) {
+                              handleBulkEditChange(unit.id, 'price_per_night', weekdayRate);
+                              handleBulkEditChange(unit.id, 'weekend_rate', calculateWeekendRate(weekdayRate));
+                            } else {
+                              setEditedUnit({ 
+                                ...editedUnit, 
+                                price_per_night: weekdayRate,
+                                weekend_rate: calculateWeekendRate(weekdayRate)
+                              });
+                            }
+                          }}
                           placeholder="Weekday"
                         />
                       ) : (
