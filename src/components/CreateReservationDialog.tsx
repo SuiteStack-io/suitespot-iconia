@@ -163,6 +163,7 @@ interface Unit {
   unit_number: string | null;
   unit_type: string | null;
   price_per_night: number | null;
+  weekend_rate: number | null;
   tax_percentage: number | null;
 }
 
@@ -480,7 +481,7 @@ export function CreateReservationDialog() {
   const fetchUnits = async () => {
     const { data, error } = await supabase
       .from("units")
-      .select("id, name, unit_number, unit_type, price_per_night, tax_percentage")
+      .select("id, name, unit_number, unit_type, price_per_night, weekend_rate, tax_percentage")
       .order("name");
 
     if (error) {

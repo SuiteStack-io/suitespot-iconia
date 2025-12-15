@@ -108,6 +108,7 @@ interface Unit {
   unit_size: string | null;
   sofa_bed: boolean | null;
   price_per_night: number | null;
+  weekend_rate: number | null;
   tax_percentage: number | null;
   photos: string[] | null;
 }
@@ -195,7 +196,7 @@ const BookingFlow = () => {
         if (preSelectedUnitId) {
           const { data: unit, error: unitError } = await supabase
             .from("units")
-            .select("id, name, unit_type, unit_number, status, beds, baths, max_guests, unit_size, sofa_bed, price_per_night, tax_percentage, photos")
+            .select("id, name, unit_type, unit_number, status, beds, baths, max_guests, unit_size, sofa_bed, price_per_night, weekend_rate, tax_percentage, photos")
             .eq("id", preSelectedUnitId)
             .eq("is_private", false)
             .eq("location", "ICONIA")
@@ -207,7 +208,7 @@ const BookingFlow = () => {
           // If a unit type is pre-selected, fetch all units of that type
           let query = supabase
             .from("units")
-            .select("id, name, unit_type, unit_number, status, beds, baths, max_guests, unit_size, sofa_bed, price_per_night, tax_percentage, photos")
+            .select("id, name, unit_type, unit_number, status, beds, baths, max_guests, unit_size, sofa_bed, price_per_night, weekend_rate, tax_percentage, photos")
             .eq("status", "available")
             .eq("unit_type", preSelectedUnitType)
             .eq("is_private", false)
@@ -273,7 +274,7 @@ const BookingFlow = () => {
           // Get all units if no pre-selection
           const { data: allUnits, error: unitsError } = await supabase
             .from("units")
-            .select("id, name, unit_type, unit_number, status, beds, baths, max_guests, unit_size, sofa_bed, price_per_night, tax_percentage, photos")
+            .select("id, name, unit_type, unit_number, status, beds, baths, max_guests, unit_size, sofa_bed, price_per_night, weekend_rate, tax_percentage, photos")
             .eq("status", "available")
             .eq("is_private", false)
             .eq("location", "ICONIA")
@@ -583,13 +584,30 @@ const BookingFlow = () => {
     return Math.ceil(diff / (1000 * 60 * 60 * 24));
   };
 
+  // Helper function to check if a date is a weekend day (Thu=4, Fri=5, Sat=6)
+  const isWeekendDay = (date: Date): boolean => {
+    const day = date.getDay();
+    return day === 4 || day === 5 || day === 6; // Thursday, Friday, Saturday
+  };
+
   const calculateSubtotal = () => {
     const unit = units.find(u => u.id === selectedUnit);
-    if (!unit?.price_per_night) return 0;
-    const nights = calculateNights();
-    let subtotal = unit.price_per_night * nights;
+    if (!unit?.price_per_night || !dateRange?.from || !dateRange?.to) return 0;
+    
+    let subtotal = 0;
+    const startDate = new Date(dateRange.from);
+    const endDate = new Date(dateRange.to);
+    
+    // Calculate price for each night based on day of week
+    for (let d = new Date(startDate); d < endDate; d.setDate(d.getDate() + 1)) {
+      const rate = isWeekendDay(d) && unit.weekend_rate 
+        ? unit.weekend_rate 
+        : unit.price_per_night;
+      subtotal += rate;
+    }
     
     // Add $50 per night for third adult guest
+    const nights = calculateNights();
     if (adults === 3) {
       subtotal += 50 * nights;
     }

@@ -1202,6 +1202,7 @@ export type Database = {
           unit_type: string | null
           updated_at: string
           view: string | null
+          weekend_rate: number | null
         }
         Insert: {
           address?: string | null
@@ -1234,6 +1235,7 @@ export type Database = {
           unit_type?: string | null
           updated_at?: string
           view?: string | null
+          weekend_rate?: number | null
         }
         Update: {
           address?: string | null
@@ -1266,6 +1268,7 @@ export type Database = {
           unit_type?: string | null
           updated_at?: string
           view?: string | null
+          weekend_rate?: number | null
         }
         Relationships: []
       }

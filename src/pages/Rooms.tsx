@@ -73,6 +73,7 @@ interface Unit {
   max_guests: number | null;
   sofa_bed: boolean | null;
   price_per_night: number | null;
+  weekend_rate: number | null;
   tax_percentage: number | null;
   photos: string[] | null;
   view: string | null;
@@ -114,6 +115,7 @@ const Rooms = () => {
     max_guests: null,
     sofa_bed: false,
     price_per_night: null,
+    weekend_rate: null,
     tax_percentage: 14.00,
     photos: [],
     view: null,
@@ -464,6 +466,7 @@ const Rooms = () => {
           max_guests,
           sofa_bed,
           price_per_night,
+          weekend_rate,
           tax_percentage,
           view
         } = unit;
@@ -484,6 +487,7 @@ const Rooms = () => {
             max_guests,
             sofa_bed,
             price_per_night,
+            weekend_rate,
             tax_percentage,
             view
           })
@@ -555,6 +559,7 @@ const Rooms = () => {
       max_guests: newUnit.max_guests || null,
       sofa_bed: newUnit.sofa_bed || false,
       price_per_night: newUnit.price_per_night || null,
+      weekend_rate: newUnit.weekend_rate || null,
       tax_percentage: newUnit.tax_percentage || 14.00,
       location: 'ICONIA',
     }]);
@@ -587,6 +592,7 @@ const Rooms = () => {
       max_guests: null,
       sofa_bed: false,
       price_per_night: null,
+      weekend_rate: null,
       tax_percentage: 14.00,
       photos: [],
       location: 'ICONIA',
@@ -642,6 +648,7 @@ const Rooms = () => {
         max_guests: roomToClone.max_guests,
         sofa_bed: roomToClone.sofa_bed,
         price_per_night: roomToClone.price_per_night,
+        weekend_rate: roomToClone.weekend_rate,
         tax_percentage: roomToClone.tax_percentage,
         photos: roomToClone.photos || [],
         view: roomToClone.view,
@@ -914,7 +921,8 @@ const Rooms = () => {
                   <th className="h-10 px-2 text-left align-middle font-medium text-muted-foreground min-w-[80px] bg-background">Baths</th>
                   <th className="h-10 px-2 text-left align-middle font-medium text-muted-foreground min-w-[100px] bg-background">Max Guests</th>
                   <th className="h-10 px-2 text-left align-middle font-medium text-muted-foreground min-w-[100px] bg-background">Sofa Bed</th>
-                  <th className="h-10 px-2 text-left align-middle font-medium text-muted-foreground min-w-[110px] bg-background">Price/Night</th>
+                  <th className="h-10 px-2 text-left align-middle font-medium text-muted-foreground min-w-[110px] bg-background">Weekday Rate</th>
+                  <th className="h-10 px-2 text-left align-middle font-medium text-muted-foreground min-w-[110px] bg-background">Weekend Rate</th>
                   <th className="h-10 px-2 text-left align-middle font-medium text-muted-foreground min-w-[80px] bg-background">Tax %</th>
                   <th className="h-10 px-2 text-left align-middle font-medium text-muted-foreground min-w-[160px] bg-background">Photos</th>
                   <th className="h-10 px-2 text-left align-middle font-medium text-muted-foreground min-w-[120px] bg-background">Status</th>
@@ -1009,7 +1017,16 @@ const Rooms = () => {
                       step="0.01"
                       value={newUnit.price_per_night || ''}
                       onChange={(e) => setNewUnit({ ...newUnit, price_per_night: e.target.value ? parseFloat(e.target.value) : null })}
-                      placeholder="Price"
+                      placeholder="Weekday"
+                    />
+                  </TableCell>
+                  <TableCell>
+                    <Input
+                      type="number"
+                      step="0.01"
+                      value={newUnit.weekend_rate || ''}
+                      onChange={(e) => setNewUnit({ ...newUnit, weekend_rate: e.target.value ? parseFloat(e.target.value) : null })}
+                      placeholder="Weekend"
                     />
                   </TableCell>
                   <TableCell>
@@ -1077,6 +1094,7 @@ const Rooms = () => {
                             max_guests: null,
                             sofa_bed: false,
                             price_per_night: null,
+                            weekend_rate: null,
                             tax_percentage: 14.00,
                             photos: [],
                           });
@@ -1316,10 +1334,28 @@ const Rooms = () => {
                               ? handleBulkEditChange(unit.id, 'price_per_night', e.target.value ? parseFloat(e.target.value) : null)
                               : setEditedUnit({ ...editedUnit, price_per_night: e.target.value ? parseFloat(e.target.value) : null })
                           }
-                          placeholder="Price"
+                          placeholder="Weekday"
                         />
                       ) : (
                         unit.price_per_night ? `$${unit.price_per_night}` : '-'
+                      )}
+                    </TableCell>
+                    <TableCell className="min-w-[110px]">
+                      {isEditing ? (
+                        <Input
+                          className="w-full min-w-[90px]"
+                          type="number"
+                          step="0.01"
+                          value={isBulkEdit ? (bulkEditUnits[unit.id]?.weekend_rate ?? '') : (editedUnit.weekend_rate ?? '')}
+                          onChange={(e) =>
+                            isBulkEdit
+                              ? handleBulkEditChange(unit.id, 'weekend_rate', e.target.value ? parseFloat(e.target.value) : null)
+                              : setEditedUnit({ ...editedUnit, weekend_rate: e.target.value ? parseFloat(e.target.value) : null })
+                          }
+                          placeholder="Weekend"
+                        />
+                      ) : (
+                        unit.weekend_rate ? `$${unit.weekend_rate}` : '-'
                       )}
                     </TableCell>
                     <TableCell className="min-w-[80px]">
