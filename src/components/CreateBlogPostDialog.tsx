@@ -6,8 +6,7 @@ import { Textarea } from '@/components/ui/textarea';
 import { Label } from '@/components/ui/label';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from '@/components/ui/collapsible';
-import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
-import { Plus, Loader2, Upload, X, Image as ImageIcon, HelpCircle, ChevronDown, Bold, Italic, Type, Eye, Edit, Link, Undo2, Redo2, List, ListOrdered } from 'lucide-react';
+import { Plus, Loader2, Upload, X, Image as ImageIcon, HelpCircle, ChevronDown, Bold, Italic, Type, Link, Undo2, Redo2, List, ListOrdered } from 'lucide-react';
 import { supabase } from '@/integrations/supabase/client';
 import { toast } from 'sonner';
 import { Progress } from '@/components/ui/progress';
@@ -489,7 +488,7 @@ export function CreateBlogPostDialog({ onPostCreated, editPost, open, onOpenChan
             <div className="space-y-2">
               <Label htmlFor="content">Main Content</Label>
               
-              <Tabs defaultValue="write" className="w-full">
+              <div className="w-full">
                 <div className="flex items-center justify-between gap-2 mb-2">
                   {/* Formatting Toolbar */}
                   <div className="flex items-center gap-1 p-1 border rounded-md bg-muted/30 w-fit">
@@ -596,44 +595,40 @@ export function CreateBlogPostDialog({ onPostCreated, editPost, open, onOpenChan
                       <Redo2 className="h-4 w-4" />
                     </Button>
                   </div>
-                  
-                  {/* Write/Preview Toggle */}
-                  <TabsList className="h-8">
-                    <TabsTrigger value="write" className="h-7 px-3 gap-1 text-xs">
-                      <Edit className="h-3 w-3" />
-                      Write
-                    </TabsTrigger>
-                    <TabsTrigger value="preview" className="h-7 px-3 gap-1 text-xs">
-                      <Eye className="h-3 w-3" />
-                      Preview
-                    </TabsTrigger>
-                  </TabsList>
                 </div>
                 
-                <TabsContent value="write" className="mt-0">
-                  <Textarea
-                    id="content"
-                    ref={contentTextareaRef}
-                    value={content}
-                    onChange={(e) => setContent(e.target.value)}
-                    onKeyDown={handleKeyDown}
-                    placeholder="Write your blog post content here... (Ctrl+B bold, Ctrl+I italic, Ctrl+K link)"
-                    rows={10}
-                  />
-                </TabsContent>
-                
-                <TabsContent value="preview" className="mt-0">
-                  <div className="min-h-[240px] max-h-[300px] overflow-y-auto p-4 border rounded-md bg-background">
-                    {content ? (
-                      <BlogContentRenderer content={content} className="prose prose-sm max-w-none" />
-                    ) : (
-                      <p className="text-muted-foreground text-sm italic">
-                        Start writing to see preview...
-                      </p>
-                    )}
+                {/* Side-by-Side Editor and Preview */}
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                  {/* Left: Markdown Editor */}
+                  <div className="space-y-2">
+                    <Label className="text-xs text-muted-foreground">Write</Label>
+                    <Textarea
+                      id="content"
+                      ref={contentTextareaRef}
+                      value={content}
+                      onChange={(e) => setContent(e.target.value)}
+                      onKeyDown={handleKeyDown}
+                      placeholder="Write your blog post content here..."
+                      rows={12}
+                      className="font-mono text-sm"
+                    />
                   </div>
-                </TabsContent>
-              </Tabs>
+                  
+                  {/* Right: Live Preview */}
+                  <div className="space-y-2">
+                    <Label className="text-xs text-muted-foreground">Preview</Label>
+                    <div className="min-h-[288px] max-h-[288px] overflow-y-auto p-4 border rounded-md bg-muted/30">
+                      {content ? (
+                        <BlogContentRenderer content={content} className="prose prose-sm max-w-none" />
+                      ) : (
+                        <p className="text-muted-foreground text-sm italic">
+                          Start writing to see live preview...
+                        </p>
+                      )}
+                    </div>
+                  </div>
+                </div>
+              </div>
               
               {/* Content Stats */}
               {content && (
