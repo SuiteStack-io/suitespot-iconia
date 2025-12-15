@@ -581,8 +581,11 @@ export function CreateReservationDialog() {
     return unit?.price_per_night ?? null;
   };
 
-  // Check if room price is valid (>= minimum)
+  // Check if room price is valid (>= minimum, unless admin)
   const isRoomPriceValid = (roomIndex: number): boolean => {
+    // Admin users can set any price
+    if (userRole === 'admin') return true;
+    
     const price = roomPrices[roomIndex];
     const minPrice = getMinPriceForRoom(roomIndex);
     if (minPrice === null || price === "") return true;
@@ -1310,16 +1313,16 @@ export function CreateReservationDialog() {
                     value={roomPrices[roomIndex]}
                     onChange={(e) => updateRoomPrice(roomIndex, e.target.value ? Number(e.target.value) : "")}
                     placeholder="Enter price"
-                    min={getMinPriceForRoom(roomIndex) || 0}
+                    min={userRole === 'admin' ? 0 : (getMinPriceForRoom(roomIndex) || 0)}
                     step="1"
-                    className={cn(!isRoomPriceValid(roomIndex) && "border-destructive focus-visible:ring-destructive")}
+                    className={cn(!isRoomPriceValid(roomIndex) && userRole !== 'admin' && "border-destructive focus-visible:ring-destructive")}
                   />
-                  {getMinPriceForRoom(roomIndex) !== null && (
+                  {getMinPriceForRoom(roomIndex) !== null && userRole !== 'admin' && (
                     <p className="text-xs text-muted-foreground">
                       Min: ${getMinPriceForRoom(roomIndex)?.toFixed(2)}
                     </p>
                   )}
-                  {!isRoomPriceValid(roomIndex) && (
+                  {!isRoomPriceValid(roomIndex) && userRole !== 'admin' && (
                     <p className="text-xs text-destructive">
                       Price must be at least ${getMinPriceForRoom(roomIndex)?.toFixed(2)} for this room
                     </p>
