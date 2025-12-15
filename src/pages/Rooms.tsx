@@ -1376,7 +1376,11 @@ const Rooms = () => {
                           placeholder="Weekend"
                         />
                       ) : (
-                        unit.weekend_rate ? `$${unit.weekend_rate}` : '-'
+                        unit.weekend_rate 
+                          ? `$${unit.weekend_rate}` 
+                          : unit.price_per_night 
+                            ? <span className="text-muted-foreground italic">${calculateWeekendRate(unit.price_per_night)} <span className="text-xs">(auto)</span></span>
+                            : '-'
                       )}
                     </TableCell>
                     <TableCell className="min-w-[80px]">
