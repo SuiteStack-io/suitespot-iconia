@@ -208,6 +208,14 @@ export function CreateBlogPostDialog({ onPostCreated, editPost, open, onOpenChan
           e.preventDefault();
           redo();
           break;
+        case 'u':
+          e.preventDefault();
+          insertBulletList();
+          break;
+        case 'o':
+          e.preventDefault();
+          insertNumberedList();
+          break;
       }
     }
   };
@@ -546,7 +554,7 @@ export function CreateBlogPostDialog({ onPostCreated, editPost, open, onOpenChan
                       size="sm"
                       className="h-8 w-8 p-0"
                       onClick={insertBulletList}
-                      title="Bullet list (- item)"
+                      title="Bullet list (Ctrl+U / ⌘U)"
                     >
                       <List className="h-4 w-4" />
                     </Button>
@@ -557,7 +565,7 @@ export function CreateBlogPostDialog({ onPostCreated, editPost, open, onOpenChan
                       size="sm"
                       className="h-8 w-8 p-0"
                       onClick={insertNumberedList}
-                      title="Numbered list (1. item)"
+                      title="Numbered list (Ctrl+O / ⌘O)"
                     >
                       <ListOrdered className="h-4 w-4" />
                     </Button>
