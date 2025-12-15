@@ -151,15 +151,29 @@ export function CreateBlogPostDialog({ onPostCreated, editPost, open, onOpenChan
     if (!textarea) return;
 
     const start = textarea.selectionStart;
-    const beforeCursor = content.substring(0, start);
-    const lineStart = beforeCursor.lastIndexOf('\n') + 1;
+    const end = textarea.selectionEnd;
     
-    const newText = content.substring(0, lineStart) + '- ' + content.substring(lineStart);
+    const beforeStart = content.substring(0, start);
+    const lineStart = beforeStart.lastIndexOf('\n') + 1;
+    const afterEnd = content.substring(end);
+    const lineEndOffset = afterEnd.indexOf('\n');
+    const lineEnd = lineEndOffset === -1 ? content.length : end + lineEndOffset;
+    
+    const selectedContent = content.substring(lineStart, lineEnd);
+    const lines = selectedContent.split('\n');
+    
+    const formattedLines = lines.map(line => {
+      if (line.startsWith('- ')) {
+        return line.substring(2);
+      }
+      return '- ' + line;
+    });
+    
+    const newText = content.substring(0, lineStart) + formattedLines.join('\n') + content.substring(lineEnd);
     updateContentWithHistory(newText);
     
     setTimeout(() => {
       textarea.focus();
-      textarea.setSelectionRange(lineStart + 2, lineStart + 2);
     }, 0);
   };
 
@@ -168,15 +182,31 @@ export function CreateBlogPostDialog({ onPostCreated, editPost, open, onOpenChan
     if (!textarea) return;
 
     const start = textarea.selectionStart;
-    const beforeCursor = content.substring(0, start);
-    const lineStart = beforeCursor.lastIndexOf('\n') + 1;
+    const end = textarea.selectionEnd;
     
-    const newText = content.substring(0, lineStart) + '1. ' + content.substring(lineStart);
+    const beforeStart = content.substring(0, start);
+    const lineStart = beforeStart.lastIndexOf('\n') + 1;
+    const afterEnd = content.substring(end);
+    const lineEndOffset = afterEnd.indexOf('\n');
+    const lineEnd = lineEndOffset === -1 ? content.length : end + lineEndOffset;
+    
+    const selectedContent = content.substring(lineStart, lineEnd);
+    const lines = selectedContent.split('\n');
+    
+    let number = 1;
+    const formattedLines = lines.map(line => {
+      const numberedMatch = line.match(/^\d+\.\s/);
+      if (numberedMatch) {
+        return line.substring(numberedMatch[0].length);
+      }
+      return `${number++}. ` + line;
+    });
+    
+    const newText = content.substring(0, lineStart) + formattedLines.join('\n') + content.substring(lineEnd);
     updateContentWithHistory(newText);
     
     setTimeout(() => {
       textarea.focus();
-      textarea.setSelectionRange(lineStart + 3, lineStart + 3);
     }, 0);
   };
 
