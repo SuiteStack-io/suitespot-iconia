@@ -383,7 +383,7 @@ export function CreateBlogPostDialog({ onPostCreated, editPost, open, onOpenChan
           </Button>
         </DialogTrigger>
       )}
-      <DialogContent className="max-w-2xl max-h-[90vh] overflow-y-auto">
+      <DialogContent className="max-w-5xl max-h-[90vh] overflow-y-auto">
         <DialogHeader>
           <DialogTitle className="font-playfair text-2xl">
             {editPost ? 'Edit Blog Post' : 'Create New Blog Post'}
