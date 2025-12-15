@@ -623,6 +623,37 @@ const BookingFlow = () => {
     return 0;
   };
 
+  // Get detailed breakdown of weekday vs weekend nights
+  const getRateBreakdown = () => {
+    const unit = units.find(u => u.id === selectedUnit);
+    if (!unit?.price_per_night || !dateRange?.from || !dateRange?.to) {
+      return { weekdayNights: 0, weekendNights: 0, weekdayRate: 0, weekendRate: 0, dailyBreakdown: [] as { date: Date; isWeekend: boolean; rate: number }[] };
+    }
+
+    const dailyBreakdown: { date: Date; isWeekend: boolean; rate: number }[] = [];
+    let weekdayNights = 0;
+    let weekendNights = 0;
+
+    for (let d = new Date(dateRange.from); d < dateRange.to; d.setDate(d.getDate() + 1)) {
+      const isWeekend = isWeekendDay(d);
+      const rate = isWeekend && unit.weekend_rate ? unit.weekend_rate : unit.price_per_night;
+      dailyBreakdown.push({ date: new Date(d), isWeekend, rate });
+      if (isWeekend && unit.weekend_rate) {
+        weekendNights++;
+      } else {
+        weekdayNights++;
+      }
+    }
+
+    return {
+      weekdayNights,
+      weekendNights,
+      weekdayRate: unit.price_per_night,
+      weekendRate: unit.weekend_rate || unit.price_per_night,
+      dailyBreakdown
+    };
+  };
+
   const calculateTax = () => {
     const unit = units.find(u => u.id === selectedUnit);
     const subtotal = calculateSubtotal();
@@ -1492,45 +1523,92 @@ const BookingFlow = () => {
                     </div>
                   )}
 
-                  {units.find(u => u.id === selectedUnit)?.price_per_night && (
-                    <div className="border-t pt-4">
-                      <div className="space-y-2">
-                        <div className="flex justify-between">
-                          <span className="text-sm text-muted-foreground">Price per night:</span>
-                          <span className="font-medium">${units.find(u => u.id === selectedUnit)?.price_per_night}</span>
-                        </div>
-                        <div className="flex justify-between">
-                          <span className="text-sm text-muted-foreground">{calculateNights()} nights:</span>
-                          <span className="text-sm">${units.find(u => u.id === selectedUnit)?.price_per_night} × {calculateNights()}</span>
-                        </div>
-                        {adults === 3 && (
-                          <div className="flex justify-between">
-                            <span className="text-sm text-muted-foreground">Third guest fee:</span>
-                            <span className="text-sm">$50 × {calculateNights()}</span>
-                          </div>
-                        )}
-                        <div className="border-t pt-3 mt-3 space-y-2">
-                          <div className="flex justify-between items-center">
-                            <span className="font-bold uppercase">Price:</span>
-                            <span className="font-bold text-lg">${calculateSubtotal().toFixed(2)}</span>
-                          </div>
-                          <div className="flex justify-between items-center">
-                            <span className="font-bold uppercase">Tax ({units.find(u => u.id === selectedUnit)?.tax_percentage || 14}%):</span>
-                            <span className="font-bold text-lg">${calculateTax().toFixed(2)}</span>
-                          </div>
-                          <div className="flex justify-between items-center border-t pt-3 mt-2">
-                            <span className="font-bold text-lg uppercase">Grand Total:</span>
-                            <span className="text-3xl font-bold text-accent">${calculateTotalPrice().toFixed(2)}</span>
-                          </div>
-                          <div className="mt-3 pt-3 border-t">
-                            <p className="text-xs text-foreground leading-relaxed text-center italic">
-                              All rates are based on double occupancy, with a maximum room capacity of 3 people. A third guest (age 18+) may stay in room, based on availability, for $50 USD (including taxes). Children are free of charge.
-                            </p>
+                  {units.find(u => u.id === selectedUnit)?.price_per_night && (() => {
+                    const unit = units.find(u => u.id === selectedUnit);
+                    const breakdown = getRateBreakdown();
+                    const hasWeekendRate = unit?.weekend_rate && breakdown.weekendNights > 0;
+                    
+                    return (
+                      <div className="border-t pt-4">
+                        <div className="space-y-3">
+                          {/* Rate Header */}
+                          {hasWeekendRate ? (
+                            <div className="bg-muted/50 rounded-lg p-3 space-y-1">
+                              <div className="flex justify-between text-sm">
+                                <span className="text-muted-foreground">Weekday Rate (Sun–Wed):</span>
+                                <span className="font-medium">${breakdown.weekdayRate}/night</span>
+                              </div>
+                              <div className="flex justify-between text-sm">
+                                <span className="text-muted-foreground">Weekend Rate (Thu–Sat):</span>
+                                <span className="font-medium text-amber-600">${breakdown.weekendRate}/night</span>
+                              </div>
+                            </div>
+                          ) : (
+                            <div className="flex justify-between">
+                              <span className="text-sm text-muted-foreground">Rate per night:</span>
+                              <span className="font-medium">${unit?.price_per_night}/night</span>
+                            </div>
+                          )}
+
+                          {/* Nightly Breakdown */}
+                          {hasWeekendRate ? (
+                            <div className="space-y-2">
+                              {breakdown.weekdayNights > 0 && (
+                                <div className="flex justify-between text-sm">
+                                  <span className="text-muted-foreground">
+                                    {breakdown.weekdayNights} weekday night{breakdown.weekdayNights !== 1 ? 's' : ''} × ${breakdown.weekdayRate}
+                                  </span>
+                                  <span>${(breakdown.weekdayNights * breakdown.weekdayRate).toFixed(2)}</span>
+                                </div>
+                              )}
+                              {breakdown.weekendNights > 0 && (
+                                <div className="flex justify-between text-sm">
+                                  <span className="text-amber-600">
+                                    {breakdown.weekendNights} weekend night{breakdown.weekendNights !== 1 ? 's' : ''} × ${breakdown.weekendRate}
+                                  </span>
+                                  <span className="text-amber-600">${(breakdown.weekendNights * breakdown.weekendRate).toFixed(2)}</span>
+                                </div>
+                              )}
+                            </div>
+                          ) : (
+                            <div className="flex justify-between text-sm">
+                              <span className="text-muted-foreground">{calculateNights()} nights × ${unit?.price_per_night}</span>
+                              <span>${((unit?.price_per_night || 0) * calculateNights()).toFixed(2)}</span>
+                            </div>
+                          )}
+
+                          {/* Third Guest Fee */}
+                          {adults === 3 && (
+                            <div className="flex justify-between text-sm">
+                              <span className="text-muted-foreground">Third guest fee ({calculateNights()} nights × $50)</span>
+                              <span>${calculateThirdGuestFee().toFixed(2)}</span>
+                            </div>
+                          )}
+
+                          {/* Totals */}
+                          <div className="border-t pt-3 mt-3 space-y-2">
+                            <div className="flex justify-between items-center">
+                              <span className="font-bold uppercase">Subtotal:</span>
+                              <span className="font-bold text-lg">${calculateSubtotal().toFixed(2)}</span>
+                            </div>
+                            <div className="flex justify-between items-center">
+                              <span className="font-bold uppercase">Tax ({unit?.tax_percentage || 14}%):</span>
+                              <span className="font-bold text-lg">${calculateTax().toFixed(2)}</span>
+                            </div>
+                            <div className="flex justify-between items-center border-t pt-3 mt-2">
+                              <span className="font-bold text-lg uppercase">Grand Total:</span>
+                              <span className="text-3xl font-bold text-accent">${calculateTotalPrice().toFixed(2)}</span>
+                            </div>
+                            <div className="mt-3 pt-3 border-t">
+                              <p className="text-xs text-foreground leading-relaxed text-center italic">
+                                All rates are based on double occupancy, with a maximum room capacity of 3 people. A third guest (age 18+) may stay in room, based on availability, for $50 USD (including taxes). Children are free of charge.
+                              </p>
+                            </div>
                           </div>
                         </div>
                       </div>
-                    </div>
-                  )}
+                    );
+                  })()}
                 </div>
 
                 <div className="flex gap-4">
