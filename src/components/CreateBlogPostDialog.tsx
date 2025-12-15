@@ -7,7 +7,7 @@ import { Label } from '@/components/ui/label';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from '@/components/ui/collapsible';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
-import { Plus, Loader2, Upload, X, Image as ImageIcon, HelpCircle, ChevronDown, Bold, Italic, Type, Eye, Edit, Link, Undo2, Redo2 } from 'lucide-react';
+import { Plus, Loader2, Upload, X, Image as ImageIcon, HelpCircle, ChevronDown, Bold, Italic, Type, Eye, Edit, Link, Undo2, Redo2, List, ListOrdered } from 'lucide-react';
 import { supabase } from '@/integrations/supabase/client';
 import { toast } from 'sonner';
 import { Progress } from '@/components/ui/progress';
@@ -144,6 +144,40 @@ export function CreateBlogPostDialog({ onPostCreated, editPost, open, onOpenChan
     
     setTimeout(() => {
       textarea.focus();
+    }, 0);
+  };
+
+  const insertBulletList = () => {
+    const textarea = contentTextareaRef.current;
+    if (!textarea) return;
+
+    const start = textarea.selectionStart;
+    const beforeCursor = content.substring(0, start);
+    const lineStart = beforeCursor.lastIndexOf('\n') + 1;
+    
+    const newText = content.substring(0, lineStart) + '- ' + content.substring(lineStart);
+    updateContentWithHistory(newText);
+    
+    setTimeout(() => {
+      textarea.focus();
+      textarea.setSelectionRange(lineStart + 2, lineStart + 2);
+    }, 0);
+  };
+
+  const insertNumberedList = () => {
+    const textarea = contentTextareaRef.current;
+    if (!textarea) return;
+
+    const start = textarea.selectionStart;
+    const beforeCursor = content.substring(0, start);
+    const lineStart = beforeCursor.lastIndexOf('\n') + 1;
+    
+    const newText = content.substring(0, lineStart) + '1. ' + content.substring(lineStart);
+    updateContentWithHistory(newText);
+    
+    setTimeout(() => {
+      textarea.focus();
+      textarea.setSelectionRange(lineStart + 3, lineStart + 3);
     }, 0);
   };
 
@@ -502,6 +536,30 @@ export function CreateBlogPostDialog({ onPostCreated, editPost, open, onOpenChan
                       title="Insert link (Ctrl+K)"
                     >
                       <Link className="h-4 w-4" />
+                    </Button>
+                    
+                    <div className="w-px h-6 bg-border mx-1" />
+                    
+                    <Button
+                      type="button"
+                      variant="ghost"
+                      size="sm"
+                      className="h-8 w-8 p-0"
+                      onClick={insertBulletList}
+                      title="Bullet list (- item)"
+                    >
+                      <List className="h-4 w-4" />
+                    </Button>
+                    
+                    <Button
+                      type="button"
+                      variant="ghost"
+                      size="sm"
+                      className="h-8 w-8 p-0"
+                      onClick={insertNumberedList}
+                      title="Numbered list (1. item)"
+                    >
+                      <ListOrdered className="h-4 w-4" />
                     </Button>
                     
                     <div className="w-px h-6 bg-border mx-1" />
