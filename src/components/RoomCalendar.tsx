@@ -7,6 +7,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Sheet, SheetContent, SheetHeader, SheetTitle } from '@/components/ui/sheet';
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
+import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip';
 import { Badge } from '@/components/ui/badge';
 import { Tabs, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { useNavigate } from 'react-router-dom';
@@ -328,13 +329,13 @@ export const RoomCalendar = () => {
   const isCurrentWeek = isSameDay(currentWeekStart, startOfDay(new Date()));
   const isCurrentMonth = isSameMonth(currentMonth, new Date());
 
-  // Helper to check if any reservation on this date continues into next month
-  const hasCrossMonthBookings = (date: Date, monthDate: Date) => {
-    const monthEnd = endOfMonth(monthDate);
+  // Helper to get cross-month bookings with details
+  const getCrossMonthBookings = (date: Date, monthDate: Date) => {
     const nextMonthStart = addMonths(startOfMonth(monthDate), 1);
+    const prevMonthEnd = addDays(startOfMonth(monthDate), -1);
     
-    // Check for bookings that continue to next month (show on last days of month)
-    const continuesNext = reservations.some(r => {
+    // Get bookings that continue to next month
+    const bookingsContinuingNext = reservations.filter(r => {
       const unitInFilteredList = filteredUnits.some(u => u.id === r.unit_id);
       if (!unitInFilteredList) return false;
       
@@ -346,9 +347,8 @@ export const RoomCalendar = () => {
       return isActiveOnDate && extendsIntoNextMonth && isSameMonth(date, monthDate);
     });
     
-    // Check for bookings that started in previous month (show on first days of month)
-    const prevMonthEnd = addDays(startOfMonth(monthDate), -1);
-    const continuesFromPrev = reservations.some(r => {
+    // Get bookings that started in previous month
+    const bookingsFromPrev = reservations.filter(r => {
       const unitInFilteredList = filteredUnits.some(u => u.id === r.unit_id);
       if (!unitInFilteredList) return false;
       
@@ -360,7 +360,12 @@ export const RoomCalendar = () => {
       return isActiveOnDate && startedPrevMonth && isSameMonth(date, monthDate);
     });
     
-    return { continuesNext, continuesFromPrev };
+    return { 
+      continuesNext: bookingsContinuingNext.length > 0,
+      continuesFromPrev: bookingsFromPrev.length > 0,
+      bookingsContinuingNext,
+      bookingsFromPrev
+    };
   };
 
   // Desktop Monthly Calendar View - renders a specific month
@@ -399,7 +404,7 @@ export const RoomCalendar = () => {
               const dayData = getDayData(date);
               const isCurrentMonthDay = isSameMonth(date, monthDate);
               const isToday = isSameDay(date, new Date());
-              const crossMonth = hasCrossMonthBookings(date, monthDate);
+              const crossMonth = getCrossMonthBookings(date, monthDate);
               const isMonthEnd = isLastDayOfMonth(date);
               const isMonthStart = isFirstDayOfMonth(date);
               
@@ -422,12 +427,31 @@ export const RoomCalendar = () => {
                   
                   {/* Cross-month continuation indicator - from previous month */}
                   {isCurrentMonthDay && isMonthStart && crossMonth.continuesFromPrev && dayData.bookingCount > 0 && (
-                    <div className="absolute top-1 left-1">
-                      <div className="flex items-center gap-0.5 bg-amber-500 text-white text-[9px] px-1 py-0.5 rounded">
-                        <ArrowLeft className="h-2.5 w-2.5" />
-                        <span>cont.</span>
-                      </div>
-                    </div>
+                    <TooltipProvider>
+                      <Tooltip>
+                        <TooltipTrigger asChild>
+                          <div className="absolute top-1 left-1 cursor-help">
+                            <div className="flex items-center gap-0.5 bg-amber-500 text-white text-[9px] px-1 py-0.5 rounded">
+                              <ArrowLeft className="h-2.5 w-2.5" />
+                              <span>cont.</span>
+                            </div>
+                          </div>
+                        </TooltipTrigger>
+                        <TooltipContent side="right" className="max-w-[250px]">
+                          <div className="text-xs">
+                            <p className="font-semibold mb-1">Continuing from previous month:</p>
+                            {crossMonth.bookingsFromPrev.map((r, i) => (
+                              <div key={r.id} className={i > 0 ? 'mt-1 pt-1 border-t' : ''}>
+                                <p className="font-medium">{r.guest_names[0]}</p>
+                                <p className="text-muted-foreground">
+                                  {format(new Date(r.check_in_date), 'MMM d')} → {format(new Date(r.check_out_date), 'MMM d')}
+                                </p>
+                              </div>
+                            ))}
+                          </div>
+                        </TooltipContent>
+                      </Tooltip>
+                    </TooltipProvider>
                   )}
                   
                   {/* Availability badge */}
@@ -446,9 +470,28 @@ export const RoomCalendar = () => {
                           <ArrowLeft className="h-3 w-3 text-amber-300" />
                         )}
                         <span>{dayData.bookingCount} booking{dayData.bookingCount > 1 ? 's' : ''}</span>
-                        {/* Arrow to next month */}
+                        {/* Arrow to next month with tooltip */}
                         {crossMonth.continuesNext && isMonthEnd && (
-                          <ArrowRight className="h-3 w-3 text-amber-300 animate-pulse" />
+                          <TooltipProvider>
+                            <Tooltip>
+                              <TooltipTrigger asChild>
+                                <ArrowRight className="h-3 w-3 text-amber-300 animate-pulse cursor-help" />
+                              </TooltipTrigger>
+                              <TooltipContent side="top" className="max-w-[250px]">
+                                <div className="text-xs">
+                                  <p className="font-semibold mb-1">Continues to next month:</p>
+                                  {crossMonth.bookingsContinuingNext.map((r, i) => (
+                                    <div key={r.id} className={i > 0 ? 'mt-1 pt-1 border-t' : ''}>
+                                      <p className="font-medium">{r.guest_names[0]}</p>
+                                      <p className="text-muted-foreground">
+                                        {format(new Date(r.check_in_date), 'MMM d')} → {format(new Date(r.check_out_date), 'MMM d')}
+                                      </p>
+                                    </div>
+                                  ))}
+                                </div>
+                              </TooltipContent>
+                            </Tooltip>
+                          </TooltipProvider>
                         )}
                       </div>
                     </div>
