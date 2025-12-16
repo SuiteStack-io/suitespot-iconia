@@ -328,10 +328,10 @@ export const RoomCalendar = () => {
   const isCurrentWeek = isSameDay(currentWeekStart, startOfDay(new Date()));
   const isCurrentMonth = isSameMonth(currentMonth, new Date());
 
-  // Desktop Monthly Calendar View
-  const renderMonthlyCalendar = () => {
-    const monthStart = startOfMonth(currentMonth);
-    const monthEnd = endOfMonth(currentMonth);
+  // Desktop Monthly Calendar View - renders a specific month
+  const renderMonthlyCalendar = (monthDate: Date) => {
+    const monthStart = startOfMonth(monthDate);
+    const monthEnd = endOfMonth(monthDate);
     const calendarStart = startOfWeek(monthStart);
     const calendarEnd = endOfWeek(monthEnd);
     const days = eachDayOfInterval({ start: calendarStart, end: calendarEnd });
@@ -342,7 +342,12 @@ export const RoomCalendar = () => {
     }
 
     return (
-      <div>
+      <div className="mb-8">
+        {/* Month Header */}
+        <h3 className="text-lg font-semibold mb-4 text-center border-b pb-2">
+          {format(monthDate, 'MMMM yyyy')}
+        </h3>
+        
         {/* Day headers */}
         <div className="grid grid-cols-7 mb-2">
           {['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'].map(day => (
@@ -357,7 +362,7 @@ export const RoomCalendar = () => {
           <div key={weekIndex} className="grid grid-cols-7 gap-1 mb-1">
             {week.map((date, dayIndex) => {
               const dayData = getDayData(date);
-              const isCurrentMonthDay = isSameMonth(date, currentMonth);
+              const isCurrentMonthDay = isSameMonth(date, monthDate);
               const isToday = isSameDay(date, new Date());
               
               return (
@@ -397,6 +402,19 @@ export const RoomCalendar = () => {
             })}
           </div>
         ))}
+      </div>
+    );
+  };
+
+  // Render two consecutive months stacked vertically
+  const renderTwoMonthsCalendar = () => {
+    const firstMonth = currentMonth;
+    const secondMonth = addMonths(currentMonth, 1);
+    
+    return (
+      <div className="space-y-2">
+        {renderMonthlyCalendar(firstMonth)}
+        {renderMonthlyCalendar(secondMonth)}
       </div>
     );
   };
@@ -443,8 +461,8 @@ export const RoomCalendar = () => {
                 <Button variant="outline" size="sm" onClick={navigatePreviousMonth}>
                   <ChevronLeft className="h-4 w-4" />
                 </Button>
-                <div className="text-sm font-medium text-center min-w-[200px]">
-                  {format(currentMonth, 'MMMM yyyy')}
+                <div className="text-sm font-medium text-center min-w-[280px]">
+                  {format(currentMonth, 'MMMM yyyy')} - {format(addMonths(currentMonth, 1), 'MMMM yyyy')}
                 </div>
                 <Button variant="outline" size="sm" onClick={navigateNextMonth}>
                   <ChevronRight className="h-4 w-4" />
@@ -510,8 +528,8 @@ export const RoomCalendar = () => {
       </CardHeader>
       <CardContent>
         {!isMobile ? (
-          // Desktop: Monthly Calendar Grid
-          renderMonthlyCalendar()
+          // Desktop: Two months stacked vertically
+          renderTwoMonthsCalendar()
         ) : (
           // Mobile: 2-week Timeline View
           <>
