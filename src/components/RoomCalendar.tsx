@@ -1,8 +1,8 @@
 import { useState, useEffect } from 'react';
-import { format, addDays, isSameDay, startOfDay, startOfMonth, endOfMonth, eachDayOfInterval, startOfWeek, endOfWeek, isSameMonth, addMonths } from 'date-fns';
+import { format, addDays, isSameDay, startOfDay, startOfMonth, endOfMonth, eachDayOfInterval, startOfWeek, endOfWeek, isSameMonth, addMonths, isLastDayOfMonth, isFirstDayOfMonth } from 'date-fns';
 import { supabase } from '@/integrations/supabase/client';
 import { Button } from '@/components/ui/button';
-import { ChevronLeft, ChevronRight, AlertTriangle, Building2, Hash } from 'lucide-react';
+import { ChevronLeft, ChevronRight, AlertTriangle, Building2, Hash, ArrowRight, ArrowLeft } from 'lucide-react';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Sheet, SheetContent, SheetHeader, SheetTitle } from '@/components/ui/sheet';
@@ -328,6 +328,41 @@ export const RoomCalendar = () => {
   const isCurrentWeek = isSameDay(currentWeekStart, startOfDay(new Date()));
   const isCurrentMonth = isSameMonth(currentMonth, new Date());
 
+  // Helper to check if any reservation on this date continues into next month
+  const hasCrossMonthBookings = (date: Date, monthDate: Date) => {
+    const monthEnd = endOfMonth(monthDate);
+    const nextMonthStart = addMonths(startOfMonth(monthDate), 1);
+    
+    // Check for bookings that continue to next month (show on last days of month)
+    const continuesNext = reservations.some(r => {
+      const unitInFilteredList = filteredUnits.some(u => u.id === r.unit_id);
+      if (!unitInFilteredList) return false;
+      
+      const checkIn = new Date(r.check_in_date);
+      const checkOut = new Date(r.check_out_date);
+      const isActiveOnDate = date >= checkIn && date < checkOut;
+      const extendsIntoNextMonth = checkOut > nextMonthStart;
+      
+      return isActiveOnDate && extendsIntoNextMonth && isSameMonth(date, monthDate);
+    });
+    
+    // Check for bookings that started in previous month (show on first days of month)
+    const prevMonthEnd = addDays(startOfMonth(monthDate), -1);
+    const continuesFromPrev = reservations.some(r => {
+      const unitInFilteredList = filteredUnits.some(u => u.id === r.unit_id);
+      if (!unitInFilteredList) return false;
+      
+      const checkIn = new Date(r.check_in_date);
+      const checkOut = new Date(r.check_out_date);
+      const isActiveOnDate = date >= checkIn && date < checkOut;
+      const startedPrevMonth = checkIn <= prevMonthEnd;
+      
+      return isActiveOnDate && startedPrevMonth && isSameMonth(date, monthDate);
+    });
+    
+    return { continuesNext, continuesFromPrev };
+  };
+
   // Desktop Monthly Calendar View - renders a specific month
   const renderMonthlyCalendar = (monthDate: Date) => {
     const monthStart = startOfMonth(monthDate);
@@ -364,6 +399,9 @@ export const RoomCalendar = () => {
               const dayData = getDayData(date);
               const isCurrentMonthDay = isSameMonth(date, monthDate);
               const isToday = isSameDay(date, new Date());
+              const crossMonth = hasCrossMonthBookings(date, monthDate);
+              const isMonthEnd = isLastDayOfMonth(date);
+              const isMonthStart = isFirstDayOfMonth(date);
               
               return (
                 <div
@@ -382,6 +420,16 @@ export const RoomCalendar = () => {
                   {/* Day number */}
                   <div className="text-sm font-semibold mb-1">{format(date, 'd')}</div>
                   
+                  {/* Cross-month continuation indicator - from previous month */}
+                  {isCurrentMonthDay && isMonthStart && crossMonth.continuesFromPrev && dayData.bookingCount > 0 && (
+                    <div className="absolute top-1 left-1">
+                      <div className="flex items-center gap-0.5 bg-amber-500 text-white text-[9px] px-1 py-0.5 rounded">
+                        <ArrowLeft className="h-2.5 w-2.5" />
+                        <span>cont.</span>
+                      </div>
+                    </div>
+                  )}
+                  
                   {/* Availability badge */}
                   {isCurrentMonthDay && dayData.bookingCount > 0 && dayData.bookingCount < filteredUnits.length && (
                     <div className="text-xs text-center mb-1">
@@ -389,12 +437,27 @@ export const RoomCalendar = () => {
                     </div>
                   )}
 
-                  {/* Blue booking ribbon */}
+                  {/* Blue booking ribbon with cross-month indicator */}
                   {isCurrentMonthDay && dayData.bookingCount > 0 && (
                     <div className="absolute bottom-0 left-0 right-0 bg-[#0066CC] text-white text-center py-1 rounded-b-lg">
-                      <div className="text-xs font-semibold">
-                        {dayData.bookingCount} booking{dayData.bookingCount > 1 ? 's' : ''}
+                      <div className="flex items-center justify-center gap-1 text-xs font-semibold">
+                        {/* Arrow from previous month */}
+                        {crossMonth.continuesFromPrev && !isMonthStart && (
+                          <ArrowLeft className="h-3 w-3 text-amber-300" />
+                        )}
+                        <span>{dayData.bookingCount} booking{dayData.bookingCount > 1 ? 's' : ''}</span>
+                        {/* Arrow to next month */}
+                        {crossMonth.continuesNext && isMonthEnd && (
+                          <ArrowRight className="h-3 w-3 text-amber-300 animate-pulse" />
+                        )}
                       </div>
+                    </div>
+                  )}
+                  
+                  {/* Connector line indicator at month boundary */}
+                  {isCurrentMonthDay && isMonthEnd && crossMonth.continuesNext && dayData.bookingCount > 0 && (
+                    <div className="absolute -bottom-4 left-1/2 -translate-x-1/2 z-10">
+                      <div className="w-0.5 h-4 bg-amber-500" />
                     </div>
                   )}
                 </div>
