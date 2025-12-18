@@ -291,6 +291,11 @@ export const RoomCalendar = () => {
     return nameMatch && numberMatch;
   });
 
+  // Get rooms filtered by room type for the room number dropdown
+  const roomsForNumberFilter = roomNameFilter === '' || roomNameFilter === 'all'
+    ? units
+    : units.filter(u => (u.booking_com_name || u.name || '') === roomNameFilter);
+
   const getDayData = (date: Date): DayData => {
     const dayReservations = reservations.filter(r => {
       // Only include reservations for units in the filtered list
@@ -645,7 +650,22 @@ export const RoomCalendar = () => {
 
           {/* Filters */}
           <div className="flex flex-wrap gap-2 items-center">
-            <Select value={roomNameFilter} onValueChange={setRoomNameFilter}>
+            <Select 
+              value={roomNameFilter} 
+              onValueChange={(value) => {
+                setRoomNameFilter(value);
+                // Reset room number filter if current selection is no longer valid
+                if (roomNumberFilter && roomNumberFilter !== 'all') {
+                  const matchingUnits = value === 'all' 
+                    ? units 
+                    : units.filter(u => (u.booking_com_name || u.name || '') === value);
+                  const validNumbers = matchingUnits.map(u => u.unit_number);
+                  if (!validNumbers.includes(roomNumberFilter)) {
+                    setRoomNumberFilter('all');
+                  }
+                }
+              }}
+            >
               <SelectTrigger className="w-[200px] h-9 bg-background">
                 <SelectValue placeholder="All Room Types" />
               </SelectTrigger>
@@ -662,7 +682,7 @@ export const RoomCalendar = () => {
               </SelectTrigger>
               <SelectContent className="bg-background z-50">
                 <SelectItem value="all">All Rooms</SelectItem>
-                {[...new Set(units.map(u => u.unit_number))].filter(Boolean).sort().map(num => (
+                {[...new Set(roomsForNumberFilter.map(u => u.unit_number))].filter(Boolean).sort().map(num => (
                   <SelectItem key={num} value={num!}>#{num}</SelectItem>
                 ))}
               </SelectContent>
