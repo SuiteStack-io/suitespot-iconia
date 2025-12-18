@@ -49,6 +49,8 @@ interface DayData {
   isSoldOut: boolean;
   hasConflict: boolean;
   reservations: Reservation[];
+  availableUnits: Unit[];
+  blockedUnits: { unit: Unit; reason: string | null }[];
 }
 
 export const RoomCalendar = () => {
@@ -253,10 +255,9 @@ export const RoomCalendar = () => {
   const goToCurrentMonth = () => setCurrentMonth(startOfMonth(new Date()));
 
   const handleDayClick = (dayData: DayData) => {
-    if (dayData.bookingCount > 0 || dayData.hasConflict) {
-      setSelectedDay(dayData);
-      setSheetOpen(true);
-    }
+    // Allow clicking any day to see available/blocked/booked rooms
+    setSelectedDay(dayData);
+    setSheetOpen(true);
   };
 
   const handleReservationClick = (reservation: Reservation, unit: Unit) => {
@@ -313,8 +314,31 @@ export const RoomCalendar = () => {
 
     const hasConflict = Array.from(bookingsByUnit.values()).some(bookings => bookings.length > 1);
     const bookingCount = dayReservations.length;
-    const availableRooms = filteredUnits.length - bookingCount;
-    const isSoldOut = bookingCount >= filteredUnits.length;
+
+    // Get blocked unit IDs for this date
+    const blockedUnitIds = blockedDates
+      .filter(bd => isSameDay(new Date(bd.blocked_date), date))
+      .map(bd => bd.unit_id);
+    
+    // Get blocked units with reasons
+    const blockedUnitsForDay = filteredUnits
+      .filter(u => blockedUnitIds.includes(u.id))
+      .map(u => ({
+        unit: u,
+        reason: blockedDates.find(bd => bd.unit_id === u.id && isSameDay(new Date(bd.blocked_date), date))?.reason || null
+      }));
+    
+    // Get booked unit IDs
+    const bookedUnitIds = dayReservations.map(r => r.unit_id);
+    
+    // Get available units (not booked AND not blocked)
+    const availableUnitsForDay = filteredUnits.filter(u => 
+      !bookedUnitIds.includes(u.id) && !blockedUnitIds.includes(u.id)
+    );
+    
+    // Correct calculation: available = total - booked - blocked
+    const availableRooms = availableUnitsForDay.length;
+    const isSoldOut = availableRooms === 0;
 
     return {
       date,
@@ -323,6 +347,8 @@ export const RoomCalendar = () => {
       isSoldOut,
       hasConflict,
       reservations: dayReservations,
+      availableUnits: availableUnitsForDay,
+      blockedUnits: blockedUnitsForDay,
     };
   };
 
@@ -841,7 +867,7 @@ export const RoomCalendar = () => {
             </SheetTitle>
           </SheetHeader>
           {selectedDay && (
-            <div className="mt-4 space-y-3">
+            <div className="mt-4 space-y-4">
               {selectedDay.hasConflict && (
                 <div className="bg-destructive/10 border border-destructive rounded-lg p-3">
                   <div className="flex items-center gap-2 text-destructive font-semibold">
@@ -851,60 +877,112 @@ export const RoomCalendar = () => {
                 </div>
               )}
               
-              {units.map(unit => {
-                const unitReservations = selectedDay.reservations.filter(r => r.unit_id === unit.id);
-                if (unitReservations.length === 0) return null;
+              {/* Booked Rooms Section */}
+              {selectedDay.reservations.length > 0 && (
+                <div>
+                  <h4 className="font-semibold text-sm mb-2 text-blue-600 flex items-center gap-1">
+                    📅 Booked Rooms ({selectedDay.bookingCount})
+                  </h4>
+                  <div className="space-y-3">
+                    {units.map(unit => {
+                      const unitReservations = selectedDay.reservations.filter(r => r.unit_id === unit.id);
+                      if (unitReservations.length === 0) return null;
 
-                return (
-                  <div key={unit.id} className="border rounded-lg p-3 space-y-2">
-                    <Popover>
-                      <PopoverTrigger asChild>
-                        <div className="font-semibold text-sm text-primary hover:underline cursor-pointer w-fit">
-                          {unit.booking_com_name || unit.name}
-                        </div>
-                      </PopoverTrigger>
-                      <PopoverContent side="right" align="start" className="w-auto p-3">
-                        <div className="text-sm">
-                          <span className="text-muted-foreground">Suite Name: </span>
-                          <span className="font-medium">{unit.name}</span>
-                        </div>
-                      </PopoverContent>
-                    </Popover>
-                    {unitReservations.map(reservation => {
-                      const isCheckIn = isSameDay(selectedDay.date, new Date(reservation.check_in_date));
-                      const isCheckOut = isSameDay(addDays(selectedDay.date, 1), new Date(reservation.check_out_date));
-                      
                       return (
-                        <div
-                          key={reservation.id}
-                          className={`bg-muted/50 rounded p-2 space-y-1 cursor-pointer hover:bg-muted ${reservation.status === 'completed' || reservation.status === 'checked-out' ? 'opacity-60' : ''}`}
-                          onClick={() => handleReservationClick(reservation, { ...unit, status: 'available' })}
-                        >
-                          <div className="flex items-center gap-2 flex-wrap">
-                            <span className="font-medium text-sm">{reservation.guest_names[0]}</span>
-                            {(reservation.status === 'completed' || reservation.status === 'checked-out') && (
-                              <Badge variant="secondary" className="text-xs">
-                                {reservation.status.replace('-', ' ')}
-                              </Badge>
-                            )}
-                            <Badge className={`${getSourceColor(reservation)} text-black text-xs`}>
-                              {reservation.source}
-                            </Badge>
-                          </div>
-                          <div className="text-xs text-muted-foreground">
-                            {isCheckIn && '✓ Check-in'}
-                            {isCheckOut && '✓ Check-out'}
-                            {!isCheckIn && !isCheckOut && 'Staying'}
-                          </div>
-                          <div className="text-xs text-muted-foreground">
-                            Ref: {reservation.booking_reference}
-                          </div>
+                        <div key={unit.id} className="border rounded-lg p-3 space-y-2">
+                          <Popover>
+                            <PopoverTrigger asChild>
+                              <div className="font-semibold text-sm text-primary hover:underline cursor-pointer w-fit">
+                                {unit.booking_com_name || unit.name} - #{unit.unit_number}
+                              </div>
+                            </PopoverTrigger>
+                            <PopoverContent side="right" align="start" className="w-auto p-3">
+                              <div className="text-sm">
+                                <span className="text-muted-foreground">Suite Name: </span>
+                                <span className="font-medium">{unit.name}</span>
+                              </div>
+                            </PopoverContent>
+                          </Popover>
+                          {unitReservations.map(reservation => {
+                            const isCheckIn = isSameDay(selectedDay.date, new Date(reservation.check_in_date));
+                            const isCheckOut = isSameDay(addDays(selectedDay.date, 1), new Date(reservation.check_out_date));
+                            
+                            return (
+                              <div
+                                key={reservation.id}
+                                className={`bg-muted/50 rounded p-2 space-y-1 cursor-pointer hover:bg-muted ${reservation.status === 'completed' || reservation.status === 'checked-out' ? 'opacity-60' : ''}`}
+                                onClick={() => handleReservationClick(reservation, { ...unit, status: 'available' })}
+                              >
+                                <div className="flex items-center gap-2 flex-wrap">
+                                  <span className="font-medium text-sm">{reservation.guest_names[0]}</span>
+                                  {(reservation.status === 'completed' || reservation.status === 'checked-out') && (
+                                    <Badge variant="secondary" className="text-xs">
+                                      {reservation.status.replace('-', ' ')}
+                                    </Badge>
+                                  )}
+                                  <Badge className={`${getSourceColor(reservation)} text-black text-xs`}>
+                                    {reservation.source}
+                                  </Badge>
+                                </div>
+                                <div className="text-xs text-muted-foreground">
+                                  {isCheckIn && '✓ Check-in'}
+                                  {isCheckOut && '✓ Check-out'}
+                                  {!isCheckIn && !isCheckOut && 'Staying'}
+                                </div>
+                                <div className="text-xs text-muted-foreground">
+                                  Ref: {reservation.booking_reference}
+                                </div>
+                              </div>
+                            );
+                          })}
                         </div>
                       );
                     })}
                   </div>
-                );
-              })}
+                </div>
+              )}
+
+              {/* Available Rooms Section */}
+              {selectedDay.availableUnits.length > 0 && (
+                <div>
+                  <h4 className="font-semibold text-sm mb-2 text-green-600 flex items-center gap-1">
+                    ✓ Available Rooms ({selectedDay.availableUnits.length})
+                  </h4>
+                  <div className="grid gap-2">
+                    {selectedDay.availableUnits.map(unit => (
+                      <div key={unit.id} className="border border-green-200 bg-green-50 dark:bg-green-900/20 rounded-lg p-2">
+                        <div className="font-medium text-sm">{unit.booking_com_name || unit.name}</div>
+                        <div className="text-xs text-muted-foreground">Room #{unit.unit_number}</div>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              )}
+
+              {/* Blocked Rooms Section */}
+              {selectedDay.blockedUnits.length > 0 && (
+                <div>
+                  <h4 className="font-semibold text-sm mb-2 text-red-600 flex items-center gap-1">
+                    🚫 Blocked Rooms ({selectedDay.blockedUnits.length})
+                  </h4>
+                  <div className="grid gap-2">
+                    {selectedDay.blockedUnits.map(({ unit, reason }) => (
+                      <div key={unit.id} className="border border-red-200 bg-red-50 dark:bg-red-900/20 rounded-lg p-2">
+                        <div className="font-medium text-sm">{unit.booking_com_name || unit.name}</div>
+                        <div className="text-xs text-muted-foreground">Room #{unit.unit_number}</div>
+                        {reason && <div className="text-xs text-red-600 mt-1">{reason}</div>}
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              )}
+
+              {/* No data message */}
+              {selectedDay.reservations.length === 0 && selectedDay.availableUnits.length === 0 && selectedDay.blockedUnits.length === 0 && (
+                <div className="text-center text-muted-foreground py-4">
+                  No room data available for this date.
+                </div>
+              )}
             </div>
           )}
         </SheetContent>
