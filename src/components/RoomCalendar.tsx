@@ -481,6 +481,13 @@ export const RoomCalendar = () => {
                     </TooltipProvider>
                   )}
                   
+                  {/* Sold Out text - centered in cell */}
+                  {isCurrentMonthDay && dayData.isSoldOut && (
+                    <div className="absolute inset-0 flex items-center justify-center pointer-events-none">
+                      <span className="text-sm font-bold text-red-700/80">Sold Out</span>
+                    </div>
+                  )}
+
                   {/* Availability badge - show when some rooms unavailable but not sold out */}
                   {isCurrentMonthDay && !dayData.isSoldOut && dayData.availableRooms < filteredUnits.length && dayData.availableRooms > 0 && (
                     <div className="text-xs text-center mb-1">
