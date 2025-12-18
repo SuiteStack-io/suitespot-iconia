@@ -58,6 +58,7 @@ interface DayAvailability {
   checkingOutReservation?: Reservation;
   checkingInReservation?: Reservation;
   isTurnoverDay: boolean;
+  isAvailableForTurnover: boolean; // checkout exists but no check-in - available for same-day booking
 }
 
 
@@ -469,6 +470,9 @@ export const AvailabilityCalendar = () => {
     );
     
     const isTurnoverDay = !!checkingOutReservation && !!checkingInReservation;
+    
+    // Available for same-day turnover: checkout exists but no check-in scheduled
+    const isAvailableForTurnover = !!checkingOutReservation && !checkingInReservation;
 
     const conflictKey = `${unit.id}-${dateKey}`;
     const hasConflict = conflicts.has(conflictKey);
@@ -482,6 +486,7 @@ export const AvailabilityCalendar = () => {
       checkingOutReservation,
       checkingInReservation,
       isTurnoverDay,
+      isAvailableForTurnover,
     };
   };
 
@@ -874,6 +879,7 @@ export const AvailabilityCalendar = () => {
           isBlocked,
           reservations: dayReservations,
           isTurnoverDay: false,
+          isAvailableForTurnover: false, // Not relevant for PDF export
         };
       };
       
@@ -1544,6 +1550,22 @@ export const AvailabilityCalendar = () => {
                                   checkingInReservation={availability.checkingInReservation}
                                   onClick={() => handleCellClick(availability, unit, day)}
                                 />
+                              ) : availability.isAvailableForTurnover && availability.checkingOutReservation ? (
+                                /* Checkout-only cell - available for same-day turnover */
+                                <div
+                                  className="h-14 border rounded overflow-hidden cursor-pointer hover:ring-2 hover:ring-emerald-500/50 transition-all border-emerald-300 dark:border-emerald-700"
+                                  onClick={() => handleCellClick(availability, unit, day)}
+                                >
+                                  {/* Top half - departing guest */}
+                                  <div className="h-1/2 bg-orange-400 dark:bg-orange-600 flex items-center justify-center border-b border-orange-500 dark:border-orange-700">
+                                    <span className="text-[9px] text-white font-semibold">OUT</span>
+                                  </div>
+                                  {/* Bottom half - available indicator */}
+                                  <div className="h-1/2 bg-emerald-500 dark:bg-emerald-600 flex items-center justify-center gap-0.5">
+                                    <CheckCircle className="h-2.5 w-2.5 text-white" />
+                                    <span className="text-[8px] text-white font-semibold">FREE</span>
+                                  </div>
+                                </div>
                               ) : isDraggable ? (
                                 <DraggableReservationCell
                                   reservation={reservation}
@@ -1591,6 +1613,16 @@ export const AvailabilityCalendar = () => {
                                     </div>
                                     <div className="text-xs text-blue-600 dark:text-blue-400">
                                       ↓ IN: {availability.checkingInReservation.guest_names[0]}
+                                    </div>
+                                  </div>
+                              ) : availability.isAvailableForTurnover && availability.checkingOutReservation ? (
+                                  <div>
+                                    <div className="text-orange-500 dark:text-orange-400">
+                                      ↑ Checkout: {availability.checkingOutReservation.guest_names[0]}
+                                    </div>
+                                    <div className="text-emerald-600 dark:text-emerald-400 font-semibold mt-1 flex items-center gap-1">
+                                      <CheckCircle className="h-3 w-3" />
+                                      Available for same-day check-in
                                     </div>
                                   </div>
                                 ) : availability.hasConflict ? (

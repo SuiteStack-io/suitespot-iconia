@@ -2,6 +2,7 @@ import { useState, useEffect } from 'react';
 import { format, addDays, isSameDay, startOfDay, startOfMonth, endOfMonth, eachDayOfInterval, startOfWeek, endOfWeek, isSameMonth, addMonths, isLastDayOfMonth, isFirstDayOfMonth } from 'date-fns';
 import { supabase } from '@/integrations/supabase/client';
 import { Button } from '@/components/ui/button';
+import { CheckCircle } from 'lucide-react';
 import { ChevronLeft, ChevronRight, AlertTriangle, Building2, Hash, ArrowRight, ArrowLeft } from 'lucide-react';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
@@ -787,8 +788,17 @@ export const RoomCalendar = () => {
                               </div>
                             </div>
                           ) : checkingOut ? (
-                            <div className={`h-full flex items-center justify-center text-xs ${getReservationColor(checkingOut.source, checkingOut.status)}`}>
-                              OUT
+                            /* Checkout-only - available for same-day turnover */
+                            <div className="h-full flex flex-col overflow-hidden rounded">
+                              {/* Top half - departing guest */}
+                              <div className={`flex-1 flex items-center justify-center text-[10px] ${getReservationColor(checkingOut.source, checkingOut.status)}`}>
+                                OUT
+                              </div>
+                              {/* Bottom half - available indicator */}
+                              <div className="flex-1 flex items-center justify-center text-[9px] bg-emerald-500 text-white font-semibold gap-0.5">
+                                <CheckCircle className="h-2.5 w-2.5" />
+                                FREE
+                              </div>
                             </div>
                           ) : checkingIn ? (
                             <div className={`h-full flex flex-col items-center justify-center ${getReservationColor(checkingIn.source, checkingIn.status)} px-1`}>
