@@ -481,10 +481,24 @@ export const RoomCalendar = () => {
                     </TooltipProvider>
                   )}
                   
-                  {/* Availability badge */}
-                  {isCurrentMonthDay && dayData.bookingCount > 0 && dayData.bookingCount < filteredUnits.length && (
+                  {/* Availability badge - show when some rooms unavailable but not sold out */}
+                  {isCurrentMonthDay && !dayData.isSoldOut && dayData.availableRooms < filteredUnits.length && dayData.availableRooms > 0 && (
                     <div className="text-xs text-center mb-1">
                       {dayData.availableRooms} left to sell
+                    </div>
+                  )}
+
+                  {/* Green ribbon - all rooms available (no bookings, no blocked) */}
+                  {isCurrentMonthDay && dayData.bookingCount === 0 && dayData.availableRooms === filteredUnits.length && filteredUnits.length > 0 && (
+                    <div className="absolute bottom-0 left-0 right-0 bg-green-600/90 text-white text-center py-1 rounded-b-lg">
+                      <span className="text-xs font-medium">All available</span>
+                    </div>
+                  )}
+
+                  {/* Amber ribbon - partial availability (some blocked but no bookings) */}
+                  {isCurrentMonthDay && dayData.bookingCount === 0 && dayData.availableRooms > 0 && dayData.availableRooms < filteredUnits.length && (
+                    <div className="absolute bottom-0 left-0 right-0 bg-amber-500/90 text-white text-center py-1 rounded-b-lg">
+                      <span className="text-xs font-medium">{dayData.availableRooms} available</span>
                     </div>
                   )}
 
