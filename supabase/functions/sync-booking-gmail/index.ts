@@ -487,7 +487,7 @@ serve(async (req) => {
               .from('reservations')
               .select('unit_id')
               .eq('status', 'confirmed')
-              .or(`and(check_in_date.lte.${parsed.checkOutDate},check_out_date.gte.${parsed.checkInDate})`);
+              .or(`and(check_in_date.lt.${parsed.checkOutDate},check_out_date.gt.${parsed.checkInDate})`);
             
             const conflictingUnitIds = allConflicts?.map(r => r.unit_id) || [];
             const availableUnits = allUnits?.filter(u => !conflictingUnitIds.includes(u.id)) || [];
