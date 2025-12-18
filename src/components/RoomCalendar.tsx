@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react';
-import { format, addDays, isSameDay, startOfDay, startOfMonth, endOfMonth, eachDayOfInterval, startOfWeek, endOfWeek, isSameMonth, addMonths, isLastDayOfMonth, isFirstDayOfMonth } from 'date-fns';
+import { format, addDays, isSameDay, startOfDay, startOfMonth, endOfMonth, eachDayOfInterval, startOfWeek, endOfWeek, isSameMonth, addMonths, isLastDayOfMonth, isFirstDayOfMonth, isBefore } from 'date-fns';
 import { supabase } from '@/integrations/supabase/client';
 import { Button } from '@/components/ui/button';
 import { CheckCircle } from 'lucide-react';
@@ -431,6 +431,7 @@ export const RoomCalendar = () => {
               const dayData = getDayData(date);
               const isCurrentMonthDay = isSameMonth(date, monthDate);
               const isToday = isSameDay(date, new Date());
+              const isPast = isBefore(date, startOfDay(new Date()));
               const crossMonth = getCrossMonthBookings(date, monthDate);
               const isMonthEnd = isLastDayOfMonth(date);
               const isMonthStart = isFirstDayOfMonth(date);
@@ -442,8 +443,10 @@ export const RoomCalendar = () => {
                     !isCurrentMonthDay 
                       ? 'bg-muted/30 text-muted-foreground' 
                       : dayData.isSoldOut 
-                      ? 'bg-[#FFB3BA] dark:bg-pink-900/40'
-                      : 'bg-white dark:bg-card'
+                        ? 'bg-[#FFB3BA] dark:bg-pink-900/40'
+                        : isPast
+                          ? 'bg-gray-100 dark:bg-gray-800/50'
+                          : 'bg-white dark:bg-card'
                   } ${isToday ? 'ring-2 ring-[#0066CC]' : ''} ${
                     dayData.bookingCount > 0 ? 'cursor-pointer hover:shadow-md transition-shadow' : ''
                   }`}
