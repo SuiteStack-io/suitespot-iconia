@@ -504,7 +504,7 @@ export function CreateReservationDialog() {
     const { data: conflictingReservations, error } = await supabase
       .from("reservations")
       .select("unit_id")
-      .or(`and(check_in_date.lte.${checkOut},check_out_date.gte.${checkIn})`)
+      .or(`and(check_in_date.lt.${checkOut},check_out_date.gt.${checkIn})`)
       .eq("status", "confirmed");
 
     if (error) {
