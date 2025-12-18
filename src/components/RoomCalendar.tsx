@@ -790,9 +790,11 @@ export const RoomCalendar = () => {
                           ) : checkingOut ? (
                             /* Checkout-only - available for same-day turnover */
                             <div className="h-full flex flex-col overflow-hidden rounded">
-                              {/* Top half - departing guest */}
-                              <div className={`flex-1 flex items-center justify-center text-[10px] ${getReservationColor(checkingOut.source, checkingOut.status)}`}>
-                                OUT
+                              {/* Top half - departing guest with reservation color */}
+                              <div className={`flex-1 flex items-center justify-center ${getReservationColor(checkingOut.source, checkingOut.status)} px-1 overflow-hidden`}>
+                                <span className="text-[9px] truncate">
+                                  {checkingOut.guest_names[0]}
+                                </span>
                               </div>
                               {/* Bottom half - available indicator */}
                               <div className="flex-1 flex items-center justify-center text-[9px] bg-emerald-500 text-white font-semibold gap-0.5">
