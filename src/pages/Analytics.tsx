@@ -2,7 +2,7 @@ import { useEffect, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useAuth } from '@/lib/auth';
 import { Button } from '@/components/ui/button';
-import { ArrowLeft, DollarSign, TrendingUp, Calendar as CalendarIcon, BarChart3, Users, ChevronRight, Download, FileSpreadsheet } from 'lucide-react';
+import { ArrowLeft, DollarSign, TrendingUp, Calendar as CalendarIcon, BarChart3, Users, ChevronRight, ChevronDown, Download, FileSpreadsheet } from 'lucide-react';
 import { SlideMenu } from '@/components/SlideMenu';
 import { AdminBreadcrumb } from '@/components/AdminBreadcrumb';
 import { RevenueBySource } from '@/components/RevenueBySource';
@@ -67,6 +67,16 @@ const Analytics = () => {
     commission: number;
     netRevenue: number;
   }>>([]);
+  const [isDirectExpanded, setIsDirectExpanded] = useState(false);
+  const [sourcesData, setSourcesData] = useState<{
+    bookingCom: { count: number; grossRevenue: number; commission: number; netRevenue: number };
+    direct: { count: number; grossRevenue: number; commission: number; netRevenue: number };
+    directBreakdown: Array<{ source: string; count: number; grossRevenue: number; commission: number; netRevenue: number }>;
+  }>({
+    bookingCom: { count: 0, grossRevenue: 0, commission: 0, netRevenue: 0 },
+    direct: { count: 0, grossRevenue: 0, commission: 0, netRevenue: 0 },
+    directBreakdown: [],
+  });
   const [showOccupancyDialog, setShowOccupancyDialog] = useState(false);
   const [showBookingsDialog, setShowBookingsDialog] = useState(false);
   const [showGuestsDialog, setShowGuestsDialog] = useState(false);
@@ -216,12 +226,12 @@ const Analytics = () => {
     const netRevenue = revenueData?.reduce((sum, r) => sum + (r.net_revenue || 0), 0) || 0;
     const totalCommission = revenueData?.reduce((sum, r) => sum + (r.commission_amount || 0), 0) || 0;
 
-    // Calculate commission by source
-    const directCommissionAmount = revenueData
-      ?.filter(r => r.channel?.toLowerCase() === 'direct' || r.source?.toLowerCase() === 'direct')
-      .reduce((sum, r) => sum + (r.commission_amount || 0), 0) || 0;
+    // Calculate commission by source - Booking.com only vs everything else (Direct)
     const bookingComCommissionAmount = revenueData
-      ?.filter(r => r.channel?.toLowerCase() !== 'direct' && r.source?.toLowerCase() !== 'direct')
+      ?.filter(r => r.source?.toLowerCase().includes('booking.com'))
+      .reduce((sum, r) => sum + (r.commission_amount || 0), 0) || 0;
+    const directCommissionAmount = revenueData
+      ?.filter(r => !r.source?.toLowerCase().includes('booking.com'))
       .reduce((sum, r) => sum + (r.commission_amount || 0), 0) || 0;
 
     setRevenueStats({ totalRevenue, netRevenue, totalCommission });
@@ -249,12 +259,12 @@ const Analytics = () => {
     const totalGuestsCount = guestsData?.reduce((sum, r) => sum + (r.number_of_guests || 0), 0) || 0;
     setTotalGuests(totalGuestsCount);
     
-    // Calculate booking sources with revenue
-    const directReservations = revenueData?.filter(r => 
-      r.channel?.toLowerCase() === 'direct' || r.source?.toLowerCase() === 'direct'
-    ) || [];
+    // Calculate booking sources with revenue - Indirect = Booking.com only, Direct = everything else
     const indirectReservations = revenueData?.filter(r => 
-      r.channel?.toLowerCase() !== 'direct' && r.source?.toLowerCase() !== 'direct'
+      r.source?.toLowerCase().includes('booking.com')
+    ) || [];
+    const directReservations = revenueData?.filter(r => 
+      !r.source?.toLowerCase().includes('booking.com')
     ) || [];
     
     const directRevenue = directReservations.reduce((sum, r) => sum + (r.total_price || 0), 0);
@@ -486,14 +496,28 @@ const Analytics = () => {
       .gte('check_in_date', startDate)
       .lte('check_in_date', endDate);
 
-    // Group by source
-    const sourceMap: Record<string, any> = {};
-    
-    (data || []).forEach((reservation: any) => {
+    // Separate Booking.com (indirect) from everything else (direct)
+    const bookingComData = (data || []).filter(r => 
+      r.source?.toLowerCase().includes('booking.com')
+    );
+    const directData = (data || []).filter(r => 
+      !r.source?.toLowerCase().includes('booking.com')
+    );
+
+    // Aggregate Booking.com totals
+    const bookingComTotals = {
+      count: bookingComData.length,
+      grossRevenue: bookingComData.reduce((sum, r) => sum + (r.total_price || 0), 0),
+      commission: bookingComData.reduce((sum, r) => sum + (r.commission_amount || 0), 0),
+      netRevenue: bookingComData.reduce((sum, r) => sum + (r.net_revenue || 0), 0),
+    };
+
+    // Group direct sources by source name for breakdown
+    const directSourceMap: Record<string, any> = {};
+    directData.forEach((reservation: any) => {
       const source = reservation.source || 'Unknown';
-      
-      if (!sourceMap[source]) {
-        sourceMap[source] = {
+      if (!directSourceMap[source]) {
+        directSourceMap[source] = {
           source,
           count: 0,
           grossRevenue: 0,
@@ -501,18 +525,32 @@ const Analytics = () => {
           netRevenue: 0,
         };
       }
-      
-      sourceMap[source].count += 1;
-      sourceMap[source].grossRevenue += reservation.total_price || 0;
-      sourceMap[source].commission += reservation.commission_amount || 0;
-      sourceMap[source].netRevenue += reservation.net_revenue || 0;
+      directSourceMap[source].count += 1;
+      directSourceMap[source].grossRevenue += reservation.total_price || 0;
+      directSourceMap[source].commission += reservation.commission_amount || 0;
+      directSourceMap[source].netRevenue += reservation.net_revenue || 0;
     });
 
-    const sourceArray = Object.values(sourceMap).sort(
+    const directBreakdown = Object.values(directSourceMap).sort(
       (a: any, b: any) => b.grossRevenue - a.grossRevenue
     );
 
-    setDirectSourceDetails(sourceArray);
+    // Aggregate Direct totals
+    const directTotals = {
+      count: directData.length,
+      grossRevenue: directData.reduce((sum, r) => sum + (r.total_price || 0), 0),
+      commission: directData.reduce((sum, r) => sum + (r.commission_amount || 0), 0),
+      netRevenue: directData.reduce((sum, r) => sum + (r.net_revenue || 0), 0),
+    };
+
+    setSourcesData({
+      bookingCom: bookingComTotals,
+      direct: directTotals,
+      directBreakdown,
+    });
+    
+    // Reset expansion state when opening dialog
+    setIsDirectExpanded(false);
   };
 
   const handleOccupancyClick = () => {
@@ -1357,7 +1395,7 @@ const Analytics = () => {
                 </TableRow>
               </TableHeader>
               <TableBody>
-                {directSourceDetails.length === 0 ? (
+                {sourcesData.bookingCom.count === 0 && sourcesData.direct.count === 0 ? (
                   <TableRow>
                     <TableCell colSpan={5} className="text-center text-muted-foreground py-8">
                       No booking sources found for this period
@@ -1365,43 +1403,95 @@ const Analytics = () => {
                   </TableRow>
                 ) : (
                   <>
-                    {directSourceDetails.map((source) => (
-                      <TableRow key={source.source}>
+                    {/* Booking.com Row (Indirect) */}
+                    {sourcesData.bookingCom.count > 0 && (
+                      <TableRow>
                         <TableCell className="font-medium">
-                          <span className={cn(
-                            "text-xs px-2 py-1 rounded-full",
-                            source.source.toLowerCase().includes('direct') 
-                              ? "bg-green-100 text-green-700"
-                              : "bg-blue-100 text-blue-700"
-                          )}>
-                            {source.source}
+                          <span className="text-xs px-2 py-1 rounded-full bg-blue-100 text-blue-700">
+                            Booking.com
                           </span>
                         </TableCell>
-                        <TableCell className="text-right">{source.count}</TableCell>
+                        <TableCell className="text-right">{sourcesData.bookingCom.count}</TableCell>
                         <TableCell className="text-right">
-                          ${source.grossRevenue.toFixed(2)}
+                          ${sourcesData.bookingCom.grossRevenue.toFixed(2)}
                         </TableCell>
                         <TableCell className="text-right text-amber-600">
-                          ${source.commission.toFixed(2)}
+                          ${sourcesData.bookingCom.commission.toFixed(2)}
                         </TableCell>
                         <TableCell className="text-right text-green-600 font-semibold">
-                          ${source.netRevenue.toFixed(2)}
+                          ${sourcesData.bookingCom.netRevenue.toFixed(2)}
                         </TableCell>
                       </TableRow>
-                    ))}
+                    )}
+                    
+                    {/* Direct Row (expandable) */}
+                    {sourcesData.direct.count > 0 && (
+                      <>
+                        <TableRow 
+                          className="cursor-pointer hover:bg-muted/50"
+                          onClick={() => setIsDirectExpanded(!isDirectExpanded)}
+                        >
+                          <TableCell className="font-medium">
+                            <div className="flex items-center gap-2">
+                              {isDirectExpanded ? (
+                                <ChevronDown className="h-4 w-4 text-muted-foreground" />
+                              ) : (
+                                <ChevronRight className="h-4 w-4 text-muted-foreground" />
+                              )}
+                              <span className="text-xs px-2 py-1 rounded-full bg-green-100 text-green-700">
+                                Direct
+                              </span>
+                            </div>
+                          </TableCell>
+                          <TableCell className="text-right">{sourcesData.direct.count}</TableCell>
+                          <TableCell className="text-right">
+                            ${sourcesData.direct.grossRevenue.toFixed(2)}
+                          </TableCell>
+                          <TableCell className="text-right text-amber-600">
+                            ${sourcesData.direct.commission.toFixed(2)}
+                          </TableCell>
+                          <TableCell className="text-right text-green-600 font-semibold">
+                            ${sourcesData.direct.netRevenue.toFixed(2)}
+                          </TableCell>
+                        </TableRow>
+                        
+                        {/* Direct Breakdown (nested rows) */}
+                        {isDirectExpanded && sourcesData.directBreakdown.map((source: any) => (
+                          <TableRow key={source.source} className="bg-muted/30">
+                            <TableCell className="font-medium pl-10">
+                              <span className="text-xs text-muted-foreground">
+                                └ {source.source}
+                              </span>
+                            </TableCell>
+                            <TableCell className="text-right text-muted-foreground">{source.count}</TableCell>
+                            <TableCell className="text-right text-muted-foreground">
+                              ${source.grossRevenue.toFixed(2)}
+                            </TableCell>
+                            <TableCell className="text-right text-amber-500">
+                              ${source.commission.toFixed(2)}
+                            </TableCell>
+                            <TableCell className="text-right text-green-500">
+                              ${source.netRevenue.toFixed(2)}
+                            </TableCell>
+                          </TableRow>
+                        ))}
+                      </>
+                    )}
+                    
+                    {/* Total Row */}
                     <TableRow className="bg-muted/50 font-semibold">
                       <TableCell>Total</TableCell>
                       <TableCell className="text-right">
-                        {directSourceDetails.reduce((sum, s) => sum + s.count, 0)}
+                        {sourcesData.bookingCom.count + sourcesData.direct.count}
                       </TableCell>
                       <TableCell className="text-right">
-                        ${directSourceDetails.reduce((sum, s) => sum + s.grossRevenue, 0).toFixed(2)}
+                        ${(sourcesData.bookingCom.grossRevenue + sourcesData.direct.grossRevenue).toFixed(2)}
                       </TableCell>
                       <TableCell className="text-right text-amber-600">
-                        ${directSourceDetails.reduce((sum, s) => sum + s.commission, 0).toFixed(2)}
+                        ${(sourcesData.bookingCom.commission + sourcesData.direct.commission).toFixed(2)}
                       </TableCell>
                       <TableCell className="text-right text-green-600">
-                        ${directSourceDetails.reduce((sum, s) => sum + s.netRevenue, 0).toFixed(2)}
+                        ${(sourcesData.bookingCom.netRevenue + sourcesData.direct.netRevenue).toFixed(2)}
                       </TableCell>
                     </TableRow>
                   </>
