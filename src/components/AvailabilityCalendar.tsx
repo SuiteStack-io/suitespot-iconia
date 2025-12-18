@@ -1563,7 +1563,7 @@ export const AvailabilityCalendar = () => {
                                     </span>
                                   </div>
                                   {/* Bottom half - available indicator */}
-                                  <div className="h-1/2 bg-emerald-500 dark:bg-emerald-600 flex items-center justify-center gap-0.5">
+                                  <div className="h-1/2 bg-green-700/85 dark:bg-green-600/85 flex items-center justify-center gap-0.5">
                                     <CheckCircle className="h-2.5 w-2.5 text-white" />
                                     <span className="text-[8px] text-white font-semibold">FREE</span>
                                   </div>
