@@ -1556,9 +1556,11 @@ export const AvailabilityCalendar = () => {
                                   className="h-14 border rounded overflow-hidden cursor-pointer hover:ring-2 hover:ring-emerald-500/50 transition-all border-emerald-300 dark:border-emerald-700"
                                   onClick={() => handleCellClick(availability, unit, day)}
                                 >
-                                  {/* Top half - departing guest */}
-                                  <div className="h-1/2 bg-orange-400 dark:bg-orange-600 flex items-center justify-center border-b border-orange-500 dark:border-orange-700">
-                                    <span className="text-[9px] text-white font-semibold">OUT</span>
+                                  {/* Top half - departing guest with blue styling */}
+                                  <div className="h-1/2 bg-blue-100 dark:bg-blue-900/30 flex items-center justify-center border-b border-emerald-300 dark:border-emerald-700 px-1 overflow-hidden">
+                                    <span className="text-[9px] text-blue-600 dark:text-blue-400 font-medium text-center leading-tight truncate">
+                                      {availability.checkingOutReservation.guest_names[0]}
+                                    </span>
                                   </div>
                                   {/* Bottom half - available indicator */}
                                   <div className="h-1/2 bg-emerald-500 dark:bg-emerald-600 flex items-center justify-center gap-0.5">
