@@ -506,7 +506,7 @@ export const RoomCalendar = () => {
                   {/* Green ribbon - all rooms available (no bookings, no blocked) */}
                   {isCurrentMonthDay && dayData.bookingCount === 0 && dayData.availableRooms === filteredUnits.length && filteredUnits.length > 0 && (
                     <div className="absolute bottom-0 left-0 right-0 bg-green-600/90 text-white text-center py-1 rounded-b-lg">
-                      <span className="text-xs font-medium">All available</span>
+                      <span className="text-xs font-medium">{filteredUnits.length} room{filteredUnits.length !== 1 ? 's' : ''} available</span>
                     </div>
                   )}
 
