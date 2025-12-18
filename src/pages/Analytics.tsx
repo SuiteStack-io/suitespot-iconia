@@ -48,7 +48,10 @@ const Analytics = () => {
   });
   const [occupancyRate, setOccupancyRate] = useState(0);
   const [totalBookings, setTotalBookings] = useState(0);
-  const [bookingSources, setBookingSources] = useState({ direct: 0, indirect: 0 });
+  const [bookingSources, setBookingSources] = useState({ 
+    direct: { count: 0, revenue: 0 }, 
+    indirect: { count: 0, revenue: 0 } 
+  });
   const [totalGuests, setTotalGuests] = useState(0);
   const [landlordPercentage, setLandlordPercentage] = useState(70);
   const [totalNights, setTotalNights] = useState(0);
@@ -246,13 +249,21 @@ const Analytics = () => {
     const totalGuestsCount = guestsData?.reduce((sum, r) => sum + (r.number_of_guests || 0), 0) || 0;
     setTotalGuests(totalGuestsCount);
     
-    // Calculate booking sources
-    const directBookings = revenueData?.filter(r => 
+    // Calculate booking sources with revenue
+    const directReservations = revenueData?.filter(r => 
       r.channel?.toLowerCase() === 'direct' || r.source?.toLowerCase() === 'direct'
-    ).length || 0;
-    const indirectBookings = (revenueData?.length || 0) - directBookings;
+    ) || [];
+    const indirectReservations = revenueData?.filter(r => 
+      r.channel?.toLowerCase() !== 'direct' && r.source?.toLowerCase() !== 'direct'
+    ) || [];
     
-    setBookingSources({ direct: directBookings, indirect: indirectBookings });
+    const directRevenue = directReservations.reduce((sum, r) => sum + (r.total_price || 0), 0);
+    const indirectRevenue = indirectReservations.reduce((sum, r) => sum + (r.total_price || 0), 0);
+    
+    setBookingSources({ 
+      direct: { count: directReservations.length, revenue: directRevenue }, 
+      indirect: { count: indirectReservations.length, revenue: indirectRevenue } 
+    });
     
     // Calculate occupancy rate
     const { data: units } = await supabase
@@ -691,12 +702,12 @@ const Analytics = () => {
       },
       {},
       {
-        'Metric': 'Direct Bookings',
-        'Value': `${bookingSources.direct} (${totalBookings > 0 ? ((bookingSources.direct / totalBookings) * 100).toFixed(1) : 0}%)`,
+        'Metric': 'Direct Bookings Revenue',
+        'Value': `$${bookingSources.direct.revenue.toLocaleString()} (${(bookingSources.direct.revenue + bookingSources.indirect.revenue) > 0 ? ((bookingSources.direct.revenue / (bookingSources.direct.revenue + bookingSources.indirect.revenue)) * 100).toFixed(1) : 0}%)`,
       },
       {
-        'Metric': 'Indirect Bookings',
-        'Value': `${bookingSources.indirect} (${totalBookings > 0 ? ((bookingSources.indirect / totalBookings) * 100).toFixed(1) : 0}%)`,
+        'Metric': 'Indirect Bookings Revenue',
+        'Value': `$${bookingSources.indirect.revenue.toLocaleString()} (${(bookingSources.direct.revenue + bookingSources.indirect.revenue) > 0 ? ((bookingSources.indirect.revenue / (bookingSources.direct.revenue + bookingSources.indirect.revenue)) * 100).toFixed(1) : 0}%)`,
       },
       {},
       {
@@ -969,13 +980,21 @@ const Analytics = () => {
                 <div className="flex justify-between items-center">
                   <span className="text-sm text-muted-foreground">Direct</span>
                   <span className="font-bold">
-                    {bookingSources.direct} ({totalBookings > 0 ? ((bookingSources.direct / totalBookings) * 100).toFixed(1) : 0}%)
+                    ${bookingSources.direct.revenue.toLocaleString()} ({
+                      (bookingSources.direct.revenue + bookingSources.indirect.revenue) > 0 
+                        ? ((bookingSources.direct.revenue / (bookingSources.direct.revenue + bookingSources.indirect.revenue)) * 100).toFixed(1) 
+                        : 0
+                    }%)
                   </span>
                 </div>
                 <div className="flex justify-between items-center">
                   <span className="text-sm text-muted-foreground">Indirect</span>
                   <span className="font-bold">
-                    {bookingSources.indirect} ({totalBookings > 0 ? ((bookingSources.indirect / totalBookings) * 100).toFixed(1) : 0}%)
+                    ${bookingSources.indirect.revenue.toLocaleString()} ({
+                      (bookingSources.direct.revenue + bookingSources.indirect.revenue) > 0 
+                        ? ((bookingSources.indirect.revenue / (bookingSources.direct.revenue + bookingSources.indirect.revenue)) * 100).toFixed(1) 
+                        : 0
+                    }%)
                   </span>
                 </div>
               </div>
