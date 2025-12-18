@@ -797,7 +797,7 @@ export const RoomCalendar = () => {
                                 </span>
                               </div>
                               {/* Bottom half - available indicator */}
-                              <div className="flex-1 flex items-center justify-center text-[9px] bg-emerald-500 text-white font-semibold gap-0.5">
+                              <div className="flex-1 flex items-center justify-center text-[9px] bg-green-700/85 text-white font-semibold gap-0.5">
                                 <CheckCircle className="h-2.5 w-2.5" />
                                 FREE
                               </div>
