@@ -1,4 +1,4 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef } from "react";
 import { useIsMobile } from "@/hooks/use-mobile";
 import { Button } from "@/components/ui/button";
 import {
@@ -34,11 +34,12 @@ import {
   CommandItem,
   CommandList,
 } from "@/components/ui/command";
-import { CalendarIcon, Plus, X, Check, ChevronsUpDown, Upload } from "lucide-react";
+import { CalendarIcon, Plus, X, Check, ChevronsUpDown, Upload, Download, Loader2 } from "lucide-react";
 import { format, differenceInDays, isBefore, isAfter, startOfDay } from "date-fns";
 import { cn } from "@/lib/utils";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
+import { toPng } from "html-to-image";
 import { useAuth } from "@/lib/auth";
 import { DateRange } from "react-day-picker";
 
@@ -214,6 +215,10 @@ export function CreateReservationDialog() {
   const [notes, setNotes] = useState("");
   const [paymentMethod, setPaymentMethod] = useState<'cash' | 'credit_card' | ''>('');
   const [cashCurrency, setCashCurrency] = useState<'USD' | 'AED' | 'SAR' | 'EGP' | ''>('');
+  const [downloadingImage, setDownloadingImage] = useState(false);
+  
+  // Ref for downloadable summary
+  const reservationSummaryRef = useRef<HTMLDivElement>(null);
   
   // Units data
   const [allUnits, setAllUnits] = useState<Unit[]>([]);
@@ -280,6 +285,34 @@ export function CreateReservationDialog() {
       setCommissionRate(10.0);
     }
   }, [source]);
+
+  // Handle download summary as image
+  const handleDownloadSummary = async () => {
+    if (!reservationSummaryRef.current) return;
+    
+    setDownloadingImage(true);
+    try {
+      const dataUrl = await toPng(reservationSummaryRef.current, {
+        cacheBust: true,
+        backgroundColor: '#ffffff',
+        pixelRatio: 2,
+      });
+      
+      const link = document.createElement('a');
+      const guestName = guestFirstNames[0] || 'guest';
+      const checkIn = checkInDate ? format(checkInDate, 'yyyy-MM-dd') : 'pending';
+      link.download = `reservation-${guestName}-${checkIn}.png`;
+      link.href = dataUrl;
+      link.click();
+      
+      toast.success('Reservation summary downloaded');
+    } catch (error) {
+      console.error('Error downloading summary:', error);
+      toast.error('Failed to download summary');
+    } finally {
+      setDownloadingImage(false);
+    }
+  };
 
   // Arab nationalities that require marriage certificate (using country names to match dropdown)
   const ARAB_NATIONALITIES = [
@@ -1333,21 +1366,68 @@ export function CreateReservationDialog() {
             </div>
           ))}
 
-          {/* Total Pricing Summary */}
+          {/* Total Pricing Summary - Downloadable */}
           {subtotal > 0 && (
-            <div className="p-4 bg-muted/50 rounded-lg space-y-2">
-              <div className="flex justify-between text-sm">
-                <span>Subtotal ({numberOfRooms} {numberOfRooms === 1 ? 'room' : 'rooms'} × {nights} {nights === 1 ? 'night' : 'nights'}):</span>
-                <span className="font-semibold">${subtotal.toFixed(2)}</span>
+            <div className="space-y-3">
+              <div ref={reservationSummaryRef} className="p-4 bg-muted/50 rounded-lg space-y-3">
+                {/* Dates Section */}
+                <div className="space-y-1">
+                  <p className="text-sm font-semibold">
+                    {checkInDate && format(checkInDate, 'PPP')} — {checkOutDate && format(checkOutDate, 'PPP')}
+                  </p>
+                  <p className="text-xs text-muted-foreground">{nights} {nights === 1 ? 'night' : 'nights'}</p>
+                </div>
+                
+                {/* Room(s) Info */}
+                <div className="space-y-1 border-t pt-2">
+                  {selectedUnitIds.map((unitId, index) => {
+                    const unit = availableUnits.find(u => u.id === unitId);
+                    if (!unit) return null;
+                    return (
+                      <p key={index} className="text-sm">
+                        {numberOfRooms > 1 ? `Room ${index + 1}: ` : ''}{unit.name}{unit.unit_number ? ` (#${unit.unit_number})` : ''} — ${roomPrices[index]}/night
+                      </p>
+                    );
+                  })}
+                </div>
+                
+                {/* Pricing Breakdown */}
+                <div className="space-y-1 border-t pt-2">
+                  <div className="flex justify-between text-sm">
+                    <span>Subtotal ({numberOfRooms} {numberOfRooms === 1 ? 'room' : 'rooms'} × {nights} {nights === 1 ? 'night' : 'nights'}):</span>
+                    <span className="font-semibold">${subtotal.toFixed(2)}</span>
+                  </div>
+                  <div className="flex justify-between text-sm text-muted-foreground">
+                    <span>Tax ({taxPercentage}%):</span>
+                    <span>${taxAmount.toFixed(2)}</span>
+                  </div>
+                  <div className="flex justify-between font-semibold pt-2 border-t">
+                    <span>Total:</span>
+                    <span>${totalPrice.toFixed(2)}</span>
+                  </div>
+                </div>
               </div>
-              <div className="flex justify-between text-sm text-muted-foreground">
-                <span>Tax ({taxPercentage}%):</span>
-                <span>${taxAmount.toFixed(2)}</span>
-              </div>
-              <div className="flex justify-between font-semibold pt-2 border-t">
-                <span>Total:</span>
-                <span>${totalPrice.toFixed(2)}</span>
-              </div>
+              
+              {/* Download Button */}
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={handleDownloadSummary}
+                disabled={!checkInDate || !checkOutDate || downloadingImage}
+                className="w-full"
+              >
+                {downloadingImage ? (
+                  <>
+                    <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+                    Downloading...
+                  </>
+                ) : (
+                  <>
+                    <Download className="h-4 w-4 mr-2" />
+                    Download Summary
+                  </>
+                )}
+              </Button>
             </div>
           )}
 
