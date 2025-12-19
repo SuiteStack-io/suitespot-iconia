@@ -27,7 +27,7 @@ import {
 } from '@/components/ui/command';
 import { toast } from 'sonner';
 import { format } from 'date-fns';
-import { Edit2, X, CalendarIcon, Trash2, FileText, Download, Check, ChevronsUpDown, ArrowLeft, Clock, Plus, Link2 } from 'lucide-react';
+import { Edit2, X, CalendarIcon, Trash2, FileText, Download, Check, ChevronsUpDown, ArrowLeft, Clock, Plus, Link2, AlertTriangle } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { CreateGuestAccountDialog } from '@/components/CreateGuestAccountDialog';
 import { SlideMenu } from '@/components/SlideMenu';
@@ -878,64 +878,104 @@ const ReservationDetail = () => {
             {isEditMode ? (
               <>
                 <div>
-                  <Label className="flex items-center gap-2">
-                    Unit
-                    {checkingAvailability && (
-                      <span className="text-xs text-muted-foreground">(checking availability...)</span>
-                    )}
-                  </Label>
+                  <div className="flex items-center justify-between">
+                    <Label className="flex items-center gap-2">
+                      Unit
+                      {checkingAvailability && (
+                        <span className="text-xs text-muted-foreground">(checking availability...)</span>
+                      )}
+                    </Label>
+                    {(() => {
+                      const currentAvailability = unitAvailability.find(u => u.id === reservation?.unit_id);
+                      if (currentAvailability?.hasBlockedDates || currentAvailability?.hasConflict) {
+                        return (
+                          <span className="text-xs text-orange-600 flex items-center gap-1 font-medium">
+                            <AlertTriangle className="h-3 w-3" />
+                            Current unit has issues - change room below
+                          </span>
+                        );
+                      }
+                      return null;
+                    })()}
+                  </div>
                   <Select value={formData.unit_id} onValueChange={(value) => setFormData(prev => ({ ...prev, unit_id: value }))}>
-                    <SelectTrigger className="mt-2">
+                    <SelectTrigger className={cn(
+                      "mt-2",
+                      (() => {
+                        const currentAvailability = unitAvailability.find(u => u.id === formData.unit_id);
+                        if (currentAvailability?.hasBlockedDates) return "border-orange-500 bg-orange-50";
+                        if (currentAvailability?.hasConflict) return "border-destructive bg-destructive/10";
+                        return "";
+                      })()
+                    )}>
                       <SelectValue placeholder="Select unit" />
                     </SelectTrigger>
                     <SelectContent>
-                      {units.map((unit) => {
-                        const availability = unitAvailability.find(u => u.id === unit.id);
-                        const isCurrentUnit = unit.id === reservation?.unit_id;
-                        const hasIssue = availability && !availability.isAvailable && !isCurrentUnit;
-                        
-                        return (
-                          <SelectItem 
-                            key={unit.id} 
-                            value={unit.id}
-                            className={cn(
-                              hasIssue && "text-destructive",
-                              availability?.isAvailable && !isCurrentUnit && "text-green-600"
-                            )}
-                          >
-                            <span className="flex items-center gap-2">
-                              {unit.name}
-                              {unit.unit_number && ` - #${unit.unit_number}`}
-                              {isCurrentUnit && (
-                                <span className="text-xs bg-primary/10 text-primary px-1.5 py-0.5 rounded">Current</span>
+                      {[...units]
+                        .sort((a, b) => {
+                          const availA = unitAvailability.find(u => u.id === a.id);
+                          const availB = unitAvailability.find(u => u.id === b.id);
+                          // Current unit first
+                          if (a.id === reservation?.unit_id) return -1;
+                          if (b.id === reservation?.unit_id) return 1;
+                          // Then available units
+                          if (availA?.isAvailable && !availB?.isAvailable) return -1;
+                          if (!availA?.isAvailable && availB?.isAvailable) return 1;
+                          // Then by unit number
+                          return (a.unit_number || '').localeCompare(b.unit_number || '');
+                        })
+                        .map((unit) => {
+                          const availability = unitAvailability.find(u => u.id === unit.id);
+                          const isCurrentUnit = unit.id === reservation?.unit_id;
+                          const hasIssue = availability && !availability.isAvailable && !isCurrentUnit;
+                          
+                          return (
+                            <SelectItem 
+                              key={unit.id} 
+                              value={unit.id}
+                              className={cn(
+                                hasIssue && "text-destructive",
+                                availability?.isAvailable && !isCurrentUnit && "text-green-600"
                               )}
-                              {availability?.hasBlockedDates && !isCurrentUnit && (
-                                <span className="text-xs bg-orange-100 text-orange-700 px-1.5 py-0.5 rounded">Blocked</span>
-                              )}
-                              {availability?.hasConflict && !isCurrentUnit && (
-                                <span className="text-xs bg-red-100 text-red-700 px-1.5 py-0.5 rounded">Conflict</span>
-                              )}
-                              {availability?.isAvailable && !isCurrentUnit && (
-                                <span className="text-xs bg-green-100 text-green-700 px-1.5 py-0.5 rounded">Available</span>
-                              )}
-                            </span>
-                          </SelectItem>
-                        );
-                      })}
+                            >
+                              <span className="flex items-center gap-2">
+                                {unit.name}
+                                {unit.unit_number && ` - #${unit.unit_number}`}
+                                {isCurrentUnit && (
+                                  <span className="text-xs bg-primary/10 text-primary px-1.5 py-0.5 rounded">Current</span>
+                                )}
+                                {availability?.hasBlockedDates && !isCurrentUnit && (
+                                  <span className="text-xs bg-orange-100 text-orange-700 px-1.5 py-0.5 rounded">Blocked</span>
+                                )}
+                                {availability?.hasConflict && !isCurrentUnit && (
+                                  <span className="text-xs bg-red-100 text-red-700 px-1.5 py-0.5 rounded">Conflict</span>
+                                )}
+                                {availability?.isAvailable && !isCurrentUnit && (
+                                  <span className="text-xs bg-green-100 text-green-700 px-1.5 py-0.5 rounded">Available</span>
+                                )}
+                              </span>
+                            </SelectItem>
+                          );
+                        })}
                     </SelectContent>
                   </Select>
-                  {formData.unit_id !== reservation?.unit_id && (
-                    <p className="text-xs text-muted-foreground mt-1">
-                      {(() => {
-                        const selected = unitAvailability.find(u => u.id === formData.unit_id);
-                        if (!selected) return '';
-                        if (selected.hasBlockedDates) return '⚠️ This unit has blocked dates during this period';
-                        if (selected.hasConflict) return '⚠️ This unit has a conflicting reservation';
-                        if (selected.isAvailable) return '✓ This unit is available for these dates';
-                        return '';
-                      })()}
+                  <div className="flex items-center justify-between mt-1">
+                    <p className="text-xs text-muted-foreground">
+                      {unitAvailability.filter(u => u.isAvailable && u.id !== reservation?.unit_id).length} other rooms available
                     </p>
-                  )}
+                    {formData.unit_id !== reservation?.unit_id && (
+                      <p className="text-xs">
+                        {(() => {
+                          const selected = unitAvailability.find(u => u.id === formData.unit_id);
+                          if (!selected) return '';
+                          if (selected.hasBlockedDates) return <span className="text-orange-600">⚠️ Unit has blocked dates</span>;
+                          if (selected.hasConflict) return <span className="text-destructive">⚠️ Unit has a conflict</span>;
+                          if (selected.isAvailable) return <span className="text-green-600">✓ Unit is available</span>;
+                          return '';
+                        })()}
+                      </p>
+                    )}
+                  </div>
                 </div>
                 <div>
                   <Label>Check-in Date</Label>
