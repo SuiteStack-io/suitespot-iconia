@@ -45,6 +45,7 @@ interface ParsedReservation {
   commissionAmount?: number;
   nationality?: string;
   preferredLanguage?: string;
+  blockedUnitWarning?: string;
 }
 
 const BookingComReservations = () => {
@@ -228,10 +229,22 @@ const BookingComReservations = () => {
     if (!parsedData) return;
 
     try {
+      // Check for blocked dates first
+      const { data: blockedDates, error: blockedError } = await supabase
+        .from('blocked_dates')
+        .select('id, blocked_date, reason')
+        .eq('unit_id', unitId)
+        .gte('blocked_date', parsedData.checkInDate)
+        .lt('blocked_date', parsedData.checkOutDate);
+
+      if (blockedError) {
+        console.error('Error checking blocked dates:', blockedError);
+      }
+
       // Check for overlapping reservations using database function
       const { data: conflicts, error: conflictCheckError } = await supabase
         .rpc('check_reservation_overlap', {
-          p_unit_id: parsedData.unitId,
+          p_unit_id: unitId,
           p_check_in_date: parsedData.checkInDate,
           p_check_out_date: parsedData.checkOutDate
         });
@@ -247,11 +260,14 @@ const BookingComReservations = () => {
         return;
       }
 
-      if (conflicts && conflicts.length > 0) {
+      const hasBlockedDates = blockedDates && blockedDates.length > 0;
+      const hasConflicts = conflicts && conflicts.length > 0;
+
+      if (hasBlockedDates || hasConflicts) {
         setCreating(false);
         
         // Get the original unit's type
-        const originalUnit = units.find(u => u.id === parsedData.unitId);
+        const originalUnit = units.find(u => u.id === unitId);
         const originalUnitType = originalUnit?.unit_type;
         
         // Fetch all units
@@ -259,33 +275,49 @@ const BookingComReservations = () => {
           .from('units')
           .select('id, name, unit_number, unit_type')
           .eq('status', 'available')
-          .neq('id', parsedData.unitId)
+          .neq('id', unitId)
           .order('unit_number');
         
-        // Check availability for each unit on these specific dates
+        // Check availability for each unit on these specific dates (conflicts AND blocked dates)
         const availableUnitsChecked = await Promise.all(
           (allUnits || []).map(async (unit) => {
+            // Check conflicts
             const { data: unitConflicts } = await supabase.rpc('check_reservation_overlap', {
               p_unit_id: unit.id,
               p_check_in_date: parsedData.checkInDate,
               p_check_out_date: parsedData.checkOutDate
             });
-            return { ...unit, hasConflict: unitConflicts && unitConflicts.length > 0 };
+            
+            // Check blocked dates
+            const { data: unitBlockedDates } = await supabase
+              .from('blocked_dates')
+              .select('id')
+              .eq('unit_id', unit.id)
+              .gte('blocked_date', parsedData.checkInDate)
+              .lt('blocked_date', parsedData.checkOutDate);
+            
+            return { 
+              ...unit, 
+              hasConflict: unitConflicts && unitConflicts.length > 0,
+              hasBlockedDates: unitBlockedDates && unitBlockedDates.length > 0
+            };
           })
         );
         
-        const availableUnits = availableUnitsChecked.filter(u => !u.hasConflict);
+        // Filter to only units with NO conflicts AND NO blocked dates
+        const availableUnits = availableUnitsChecked.filter(u => !u.hasConflict && !u.hasBlockedDates);
         
         // Split into same-type and other alternatives
         const sameType = availableUnits.filter(u => u.unit_type === originalUnitType);
         const others = availableUnits.filter(u => u.unit_type !== originalUnitType);
         
         // Store conflict information
+        const issueType = hasBlockedDates ? 'blocked dates' : 'conflicting reservation';
         setConflictInfo({
-          guestNames: conflicts[0].conflict_guest_names,
-          bookingReference: conflicts[0].conflict_reference,
-          checkIn: conflicts[0].conflict_check_in,
-          checkOut: conflicts[0].conflict_check_out,
+          guestNames: hasConflicts && conflicts[0] ? conflicts[0].conflict_guest_names : ['N/A'],
+          bookingReference: hasConflicts && conflicts[0] ? conflicts[0].conflict_reference : 'Blocked',
+          checkIn: hasConflicts && conflicts[0] ? conflicts[0].conflict_check_in : parsedData.checkInDate,
+          checkOut: hasConflicts && conflicts[0] ? conflicts[0].conflict_check_out : parsedData.checkOutDate,
           roomName: originalUnit?.name || 'Unknown room',
           originalUnitType: originalUnitType || 'Unknown type'
         });
@@ -297,11 +329,12 @@ const BookingComReservations = () => {
         // Log the conflict for admin review
         await supabase.from('notifications').insert([{
           type: 'error',
-          title: 'Double Booking Detected',
-          message: `Room ${getUnitName(parsedData.unitId)} has a conflict for ${parsedData.checkInDate} to ${parsedData.checkOutDate}. Conflicting booking: ${conflicts[0].conflict_guest_names.join(', ')} (${conflicts[0].conflict_reference}). New booking: ${parsedData.guestNames.join(', ')} (${parsedData.bookingReference}). ${availableUnits.length} alternative rooms available.`,
+          title: hasBlockedDates ? 'Blocked Unit Assignment Prevented' : 'Double Booking Detected',
+          message: `Room ${getUnitName(unitId)} has ${issueType} for ${parsedData.checkInDate} to ${parsedData.checkOutDate}. New booking: ${parsedData.guestNames.join(', ')} (${parsedData.bookingReference}). ${availableUnits.length} alternative rooms available.`,
           metadata: {
-            event_type: 'double_booking_detected',
-            conflicts: conflicts
+            event_type: hasBlockedDates ? 'blocked_unit_prevented' : 'double_booking_detected',
+            conflicts: conflicts,
+            blocked_dates: blockedDates
           } as any
         }]);
         
@@ -769,7 +802,12 @@ const BookingComReservations = () => {
                       </p>
                     </>
                   ) : (
-                    <p className="text-sm text-yellow-600">⚠ No room matched</p>
+                    <div>
+                      <p className="text-sm text-yellow-600">⚠ No room matched</p>
+                      {parsedData.blockedUnitWarning && (
+                        <p className="text-sm text-orange-600">⚠ {parsedData.blockedUnitWarning}</p>
+                      )}
+                    </div>
                   )}
                 </div>
               </div>

@@ -103,6 +103,15 @@ interface Reservation {
 interface Unit {
   id: string;
   name: string;
+  unit_number: string | null;
+  unit_type: string | null;
+  status: string;
+}
+
+interface UnitAvailability extends Unit {
+  hasConflict: boolean;
+  hasBlockedDates: boolean;
+  isAvailable: boolean;
 }
 
 interface LinkedCharge {
@@ -139,6 +148,8 @@ const ReservationDetail = () => {
   const { userRole } = useAuth();
   const [reservation, setReservation] = useState<Reservation | null>(null);
   const [units, setUnits] = useState<Unit[]>([]);
+  const [unitAvailability, setUnitAvailability] = useState<UnitAvailability[]>([]);
+  const [checkingAvailability, setCheckingAvailability] = useState(false);
   const [isEditMode, setIsEditMode] = useState(false);
   const [saving, setSaving] = useState(false);
   const [showDeleteDialog, setShowDeleteDialog] = useState(false);
@@ -243,13 +254,69 @@ const ReservationDetail = () => {
   const fetchUnits = async () => {
     const { data } = await supabase
       .from('units')
-      .select('id, name')
+      .select('id, name, unit_number, unit_type, status')
       .order('name');
     
     if (data) {
       setUnits(data);
     }
   };
+
+  const checkUnitAvailability = async () => {
+    if (!reservation || units.length === 0) return;
+    
+    setCheckingAvailability(true);
+    
+    try {
+      const checkInDate = format(formData.check_in_date, 'yyyy-MM-dd');
+      const checkOutDate = format(formData.check_out_date, 'yyyy-MM-dd');
+      
+      // Check availability for each unit
+      const availabilityChecks = await Promise.all(
+        units.map(async (unit) => {
+          // Check for conflicting reservations (excluding current reservation)
+          const { data: conflicts } = await supabase.rpc('check_reservation_overlap', {
+            p_unit_id: unit.id,
+            p_check_in_date: checkInDate,
+            p_check_out_date: checkOutDate,
+            p_exclude_id: reservation.id
+          });
+          
+          // Check for blocked dates
+          const { data: blockedDates } = await supabase
+            .from('blocked_dates')
+            .select('id')
+            .eq('unit_id', unit.id)
+            .gte('blocked_date', checkInDate)
+            .lt('blocked_date', checkOutDate);
+          
+          const hasConflict = conflicts && conflicts.length > 0;
+          const hasBlockedDates = blockedDates && blockedDates.length > 0;
+          
+          return {
+            ...unit,
+            hasConflict,
+            hasBlockedDates,
+            isAvailable: !hasConflict && !hasBlockedDates && unit.status === 'available'
+          };
+        })
+      );
+      
+      setUnitAvailability(availabilityChecks);
+    } catch (error) {
+      console.error('Error checking unit availability:', error);
+      toast.error('Failed to check unit availability');
+    } finally {
+      setCheckingAvailability(false);
+    }
+  };
+
+  // Check availability when entering edit mode or when dates change
+  useEffect(() => {
+    if (isEditMode && reservation && units.length > 0) {
+      checkUnitAvailability();
+    }
+  }, [isEditMode, formData.check_in_date, formData.check_out_date, units.length]);
 
   const calculateNights = () => {
     const diff = formData.check_out_date.getTime() - formData.check_in_date.getTime();
@@ -350,6 +417,21 @@ const ReservationDetail = () => {
     if (!canEdit) {
       toast.error('You do not have permission to edit reservations');
       return;
+    }
+
+    // Check if the selected unit is available (if unit changed)
+    if (formData.unit_id !== reservation?.unit_id) {
+      const selectedUnit = unitAvailability.find(u => u.id === formData.unit_id);
+      if (selectedUnit && !selectedUnit.isAvailable) {
+        if (selectedUnit.hasBlockedDates) {
+          toast.error('Cannot assign to this unit - it has blocked dates during this period');
+          return;
+        }
+        if (selectedUnit.hasConflict) {
+          toast.error('Cannot assign to this unit - it has a conflicting reservation');
+          return;
+        }
+      }
     }
 
     setSaving(true);
@@ -796,19 +878,64 @@ const ReservationDetail = () => {
             {isEditMode ? (
               <>
                 <div>
-                  <Label>Unit</Label>
+                  <Label className="flex items-center gap-2">
+                    Unit
+                    {checkingAvailability && (
+                      <span className="text-xs text-muted-foreground">(checking availability...)</span>
+                    )}
+                  </Label>
                   <Select value={formData.unit_id} onValueChange={(value) => setFormData(prev => ({ ...prev, unit_id: value }))}>
                     <SelectTrigger className="mt-2">
                       <SelectValue placeholder="Select unit" />
                     </SelectTrigger>
                     <SelectContent>
-                      {units.map((unit) => (
-                        <SelectItem key={unit.id} value={unit.id}>
-                          {unit.name}
-                        </SelectItem>
-                      ))}
+                      {units.map((unit) => {
+                        const availability = unitAvailability.find(u => u.id === unit.id);
+                        const isCurrentUnit = unit.id === reservation?.unit_id;
+                        const hasIssue = availability && !availability.isAvailable && !isCurrentUnit;
+                        
+                        return (
+                          <SelectItem 
+                            key={unit.id} 
+                            value={unit.id}
+                            className={cn(
+                              hasIssue && "text-destructive",
+                              availability?.isAvailable && !isCurrentUnit && "text-green-600"
+                            )}
+                          >
+                            <span className="flex items-center gap-2">
+                              {unit.name}
+                              {unit.unit_number && ` - #${unit.unit_number}`}
+                              {isCurrentUnit && (
+                                <span className="text-xs bg-primary/10 text-primary px-1.5 py-0.5 rounded">Current</span>
+                              )}
+                              {availability?.hasBlockedDates && !isCurrentUnit && (
+                                <span className="text-xs bg-orange-100 text-orange-700 px-1.5 py-0.5 rounded">Blocked</span>
+                              )}
+                              {availability?.hasConflict && !isCurrentUnit && (
+                                <span className="text-xs bg-red-100 text-red-700 px-1.5 py-0.5 rounded">Conflict</span>
+                              )}
+                              {availability?.isAvailable && !isCurrentUnit && (
+                                <span className="text-xs bg-green-100 text-green-700 px-1.5 py-0.5 rounded">Available</span>
+                              )}
+                            </span>
+                          </SelectItem>
+                        );
+                      })}
                     </SelectContent>
                   </Select>
+                  {formData.unit_id !== reservation?.unit_id && (
+                    <p className="text-xs text-muted-foreground mt-1">
+                      {(() => {
+                        const selected = unitAvailability.find(u => u.id === formData.unit_id);
+                        if (!selected) return '';
+                        if (selected.hasBlockedDates) return '⚠️ This unit has blocked dates during this period';
+                        if (selected.hasConflict) return '⚠️ This unit has a conflicting reservation';
+                        if (selected.isAvailable) return '✓ This unit is available for these dates';
+                        return '';
+                      })()}
+                    </p>
+                  )}
                 </div>
                 <div>
                   <Label>Check-in Date</Label>
