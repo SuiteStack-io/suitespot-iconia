@@ -1612,7 +1612,18 @@ Thank you for choosing SuiteSpot!`;
         >
           {/* Header */}
           <div className="text-center mb-8">
-            <h1 className="text-2xl font-bold text-gray-900 mb-1">SuiteSpot</h1>
+            <h1 
+              className="text-2xl font-bold text-gray-900" 
+              style={{ fontFamily: "'Playfair Display', serif" }}
+            >
+              SuiteSpot
+            </h1>
+            <p 
+              className="text-lg font-medium text-gray-900 mb-1" 
+              style={{ fontFamily: "'Playfair Display', serif" }}
+            >
+              ICONIA Zamalek
+            </p>
             <p className="text-gray-500 text-sm">Reservation Confirmation</p>
           </div>
 
