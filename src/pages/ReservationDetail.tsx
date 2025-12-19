@@ -765,6 +765,28 @@ Thank you for choosing SuiteSpot!`;
             <div className="hidden md:flex gap-2">
               <Button 
                 variant="outline"
+                size="icon"
+                onClick={handleShareWhatsApp}
+              >
+                <MessageCircle className="h-4 w-4" />
+              </Button>
+              <Button 
+                variant="outline"
+                size="icon"
+                onClick={handleShareEmail}
+              >
+                <Mail className="h-4 w-4" />
+              </Button>
+              <CreateGuestAccountDialog
+                reservationId={reservation.id}
+                guestName={reservation.guest_names[0] || 'Guest'}
+              />
+              <Button onClick={() => setIsEditMode(true)}>
+                <Edit2 className="h-4 w-4 mr-2" />
+                Edit Reservation
+              </Button>
+              <Button 
+                variant="outline"
                 onClick={handleDownloadConfirmation}
                 disabled={downloadingConfirmation}
               >
@@ -776,33 +798,11 @@ Thank you for choosing SuiteSpot!`;
                 Download
               </Button>
               <Button 
-                variant="outline"
-                onClick={handleShareWhatsApp}
-              >
-                <MessageCircle className="h-4 w-4 mr-2" />
-                WhatsApp
-              </Button>
-              <Button 
-                variant="outline"
-                onClick={handleShareEmail}
-              >
-                <Mail className="h-4 w-4 mr-2" />
-                Email
-              </Button>
-              <CreateGuestAccountDialog
-                reservationId={reservation.id}
-                guestName={reservation.guest_names[0] || 'Guest'}
-              />
-              <Button onClick={() => setIsEditMode(true)}>
-                <Edit2 className="h-4 w-4 mr-2" />
-                Edit Reservation
-              </Button>
-              <Button 
                 variant="destructive"
                 onClick={() => setShowDeleteDialog(true)}
               >
                 <Trash2 className="h-4 w-4 mr-2" />
-                Delete Reservation
+                Delete
               </Button>
             </div>
           )}
