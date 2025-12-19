@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useState, useRef } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/lib/auth';
@@ -27,7 +27,8 @@ import {
 } from '@/components/ui/command';
 import { toast } from 'sonner';
 import { format } from 'date-fns';
-import { Edit2, X, CalendarIcon, Trash2, FileText, Download, Check, ChevronsUpDown, ArrowLeft, Clock, Plus, Link2, AlertTriangle } from 'lucide-react';
+import { Edit2, X, CalendarIcon, Trash2, FileText, Download, Check, ChevronsUpDown, ArrowLeft, Clock, Plus, Link2, AlertTriangle, Loader2 } from 'lucide-react';
+import { toPng } from 'html-to-image';
 import { cn } from '@/lib/utils';
 import { CreateGuestAccountDialog } from '@/components/CreateGuestAccountDialog';
 import { SlideMenu } from '@/components/SlideMenu';
@@ -97,7 +98,7 @@ interface Reservation {
   created_at: string;
   updated_at: string;
   group_id: string | null;
-  units: { name: string; unit_number: string | null } | null;
+  units: { name: string; unit_number: string | null; booking_com_name: string | null } | null;
 }
 
 interface Unit {
@@ -165,6 +166,8 @@ const ReservationDetail = () => {
   const [showDeleteChargeDialog, setShowDeleteChargeDialog] = useState(false);
   const [chargeToDelete, setChargeToDelete] = useState<LinkedCharge | null>(null);
   const [deletingCharge, setDeletingCharge] = useState(false);
+  const [downloadingConfirmation, setDownloadingConfirmation] = useState(false);
+  const confirmationRef = useRef<HTMLDivElement>(null);
   
   // Form state
   const [formData, setFormData] = useState({
@@ -215,7 +218,7 @@ const ReservationDetail = () => {
   const fetchReservation = async () => {
     const { data, error } = await supabase
       .from('reservations')
-      .select('*, units(name, unit_number)')
+      .select('*, units(name, unit_number, booking_com_name)')
       .eq('id', id)
       .single();
 
@@ -614,6 +617,33 @@ const ReservationDetail = () => {
     }));
   };
 
+  const handleDownloadConfirmation = async () => {
+    if (!confirmationRef.current || !reservation) return;
+    
+    setDownloadingConfirmation(true);
+    try {
+      const dataUrl = await toPng(confirmationRef.current, {
+        cacheBust: true,
+        backgroundColor: '#ffffff',
+        pixelRatio: 2,
+      });
+      
+      const link = document.createElement('a');
+      const guestName = reservation.guest_names?.[0]?.split(' ')[0] || 'guest';
+      const checkIn = format(new Date(reservation.check_in_date), 'yyyy-MM-dd');
+      link.download = `suitespot-confirmation-${guestName}-${checkIn}.png`;
+      link.href = dataUrl;
+      link.click();
+      
+      toast.success('Confirmation downloaded successfully');
+    } catch (error) {
+      console.error('Error downloading confirmation:', error);
+      toast.error('Failed to download confirmation');
+    } finally {
+      setDownloadingConfirmation(false);
+    }
+  };
+
   if (!reservation) {
     return (
       <div className="flex items-center justify-center min-h-[400px]">
@@ -656,6 +686,18 @@ const ReservationDetail = () => {
           </div>
           {canEdit && !isEditMode && (
             <div className="hidden md:flex gap-2">
+              <Button 
+                variant="outline"
+                onClick={handleDownloadConfirmation}
+                disabled={downloadingConfirmation}
+              >
+                {downloadingConfirmation ? (
+                  <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+                ) : (
+                  <Download className="h-4 w-4 mr-2" />
+                )}
+                Download Confirmation
+              </Button>
               <CreateGuestAccountDialog 
                 reservationId={reservation.id}
                 guestName={reservation.guest_names[0] || 'Guest'}
@@ -675,17 +717,31 @@ const ReservationDetail = () => {
           )}
         </div>
         {canEdit && !isEditMode && (
-          <div className="flex md:hidden gap-2 mt-4 justify-center">
+          <div className="flex md:hidden gap-2 mt-4 justify-center flex-wrap">
+            <Button 
+              variant="outline"
+              size="sm"
+              onClick={handleDownloadConfirmation}
+              disabled={downloadingConfirmation}
+            >
+              {downloadingConfirmation ? (
+                <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+              ) : (
+                <Download className="h-4 w-4 mr-2" />
+              )}
+              Download
+            </Button>
             <CreateGuestAccountDialog 
               reservationId={reservation.id}
               guestName={reservation.guest_names[0] || 'Guest'}
             />
-            <Button onClick={() => setIsEditMode(true)}>
+            <Button size="sm" onClick={() => setIsEditMode(true)}>
               <Edit2 className="h-4 w-4 mr-2" />
               Edit
             </Button>
             <Button 
               variant="destructive"
+              size="sm"
               onClick={() => setShowDeleteDialog(true)}
             >
               <Trash2 className="h-4 w-4 mr-2" />
@@ -1442,6 +1498,160 @@ const ReservationDetail = () => {
           </AlertDialogFooter>
         </AlertDialogContent>
       </AlertDialog>
+
+      {/* Hidden Confirmation Card for Download */}
+      <div style={{ position: 'absolute', left: '-9999px', top: 0 }}>
+        <div
+          ref={confirmationRef}
+          className="bg-white p-8"
+          style={{ width: '600px', fontFamily: 'system-ui, -apple-system, sans-serif' }}
+        >
+          {/* Header */}
+          <div className="text-center mb-8">
+            <h1 className="text-2xl font-bold text-gray-900 mb-1">SuiteSpot</h1>
+            <p className="text-gray-500 text-sm">Reservation Confirmation</p>
+          </div>
+
+          {/* Booking Reference */}
+          <div className="bg-gray-50 rounded-lg p-4 mb-6 text-center">
+            <p className="text-gray-500 text-sm mb-1">Booking Reference</p>
+            <p className="text-xl font-bold text-gray-900">{reservation.booking_reference}</p>
+          </div>
+
+          {/* Guest Information */}
+          <div className="mb-6">
+            <h2 className="text-lg font-semibold text-gray-900 mb-3 border-b pb-2">Guest Details</h2>
+            <div className="space-y-2">
+              <div className="flex justify-between">
+                <span className="text-gray-500">Guest Name(s)</span>
+                <span className="font-medium text-gray-900">{reservation.guest_names?.join(', ') || 'N/A'}</span>
+              </div>
+              <div className="flex justify-between">
+                <span className="text-gray-500">Number of Guests</span>
+                <span className="font-medium text-gray-900">{reservation.number_of_guests}</span>
+              </div>
+              {reservation.guest_nationality && (
+                <div className="flex justify-between">
+                  <span className="text-gray-500">Nationality</span>
+                  <span className="font-medium text-gray-900">{reservation.guest_nationality}</span>
+                </div>
+              )}
+            </div>
+          </div>
+
+          {/* Accommodation */}
+          <div className="mb-6">
+            <h2 className="text-lg font-semibold text-gray-900 mb-3 border-b pb-2">Accommodation</h2>
+            <div className="space-y-2">
+              <div className="flex justify-between">
+                <span className="text-gray-500">Suite</span>
+                <span className="font-medium text-gray-900">
+                  {reservation.units?.booking_com_name || reservation.units?.name || 'N/A'}
+                </span>
+              </div>
+              {reservation.units?.unit_number && (
+                <div className="flex justify-between">
+                  <span className="text-gray-500">Unit Number</span>
+                  <span className="font-medium text-gray-900">#{reservation.units.unit_number}</span>
+                </div>
+              )}
+            </div>
+          </div>
+
+          {/* Stay Dates */}
+          <div className="mb-6">
+            <h2 className="text-lg font-semibold text-gray-900 mb-3 border-b pb-2">Stay Dates</h2>
+            <div className="space-y-2">
+              <div className="flex justify-between">
+                <span className="text-gray-500">Check-in</span>
+                <span className="font-medium text-gray-900">
+                  {format(new Date(reservation.check_in_date), 'EEEE, MMMM d, yyyy')}
+                </span>
+              </div>
+              <div className="flex justify-between">
+                <span className="text-gray-500">Check-out</span>
+                <span className="font-medium text-gray-900">
+                  {format(new Date(reservation.check_out_date), 'EEEE, MMMM d, yyyy')}
+                </span>
+              </div>
+              <div className="flex justify-between">
+                <span className="text-gray-500">Duration</span>
+                <span className="font-medium text-gray-900">{reservation.nights} night(s)</span>
+              </div>
+            </div>
+          </div>
+
+          {/* Pricing */}
+          <div className="mb-6">
+            <h2 className="text-lg font-semibold text-gray-900 mb-3 border-b pb-2">Pricing Summary</h2>
+            <div className="space-y-2">
+              <div className="flex justify-between">
+                <span className="text-gray-500">Price per Night</span>
+                <span className="font-medium text-gray-900">
+                  {reservation.currency} {reservation.price_per_night?.toFixed(2) || '0.00'}
+                </span>
+              </div>
+              <div className="flex justify-between">
+                <span className="text-gray-500">Subtotal ({reservation.nights} nights)</span>
+                <span className="font-medium text-gray-900">
+                  {reservation.currency} {((reservation.price_per_night || 0) * (reservation.nights || 0)).toFixed(2)}
+                </span>
+              </div>
+              {reservation.total_price > ((reservation.price_per_night || 0) * (reservation.nights || 0)) && (
+                <div className="flex justify-between">
+                  <span className="text-gray-500">Taxes & Fees</span>
+                  <span className="font-medium text-gray-900">
+                    {reservation.currency} {(reservation.total_price - ((reservation.price_per_night || 0) * (reservation.nights || 0))).toFixed(2)}
+                  </span>
+                </div>
+              )}
+              <div className="flex justify-between pt-2 border-t mt-2">
+                <span className="font-semibold text-gray-900">Total Price</span>
+                <span className="font-bold text-lg text-gray-900">
+                  {reservation.currency} {reservation.total_price.toFixed(2)}
+                </span>
+              </div>
+            </div>
+          </div>
+
+          {/* Contact Information */}
+          {(reservation.contact_email || reservation.contact_phone) && (
+            <div className="mb-6">
+              <h2 className="text-lg font-semibold text-gray-900 mb-3 border-b pb-2">Contact Information</h2>
+              <div className="space-y-2">
+                {reservation.contact_email && (
+                  <div className="flex justify-between">
+                    <span className="text-gray-500">Email</span>
+                    <span className="font-medium text-gray-900">{reservation.contact_email}</span>
+                  </div>
+                )}
+                {reservation.contact_phone && (
+                  <div className="flex justify-between">
+                    <span className="text-gray-500">Phone</span>
+                    <span className="font-medium text-gray-900">{reservation.contact_phone}</span>
+                  </div>
+                )}
+              </div>
+            </div>
+          )}
+
+          {/* Status */}
+          <div className="bg-green-50 rounded-lg p-4 text-center">
+            <p className="text-green-700 font-semibold">
+              ✓ Reservation {reservation.status === 'confirmed' ? 'Confirmed' : 
+                reservation.status === 'checked-in' ? 'Checked-In' :
+                reservation.status === 'checked-out' ? 'Checked-Out' :
+                reservation.status === 'completed' ? 'Completed' : reservation.status}
+            </p>
+          </div>
+
+          {/* Footer */}
+          <div className="mt-8 pt-4 border-t text-center text-gray-400 text-xs">
+            <p>Thank you for choosing SuiteSpot</p>
+            <p className="mt-1">Generated on {format(new Date(), 'MMMM d, yyyy')}</p>
+          </div>
+        </div>
+      </div>
     </div>
   );
 };
