@@ -27,7 +27,7 @@ import {
 } from '@/components/ui/command';
 import { toast } from 'sonner';
 import { format } from 'date-fns';
-import { Edit2, X, CalendarIcon, Trash2, FileText, Download, Check, ChevronsUpDown, ArrowLeft, Clock, Plus, Link2, AlertTriangle, Loader2 } from 'lucide-react';
+import { Edit2, X, CalendarIcon, Trash2, FileText, Download, Check, ChevronsUpDown, ArrowLeft, Clock, Plus, Link2, AlertTriangle, Loader2, MessageCircle, Mail } from 'lucide-react';
 import { toPng } from 'html-to-image';
 import { cn } from '@/lib/utils';
 import { CreateGuestAccountDialog } from '@/components/CreateGuestAccountDialog';
@@ -644,6 +644,83 @@ const ReservationDetail = () => {
     }
   };
 
+  const handleShareWhatsApp = () => {
+    if (!reservation) return;
+    
+    const checkIn = format(new Date(reservation.check_in_date), 'EEEE, MMMM d, yyyy');
+    const checkOut = format(new Date(reservation.check_out_date), 'EEEE, MMMM d, yyyy');
+    const suiteName = reservation.units?.booking_com_name || reservation.units?.name || 'N/A';
+    
+    const message = `🏨 *SuiteSpot Reservation Confirmation*
+
+📋 *Booking Reference:* ${reservation.booking_reference}
+
+👤 *Guest:* ${reservation.guest_names?.join(', ') || 'N/A'}
+👥 *Number of Guests:* ${reservation.number_of_guests}
+
+🏠 *Suite:* ${suiteName}
+${reservation.units?.unit_number ? `🚪 *Unit:* #${reservation.units.unit_number}` : ''}
+
+📅 *Check-in:* ${checkIn}
+📅 *Check-out:* ${checkOut}
+🌙 *Duration:* ${reservation.nights} night(s)
+
+💰 *Total Price:* ${reservation.currency} ${reservation.total_price?.toFixed(2) || '0.00'}
+
+✅ Status: Confirmed
+
+Thank you for choosing SuiteSpot! 🌟`;
+
+    const phone = reservation.contact_phone?.replace(/\D/g, '') || '';
+    const whatsappUrl = `https://wa.me/${phone}?text=${encodeURIComponent(message)}`;
+    window.open(whatsappUrl, '_blank');
+    toast.success('WhatsApp opened with confirmation');
+  };
+
+  const handleShareEmail = () => {
+    if (!reservation) return;
+    
+    const checkIn = format(new Date(reservation.check_in_date), 'EEEE, MMMM d, yyyy');
+    const checkOut = format(new Date(reservation.check_out_date), 'EEEE, MMMM d, yyyy');
+    const suiteName = reservation.units?.booking_com_name || reservation.units?.name || 'N/A';
+    
+    const subject = `Your Reservation Confirmation - ${reservation.booking_reference}`;
+    
+    const body = `SuiteSpot Reservation Confirmation
+
+Booking Reference: ${reservation.booking_reference}
+
+GUEST DETAILS
+━━━━━━━━━━━━━━
+Guest Name(s): ${reservation.guest_names?.join(', ') || 'N/A'}
+Number of Guests: ${reservation.number_of_guests}
+${reservation.guest_nationality ? `Nationality: ${reservation.guest_nationality}` : ''}
+
+ACCOMMODATION
+━━━━━━━━━━━━━━
+Suite: ${suiteName}
+${reservation.units?.unit_number ? `Unit Number: #${reservation.units.unit_number}` : ''}
+
+STAY DATES
+━━━━━━━━━━━━━━
+Check-in: ${checkIn}
+Check-out: ${checkOut}
+Duration: ${reservation.nights} night(s)
+
+PRICING SUMMARY
+━━━━━━━━━━━━━━
+Total Price: ${reservation.currency} ${reservation.total_price?.toFixed(2) || '0.00'}
+
+Status: Confirmed ✓
+
+━━━━━━━━━━━━━━
+Thank you for choosing SuiteSpot!`;
+
+    const mailtoUrl = `mailto:${reservation.contact_email || ''}?subject=${encodeURIComponent(subject)}&body=${encodeURIComponent(body)}`;
+    window.open(mailtoUrl, '_blank');
+    toast.success('Email client opened with confirmation');
+  };
+
   if (!reservation) {
     return (
       <div className="flex items-center justify-center min-h-[400px]">
@@ -696,9 +773,23 @@ const ReservationDetail = () => {
                 ) : (
                   <Download className="h-4 w-4 mr-2" />
                 )}
-                Download Confirmation
+                Download
               </Button>
-              <CreateGuestAccountDialog 
+              <Button 
+                variant="outline"
+                onClick={handleShareWhatsApp}
+              >
+                <MessageCircle className="h-4 w-4 mr-2" />
+                WhatsApp
+              </Button>
+              <Button 
+                variant="outline"
+                onClick={handleShareEmail}
+              >
+                <Mail className="h-4 w-4 mr-2" />
+                Email
+              </Button>
+              <CreateGuestAccountDialog
                 reservationId={reservation.id}
                 guestName={reservation.guest_names[0] || 'Guest'}
               />
@@ -725,13 +816,26 @@ const ReservationDetail = () => {
               disabled={downloadingConfirmation}
             >
               {downloadingConfirmation ? (
-                <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+                <Loader2 className="h-4 w-4 animate-spin" />
               ) : (
-                <Download className="h-4 w-4 mr-2" />
+                <Download className="h-4 w-4" />
               )}
-              Download
             </Button>
-            <CreateGuestAccountDialog 
+            <Button 
+              variant="outline"
+              size="sm"
+              onClick={handleShareWhatsApp}
+            >
+              <MessageCircle className="h-4 w-4" />
+            </Button>
+            <Button 
+              variant="outline"
+              size="sm"
+              onClick={handleShareEmail}
+            >
+              <Mail className="h-4 w-4" />
+            </Button>
+            <CreateGuestAccountDialog
               reservationId={reservation.id}
               guestName={reservation.guest_names[0] || 'Guest'}
             />
