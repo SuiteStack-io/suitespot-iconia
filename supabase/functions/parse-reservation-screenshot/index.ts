@@ -135,23 +135,82 @@ Important:
 
     const { data: units, error: unitsError } = await supabase
       .from('units')
-      .select('id, name, booking_com_name');
+      .select('id, name, booking_com_name, status');
 
     if (unitsError) {
       console.error('Error fetching units:', unitsError);
     }
 
     let matchedUnitId: string | null = null;
+    let blockedUnitWarning: string | null = null;
+    
     if (units && parsedData.roomName) {
       const roomNameLower = parsedData.roomName.toLowerCase();
-      const matchedUnit = units.find(unit => 
+      
+      // Find all matching units
+      const matchingUnits = units.filter(unit => 
         unit.name.toLowerCase().includes(roomNameLower) ||
         roomNameLower.includes(unit.name.toLowerCase()) ||
         (unit.booking_com_name && 
           (unit.booking_com_name.toLowerCase().includes(roomNameLower) ||
            roomNameLower.includes(unit.booking_com_name.toLowerCase())))
       );
-      matchedUnitId = matchedUnit?.id || null;
+      
+      console.log(`Found ${matchingUnits.length} matching units for room: ${parsedData.roomName}`);
+      
+      // Check each matching unit for blocked dates
+      for (const unit of matchingUnits) {
+        // Check if unit has blocked dates during the reservation period
+        const { data: blockedDates, error: blockedError } = await supabase
+          .from('blocked_dates')
+          .select('id, blocked_date, reason')
+          .eq('unit_id', unit.id)
+          .gte('blocked_date', parsedData.checkInDate)
+          .lt('blocked_date', parsedData.checkOutDate);
+        
+        if (blockedError) {
+          console.error('Error checking blocked dates:', blockedError);
+          continue;
+        }
+        
+        // Check for conflicting reservations
+        const { data: conflicts, error: conflictError } = await supabase
+          .rpc('check_reservation_overlap', {
+            p_unit_id: unit.id,
+            p_check_in_date: parsedData.checkInDate,
+            p_check_out_date: parsedData.checkOutDate
+          });
+        
+        if (conflictError) {
+          console.error('Error checking conflicts:', conflictError);
+          continue;
+        }
+        
+        const hasBlockedDates = blockedDates && blockedDates.length > 0;
+        const hasConflicts = conflicts && conflicts.length > 0;
+        
+        if (!hasBlockedDates && !hasConflicts && unit.status === 'available') {
+          // Found an available unit with no issues
+          matchedUnitId = unit.id;
+          console.log(`Selected available unit: ${unit.name} (${unit.id})`);
+          break;
+        } else {
+          // Log why this unit was skipped
+          if (hasBlockedDates) {
+            console.log(`Unit ${unit.name} has blocked dates: ${blockedDates.map(b => b.blocked_date).join(', ')}`);
+            blockedUnitWarning = `Unit ${unit.name} has blocked dates during this period`;
+          }
+          if (hasConflicts) {
+            console.log(`Unit ${unit.name} has conflicting reservations`);
+          }
+        }
+      }
+      
+      // If no available unit found, set warning but don't assign a unit
+      if (!matchedUnitId && matchingUnits.length > 0) {
+        console.log('No available matching unit found, will require manual assignment');
+        blockedUnitWarning = blockedUnitWarning || 'All matching units have conflicts or blocked dates';
+      }
     }
 
     // Calculate nights
@@ -165,6 +224,7 @@ Important:
         ...parsedData,
         unitId: matchedUnitId,
         nights,
+        blockedUnitWarning,
       }
     }), {
       headers: { ...corsHeaders, 'Content-Type': 'application/json' },
