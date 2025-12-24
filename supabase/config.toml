@@ -29,3 +29,6 @@ verify_jwt = false
 
 [functions.send-checkout-notification]
 verify_jwt = false
+
+[functions.send-cancellation-notification]
+verify_jwt = false

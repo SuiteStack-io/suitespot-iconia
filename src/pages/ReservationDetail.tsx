@@ -444,6 +444,9 @@ const ReservationDetail = () => {
     const commission = (total * formData.commission_rate) / 100;
     const net = total - commission;
 
+    // Check if status is changing to cancelled
+    const isBeingCancelled = formData.status === 'cancelled' && reservation?.status !== 'cancelled';
+
     const { error } = await supabase
       .from('reservations')
       .update({
@@ -470,6 +473,37 @@ const ReservationDetail = () => {
       toast.error('Failed to update reservation');
     } else {
       toast.success('Reservation updated successfully');
+      
+      // Send cancellation notification if status changed to cancelled
+      if (isBeingCancelled) {
+        try {
+          const { error: notifyError } = await supabase.functions.invoke('send-cancellation-notification', {
+            body: {
+              reservation_id: id,
+              booking_reference: reservation?.booking_reference,
+              guest_names: formData.guest_names,
+              check_in_date: format(formData.check_in_date, 'yyyy-MM-dd'),
+              check_out_date: format(formData.check_out_date, 'yyyy-MM-dd'),
+              nights: nights,
+              total_price: total,
+              currency: reservation?.currency || 'USD',
+              channel: reservation?.channel || '',
+              source: formData.source,
+              unit_name: reservation?.units?.booking_com_name || reservation?.units?.name,
+              unit_number: reservation?.units?.unit_number,
+            },
+          });
+          
+          if (notifyError) {
+            console.error('Failed to send cancellation notification:', notifyError);
+          } else {
+            toast.success('Cancellation notification sent to admins');
+          }
+        } catch (notifyErr) {
+          console.error('Error sending cancellation notification:', notifyErr);
+        }
+      }
+      
       setIsEditMode(false);
       fetchReservation();
     }
