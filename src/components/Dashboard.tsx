@@ -2,7 +2,7 @@ import { useEffect, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { supabase } from '@/integrations/supabase/client';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
-import { Calendar, LogIn, LogOut, TrendingUp, DollarSign, CheckCircle, Undo2 } from 'lucide-react';
+import { Calendar, LogIn, LogOut, TrendingUp, DollarSign, CheckCircle, Undo2, XCircle } from 'lucide-react';
 import { format } from 'date-fns';
 import { ConflictAlert } from './ConflictAlert';
 import { PendingAssignmentsAlert } from './PendingAssignmentsAlert';
@@ -35,6 +35,7 @@ interface DashboardStats {
   todayDepartures: number;
   inHouse: number;
   newBookings: number;
+  recentCancellations: number;
   totalRevenue: number;
   netRevenue: number;
   totalCommission: number;
@@ -50,6 +51,7 @@ interface Reservation {
   check_out_date: string;
   checked_in_at: string | null;
   checked_out_at: string | null;
+  cancelled_at: string | null;
   status: string;
   total_price: number;
   number_of_guests: number;
@@ -75,6 +77,7 @@ export const Dashboard = () => {
     todayDepartures: 0,
     inHouse: 0,
     newBookings: 0,
+    recentCancellations: 0,
     totalRevenue: 0,
     netRevenue: 0,
     totalCommission: 0,
@@ -134,6 +137,7 @@ export const Dashboard = () => {
   const fetchStats = async () => {
     const today = format(new Date(), 'yyyy-MM-dd');
     const yesterday = format(new Date(Date.now() - 86400000), 'yyyy-MM-dd');
+    const sevenDaysAgo = format(new Date(Date.now() - 7 * 86400000), 'yyyy-MM-dd');
 
     // Today's arrivals
     const { data: arrivals } = await supabase
@@ -161,6 +165,13 @@ export const Dashboard = () => {
       .select('id', { count: 'exact' })
       .gte('created_at', yesterday);
 
+    // Recent cancellations (last 7 days)
+    const { data: cancellations } = await supabase
+      .from('reservations')
+      .select('id', { count: 'exact' })
+      .eq('status', 'cancelled')
+      .gte('cancelled_at', sevenDaysAgo);
+
     // Revenue calculations
     const { data: revenueData } = await supabase
       .from('reservations')
@@ -176,6 +187,7 @@ export const Dashboard = () => {
       todayDepartures: departures?.length || 0,
       inHouse: inHouse?.length || 0,
       newBookings: newBookings?.length || 0,
+      recentCancellations: cancellations?.length || 0,
       totalRevenue,
       netRevenue,
       totalCommission,
@@ -185,10 +197,11 @@ export const Dashboard = () => {
   const handleCardClick = async (cardType: string) => {
     const today = format(new Date(), 'yyyy-MM-dd');
     const yesterday = format(new Date(Date.now() - 86400000), 'yyyy-MM-dd');
+    const sevenDaysAgo = format(new Date(Date.now() - 7 * 86400000), 'yyyy-MM-dd');
     
     let query = supabase
       .from('reservations')
-      .select('id, booking_reference, guest_names, guest_types, guest_genders, check_in_date, check_out_date, checked_in_at, checked_out_at, status, total_price, number_of_guests, children, adults, source, channel, units(name, unit_number)');
+      .select('id, booking_reference, guest_names, guest_types, guest_genders, check_in_date, check_out_date, checked_in_at, checked_out_at, cancelled_at, status, total_price, number_of_guests, children, adults, source, channel, units(name, unit_number)');
     
     switch (cardType) {
       case 'arrivals':
@@ -206,6 +219,10 @@ export const Dashboard = () => {
       case 'newbookings':
         setDialogTitle('New Bookings (Last 24h)');
         query = query.gte('created_at', yesterday);
+        break;
+      case 'cancellations':
+        setDialogTitle('Recent Cancellations (Last 7 Days)');
+        query = query.eq('status', 'cancelled').gte('cancelled_at', sevenDaysAgo);
         break;
     }
     
@@ -275,9 +292,10 @@ export const Dashboard = () => {
       // Refresh the dialog reservations and stats
       fetchStats();
       // Re-fetch the current dialog data
-      const currentType = dialogReservations.length > 0 && dialogTitle.includes('Arrivals') ? 'arrivals' : 
+      const currentType = dialogTitle.includes('Arrivals') ? 'arrivals' : 
                           dialogTitle.includes('Departures') ? 'departures' : 
-                          dialogTitle.includes('In-House') ? 'inhouse' : 'newbookings';
+                          dialogTitle.includes('In-House') ? 'inhouse' : 
+                          dialogTitle.includes('Cancellations') ? 'cancellations' : 'newbookings';
       if (dialogOpen) {
         handleCardClick(currentType);
       }
@@ -348,9 +366,10 @@ export const Dashboard = () => {
       fetchStats();
       
       // Re-fetch the current dialog data
-      const currentType = dialogReservations.length > 0 && dialogTitle.includes('Arrivals') ? 'arrivals' : 
+      const currentType = dialogTitle.includes('Arrivals') ? 'arrivals' : 
                           dialogTitle.includes('Departures') ? 'departures' : 
-                          dialogTitle.includes('In-House') ? 'inhouse' : 'newbookings';
+                          dialogTitle.includes('In-House') ? 'inhouse' : 
+                          dialogTitle.includes('Cancellations') ? 'cancellations' : 'newbookings';
       if (dialogOpen) {
         handleCardClick(currentType);
       }
@@ -416,12 +435,20 @@ export const Dashboard = () => {
       isRevenue: false,
       type: 'newbookings',
     },
+    {
+      title: 'Recent Cancellations',
+      value: stats.recentCancellations,
+      icon: XCircle,
+      color: 'text-red-600',
+      isRevenue: false,
+      type: 'cancellations',
+    },
   ];
 
   return (
     <>
       <PendingAssignmentsAlert />
-      <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-4">
+      <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-5">
         {statCards.map((stat) => {
           const Icon = stat.icon;
           return (
@@ -597,7 +624,15 @@ export const Dashboard = () => {
                               })}
                             </p>
                           )}
-                          <p className="font-semibold">${reservation.total_price.toFixed(2)}</p>
+                          {reservation.cancelled_at && (
+                            <p className="text-red-600 text-xs">
+                              Cancelled: {new Date(reservation.cancelled_at).toLocaleString('en-US', { 
+                                timeZone: 'Africa/Cairo',
+                                month: 'short', day: 'numeric', hour: 'numeric', minute: '2-digit', hour12: true 
+                              })}
+                            </p>
+                          )}
+                          <p className="font-semibold">${reservation.total_price?.toFixed(2) || '0.00'}</p>
                         </div>
                         <div className="flex gap-2">
                           {reservation.status === 'confirmed' && !dialogTitle.includes('Departures') && (
