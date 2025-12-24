@@ -518,31 +518,6 @@ const ReservationDetail = () => {
 
     setDeleting(true);
     
-    // Send cancellation notification before deleting
-    try {
-      const nights = reservation?.nights || 
-        Math.ceil((new Date(reservation?.check_out_date || '').getTime() - new Date(reservation?.check_in_date || '').getTime()) / (1000 * 60 * 60 * 24));
-      
-      await supabase.functions.invoke('send-cancellation-notification', {
-        body: {
-          reservation_id: id,
-          booking_reference: reservation?.booking_reference,
-          guest_names: reservation?.guest_names,
-          check_in_date: reservation?.check_in_date,
-          check_out_date: reservation?.check_out_date,
-          nights: nights,
-          total_price: reservation?.total_price,
-          currency: reservation?.currency || 'USD',
-          channel: reservation?.channel || '',
-          source: reservation?.source || 'Manual Deletion',
-          unit_name: reservation?.units?.booking_com_name || reservation?.units?.name,
-          unit_number: reservation?.units?.unit_number,
-        },
-      });
-    } catch (notifyErr) {
-      console.error('Error sending cancellation notification:', notifyErr);
-    }
-    
     const { error } = await supabase
       .from('reservations')
       .delete()
@@ -552,7 +527,7 @@ const ReservationDetail = () => {
       toast.error('Failed to delete reservation');
       setDeleting(false);
     } else {
-      toast.success('Reservation deleted and admins notified');
+      toast.success('Reservation deleted successfully');
       navigate('/admin');
     }
   };
