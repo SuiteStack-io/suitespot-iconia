@@ -744,6 +744,8 @@ export type Database = {
           adults: number | null
           booking_reference: string
           booking_screenshot_url: string | null
+          cancelled_at: string | null
+          cancelled_by: string | null
           channel: string
           check_in_date: string
           check_out_date: string
@@ -792,6 +794,8 @@ export type Database = {
           adults?: number | null
           booking_reference: string
           booking_screenshot_url?: string | null
+          cancelled_at?: string | null
+          cancelled_by?: string | null
           channel?: string
           check_in_date: string
           check_out_date: string
@@ -840,6 +844,8 @@ export type Database = {
           adults?: number | null
           booking_reference?: string
           booking_screenshot_url?: string | null
+          cancelled_at?: string | null
+          cancelled_by?: string | null
           channel?: string
           check_in_date?: string
           check_out_date?: string

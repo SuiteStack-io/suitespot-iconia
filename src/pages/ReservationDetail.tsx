@@ -512,24 +512,53 @@ const ReservationDetail = () => {
 
   const handleDelete = async () => {
     if (!canEdit) {
-      toast.error('You do not have permission to delete reservations');
+      toast.error('You do not have permission to cancel reservations');
       return;
     }
 
     setDeleting(true);
     
+    const nights = reservation?.nights || calculateNights();
+    
+    // Soft delete: Update status to cancelled instead of deleting
     const { error } = await supabase
       .from('reservations')
-      .delete()
+      .update({
+        status: 'cancelled',
+        cancelled_at: new Date().toISOString(),
+      })
       .eq('id', id);
 
     if (error) {
-      toast.error('Failed to delete reservation');
+      toast.error('Failed to cancel reservation');
       setDeleting(false);
-    } else {
-      toast.success('Reservation deleted successfully');
-      navigate('/admin');
+      return;
     }
+    
+    // Send cancellation notification email
+    try {
+      await supabase.functions.invoke('send-cancellation-notification', {
+        body: {
+          reservation_id: id,
+          booking_reference: reservation?.booking_reference,
+          guest_names: reservation?.guest_names,
+          check_in_date: reservation?.check_in_date,
+          check_out_date: reservation?.check_out_date,
+          nights: nights,
+          total_price: reservation?.total_price,
+          currency: reservation?.currency || 'USD',
+          channel: reservation?.channel || '',
+          source: reservation?.source,
+          unit_name: reservation?.units?.booking_com_name || reservation?.units?.name,
+          unit_number: reservation?.units?.unit_number,
+        },
+      });
+    } catch (notifyErr) {
+      console.error('Error sending cancellation notification:', notifyErr);
+    }
+    
+    toast.success('Reservation cancelled successfully');
+    navigate('/admin');
   };
 
   const handleDeleteLinkedCharge = async () => {
@@ -836,7 +865,7 @@ Thank you for choosing SuiteSpot!`;
                 onClick={() => setShowDeleteDialog(true)}
               >
                 <Trash2 className="h-4 w-4 mr-2" />
-                Delete
+                Cancel Reservation
               </Button>
             </div>
           )}
@@ -883,7 +912,7 @@ Thank you for choosing SuiteSpot!`;
               onClick={() => setShowDeleteDialog(true)}
             >
               <Trash2 className="h-4 w-4 mr-2" />
-              Delete
+              Cancel
             </Button>
           </div>
         )}
@@ -1596,9 +1625,9 @@ Thank you for choosing SuiteSpot!`;
       <AlertDialog open={showDeleteDialog} onOpenChange={setShowDeleteDialog}>
         <AlertDialogContent>
           <AlertDialogHeader>
-            <AlertDialogTitle>Are you sure you want to delete this reservation?</AlertDialogTitle>
+            <AlertDialogTitle>Are you sure you want to cancel this reservation?</AlertDialogTitle>
             <AlertDialogDescription>
-              This action cannot be undone. This will permanently delete the reservation.
+              The reservation will be marked as cancelled and retained for records. A cancellation notification will be sent to all admins.
             </AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter>
@@ -1608,7 +1637,7 @@ Thank you for choosing SuiteSpot!`;
               disabled={deleting}
               className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
             >
-              {deleting ? 'Deleting...' : 'Yes'}
+              {deleting ? 'Cancelling...' : 'Yes, Cancel Reservation'}
             </AlertDialogAction>
           </AlertDialogFooter>
         </AlertDialogContent>

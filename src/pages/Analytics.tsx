@@ -8,6 +8,7 @@ import { AdminBreadcrumb } from '@/components/AdminBreadcrumb';
 import { RevenueBySource } from '@/components/RevenueBySource';
 import { RevenueByRoom } from '@/components/RevenueByRoom';
 import { RevenueByGuests } from '@/components/RevenueByGuests';
+import { CancellationAnalytics } from '@/components/analytics/CancellationAnalytics';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { supabase } from '@/integrations/supabase/client';
 import { Tabs, TabsList, TabsTrigger } from '@/components/ui/tabs';
@@ -1173,6 +1174,10 @@ const Analytics = () => {
         </div>
 
         <section className="space-y-8">
+          <CancellationAnalytics 
+            startDate={getDateRange().startDate} 
+            endDate={getDateRange().endDate} 
+          />
           <RevenueBySource />
           <RevenueByRoom mainDateRange={customDateRange || {
             from: new Date(getDateRange().startDate),
