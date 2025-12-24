@@ -90,25 +90,30 @@ const handler = async (req: Request): Promise<Response> => {
       );
     }
 
-    // Get user emails from auth
+    // Get admin/manager user IDs
     const userIds = userRoles.map((ur) => ur.user_id);
+
+    // Get profiles for names
     const { data: profiles } = await supabase
       .from("profiles")
       .select("id, full_name")
       .in("id", userIds);
 
-    // Get auth emails
-    const { data: authData } = await supabase.rpc("get_all_users_with_emails");
-
+    // Fetch emails directly from auth.users using admin API
     const adminEmails: { email: string; name: string }[] = [];
-    if (authData) {
-      for (const user of authData) {
-        if (userIds.includes(user.user_id) && user.email) {
+
+    for (const userId of userIds) {
+      try {
+        const { data: { user } } = await supabase.auth.admin.getUserById(userId);
+        if (user?.email) {
+          const profile = profiles?.find(p => p.id === userId);
           adminEmails.push({
             email: user.email,
-            name: user.full_name || "Admin",
+            name: profile?.full_name || "Admin",
           });
         }
+      } catch (err) {
+        console.error(`Failed to fetch user ${userId}:`, err);
       }
     }
 
@@ -264,9 +269,9 @@ const handler = async (req: Request): Promise<Response> => {
     // Send emails to all admins
     const emailPromises = adminEmails.map((admin) =>
       resend.emails.send({
-        from: "SuiteSpot <onboarding@resend.dev>",
+        from: "SuiteSpot Reservations <onboarding@resend.dev>",
         to: [admin.email],
-        subject: `🚫 Cancellation: ${guest_names?.[0] || "Guest"} - ${booking_reference}`,
+        subject: `Cancelled Booking - ${guest_names?.[0] || "Guest"} (${booking_reference})`,
         html: emailHtml,
       })
     );
