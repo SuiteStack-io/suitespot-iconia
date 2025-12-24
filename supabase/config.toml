@@ -32,3 +32,6 @@ verify_jwt = false
 
 [functions.send-cancellation-notification]
 verify_jwt = false
+
+[functions.send-room-change-notification]
+verify_jwt = false

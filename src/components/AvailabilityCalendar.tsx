@@ -783,7 +783,36 @@ export const AvailabilityCalendar = () => {
       if (error) throw error;
 
       const targetUnit = units.find(u => u.id === targetUnitId);
+      const originalUnit = units.find(u => u.id === originalUnitId);
       const guestName = reservation.guest_names[0] || 'Guest';
+
+      // Calculate nights
+      const checkIn = new Date(reservation.check_in_date);
+      const checkOut = new Date(reservation.check_out_date);
+      const nightsCount = Math.ceil((checkOut.getTime() - checkIn.getTime()) / (1000 * 60 * 60 * 24));
+
+      // Send room change notification email
+      try {
+        await supabase.functions.invoke('send-room-change-notification', {
+          body: {
+            reservation_id: reservation.id,
+            booking_reference: reservation.booking_reference,
+            guest_names: reservation.guest_names,
+            check_in_date: reservation.check_in_date,
+            check_out_date: reservation.check_out_date,
+            old_unit_name: originalUnit?.name,
+            old_unit_number: originalUnit?.unit_number,
+            new_unit_name: targetUnit?.name,
+            new_unit_number: targetUnit?.unit_number,
+            nights: nightsCount,
+            source: reservation.source,
+          }
+        });
+        console.log("Room change notification sent successfully");
+      } catch (notifyError) {
+        console.error("Failed to send room change notification:", notifyError);
+        // Don't throw - the move was successful, notification is secondary
+      }
 
       // Store the move for undo
       setLastMove({
