@@ -253,6 +253,35 @@ export const ReservationQuickActions = ({
       if (error) throw error;
 
       const newUnit = availableUnits.find((u) => u.id === selectedUnitId);
+      
+      // Calculate nights
+      const checkIn = new Date(reservation.check_in_date);
+      const checkOut = new Date(reservation.check_out_date);
+      const nightsCount = Math.ceil((checkOut.getTime() - checkIn.getTime()) / (1000 * 60 * 60 * 24));
+
+      // Send room change notification email
+      try {
+        await supabase.functions.invoke('send-room-change-notification', {
+          body: {
+            reservation_id: reservation.id,
+            booking_reference: reservation.booking_reference,
+            guest_names: reservation.guest_names,
+            check_in_date: reservation.check_in_date,
+            check_out_date: reservation.check_out_date,
+            old_unit_name: currentUnit?.name,
+            old_unit_number: currentUnit?.unit_number,
+            new_unit_name: newUnit?.name,
+            new_unit_number: newUnit?.unit_number,
+            nights: nightsCount,
+            source: reservation.source,
+          }
+        });
+        console.log("Room change notification sent successfully");
+      } catch (notifyError) {
+        console.error("Failed to send room change notification:", notifyError);
+        // Don't throw - the move was successful, notification is secondary
+      }
+
       toast({
         title: "Reservation Moved",
         description: `Successfully moved to ${newUnit?.name} #${newUnit?.unit_number}`,
