@@ -269,7 +269,7 @@ const handler = async (req: Request): Promise<Response> => {
     // Send emails to all admins
     const emailPromises = adminEmails.map((admin) =>
       resend.emails.send({
-        from: "SuiteSpot Reservations <onboarding@resend.dev>",
+        from: "SuiteSpot Reservations <reservations@bookings.suitespoteg.com>",
         to: [admin.email],
         subject: `Cancelled Booking - ${guest_names?.[0] || "Guest"} (${booking_reference})`,
         html: emailHtml,
