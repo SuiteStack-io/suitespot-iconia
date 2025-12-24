@@ -99,23 +99,42 @@ const handler = async (req: Request): Promise<Response> => {
       .select("id, full_name")
       .in("id", userIds);
 
-    // Fetch emails directly from auth.users using admin API
-    const adminEmails: { email: string; name: string }[] = [];
+    // Get emails from auth.users using service role - listUsers() gets all at once
+    const { data: authUsers, error: authError } = await supabase.auth.admin.listUsers();
 
-    for (const userId of userIds) {
-      try {
-        const { data: { user } } = await supabase.auth.admin.getUserById(userId);
-        if (user?.email) {
-          const profile = profiles?.find(p => p.id === userId);
-          adminEmails.push({
-            email: user.email,
-            name: profile?.full_name || "Admin",
-          });
-        }
-      } catch (err) {
-        console.error(`Failed to fetch user ${userId}:`, err);
-      }
+    if (authError) {
+      console.error("Error fetching auth users:", authError);
+      throw authError;
     }
+
+    console.log("Total auth users fetched:", authUsers.users.length);
+    console.log("User IDs we need emails for:", userIds);
+
+    // Combine the data - match by user ID
+    const adminEmails = userIds.map((userId) => {
+      const profile = profiles?.find((p: any) => p.id === userId);
+      const authUser = authUsers.users.find((u: any) => u.id === userId);
+      
+      console.log(`Processing user ${userId}:`, {
+        hasProfile: !!profile,
+        hasAuthUser: !!authUser,
+        email: authUser?.email,
+        full_name: profile?.full_name
+      });
+      
+      return {
+        email: authUser?.email,
+        name: profile?.full_name || "Admin",
+      };
+    }).filter((u: any) => {
+      const hasEmail = !!u.email;
+      if (!hasEmail) {
+        console.log(`User filtered out - no email found`);
+      }
+      return hasEmail;
+    });
+
+    console.log("Final admins to notify:", adminEmails.map((u: any) => ({ email: u.email, name: u.name })));
 
     if (adminEmails.length === 0) {
       console.log("No admin emails found");
@@ -266,19 +285,38 @@ const handler = async (req: Request): Promise<Response> => {
 </html>
     `;
 
-    // Send emails to all admins
-    const emailPromises = adminEmails.map((admin) =>
-      resend.emails.send({
-        from: "SuiteSpot Reservations <reservations@bookings.suitespoteg.com>",
-        to: [admin.email],
-        subject: `Cancelled Booking - ${guest_names?.[0] || "Guest"} (${booking_reference})`,
-        html: emailHtml,
-      })
-    );
+    // Send emails to all admins sequentially with detailed logging
+    let successful = 0;
+    let failed = 0;
 
-    const results = await Promise.allSettled(emailPromises);
-    const successful = results.filter((r) => r.status === "fulfilled").length;
-    const failed = results.filter((r) => r.status === "rejected").length;
+    for (const admin of adminEmails) {
+      try {
+        console.log(`Attempting to send cancellation email to: ${admin.email}`);
+        
+        const result = await resend.emails.send({
+          from: "SuiteSpot Reservations <reservations@bookings.suitespoteg.com>",
+          to: [admin.email as string],
+          subject: `Cancelled Booking - ${guest_names?.[0] || "Guest"} (${booking_reference})`,
+          html: emailHtml,
+        });
+        
+        console.log(`Email result for ${admin.email}:`, JSON.stringify(result));
+        
+        if (result.error) {
+          console.error(`Resend error for ${admin.email}:`, JSON.stringify(result.error));
+          failed++;
+        } else {
+          console.log(`Email sent successfully to ${admin.email}, ID: ${result.data?.id}`);
+          successful++;
+        }
+        
+        // Add delay between emails (600ms) for rate limiting
+        await new Promise(resolve => setTimeout(resolve, 600));
+      } catch (err: any) {
+        console.error(`Exception sending email to ${admin.email}:`, err.message || err);
+        failed++;
+      }
+    }
 
     console.log(`Emails sent: ${successful} successful, ${failed} failed`);
 
