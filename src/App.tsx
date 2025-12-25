@@ -54,6 +54,7 @@ import SessionAuditLog from "./pages/SessionAuditLog";
 import CheckInOut from "./pages/CheckInOut";
 import Housekeeping from "./pages/Housekeeping";
 import ReservationsListPage from "./pages/ReservationsListPage";
+import CashSettlement from "./pages/CashSettlement";
 
 const queryClient = new QueryClient();
 
@@ -134,6 +135,7 @@ const App = () => (
             <TicketAnalytics />
           </ProtectedRoute>
         } />
+        <Route path="/cash-settlement" element={<ProtectedRoute><CashSettlement /></ProtectedRoute>} />
               
               {/* ADD ALL CUSTOM ROUTES ABOVE THE CATCH-ALL "*" ROUTE */}
               <Route path="*" element={<NotFound />} />
