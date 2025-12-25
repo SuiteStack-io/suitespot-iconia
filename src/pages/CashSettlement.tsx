@@ -10,9 +10,10 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/u
 import { Table, TableBody, TableCell, TableFooter, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Badge } from '@/components/ui/badge';
-import { ArrowLeft, Banknote, CreditCard, CheckCircle, Clock, DollarSign } from 'lucide-react';
+import { ArrowLeft, Banknote, CreditCard, CheckCircle, Clock, Download } from 'lucide-react';
 import { format } from 'date-fns';
 import { toast } from 'sonner';
+import * as XLSX from 'xlsx';
 
 type Reservation = {
   id: string;
@@ -129,6 +130,58 @@ export default function CashSettlement() {
 
   const formatCurrency = (amount: number) => {
     return new Intl.NumberFormat('en-US', { style: 'currency', currency: 'USD' }).format(amount);
+  };
+
+  const exportToExcel = () => {
+    const formatRow = (r: Reservation) => ({
+      'Booking Reference': r.booking_reference,
+      'Guest Name': r.guest_names?.[0] || 'N/A',
+      'Suite': r.units?.booking_com_name || 'Unassigned',
+      'Room #': r.units?.unit_number || '-',
+      'Check-in': format(new Date(r.check_in_date), 'MMM d, yyyy'),
+      'Check-out': format(new Date(r.check_out_date), 'MMM d, yyyy'),
+      'Amount': r.total_price || 0,
+      'Payment Method': r.payment_method === 'credit_card' ? 'Card' : r.payment_method,
+      'Source': r.source,
+      'Settled': r.settled === 'yes' ? 'Yes' : 'No',
+    });
+
+    const wb = XLSX.utils.book_new();
+
+    // Unsettled Cash sheet
+    const unsettledData = unsettledCashReservations.map(formatRow);
+    const unsettledTotal = unsettledCashReservations.reduce((sum, r) => sum + (r.total_price || 0), 0);
+    unsettledData.push({ 'Booking Reference': 'TOTAL', 'Guest Name': '', 'Suite': '', 'Room #': '', 'Check-in': '', 'Check-out': '', 'Amount': unsettledTotal, 'Payment Method': '', 'Source': '', 'Settled': '' });
+    const ws1 = XLSX.utils.json_to_sheet(unsettledData);
+    XLSX.utils.book_append_sheet(wb, ws1, 'Unsettled Cash');
+
+    // Settled Cash sheet
+    const settledData = settledCashReservations.map(formatRow);
+    const settledTotal = settledCashReservations.reduce((sum, r) => sum + (r.total_price || 0), 0);
+    settledData.push({ 'Booking Reference': 'TOTAL', 'Guest Name': '', 'Suite': '', 'Room #': '', 'Check-in': '', 'Check-out': '', 'Amount': settledTotal, 'Payment Method': '', 'Source': '', 'Settled': '' });
+    const ws2 = XLSX.utils.json_to_sheet(settledData);
+    XLSX.utils.book_append_sheet(wb, ws2, 'Settled Cash');
+
+    // Card Reservations sheet
+    const cardData = filteredCardReservations.map(formatRow);
+    const cardTotal = filteredCardReservations.reduce((sum, r) => sum + (r.total_price || 0), 0);
+    cardData.push({ 'Booking Reference': 'TOTAL', 'Guest Name': '', 'Suite': '', 'Room #': '', 'Check-in': '', 'Check-out': '', 'Amount': cardTotal, 'Payment Method': '', 'Source': '', 'Settled': '' });
+    const ws3 = XLSX.utils.json_to_sheet(cardData);
+    XLSX.utils.book_append_sheet(wb, ws3, 'Card Reservations');
+
+    // Summary sheet
+    const summaryData = [
+      { Category: 'Unsettled Cash', Count: unsettledCashReservations.length, Total: unsettledTotal },
+      { Category: 'Settled Cash', Count: settledCashReservations.length, Total: settledTotal },
+      { Category: 'Card Reservations', Count: filteredCardReservations.length, Total: cardTotal },
+      { Category: 'GRAND TOTAL', Count: unsettledCashReservations.length + settledCashReservations.length + filteredCardReservations.length, Total: unsettledTotal + settledTotal + cardTotal },
+    ];
+    const ws4 = XLSX.utils.json_to_sheet(summaryData);
+    XLSX.utils.book_append_sheet(wb, ws4, 'Summary');
+
+    const fileName = `settlement-report-${format(new Date(), 'yyyy-MM-dd')}.xlsx`;
+    XLSX.writeFile(wb, fileName);
+    toast.success('Settlement report exported successfully');
   };
 
   const getModalData = () => {
@@ -309,7 +362,7 @@ export default function CashSettlement() {
         </div>
 
         {/* Filters */}
-        <div className="flex flex-wrap gap-4">
+        <div className="flex flex-wrap gap-4 items-center justify-between">
           <Select value={sourceFilter} onValueChange={setSourceFilter}>
             <SelectTrigger className="w-[180px]">
               <SelectValue placeholder="Source" />
@@ -323,6 +376,11 @@ export default function CashSettlement() {
               ))}
             </SelectContent>
           </Select>
+
+          <Button onClick={exportToExcel} variant="outline" className="gap-2">
+            <Download className="h-4 w-4" />
+            Export to Excel
+          </Button>
         </div>
 
         {/* Unsettled Cash Table */}
