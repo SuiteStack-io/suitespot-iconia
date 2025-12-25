@@ -7,7 +7,7 @@ import { useAuth } from '@/lib/auth';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
-import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
+import { Table, TableBody, TableCell, TableFooter, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Badge } from '@/components/ui/badge';
 import { ArrowLeft, Banknote, CreditCard, CheckCircle, Clock, DollarSign } from 'lucide-react';
@@ -135,60 +135,75 @@ export default function CashSettlement() {
 
   const modalData = getModalData();
 
-  const ReservationTable = ({ data, showSettleAction = false }: { data: Reservation[]; showSettleAction?: boolean }) => (
-    <Table>
-      <TableHeader>
-        <TableRow>
-          <TableHead>Booking Ref</TableHead>
-          <TableHead>Guest</TableHead>
-          <TableHead>Room</TableHead>
-          <TableHead>Dates</TableHead>
-          <TableHead>Amount</TableHead>
-          <TableHead>Payment</TableHead>
-          <TableHead>Source</TableHead>
-          {showSettleAction && <TableHead>Action</TableHead>}
-        </TableRow>
-      </TableHeader>
-      <TableBody>
-        {data.length === 0 ? (
+  const ReservationTable = ({ data, showSettleAction = false }: { data: Reservation[]; showSettleAction?: boolean }) => {
+    const tableTotal = data.reduce((sum, r) => sum + (r.total_price || 0), 0);
+    
+    return (
+      <Table>
+        <TableHeader>
           <TableRow>
-            <TableCell colSpan={showSettleAction ? 8 : 7} className="text-center text-muted-foreground py-8">
-              No reservations found
-            </TableCell>
+            <TableHead>Booking Ref</TableHead>
+            <TableHead>Guest</TableHead>
+            <TableHead>Room</TableHead>
+            <TableHead>Dates</TableHead>
+            <TableHead>Amount</TableHead>
+            <TableHead>Payment</TableHead>
+            <TableHead>Source</TableHead>
+            {showSettleAction && <TableHead>Action</TableHead>}
           </TableRow>
-        ) : (
-          data.map((r) => (
-            <TableRow key={r.id}>
-              <TableCell className="font-mono text-sm">{r.booking_reference}</TableCell>
-              <TableCell>{r.guest_names?.[0] || 'N/A'}</TableCell>
-              <TableCell>{r.units?.name || 'Unassigned'}</TableCell>
-              <TableCell className="text-sm">
-                {format(new Date(r.check_in_date), 'MMM d')} - {format(new Date(r.check_out_date), 'MMM d, yyyy')}
+        </TableHeader>
+        <TableBody>
+          {data.length === 0 ? (
+            <TableRow>
+              <TableCell colSpan={showSettleAction ? 8 : 7} className="text-center text-muted-foreground py-8">
+                No reservations found
               </TableCell>
-              <TableCell className="font-medium">{formatCurrency(r.total_price || 0)}</TableCell>
-              <TableCell>
-                <Badge variant={r.payment_method === 'cash' ? 'default' : 'secondary'} className="capitalize">
-                  {r.payment_method === 'credit_card' ? 'Card' : r.payment_method}
-                </Badge>
-              </TableCell>
-              <TableCell className="capitalize">{r.source}</TableCell>
-              {showSettleAction && (
-                <TableCell>
-                  <Button
-                    size="sm"
-                    onClick={() => settleMutation.mutate(r.id)}
-                    disabled={settleMutation.isPending}
-                  >
-                    Settle
-                  </Button>
-                </TableCell>
-              )}
             </TableRow>
-          ))
+          ) : (
+            data.map((r) => (
+              <TableRow key={r.id}>
+                <TableCell className="font-mono text-sm">{r.booking_reference}</TableCell>
+                <TableCell>{r.guest_names?.[0] || 'N/A'}</TableCell>
+                <TableCell>{r.units?.name || 'Unassigned'}</TableCell>
+                <TableCell className="text-sm">
+                  {format(new Date(r.check_in_date), 'MMM d')} - {format(new Date(r.check_out_date), 'MMM d, yyyy')}
+                </TableCell>
+                <TableCell className="font-medium">{formatCurrency(r.total_price || 0)}</TableCell>
+                <TableCell>
+                  <Badge variant={r.payment_method === 'cash' ? 'default' : 'secondary'} className="capitalize">
+                    {r.payment_method === 'credit_card' ? 'Card' : r.payment_method}
+                  </Badge>
+                </TableCell>
+                <TableCell className="capitalize">{r.source}</TableCell>
+                {showSettleAction && (
+                  <TableCell>
+                    <Button
+                      size="sm"
+                      onClick={() => settleMutation.mutate(r.id)}
+                      disabled={settleMutation.isPending}
+                    >
+                      Settle
+                    </Button>
+                  </TableCell>
+                )}
+              </TableRow>
+            ))
+          )}
+        </TableBody>
+        {data.length > 0 && (
+          <TableFooter>
+            <TableRow className="bg-muted/50">
+              <TableCell colSpan={4} className="text-right font-semibold">
+                Total ({data.length} reservations)
+              </TableCell>
+              <TableCell className="font-bold text-lg">{formatCurrency(tableTotal)}</TableCell>
+              <TableCell colSpan={showSettleAction ? 3 : 2}></TableCell>
+            </TableRow>
+          </TableFooter>
         )}
-      </TableBody>
-    </Table>
-  );
+      </Table>
+    );
+  };
 
   if (isLoading) {
     return (
