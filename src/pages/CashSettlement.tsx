@@ -38,7 +38,6 @@ export default function CashSettlement() {
   const queryClient = useQueryClient();
   
   const [activeModal, setActiveModal] = useState<ModalType>(null);
-  const [paymentFilter, setPaymentFilter] = useState<string>('all');
   const [sourceFilter, setSourceFilter] = useState<string>('all');
 
   // Fetch reservations excluding booking.com and cancelled
@@ -101,17 +100,26 @@ export default function CashSettlement() {
     };
   }, [reservations]);
 
-  // Filter reservations for main tables
-  const filteredReservations = useMemo(() => {
+  // Filter reservations for main tables - cash only for settled/unsettled
+  const filteredCashReservations = useMemo(() => {
     return reservations.filter(r => {
-      if (paymentFilter !== 'all' && r.payment_method !== paymentFilter) return false;
+      if (r.payment_method !== 'cash') return false;
       if (sourceFilter !== 'all' && r.source !== sourceFilter) return false;
       return true;
     });
-  }, [reservations, paymentFilter, sourceFilter]);
+  }, [reservations, sourceFilter]);
 
-  const unsettledReservations = filteredReservations.filter(r => r.settled !== 'yes');
-  const settledReservations = filteredReservations.filter(r => r.settled === 'yes');
+  // Card reservations (separate table)
+  const filteredCardReservations = useMemo(() => {
+    return reservations.filter(r => {
+      if (r.payment_method !== 'credit_card') return false;
+      if (sourceFilter !== 'all' && r.source !== sourceFilter) return false;
+      return true;
+    });
+  }, [reservations, sourceFilter]);
+
+  const unsettledCashReservations = filteredCashReservations.filter(r => r.settled !== 'yes');
+  const settledCashReservations = filteredCashReservations.filter(r => r.settled === 'yes');
 
   // Get unique sources for filter
   const uniqueSources = useMemo(() => {
@@ -302,17 +310,6 @@ export default function CashSettlement() {
 
         {/* Filters */}
         <div className="flex flex-wrap gap-4">
-          <Select value={paymentFilter} onValueChange={setPaymentFilter}>
-            <SelectTrigger className="w-[180px]">
-              <SelectValue placeholder="Payment Method" />
-            </SelectTrigger>
-            <SelectContent>
-              <SelectItem value="all">All Payments</SelectItem>
-              <SelectItem value="cash">Cash</SelectItem>
-              <SelectItem value="credit_card">Credit Card</SelectItem>
-            </SelectContent>
-          </Select>
-
           <Select value={sourceFilter} onValueChange={setSourceFilter}>
             <SelectTrigger className="w-[180px]">
               <SelectValue placeholder="Source" />
@@ -328,31 +325,45 @@ export default function CashSettlement() {
           </Select>
         </div>
 
-        {/* Unsettled Table */}
+        {/* Unsettled Cash Table */}
         <Card>
           <CardHeader>
             <CardTitle className="flex items-center gap-2">
               <Clock className="h-5 w-5 text-amber-500" />
-              Unsettled Reservations
-              <Badge variant="outline" className="ml-2">{unsettledReservations.length}</Badge>
+              Unsettled Cash Reservations
+              <Badge variant="outline" className="ml-2">{unsettledCashReservations.length}</Badge>
             </CardTitle>
           </CardHeader>
           <CardContent>
-            <ReservationTable data={unsettledReservations} showSettleAction />
+            <ReservationTable data={unsettledCashReservations} showSettleAction />
           </CardContent>
         </Card>
 
-        {/* Settled Table */}
+        {/* Settled Cash Table */}
         <Card>
           <CardHeader>
             <CardTitle className="flex items-center gap-2">
               <CheckCircle className="h-5 w-5 text-emerald-500" />
-              Settled Reservations
-              <Badge variant="outline" className="ml-2">{settledReservations.length}</Badge>
+              Settled Cash Reservations
+              <Badge variant="outline" className="ml-2">{settledCashReservations.length}</Badge>
             </CardTitle>
           </CardHeader>
           <CardContent>
-            <ReservationTable data={settledReservations} />
+            <ReservationTable data={settledCashReservations} />
+          </CardContent>
+        </Card>
+
+        {/* Card Reservations Table */}
+        <Card>
+          <CardHeader>
+            <CardTitle className="flex items-center gap-2">
+              <CreditCard className="h-5 w-5 text-blue-500" />
+              Reservations Paid by Card
+              <Badge variant="outline" className="ml-2">{filteredCardReservations.length}</Badge>
+            </CardTitle>
+          </CardHeader>
+          <CardContent>
+            <ReservationTable data={filteredCardReservations} />
           </CardContent>
         </Card>
       </main>
