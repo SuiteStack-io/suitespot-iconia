@@ -27,7 +27,7 @@ type Reservation = {
   settled: string | null;
   status: string;
   unit_id: string | null;
-  units?: { name: string; unit_number: string | null } | null;
+  units?: { name: string; unit_number: string | null; booking_com_name: string | null } | null;
 };
 
 type ModalType = 'cash' | 'card' | 'settled' | 'pending' | null;
@@ -47,7 +47,7 @@ export default function CashSettlement() {
     queryFn: async () => {
       const { data, error } = await supabase
         .from('reservations')
-        .select('*, units(name, unit_number)')
+        .select('*, units(name, unit_number, booking_com_name)')
         .in('payment_method', ['cash', 'credit_card'])
         .neq('source', 'booking.com')
         .neq('status', 'cancelled')
@@ -144,7 +144,8 @@ export default function CashSettlement() {
           <TableRow>
             <TableHead>Booking Ref</TableHead>
             <TableHead>Guest</TableHead>
-            <TableHead>Room</TableHead>
+            <TableHead>Suite</TableHead>
+            <TableHead>Room #</TableHead>
             <TableHead>Dates</TableHead>
             <TableHead>Amount</TableHead>
             <TableHead>Payment</TableHead>
@@ -155,7 +156,7 @@ export default function CashSettlement() {
         <TableBody>
           {data.length === 0 ? (
             <TableRow>
-              <TableCell colSpan={showSettleAction ? 8 : 7} className="text-center text-muted-foreground py-8">
+              <TableCell colSpan={showSettleAction ? 9 : 8} className="text-center text-muted-foreground py-8">
                 No reservations found
               </TableCell>
             </TableRow>
@@ -164,7 +165,8 @@ export default function CashSettlement() {
               <TableRow key={r.id}>
                 <TableCell className="font-mono text-sm">{r.booking_reference}</TableCell>
                 <TableCell>{r.guest_names?.[0] || 'N/A'}</TableCell>
-                <TableCell>{r.units?.name || 'Unassigned'}</TableCell>
+                <TableCell>{r.units?.booking_com_name || 'Unassigned'}</TableCell>
+                <TableCell>{r.units?.unit_number || '-'}</TableCell>
                 <TableCell className="text-sm">
                   {format(new Date(r.check_in_date), 'MMM d')} - {format(new Date(r.check_out_date), 'MMM d, yyyy')}
                 </TableCell>
@@ -193,7 +195,7 @@ export default function CashSettlement() {
         {data.length > 0 && (
           <TableFooter>
             <TableRow className="bg-muted/50">
-              <TableCell colSpan={4} className="text-right font-semibold">
+              <TableCell colSpan={5} className="text-right font-semibold">
                 Total ({data.length} reservations)
               </TableCell>
               <TableCell className="font-bold text-lg">{formatCurrency(tableTotal)}</TableCell>
