@@ -55,7 +55,7 @@ import CheckInOut from "./pages/CheckInOut";
 import Housekeeping from "./pages/Housekeeping";
 import ReservationsListPage from "./pages/ReservationsListPage";
 import CashSettlement from "./pages/CashSettlement";
-
+import Commissions from "./pages/Commissions";
 const queryClient = new QueryClient();
 
 const App = () => (
@@ -136,6 +136,7 @@ const App = () => (
           </ProtectedRoute>
         } />
         <Route path="/cash-settlement" element={<ProtectedRoute><CashSettlement /></ProtectedRoute>} />
+        <Route path="/commissions" element={<ProtectedRoute><Commissions /></ProtectedRoute>} />
               
               {/* ADD ALL CUSTOM ROUTES ABOVE THE CATCH-ALL "*" ROUTE */}
               <Route path="*" element={<NotFound />} />

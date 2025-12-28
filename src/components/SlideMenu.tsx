@@ -77,6 +77,7 @@ export function SlideMenu({ userRole }: SlideMenuProps) {
         { title: 'App Accounts', url: '/guest-accounts', icon: Shield },
         { title: 'Guests', url: '/guests', icon: Users },
         { title: 'My Commissions', url: '/my-commissions', icon: Wallet, showFor: ['manager'] },
+        { title: 'Commissions', url: '/commissions', icon: Wallet, showFor: ['admin'] },
         { title: 'Cash Settlement', url: '/cash-settlement', icon: Banknote, showFor: ['admin'] },
         { title: 'Revenue Analytics', url: '/analytics', icon: DollarSign, showFor: ['admin'] },
       ],
