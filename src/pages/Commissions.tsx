@@ -32,6 +32,7 @@ interface Reservation {
   payment_method: string | null;
   settled: string | null;
   commission_paid: string | null;
+  commission_paid_at: string | null;
   units: { name: string; unit_number: string | null; booking_com_name: string | null } | null;
 }
 
@@ -68,7 +69,7 @@ const Commissions = () => {
       // Fetch all reservations with commission (excluding booking.com and direct website)
       const { data, error } = await supabase
         .from('reservations')
-        .select('id, booking_reference, guest_names, check_in_date, check_out_date, status, total_price, commission_rate, commission_amount, net_revenue, source, payment_method, settled, commission_paid, units(name, unit_number, booking_com_name)')
+        .select('id, booking_reference, guest_names, check_in_date, check_out_date, status, total_price, commission_rate, commission_amount, net_revenue, source, payment_method, settled, commission_paid, commission_paid_at, units(name, unit_number, booking_com_name)')
         .not('source', 'in', '("booking.com","direct website","Booking.com")')
         .not('commission_amount', 'is', null)
         .gt('commission_amount', 0)
@@ -135,9 +136,14 @@ const Commissions = () => {
     try {
       setUpdating(reservationId);
       
+      const paidAt = status === 'yes' ? new Date().toISOString() : null;
+      
       const { error } = await supabase
         .from('reservations')
-        .update({ commission_paid: status === 'yes' ? 'yes' : null })
+        .update({ 
+          commission_paid: status === 'yes' ? 'yes' : null,
+          commission_paid_at: paidAt
+        })
         .eq('id', reservationId);
 
       if (error) throw error;
@@ -146,7 +152,7 @@ const Commissions = () => {
       setReservations(prev => 
         prev.map(r => 
           r.id === reservationId 
-            ? { ...r, commission_paid: status === 'yes' ? 'yes' : null }
+            ? { ...r, commission_paid: status === 'yes' ? 'yes' : null, commission_paid_at: paidAt }
             : r
         )
       );
@@ -172,6 +178,7 @@ const Commissions = () => {
       'Revenue': r.total_price || 0,
       'Commission': r.commission_amount || 0,
       'Status': r.commission_paid === 'yes' ? 'Paid' : 'Unpaid',
+      'Paid On': r.commission_paid_at ? format(new Date(r.commission_paid_at), 'MMM d, yyyy') : '-',
     });
 
     const wb = XLSX.utils.book_new();
@@ -189,7 +196,8 @@ const Commissions = () => {
         'Check-out': '', 
         'Revenue': unpaidCommissions.reduce((sum, r) => sum + (r.total_price || 0), 0), 
         'Commission': totalUnpaid, 
-        'Status': '' 
+        'Status': '',
+        'Paid On': ''
       });
     }
     const ws1 = XLSX.utils.json_to_sheet(unpaidData.length > 0 ? unpaidData : [{ Message: 'No unpaid commissions' }]);
@@ -208,7 +216,8 @@ const Commissions = () => {
         'Check-out': '', 
         'Revenue': paidCommissions.reduce((sum, r) => sum + (r.total_price || 0), 0), 
         'Commission': totalPaid, 
-        'Status': '' 
+        'Status': '',
+        'Paid On': ''
       });
     }
     const ws2 = XLSX.utils.json_to_sheet(paidData.length > 0 ? paidData : [{ Message: 'No paid commissions' }]);
@@ -577,6 +586,7 @@ const Commissions = () => {
                       <TableHead className="hidden lg:table-cell">Check-out</TableHead>
                       <TableHead className="text-right">Revenue</TableHead>
                       <TableHead className="text-right">Commission</TableHead>
+                      <TableHead className="hidden md:table-cell">Paid On</TableHead>
                       <TableHead>Action</TableHead>
                     </TableRow>
                   </TableHeader>
@@ -603,6 +613,11 @@ const Commissions = () => {
                         <TableCell className="text-right">{formatCurrency(reservation.total_price || 0)}</TableCell>
                         <TableCell className="text-right font-semibold text-emerald-600">
                           {formatCurrency(reservation.commission_amount || 0)}
+                        </TableCell>
+                        <TableCell className="hidden md:table-cell text-muted-foreground">
+                          {reservation.commission_paid_at 
+                            ? format(new Date(reservation.commission_paid_at), 'MMM dd, yyyy')
+                            : '-'}
                         </TableCell>
                         <TableCell onClick={(e) => e.stopPropagation()}>
                           <Select
@@ -635,6 +650,7 @@ const Commissions = () => {
                       <TableCell className="text-right font-semibold text-emerald-600">
                         {formatCurrency(totalPaid)}
                       </TableCell>
+                      <TableCell className="hidden md:table-cell"></TableCell>
                       <TableCell></TableCell>
                     </TableRow>
                   </TableFooter>

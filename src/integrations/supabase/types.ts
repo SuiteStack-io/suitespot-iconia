@@ -754,6 +754,7 @@ export type Database = {
           children: number | null
           commission_amount: number | null
           commission_paid: string | null
+          commission_paid_at: string | null
           commission_rate: number | null
           confirmation_email_error: string | null
           confirmation_email_sent_at: string | null
@@ -805,6 +806,7 @@ export type Database = {
           children?: number | null
           commission_amount?: number | null
           commission_paid?: string | null
+          commission_paid_at?: string | null
           commission_rate?: number | null
           confirmation_email_error?: string | null
           confirmation_email_sent_at?: string | null
@@ -856,6 +858,7 @@ export type Database = {
           children?: number | null
           commission_amount?: number | null
           commission_paid?: string | null
+          commission_paid_at?: string | null
           commission_rate?: number | null
           confirmation_email_error?: string | null
           confirmation_email_sent_at?: string | null
