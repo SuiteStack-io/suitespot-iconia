@@ -9,7 +9,8 @@ import { Badge } from '@/components/ui/badge';
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
 import { Calendar as CalendarComponent } from '@/components/ui/calendar';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
-import { ArrowLeft, Wallet, CalendarIcon, X, Download, CheckCircle, Clock, Users } from 'lucide-react';
+import { Checkbox } from '@/components/ui/checkbox';
+import { ArrowLeft, Wallet, CalendarIcon, X, Download, CheckCircle, Clock, Users, CheckCheck } from 'lucide-react';
 import { format, startOfMonth, endOfMonth } from 'date-fns';
 import { SlideMenu } from '@/components/SlideMenu';
 import { cn } from '@/lib/utils';
@@ -45,6 +46,8 @@ const Commissions = () => {
   const [sourceFilter, setSourceFilter] = useState<string>('all');
   const [uniqueSources, setUniqueSources] = useState<string[]>([]);
   const [updating, setUpdating] = useState<string | null>(null);
+  const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
+  const [bulkUpdating, setBulkUpdating] = useState(false);
 
   useEffect(() => {
     if (!loading && !user) {
@@ -163,6 +166,61 @@ const Commissions = () => {
       toast.error('Failed to update commission status');
     } finally {
       setUpdating(null);
+    }
+  };
+
+  const handleSelectAll = (checked: boolean) => {
+    if (checked) {
+      setSelectedIds(new Set(unpaidCommissions.map(r => r.id)));
+    } else {
+      setSelectedIds(new Set());
+    }
+  };
+
+  const handleSelectOne = (id: string, checked: boolean) => {
+    const newSelected = new Set(selectedIds);
+    if (checked) {
+      newSelected.add(id);
+    } else {
+      newSelected.delete(id);
+    }
+    setSelectedIds(newSelected);
+  };
+
+  const handleBulkMarkPaid = async () => {
+    if (selectedIds.size === 0) return;
+    
+    try {
+      setBulkUpdating(true);
+      const paidAt = new Date().toISOString();
+      const ids = Array.from(selectedIds);
+      
+      const { error } = await supabase
+        .from('reservations')
+        .update({ 
+          commission_paid: 'yes',
+          commission_paid_at: paidAt
+        })
+        .in('id', ids);
+
+      if (error) throw error;
+
+      // Update local state
+      setReservations(prev => 
+        prev.map(r => 
+          selectedIds.has(r.id) 
+            ? { ...r, commission_paid: 'yes', commission_paid_at: paidAt }
+            : r
+        )
+      );
+
+      toast.success(`${selectedIds.size} commission(s) marked as paid`);
+      setSelectedIds(new Set());
+    } catch (error) {
+      console.error('Error bulk updating commissions:', error);
+      toast.error('Failed to update commissions');
+    } finally {
+      setBulkUpdating(false);
     }
   };
 
@@ -454,7 +512,7 @@ const Commissions = () => {
         {/* Unpaid Commissions Table */}
         <Card>
           <CardHeader>
-            <div className="flex items-center justify-between">
+            <div className="flex items-center justify-between flex-wrap gap-4">
               <div>
                 <CardTitle className="flex items-center gap-2">
                   <Clock className="h-5 w-5 text-amber-600" />
@@ -464,6 +522,16 @@ const Commissions = () => {
                   {unpaidCommissions.length} reservations · Total: {formatCurrency(totalUnpaid)}
                 </CardDescription>
               </div>
+              {selectedIds.size > 0 && (
+                <Button 
+                  onClick={handleBulkMarkPaid} 
+                  disabled={bulkUpdating}
+                  className="gap-2 bg-emerald-600 hover:bg-emerald-700"
+                >
+                  <CheckCheck className="h-4 w-4" />
+                  Mark {selectedIds.size} as Paid
+                </Button>
+              )}
             </div>
           </CardHeader>
           <CardContent>
@@ -476,6 +544,13 @@ const Commissions = () => {
                 <Table>
                   <TableHeader>
                     <TableRow>
+                      <TableHead className="w-[50px]" onClick={(e) => e.stopPropagation()}>
+                        <Checkbox
+                          checked={unpaidCommissions.length > 0 && selectedIds.size === unpaidCommissions.length}
+                          onCheckedChange={handleSelectAll}
+                          aria-label="Select all"
+                        />
+                      </TableHead>
                       <TableHead>Team Member</TableHead>
                       <TableHead>Booking Ref</TableHead>
                       <TableHead className="hidden md:table-cell">Suite</TableHead>
@@ -492,9 +567,19 @@ const Commissions = () => {
                     {unpaidCommissions.map((reservation) => (
                       <TableRow
                         key={reservation.id}
-                        className="cursor-pointer hover:bg-muted/50"
+                        className={cn(
+                          "cursor-pointer hover:bg-muted/50",
+                          selectedIds.has(reservation.id) && "bg-primary/5"
+                        )}
                         onClick={() => navigate(`/reservation/${reservation.id}`)}
                       >
+                        <TableCell onClick={(e) => e.stopPropagation()}>
+                          <Checkbox
+                            checked={selectedIds.has(reservation.id)}
+                            onCheckedChange={(checked) => handleSelectOne(reservation.id, !!checked)}
+                            aria-label={`Select ${reservation.booking_reference}`}
+                          />
+                        </TableCell>
                         <TableCell>
                           <Badge variant="outline">{reservation.source}</Badge>
                         </TableCell>
@@ -536,6 +621,7 @@ const Commissions = () => {
                   </TableBody>
                   <TableFooter>
                     <TableRow>
+                      <TableCell></TableCell>
                       <TableCell colSpan={7} className="font-semibold">Total</TableCell>
                       <TableCell className="text-right font-semibold">
                         {formatCurrency(unpaidCommissions.reduce((sum, r) => sum + (r.total_price || 0), 0))}
