@@ -1557,17 +1557,31 @@ Thank you for choosing SuiteSpot!`;
             <CardContent className="space-y-4">
               <div className="grid gap-4 md:grid-cols-2">
                 {/* ID/Passport Front */}
-                <div className="p-4 border rounded-lg space-y-2">
+                <div className="p-4 border rounded-lg space-y-3">
                   <div className="flex items-center gap-2">
                     <FileText className="h-5 w-5 text-primary" />
                     <Label className="font-semibold">ID/Passport - Front</Label>
                   </div>
                   {isEditMode ? (
                     idPassportUrl ? (
-                      <div className="space-y-2">
+                      <div className="space-y-3">
+                        {/* Thumbnail Preview */}
+                        {idPassportUrl.match(/\.(jpg|jpeg|png|gif|webp)$/i) || idPassportUrl.includes('image') ? (
+                          <a href={idPassportUrl} target="_blank" rel="noopener noreferrer" className="block">
+                            <img 
+                              src={idPassportUrl} 
+                              alt="ID/Passport Front" 
+                              className="w-full h-32 object-cover rounded-lg border border-border hover:opacity-90 transition-opacity cursor-pointer"
+                            />
+                          </a>
+                        ) : (
+                          <a href={idPassportUrl} target="_blank" rel="noopener noreferrer" className="flex items-center justify-center h-32 bg-muted rounded-lg border border-border hover:bg-muted/80 transition-colors">
+                            <FileText className="h-12 w-12 text-muted-foreground" />
+                          </a>
+                        )}
                         <div className="flex items-center justify-between">
                           <span className="text-sm text-green-600 flex items-center gap-1">
-                            <Check className="h-4 w-4" /> Document uploaded
+                            <Check className="h-4 w-4" /> Uploaded
                           </span>
                           <div className="flex gap-2">
                             <label className="cursor-pointer">
@@ -1600,16 +1614,32 @@ Thank you for choosing SuiteSpot!`;
                     )
                   ) : (
                     reservation.id_passport_url ? (
-                      <Button
-                        variant="outline"
-                        size="sm"
-                        className="w-full"
-                        onClick={() => handleDownloadDocument(reservation.id_passport_url!, 'id_passport_url')}
-                        disabled={downloading.id_passport_url}
-                      >
-                        <Download className="h-4 w-4 mr-2" />
-                        {downloading.id_passport_url ? 'Downloading...' : 'Download'}
-                      </Button>
+                      <div className="space-y-3">
+                        {/* Thumbnail Preview */}
+                        {reservation.id_passport_url.match(/\.(jpg|jpeg|png|gif|webp)$/i) || reservation.id_passport_url.includes('image') ? (
+                          <a href={reservation.id_passport_url} target="_blank" rel="noopener noreferrer" className="block">
+                            <img 
+                              src={reservation.id_passport_url} 
+                              alt="ID/Passport Front" 
+                              className="w-full h-32 object-cover rounded-lg border border-border hover:opacity-90 transition-opacity cursor-pointer"
+                            />
+                          </a>
+                        ) : (
+                          <a href={reservation.id_passport_url} target="_blank" rel="noopener noreferrer" className="flex items-center justify-center h-32 bg-muted rounded-lg border border-border hover:bg-muted/80 transition-colors">
+                            <FileText className="h-12 w-12 text-muted-foreground" />
+                          </a>
+                        )}
+                        <Button
+                          variant="outline"
+                          size="sm"
+                          className="w-full"
+                          onClick={() => handleDownloadDocument(reservation.id_passport_url!, 'id_passport_url')}
+                          disabled={downloading.id_passport_url}
+                        >
+                          <Download className="h-4 w-4 mr-2" />
+                          {downloading.id_passport_url ? 'Downloading...' : 'Download'}
+                        </Button>
+                      </div>
                     ) : (
                       <p className="text-sm text-muted-foreground">No document uploaded</p>
                     )
@@ -1617,17 +1647,31 @@ Thank you for choosing SuiteSpot!`;
                 </div>
 
                 {/* ID/Passport Back */}
-                <div className="p-4 border rounded-lg space-y-2">
+                <div className="p-4 border rounded-lg space-y-3">
                   <div className="flex items-center gap-2">
                     <FileText className="h-5 w-5 text-primary" />
                     <Label className="font-semibold">ID/Passport - Back</Label>
                   </div>
                   {isEditMode ? (
                     idPassportUrlBack ? (
-                      <div className="space-y-2">
+                      <div className="space-y-3">
+                        {/* Thumbnail Preview */}
+                        {idPassportUrlBack.match(/\.(jpg|jpeg|png|gif|webp)$/i) || idPassportUrlBack.includes('image') ? (
+                          <a href={idPassportUrlBack} target="_blank" rel="noopener noreferrer" className="block">
+                            <img 
+                              src={idPassportUrlBack} 
+                              alt="ID/Passport Back" 
+                              className="w-full h-32 object-cover rounded-lg border border-border hover:opacity-90 transition-opacity cursor-pointer"
+                            />
+                          </a>
+                        ) : (
+                          <a href={idPassportUrlBack} target="_blank" rel="noopener noreferrer" className="flex items-center justify-center h-32 bg-muted rounded-lg border border-border hover:bg-muted/80 transition-colors">
+                            <FileText className="h-12 w-12 text-muted-foreground" />
+                          </a>
+                        )}
                         <div className="flex items-center justify-between">
                           <span className="text-sm text-green-600 flex items-center gap-1">
-                            <Check className="h-4 w-4" /> Document uploaded
+                            <Check className="h-4 w-4" /> Uploaded
                           </span>
                           <div className="flex gap-2">
                             <label className="cursor-pointer">
@@ -1660,16 +1704,32 @@ Thank you for choosing SuiteSpot!`;
                     )
                   ) : (
                     reservation.id_passport_url_back ? (
-                      <Button
-                        variant="outline"
-                        size="sm"
-                        className="w-full"
-                        onClick={() => handleDownloadDocument(reservation.id_passport_url_back!, 'id_passport_url_back')}
-                        disabled={downloading.id_passport_url_back}
-                      >
-                        <Download className="h-4 w-4 mr-2" />
-                        {downloading.id_passport_url_back ? 'Downloading...' : 'Download'}
-                      </Button>
+                      <div className="space-y-3">
+                        {/* Thumbnail Preview */}
+                        {reservation.id_passport_url_back.match(/\.(jpg|jpeg|png|gif|webp)$/i) || reservation.id_passport_url_back.includes('image') ? (
+                          <a href={reservation.id_passport_url_back} target="_blank" rel="noopener noreferrer" className="block">
+                            <img 
+                              src={reservation.id_passport_url_back} 
+                              alt="ID/Passport Back" 
+                              className="w-full h-32 object-cover rounded-lg border border-border hover:opacity-90 transition-opacity cursor-pointer"
+                            />
+                          </a>
+                        ) : (
+                          <a href={reservation.id_passport_url_back} target="_blank" rel="noopener noreferrer" className="flex items-center justify-center h-32 bg-muted rounded-lg border border-border hover:bg-muted/80 transition-colors">
+                            <FileText className="h-12 w-12 text-muted-foreground" />
+                          </a>
+                        )}
+                        <Button
+                          variant="outline"
+                          size="sm"
+                          className="w-full"
+                          onClick={() => handleDownloadDocument(reservation.id_passport_url_back!, 'id_passport_url_back')}
+                          disabled={downloading.id_passport_url_back}
+                        >
+                          <Download className="h-4 w-4 mr-2" />
+                          {downloading.id_passport_url_back ? 'Downloading...' : 'Download'}
+                        </Button>
+                      </div>
                     ) : (
                       <p className="text-sm text-muted-foreground">No document uploaded</p>
                     )
@@ -1677,17 +1737,31 @@ Thank you for choosing SuiteSpot!`;
                 </div>
 
                 {/* Marriage Certificate */}
-                <div className="p-4 border rounded-lg space-y-2">
+                <div className="p-4 border rounded-lg space-y-3">
                   <div className="flex items-center gap-2">
                     <FileText className="h-5 w-5 text-primary" />
                     <Label className="font-semibold">Marriage Certificate</Label>
                   </div>
                   {isEditMode ? (
                     marriageCertUrl ? (
-                      <div className="space-y-2">
+                      <div className="space-y-3">
+                        {/* Thumbnail Preview */}
+                        {marriageCertUrl.match(/\.(jpg|jpeg|png|gif|webp)$/i) || marriageCertUrl.includes('image') ? (
+                          <a href={marriageCertUrl} target="_blank" rel="noopener noreferrer" className="block">
+                            <img 
+                              src={marriageCertUrl} 
+                              alt="Marriage Certificate" 
+                              className="w-full h-32 object-cover rounded-lg border border-border hover:opacity-90 transition-opacity cursor-pointer"
+                            />
+                          </a>
+                        ) : (
+                          <a href={marriageCertUrl} target="_blank" rel="noopener noreferrer" className="flex items-center justify-center h-32 bg-muted rounded-lg border border-border hover:bg-muted/80 transition-colors">
+                            <FileText className="h-12 w-12 text-muted-foreground" />
+                          </a>
+                        )}
                         <div className="flex items-center justify-between">
                           <span className="text-sm text-green-600 flex items-center gap-1">
-                            <Check className="h-4 w-4" /> Document uploaded
+                            <Check className="h-4 w-4" /> Uploaded
                           </span>
                           <div className="flex gap-2">
                             <label className="cursor-pointer">
@@ -1720,16 +1794,32 @@ Thank you for choosing SuiteSpot!`;
                     )
                   ) : (
                     reservation.marriage_certificate_url ? (
-                      <Button
-                        variant="outline"
-                        size="sm"
-                        className="w-full"
-                        onClick={() => handleDownloadDocument(reservation.marriage_certificate_url!, 'marriage_certificate_url')}
-                        disabled={downloading.marriage_certificate_url}
-                      >
-                        <Download className="h-4 w-4 mr-2" />
-                        {downloading.marriage_certificate_url ? 'Downloading...' : 'Download'}
-                      </Button>
+                      <div className="space-y-3">
+                        {/* Thumbnail Preview */}
+                        {reservation.marriage_certificate_url.match(/\.(jpg|jpeg|png|gif|webp)$/i) || reservation.marriage_certificate_url.includes('image') ? (
+                          <a href={reservation.marriage_certificate_url} target="_blank" rel="noopener noreferrer" className="block">
+                            <img 
+                              src={reservation.marriage_certificate_url} 
+                              alt="Marriage Certificate" 
+                              className="w-full h-32 object-cover rounded-lg border border-border hover:opacity-90 transition-opacity cursor-pointer"
+                            />
+                          </a>
+                        ) : (
+                          <a href={reservation.marriage_certificate_url} target="_blank" rel="noopener noreferrer" className="flex items-center justify-center h-32 bg-muted rounded-lg border border-border hover:bg-muted/80 transition-colors">
+                            <FileText className="h-12 w-12 text-muted-foreground" />
+                          </a>
+                        )}
+                        <Button
+                          variant="outline"
+                          size="sm"
+                          className="w-full"
+                          onClick={() => handleDownloadDocument(reservation.marriage_certificate_url!, 'marriage_certificate_url')}
+                          disabled={downloading.marriage_certificate_url}
+                        >
+                          <Download className="h-4 w-4 mr-2" />
+                          {downloading.marriage_certificate_url ? 'Downloading...' : 'Download'}
+                        </Button>
+                      </div>
                     ) : (
                       <p className="text-sm text-muted-foreground">No document uploaded</p>
                     )
