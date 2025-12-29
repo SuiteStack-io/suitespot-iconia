@@ -26,7 +26,7 @@ const OurStory = () => {
           <div className="container mx-auto max-w-4xl">
           <div className="space-y-12">
               <div>
-                <h2 className="text-3xl font-serif font-bold text-foreground mb-4">We started back in 2018.</h2>
+                <h2 className="text-3xl font-serif font-bold text-foreground mb-4">In 2018, we opened our first doors in Zamalek</h2>
                 <p className="text-lg text-muted-foreground leading-relaxed mb-6">
                   ICONIA began in 2018 with a simple yet ambitious vision — to breathe new life into one of Zamalek's most iconic buildings. What was once the AUC dormitory was reimagined as Egypt's first-of-its-kind mixed-use development — a vibrant space blending residences, offices, and retail under one roof.
                 </p>
