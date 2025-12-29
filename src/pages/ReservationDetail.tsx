@@ -99,7 +99,7 @@ interface Reservation {
   created_at: string;
   updated_at: string;
   group_id: string | null;
-  units: { name: string; unit_number: string | null; booking_com_name: string | null } | null;
+  units: { name: string; unit_number: string | null; booking_com_name: string | null; tax_percentage: number | null } | null;
 }
 
 interface Unit {
@@ -239,7 +239,7 @@ const ReservationDetail = () => {
   const fetchReservation = async () => {
     const { data, error } = await supabase
       .from('reservations')
-      .select('*, units(name, unit_number, booking_com_name)')
+      .select('*, units(name, unit_number, booking_com_name, tax_percentage)')
       .eq('id', id)
       .single();
 
@@ -786,6 +786,12 @@ const ReservationDetail = () => {
     const checkOut = format(new Date(reservation.check_out_date), 'EEEE, MMMM d, yyyy');
     const suiteName = reservation.units?.booking_com_name || reservation.units?.name || 'N/A';
     
+    // Calculate tax
+    const subtotal = (reservation.price_per_night || 0) * (reservation.nights || 0);
+    const taxPercentage = reservation.units?.tax_percentage || 14;
+    const taxAmount = subtotal * (taxPercentage / 100);
+    const totalWithTax = subtotal + taxAmount;
+    
     const message = `🏨 *SuiteSpot Reservation Confirmation*
 
 📋 *Booking Reference:* ${reservation.booking_reference}
@@ -800,7 +806,9 @@ ${reservation.units?.unit_number ? `🚪 *Unit:* #${reservation.units.unit_numbe
 📅 *Check-out:* ${checkOut}
 🌙 *Duration:* ${reservation.nights} night(s)
 
-💰 *Total Price:* ${reservation.currency} ${reservation.total_price?.toFixed(2) || '0.00'}
+💵 *Subtotal:* ${reservation.currency} ${subtotal.toFixed(2)}
+${taxPercentage > 0 ? `🧾 *Taxes (${taxPercentage}%):* ${reservation.currency} ${taxAmount.toFixed(2)}` : ''}
+💰 *Total Price:* ${reservation.currency} ${totalWithTax.toFixed(2)}
 
 ✅ Status: Confirmed
 
@@ -818,6 +826,12 @@ Thank you for choosing SuiteSpot! 🌟`;
     const checkIn = format(new Date(reservation.check_in_date), 'EEEE, MMMM d, yyyy');
     const checkOut = format(new Date(reservation.check_out_date), 'EEEE, MMMM d, yyyy');
     const suiteName = reservation.units?.booking_com_name || reservation.units?.name || 'N/A';
+    
+    // Calculate tax
+    const subtotal = (reservation.price_per_night || 0) * (reservation.nights || 0);
+    const taxPercentage = reservation.units?.tax_percentage || 14;
+    const taxAmount = subtotal * (taxPercentage / 100);
+    const totalWithTax = subtotal + taxAmount;
     
     const subject = `Your Reservation Confirmation - ${reservation.booking_reference}`;
     
@@ -844,7 +858,9 @@ Duration: ${reservation.nights} night(s)
 
 PRICING SUMMARY
 ━━━━━━━━━━━━━━
-Total Price: ${reservation.currency} ${reservation.total_price?.toFixed(2) || '0.00'}
+Subtotal: ${reservation.currency} ${subtotal.toFixed(2)}
+${taxPercentage > 0 ? `Taxes & Fees (${taxPercentage}%): ${reservation.currency} ${taxAmount.toFixed(2)}` : ''}
+Total Price: ${reservation.currency} ${totalWithTax.toFixed(2)}
 
 Status: Confirmed ✓
 
@@ -2049,34 +2065,43 @@ Thank you for choosing SuiteSpot!`;
           {/* Pricing */}
           <div className="mb-6">
             <h2 className="text-lg font-semibold text-gray-900 mb-3 border-b pb-2">Pricing Summary</h2>
-            <div className="space-y-2">
-              <div className="flex justify-between">
-                <span className="text-gray-500">Price per Night</span>
-                <span className="font-medium text-gray-900">
-                  {reservation.currency} {reservation.price_per_night?.toFixed(2) || '0.00'}
-                </span>
-              </div>
-              <div className="flex justify-between">
-                <span className="text-gray-500">Subtotal ({reservation.nights} nights)</span>
-                <span className="font-medium text-gray-900">
-                  {reservation.currency} {((reservation.price_per_night || 0) * (reservation.nights || 0)).toFixed(2)}
-                </span>
-              </div>
-              {reservation.total_price > ((reservation.price_per_night || 0) * (reservation.nights || 0)) && (
-                <div className="flex justify-between">
-                  <span className="text-gray-500">Taxes & Fees</span>
-                  <span className="font-medium text-gray-900">
-                    {reservation.currency} {(reservation.total_price - ((reservation.price_per_night || 0) * (reservation.nights || 0))).toFixed(2)}
-                  </span>
+            {(() => {
+              const subtotal = (reservation.price_per_night || 0) * (reservation.nights || 0);
+              const taxPercentage = reservation.units?.tax_percentage || 14;
+              const taxAmount = subtotal * (taxPercentage / 100);
+              const totalWithTax = subtotal + taxAmount;
+              
+              return (
+                <div className="space-y-2">
+                  <div className="flex justify-between">
+                    <span className="text-gray-500">Price per Night</span>
+                    <span className="font-medium text-gray-900">
+                      {reservation.currency} {reservation.price_per_night?.toFixed(2) || '0.00'}
+                    </span>
+                  </div>
+                  <div className="flex justify-between">
+                    <span className="text-gray-500">Subtotal ({reservation.nights} nights)</span>
+                    <span className="font-medium text-gray-900">
+                      {reservation.currency} {subtotal.toFixed(2)}
+                    </span>
+                  </div>
+                  {taxPercentage > 0 && (
+                    <div className="flex justify-between">
+                      <span className="text-gray-500">Taxes & Fees ({taxPercentage}%)</span>
+                      <span className="font-medium text-gray-900">
+                        {reservation.currency} {taxAmount.toFixed(2)}
+                      </span>
+                    </div>
+                  )}
+                  <div className="flex justify-between pt-2 border-t mt-2">
+                    <span className="font-semibold text-gray-900">Total Price</span>
+                    <span className="font-bold text-lg text-gray-900">
+                      {reservation.currency} {totalWithTax.toFixed(2)}
+                    </span>
+                  </div>
                 </div>
-              )}
-              <div className="flex justify-between pt-2 border-t mt-2">
-                <span className="font-semibold text-gray-900">Total Price</span>
-                <span className="font-bold text-lg text-gray-900">
-                  {reservation.currency} {reservation.total_price.toFixed(2)}
-                </span>
-              </div>
-            </div>
+              );
+            })()}
           </div>
 
           {/* Contact Information */}
