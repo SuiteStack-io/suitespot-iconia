@@ -516,7 +516,8 @@ export function CreateReservationDialog() {
   const fetchUnits = async () => {
     const { data, error } = await supabase
       .from("units")
-      .select("id, name, unit_number, unit_type, price_per_night, weekend_rate, tax_percentage")
+      .select("id, name, unit_number, unit_type, price_per_night, weekend_rate, tax_percentage, location")
+      .eq("location", "ICONIA")
       .order("name");
 
     if (error) {
