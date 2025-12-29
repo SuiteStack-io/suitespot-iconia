@@ -223,6 +223,8 @@ export function CreateReservationDialog() {
   // Units data
   const [allUnits, setAllUnits] = useState<Unit[]>([]);
   const [availableUnits, setAvailableUnits] = useState<Unit[]>([]);
+  const [reservedUnitIds, setReservedUnitIds] = useState<string[]>([]);
+  const [blockedUnitIds, setBlockedUnitIds] = useState<string[]>([]);
   const [checkingAvailability, setCheckingAvailability] = useState(false);
   const [bookedDates, setBookedDates] = useState<Date[]>([]);
   
@@ -549,7 +551,7 @@ export function CreateReservationDialog() {
     }
 
     // Check for blocked dates within the range
-    const { data: blockedUnits, error: blockedError } = await supabase
+    const { data: blockedUnitsData, error: blockedError } = await supabase
       .from("blocked_dates")
       .select("unit_id")
       .gte("blocked_date", checkIn)
@@ -562,10 +564,15 @@ export function CreateReservationDialog() {
       return;
     }
 
-    // Combine unavailable unit IDs from reservations AND blocked dates
-    const reservedUnitIds = conflictingReservations?.map((r) => r.unit_id) || [];
-    const blockedUnitIds = blockedUnits?.map((b) => b.unit_id) || [];
-    const unavailableUnitIds = [...new Set([...reservedUnitIds, ...blockedUnitIds])];
+    // Store reserved and blocked IDs separately for badges
+    const reserved = [...new Set(conflictingReservations?.map((r) => r.unit_id).filter(Boolean) || [])] as string[];
+    const blocked = [...new Set(blockedUnitsData?.map((b) => b.unit_id).filter(Boolean) || [])] as string[];
+    
+    setReservedUnitIds(reserved);
+    setBlockedUnitIds(blocked);
+
+    // Combine unavailable unit IDs
+    const unavailableUnitIds = [...new Set([...reserved, ...blocked])];
 
     // Filter to only available units
     const available = allUnits.filter((unit) => !unavailableUnitIds.includes(unit.id));
@@ -581,6 +588,13 @@ export function CreateReservationDialog() {
     }
     
     setCheckingAvailability(false);
+  };
+
+  // Helper to get unavailability reason for a unit
+  const getUnitUnavailabilityReason = (unitId: string): 'reserved' | 'blocked' | null => {
+    if (reservedUnitIds.includes(unitId)) return 'reserved';
+    if (blockedUnitIds.includes(unitId)) return 'blocked';
+    return null;
   };
 
   const updateGuestFirstName = (index: number, value: string) => {
@@ -1346,6 +1360,7 @@ export function CreateReservationDialog() {
                       } />
                     </SelectTrigger>
                     <SelectContent>
+                      {/* Available units first */}
                       {availableUnits
                         .filter(unit => !selectedUnitIds.includes(unit.id) || unit.id === selectedUnitIds[roomIndex])
                         .map((unit) => (
@@ -1353,6 +1368,34 @@ export function CreateReservationDialog() {
                             {unit.name}{unit.unit_type ? ` - ${unit.unit_type}` : ''} {unit.unit_number ? `(#${unit.unit_number})` : ''}
                           </SelectItem>
                         ))}
+                      
+                      {/* Unavailable units with badges */}
+                      {checkInDate && checkOutDate && allUnits
+                        .filter(unit => !availableUnits.some(au => au.id === unit.id))
+                        .map((unit) => {
+                          const reason = getUnitUnavailabilityReason(unit.id);
+                          return (
+                            <SelectItem 
+                              key={unit.id} 
+                              value={unit.id} 
+                              disabled
+                              className="opacity-60"
+                            >
+                              <div className="flex items-center justify-between w-full gap-2">
+                                <span>
+                                  {unit.name}{unit.unit_type ? ` - ${unit.unit_type}` : ''} {unit.unit_number ? `(#${unit.unit_number})` : ''}
+                                </span>
+                                <span className={cn(
+                                  "text-xs px-1.5 py-0.5 rounded-full font-medium ml-2",
+                                  reason === 'reserved' && "bg-amber-100 text-amber-700 dark:bg-amber-900/30 dark:text-amber-400",
+                                  reason === 'blocked' && "bg-red-100 text-red-700 dark:bg-red-900/30 dark:text-red-400"
+                                )}>
+                                  {reason === 'reserved' ? 'Reserved' : 'Blocked'}
+                                </span>
+                              </div>
+                            </SelectItem>
+                          );
+                        })}
                     </SelectContent>
                   </Select>
                 </div>
