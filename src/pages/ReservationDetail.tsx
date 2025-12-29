@@ -1580,41 +1580,25 @@ Thank you for choosing SuiteSpot!`;
                   </div>
                   {isEditMode ? (
                     idPassportUrl ? (
-                      <div className="space-y-3">
-                        {/* Thumbnail Preview */}
-                        {idPassportUrl.match(/\.(jpg|jpeg|png|gif|webp)$/i) || idPassportUrl.includes('image') ? (
-                          <a href={idPassportUrl} target="_blank" rel="noopener noreferrer" className="block">
-                            <img 
-                              src={idPassportUrl} 
-                              alt="ID/Passport Front" 
-                              className="w-full h-32 object-cover rounded-lg border border-border hover:opacity-90 transition-opacity cursor-pointer"
-                            />
-                          </a>
-                        ) : (
-                          <a href={idPassportUrl} target="_blank" rel="noopener noreferrer" className="flex items-center justify-center h-32 bg-muted rounded-lg border border-border hover:bg-muted/80 transition-colors">
-                            <FileText className="h-12 w-12 text-muted-foreground" />
-                          </a>
-                        )}
-                        <div className="flex items-center justify-between">
-                          <span className="text-sm text-green-600 flex items-center gap-1">
-                            <Check className="h-4 w-4" /> Uploaded
-                          </span>
-                          <div className="flex gap-2">
-                            <label className="cursor-pointer">
-                              <Button variant="outline" size="sm" asChild>
-                                <span><Upload className="h-4 w-4 mr-1" /> Replace</span>
-                              </Button>
-                              <input 
-                                type="file" 
-                                className="hidden" 
-                                accept="image/*,.pdf" 
-                                onChange={(e) => e.target.files?.[0] && handleDocumentUpload(e.target.files[0], 'id_front')} 
-                              />
-                            </label>
-                            <Button variant="ghost" size="sm" onClick={() => setIdPassportUrl(null)}>
-                              <X className="h-4 w-4" />
+                      <div className="flex items-center justify-between">
+                        <span className="text-sm text-green-600 flex items-center gap-1">
+                          <Check className="h-4 w-4" /> Document uploaded
+                        </span>
+                        <div className="flex gap-2">
+                          <label className="cursor-pointer">
+                            <Button variant="outline" size="sm" asChild>
+                              <span><Upload className="h-4 w-4 mr-1" /> Replace</span>
                             </Button>
-                          </div>
+                            <input 
+                              type="file" 
+                              className="hidden" 
+                              accept="image/*,.pdf" 
+                              onChange={(e) => e.target.files?.[0] && handleDocumentUpload(e.target.files[0], 'id_front')} 
+                            />
+                          </label>
+                          <Button variant="ghost" size="sm" onClick={() => setIdPassportUrl(null)}>
+                            <X className="h-4 w-4" />
+                          </Button>
                         </div>
                       </div>
                     ) : (
@@ -1630,21 +1614,10 @@ Thank you for choosing SuiteSpot!`;
                     )
                   ) : (
                     reservation.id_passport_url ? (
-                      <div className="space-y-3">
-                        {/* Thumbnail Preview */}
-                        {reservation.id_passport_url.match(/\.(jpg|jpeg|png|gif|webp)$/i) || reservation.id_passport_url.includes('image') ? (
-                          <a href={reservation.id_passport_url} target="_blank" rel="noopener noreferrer" className="block">
-                            <img 
-                              src={reservation.id_passport_url} 
-                              alt="ID/Passport Front" 
-                              className="w-full h-32 object-cover rounded-lg border border-border hover:opacity-90 transition-opacity cursor-pointer"
-                            />
-                          </a>
-                        ) : (
-                          <a href={reservation.id_passport_url} target="_blank" rel="noopener noreferrer" className="flex items-center justify-center h-32 bg-muted rounded-lg border border-border hover:bg-muted/80 transition-colors">
-                            <FileText className="h-12 w-12 text-muted-foreground" />
-                          </a>
-                        )}
+                      <div className="space-y-2">
+                        <p className="text-sm text-green-600 flex items-center gap-1">
+                          <Check className="h-4 w-4" /> Document uploaded
+                        </p>
                         <Button
                           variant="outline"
                           size="sm"
@@ -1670,41 +1643,25 @@ Thank you for choosing SuiteSpot!`;
                   </div>
                   {isEditMode ? (
                     idPassportUrlBack ? (
-                      <div className="space-y-3">
-                        {/* Thumbnail Preview */}
-                        {idPassportUrlBack.match(/\.(jpg|jpeg|png|gif|webp)$/i) || idPassportUrlBack.includes('image') ? (
-                          <a href={idPassportUrlBack} target="_blank" rel="noopener noreferrer" className="block">
-                            <img 
-                              src={idPassportUrlBack} 
-                              alt="ID/Passport Back" 
-                              className="w-full h-32 object-cover rounded-lg border border-border hover:opacity-90 transition-opacity cursor-pointer"
-                            />
-                          </a>
-                        ) : (
-                          <a href={idPassportUrlBack} target="_blank" rel="noopener noreferrer" className="flex items-center justify-center h-32 bg-muted rounded-lg border border-border hover:bg-muted/80 transition-colors">
-                            <FileText className="h-12 w-12 text-muted-foreground" />
-                          </a>
-                        )}
-                        <div className="flex items-center justify-between">
-                          <span className="text-sm text-green-600 flex items-center gap-1">
-                            <Check className="h-4 w-4" /> Uploaded
-                          </span>
-                          <div className="flex gap-2">
-                            <label className="cursor-pointer">
-                              <Button variant="outline" size="sm" asChild>
-                                <span><Upload className="h-4 w-4 mr-1" /> Replace</span>
-                              </Button>
-                              <input 
-                                type="file" 
-                                className="hidden" 
-                                accept="image/*,.pdf" 
-                                onChange={(e) => e.target.files?.[0] && handleDocumentUpload(e.target.files[0], 'id_back')} 
-                              />
-                            </label>
-                            <Button variant="ghost" size="sm" onClick={() => setIdPassportUrlBack(null)}>
-                              <X className="h-4 w-4" />
+                      <div className="flex items-center justify-between">
+                        <span className="text-sm text-green-600 flex items-center gap-1">
+                          <Check className="h-4 w-4" /> Document uploaded
+                        </span>
+                        <div className="flex gap-2">
+                          <label className="cursor-pointer">
+                            <Button variant="outline" size="sm" asChild>
+                              <span><Upload className="h-4 w-4 mr-1" /> Replace</span>
                             </Button>
-                          </div>
+                            <input 
+                              type="file" 
+                              className="hidden" 
+                              accept="image/*,.pdf" 
+                              onChange={(e) => e.target.files?.[0] && handleDocumentUpload(e.target.files[0], 'id_back')} 
+                            />
+                          </label>
+                          <Button variant="ghost" size="sm" onClick={() => setIdPassportUrlBack(null)}>
+                            <X className="h-4 w-4" />
+                          </Button>
                         </div>
                       </div>
                     ) : (
@@ -1720,21 +1677,10 @@ Thank you for choosing SuiteSpot!`;
                     )
                   ) : (
                     reservation.id_passport_url_back ? (
-                      <div className="space-y-3">
-                        {/* Thumbnail Preview */}
-                        {reservation.id_passport_url_back.match(/\.(jpg|jpeg|png|gif|webp)$/i) || reservation.id_passport_url_back.includes('image') ? (
-                          <a href={reservation.id_passport_url_back} target="_blank" rel="noopener noreferrer" className="block">
-                            <img 
-                              src={reservation.id_passport_url_back} 
-                              alt="ID/Passport Back" 
-                              className="w-full h-32 object-cover rounded-lg border border-border hover:opacity-90 transition-opacity cursor-pointer"
-                            />
-                          </a>
-                        ) : (
-                          <a href={reservation.id_passport_url_back} target="_blank" rel="noopener noreferrer" className="flex items-center justify-center h-32 bg-muted rounded-lg border border-border hover:bg-muted/80 transition-colors">
-                            <FileText className="h-12 w-12 text-muted-foreground" />
-                          </a>
-                        )}
+                      <div className="space-y-2">
+                        <p className="text-sm text-green-600 flex items-center gap-1">
+                          <Check className="h-4 w-4" /> Document uploaded
+                        </p>
                         <Button
                           variant="outline"
                           size="sm"
@@ -1760,41 +1706,25 @@ Thank you for choosing SuiteSpot!`;
                   </div>
                   {isEditMode ? (
                     marriageCertUrl ? (
-                      <div className="space-y-3">
-                        {/* Thumbnail Preview */}
-                        {marriageCertUrl.match(/\.(jpg|jpeg|png|gif|webp)$/i) || marriageCertUrl.includes('image') ? (
-                          <a href={marriageCertUrl} target="_blank" rel="noopener noreferrer" className="block">
-                            <img 
-                              src={marriageCertUrl} 
-                              alt="Marriage Certificate" 
-                              className="w-full h-32 object-cover rounded-lg border border-border hover:opacity-90 transition-opacity cursor-pointer"
-                            />
-                          </a>
-                        ) : (
-                          <a href={marriageCertUrl} target="_blank" rel="noopener noreferrer" className="flex items-center justify-center h-32 bg-muted rounded-lg border border-border hover:bg-muted/80 transition-colors">
-                            <FileText className="h-12 w-12 text-muted-foreground" />
-                          </a>
-                        )}
-                        <div className="flex items-center justify-between">
-                          <span className="text-sm text-green-600 flex items-center gap-1">
-                            <Check className="h-4 w-4" /> Uploaded
-                          </span>
-                          <div className="flex gap-2">
-                            <label className="cursor-pointer">
-                              <Button variant="outline" size="sm" asChild>
-                                <span><Upload className="h-4 w-4 mr-1" /> Replace</span>
-                              </Button>
-                              <input 
-                                type="file" 
-                                className="hidden" 
-                                accept="image/*,.pdf" 
-                                onChange={(e) => e.target.files?.[0] && handleDocumentUpload(e.target.files[0], 'marriage')} 
-                              />
-                            </label>
-                            <Button variant="ghost" size="sm" onClick={() => setMarriageCertUrl(null)}>
-                              <X className="h-4 w-4" />
+                      <div className="flex items-center justify-between">
+                        <span className="text-sm text-green-600 flex items-center gap-1">
+                          <Check className="h-4 w-4" /> Document uploaded
+                        </span>
+                        <div className="flex gap-2">
+                          <label className="cursor-pointer">
+                            <Button variant="outline" size="sm" asChild>
+                              <span><Upload className="h-4 w-4 mr-1" /> Replace</span>
                             </Button>
-                          </div>
+                            <input 
+                              type="file" 
+                              className="hidden" 
+                              accept="image/*,.pdf" 
+                              onChange={(e) => e.target.files?.[0] && handleDocumentUpload(e.target.files[0], 'marriage')} 
+                            />
+                          </label>
+                          <Button variant="ghost" size="sm" onClick={() => setMarriageCertUrl(null)}>
+                            <X className="h-4 w-4" />
+                          </Button>
                         </div>
                       </div>
                     ) : (
@@ -1810,21 +1740,10 @@ Thank you for choosing SuiteSpot!`;
                     )
                   ) : (
                     reservation.marriage_certificate_url ? (
-                      <div className="space-y-3">
-                        {/* Thumbnail Preview */}
-                        {reservation.marriage_certificate_url.match(/\.(jpg|jpeg|png|gif|webp)$/i) || reservation.marriage_certificate_url.includes('image') ? (
-                          <a href={reservation.marriage_certificate_url} target="_blank" rel="noopener noreferrer" className="block">
-                            <img 
-                              src={reservation.marriage_certificate_url} 
-                              alt="Marriage Certificate" 
-                              className="w-full h-32 object-cover rounded-lg border border-border hover:opacity-90 transition-opacity cursor-pointer"
-                            />
-                          </a>
-                        ) : (
-                          <a href={reservation.marriage_certificate_url} target="_blank" rel="noopener noreferrer" className="flex items-center justify-center h-32 bg-muted rounded-lg border border-border hover:bg-muted/80 transition-colors">
-                            <FileText className="h-12 w-12 text-muted-foreground" />
-                          </a>
-                        )}
+                      <div className="space-y-2">
+                        <p className="text-sm text-green-600 flex items-center gap-1">
+                          <Check className="h-4 w-4" /> Document uploaded
+                        </p>
                         <Button
                           variant="outline"
                           size="sm"
