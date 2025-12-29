@@ -1,6 +1,7 @@
 import { Button } from "@/components/ui/button";
 import { Link } from "react-router-dom";
 import logo from "@/assets/suitespot-logo.png";
+import zamalekView from "@/assets/zamalek-view.jpeg";
 import { OurStorySlideshow } from "@/components/OurStorySlideshow";
 import { PublicNav } from "@/components/PublicNav";
 import { PublicFooter } from "@/components/PublicFooter";
@@ -52,10 +53,11 @@ const OurStory = () => {
               </div>
 
               <div className="h-96 bg-muted rounded-lg overflow-hidden">
-                {/* Placeholder for image */}
-                <div className="w-full h-full bg-gradient-to-br from-accent/20 to-primary/20 flex items-center justify-center">
-                  <p className="text-muted-foreground">[Image: SuiteSpot Interior]</p>
-                </div>
+                <img 
+                  src={zamalekView} 
+                  alt="View from Iconia Zamalek at night" 
+                  className="w-full h-full object-cover"
+                />
               </div>
 
               <div>
