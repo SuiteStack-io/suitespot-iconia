@@ -27,7 +27,8 @@ import {
 } from '@/components/ui/command';
 import { toast } from 'sonner';
 import { format } from 'date-fns';
-import { Edit2, X, CalendarIcon, Trash2, FileText, Download, Check, ChevronsUpDown, ArrowLeft, Clock, Plus, Link2, AlertTriangle, Loader2, MessageCircle, Mail } from 'lucide-react';
+import { Edit2, X, CalendarIcon, Trash2, FileText, Download, Check, ChevronsUpDown, ArrowLeft, Clock, Plus, Link2, AlertTriangle, Loader2, MessageCircle, Mail, Upload } from 'lucide-react';
+import { Progress } from '@/components/ui/progress';
 import { toPng } from 'html-to-image';
 import { cn } from '@/lib/utils';
 import { CreateGuestAccountDialog } from '@/components/CreateGuestAccountDialog';
@@ -169,6 +170,17 @@ const ReservationDetail = () => {
   const [downloadingConfirmation, setDownloadingConfirmation] = useState(false);
   const confirmationRef = useRef<HTMLDivElement>(null);
   
+  // Document upload states
+  const [idPassportUrl, setIdPassportUrl] = useState<string | null>(null);
+  const [idPassportUrlBack, setIdPassportUrlBack] = useState<string | null>(null);
+  const [marriageCertUrl, setMarriageCertUrl] = useState<string | null>(null);
+  const [isIdUploading, setIsIdUploading] = useState(false);
+  const [idUploadProgress, setIdUploadProgress] = useState(0);
+  const [isIdUploadingBack, setIsIdUploadingBack] = useState(false);
+  const [idUploadProgressBack, setIdUploadProgressBack] = useState(0);
+  const [isMarriageUploading, setIsMarriageUploading] = useState(false);
+  const [marriageUploadProgress, setMarriageUploadProgress] = useState(0);
+  
   // Form state
   const [formData, setFormData] = useState({
     unit_id: '',
@@ -197,6 +209,15 @@ const ReservationDetail = () => {
     fetchReservation();
     fetchUnits();
   }, [id]);
+
+  // Initialize document URLs when reservation loads
+  useEffect(() => {
+    if (reservation) {
+      setIdPassportUrl(reservation.id_passport_url);
+      setIdPassportUrlBack(reservation.id_passport_url_back);
+      setMarriageCertUrl(reservation.marriage_certificate_url);
+    }
+  }, [reservation]);
 
   const fetchLinkedCharges = async (groupId: string, currentId: string) => {
     const { data } = await supabase
@@ -405,6 +426,54 @@ const ReservationDetail = () => {
     }
   }, [formData.source]);
 
+  // Handle document upload to Supabase Storage
+  const handleDocumentUpload = async (
+    file: File, 
+    type: 'id_front' | 'id_back' | 'marriage'
+  ) => {
+    const bucket = type === 'marriage' ? 'marriage-certificates' : 'id-passports';
+    const setUploading = type === 'id_front' ? setIsIdUploading : 
+                         type === 'id_back' ? setIsIdUploadingBack : setIsMarriageUploading;
+    const setProgress = type === 'id_front' ? setIdUploadProgress : 
+                        type === 'id_back' ? setIdUploadProgressBack : setMarriageUploadProgress;
+    const setUrl = type === 'id_front' ? setIdPassportUrl : 
+                   type === 'id_back' ? setIdPassportUrlBack : setMarriageCertUrl;
+
+    setUploading(true);
+    setProgress(0);
+
+    // Simulate progress
+    const progressInterval = setInterval(() => {
+      setProgress(prev => Math.min(prev + 10, 90));
+    }, 100);
+
+    try {
+      const fileExt = file.name.split('.').pop();
+      const fileName = `${reservation?.id || 'unknown'}-${type}-${Date.now()}.${fileExt}`;
+      
+      const { error: uploadError } = await supabase.storage
+        .from(bucket)
+        .upload(fileName, file);
+
+      if (uploadError) throw uploadError;
+
+      const { data: { publicUrl } } = supabase.storage
+        .from(bucket)
+        .getPublicUrl(fileName);
+
+      setUrl(publicUrl);
+      setProgress(100);
+      toast.success('Document uploaded successfully');
+    } catch (error) {
+      console.error('Upload error:', error);
+      toast.error('Failed to upload document');
+    } finally {
+      clearInterval(progressInterval);
+      setUploading(false);
+      setProgress(0);
+    }
+  };
+
   // Auto-sync number of guests with guest names count on initial load
   useEffect(() => {
     const validGuestCount = formData.guest_names.filter(name => name.trim() !== '').length;
@@ -466,6 +535,9 @@ const ReservationDetail = () => {
         source: formData.source,
         status: formData.status,
         notes: formData.notes,
+        id_passport_url: idPassportUrl,
+        id_passport_url_back: idPassportUrlBack,
+        marriage_certificate_url: marriageCertUrl,
       })
       .eq('id', id);
 
@@ -1477,67 +1549,192 @@ Thank you for choosing SuiteSpot!`;
         )}
 
         {/* Documents Card */}
-        {(reservation.marriage_certificate_url || reservation.id_passport_url || reservation.id_passport_url_back) && (
+        {(isEditMode || reservation.marriage_certificate_url || reservation.id_passport_url || reservation.id_passport_url_back) && (
           <Card className="md:col-span-2">
             <CardHeader>
               <CardTitle>Uploaded Documents</CardTitle>
             </CardHeader>
             <CardContent className="space-y-4">
               <div className="grid gap-4 md:grid-cols-2">
-                {reservation.id_passport_url && (
-                  <div className="p-4 border rounded-lg space-y-2">
-                    <div className="flex items-center gap-2">
-                      <FileText className="h-5 w-5 text-primary" />
-                      <Label className="font-semibold">ID/Passport - Front</Label>
-                    </div>
-                    <Button
-                      variant="outline"
-                      size="sm"
-                      className="w-full"
-                      onClick={() => handleDownloadDocument(reservation.id_passport_url!, 'id_passport_url')}
-                      disabled={downloading.id_passport_url}
-                    >
-                      <Download className="h-4 w-4 mr-2" />
-                      {downloading.id_passport_url ? 'Downloading...' : 'Download'}
-                    </Button>
+                {/* ID/Passport Front */}
+                <div className="p-4 border rounded-lg space-y-2">
+                  <div className="flex items-center gap-2">
+                    <FileText className="h-5 w-5 text-primary" />
+                    <Label className="font-semibold">ID/Passport - Front</Label>
                   </div>
-                )}
-                {reservation.id_passport_url_back && (
-                  <div className="p-4 border rounded-lg space-y-2">
-                    <div className="flex items-center gap-2">
-                      <FileText className="h-5 w-5 text-primary" />
-                      <Label className="font-semibold">ID/Passport - Back</Label>
-                    </div>
-                    <Button
-                      variant="outline"
-                      size="sm"
-                      className="w-full"
-                      onClick={() => handleDownloadDocument(reservation.id_passport_url_back!, 'id_passport_url_back')}
-                      disabled={downloading.id_passport_url_back}
-                    >
-                      <Download className="h-4 w-4 mr-2" />
-                      {downloading.id_passport_url_back ? 'Downloading...' : 'Download'}
-                    </Button>
+                  {isEditMode ? (
+                    idPassportUrl ? (
+                      <div className="space-y-2">
+                        <div className="flex items-center justify-between">
+                          <span className="text-sm text-green-600 flex items-center gap-1">
+                            <Check className="h-4 w-4" /> Document uploaded
+                          </span>
+                          <div className="flex gap-2">
+                            <label className="cursor-pointer">
+                              <Button variant="outline" size="sm" asChild>
+                                <span><Upload className="h-4 w-4 mr-1" /> Replace</span>
+                              </Button>
+                              <input 
+                                type="file" 
+                                className="hidden" 
+                                accept="image/*,.pdf" 
+                                onChange={(e) => e.target.files?.[0] && handleDocumentUpload(e.target.files[0], 'id_front')} 
+                              />
+                            </label>
+                            <Button variant="ghost" size="sm" onClick={() => setIdPassportUrl(null)}>
+                              <X className="h-4 w-4" />
+                            </Button>
+                          </div>
+                        </div>
+                      </div>
+                    ) : (
+                      <div className="space-y-2">
+                        <Input 
+                          type="file" 
+                          accept="image/*,.pdf"
+                          onChange={(e) => e.target.files?.[0] && handleDocumentUpload(e.target.files[0], 'id_front')} 
+                          disabled={isIdUploading}
+                        />
+                        {isIdUploading && <Progress value={idUploadProgress} className="h-2" />}
+                      </div>
+                    )
+                  ) : (
+                    reservation.id_passport_url ? (
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        className="w-full"
+                        onClick={() => handleDownloadDocument(reservation.id_passport_url!, 'id_passport_url')}
+                        disabled={downloading.id_passport_url}
+                      >
+                        <Download className="h-4 w-4 mr-2" />
+                        {downloading.id_passport_url ? 'Downloading...' : 'Download'}
+                      </Button>
+                    ) : (
+                      <p className="text-sm text-muted-foreground">No document uploaded</p>
+                    )
+                  )}
+                </div>
+
+                {/* ID/Passport Back */}
+                <div className="p-4 border rounded-lg space-y-2">
+                  <div className="flex items-center gap-2">
+                    <FileText className="h-5 w-5 text-primary" />
+                    <Label className="font-semibold">ID/Passport - Back</Label>
                   </div>
-                )}
-                {reservation.marriage_certificate_url && (
-                  <div className="p-4 border rounded-lg space-y-2">
-                    <div className="flex items-center gap-2">
-                      <FileText className="h-5 w-5 text-primary" />
-                      <Label className="font-semibold">Marriage Certificate</Label>
-                    </div>
-                    <Button
-                      variant="outline"
-                      size="sm"
-                      className="w-full"
-                      onClick={() => handleDownloadDocument(reservation.marriage_certificate_url!, 'marriage_certificate_url')}
-                      disabled={downloading.marriage_certificate_url}
-                    >
-                      <Download className="h-4 w-4 mr-2" />
-                      {downloading.marriage_certificate_url ? 'Downloading...' : 'Download'}
-                    </Button>
+                  {isEditMode ? (
+                    idPassportUrlBack ? (
+                      <div className="space-y-2">
+                        <div className="flex items-center justify-between">
+                          <span className="text-sm text-green-600 flex items-center gap-1">
+                            <Check className="h-4 w-4" /> Document uploaded
+                          </span>
+                          <div className="flex gap-2">
+                            <label className="cursor-pointer">
+                              <Button variant="outline" size="sm" asChild>
+                                <span><Upload className="h-4 w-4 mr-1" /> Replace</span>
+                              </Button>
+                              <input 
+                                type="file" 
+                                className="hidden" 
+                                accept="image/*,.pdf" 
+                                onChange={(e) => e.target.files?.[0] && handleDocumentUpload(e.target.files[0], 'id_back')} 
+                              />
+                            </label>
+                            <Button variant="ghost" size="sm" onClick={() => setIdPassportUrlBack(null)}>
+                              <X className="h-4 w-4" />
+                            </Button>
+                          </div>
+                        </div>
+                      </div>
+                    ) : (
+                      <div className="space-y-2">
+                        <Input 
+                          type="file" 
+                          accept="image/*,.pdf"
+                          onChange={(e) => e.target.files?.[0] && handleDocumentUpload(e.target.files[0], 'id_back')} 
+                          disabled={isIdUploadingBack}
+                        />
+                        {isIdUploadingBack && <Progress value={idUploadProgressBack} className="h-2" />}
+                      </div>
+                    )
+                  ) : (
+                    reservation.id_passport_url_back ? (
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        className="w-full"
+                        onClick={() => handleDownloadDocument(reservation.id_passport_url_back!, 'id_passport_url_back')}
+                        disabled={downloading.id_passport_url_back}
+                      >
+                        <Download className="h-4 w-4 mr-2" />
+                        {downloading.id_passport_url_back ? 'Downloading...' : 'Download'}
+                      </Button>
+                    ) : (
+                      <p className="text-sm text-muted-foreground">No document uploaded</p>
+                    )
+                  )}
+                </div>
+
+                {/* Marriage Certificate */}
+                <div className="p-4 border rounded-lg space-y-2">
+                  <div className="flex items-center gap-2">
+                    <FileText className="h-5 w-5 text-primary" />
+                    <Label className="font-semibold">Marriage Certificate</Label>
                   </div>
-                )}
+                  {isEditMode ? (
+                    marriageCertUrl ? (
+                      <div className="space-y-2">
+                        <div className="flex items-center justify-between">
+                          <span className="text-sm text-green-600 flex items-center gap-1">
+                            <Check className="h-4 w-4" /> Document uploaded
+                          </span>
+                          <div className="flex gap-2">
+                            <label className="cursor-pointer">
+                              <Button variant="outline" size="sm" asChild>
+                                <span><Upload className="h-4 w-4 mr-1" /> Replace</span>
+                              </Button>
+                              <input 
+                                type="file" 
+                                className="hidden" 
+                                accept="image/*,.pdf" 
+                                onChange={(e) => e.target.files?.[0] && handleDocumentUpload(e.target.files[0], 'marriage')} 
+                              />
+                            </label>
+                            <Button variant="ghost" size="sm" onClick={() => setMarriageCertUrl(null)}>
+                              <X className="h-4 w-4" />
+                            </Button>
+                          </div>
+                        </div>
+                      </div>
+                    ) : (
+                      <div className="space-y-2">
+                        <Input 
+                          type="file" 
+                          accept="image/*,.pdf"
+                          onChange={(e) => e.target.files?.[0] && handleDocumentUpload(e.target.files[0], 'marriage')} 
+                          disabled={isMarriageUploading}
+                        />
+                        {isMarriageUploading && <Progress value={marriageUploadProgress} className="h-2" />}
+                      </div>
+                    )
+                  ) : (
+                    reservation.marriage_certificate_url ? (
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        className="w-full"
+                        onClick={() => handleDownloadDocument(reservation.marriage_certificate_url!, 'marriage_certificate_url')}
+                        disabled={downloading.marriage_certificate_url}
+                      >
+                        <Download className="h-4 w-4 mr-2" />
+                        {downloading.marriage_certificate_url ? 'Downloading...' : 'Download'}
+                      </Button>
+                    ) : (
+                      <p className="text-sm text-muted-foreground">No document uploaded</p>
+                    )
+                  )}
+                </div>
               </div>
             </CardContent>
           </Card>
