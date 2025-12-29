@@ -534,20 +534,40 @@ export function CreateReservationDialog() {
     const checkIn = format(checkInDate, "yyyy-MM-dd");
     const checkOut = format(checkOutDate, "yyyy-MM-dd");
 
-    const { data: conflictingReservations, error } = await supabase
+    // Check for conflicting reservations
+    const { data: conflictingReservations, error: reservationsError } = await supabase
       .from("reservations")
       .select("unit_id")
       .or(`and(check_in_date.lt.${checkOut},check_out_date.gt.${checkIn})`)
       .eq("status", "confirmed");
 
-    if (error) {
-      console.error("Error checking availability:", error);
+    if (reservationsError) {
+      console.error("Error checking reservations:", reservationsError);
       toast.error("Failed to check room availability");
       setCheckingAvailability(false);
       return;
     }
 
-    const unavailableUnitIds = conflictingReservations?.map((r) => r.unit_id) || [];
+    // Check for blocked dates within the range
+    const { data: blockedUnits, error: blockedError } = await supabase
+      .from("blocked_dates")
+      .select("unit_id")
+      .gte("blocked_date", checkIn)
+      .lt("blocked_date", checkOut);
+
+    if (blockedError) {
+      console.error("Error checking blocked dates:", blockedError);
+      toast.error("Failed to check blocked dates");
+      setCheckingAvailability(false);
+      return;
+    }
+
+    // Combine unavailable unit IDs from reservations AND blocked dates
+    const reservedUnitIds = conflictingReservations?.map((r) => r.unit_id) || [];
+    const blockedUnitIds = blockedUnits?.map((b) => b.unit_id) || [];
+    const unavailableUnitIds = [...new Set([...reservedUnitIds, ...blockedUnitIds])];
+
+    // Filter to only available units
     const available = allUnits.filter((unit) => !unavailableUnitIds.includes(unit.id));
     
     setAvailableUnits(available);
