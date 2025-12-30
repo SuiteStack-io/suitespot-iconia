@@ -531,18 +531,18 @@ const GuestCheckIn = () => {
               </div>
               <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
                 <p className="font-playfair text-base font-normal leading-relaxed text-foreground">
-                  • Departure between 12:00 PM and 5:00 PM: A surcharge equivalent to half the nightly rate will apply.
+                  • Departure between 12:00 PM and 5:00 PM: An additional charge equal to 50% of the applicable nightly rate will be applied.
                 </p>
                 <p className="font-playfair text-base font-normal leading-relaxed text-foreground text-right" dir="rtl">
-                  • المغادرة بين الساعة ١٢:٠٠ ظهراً و٥:٠٠ مساءً: يتم تطبيق رسوم إضافية تعادل نصف سعر الليلة الواحدة.
+                  • المغادرة بين الساعة ١٢:٠٠ ظهراً و٥:٠٠ مساءً: سيتم تطبيق رسوم إضافية تعادل ٥٠٪ من سعر الليلة المعمول به.
                 </p>
               </div>
               <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
                 <p className="font-playfair text-base font-normal leading-relaxed text-foreground">
-                  • Departure after 5:00 PM: A surcharge equivalent to one additional night will apply.
+                  • Departure after 5:00 PM: An additional charge equal to one full night's rate will be applied.
                 </p>
                 <p className="font-playfair text-base font-normal leading-relaxed text-foreground text-right" dir="rtl">
-                  • المغادرة بعد الساعة ٥:٠٠ مساءً: يتم تطبيق رسوم إضافية تعادل سعر ليلة إضافية كاملة.
+                  • المغادرة بعد الساعة ٥:٠٠ مساءً: سيتم تطبيق رسوم إضافية تعادل سعر ليلة كاملة.
                 </p>
               </div>
             </div>
