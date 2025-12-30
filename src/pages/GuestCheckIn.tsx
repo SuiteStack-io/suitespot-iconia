@@ -522,6 +522,9 @@ const GuestCheckIn = () => {
               <p className="text-muted-foreground">
                 A minimum penalty of $100 may be assessed, subject to the nature and extent of any damages incurred.
               </p>
+              <p className="text-muted-foreground">
+                A penalty of $20 will be charged for lost access keys.
+              </p>
             </div>
           </section>
 
