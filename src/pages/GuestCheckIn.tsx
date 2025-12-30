@@ -190,8 +190,11 @@ const GuestCheckIn = () => {
           <img 
             src="/suitespot-logo-3.png" 
             alt="SuiteSpot" 
-            className="h-12 mx-auto mb-6"
+            className="h-12 mx-auto mb-2"
           />
+          <p className="font-playfair text-base font-normal leading-relaxed text-foreground mb-6">
+            SuiteSpot ICONIA Zamalek
+          </p>
           <h1 className="font-playfair text-5xl font-semibold tracking-tight text-foreground mb-3">
             Guest Check-In
           </h1>
