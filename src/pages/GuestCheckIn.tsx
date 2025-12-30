@@ -441,6 +441,19 @@ const GuestCheckIn = () => {
                 <li>
                   <strong>Prohibited Substances:</strong> Possession or use of illegal substances is strictly prohibited.
                 </li>
+                <li>
+                  <strong>Property Damage:</strong> Guests are responsible for any damage caused during their stay. A penalty may be applied based on the nature and extent of the damage.
+                </li>
+                <li>
+                  <strong>Furniture:</strong> Furniture has been thoughtfully arranged for your comfort and safety. Please refrain from rearranging or relocating any furnishings.
+                </li>
+                <li>
+                  <strong>Liability Disclaimer:</strong> SuiteSpot ICONIA shall not be held liable for:
+                  <ul className="list-disc list-outside ml-5 mt-2 space-y-1">
+                    <li>Personal accidents, injuries, or illness occurring on the premises</li>
+                    <li>Loss or theft of valuables not secured in the in-room safe provided</li>
+                  </ul>
+                </li>
               </ol>
               <p className="pt-2">
                 By signing below, I acknowledge and agree to abide by the above property rules.{' '}
