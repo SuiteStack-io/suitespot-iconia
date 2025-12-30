@@ -415,46 +415,100 @@ const GuestCheckIn = () => {
 
           {/* Property Rules */}
           <section>
-            <h2 className="font-playfair text-2xl font-light text-foreground mb-6">
-              Property Rules
-            </h2>
-            <div className="font-playfair text-base font-normal leading-relaxed text-foreground space-y-4">
-              <p>
-                To ensure a pleasant and comfortable stay for all guests, we kindly request your adherence to the following property rules:
-              </p>
-              <ol className="list-decimal list-outside ml-5 space-y-3">
-                <li>
-                  <strong>Pets:</strong> Pets are not permitted on the premises.
-                </li>
-                <li>
-                  <strong>Events:</strong> Parties and events are strictly prohibited within guest accommodations.
-                </li>
-                <li>
-                  <strong>Waste Disposal:</strong> Garbage must be disposed of in designated garbage rooms only. Please contact reception for assistance. Garbage bags may not be left outside room doors.
-                </li>
-                <li>
-                  <strong>Smoking:</strong> Smoking is prohibited in all indoor areas. Designated outdoor smoking areas are available.
-                </li>
-                <li>
-                  <strong>Alcohol:</strong> Alcoholic beverages are not permitted in common areas.
-                </li>
-                <li>
-                  <strong>Prohibited Substances:</strong> Possession or use of illegal substances is strictly prohibited.
-                </li>
-                <li>
-                  <strong>Property Damage:</strong> Guests are responsible for any damage caused during their stay. A penalty may be applied based on the nature and extent of the damage.
-                </li>
-                <li>
-                  <strong>Furniture:</strong> Furniture has been thoughtfully arranged for your comfort and safety. Please refrain from rearranging or relocating any furnishings.
-                </li>
-                <li>
-                  <strong>Liability Disclaimer:</strong> SuiteSpot ICONIA shall not be held liable for:
-                  <ul className="list-disc list-outside ml-5 mt-2 space-y-1">
-                    <li>Personal accidents, injuries, or illness occurring on the premises</li>
-                    <li>Loss or theft of valuables not secured in the in-room safe provided</li>
-                  </ul>
-                </li>
-              </ol>
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
+              {/* English Version */}
+              <div>
+                <h2 className="font-playfair text-2xl font-light text-foreground mb-6">
+                  Property Rules
+                </h2>
+                <div className="font-playfair text-base font-normal leading-relaxed text-foreground space-y-4">
+                  <p>
+                    To ensure a pleasant and comfortable stay for all guests, we kindly request your adherence to the following property rules:
+                  </p>
+                  <ol className="list-decimal list-outside ml-5 space-y-3">
+                    <li>
+                      <strong>Pets:</strong> Pets are not permitted on the premises.
+                    </li>
+                    <li>
+                      <strong>Events:</strong> Parties and events are strictly prohibited within guest accommodations.
+                    </li>
+                    <li>
+                      <strong>Waste Disposal:</strong> Garbage must be disposed of in designated garbage rooms only. Please contact reception for assistance. Garbage bags may not be left outside room doors.
+                    </li>
+                    <li>
+                      <strong>Smoking:</strong> Smoking is prohibited in all indoor areas. Designated outdoor smoking areas are available.
+                    </li>
+                    <li>
+                      <strong>Alcohol:</strong> Alcoholic beverages are not permitted in common areas.
+                    </li>
+                    <li>
+                      <strong>Prohibited Substances:</strong> Possession or use of illegal substances is strictly prohibited.
+                    </li>
+                    <li>
+                      <strong>Property Damage:</strong> Guests are responsible for any damage caused during their stay. A penalty may be applied based on the nature and extent of the damage.
+                    </li>
+                    <li>
+                      <strong>Furniture:</strong> Furniture has been thoughtfully arranged for your comfort and safety. Please refrain from rearranging or relocating any furnishings.
+                    </li>
+                    <li>
+                      <strong>Liability Disclaimer:</strong> SuiteSpot ICONIA shall not be held liable for:
+                      <ul className="list-disc list-outside ml-5 mt-2 space-y-1">
+                        <li>Personal accidents, injuries, or illness occurring on the premises</li>
+                        <li>Loss or theft of valuables not secured in the in-room safe provided</li>
+                      </ul>
+                    </li>
+                  </ol>
+                </div>
+              </div>
+
+              {/* Arabic Version */}
+              <div dir="rtl">
+                <h2 className="font-playfair text-2xl font-light text-foreground mb-6">
+                  قواعد العقار
+                </h2>
+                <div className="font-playfair text-base font-normal leading-relaxed text-foreground space-y-4">
+                  <p>
+                    لضمان إقامة ممتعة ومريحة لجميع الضيوف، نرجو منكم الالتزام بالقواعد التالية:
+                  </p>
+                  <ol className="list-decimal list-outside mr-5 space-y-3">
+                    <li>
+                      <strong>الحيوانات الأليفة:</strong> غير مسموح باصطحاب الحيوانات الأليفة داخل المبنى.
+                    </li>
+                    <li>
+                      <strong>الفعاليات:</strong> يُمنع منعاً باتاً إقامة الحفلات والمناسبات داخل أماكن إقامة الضيوف.
+                    </li>
+                    <li>
+                      <strong>التخلص من النفايات:</strong> يجب التخلص من القمامة في غرف القمامة المخصصة فقط. يرجى التواصل مع الاستقبال للمساعدة. لا يُسمح بترك أكياس القمامة خارج أبواب الغرف.
+                    </li>
+                    <li>
+                      <strong>التدخين:</strong> يُمنع التدخين في جميع الأماكن الداخلية. تتوفر مناطق مخصصة للتدخين في الهواء الطلق.
+                    </li>
+                    <li>
+                      <strong>المشروبات الكحولية:</strong> لا يُسمح بتناول المشروبات الكحولية في الأماكن العامة.
+                    </li>
+                    <li>
+                      <strong>المواد المحظورة:</strong> يُمنع منعاً باتاً حيازة أو استخدام المواد غير المشروعة.
+                    </li>
+                    <li>
+                      <strong>الأضرار بالممتلكات:</strong> يتحمل الضيوف مسؤولية أي أضرار تحدث خلال إقامتهم. قد يتم تطبيق غرامة بناءً على طبيعة ومدى الضرر.
+                    </li>
+                    <li>
+                      <strong>الأثاث:</strong> تم ترتيب الأثاث بعناية لراحتكم وسلامتكم. يرجى عدم إعادة ترتيب أو نقل أي قطع أثاث.
+                    </li>
+                    <li>
+                      <strong>إخلاء المسؤولية:</strong> لا تتحمل SuiteSpot ICONIA المسؤولية عن:
+                      <ul className="list-disc list-outside mr-5 mt-2 space-y-1">
+                        <li>الحوادث الشخصية أو الإصابات أو الأمراض التي تحدث داخل المبنى</li>
+                        <li>فقدان أو سرقة الأشياء الثمينة التي لم توضع في الخزنة المتوفرة في الغرفة</li>
+                      </ul>
+                    </li>
+                  </ol>
+                </div>
+              </div>
+            </div>
+
+            {/* Agreement text - spans full width */}
+            <div className="font-playfair text-base font-normal leading-relaxed text-foreground space-y-4 mt-8">
               <p className="pt-2">
                 By signing below, I acknowledge and agree to abide by the above property rules.{' '}
                 <button
