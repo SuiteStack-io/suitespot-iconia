@@ -1,10 +1,30 @@
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
 import { Link } from "react-router-dom";
+import { Helmet } from "react-helmet-async";
 import { PublicNav } from "@/components/PublicNav";
 import { Building2, MapPin, Users, Calendar, Home, Sparkles, Leaf, Headphones, Briefcase, Plane, Baby, Waves, Coffee, BookOpen } from "lucide-react";
 const About = () => {
   return <div className="min-h-screen bg-background">
+      <Helmet>
+        <title>About SuiteSpot | Premium Serviced Living in Egypt</title>
+        <meta name="description" content="Learn about SuiteSpot Hospitality - redefining serviced apartment living in Egypt. Premium apartments, wellness focus, and hotel-level service in Zamalek, Cairo." />
+        <link rel="canonical" href="https://suitespoteg.com/about" />
+        <meta name="robots" content="index, follow" />
+        
+        <meta property="og:title" content="About SuiteSpot | Premium Serviced Living in Egypt" />
+        <meta property="og:description" content="Redefining serviced apartment living in Egypt with premium apartments, wellness focus, and hotel-level service." />
+        <meta property="og:url" content="https://suitespoteg.com/about" />
+        <meta property="og:type" content="website" />
+        <meta property="og:image" content="https://suitespoteg.com/slideshow/iconia-zamalek.jpg" />
+        <meta property="og:site_name" content="SuiteSpot Hospitality" />
+        
+        <meta name="twitter:card" content="summary_large_image" />
+        <meta name="twitter:title" content="About SuiteSpot | Premium Serviced Living in Egypt" />
+        <meta name="twitter:description" content="Redefining serviced apartment living in Egypt with wellness focus and hotel-level service." />
+        <meta name="twitter:image" content="https://suitespoteg.com/slideshow/iconia-zamalek.jpg" />
+      </Helmet>
+
       <PublicNav />
 
       <div className="pt-20">

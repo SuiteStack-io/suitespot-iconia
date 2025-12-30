@@ -11,6 +11,7 @@ import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover
 import { Command, CommandEmpty, CommandGroup, CommandInput, CommandItem, CommandList } from "@/components/ui/command";
 import { Progress } from "@/components/ui/progress";
 import { Link, useNavigate, useSearchParams } from "react-router-dom";
+import { Helmet } from "react-helmet-async";
 import { supabase } from "@/integrations/supabase/client";
 import { useToast } from "@/hooks/use-toast";
 import { format, parseISO } from "date-fns";
@@ -835,6 +836,12 @@ const BookingFlow = () => {
 
   return (
     <div className="min-h-screen bg-background">
+      <Helmet>
+        <title>Book Your Stay | SuiteSpot Serviced Apartments in Cairo</title>
+        <meta name="description" content="Reserve your serviced apartment in Zamalek, Cairo. Easy online booking for studio, one-bedroom, and two-bedroom suites at SuiteSpot." />
+        <meta name="robots" content="noindex, follow" />
+      </Helmet>
+
       {/* Navigation */}
       <PublicNav />
 

@@ -1,12 +1,33 @@
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
 import { Link } from "react-router-dom";
+import { Helmet } from "react-helmet-async";
 import { Coffee, UtensilsCrossed, MapPin, Landmark } from "lucide-react";
 import { PublicNav } from "@/components/PublicNav";
+import { PublicFooter } from "@/components/PublicFooter";
 
 const Nearby = () => {
   return (
     <div className="min-h-screen bg-background">
+      <Helmet>
+        <title>Nearby Amenities | Zamalek Restaurants, Cafes & Attractions - SuiteSpot</title>
+        <meta name="description" content="Explore the best of Zamalek at your doorstep. World-class dining, cultural attractions, and the Nile just steps from SuiteSpot." />
+        <link rel="canonical" href="https://suitespoteg.com/nearby" />
+        <meta name="robots" content="index, follow" />
+        
+        <meta property="og:title" content="Nearby Amenities | Zamalek Restaurants, Cafes & Attractions" />
+        <meta property="og:description" content="Explore the best of Zamalek at your doorstep with SuiteSpot." />
+        <meta property="og:url" content="https://suitespoteg.com/nearby" />
+        <meta property="og:type" content="website" />
+        <meta property="og:image" content="https://suitespoteg.com/slideshow/iconia-zamalek.jpg" />
+        <meta property="og:site_name" content="SuiteSpot Hospitality" />
+        
+        <meta name="twitter:card" content="summary_large_image" />
+        <meta name="twitter:title" content="Nearby Amenities | Zamalek Restaurants, Cafes & Attractions" />
+        <meta name="twitter:description" content="Explore the best of Zamalek at your doorstep with SuiteSpot." />
+        <meta name="twitter:image" content="https://suitespoteg.com/slideshow/iconia-zamalek.jpg" />
+      </Helmet>
+
       <PublicNav />
 
       <div className="pt-20">

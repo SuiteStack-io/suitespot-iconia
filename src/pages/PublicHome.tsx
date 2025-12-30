@@ -1,6 +1,7 @@
 import { Button } from "@/components/ui/button";
 import { Link } from "react-router-dom";
 import { Calendar, MapPin, Sparkles } from "lucide-react";
+import { Helmet } from "react-helmet-async";
 import suitesFeature from "@/assets/iconia-zamalek-building.jpg";
 import wellnessFeature from "@/assets/wellness-feature.jpg";
 import experiencesFeature from "@/assets/experiences-feature.jpg";
@@ -32,6 +33,25 @@ const PublicHome = () => {
     }
   };
   return <div className="min-h-screen">
+      <Helmet>
+        <title>SuiteSpot Hospitality | Premium Serviced Apartments in Cairo, Egypt</title>
+        <meta name="description" content="Experience luxury serviced apartments in Zamalek, Cairo. SuiteSpot blends hotel service with home comfort. Wellness programs, stunning Nile views, and authentic Egyptian hospitality." />
+        <link rel="canonical" href="https://suitespoteg.com/" />
+        <meta name="robots" content="index, follow" />
+        
+        <meta property="og:title" content="SuiteSpot Hospitality | Premium Serviced Apartments in Cairo" />
+        <meta property="og:description" content="Luxury serviced apartments in Zamalek, Cairo. Hotel service meets home comfort with wellness programs and Nile views." />
+        <meta property="og:url" content="https://suitespoteg.com/" />
+        <meta property="og:type" content="website" />
+        <meta property="og:image" content="https://suitespoteg.com/slideshow/iconia-zamalek.jpg" />
+        <meta property="og:site_name" content="SuiteSpot Hospitality" />
+        
+        <meta name="twitter:card" content="summary_large_image" />
+        <meta name="twitter:title" content="SuiteSpot Hospitality | Premium Serviced Apartments in Cairo" />
+        <meta name="twitter:description" content="Luxury serviced apartments in Zamalek, Cairo. Hotel service meets home comfort." />
+        <meta name="twitter:image" content="https://suitespoteg.com/slideshow/iconia-zamalek.jpg" />
+      </Helmet>
+
       {/* Navigation */}
       <PublicNav />
 
