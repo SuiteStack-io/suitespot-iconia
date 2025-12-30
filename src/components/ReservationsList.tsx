@@ -29,11 +29,21 @@ import {
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
 import { Calendar } from '@/components/ui/calendar';
 import { format } from 'date-fns';
-import { Search, Users, Check, CalendarIcon, Download, FileSpreadsheet, X, Mail, CheckCircle2, XCircle, Clock } from 'lucide-react';
+import { Search, Users, Check, CalendarIcon, Download, FileSpreadsheet, X, Mail, CheckCircle2, XCircle, Clock, Eye, FileText, Minus } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
 import { toast } from 'sonner';
 import { cn } from '@/lib/utils';
 import * as XLSX from 'xlsx';
+import { generateCheckInPDF, downloadCheckInPDF } from '@/lib/generateCheckInPDF';
+
+interface CheckInAgreement {
+  reservation_id: string;
+  guest_full_name: string;
+  guest_phone: string;
+  guest_email: string;
+  signature_url: string;
+  signed_at: string;
+}
 
 interface Reservation {
   id: string;
@@ -113,11 +123,16 @@ export const ReservationsList = () => {
   const [bulkStatus, setBulkStatus] = useState<string>('');
   const [isUpdating, setIsUpdating] = useState(false);
   const [dateRange, setDateRange] = useState<{ from: Date | undefined; to: Date | undefined }>({ from: undefined, to: undefined });
+  const [checkInAgreements, setCheckInAgreements] = useState<Map<string, CheckInAgreement>>(new Map());
+  const [showPreviewDialog, setShowPreviewDialog] = useState(false);
+  const [previewPdfUrl, setPreviewPdfUrl] = useState<string | null>(null);
+  const [previewLoading, setPreviewLoading] = useState(false);
   const navigate = useNavigate();
 
   useEffect(() => {
     fetchReservations();
     fetchUnits();
+    fetchCheckInAgreements();
 
     // Real-time updates for reservations
     const reservationsChannel = supabase
@@ -231,6 +246,69 @@ export const ReservationsList = () => {
 
     if (!error && data) {
       setUnits(data);
+    }
+  };
+
+  const fetchCheckInAgreements = async () => {
+    const { data, error } = await supabase
+      .from('check_in_agreements')
+      .select('reservation_id, guest_full_name, guest_phone, guest_email, signature_url, signed_at');
+
+    if (!error && data) {
+      const agreementsMap = new Map<string, CheckInAgreement>();
+      data.forEach((agreement) => {
+        agreementsMap.set(agreement.reservation_id, agreement);
+      });
+      setCheckInAgreements(agreementsMap);
+    }
+  };
+
+  const handlePreviewCheckInDoc = async (reservation: Reservation) => {
+    const agreement = checkInAgreements.get(reservation.id);
+    if (!agreement) return;
+
+    setPreviewLoading(true);
+    try {
+      const pdfBlob = await generateCheckInPDF({
+        guestName: agreement.guest_full_name,
+        guestPhone: agreement.guest_phone,
+        guestEmail: agreement.guest_email,
+        unitName: reservation.units?.name || 'N/A',
+        checkInDate: reservation.check_in_date,
+        checkOutDate: reservation.check_out_date,
+        signatureDataUrl: agreement.signature_url,
+        signedAt: new Date(agreement.signed_at),
+      });
+      const url = URL.createObjectURL(pdfBlob);
+      setPreviewPdfUrl(url);
+      setShowPreviewDialog(true);
+    } catch (error) {
+      console.error('Error generating PDF preview:', error);
+      toast.error('Failed to generate PDF preview');
+    } finally {
+      setPreviewLoading(false);
+    }
+  };
+
+  const handleDownloadCheckInDoc = async (reservation: Reservation) => {
+    const agreement = checkInAgreements.get(reservation.id);
+    if (!agreement) return;
+
+    try {
+      await downloadCheckInPDF({
+        guestName: agreement.guest_full_name,
+        guestPhone: agreement.guest_phone,
+        guestEmail: agreement.guest_email,
+        unitName: reservation.units?.name || 'N/A',
+        checkInDate: reservation.check_in_date,
+        checkOutDate: reservation.check_out_date,
+        signatureDataUrl: agreement.signature_url,
+        signedAt: new Date(agreement.signed_at),
+      }, `check-in-agreement-${reservation.booking_reference}.pdf`);
+      toast.success('Check-in agreement downloaded');
+    } catch (error) {
+      console.error('Error downloading PDF:', error);
+      toast.error('Failed to download check-in agreement');
     }
   };
 
@@ -798,6 +876,7 @@ export const ReservationsList = () => {
               >
                 Status {getSortIcon('status')}
               </TableHead>
+              <TableHead>Check-in Doc</TableHead>
               <TableHead 
                 className="cursor-pointer hover:bg-muted/50"
                 onClick={() => handleSort('source')}
@@ -837,7 +916,7 @@ export const ReservationsList = () => {
           <TableBody>
             {filteredReservations.length === 0 ? (
               <TableRow>
-                <TableCell colSpan={18} className="text-center text-muted-foreground">
+                <TableCell colSpan={19} className="text-center text-muted-foreground">
                   No reservations found
                 </TableCell>
               </TableRow>
@@ -924,6 +1003,35 @@ export const ReservationsList = () => {
                     <Badge className={statusColors[reservation.status as keyof typeof statusColors]}>
                       {statusLabels[reservation.status as keyof typeof statusLabels] || reservation.status}
                     </Badge>
+                  </TableCell>
+                  <TableCell onClick={(e) => e.stopPropagation()}>
+                    {checkInAgreements.has(reservation.id) ? (
+                      <div className="flex items-center gap-1">
+                        <Button
+                          variant="ghost"
+                          size="icon"
+                          className="h-7 w-7"
+                          onClick={() => handlePreviewCheckInDoc(reservation)}
+                          title="Preview check-in document"
+                          disabled={previewLoading}
+                        >
+                          <Eye className="h-4 w-4" />
+                        </Button>
+                        <Button
+                          variant="ghost"
+                          size="icon"
+                          className="h-7 w-7"
+                          onClick={() => handleDownloadCheckInDoc(reservation)}
+                          title="Download check-in document"
+                        >
+                          <Download className="h-4 w-4" />
+                        </Button>
+                      </div>
+                    ) : (
+                      <span className="text-muted-foreground">
+                        <Minus className="h-4 w-4" />
+                      </span>
+                    )}
                   </TableCell>
                   <TableCell 
                     className="cursor-pointer"
@@ -1134,6 +1242,31 @@ export const ReservationsList = () => {
                 </div>
               </div>
             </div>
+          )}
+        </DialogContent>
+      </Dialog>
+
+      {/* PDF Preview Dialog */}
+      <Dialog open={showPreviewDialog} onOpenChange={(open) => {
+        setShowPreviewDialog(open);
+        if (!open && previewPdfUrl) {
+          URL.revokeObjectURL(previewPdfUrl);
+          setPreviewPdfUrl(null);
+        }
+      }}>
+        <DialogContent className="max-w-4xl h-[80vh]">
+          <DialogHeader>
+            <DialogTitle>Check-in Agreement Preview</DialogTitle>
+            <DialogDescription>
+              Signed check-in agreement document
+            </DialogDescription>
+          </DialogHeader>
+          {previewPdfUrl && (
+            <iframe
+              src={previewPdfUrl}
+              className="w-full h-full min-h-[60vh] border rounded"
+              title="Check-in Agreement PDF Preview"
+            />
           )}
         </DialogContent>
       </Dialog>
