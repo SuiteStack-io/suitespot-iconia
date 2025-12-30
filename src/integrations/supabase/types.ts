@@ -185,6 +185,36 @@ export type Database = {
           },
         ]
       }
+      faq_items: {
+        Row: {
+          answer: string
+          created_at: string
+          id: string
+          is_published: boolean
+          question: string
+          sequence_order: number
+          updated_at: string
+        }
+        Insert: {
+          answer: string
+          created_at?: string
+          id?: string
+          is_published?: boolean
+          question: string
+          sequence_order?: number
+          updated_at?: string
+        }
+        Update: {
+          answer?: string
+          created_at?: string
+          id?: string
+          is_published?: boolean
+          question?: string
+          sequence_order?: number
+          updated_at?: string
+        }
+        Relationships: []
+      }
       guest_accounts: {
         Row: {
           created_at: string
