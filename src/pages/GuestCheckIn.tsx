@@ -430,7 +430,7 @@ const GuestCheckIn = () => {
                       <strong>Pets:</strong> Pets are not permitted on the premises.
                     </li>
                     <li>
-                      <strong>Events:</strong> Parties and events are strictly prohibited within guest accommodations.
+                      <strong>Parties & Events:</strong> Parties and events are strictly prohibited within guest accommodations.
                     </li>
                     <li>
                       <strong>Waste Disposal:</strong> Garbage must be disposed of in designated garbage rooms only. Please contact reception for assistance. Garbage bags may not be left outside room doors.
@@ -475,7 +475,7 @@ const GuestCheckIn = () => {
                       <strong>الحيوانات الأليفة:</strong> غير مسموح باصطحاب الحيوانات الأليفة داخل المبنى.
                     </li>
                     <li>
-                      <strong>الفعاليات:</strong> يُمنع منعاً باتاً إقامة الحفلات والمناسبات داخل أماكن إقامة الضيوف.
+                      <strong>الحفلات والفعاليات:</strong> يُمنع منعاً باتاً إقامة الحفلات والمناسبات داخل أماكن إقامة الضيوف.
                     </li>
                     <li>
                       <strong>التخلص من النفايات:</strong> يجب التخلص من القمامة في غرف القمامة المخصصة فقط. يرجى التواصل مع الاستقبال للمساعدة. لا يُسمح بترك أكياس القمامة خارج أبواب الغرف.
