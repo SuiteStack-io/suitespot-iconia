@@ -53,6 +53,7 @@ import SelectionLanding from "./pages/SelectionLanding";
 import SelectionSessions from "./pages/SelectionSessions";
 import SessionAuditLog from "./pages/SessionAuditLog";
 import CheckInOut from "./pages/CheckInOut";
+import GuestCheckIn from "./pages/GuestCheckIn";
 import Housekeeping from "./pages/Housekeeping";
 import ReservationsListPage from "./pages/ReservationsListPage";
 import CashSettlement from "./pages/CashSettlement";
@@ -110,6 +111,7 @@ const App = () => (
               <Route path="/admin" element={<ProtectedRoute><Index /></ProtectedRoute>} />
               <Route path="/auth" element={<Auth />} />
               <Route path="/check-in-out" element={<ProtectedRoute><CheckInOut /></ProtectedRoute>} />
+              <Route path="/guest-checkin/:reservationId" element={<GuestCheckIn />} />
               <Route path="/housekeeping" element={<ProtectedRoute><Housekeeping /></ProtectedRoute>} />
               <Route path="/reservations-list" element={<ProtectedRoute><ReservationsListPage /></ProtectedRoute>} />
               <Route path="/calendar" element={<ProtectedRoute><Calendar /></ProtectedRoute>} />
