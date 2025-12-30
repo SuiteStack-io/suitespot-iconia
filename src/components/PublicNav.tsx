@@ -54,6 +54,9 @@ export const PublicNav = () => {
           <Link to="/our-story" className="font-playfair font-medium text-[14px] text-white hover:text-white/80 transition-colors">
             Our Story
           </Link>
+          <Link to="/faq" className="font-playfair font-medium text-[14px] text-white hover:text-white/80 transition-colors">
+            FAQ
+          </Link>
         </div>
         <div className="flex items-center gap-4">
           <button
@@ -138,8 +141,15 @@ export const PublicNav = () => {
             >
               Our Story
             </Link>
+            <Link 
+              to="/faq" 
+              className="block py-3 font-playfair font-medium text-[14px] text-foreground hover:text-accent transition-colors border-b border-border"
+              onClick={handleMenuClose}
+            >
+              FAQ
+            </Link>
             <a 
-              href="/auth" 
+              href="/auth"
               target="_blank"
               rel="noopener noreferrer"
               className="block py-3 font-playfair font-medium text-[14px] text-foreground hover:text-accent transition-colors border-b border-border"
