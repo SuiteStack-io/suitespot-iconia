@@ -23,6 +23,38 @@ const About = () => {
         <meta name="twitter:title" content="About SuiteSpot | Premium Serviced Living in Egypt" />
         <meta name="twitter:description" content="Redefining serviced apartment living in Egypt with wellness focus and hotel-level service." />
         <meta name="twitter:image" content="https://suitespoteg.com/slideshow/iconia-zamalek.jpg" />
+
+        <script type="application/ld+json">
+          {JSON.stringify({
+            "@context": "https://schema.org",
+            "@type": "Organization",
+            "name": "SuiteSpot Hospitality",
+            "alternateName": "SuiteSpot",
+            "url": "https://suitespoteg.com",
+            "logo": "https://suitespoteg.com/suitespot-logo-3.png",
+            "description": "SuiteSpot Hospitality redefines serviced apartment living in Egypt, blending local culture, modern design, and hotel-level service.",
+            "foundingDate": "2024",
+            "foundingLocation": {
+              "@type": "Place",
+              "address": {
+                "@type": "PostalAddress",
+                "addressLocality": "Cairo",
+                "addressCountry": "Egypt"
+              }
+            },
+            "areaServed": {
+              "@type": "Country",
+              "name": "Egypt"
+            },
+            "knowsAbout": [
+              "Serviced Apartments",
+              "Hospitality",
+              "Wellness Programs",
+              "Luxury Accommodation"
+            ],
+            "slogan": "Welcome Home"
+          })}
+        </script>
       </Helmet>
 
       <PublicNav />
