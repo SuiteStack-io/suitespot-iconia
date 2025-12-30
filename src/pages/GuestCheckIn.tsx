@@ -27,9 +27,10 @@ import {
   CommandList,
 } from '@/components/ui/command';
 import { toast } from 'sonner';
-import { Loader2, CheckCircle, Check, ChevronsUpDown } from 'lucide-react';
+import { Loader2, CheckCircle, Check, ChevronsUpDown, Download } from 'lucide-react';
 import { format } from 'date-fns';
 import { cn } from '@/lib/utils';
+import { downloadCheckInPDF } from '@/lib/generateCheckInPDF';
 
 const COUNTRY_CODES = [
   { code: "+1", country: "US", flag: "🇺🇸", name: "United States" },
@@ -153,6 +154,17 @@ const GuestCheckIn = () => {
   const [signatureDataUrl, setSignatureDataUrl] = useState<string | null>(null);
   const [termsAccepted, setTermsAccepted] = useState(false);
   const [breachDialogOpen, setBreachDialogOpen] = useState(false);
+  const [submittedData, setSubmittedData] = useState<{
+    guestName: string;
+    guestPhone: string;
+    guestEmail: string;
+    unitName: string;
+    checkInDate: string;
+    checkOutDate: string;
+    signatureDataUrl: string;
+    signedAt: Date;
+  } | null>(null);
+  const [downloadingPdf, setDownloadingPdf] = useState(false);
 
   useEffect(() => {
     const fetchReservation = async () => {
@@ -237,6 +249,22 @@ const GuestCheckIn = () => {
 
       if (insertError) throw insertError;
 
+      // Store data for PDF generation
+      const unitDisplay = reservation?.units 
+        ? `${reservation.units.name}${reservation.units.unit_number ? ` (${reservation.units.unit_number})` : ''}`
+        : 'Your Unit';
+      
+      setSubmittedData({
+        guestName: fullName.trim(),
+        guestPhone: `${countryCode}${phone.trim()}`,
+        guestEmail: email.trim(),
+        unitName: unitDisplay,
+        checkInDate: reservation?.check_in_date ? format(new Date(reservation.check_in_date), 'MMMM d, yyyy') : '',
+        checkOutDate: reservation?.check_out_date ? format(new Date(reservation.check_out_date), 'MMMM d, yyyy') : '',
+        signatureDataUrl: signatureDataUrl,
+        signedAt: new Date(),
+      });
+
       setSubmitted(true);
       toast.success('Check-in completed successfully');
     } catch (error) {
@@ -271,6 +299,22 @@ const GuestCheckIn = () => {
   }
 
   if (submitted) {
+    const handleDownloadPdf = async () => {
+      if (!submittedData) return;
+      
+      setDownloadingPdf(true);
+      try {
+        const fileName = `SuiteSpot_CheckIn_${submittedData.guestName.replace(/\s+/g, '_')}_${format(new Date(), 'yyyy-MM-dd')}.pdf`;
+        await downloadCheckInPDF(submittedData, fileName);
+        toast.success('PDF downloaded successfully');
+      } catch (error) {
+        console.error('Failed to generate PDF:', error);
+        toast.error('Failed to generate PDF. Please try again.');
+      } finally {
+        setDownloadingPdf(false);
+      }
+    };
+
     return (
       <div className="min-h-screen flex items-center justify-center bg-background p-6">
         <div className="text-center max-w-md">
@@ -278,9 +322,29 @@ const GuestCheckIn = () => {
           <h1 className="font-playfair text-4xl font-semibold tracking-tight text-foreground mb-4">
             Check-In Complete
           </h1>
-          <p className="font-playfair text-base text-muted-foreground leading-relaxed">
+          <p className="font-playfair text-base text-muted-foreground leading-relaxed mb-8">
             Thank you for completing your check-in. We hope you have a wonderful stay at SuiteSpot.
           </p>
+          {submittedData && (
+            <Button
+              onClick={handleDownloadPdf}
+              disabled={downloadingPdf}
+              className="font-playfair"
+              size="lg"
+            >
+              {downloadingPdf ? (
+                <>
+                  <Loader2 className="w-4 h-4 mr-2 animate-spin" />
+                  Generating PDF...
+                </>
+              ) : (
+                <>
+                  <Download className="w-4 h-4 mr-2" />
+                  Download Signed Agreement
+                </>
+              )}
+            </Button>
+          )}
         </div>
       </div>
     );
