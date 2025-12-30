@@ -185,6 +185,50 @@ export type Database = {
           },
         ]
       }
+      check_in_agreements: {
+        Row: {
+          created_at: string
+          guest_email: string
+          guest_full_name: string
+          guest_phone: string
+          id: string
+          reservation_id: string
+          signature_url: string
+          signed_at: string
+          terms_accepted: boolean
+        }
+        Insert: {
+          created_at?: string
+          guest_email: string
+          guest_full_name: string
+          guest_phone: string
+          id?: string
+          reservation_id: string
+          signature_url: string
+          signed_at?: string
+          terms_accepted?: boolean
+        }
+        Update: {
+          created_at?: string
+          guest_email?: string
+          guest_full_name?: string
+          guest_phone?: string
+          id?: string
+          reservation_id?: string
+          signature_url?: string
+          signed_at?: string
+          terms_accepted?: boolean
+        }
+        Relationships: [
+          {
+            foreignKeyName: "check_in_agreements_reservation_id_fkey"
+            columns: ["reservation_id"]
+            isOneToOne: false
+            referencedRelation: "reservations"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       faq_items: {
         Row: {
           answer: string

@@ -4,7 +4,7 @@ import { supabase } from '@/integrations/supabase/client';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
-import { LogIn, LogOut, CheckCircle, Filter, SortAsc, ArrowLeft } from 'lucide-react';
+import { LogIn, LogOut, CheckCircle, Filter, SortAsc, ArrowLeft, FileSignature } from 'lucide-react';
 import { format } from 'date-fns';
 import { useToast } from '@/hooks/use-toast';
 import { useAuth } from '@/lib/auth';
@@ -471,14 +471,25 @@ const CheckInOut = () => {
                               {reservation.number_of_guests} guest{reservation.number_of_guests !== 1 ? 's' : ''}
                             </p>
                           </div>
-                          <Button
-                            onClick={() => handleCheckIn(reservation.id)}
-                            disabled={updating === reservation.id}
-                            className="gap-2"
-                          >
-                            <CheckCircle className="h-4 w-4" />
-                            Check In
-                          </Button>
+                          <div className="flex flex-col gap-2">
+                            <Button
+                              variant="outline"
+                              size="sm"
+                              onClick={() => window.open(`/guest-checkin/${reservation.id}`, '_blank')}
+                              className="gap-2"
+                            >
+                              <FileSignature className="h-4 w-4" />
+                              Guest Form
+                            </Button>
+                            <Button
+                              onClick={() => handleCheckIn(reservation.id)}
+                              disabled={updating === reservation.id}
+                              className="gap-2"
+                            >
+                              <CheckCircle className="h-4 w-4" />
+                              Check In
+                            </Button>
+                          </div>
                         </div>
                       </div>
                     </CardContent>
