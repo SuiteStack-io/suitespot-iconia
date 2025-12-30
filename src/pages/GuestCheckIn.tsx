@@ -1,7 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import { supabase } from '@/integrations/supabase/client';
-import { useAuth } from '@/lib/auth';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
@@ -33,7 +32,6 @@ interface Reservation {
 const GuestCheckIn = () => {
   const { reservationId } = useParams<{ reservationId: string }>();
   const navigate = useNavigate();
-  const { user, loading: authLoading } = useAuth();
   
   const [reservation, setReservation] = useState<Reservation | null>(null);
   const [loading, setLoading] = useState(true);
@@ -51,16 +49,6 @@ const GuestCheckIn = () => {
   useEffect(() => {
     const fetchReservation = async () => {
       if (!reservationId) return;
-      
-      // Wait for auth to initialize
-      if (authLoading) return;
-      
-      // Require authentication
-      if (!user) {
-        toast.error('Please log in to access this page');
-        navigate('/auth');
-        return;
-      }
 
       const { data, error } = await supabase
         .from('reservations')
@@ -92,7 +80,7 @@ const GuestCheckIn = () => {
     };
 
     fetchReservation();
-  }, [reservationId, user, authLoading, navigate]);
+  }, [reservationId]);
 
   const isFormValid = 
     fullName.trim() !== '' && 
@@ -151,7 +139,7 @@ const GuestCheckIn = () => {
     }
   };
 
-  if (loading || authLoading) {
+  if (loading) {
     return (
       <div className="min-h-screen flex items-center justify-center bg-background">
         <Loader2 className="w-8 h-8 animate-spin text-primary" />
