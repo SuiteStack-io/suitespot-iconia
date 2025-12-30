@@ -3,6 +3,7 @@ import { supabase } from "@/integrations/supabase/client";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
 import { Link } from "react-router-dom";
+import { Helmet } from "react-helmet-async";
 import { MapPin, Home, Waves, Dumbbell, Lock, Tv, Wifi, Wind, Package, Sparkles } from "lucide-react";
 import { PublicNav } from "@/components/PublicNav";
 import { PublicFooter } from "@/components/PublicFooter";
@@ -32,6 +33,25 @@ const Locations = () => {
 
   return (
     <div className="min-h-screen bg-background">
+      <Helmet>
+        <title>Locations | ICONIA Zamalek & North Coast - SuiteSpot</title>
+        <meta name="description" content="Discover SuiteSpot properties in Egypt's most vibrant neighborhoods. Our flagship ICONIA in Zamalek, Cairo and upcoming North Coast location." />
+        <link rel="canonical" href="https://suitespoteg.com/locations" />
+        <meta name="robots" content="index, follow" />
+        
+        <meta property="og:title" content="Locations | ICONIA Zamalek & North Coast - SuiteSpot" />
+        <meta property="og:description" content="Discover SuiteSpot properties in Egypt's most vibrant neighborhoods." />
+        <meta property="og:url" content="https://suitespoteg.com/locations" />
+        <meta property="og:type" content="website" />
+        <meta property="og:image" content="https://suitespoteg.com/slideshow/iconia-zamalek.jpg" />
+        <meta property="og:site_name" content="SuiteSpot Hospitality" />
+        
+        <meta name="twitter:card" content="summary_large_image" />
+        <meta name="twitter:title" content="Locations | ICONIA Zamalek & North Coast - SuiteSpot" />
+        <meta name="twitter:description" content="Discover SuiteSpot properties in Egypt's most vibrant neighborhoods." />
+        <meta name="twitter:image" content="https://suitespoteg.com/slideshow/iconia-zamalek.jpg" />
+      </Helmet>
+
       <PublicNav />
 
       <div className="pt-20">

@@ -2,6 +2,7 @@ import { useState, useEffect } from "react";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
 import { Link } from "react-router-dom";
+import { Helmet } from "react-helmet-async";
 import { Wifi, Tv, Coffee, Wind, Users, Bed, Loader2 } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { useToast } from "@/hooks/use-toast";
@@ -111,6 +112,25 @@ const Suites = () => {
 
   return (
     <div className="min-h-screen bg-background">
+      <Helmet>
+        <title>Our Suites | Studio, 1BR & 2BR Apartments in Zamalek - SuiteSpot</title>
+        <meta name="description" content="Explore our thoughtfully designed suites in Cairo. Studio, one-bedroom, and two-bedroom apartments with full kitchens, smart TVs, and premium amenities." />
+        <link rel="canonical" href="https://suitespoteg.com/suites" />
+        <meta name="robots" content="index, follow" />
+        
+        <meta property="og:title" content="Our Suites | Studio, 1BR & 2BR Apartments in Zamalek" />
+        <meta property="og:description" content="Thoughtfully designed suites in Cairo with full kitchens, smart TVs, and premium amenities." />
+        <meta property="og:url" content="https://suitespoteg.com/suites" />
+        <meta property="og:type" content="website" />
+        <meta property="og:image" content="https://suitespoteg.com/slideshow/living-room.jpg" />
+        <meta property="og:site_name" content="SuiteSpot Hospitality" />
+        
+        <meta name="twitter:card" content="summary_large_image" />
+        <meta name="twitter:title" content="Our Suites | Studio, 1BR & 2BR Apartments in Zamalek" />
+        <meta name="twitter:description" content="Thoughtfully designed suites in Cairo with full kitchens and premium amenities." />
+        <meta name="twitter:image" content="https://suitespoteg.com/slideshow/living-room.jpg" />
+      </Helmet>
+
       <PublicNav />
 
       <div className="pt-20">

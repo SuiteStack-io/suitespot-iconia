@@ -1,11 +1,31 @@
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
 import { Link } from "react-router-dom";
+import { Helmet } from "react-helmet-async";
 import { Palmtree, Camera, Sailboat, Sparkles } from "lucide-react";
 import { PublicNav } from "@/components/PublicNav";
 import { PublicFooter } from "@/components/PublicFooter";
 const Experiences = () => {
   return <div className="min-h-screen bg-background">
+      <Helmet>
+        <title>Curated Experiences | Pyramids Tours, Nile Cruises & More - SuiteSpot</title>
+        <meta name="description" content="Discover Egypt through handpicked adventures. Private Pyramids tours, Nile felucca cruises, art tours, and Egyptian cooking classes with SuiteSpot." />
+        <link rel="canonical" href="https://suitespoteg.com/experiences" />
+        <meta name="robots" content="index, follow" />
+        
+        <meta property="og:title" content="Curated Experiences | Pyramids Tours, Nile Cruises & More" />
+        <meta property="og:description" content="Discover Egypt through handpicked adventures with SuiteSpot." />
+        <meta property="og:url" content="https://suitespoteg.com/experiences" />
+        <meta property="og:type" content="website" />
+        <meta property="og:image" content="https://suitespoteg.com/slideshow/iconia-zamalek.jpg" />
+        <meta property="og:site_name" content="SuiteSpot Hospitality" />
+        
+        <meta name="twitter:card" content="summary_large_image" />
+        <meta name="twitter:title" content="Curated Experiences | Pyramids Tours, Nile Cruises & More" />
+        <meta name="twitter:description" content="Discover Egypt through handpicked adventures with SuiteSpot." />
+        <meta name="twitter:image" content="https://suitespoteg.com/slideshow/iconia-zamalek.jpg" />
+      </Helmet>
+
       <PublicNav />
 
       <div className="pt-20">
