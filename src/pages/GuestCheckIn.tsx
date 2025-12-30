@@ -477,6 +477,77 @@ const GuestCheckIn = () => {
             </div>
           </section>
 
+          {/* Check-in/Check-out Schedule & Late Checkout Policy */}
+          <section>
+            {/* Headers */}
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-8 mb-6">
+              <h2 className="font-playfair text-2xl font-light text-foreground">
+                Check-in/Check-out Schedule
+              </h2>
+              <h2 className="font-playfair text-2xl font-light text-foreground text-right" dir="rtl">
+                مواعيد تسجيل الوصول والمغادرة
+              </h2>
+            </div>
+
+            {/* Schedule */}
+            <div className="space-y-4 mb-8">
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
+                <p className="font-playfair text-base font-normal leading-relaxed text-foreground">
+                  <span className="mr-2">a.</span><strong>Check-in:</strong> 3:00 PM — Date: {format(new Date(reservation.check_in_date), 'MMMM d, yyyy')}
+                </p>
+                <p className="font-playfair text-base font-normal leading-relaxed text-foreground text-right" dir="rtl">
+                  <span className="ml-2">أ.</span><strong>تسجيل الوصول:</strong> ٣:٠٠ مساءً — التاريخ: {format(new Date(reservation.check_in_date), 'MMMM d, yyyy')}
+                </p>
+              </div>
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
+                <p className="font-playfair text-base font-normal leading-relaxed text-foreground">
+                  <span className="mr-2">b.</span><strong>Check-out:</strong> 12:00 PM (Noon) — Date: {format(new Date(reservation.check_out_date), 'MMMM d, yyyy')}
+                </p>
+                <p className="font-playfair text-base font-normal leading-relaxed text-foreground text-right" dir="rtl">
+                  <span className="ml-2">ب.</span><strong>تسجيل المغادرة:</strong> ١٢:٠٠ ظهراً — التاريخ: {format(new Date(reservation.check_out_date), 'MMMM d, yyyy')}
+                </p>
+              </div>
+            </div>
+
+            {/* Late Checkout Policy Headers */}
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-8 mb-4">
+              <h3 className="font-playfair text-lg font-medium text-foreground">
+                Late Checkout Policy
+              </h3>
+              <h3 className="font-playfair text-lg font-medium text-foreground text-right" dir="rtl">
+                سياسة المغادرة المتأخرة
+              </h3>
+            </div>
+
+            {/* Late Checkout Info */}
+            <div className="space-y-4">
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
+                <p className="font-playfair text-base font-normal leading-relaxed text-foreground italic">
+                  Late checkout is available subject to availability.
+                </p>
+                <p className="font-playfair text-base font-normal leading-relaxed text-foreground text-right italic" dir="rtl">
+                  تتوفر خدمة المغادرة المتأخرة وفقاً للتوافر.
+                </p>
+              </div>
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
+                <p className="font-playfair text-base font-normal leading-relaxed text-foreground">
+                  • Departure between 12:00 PM and 5:00 PM: A surcharge equivalent to half the nightly rate will apply.
+                </p>
+                <p className="font-playfair text-base font-normal leading-relaxed text-foreground text-right" dir="rtl">
+                  • المغادرة بين الساعة ١٢:٠٠ ظهراً و٥:٠٠ مساءً: يتم تطبيق رسوم إضافية تعادل نصف سعر الليلة الواحدة.
+                </p>
+              </div>
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
+                <p className="font-playfair text-base font-normal leading-relaxed text-foreground">
+                  • Departure after 5:00 PM: A surcharge equivalent to one additional night will apply.
+                </p>
+                <p className="font-playfair text-base font-normal leading-relaxed text-foreground text-right" dir="rtl">
+                  • المغادرة بعد الساعة ٥:٠٠ مساءً: يتم تطبيق رسوم إضافية تعادل سعر ليلة إضافية كاملة.
+                </p>
+              </div>
+            </div>
+          </section>
+
           {/* Property Rules */}
           <section>
             {/* Headers */}

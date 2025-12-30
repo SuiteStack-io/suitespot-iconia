@@ -65,11 +65,37 @@ export const generateCheckInPDF = async (data: CheckInData): Promise<Blob> => {
   pdf.setFontSize(11);
   pdf.setFont('helvetica', 'normal');
   pdf.text(`Property: ${data.unitName}`, margin, yPos);
+  yPos += 10;
+
+  // Check-in/Check-out Schedule
+  pdf.setFontSize(14);
+  pdf.setFont('helvetica', 'bold');
+  pdf.text('Check-in/Check-out Schedule', margin, yPos);
+  yPos += 8;
+
+  pdf.setFontSize(11);
+  pdf.setFont('helvetica', 'normal');
+  pdf.text(`a. Check-in: 3:00 PM — Date: ${data.checkInDate}`, margin, yPos);
   yPos += 6;
-  pdf.text(`Check-in Date: ${data.checkInDate}`, margin, yPos);
+  pdf.text(`b. Check-out: 12:00 PM (Noon) — Date: ${data.checkOutDate}`, margin, yPos);
+  yPos += 10;
+
+  // Late Checkout Policy
+  pdf.setFontSize(12);
+  pdf.setFont('helvetica', 'bold');
+  pdf.text('Late Checkout Policy', margin, yPos);
   yPos += 6;
-  pdf.text(`Check-out Date: ${data.checkOutDate}`, margin, yPos);
-  yPos += 12;
+
+  pdf.setFontSize(10);
+  pdf.setFont('helvetica', 'italic');
+  pdf.text('Late checkout is available subject to availability.', margin, yPos);
+  yPos += 6;
+
+  pdf.setFont('helvetica', 'normal');
+  yPos = addWrappedText('• Departure between 12:00 PM and 5:00 PM: A surcharge equivalent to half the nightly rate will apply.', margin, yPos, contentWidth, 5);
+  yPos += 2;
+  yPos = addWrappedText('• Departure after 5:00 PM: A surcharge equivalent to one additional night will apply.', margin, yPos, contentWidth, 5);
+  yPos += 10;
 
   // Property Rules
   pdf.setFontSize(14);
