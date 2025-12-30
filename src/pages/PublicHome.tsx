@@ -50,6 +50,46 @@ const PublicHome = () => {
         <meta name="twitter:title" content="SuiteSpot Hospitality | Premium Serviced Apartments in Cairo" />
         <meta name="twitter:description" content="Luxury serviced apartments in Zamalek, Cairo. Hotel service meets home comfort." />
         <meta name="twitter:image" content="https://suitespoteg.com/slideshow/iconia-zamalek.jpg" />
+
+        <script type="application/ld+json">
+          {JSON.stringify({
+            "@context": "https://schema.org",
+            "@graph": [
+              {
+                "@type": "Organization",
+                "@id": "https://suitespoteg.com/#organization",
+                "name": "SuiteSpot Hospitality",
+                "url": "https://suitespoteg.com",
+                "logo": {
+                  "@type": "ImageObject",
+                  "url": "https://suitespoteg.com/suitespot-logo-3.png"
+                },
+                "description": "Premium serviced apartments in Cairo, Egypt. Blending hotel service with home comfort.",
+                "address": {
+                  "@type": "PostalAddress",
+                  "streetAddress": "16 Mohammed Thakeb St, Iconia Building",
+                  "addressLocality": "Zamalek",
+                  "addressRegion": "Cairo",
+                  "addressCountry": "EG"
+                },
+                "contactPoint": {
+                  "@type": "ContactPoint",
+                  "email": "info@suitespoteg.com",
+                  "contactType": "customer service"
+                }
+              },
+              {
+                "@type": "WebSite",
+                "@id": "https://suitespoteg.com/#website",
+                "url": "https://suitespoteg.com",
+                "name": "SuiteSpot Hospitality",
+                "publisher": {
+                  "@id": "https://suitespoteg.com/#organization"
+                }
+              }
+            ]
+          })}
+        </script>
       </Helmet>
 
       {/* Navigation */}

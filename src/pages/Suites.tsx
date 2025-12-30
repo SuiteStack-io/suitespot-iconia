@@ -129,6 +129,56 @@ const Suites = () => {
         <meta name="twitter:title" content="Our Suites | Studio, 1BR & 2BR Apartments in Zamalek" />
         <meta name="twitter:description" content="Thoughtfully designed suites in Cairo with full kitchens and premium amenities." />
         <meta name="twitter:image" content="https://suitespoteg.com/slideshow/living-room.jpg" />
+
+        <script type="application/ld+json">
+          {JSON.stringify({
+            "@context": "https://schema.org",
+            "@type": "ItemList",
+            "name": "SuiteSpot Suites",
+            "description": "Premium serviced apartment suites in Zamalek, Cairo",
+            "itemListElement": [
+              {
+                "@type": "ListItem",
+                "position": 1,
+                "item": {
+                  "@type": "Product",
+                  "name": "Studio Suite",
+                  "description": "Thoughtfully designed studio with kitchenette, smart TV, and premium amenities. Perfect for solo travelers or couples.",
+                  "brand": {
+                    "@type": "Brand",
+                    "name": "SuiteSpot"
+                  }
+                }
+              },
+              {
+                "@type": "ListItem",
+                "position": 2,
+                "item": {
+                  "@type": "Product",
+                  "name": "One-Bedroom Suite",
+                  "description": "Spacious one-bedroom apartment with separate living area and full kitchen. Ideal for extended stays.",
+                  "brand": {
+                    "@type": "Brand",
+                    "name": "SuiteSpot"
+                  }
+                }
+              },
+              {
+                "@type": "ListItem",
+                "position": 3,
+                "item": {
+                  "@type": "Product",
+                  "name": "Two-Bedroom Suite",
+                  "description": "Premium two-bedroom apartment with expansive living space and two bathrooms. Perfect for families.",
+                  "brand": {
+                    "@type": "Brand",
+                    "name": "SuiteSpot"
+                  }
+                }
+              }
+            ]
+          })}
+        </script>
       </Helmet>
 
       <PublicNav />

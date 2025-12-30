@@ -50,6 +50,64 @@ const Locations = () => {
         <meta name="twitter:title" content="Locations | ICONIA Zamalek & North Coast - SuiteSpot" />
         <meta name="twitter:description" content="Discover SuiteSpot properties in Egypt's most vibrant neighborhoods." />
         <meta name="twitter:image" content="https://suitespoteg.com/slideshow/iconia-zamalek.jpg" />
+
+        <script type="application/ld+json">
+          {JSON.stringify({
+            "@context": "https://schema.org",
+            "@type": "LodgingBusiness",
+            "name": "SuiteSpot ICONIA Zamalek",
+            "description": "Premium serviced apartments in Zamalek, Cairo. Modern luxury in an architecturally unique building with wellness programs and hotel-level service.",
+            "url": "https://suitespoteg.com/locations",
+            "image": "https://suitespoteg.com/slideshow/iconia-zamalek.jpg",
+            "address": {
+              "@type": "PostalAddress",
+              "streetAddress": "16 Mohammed Thakeb St, Iconia Building",
+              "addressLocality": "Zamalek",
+              "addressRegion": "Cairo",
+              "addressCountry": "EG"
+            },
+            "geo": {
+              "@type": "GeoCoordinates",
+              "latitude": "30.0564",
+              "longitude": "31.2241"
+            },
+            "email": "info@suitespoteg.com",
+            "priceRange": "$$$",
+            "starRating": {
+              "@type": "Rating",
+              "ratingValue": "4"
+            },
+            "amenityFeature": [
+              { "@type": "LocationFeatureSpecification", "name": "Outdoor Pool" },
+              { "@type": "LocationFeatureSpecification", "name": "Free WiFi" },
+              { "@type": "LocationFeatureSpecification", "name": "Fitness Center" },
+              { "@type": "LocationFeatureSpecification", "name": "Yoga Classes" },
+              { "@type": "LocationFeatureSpecification", "name": "Full Kitchen" },
+              { "@type": "LocationFeatureSpecification", "name": "Housekeeping" },
+              { "@type": "LocationFeatureSpecification", "name": "24/7 Support" },
+              { "@type": "LocationFeatureSpecification", "name": "Concierge Service" }
+            ],
+            "containsPlace": [
+              {
+                "@type": "HotelRoom",
+                "name": "Studio Suite",
+                "description": "Thoughtfully designed studio apartment with kitchenette"
+              },
+              {
+                "@type": "HotelRoom",
+                "name": "One-Bedroom Suite",
+                "description": "Spacious one-bedroom apartment with living area and full kitchen"
+              },
+              {
+                "@type": "HotelRoom",
+                "name": "Two-Bedroom Suite",
+                "description": "Premium two-bedroom apartment ideal for families"
+              }
+            ],
+            "checkinTime": "15:00",
+            "checkoutTime": "11:00"
+          })}
+        </script>
       </Helmet>
 
       <PublicNav />
