@@ -413,14 +413,14 @@ const GuestCheckIn = () => {
             </div>
           </section>
 
-          {/* House Rules */}
+          {/* Property Rules */}
           <section>
             <h2 className="font-playfair text-2xl font-light text-foreground mb-6">
-              House Rules
+              Property Rules
             </h2>
             <div className="font-playfair text-base font-normal leading-relaxed text-foreground space-y-4">
               <p>
-                To ensure a pleasant and comfortable stay for all guests, we kindly request your adherence to the following house rules:
+                To ensure a pleasant and comfortable stay for all guests, we kindly request your adherence to the following property rules:
               </p>
               <ol className="list-decimal list-outside ml-5 space-y-3">
                 <li>
@@ -443,7 +443,7 @@ const GuestCheckIn = () => {
                 </li>
               </ol>
               <p className="pt-2">
-                By signing below, I acknowledge and agree to abide by the above house rules.{' '}
+                By signing below, I acknowledge and agree to abide by the above property rules.{' '}
                 <button
                   type="button"
                   onClick={() => setBreachDialogOpen(true)}
@@ -481,7 +481,7 @@ const GuestCheckIn = () => {
               htmlFor="terms" 
               className="font-playfair text-sm font-normal leading-relaxed cursor-pointer"
             >
-              I have read and agree to the house rules and terms of stay
+              I have read and agree to the property rules and terms of stay
             </Label>
           </div>
 
