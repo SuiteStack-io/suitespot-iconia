@@ -415,94 +415,123 @@ const GuestCheckIn = () => {
 
           {/* Property Rules */}
           <section>
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
-              {/* English Version */}
-              <div>
-                <h2 className="font-playfair text-2xl font-light text-foreground mb-6">
-                  Property Rules
-                </h2>
-                <div className="font-playfair text-base font-normal leading-relaxed text-foreground space-y-4">
-                  <p>
-                    To ensure a pleasant and comfortable stay for all guests, we kindly request your adherence to the following property rules:
-                  </p>
-                  <ol className="list-decimal list-outside ml-5 space-y-3">
-                    <li>
-                      <strong>Pets:</strong> Pets are not permitted on the premises.
-                    </li>
-                    <li>
-                      <strong>Parties & Events:</strong> Parties and events are strictly prohibited within guest accommodations.
-                    </li>
-                    <li>
-                      <strong>Waste Disposal:</strong> Garbage must be disposed of in designated garbage rooms only. Please contact reception for assistance. Garbage bags may not be left outside room doors.
-                    </li>
-                    <li>
-                      <strong>Smoking:</strong> Smoking is prohibited in all indoor areas. Designated outdoor smoking areas are available.
-                    </li>
-                    <li>
-                      <strong>Alcohol:</strong> Alcoholic beverages are not permitted in common areas.
-                    </li>
-                    <li>
-                      <strong>Prohibited Substances:</strong> Possession or use of illegal substances is strictly prohibited.
-                    </li>
-                    <li>
-                      <strong>Property Damage:</strong> Guests are responsible for any damage caused during their stay. A penalty may be applied based on the nature and extent of the damage.
-                    </li>
-                    <li>
-                      <strong>Furniture:</strong> Furniture has been thoughtfully arranged for your comfort and safety. Please refrain from rearranging or relocating any furnishings.
-                    </li>
-                    <li>
-                      <strong>Liability Disclaimer:</strong> SuiteSpot ICONIA shall not be held liable for:
-                      <ul className="list-disc list-outside ml-5 mt-2 space-y-1">
-                        <li>Personal accidents, injuries, or illness occurring on the premises</li>
-                        <li>Loss or theft of valuables not secured in the in-room safe provided</li>
-                      </ul>
-                    </li>
-                  </ol>
-                </div>
+            {/* Headers */}
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-8 mb-6">
+              <h2 className="font-playfair text-2xl font-light text-foreground">
+                Property Rules
+              </h2>
+              <h2 className="font-playfair text-2xl font-light text-foreground text-right" dir="rtl">
+                قواعد العقار
+              </h2>
+            </div>
+
+            {/* Intro text */}
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-8 mb-6">
+              <p className="font-playfair text-base font-normal leading-relaxed text-foreground">
+                To ensure a pleasant and comfortable stay for all guests, we kindly request your adherence to the following property rules:
+              </p>
+              <p className="font-playfair text-base font-normal leading-relaxed text-foreground text-right" dir="rtl">
+                لضمان إقامة ممتعة ومريحة لجميع الضيوف، نرجو منكم الالتزام بالقواعد التالية:
+              </p>
+            </div>
+
+            {/* Rules - aligned rows */}
+            <div className="space-y-4">
+              {/* Rule 1 */}
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
+                <p className="font-playfair text-base font-normal leading-relaxed text-foreground">
+                  <span className="mr-2">1.</span><strong>Pets:</strong> Pets are not permitted on the premises.
+                </p>
+                <p className="font-playfair text-base font-normal leading-relaxed text-foreground text-right" dir="rtl">
+                  <span className="ml-2">١.</span><strong>الحيوانات الأليفة:</strong> غير مسموح باصطحاب الحيوانات الأليفة داخل المبنى.
+                </p>
               </div>
 
-              {/* Arabic Version */}
-              <div dir="rtl">
-                <h2 className="font-playfair text-2xl font-light text-foreground mb-6">
-                  قواعد العقار
-                </h2>
-                <div className="font-playfair text-base font-normal leading-relaxed text-foreground space-y-4">
-                  <p>
-                    لضمان إقامة ممتعة ومريحة لجميع الضيوف، نرجو منكم الالتزام بالقواعد التالية:
-                  </p>
-                  <ol className="list-decimal list-outside mr-5 space-y-3">
-                    <li>
-                      <strong>الحيوانات الأليفة:</strong> غير مسموح باصطحاب الحيوانات الأليفة داخل المبنى.
-                    </li>
-                    <li>
-                      <strong>الحفلات والفعاليات:</strong> يُمنع منعاً باتاً إقامة الحفلات والمناسبات داخل أماكن إقامة الضيوف.
-                    </li>
-                    <li>
-                      <strong>التخلص من النفايات:</strong> يجب التخلص من القمامة في غرف القمامة المخصصة فقط. يرجى التواصل مع الاستقبال للمساعدة. لا يُسمح بترك أكياس القمامة خارج أبواب الغرف.
-                    </li>
-                    <li>
-                      <strong>التدخين:</strong> يُمنع التدخين في جميع الأماكن الداخلية. تتوفر مناطق مخصصة للتدخين في الهواء الطلق.
-                    </li>
-                    <li>
-                      <strong>المشروبات الكحولية:</strong> لا يُسمح بتناول المشروبات الكحولية في الأماكن العامة.
-                    </li>
-                    <li>
-                      <strong>المواد المحظورة:</strong> يُمنع منعاً باتاً حيازة أو استخدام المواد غير المشروعة.
-                    </li>
-                    <li>
-                      <strong>الأضرار بالممتلكات:</strong> يتحمل الضيوف مسؤولية أي أضرار تحدث خلال إقامتهم. قد يتم تطبيق غرامة بناءً على طبيعة ومدى الضرر.
-                    </li>
-                    <li>
-                      <strong>الأثاث:</strong> تم ترتيب الأثاث بعناية لراحتكم وسلامتكم. يرجى عدم إعادة ترتيب أو نقل أي قطع أثاث.
-                    </li>
-                    <li>
-                      <strong>إخلاء المسؤولية:</strong> لا تتحمل SuiteSpot ICONIA المسؤولية عن:
-                      <ul className="list-disc list-outside mr-5 mt-2 space-y-1">
-                        <li>الحوادث الشخصية أو الإصابات أو الأمراض التي تحدث داخل المبنى</li>
-                        <li>فقدان أو سرقة الأشياء الثمينة التي لم توضع في الخزنة المتوفرة في الغرفة</li>
-                      </ul>
-                    </li>
-                  </ol>
+              {/* Rule 2 */}
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
+                <p className="font-playfair text-base font-normal leading-relaxed text-foreground">
+                  <span className="mr-2">2.</span><strong>Parties & Events:</strong> Parties and events are strictly prohibited within guest accommodations.
+                </p>
+                <p className="font-playfair text-base font-normal leading-relaxed text-foreground text-right" dir="rtl">
+                  <span className="ml-2">٢.</span><strong>الحفلات والفعاليات:</strong> يُمنع منعاً باتاً إقامة الحفلات والمناسبات داخل أماكن إقامة الضيوف.
+                </p>
+              </div>
+
+              {/* Rule 3 */}
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
+                <p className="font-playfair text-base font-normal leading-relaxed text-foreground">
+                  <span className="mr-2">3.</span><strong>Waste Disposal:</strong> Garbage must be disposed of in designated garbage rooms only. Please contact reception for assistance. Garbage bags may not be left outside room doors.
+                </p>
+                <p className="font-playfair text-base font-normal leading-relaxed text-foreground text-right" dir="rtl">
+                  <span className="ml-2">٣.</span><strong>التخلص من النفايات:</strong> يجب التخلص من القمامة في غرف القمامة المخصصة فقط. يرجى التواصل مع الاستقبال للمساعدة. لا يُسمح بترك أكياس القمامة خارج أبواب الغرف.
+                </p>
+              </div>
+
+              {/* Rule 4 */}
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
+                <p className="font-playfair text-base font-normal leading-relaxed text-foreground">
+                  <span className="mr-2">4.</span><strong>Smoking:</strong> Smoking is prohibited in all indoor areas. Designated outdoor smoking areas are available.
+                </p>
+                <p className="font-playfair text-base font-normal leading-relaxed text-foreground text-right" dir="rtl">
+                  <span className="ml-2">٤.</span><strong>التدخين:</strong> يُمنع التدخين في جميع الأماكن الداخلية. تتوفر مناطق مخصصة للتدخين في الهواء الطلق.
+                </p>
+              </div>
+
+              {/* Rule 5 */}
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
+                <p className="font-playfair text-base font-normal leading-relaxed text-foreground">
+                  <span className="mr-2">5.</span><strong>Alcohol:</strong> Alcoholic beverages are not permitted in common areas.
+                </p>
+                <p className="font-playfair text-base font-normal leading-relaxed text-foreground text-right" dir="rtl">
+                  <span className="ml-2">٥.</span><strong>المشروبات الكحولية:</strong> لا يُسمح بتناول المشروبات الكحولية في الأماكن العامة.
+                </p>
+              </div>
+
+              {/* Rule 6 */}
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
+                <p className="font-playfair text-base font-normal leading-relaxed text-foreground">
+                  <span className="mr-2">6.</span><strong>Prohibited Substances:</strong> Possession or use of illegal substances is strictly prohibited.
+                </p>
+                <p className="font-playfair text-base font-normal leading-relaxed text-foreground text-right" dir="rtl">
+                  <span className="ml-2">٦.</span><strong>المواد المحظورة:</strong> يُمنع منعاً باتاً حيازة أو استخدام المواد غير المشروعة.
+                </p>
+              </div>
+
+              {/* Rule 7 */}
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
+                <p className="font-playfair text-base font-normal leading-relaxed text-foreground">
+                  <span className="mr-2">7.</span><strong>Property Damage:</strong> Guests are responsible for any damage caused during their stay. A penalty may be applied based on the nature and extent of the damage.
+                </p>
+                <p className="font-playfair text-base font-normal leading-relaxed text-foreground text-right" dir="rtl">
+                  <span className="ml-2">٧.</span><strong>الأضرار بالممتلكات:</strong> يتحمل الضيوف مسؤولية أي أضرار تحدث خلال إقامتهم. قد يتم تطبيق غرامة بناءً على طبيعة ومدى الضرر.
+                </p>
+              </div>
+
+              {/* Rule 8 */}
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
+                <p className="font-playfair text-base font-normal leading-relaxed text-foreground">
+                  <span className="mr-2">8.</span><strong>Furniture:</strong> Furniture has been thoughtfully arranged for your comfort and safety. Please refrain from rearranging or relocating any furnishings.
+                </p>
+                <p className="font-playfair text-base font-normal leading-relaxed text-foreground text-right" dir="rtl">
+                  <span className="ml-2">٨.</span><strong>الأثاث:</strong> تم ترتيب الأثاث بعناية لراحتكم وسلامتكم. يرجى عدم إعادة ترتيب أو نقل أي قطع أثاث.
+                </p>
+              </div>
+
+              {/* Rule 9 */}
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
+                <div className="font-playfair text-base font-normal leading-relaxed text-foreground">
+                  <p><span className="mr-2">9.</span><strong>Liability Disclaimer:</strong> SuiteSpot ICONIA shall not be held liable for:</p>
+                  <ul className="list-disc list-outside ml-8 mt-2 space-y-1">
+                    <li>Personal accidents, injuries, or illness occurring on the premises</li>
+                    <li>Loss or theft of valuables not secured in the in-room safe provided</li>
+                  </ul>
+                </div>
+                <div className="font-playfair text-base font-normal leading-relaxed text-foreground text-right" dir="rtl">
+                  <p><span className="ml-2">٩.</span><strong>إخلاء المسؤولية:</strong> لا تتحمل SuiteSpot ICONIA المسؤولية عن:</p>
+                  <ul className="list-disc list-outside mr-8 mt-2 space-y-1">
+                    <li>الحوادث الشخصية أو الإصابات أو الأمراض التي تحدث داخل المبنى</li>
+                    <li>فقدان أو سرقة الأشياء الثمينة التي لم توضع في الخزنة المتوفرة في الغرفة</li>
+                  </ul>
                 </div>
               </div>
             </div>
@@ -530,47 +559,56 @@ const GuestCheckIn = () => {
 
           {/* Housekeeping, Property Condition, and Guest Responsibility */}
           <section>
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
-              {/* English Version */}
-              <div>
-                <h2 className="font-playfair text-2xl font-light text-foreground mb-6">
-                  Housekeeping, Property Condition, and Guest Responsibility
-                </h2>
-                <div className="font-playfair text-base font-normal leading-relaxed text-foreground space-y-4">
-                  <p>
-                    Two housekeeping visits per week are included in the rental rate.
-                  </p>
-                  <p>
-                    Throughout the rental period, the Guest(s) are responsible for maintaining the property in a clean and good condition.
-                  </p>
-                  <p>
-                    The Guest(s) acknowledge that the property is delivered in good condition upon arrival, except for any defects reported to the property manager no later than the end of the first day following arrival.
-                  </p>
-                  <p>
-                    Any defects not reported within this timeframe shall be deemed the responsibility of the Guest(s).
-                  </p>
-                </div>
+            {/* Headers */}
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-8 mb-6">
+              <h2 className="font-playfair text-2xl font-light text-foreground">
+                Housekeeping, Property Condition, and Guest Responsibility
+              </h2>
+              <h2 className="font-playfair text-2xl font-light text-foreground text-right" dir="rtl">
+                التدبير المنزلي وحالة العقار ومسؤولية الضيف
+              </h2>
+            </div>
+
+            {/* Points - aligned rows */}
+            <div className="space-y-4">
+              {/* Point 1 */}
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
+                <p className="font-playfair text-base font-normal leading-relaxed text-foreground">
+                  Two housekeeping visits per week are included in the rental rate.
+                </p>
+                <p className="font-playfair text-base font-normal leading-relaxed text-foreground text-right" dir="rtl">
+                  تتضمن قيمة الإيجار زيارتين للتنظيف أسبوعياً.
+                </p>
               </div>
 
-              {/* Arabic Version */}
-              <div dir="rtl">
-                <h2 className="font-playfair text-2xl font-light text-foreground mb-6">
-                  التدبير المنزلي وحالة العقار ومسؤولية الضيف
-                </h2>
-                <div className="font-playfair text-base font-normal leading-relaxed text-foreground space-y-4">
-                  <p>
-                    تتضمن قيمة الإيجار زيارتين للتنظيف أسبوعياً.
-                  </p>
-                  <p>
-                    خلال فترة الإيجار، يتحمل الضيف (الضيوف) مسؤولية الحفاظ على العقار نظيفاً وفي حالة جيدة.
-                  </p>
-                  <p>
-                    يُقر الضيف (الضيوف) بأن العقار قد تم تسليمه بحالة جيدة عند الوصول، باستثناء أي عيوب يتم الإبلاغ عنها لمدير العقار في موعد أقصاه نهاية اليوم الأول بعد الوصول.
-                  </p>
-                  <p>
-                    أي عيوب لم يتم الإبلاغ عنها خلال هذه الفترة الزمنية تعتبر مسؤولية الضيف (الضيوف).
-                  </p>
-                </div>
+              {/* Point 2 */}
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
+                <p className="font-playfair text-base font-normal leading-relaxed text-foreground">
+                  Throughout the rental period, the Guest(s) are responsible for maintaining the property in a clean and good condition.
+                </p>
+                <p className="font-playfair text-base font-normal leading-relaxed text-foreground text-right" dir="rtl">
+                  خلال فترة الإيجار، يتحمل الضيف (الضيوف) مسؤولية الحفاظ على العقار نظيفاً وفي حالة جيدة.
+                </p>
+              </div>
+
+              {/* Point 3 */}
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
+                <p className="font-playfair text-base font-normal leading-relaxed text-foreground">
+                  The Guest(s) acknowledge that the property is delivered in good condition upon arrival, except for any defects reported to the property manager no later than the end of the first day following arrival.
+                </p>
+                <p className="font-playfair text-base font-normal leading-relaxed text-foreground text-right" dir="rtl">
+                  يُقر الضيف (الضيوف) بأن العقار قد تم تسليمه بحالة جيدة عند الوصول، باستثناء أي عيوب يتم الإبلاغ عنها لمدير العقار في موعد أقصاه نهاية اليوم الأول بعد الوصول.
+                </p>
+              </div>
+
+              {/* Point 4 */}
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
+                <p className="font-playfair text-base font-normal leading-relaxed text-foreground">
+                  Any defects not reported within this timeframe shall be deemed the responsibility of the Guest(s).
+                </p>
+                <p className="font-playfair text-base font-normal leading-relaxed text-foreground text-right" dir="rtl">
+                  أي عيوب لم يتم الإبلاغ عنها خلال هذه الفترة الزمنية تعتبر مسؤولية الضيف (الضيوف).
+                </p>
               </div>
             </div>
           </section>
