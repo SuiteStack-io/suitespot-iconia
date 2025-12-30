@@ -1,32 +1,24 @@
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
 import { Link } from "react-router-dom";
-import { Helmet } from "react-helmet-async";
 import { Dumbbell, Heart, Sunrise, Users } from "lucide-react";
 import { PublicNav } from "@/components/PublicNav";
 import { PublicFooter } from "@/components/PublicFooter";
+import { SEO } from "@/components/SEO";
 
 const Wellness = () => {
   return (
     <div className="min-h-screen bg-background">
-      <Helmet>
-        <title>Wellness Activities | Yoga, Fitness & Mindfulness - SuiteSpot</title>
-        <meta name="description" content="Nourish your body and soul during your stay. Rooftop yoga, fitness classes, and mindfulness sessions at SuiteSpot's wellness center in Cairo." />
-        <link rel="canonical" href="https://suitespoteg.com/wellness" />
-        <meta name="robots" content="index, follow" />
-        
-        <meta property="og:title" content="Wellness Activities | Yoga, Fitness & Mindfulness - SuiteSpot" />
-        <meta property="og:description" content="Rooftop yoga, fitness classes, and mindfulness sessions at SuiteSpot's wellness center in Cairo." />
-        <meta property="og:url" content="https://suitespoteg.com/wellness" />
-        <meta property="og:type" content="website" />
-        <meta property="og:image" content="https://suitespoteg.com/slideshow/rooftop.jpg" />
-        <meta property="og:site_name" content="SuiteSpot Hospitality" />
-        
-        <meta name="twitter:card" content="summary_large_image" />
-        <meta name="twitter:title" content="Wellness Activities | Yoga, Fitness & Mindfulness - SuiteSpot" />
-        <meta name="twitter:description" content="Rooftop yoga, fitness classes, and mindfulness sessions in Cairo." />
-        <meta name="twitter:image" content="https://suitespoteg.com/slideshow/rooftop.jpg" />
-      </Helmet>
+      <SEO
+        title="Wellness Activities | Yoga, Fitness & Mindfulness - SuiteSpot"
+        description="Nourish your body and soul during your stay. Rooftop yoga, fitness classes, and mindfulness sessions at SuiteSpot's wellness center in Cairo."
+        path="/wellness"
+        ogImage="/slideshow/rooftop.jpg"
+        breadcrumbs={[
+          { name: "Home", path: "/" },
+          { name: "Wellness" }
+        ]}
+      />
 
       <PublicNav />
 

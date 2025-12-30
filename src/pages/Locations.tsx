@@ -3,13 +3,56 @@ import { supabase } from "@/integrations/supabase/client";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
 import { Link } from "react-router-dom";
-import { Helmet } from "react-helmet-async";
 import { MapPin, Home, Waves, Dumbbell, Lock, Tv, Wifi, Wind, Package, Sparkles } from "lucide-react";
 import { PublicNav } from "@/components/PublicNav";
 import { PublicFooter } from "@/components/PublicFooter";
 import InteractivePropertyMap from "@/components/InteractivePropertyMap";
 import northCoast from "@/assets/north-coast.webp";
+import { SEO } from "@/components/SEO";
 
+const lodgingBusinessJsonLd = {
+  "@context": "https://schema.org",
+  "@type": "LodgingBusiness",
+  "name": "SuiteSpot ICONIA Zamalek",
+  "description": "Premium serviced apartments in Zamalek, Cairo. Modern luxury in an architecturally unique building with wellness programs and hotel-level service.",
+  "url": "https://findyoursuitespot.com/locations",
+  "image": "https://findyoursuitespot.com/slideshow/iconia-zamalek.jpg",
+  "address": {
+    "@type": "PostalAddress",
+    "streetAddress": "16 Mohammed Thakeb St, Iconia Building",
+    "addressLocality": "Zamalek",
+    "addressRegion": "Cairo",
+    "addressCountry": "EG"
+  },
+  "geo": {
+    "@type": "GeoCoordinates",
+    "latitude": "30.0564",
+    "longitude": "31.2241"
+  },
+  "email": "info@findyoursuitespot.com",
+  "priceRange": "$$$",
+  "starRating": {
+    "@type": "Rating",
+    "ratingValue": "4"
+  },
+  "amenityFeature": [
+    { "@type": "LocationFeatureSpecification", "name": "Outdoor Pool" },
+    { "@type": "LocationFeatureSpecification", "name": "Free WiFi" },
+    { "@type": "LocationFeatureSpecification", "name": "Fitness Center" },
+    { "@type": "LocationFeatureSpecification", "name": "Yoga Classes" },
+    { "@type": "LocationFeatureSpecification", "name": "Full Kitchen" },
+    { "@type": "LocationFeatureSpecification", "name": "Housekeeping" },
+    { "@type": "LocationFeatureSpecification", "name": "24/7 Support" },
+    { "@type": "LocationFeatureSpecification", "name": "Concierge Service" }
+  ],
+  "containsPlace": [
+    { "@type": "HotelRoom", "name": "Studio Suite", "description": "Thoughtfully designed studio apartment with kitchenette" },
+    { "@type": "HotelRoom", "name": "One-Bedroom Suite", "description": "Spacious one-bedroom apartment with living area and full kitchen" },
+    { "@type": "HotelRoom", "name": "Two-Bedroom Suite", "description": "Premium two-bedroom apartment ideal for families" }
+  ],
+  "checkinTime": "15:00",
+  "checkoutTime": "11:00"
+};
 
 const Locations = () => {
   const [properties, setProperties] = useState<any[]>([]);
@@ -33,82 +76,16 @@ const Locations = () => {
 
   return (
     <div className="min-h-screen bg-background">
-      <Helmet>
-        <title>Locations | ICONIA Zamalek & North Coast - SuiteSpot</title>
-        <meta name="description" content="Discover SuiteSpot properties in Egypt's most vibrant neighborhoods. Our flagship ICONIA in Zamalek, Cairo and upcoming North Coast location." />
-        <link rel="canonical" href="https://suitespoteg.com/locations" />
-        <meta name="robots" content="index, follow" />
-        
-        <meta property="og:title" content="Locations | ICONIA Zamalek & North Coast - SuiteSpot" />
-        <meta property="og:description" content="Discover SuiteSpot properties in Egypt's most vibrant neighborhoods." />
-        <meta property="og:url" content="https://suitespoteg.com/locations" />
-        <meta property="og:type" content="website" />
-        <meta property="og:image" content="https://suitespoteg.com/slideshow/iconia-zamalek.jpg" />
-        <meta property="og:site_name" content="SuiteSpot Hospitality" />
-        
-        <meta name="twitter:card" content="summary_large_image" />
-        <meta name="twitter:title" content="Locations | ICONIA Zamalek & North Coast - SuiteSpot" />
-        <meta name="twitter:description" content="Discover SuiteSpot properties in Egypt's most vibrant neighborhoods." />
-        <meta name="twitter:image" content="https://suitespoteg.com/slideshow/iconia-zamalek.jpg" />
-
-        <script type="application/ld+json">
-          {JSON.stringify({
-            "@context": "https://schema.org",
-            "@type": "LodgingBusiness",
-            "name": "SuiteSpot ICONIA Zamalek",
-            "description": "Premium serviced apartments in Zamalek, Cairo. Modern luxury in an architecturally unique building with wellness programs and hotel-level service.",
-            "url": "https://suitespoteg.com/locations",
-            "image": "https://suitespoteg.com/slideshow/iconia-zamalek.jpg",
-            "address": {
-              "@type": "PostalAddress",
-              "streetAddress": "16 Mohammed Thakeb St, Iconia Building",
-              "addressLocality": "Zamalek",
-              "addressRegion": "Cairo",
-              "addressCountry": "EG"
-            },
-            "geo": {
-              "@type": "GeoCoordinates",
-              "latitude": "30.0564",
-              "longitude": "31.2241"
-            },
-            "email": "info@suitespoteg.com",
-            "priceRange": "$$$",
-            "starRating": {
-              "@type": "Rating",
-              "ratingValue": "4"
-            },
-            "amenityFeature": [
-              { "@type": "LocationFeatureSpecification", "name": "Outdoor Pool" },
-              { "@type": "LocationFeatureSpecification", "name": "Free WiFi" },
-              { "@type": "LocationFeatureSpecification", "name": "Fitness Center" },
-              { "@type": "LocationFeatureSpecification", "name": "Yoga Classes" },
-              { "@type": "LocationFeatureSpecification", "name": "Full Kitchen" },
-              { "@type": "LocationFeatureSpecification", "name": "Housekeeping" },
-              { "@type": "LocationFeatureSpecification", "name": "24/7 Support" },
-              { "@type": "LocationFeatureSpecification", "name": "Concierge Service" }
-            ],
-            "containsPlace": [
-              {
-                "@type": "HotelRoom",
-                "name": "Studio Suite",
-                "description": "Thoughtfully designed studio apartment with kitchenette"
-              },
-              {
-                "@type": "HotelRoom",
-                "name": "One-Bedroom Suite",
-                "description": "Spacious one-bedroom apartment with living area and full kitchen"
-              },
-              {
-                "@type": "HotelRoom",
-                "name": "Two-Bedroom Suite",
-                "description": "Premium two-bedroom apartment ideal for families"
-              }
-            ],
-            "checkinTime": "15:00",
-            "checkoutTime": "11:00"
-          })}
-        </script>
-      </Helmet>
+      <SEO
+        title="Locations | ICONIA Zamalek & North Coast - SuiteSpot"
+        description="Discover SuiteSpot properties in Egypt's most vibrant neighborhoods. Our flagship ICONIA in Zamalek, Cairo and upcoming North Coast location."
+        path="/locations"
+        breadcrumbs={[
+          { name: "Home", path: "/" },
+          { name: "Locations" }
+        ]}
+        additionalJsonLd={lodgingBusinessJsonLd}
+      />
 
       <PublicNav />
 

@@ -1,32 +1,24 @@
 import { Button } from "@/components/ui/button";
 import { Link } from "react-router-dom";
-import { Helmet } from "react-helmet-async";
-import logo from "@/assets/suitespot-logo.png";
 import zamalekView from "@/assets/zamalek-view.jpeg";
 import { OurStorySlideshow } from "@/components/OurStorySlideshow";
 import { PublicNav } from "@/components/PublicNav";
 import { PublicFooter } from "@/components/PublicFooter";
+import { SEO } from "@/components/SEO";
 
 const OurStory = () => {
-  return <div className="min-h-screen bg-background">
-      <Helmet>
-        <title>Our Story | From AUC Dorms to ICONIA & SuiteSpot</title>
-        <meta name="description" content="From the historic AUC dormitory to ICONIA and SuiteSpot. Discover our journey of transforming iconic Cairo buildings into wellness-focused stays." />
-        <link rel="canonical" href="https://suitespoteg.com/our-story" />
-        <meta name="robots" content="index, follow" />
-        
-        <meta property="og:title" content="Our Story | From AUC Dorms to ICONIA & SuiteSpot" />
-        <meta property="og:description" content="Discover our journey of transforming iconic Cairo buildings into wellness-focused stays." />
-        <meta property="og:url" content="https://suitespoteg.com/our-story" />
-        <meta property="og:type" content="website" />
-        <meta property="og:image" content="https://suitespoteg.com/slideshow/iconia-zamalek.jpg" />
-        <meta property="og:site_name" content="SuiteSpot Hospitality" />
-        
-        <meta name="twitter:card" content="summary_large_image" />
-        <meta name="twitter:title" content="Our Story | From AUC Dorms to ICONIA & SuiteSpot" />
-        <meta name="twitter:description" content="Discover our journey of transforming iconic Cairo buildings." />
-        <meta name="twitter:image" content="https://suitespoteg.com/slideshow/iconia-zamalek.jpg" />
-      </Helmet>
+  return (
+    <div className="min-h-screen bg-background">
+      <SEO
+        title="Our Story | From AUC Dorms to ICONIA & SuiteSpot"
+        description="From the historic AUC dormitory to ICONIA and SuiteSpot. Discover our journey of transforming iconic Cairo buildings into wellness-focused stays."
+        path="/our-story"
+        breadcrumbs={[
+          { name: "Home", path: "/" },
+          { name: "About", path: "/about" },
+          { name: "Our Story" }
+        ]}
+      />
 
       <PublicNav />
 
@@ -130,6 +122,8 @@ const OurStory = () => {
       </div>
 
       <PublicFooter />
-    </div>;
+    </div>
+  );
 };
+
 export default OurStory;

@@ -5,7 +5,7 @@ import { PublicFooter } from '@/components/PublicFooter';
 import { supabase } from '@/integrations/supabase/client';
 import { Loader2 } from 'lucide-react';
 import { format } from 'date-fns';
-import { Helmet } from 'react-helmet-async';
+import { SEO } from '@/components/SEO';
 
 interface BlogPost {
   id: string;
@@ -44,11 +44,15 @@ const Blog = () => {
 
   return (
     <div className="min-h-screen bg-background">
-      <Helmet>
-        <title>Blog | SuiteSpot - Stories & Insights from Serviced Living</title>
-        <meta name="description" content="Stories, insights, and inspiration from our serviced living community in Egypt. Discover travel tips, local guides, and hospitality excellence." />
-        <link rel="canonical" href="https://suitespoteg.com/blog" />
-      </Helmet>
+      <SEO
+        title="Blog | SuiteSpot - Stories & Insights from Serviced Living"
+        description="Stories, insights, and inspiration from our serviced living community in Egypt. Discover travel tips, local guides, and hospitality excellence."
+        path="/blog"
+        breadcrumbs={[
+          { name: "Home", path: "/" },
+          { name: "Blog" }
+        ]}
+      />
 
       <PublicNav />
 
