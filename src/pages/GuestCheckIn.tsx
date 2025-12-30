@@ -528,6 +528,27 @@ const GuestCheckIn = () => {
             </div>
           </section>
 
+          {/* Housekeeping, Property Condition, and Guest Responsibility */}
+          <section>
+            <h2 className="font-playfair text-2xl font-light text-foreground mb-6">
+              Housekeeping, Property Condition, and Guest Responsibility
+            </h2>
+            <div className="font-playfair text-base font-normal leading-relaxed text-foreground space-y-4">
+              <p>
+                Two housekeeping visits per week are included in the rental rate.
+              </p>
+              <p>
+                Throughout the rental period, the Guest(s) are responsible for maintaining the property in a clean and good condition.
+              </p>
+              <p>
+                The Guest(s) acknowledge that the property is delivered in good condition upon arrival, except for any defects reported to the property manager no later than the end of the first day following arrival.
+              </p>
+              <p>
+                Any defects not reported within this timeframe shall be deemed the responsibility of the Guest(s).
+              </p>
+            </div>
+          </section>
+
           {/* Signature */}
           <section>
             <h2 className="font-playfair text-2xl font-light text-foreground mb-2">
