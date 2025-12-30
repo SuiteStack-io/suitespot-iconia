@@ -1,14 +1,14 @@
 import { Button } from "@/components/ui/button";
 import { Link } from "react-router-dom";
-import { Calendar, MapPin, Sparkles } from "lucide-react";
-import { Helmet } from "react-helmet-async";
 import suitesFeature from "@/assets/iconia-zamalek-building.jpg";
 import wellnessFeature from "@/assets/wellness-feature.jpg";
 import experiencesFeature from "@/assets/experiences-feature.jpg";
 import { BookingWidget } from "@/components/BookingWidget";
 import { PublicNav } from "@/components/PublicNav";
 import { HeroSlideshow } from "@/components/HeroSlideshow";
+import { SEO } from "@/components/SEO";
 import { useRef } from "react";
+
 const PublicHome = () => {
   const touchStartX = useRef<number>(0);
   const touchEndX = useRef<number>(0);
@@ -22,7 +22,6 @@ const PublicHome = () => {
     const swipeThreshold = 50;
     const diff = touchStartX.current - touchEndX.current;
     if (Math.abs(diff) > swipeThreshold) {
-      // Trigger slideshow navigation by dispatching a custom event
       const direction = diff > 0 ? 'right' : 'left';
       const event = new CustomEvent('hero-swipe', {
         detail: {
@@ -32,65 +31,53 @@ const PublicHome = () => {
       window.dispatchEvent(event);
     }
   };
-  return <div className="min-h-screen">
-      <Helmet>
-        <title>SuiteSpot Hospitality | Premium Serviced Apartments in Cairo, Egypt</title>
-        <meta name="description" content="Experience luxury serviced apartments in Zamalek, Cairo. SuiteSpot blends hotel service with home comfort. Wellness programs, stunning Nile views, and authentic Egyptian hospitality." />
-        <link rel="canonical" href="https://suitespoteg.com/" />
-        <meta name="robots" content="index, follow" />
-        
-        <meta property="og:title" content="SuiteSpot Hospitality | Premium Serviced Apartments in Cairo" />
-        <meta property="og:description" content="Luxury serviced apartments in Zamalek, Cairo. Hotel service meets home comfort with wellness programs and Nile views." />
-        <meta property="og:url" content="https://suitespoteg.com/" />
-        <meta property="og:type" content="website" />
-        <meta property="og:image" content="https://suitespoteg.com/slideshow/iconia-zamalek.jpg" />
-        <meta property="og:site_name" content="SuiteSpot Hospitality" />
-        
-        <meta name="twitter:card" content="summary_large_image" />
-        <meta name="twitter:title" content="SuiteSpot Hospitality | Premium Serviced Apartments in Cairo" />
-        <meta name="twitter:description" content="Luxury serviced apartments in Zamalek, Cairo. Hotel service meets home comfort." />
-        <meta name="twitter:image" content="https://suitespoteg.com/slideshow/iconia-zamalek.jpg" />
 
-        <script type="application/ld+json">
-          {JSON.stringify({
-            "@context": "https://schema.org",
-            "@graph": [
-              {
-                "@type": "Organization",
-                "@id": "https://suitespoteg.com/#organization",
-                "name": "SuiteSpot Hospitality",
-                "url": "https://suitespoteg.com",
-                "logo": {
-                  "@type": "ImageObject",
-                  "url": "https://suitespoteg.com/suitespot-logo-3.png"
-                },
-                "description": "Premium serviced apartments in Cairo, Egypt. Blending hotel service with home comfort.",
-                "address": {
-                  "@type": "PostalAddress",
-                  "streetAddress": "16 Mohammed Thakeb St, Iconia Building",
-                  "addressLocality": "Zamalek",
-                  "addressRegion": "Cairo",
-                  "addressCountry": "EG"
-                },
-                "contactPoint": {
-                  "@type": "ContactPoint",
-                  "email": "info@suitespoteg.com",
-                  "contactType": "customer service"
-                }
-              },
-              {
-                "@type": "WebSite",
-                "@id": "https://suitespoteg.com/#website",
-                "url": "https://suitespoteg.com",
-                "name": "SuiteSpot Hospitality",
-                "publisher": {
-                  "@id": "https://suitespoteg.com/#organization"
-                }
-              }
-            ]
-          })}
-        </script>
-      </Helmet>
+  const organizationJsonLd = {
+    "@context": "https://schema.org",
+    "@graph": [
+      {
+        "@type": "Organization",
+        "@id": "https://findyoursuitespot.com/#organization",
+        "name": "SuiteSpot Hospitality",
+        "url": "https://findyoursuitespot.com",
+        "logo": {
+          "@type": "ImageObject",
+          "url": "https://findyoursuitespot.com/suitespot-logo-3.png"
+        },
+        "description": "Premium serviced apartments in Cairo, Egypt. Blending hotel service with home comfort.",
+        "address": {
+          "@type": "PostalAddress",
+          "streetAddress": "16 Mohammed Thakeb St, Iconia Building",
+          "addressLocality": "Zamalek",
+          "addressRegion": "Cairo",
+          "addressCountry": "EG"
+        },
+        "contactPoint": {
+          "@type": "ContactPoint",
+          "email": "info@findyoursuitespot.com",
+          "contactType": "customer service"
+        }
+      },
+      {
+        "@type": "WebSite",
+        "@id": "https://findyoursuitespot.com/#website",
+        "url": "https://findyoursuitespot.com",
+        "name": "SuiteSpot Hospitality",
+        "publisher": {
+          "@id": "https://findyoursuitespot.com/#organization"
+        }
+      }
+    ]
+  };
+
+  return (
+    <div className="min-h-screen">
+      <SEO
+        title="SuiteSpot Hospitality | Premium Serviced Apartments in Cairo, Egypt"
+        description="Experience luxury serviced apartments in Zamalek, Cairo. SuiteSpot blends hotel service with home comfort. Wellness programs, stunning Nile views, and authentic Egyptian hospitality."
+        path="/"
+        additionalJsonLd={organizationJsonLd}
+      />
 
       {/* Navigation */}
       <PublicNav />
@@ -273,6 +260,8 @@ const PublicHome = () => {
           </div>
         </div>
       </footer>
-    </div>;
+    </div>
+  );
 };
+
 export default PublicHome;

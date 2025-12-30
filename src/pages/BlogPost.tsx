@@ -4,7 +4,7 @@ import { PublicNav } from '@/components/PublicNav';
 import { supabase } from '@/integrations/supabase/client';
 import { Loader2, ArrowLeft } from 'lucide-react';
 import { format } from 'date-fns';
-import { Helmet } from 'react-helmet-async';
+import { SEO } from '@/components/SEO';
 import { BlogContentRenderer } from '@/components/BlogContentRenderer';
 
 interface BlogPostData {
@@ -85,11 +85,17 @@ const BlogPost = () => {
 
   return (
     <div className="min-h-screen bg-background">
-      <Helmet>
-        <title>{pageTitle} | SuiteSpot Blog</title>
-        <meta name="description" content={pageDescription} />
-        <link rel="canonical" href={`https://suitespoteg.com/blog/${post.slug}`} />
-      </Helmet>
+      <SEO
+        title={`${pageTitle} | SuiteSpot Blog`}
+        description={pageDescription}
+        path={`/blog/${post.slug}`}
+        ogImage={post.featured_image_url || undefined}
+        breadcrumbs={[
+          { name: "Home", path: "/" },
+          { name: "Blog", path: "/blog" },
+          { name: post.h1_title }
+        ]}
+      />
 
       <PublicNav />
 

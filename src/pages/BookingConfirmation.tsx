@@ -1,18 +1,19 @@
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
 import { Link } from "react-router-dom";
-import { Helmet } from "react-helmet-async";
 import { CheckCircle2 } from "lucide-react";
 import { PublicNav } from "@/components/PublicNav";
+import { SEO } from "@/components/SEO";
 
 const BookingConfirmation = () => {
   return (
     <div className="min-h-screen bg-background">
-      <Helmet>
-        <title>Booking Confirmed | SuiteSpot</title>
-        <meta name="description" content="Your reservation is confirmed. Thank you for choosing SuiteSpot." />
-        <meta name="robots" content="noindex, nofollow" />
-      </Helmet>
+      <SEO
+        title="Booking Confirmed | SuiteSpot"
+        description="Your reservation is confirmed. Thank you for choosing SuiteSpot."
+        path="/booking-confirmation"
+        robots="noindex, nofollow"
+      />
 
       {/* Navigation */}
       <PublicNav />

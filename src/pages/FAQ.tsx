@@ -2,7 +2,7 @@ import { useState, useEffect } from 'react';
 import { supabase } from '@/integrations/supabase/client';
 import { PublicNav } from '@/components/PublicNav';
 import { PublicFooter } from '@/components/PublicFooter';
-import { Helmet } from 'react-helmet-async';
+import { SEO } from '@/components/SEO';
 import {
   Accordion,
   AccordionContent,
@@ -23,48 +23,46 @@ const FAQ = () => {
 
   useEffect(() => {
     const fetchFAQs = async () => {
-      const { data, error } = await supabase
+      const { data } = await supabase
         .from('faq_items')
         .select('id, question, answer, sequence_order')
         .eq('is_published', true)
         .order('sequence_order', { ascending: true });
 
-      if (data) {
-        setFaqItems(data);
-      }
+      if (data) setFaqItems(data);
       setIsLoading(false);
     };
 
     fetchFAQs();
   }, []);
 
-  // Generate default values to have all items expanded for crawlers
   const defaultExpandedItems = faqItems.map((item) => item.id);
+
+  const faqJsonLd = faqItems.length > 0 ? {
+    "@context": "https://schema.org",
+    "@type": "FAQPage",
+    "mainEntity": faqItems.map(item => ({
+      "@type": "Question",
+      "name": item.question,
+      "acceptedAnswer": {
+        "@type": "Answer",
+        "text": item.answer
+      }
+    }))
+  } : undefined;
 
   return (
     <div className="min-h-screen bg-background">
-      <Helmet>
-        <title>FAQ | SuiteSpot - Frequently Asked Questions</title>
-        <meta name="description" content="Find answers to common questions about SuiteSpot serviced apartments in Egypt. Learn about check-in times, amenities, cancellation policies, and more." />
-        <link rel="canonical" href="https://suitespoteg.com/faq" />
-        <meta name="robots" content="index, follow" />
-        {faqItems.length > 0 && (
-          <script type="application/ld+json">
-            {JSON.stringify({
-              "@context": "https://schema.org",
-              "@type": "FAQPage",
-              "mainEntity": faqItems.map(item => ({
-                "@type": "Question",
-                "name": item.question,
-                "acceptedAnswer": {
-                  "@type": "Answer",
-                  "text": item.answer
-                }
-              }))
-            })}
-          </script>
-        )}
-      </Helmet>
+      <SEO
+        title="FAQ | SuiteSpot - Frequently Asked Questions"
+        description="Find answers to common questions about SuiteSpot serviced apartments in Egypt. Learn about check-in times, amenities, cancellation policies, and more."
+        path="/faq"
+        breadcrumbs={[
+          { name: "Home", path: "/" },
+          { name: "FAQ" }
+        ]}
+        additionalJsonLd={faqJsonLd}
+      />
 
       <PublicNav />
 

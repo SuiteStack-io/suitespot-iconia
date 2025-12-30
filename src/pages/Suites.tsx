@@ -2,12 +2,12 @@ import { useState, useEffect } from "react";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
 import { Link } from "react-router-dom";
-import { Helmet } from "react-helmet-async";
 import { Wifi, Tv, Coffee, Wind, Users, Bed, Loader2 } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { useToast } from "@/hooks/use-toast";
 import { PublicNav } from "@/components/PublicNav";
 import { PublicFooter } from "@/components/PublicFooter";
+import { SEO } from "@/components/SEO";
 
 interface Unit {
   id: string;
@@ -17,8 +17,47 @@ interface Unit {
   unit_size: string | null;
   status: string;
   comments: string | null;
-  availableCount?: number; // Add count of available units of this type
+  availableCount?: number;
 }
+
+const suitesJsonLd = {
+  "@context": "https://schema.org",
+  "@type": "ItemList",
+  "name": "SuiteSpot Suites",
+  "description": "Premium serviced apartment suites in Zamalek, Cairo",
+  "itemListElement": [
+    {
+      "@type": "ListItem",
+      "position": 1,
+      "item": {
+        "@type": "Product",
+        "name": "Studio Suite",
+        "description": "Thoughtfully designed studio with kitchenette, smart TV, and premium amenities. Perfect for solo travelers or couples.",
+        "brand": { "@type": "Brand", "name": "SuiteSpot" }
+      }
+    },
+    {
+      "@type": "ListItem",
+      "position": 2,
+      "item": {
+        "@type": "Product",
+        "name": "One-Bedroom Suite",
+        "description": "Spacious one-bedroom apartment with separate living area and full kitchen. Ideal for extended stays.",
+        "brand": { "@type": "Brand", "name": "SuiteSpot" }
+      }
+    },
+    {
+      "@type": "ListItem",
+      "position": 3,
+      "item": {
+        "@type": "Product",
+        "name": "Two-Bedroom Suite",
+        "description": "Premium two-bedroom apartment with expansive living space and two bathrooms. Perfect for families.",
+        "brand": { "@type": "Brand", "name": "SuiteSpot" }
+      }
+    }
+  ]
+};
 
 const Suites = () => {
   const { toast } = useToast();
@@ -38,29 +77,21 @@ const Suites = () => {
 
         if (error) throw error;
         
-        // Group units by unit_type
         const grouped = (data || []).reduce((acc, unit) => {
           const type = unit.unit_type || "Other";
-          if (!acc[type]) {
-            acc[type] = [];
-          }
+          if (!acc[type]) acc[type] = [];
           acc[type].push(unit);
           return acc;
         }, {} as Record<string, Unit[]>);
 
-        // Create one representative unit per type with count
         const uniqueUnits = Object.entries(grouped).map(([type, unitsOfType]) => ({
-          ...unitsOfType[0], // Use first unit as representative
-          availableCount: unitsOfType.length, // Add count of available units
+          ...unitsOfType[0],
+          availableCount: unitsOfType.length,
         }));
 
         setUnits(uniqueUnits);
       } catch (error: any) {
-        toast({
-          title: "Error loading suites",
-          description: error.message,
-          variant: "destructive",
-        });
+        toast({ title: "Error loading suites", description: error.message, variant: "destructive" });
       } finally {
         setIsLoading(false);
       }
@@ -69,17 +100,11 @@ const Suites = () => {
     fetchUnits();
   }, [toast]);
 
-  // Default amenities based on unit type
   const getDefaultAmenities = (unitType: string | null) => {
     const baseAmenities = ["Smart TV", "High-Speed WiFi", "Air Conditioning", "Premium Bedding"];
-    
-    if (unitType?.toLowerCase().includes("studio")) {
-      return ["Kitchenette", "Work Desk", ...baseAmenities];
-    } else if (unitType?.toLowerCase().includes("one bedroom")) {
-      return ["Full Kitchen", "Living Area", "Work Desk", ...baseAmenities, "Washer/Dryer"];
-    } else if (unitType?.toLowerCase().includes("two bedroom")) {
-      return ["Full Kitchen", "Spacious Living Area", "2 Bathrooms", "Work Desk", ...baseAmenities, "Washer/Dryer"];
-    }
+    if (unitType?.toLowerCase().includes("studio")) return ["Kitchenette", "Work Desk", ...baseAmenities];
+    if (unitType?.toLowerCase().includes("one bedroom")) return ["Full Kitchen", "Living Area", "Work Desk", ...baseAmenities, "Washer/Dryer"];
+    if (unitType?.toLowerCase().includes("two bedroom")) return ["Full Kitchen", "Spacious Living Area", "2 Bathrooms", "Work Desk", ...baseAmenities, "Washer/Dryer"];
     return baseAmenities;
   };
 
@@ -99,87 +124,25 @@ const Suites = () => {
 
   const getUnitDescription = (unit: Unit) => {
     const type = unit.unit_type?.toLowerCase() || "";
-    
-    if (type.includes("studio")) {
-      return "Modern studio suite with kitchenette, perfect for solo travelers or couples seeking a comfortable stay with all essential amenities.";
-    } else if (type.includes("one bedroom")) {
-      return "Spacious one-bedroom suite with separate living area and full kitchen. Ideal for extended stays or small families looking for home-like comfort.";
-    } else if (type.includes("two bedroom")) {
-      return "Luxurious two-bedroom suite with expansive living space, two bathrooms, and full kitchen. Perfect for families or groups seeking premium accommodation.";
-    }
+    if (type.includes("studio")) return "Modern studio suite with kitchenette, perfect for solo travelers or couples seeking a comfortable stay with all essential amenities.";
+    if (type.includes("one bedroom")) return "Spacious one-bedroom suite with separate living area and full kitchen. Ideal for extended stays or small families looking for home-like comfort.";
+    if (type.includes("two bedroom")) return "Luxurious two-bedroom suite with expansive living space, two bathrooms, and full kitchen. Perfect for families or groups seeking premium accommodation.";
     return "Experience comfort and style in our beautifully appointed suite with modern amenities and thoughtful design.";
   };
 
   return (
     <div className="min-h-screen bg-background">
-      <Helmet>
-        <title>Our Suites | Studio, 1BR & 2BR Apartments in Zamalek - SuiteSpot</title>
-        <meta name="description" content="Explore our thoughtfully designed suites in Cairo. Studio, one-bedroom, and two-bedroom apartments with full kitchens, smart TVs, and premium amenities." />
-        <link rel="canonical" href="https://suitespoteg.com/suites" />
-        <meta name="robots" content="index, follow" />
-        
-        <meta property="og:title" content="Our Suites | Studio, 1BR & 2BR Apartments in Zamalek" />
-        <meta property="og:description" content="Thoughtfully designed suites in Cairo with full kitchens, smart TVs, and premium amenities." />
-        <meta property="og:url" content="https://suitespoteg.com/suites" />
-        <meta property="og:type" content="website" />
-        <meta property="og:image" content="https://suitespoteg.com/slideshow/living-room.jpg" />
-        <meta property="og:site_name" content="SuiteSpot Hospitality" />
-        
-        <meta name="twitter:card" content="summary_large_image" />
-        <meta name="twitter:title" content="Our Suites | Studio, 1BR & 2BR Apartments in Zamalek" />
-        <meta name="twitter:description" content="Thoughtfully designed suites in Cairo with full kitchens and premium amenities." />
-        <meta name="twitter:image" content="https://suitespoteg.com/slideshow/living-room.jpg" />
-
-        <script type="application/ld+json">
-          {JSON.stringify({
-            "@context": "https://schema.org",
-            "@type": "ItemList",
-            "name": "SuiteSpot Suites",
-            "description": "Premium serviced apartment suites in Zamalek, Cairo",
-            "itemListElement": [
-              {
-                "@type": "ListItem",
-                "position": 1,
-                "item": {
-                  "@type": "Product",
-                  "name": "Studio Suite",
-                  "description": "Thoughtfully designed studio with kitchenette, smart TV, and premium amenities. Perfect for solo travelers or couples.",
-                  "brand": {
-                    "@type": "Brand",
-                    "name": "SuiteSpot"
-                  }
-                }
-              },
-              {
-                "@type": "ListItem",
-                "position": 2,
-                "item": {
-                  "@type": "Product",
-                  "name": "One-Bedroom Suite",
-                  "description": "Spacious one-bedroom apartment with separate living area and full kitchen. Ideal for extended stays.",
-                  "brand": {
-                    "@type": "Brand",
-                    "name": "SuiteSpot"
-                  }
-                }
-              },
-              {
-                "@type": "ListItem",
-                "position": 3,
-                "item": {
-                  "@type": "Product",
-                  "name": "Two-Bedroom Suite",
-                  "description": "Premium two-bedroom apartment with expansive living space and two bathrooms. Perfect for families.",
-                  "brand": {
-                    "@type": "Brand",
-                    "name": "SuiteSpot"
-                  }
-                }
-              }
-            ]
-          })}
-        </script>
-      </Helmet>
+      <SEO
+        title="Our Suites | Studio, 1BR & 2BR Apartments in Zamalek - SuiteSpot"
+        description="Explore our thoughtfully designed suites in Cairo. Studio, one-bedroom, and two-bedroom apartments with full kitchens, smart TVs, and premium amenities."
+        path="/suites"
+        ogImage="/slideshow/living-room.jpg"
+        breadcrumbs={[
+          { name: "Home", path: "/" },
+          { name: "Suites" }
+        ]}
+        additionalJsonLd={suitesJsonLd}
+      />
 
       <PublicNav />
 

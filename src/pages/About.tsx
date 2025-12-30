@@ -1,61 +1,52 @@
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
 import { Link } from "react-router-dom";
-import { Helmet } from "react-helmet-async";
+import { SEO } from "@/components/SEO";
 import { PublicNav } from "@/components/PublicNav";
 import { Building2, MapPin, Users, Calendar, Home, Sparkles, Leaf, Headphones, Briefcase, Plane, Baby, Waves, Coffee, BookOpen } from "lucide-react";
+
+const organizationJsonLd = {
+  "@context": "https://schema.org",
+  "@type": "Organization",
+  "name": "SuiteSpot Hospitality",
+  "alternateName": "SuiteSpot",
+  "url": "https://findyoursuitespot.com",
+  "logo": "https://findyoursuitespot.com/suitespot-logo-3.png",
+  "description": "SuiteSpot Hospitality redefines serviced apartment living in Egypt, blending local culture, modern design, and hotel-level service.",
+  "foundingDate": "2024",
+  "foundingLocation": {
+    "@type": "Place",
+    "address": {
+      "@type": "PostalAddress",
+      "addressLocality": "Cairo",
+      "addressCountry": "Egypt"
+    }
+  },
+  "areaServed": {
+    "@type": "Country",
+    "name": "Egypt"
+  },
+  "knowsAbout": [
+    "Serviced Apartments",
+    "Hospitality",
+    "Wellness Programs",
+    "Luxury Accommodation"
+  ],
+  "slogan": "Welcome Home"
+};
+
 const About = () => {
   return <div className="min-h-screen bg-background">
-      <Helmet>
-        <title>About SuiteSpot | Premium Serviced Living in Egypt</title>
-        <meta name="description" content="Learn about SuiteSpot Hospitality - redefining serviced apartment living in Egypt. Premium apartments, wellness focus, and hotel-level service in Zamalek, Cairo." />
-        <link rel="canonical" href="https://suitespoteg.com/about" />
-        <meta name="robots" content="index, follow" />
-        
-        <meta property="og:title" content="About SuiteSpot | Premium Serviced Living in Egypt" />
-        <meta property="og:description" content="Redefining serviced apartment living in Egypt with premium apartments, wellness focus, and hotel-level service." />
-        <meta property="og:url" content="https://suitespoteg.com/about" />
-        <meta property="og:type" content="website" />
-        <meta property="og:image" content="https://suitespoteg.com/slideshow/iconia-zamalek.jpg" />
-        <meta property="og:site_name" content="SuiteSpot Hospitality" />
-        
-        <meta name="twitter:card" content="summary_large_image" />
-        <meta name="twitter:title" content="About SuiteSpot | Premium Serviced Living in Egypt" />
-        <meta name="twitter:description" content="Redefining serviced apartment living in Egypt with wellness focus and hotel-level service." />
-        <meta name="twitter:image" content="https://suitespoteg.com/slideshow/iconia-zamalek.jpg" />
-
-        <script type="application/ld+json">
-          {JSON.stringify({
-            "@context": "https://schema.org",
-            "@type": "Organization",
-            "name": "SuiteSpot Hospitality",
-            "alternateName": "SuiteSpot",
-            "url": "https://suitespoteg.com",
-            "logo": "https://suitespoteg.com/suitespot-logo-3.png",
-            "description": "SuiteSpot Hospitality redefines serviced apartment living in Egypt, blending local culture, modern design, and hotel-level service.",
-            "foundingDate": "2024",
-            "foundingLocation": {
-              "@type": "Place",
-              "address": {
-                "@type": "PostalAddress",
-                "addressLocality": "Cairo",
-                "addressCountry": "Egypt"
-              }
-            },
-            "areaServed": {
-              "@type": "Country",
-              "name": "Egypt"
-            },
-            "knowsAbout": [
-              "Serviced Apartments",
-              "Hospitality",
-              "Wellness Programs",
-              "Luxury Accommodation"
-            ],
-            "slogan": "Welcome Home"
-          })}
-        </script>
-      </Helmet>
+      <SEO
+        title="About SuiteSpot | Premium Serviced Living in Egypt"
+        description="Learn about SuiteSpot Hospitality - redefining serviced apartment living in Egypt. Premium apartments, wellness focus, and hotel-level service in Zamalek, Cairo."
+        path="/about"
+        breadcrumbs={[
+          { name: "Home", path: "/" },
+          { name: "About" }
+        ]}
+        additionalJsonLd={organizationJsonLd}
+      />
 
       <PublicNav />
 
