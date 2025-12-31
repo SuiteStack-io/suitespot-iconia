@@ -187,23 +187,44 @@ export const generateCheckInPDF = async (data: CheckInData): Promise<Blob> => {
   yPos += 8;
 
   pdf.setFontSize(10);
-  pdf.setFont('helvetica', 'normal');
 
+  // Rules with bold labels before the colon
   const rules = [
-    '1. Pets: Pets are not permitted on the premises.',
-    '2. Parties & Events: Parties and events are strictly prohibited within guest accommodations.',
-    '3. Waste Disposal: Garbage must be disposed of in designated garbage rooms only.',
-    '4. Smoking: Smoking is prohibited in all indoor areas. Designated outdoor smoking areas are available.',
-    '5. Alcohol: Alcoholic beverages are not permitted in common areas.',
-    '6. Prohibited Substances: Possession or use of illegal substances is strictly prohibited.',
-    '7. Property Damage: Guests are responsible for any damage caused during their stay.',
-    '8. Furniture: Please refrain from rearranging or relocating any furnishings.',
-    '9. Liability Disclaimer: SuiteSpot ICONIA shall not be held liable for personal accidents, injuries, illness, or loss of valuables not secured in the in-room safe.',
+    { label: '1. Pets:', text: ' Pets are not permitted on the premises.' },
+    { label: '2. Parties & Events:', text: ' Parties and events are strictly prohibited within guest accommodations.' },
+    { label: '3. Waste Disposal:', text: ' Garbage must be disposed of in designated garbage rooms only.' },
+    { label: '4. Smoking:', text: ' Smoking is prohibited in all indoor areas. Designated outdoor smoking areas are available.' },
+    { label: '5. Alcohol:', text: ' Alcoholic beverages are not permitted in common areas.' },
+    { label: '6. Prohibited Substances:', text: ' Possession or use of illegal substances is strictly prohibited.' },
+    { label: '7. Property Damage:', text: ' Guests are responsible for any damage caused during their stay.' },
+    { label: '8. Furniture:', text: ' Please refrain from rearranging or relocating any furnishings.' },
+    { label: '9. Liability Disclaimer:', text: ' SuiteSpot ICONIA shall not be held liable for personal accidents, injuries, illness, or loss of valuables not secured in the in-room safe.' },
   ];
 
   rules.forEach((rule) => {
-    yPos = addWrappedText(rule, margin, yPos, contentWidth, 5);
-    yPos += 2;
+    // Print bold label
+    pdf.setFont('helvetica', 'bold');
+    pdf.text(rule.label, margin, yPos);
+    const labelWidth = pdf.getTextWidth(rule.label);
+    
+    // Print normal text after label with word wrap
+    pdf.setFont('helvetica', 'normal');
+    const remainingWidth = contentWidth - labelWidth;
+    const wrappedText = pdf.splitTextToSize(rule.text.trim(), remainingWidth);
+    
+    // First line continues after label
+    if (wrappedText.length > 0) {
+      pdf.text(wrappedText[0], margin + labelWidth, yPos);
+    }
+    
+    // Additional lines start at margin
+    if (wrappedText.length > 1) {
+      for (let i = 1; i < wrappedText.length; i++) {
+        yPos += 5;
+        pdf.text(wrappedText[i], margin, yPos);
+      }
+    }
+    yPos += 7;
   });
 
   yPos += 5;
