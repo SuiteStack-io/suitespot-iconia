@@ -250,6 +250,36 @@ const GuestCheckIn = () => {
 
       if (insertError) throw insertError;
 
+      // Update reservation status to checked-in with timestamp
+      const { error: statusError } = await supabase
+        .from('reservations')
+        .update({ 
+          status: 'checked-in',
+          checked_in_at: new Date().toISOString()
+        })
+        .eq('id', reservationId);
+
+      if (statusError) {
+        console.error('Error updating reservation status:', statusError);
+        toast.error('Check-in saved but status update failed');
+      }
+
+      // Send check-in notification to all admins
+      try {
+        const { error: notifyError } = await supabase.functions.invoke(
+          'send-checkin-notification',
+          { body: { reservationId } }
+        );
+        
+        if (notifyError) {
+          console.error('Error sending check-in notification:', notifyError);
+        } else {
+          console.log('Check-in notification sent to admins');
+        }
+      } catch (notifyErr) {
+        console.error('Failed to send check-in notification:', notifyErr);
+      }
+
       // Store data for PDF generation
       const unitDisplay = reservation?.units 
         ? `${reservation.units.name}${reservation.units.unit_number ? ` (${reservation.units.unit_number})` : ''}`
