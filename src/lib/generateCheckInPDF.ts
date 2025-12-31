@@ -25,16 +25,55 @@ export const generateCheckInPDF = async (data: CheckInData): Promise<Blob> => {
     return y + lines.length * lineHeight;
   };
 
-  // Header
-  pdf.setFontSize(24);
-  pdf.setFont('helvetica', 'bold');
+  // Add SuiteSpot Logo
+  try {
+    const logoImg = new Image();
+    logoImg.crossOrigin = 'anonymous';
+    logoImg.src = '/suitespot-logo-3.png';
+    await new Promise((resolve, reject) => {
+      logoImg.onload = resolve;
+      logoImg.onerror = reject;
+    });
+    
+    // Create canvas to convert image to base64
+    const canvas = document.createElement('canvas');
+    canvas.width = logoImg.width;
+    canvas.height = logoImg.height;
+    const ctx = canvas.getContext('2d');
+    if (ctx) {
+      ctx.drawImage(logoImg, 0, 0);
+      const logoDataUrl = canvas.toDataURL('image/png');
+      // Add logo centered at top (30mm x 30mm)
+      pdf.addImage(logoDataUrl, 'PNG', pageWidth / 2 - 15, yPos, 30, 30);
+      yPos += 35;
+    }
+  } catch (error) {
+    console.error('Failed to add logo:', error);
+    yPos += 5;
+  }
+
+  // Header - SuiteSpot ICONIA (Playfair Display style: 22px, light weight)
+  pdf.setFontSize(22);
+  pdf.setFont('helvetica', 'normal');
   pdf.text('SuiteSpot ICONIA', pageWidth / 2, yPos, { align: 'center' });
   yPos += 10;
 
-  pdf.setFontSize(16);
+  // Subheader - Guest Check-In Agreement (Playfair Display style)
+  pdf.setFontSize(14);
   pdf.setFont('helvetica', 'normal');
   pdf.text('Guest Check-In Agreement', pageWidth / 2, yPos, { align: 'center' });
-  yPos += 15;
+  yPos += 12;
+
+  // Form Date (auto-generated) - right aligned above divider
+  pdf.setFontSize(10);
+  pdf.setFont('helvetica', 'normal');
+  const formDate = new Date().toLocaleDateString('en-US', { 
+    year: 'numeric', 
+    month: 'long', 
+    day: 'numeric' 
+  });
+  pdf.text(`Form Date: ${formDate}`, pageWidth - margin, yPos, { align: 'right' });
+  yPos += 5;
 
   // Divider line
   pdf.setDrawColor(200);
@@ -124,6 +163,10 @@ export const generateCheckInPDF = async (data: CheckInData): Promise<Blob> => {
   });
 
   yPos += 5;
+
+  // Force Housekeeping Section to start on Page 2
+  pdf.addPage();
+  yPos = 20;
 
   // Housekeeping Section
   pdf.setFontSize(14);
