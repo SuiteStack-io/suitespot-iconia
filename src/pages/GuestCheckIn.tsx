@@ -838,16 +838,32 @@ const GuestCheckIn = () => {
                 Terms of Stay
               </DialogTitle>
             </DialogHeader>
-            <DialogDescription className="font-playfair text-base leading-relaxed text-foreground">
-              <p className="mb-4">
-                This Agreement, and all transactions contemplated hereunder, shall be governed by and construed in accordance with the laws of the Arab Republic of Egypt.
-              </p>
-              <p className="mb-4">
-                Any dispute arising out of or in connection with this Agreement shall first be resolved through amicable conciliation between the parties.
-              </p>
-              <p>
-                If such dispute cannot be resolved through conciliation, the parties irrevocably agree that the courts of the Arab Republic of Egypt shall have exclusive jurisdiction to settle such dispute.
-              </p>
+            <DialogDescription className="font-playfair text-base leading-relaxed text-foreground space-y-6">
+              <div>
+                <p className="mb-4">
+                  This Agreement, and all transactions contemplated hereunder, shall be governed by and construed in accordance with the laws of the Arab Republic of Egypt.
+                </p>
+                <p className="mb-4">
+                  Any dispute arising out of or in connection with this Agreement shall first be resolved through amicable conciliation between the parties.
+                </p>
+                <p>
+                  If such dispute cannot be resolved through conciliation, the parties irrevocably agree that the courts of the Arab Republic of Egypt shall have exclusive jurisdiction to settle such dispute.
+                </p>
+              </div>
+              
+              <hr className="border-border" />
+              
+              <div dir="rtl" className="text-right">
+                <p className="mb-4">
+                  تخضع هذه الاتفاقية وجميع المعاملات المتوقعة بموجبها لقوانين جمهورية مصر العربية وتُفسَّر وفقاً لها.
+                </p>
+                <p className="mb-4">
+                  يتم حل أي نزاع ينشأ عن هذه الاتفاقية أو يتعلق بها أولاً من خلال التوفيق الودي بين الأطراف.
+                </p>
+                <p>
+                  إذا تعذر حل هذا النزاع من خلال التوفيق، يوافق الأطراف بشكل نهائي على أن محاكم جمهورية مصر العربية لها الاختصاص الحصري للفصل في هذا النزاع.
+                </p>
+              </div>
             </DialogDescription>
           </DialogContent>
         </Dialog>
