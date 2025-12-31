@@ -11,27 +11,32 @@ interface CheckInData {
   signedAt: Date;
 }
 
-// Load and register Playfair Display font for jsPDF from local file
-const loadPlayfairFont = async (pdf: jsPDF): Promise<boolean> => {
+// Load and register Playfair Display fonts (Regular and Bold) for jsPDF from local files
+const loadPlayfairFonts = async (pdf: jsPDF): Promise<boolean> => {
   try {
-    // Fetch Playfair Display Regular from local public folder
-    const fontUrl = '/fonts/PlayfairDisplay-Regular.ttf';
-    const response = await fetch(fontUrl);
-    if (!response.ok) throw new Error('Font fetch failed');
-    
-    const fontBuffer = await response.arrayBuffer();
-    
-    // Convert to base64
-    const base64Font = btoa(
-      new Uint8Array(fontBuffer).reduce((data, byte) => data + String.fromCharCode(byte), '')
+    // Load Regular variant
+    const regularResponse = await fetch('/fonts/PlayfairDisplay-Regular.ttf');
+    if (!regularResponse.ok) throw new Error('Regular font fetch failed');
+    const regularBuffer = await regularResponse.arrayBuffer();
+    const regularBase64 = btoa(
+      new Uint8Array(regularBuffer).reduce((data, byte) => data + String.fromCharCode(byte), '')
     );
-    
-    // Register the font with jsPDF
-    pdf.addFileToVFS('PlayfairDisplay-Regular.ttf', base64Font);
+    pdf.addFileToVFS('PlayfairDisplay-Regular.ttf', regularBase64);
     pdf.addFont('PlayfairDisplay-Regular.ttf', 'PlayfairDisplay', 'normal');
+
+    // Load Bold variant
+    const boldResponse = await fetch('/fonts/PlayfairDisplay-Bold.ttf');
+    if (!boldResponse.ok) throw new Error('Bold font fetch failed');
+    const boldBuffer = await boldResponse.arrayBuffer();
+    const boldBase64 = btoa(
+      new Uint8Array(boldBuffer).reduce((data, byte) => data + String.fromCharCode(byte), '')
+    );
+    pdf.addFileToVFS('PlayfairDisplay-Bold.ttf', boldBase64);
+    pdf.addFont('PlayfairDisplay-Bold.ttf', 'PlayfairDisplay', 'bold');
+
     return true;
   } catch (error) {
-    console.error('Failed to load Playfair Display font, using fallback:', error);
+    console.error('Failed to load Playfair Display fonts, using fallback:', error);
     return false;
   }
 };
@@ -39,22 +44,22 @@ const loadPlayfairFont = async (pdf: jsPDF): Promise<boolean> => {
 export const generateCheckInPDF = async (data: CheckInData): Promise<Blob> => {
   const pdf = new jsPDF('p', 'mm', 'a4');
   
-  // Load Playfair Display font - returns true if successful
-  const playfairLoaded = await loadPlayfairFont(pdf);
+  // Load Playfair Display fonts (Regular and Bold) - returns true if successful
+  const playfairLoaded = await loadPlayfairFonts(pdf);
   
-  // Helper to set header font with fallback
-  const setHeaderFont = () => {
+  // Helper to set header font with fallback (normal weight)
+  const setHeaderFont = (bold: boolean = false) => {
     if (playfairLoaded) {
-      pdf.setFont('PlayfairDisplay', 'normal');
+      pdf.setFont('PlayfairDisplay', bold ? 'bold' : 'normal');
     } else {
-      pdf.setFont('helvetica', 'normal');
+      pdf.setFont('helvetica', bold ? 'bold' : 'normal');
     }
   };
   
   const pageWidth = pdf.internal.pageSize.getWidth();
   const margin = 20;
   const contentWidth = pageWidth - margin * 2;
-  let yPos = 20;
+  let yPos = 15; // Moved up from 20 to give more room
 
   // Helper function to add text with word wrap
   const addWrappedText = (text: string, x: number, y: number, maxWidth: number, lineHeight: number = 6): number => {
@@ -84,28 +89,28 @@ export const generateCheckInPDF = async (data: CheckInData): Promise<Blob> => {
       // Add logo centered at top (15mm x 15mm - reduced by 50% for better UI)
       const logoSize = 15;
       pdf.addImage(logoDataUrl, 'PNG', pageWidth / 2 - logoSize / 2, yPos, logoSize, logoSize);
-      yPos += logoSize + 5; // Logo height + spacing before heading
+      yPos += logoSize + 8; // Logo height + increased spacing before heading
     }
   } catch (error) {
     console.error('Failed to add logo:', error);
     yPos += 5;
   }
 
-  // Header - SuiteSpot ICONIA (Playfair Display: 24px, weight 300)
+  // Header - SuiteSpot ICONIA (Playfair Display Bold)
   pdf.setFontSize(24);
-  setHeaderFont();
+  setHeaderFont(true); // Bold
   pdf.text('SuiteSpot ICONIA', pageWidth / 2, yPos, { align: 'center' });
   yPos += 10;
 
-  // Subheader - Guest Check-In Agreement (Playfair Display)
+  // Subheader - Guest Check-In Agreement (Playfair Display Regular)
   pdf.setFontSize(14);
-  setHeaderFont();
+  setHeaderFont(false); // Regular
   pdf.text('Guest Check-In Agreement', pageWidth / 2, yPos, { align: 'center' });
   yPos += 12;
 
-  // Form Date (auto-generated) - right aligned above divider
-  pdf.setFontSize(10);
-  pdf.setFont('helvetica', 'normal');
+  // Form Date (auto-generated) - Playfair Display Regular (~14px)
+  pdf.setFontSize(11); // ~14px equivalent in PDF
+  setHeaderFont(false); // Playfair Display Regular
   const formDate = new Date().toLocaleDateString('en-US', { 
     year: 'numeric', 
     month: 'long', 
