@@ -154,6 +154,7 @@ const GuestCheckIn = () => {
   const [signatureDataUrl, setSignatureDataUrl] = useState<string | null>(null);
   const [termsAccepted, setTermsAccepted] = useState(false);
   const [breachDialogOpen, setBreachDialogOpen] = useState(false);
+  const [termsOfStayDialogOpen, setTermsOfStayDialogOpen] = useState(false);
   const [submittedData, setSubmittedData] = useState<{
     guestName: string;
     guestPhone: string;
@@ -771,7 +772,18 @@ const GuestCheckIn = () => {
               htmlFor="terms" 
               className="font-playfair text-sm font-normal leading-relaxed cursor-pointer"
             >
-              I have read and agree to the property rules and terms of stay
+              I have read and agree to the property rules and{' '}
+              <button
+                type="button"
+                onClick={(e) => {
+                  e.preventDefault();
+                  e.stopPropagation();
+                  setTermsOfStayDialogOpen(true);
+                }}
+                className="text-blue-600 hover:text-blue-800 underline font-medium"
+              >
+                terms of stay
+              </button>
             </Label>
           </div>
 
@@ -813,6 +825,28 @@ const GuestCheckIn = () => {
               </ul>
               <p>
                 By proceeding with check-in, you acknowledge and accept these terms in their entirety.
+              </p>
+            </DialogDescription>
+          </DialogContent>
+        </Dialog>
+
+        {/* Terms of Stay Dialog */}
+        <Dialog open={termsOfStayDialogOpen} onOpenChange={setTermsOfStayDialogOpen}>
+          <DialogContent className="max-w-lg">
+            <DialogHeader>
+              <DialogTitle className="font-playfair text-xl font-semibold">
+                Terms of Stay
+              </DialogTitle>
+            </DialogHeader>
+            <DialogDescription className="font-playfair text-base leading-relaxed text-foreground">
+              <p className="mb-4">
+                This Agreement, and all transactions contemplated hereunder, shall be governed by and construed in accordance with the laws of the Arab Republic of Egypt.
+              </p>
+              <p className="mb-4">
+                Any dispute arising out of or in connection with this Agreement shall first be resolved through amicable conciliation between the parties.
+              </p>
+              <p>
+                If such dispute cannot be resolved through conciliation, the parties irrevocably agree that the courts of the Arab Republic of Egypt shall have exclusive jurisdiction to settle such dispute.
               </p>
             </DialogDescription>
           </DialogContent>
