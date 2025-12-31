@@ -81,9 +81,10 @@ export const generateCheckInPDF = async (data: CheckInData): Promise<Blob> => {
     if (ctx) {
       ctx.drawImage(logoImg, 0, 0);
       const logoDataUrl = canvas.toDataURL('image/png');
-      // Add logo centered at top (30mm x 30mm)
-      pdf.addImage(logoDataUrl, 'PNG', pageWidth / 2 - 15, yPos, 30, 30);
-      yPos += 35;
+      // Add logo centered at top (15mm x 15mm - reduced by 50% for better UI)
+      const logoSize = 15;
+      pdf.addImage(logoDataUrl, 'PNG', pageWidth / 2 - logoSize / 2, yPos, logoSize, logoSize);
+      yPos += logoSize + 5; // Logo height + spacing before heading
     }
   } catch (error) {
     console.error('Failed to add logo:', error);
