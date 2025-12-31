@@ -12,11 +12,13 @@ interface CheckInData {
 }
 
 // Load and register Playfair Display font for jsPDF
-const loadPlayfairFont = async (pdf: jsPDF): Promise<void> => {
+const loadPlayfairFont = async (pdf: jsPDF): Promise<boolean> => {
   try {
     // Fetch Playfair Display Light (weight 300) from Google Fonts
     const fontUrl = 'https://fonts.gstatic.com/s/playfairdisplay/v37/nuFvD-vYSZviVYUb_rj3ij__anPXJzDwcbmjWBN2PKdFvXDXbtM.ttf';
     const response = await fetch(fontUrl);
+    if (!response.ok) throw new Error('Font fetch failed');
+    
     const fontBuffer = await response.arrayBuffer();
     
     // Convert to base64
@@ -27,16 +29,27 @@ const loadPlayfairFont = async (pdf: jsPDF): Promise<void> => {
     // Register the font with jsPDF
     pdf.addFileToVFS('PlayfairDisplay-Light.ttf', base64Font);
     pdf.addFont('PlayfairDisplay-Light.ttf', 'PlayfairDisplay', 'normal');
+    return true;
   } catch (error) {
-    console.error('Failed to load Playfair Display font:', error);
+    console.error('Failed to load Playfair Display font, using fallback:', error);
+    return false;
   }
 };
 
 export const generateCheckInPDF = async (data: CheckInData): Promise<Blob> => {
   const pdf = new jsPDF('p', 'mm', 'a4');
   
-  // Load Playfair Display font
-  await loadPlayfairFont(pdf);
+  // Load Playfair Display font - returns true if successful
+  const playfairLoaded = await loadPlayfairFont(pdf);
+  
+  // Helper to set header font with fallback
+  const setHeaderFont = () => {
+    if (playfairLoaded) {
+      pdf.setFont('PlayfairDisplay', 'normal');
+    } else {
+      pdf.setFont('helvetica', 'normal');
+    }
+  };
   
   const pageWidth = pdf.internal.pageSize.getWidth();
   const margin = 20;
@@ -77,15 +90,15 @@ export const generateCheckInPDF = async (data: CheckInData): Promise<Blob> => {
     yPos += 5;
   }
 
-  // Header - SuiteSpot ICONIA (Playfair Display: 24px/8.5pt, weight 300, letter-spacing 0)
+  // Header - SuiteSpot ICONIA (Playfair Display: 24px, weight 300)
   pdf.setFontSize(24);
-  pdf.setFont('PlayfairDisplay', 'normal');
+  setHeaderFont();
   pdf.text('SuiteSpot ICONIA', pageWidth / 2, yPos, { align: 'center' });
   yPos += 10;
 
   // Subheader - Guest Check-In Agreement (Playfair Display)
   pdf.setFontSize(14);
-  pdf.setFont('PlayfairDisplay', 'normal');
+  setHeaderFont();
   pdf.text('Guest Check-In Agreement', pageWidth / 2, yPos, { align: 'center' });
   yPos += 12;
 
