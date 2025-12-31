@@ -11,11 +11,11 @@ interface CheckInData {
   signedAt: Date;
 }
 
-// Load and register Playfair Display font for jsPDF
+// Load and register Playfair Display font for jsPDF from local file
 const loadPlayfairFont = async (pdf: jsPDF): Promise<boolean> => {
   try {
-    // Fetch Playfair Display Light (weight 300) from Google Fonts
-    const fontUrl = 'https://fonts.gstatic.com/s/playfairdisplay/v37/nuFvD-vYSZviVYUb_rj3ij__anPXJzDwcbmjWBN2PKdFvXDXbtM.ttf';
+    // Fetch Playfair Display Regular from local public folder
+    const fontUrl = '/fonts/PlayfairDisplay-Regular.ttf';
     const response = await fetch(fontUrl);
     if (!response.ok) throw new Error('Font fetch failed');
     
@@ -27,8 +27,8 @@ const loadPlayfairFont = async (pdf: jsPDF): Promise<boolean> => {
     );
     
     // Register the font with jsPDF
-    pdf.addFileToVFS('PlayfairDisplay-Light.ttf', base64Font);
-    pdf.addFont('PlayfairDisplay-Light.ttf', 'PlayfairDisplay', 'normal');
+    pdf.addFileToVFS('PlayfairDisplay-Regular.ttf', base64Font);
+    pdf.addFont('PlayfairDisplay-Regular.ttf', 'PlayfairDisplay', 'normal');
     return true;
   } catch (error) {
     console.error('Failed to load Playfair Display font, using fallback:', error);
