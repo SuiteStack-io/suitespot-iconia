@@ -237,7 +237,7 @@ export const generateCheckInPDF = async (data: CheckInData): Promise<Blob> => {
 
   // Penalties
   pdf.setFontSize(10);
-  pdf.setFont('helvetica', 'italic');
+  pdf.setFont('helvetica', 'bolditalic');
   yPos = addWrappedText('A minimum penalty of $100 may be assessed, subject to the nature and extent of any damages incurred to the room.', margin, yPos, contentWidth, 5);
   yPos += 2;
   yPos = addWrappedText('A penalty of $20 will be charged for lost access keys.', margin, yPos, contentWidth, 5);
