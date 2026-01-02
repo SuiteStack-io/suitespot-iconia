@@ -457,16 +457,63 @@ export const ReservationsList = () => {
     setIsUpdating(true);
     
     try {
+      const isCancelling = bulkStatus === 'cancelled';
+      
+      // Build update object - include cancelled_at if cancelling
+      const updateData: Record<string, unknown> = { status: bulkStatus };
+      if (isCancelling) {
+        updateData.cancelled_at = new Date().toISOString();
+      }
+      
       const { error } = await supabase
         .from('reservations')
-        .update({ status: bulkStatus })
+        .update(updateData)
         .in('id', Array.from(selectedReservations));
 
       if (error) {
         toast.error('Failed to update reservations');
         console.error('Bulk update error:', error);
       } else {
-        toast.success(`Successfully updated ${selectedReservations.size} reservation(s)`);
+        // If cancelling, send notifications for each reservation
+        if (isCancelling) {
+          const selectedIds = Array.from(selectedReservations);
+          
+          // Get full reservation details for notifications
+          const { data: cancelledReservations } = await supabase
+            .from('reservations')
+            .select('*, units(name, unit_number, booking_com_name)')
+            .in('id', selectedIds);
+          
+          // Send cancellation notifications
+          for (const reservation of (cancelledReservations || [])) {
+            try {
+              await supabase.functions.invoke('send-cancellation-notification', {
+                body: {
+                  reservation_id: reservation.id,
+                  booking_reference: reservation.booking_reference,
+                  guest_names: reservation.guest_names,
+                  check_in_date: reservation.check_in_date,
+                  check_out_date: reservation.check_out_date,
+                  nights: reservation.nights,
+                  total_price: reservation.total_price,
+                  currency: reservation.currency || 'USD',
+                  channel: reservation.channel || '',
+                  source: reservation.source,
+                  unit_name: reservation.units?.booking_com_name || reservation.units?.name,
+                  unit_number: reservation.units?.unit_number,
+                },
+              });
+              console.log('Cancellation notification sent for reservation:', reservation.id);
+            } catch (notifyErr) {
+              console.error('Error sending cancellation notification for', reservation.id, notifyErr);
+            }
+          }
+          
+          toast.success(`Cancelled ${selectedReservations.size} reservation(s) and sent notifications`);
+        } else {
+          toast.success(`Successfully updated ${selectedReservations.size} reservation(s)`);
+        }
+        
         setSelectedReservations(new Set());
         setBulkStatus('');
         fetchReservations();
