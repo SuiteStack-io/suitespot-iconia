@@ -950,16 +950,19 @@ export const ReservationsList = ({ userRole }: ReservationsListProps) => {
       {/* Bulk Actions Toolbar */}
       {selectedReservations.size > 0 && (
         <div className="bg-primary/10 border border-primary/20 rounded-lg p-4">
-          <div className="flex flex-col sm:flex-row items-start sm:items-center gap-4">
+          <div className="flex flex-col gap-4">
+            {/* Selection count */}
             <div className="flex items-center gap-2">
               <Check className="h-5 w-5 text-primary" />
               <span className="font-medium">
                 {selectedReservations.size} reservation(s) selected
               </span>
             </div>
-            <div className="flex items-center gap-2 flex-1">
+            
+            {/* Status update row */}
+            <div className="flex flex-wrap items-center gap-2">
               <Select value={bulkStatus} onValueChange={setBulkStatus}>
-                <SelectTrigger className="w-[200px]">
+                <SelectTrigger className="w-full sm:w-[200px]">
                   <SelectValue placeholder="Select new status" />
                 </SelectTrigger>
                 <SelectContent>
@@ -974,6 +977,7 @@ export const ReservationsList = ({ userRole }: ReservationsListProps) => {
                 onClick={handleBulkStatusUpdate} 
                 disabled={isUpdating || !bulkStatus}
                 size="sm"
+                className="flex-1 sm:flex-none"
               >
                 {isUpdating ? 'Updating...' : 'Update Status'}
               </Button>
@@ -981,36 +985,34 @@ export const ReservationsList = ({ userRole }: ReservationsListProps) => {
                 variant="outline" 
                 onClick={() => setSelectedReservations(new Set())}
                 size="sm"
+                className="flex-1 sm:flex-none"
               >
                 Clear Selection
               </Button>
-              
-              <Separator orientation="vertical" className="h-8 mx-2" />
-              
+            </div>
+            
+            {/* Cancel and Delete row */}
+            <div className="flex flex-wrap items-center gap-2 pt-2 border-t border-primary/20">
               <Button 
                 variant="outline" 
                 onClick={() => setShowCancelConfirm(true)}
                 size="sm"
-                className="gap-1 border-orange-300 text-orange-700 hover:bg-orange-50 hover:text-orange-800"
+                className="gap-1 border-orange-300 text-orange-700 hover:bg-orange-50 hover:text-orange-800 flex-1 sm:flex-none"
               >
                 <XCircle className="h-4 w-4" />
                 Cancel Reservations
               </Button>
               
               {userRole === 'admin' && (
-                <>
-                  <Separator orientation="vertical" className="h-8 mx-2" />
-                  
-                  <Button 
-                    variant="destructive" 
-                    onClick={() => setShowDeleteConfirm(true)}
-                    size="sm"
-                    className="gap-1"
-                  >
-                    <AlertTriangle className="h-4 w-4" />
-                    Permanently Delete
-                  </Button>
-                </>
+                <Button 
+                  variant="destructive" 
+                  onClick={() => setShowDeleteConfirm(true)}
+                  size="sm"
+                  className="gap-1 flex-1 sm:flex-none"
+                >
+                  <AlertTriangle className="h-4 w-4" />
+                  Permanently Delete
+                </Button>
               )}
             </div>
           </div>
