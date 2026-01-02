@@ -70,7 +70,7 @@ const Index = () => {
           <div className="flex items-center gap-3">
             <SlideMenu userRole={userRole} />
             <img src={suitespotLogo} alt="SuiteSpot Logo" className="h-10 w-10" />
-            <h1 className="text-base sm:text-xl font-playfair font-semibold tracking-tight sm:font-bold sm:font-sans sm:tracking-normal">SuiteSpot Reservations</h1>
+            <h1 className="text-xl sm:text-[28px] font-playfair font-light tracking-normal">SuiteSpot Reservations</h1>
           </div>
 
           {/* Right side: Actions */}
