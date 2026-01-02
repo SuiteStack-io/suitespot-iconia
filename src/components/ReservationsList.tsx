@@ -856,67 +856,70 @@ export const ReservationsList = ({ userRole }: ReservationsListProps) => {
           </Popover>
         </div>
 
-        <div className="space-y-2">
-          <label className="text-sm font-medium">Payment</label>
-          <Select value={paymentFilter} onValueChange={setPaymentFilter}>
-            <SelectTrigger className="w-full sm:w-[140px]">
-              <SelectValue placeholder="All Payments" />
-            </SelectTrigger>
-            <SelectContent>
-              <SelectItem value="all">All Payments</SelectItem>
-              <SelectItem value="cash">Cash</SelectItem>
-              <SelectItem value="credit_card">Credit Card</SelectItem>
-              <SelectItem value="booking_com">Booking.com</SelectItem>
-            </SelectContent>
-          </Select>
-        </div>
+        {/* 2-column grid for mobile */}
+        <div className="grid grid-cols-2 sm:flex sm:flex-wrap gap-4 w-full sm:w-auto">
+          <div className="space-y-2">
+            <label className="text-sm font-medium">Payment</label>
+            <Select value={paymentFilter} onValueChange={setPaymentFilter}>
+              <SelectTrigger className="w-full sm:w-[140px]">
+                <SelectValue placeholder="All Payments" />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="all">All Payments</SelectItem>
+                <SelectItem value="cash">Cash</SelectItem>
+                <SelectItem value="credit_card">Credit Card</SelectItem>
+                <SelectItem value="booking_com">Booking.com</SelectItem>
+              </SelectContent>
+            </Select>
+          </div>
 
-        <div className="space-y-2">
-          <label className="text-sm font-medium">Settled</label>
-          <Select value={settledFilter} onValueChange={setSettledFilter}>
-            <SelectTrigger className="w-full sm:w-[140px]">
-              <SelectValue placeholder="All Settled" />
-            </SelectTrigger>
-            <SelectContent>
-              <SelectItem value="all">All Settled</SelectItem>
-              <SelectItem value="booking_com">Booking.com</SelectItem>
-              <SelectItem value="yes">Yes</SelectItem>
-              <SelectItem value="no">No</SelectItem>
-            </SelectContent>
-          </Select>
-        </div>
+          <div className="space-y-2">
+            <label className="text-sm font-medium">Settled</label>
+            <Select value={settledFilter} onValueChange={setSettledFilter}>
+              <SelectTrigger className="w-full sm:w-[140px]">
+                <SelectValue placeholder="All Settled" />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="all">All Settled</SelectItem>
+                <SelectItem value="booking_com">Booking.com</SelectItem>
+                <SelectItem value="yes">Yes</SelectItem>
+                <SelectItem value="no">No</SelectItem>
+              </SelectContent>
+            </Select>
+          </div>
 
-        <div className="space-y-2">
-          <label className="text-sm font-medium">Source</label>
-          <Select value={sourceFilter} onValueChange={setSourceFilter}>
-            <SelectTrigger className="w-full sm:w-[160px]">
-              <SelectValue placeholder="All Sources" />
-            </SelectTrigger>
-            <SelectContent>
-              <SelectItem value="all">All Sources</SelectItem>
-              {sources.map((source) => (
-                <SelectItem key={source} value={source}>
-                  {source}
-                </SelectItem>
-              ))}
-            </SelectContent>
-          </Select>
-        </div>
+          <div className="space-y-2">
+            <label className="text-sm font-medium">Source</label>
+            <Select value={sourceFilter} onValueChange={setSourceFilter}>
+              <SelectTrigger className="w-full sm:w-[160px]">
+                <SelectValue placeholder="All Sources" />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="all">All Sources</SelectItem>
+                {sources.map((source) => (
+                  <SelectItem key={source} value={source}>
+                    {source}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+          </div>
 
-        <div className="space-y-2">
-          <label className="text-sm font-medium">Currency</label>
-          <Select value={currencyFilter} onValueChange={setCurrencyFilter}>
-            <SelectTrigger className="w-full sm:w-[160px]">
-              <SelectValue placeholder="All Currencies" />
-            </SelectTrigger>
-            <SelectContent>
-              <SelectItem value="all">All Currencies</SelectItem>
-              <SelectItem value="USD">Dollars (USD)</SelectItem>
-              <SelectItem value="AED">Dirhams (AED)</SelectItem>
-              <SelectItem value="SAR">Riyals (SAR)</SelectItem>
-              <SelectItem value="EGP">Egyptian Pounds (EGP)</SelectItem>
-            </SelectContent>
-          </Select>
+          <div className="space-y-2">
+            <label className="text-sm font-medium">Currency</label>
+            <Select value={currencyFilter} onValueChange={setCurrencyFilter}>
+              <SelectTrigger className="w-full sm:w-[160px]">
+                <SelectValue placeholder="All Currencies" />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="all">All Currencies</SelectItem>
+                <SelectItem value="USD">Dollars (USD)</SelectItem>
+                <SelectItem value="AED">Dirhams (AED)</SelectItem>
+                <SelectItem value="SAR">Riyals (SAR)</SelectItem>
+                <SelectItem value="EGP">Egyptian Pounds (EGP)</SelectItem>
+              </SelectContent>
+            </Select>
+          </div>
         </div>
 
         {(dateRange.from || dateRange.to) && (
