@@ -114,7 +114,11 @@ const statusLabels = {
   cancelled: 'Cancelled',
 };
 
-export const ReservationsList = () => {
+interface ReservationsListProps {
+  userRole?: string | null;
+}
+
+export const ReservationsList = ({ userRole }: ReservationsListProps) => {
   const [reservations, setReservations] = useState<Reservation[]>([]);
   const [filteredReservations, setFilteredReservations] = useState<GroupedReservation[]>([]);
   const [searchQuery, setSearchQuery] = useState('');
@@ -140,6 +144,8 @@ export const ReservationsList = () => {
   const [previewLoading, setPreviewLoading] = useState(false);
   const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
   const [isDeleting, setIsDeleting] = useState(false);
+  const [showCancelConfirm, setShowCancelConfirm] = useState(false);
+  const [isCancelling, setIsCancelling] = useState(false);
   const navigate = useNavigate();
 
   useEffect(() => {
@@ -555,6 +561,86 @@ export const ReservationsList = () => {
     }
   };
 
+  const handleBulkCancel = async () => {
+    if (selectedReservations.size === 0) return;
+    
+    setIsCancelling(true);
+    
+    try {
+      // Update reservations to cancelled status
+      const { error: updateError } = await supabase
+        .from('reservations')
+        .update({ 
+          status: 'cancelled',
+          cancelled_at: new Date().toISOString()
+        })
+        .in('id', Array.from(selectedReservations));
+
+      if (updateError) {
+        toast.error('Failed to cancel reservations');
+        console.error('Bulk cancel error:', updateError);
+        return;
+      }
+
+      // Fetch full reservation details for email notifications
+      const { data: cancelledReservations, error: fetchError } = await supabase
+        .from('reservations')
+        .select(`
+          id,
+          booking_reference,
+          guest_names,
+          check_in_date,
+          check_out_date,
+          number_of_guests,
+          total_price,
+          currency,
+          source,
+          channel,
+          units (name, unit_number)
+        `)
+        .in('id', Array.from(selectedReservations));
+
+      if (fetchError) {
+        console.error('Error fetching cancelled reservations:', fetchError);
+      } else if (cancelledReservations) {
+        // Send cancellation notification emails for each reservation
+        for (const reservation of cancelledReservations) {
+          try {
+            await supabase.functions.invoke('send-cancellation-notification', {
+              body: {
+                bookingReference: reservation.booking_reference,
+                guestNames: reservation.guest_names,
+                checkInDate: reservation.check_in_date,
+                checkOutDate: reservation.check_out_date,
+                unitName: reservation.units?.name || 'Unknown',
+                unitNumber: reservation.units?.unit_number || '',
+                numberOfGuests: reservation.number_of_guests,
+                totalPrice: reservation.total_price,
+                currency: reservation.currency,
+                source: reservation.source,
+                channel: reservation.channel,
+                cancelledAt: new Date().toISOString(),
+                cancelledBy: 'Admin'
+              }
+            });
+          } catch (emailError) {
+            console.error('Error sending cancellation email:', emailError);
+          }
+        }
+      }
+
+      toast.success(`Successfully cancelled ${selectedReservations.size} reservation(s)`);
+      setSelectedReservations(new Set());
+      fetchReservations();
+    } catch (error) {
+      toast.error('An error occurred while cancelling reservations');
+      console.error('Bulk cancel error:', error);
+    } finally {
+      setIsCancelling(false);
+      setShowCancelConfirm(false);
+    }
+  };
+
   const formatPaymentMethod = (method: string | null): string => {
     if (!method) return '-';
     const labels: Record<string, string> = {
@@ -902,18 +988,63 @@ export const ReservationsList = () => {
               <Separator orientation="vertical" className="h-8 mx-2" />
               
               <Button 
-                variant="destructive" 
-                onClick={() => setShowDeleteConfirm(true)}
+                variant="outline" 
+                onClick={() => setShowCancelConfirm(true)}
                 size="sm"
-                className="gap-1"
+                className="gap-1 border-orange-300 text-orange-700 hover:bg-orange-50 hover:text-orange-800"
               >
-                <AlertTriangle className="h-4 w-4" />
-                Permanently Delete
+                <XCircle className="h-4 w-4" />
+                Cancel Reservations
               </Button>
+              
+              {userRole === 'admin' && (
+                <>
+                  <Separator orientation="vertical" className="h-8 mx-2" />
+                  
+                  <Button 
+                    variant="destructive" 
+                    onClick={() => setShowDeleteConfirm(true)}
+                    size="sm"
+                    className="gap-1"
+                  >
+                    <AlertTriangle className="h-4 w-4" />
+                    Permanently Delete
+                  </Button>
+                </>
+              )}
             </div>
           </div>
         </div>
       )}
+
+      <AlertDialog open={showCancelConfirm} onOpenChange={setShowCancelConfirm}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle className="flex items-center gap-2 text-orange-700">
+              <XCircle className="h-5 w-5" />
+              Cancel Reservations
+            </AlertDialogTitle>
+            <AlertDialogDescription className="space-y-2">
+              <p>
+                Are you sure you want to cancel {selectedReservations.size} reservation(s)?
+              </p>
+              <p className="text-muted-foreground">
+                The reservations will be marked as cancelled and admin users will receive email notifications.
+              </p>
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel disabled={isCancelling}>Go Back</AlertDialogCancel>
+            <AlertDialogAction 
+              onClick={handleBulkCancel} 
+              disabled={isCancelling}
+              className="bg-orange-600 text-white hover:bg-orange-700"
+            >
+              {isCancelling ? 'Cancelling...' : 'Yes, Cancel Reservations'}
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
 
       <AlertDialog open={showDeleteConfirm} onOpenChange={setShowDeleteConfirm}>
         <AlertDialogContent>
@@ -930,7 +1061,7 @@ export const ReservationsList = () => {
                 This action cannot be undone. The reservations will be completely removed from the system.
               </p>
               <p className="text-muted-foreground text-xs">
-                Tip: If you want to cancel a booking but keep it in records, use "Update Status" and select "Cancelled" instead.
+                Tip: If you want to cancel a booking but keep it in records, use "Cancel Reservations" instead.
               </p>
             </AlertDialogDescription>
           </AlertDialogHeader>
