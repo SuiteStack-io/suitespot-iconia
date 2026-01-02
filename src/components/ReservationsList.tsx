@@ -29,7 +29,8 @@ import {
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
 import { Calendar } from '@/components/ui/calendar';
 import { format } from 'date-fns';
-import { Search, Users, Check, CalendarIcon, Download, FileSpreadsheet, X, Mail, CheckCircle2, XCircle, Clock, Eye, FileText, Minus, Trash2 } from 'lucide-react';
+import { Search, Users, Check, CalendarIcon, Download, FileSpreadsheet, X, Mail, CheckCircle2, XCircle, Clock, Eye, FileText, Minus, Trash2, AlertTriangle } from 'lucide-react';
+import { Separator } from '@/components/ui/separator';
 import {
   AlertDialog,
   AlertDialogAction,
@@ -897,14 +898,17 @@ export const ReservationsList = () => {
               >
                 Clear Selection
               </Button>
+              
+              <Separator orientation="vertical" className="h-8 mx-2" />
+              
               <Button 
                 variant="destructive" 
                 onClick={() => setShowDeleteConfirm(true)}
                 size="sm"
                 className="gap-1"
               >
-                <Trash2 className="h-4 w-4" />
-                Delete
+                <AlertTriangle className="h-4 w-4" />
+                Permanently Delete
               </Button>
             </div>
           </div>
@@ -914,20 +918,30 @@ export const ReservationsList = () => {
       <AlertDialog open={showDeleteConfirm} onOpenChange={setShowDeleteConfirm}>
         <AlertDialogContent>
           <AlertDialogHeader>
-            <AlertDialogTitle>Delete Reservations</AlertDialogTitle>
-            <AlertDialogDescription>
-              Are you sure you want to delete {selectedReservations.size} reservation(s)? 
-              This action cannot be undone.
+            <AlertDialogTitle className="flex items-center gap-2 text-destructive">
+              <AlertTriangle className="h-5 w-5" />
+              Permanently Delete Reservations
+            </AlertDialogTitle>
+            <AlertDialogDescription className="space-y-2">
+              <p>
+                Are you sure you want to <strong>permanently delete</strong> {selectedReservations.size} reservation(s)?
+              </p>
+              <p className="text-destructive font-medium">
+                This action cannot be undone. The reservations will be completely removed from the system.
+              </p>
+              <p className="text-muted-foreground text-xs">
+                Tip: If you want to cancel a booking but keep it in records, use "Update Status" and select "Cancelled" instead.
+              </p>
             </AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter>
-            <AlertDialogCancel disabled={isDeleting}>Cancel</AlertDialogCancel>
+            <AlertDialogCancel disabled={isDeleting}>Go Back</AlertDialogCancel>
             <AlertDialogAction 
               onClick={handleBulkDelete} 
               disabled={isDeleting}
               className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
             >
-              {isDeleting ? 'Deleting...' : 'Delete'}
+              {isDeleting ? 'Deleting...' : 'Yes, Permanently Delete'}
             </AlertDialogAction>
           </AlertDialogFooter>
         </AlertDialogContent>
