@@ -123,7 +123,7 @@ export const ReservationsList = () => {
   const [settledFilter, setSettledFilter] = useState<string>('all');
   const [currencyFilter, setCurrencyFilter] = useState<string>('all');
   const [sourceFilter, setSourceFilter] = useState<string>('all');
-  const [units, setUnits] = useState<{ id: string; name: string }[]>([]);
+  const [units, setUnits] = useState<{ id: string; name: string; unit_number: string | null }[]>([]);
   const [sources, setSources] = useState<string[]>([]);
   const [sortField, setSortField] = useState<SortField>('created_at');
   const [sortOrder, setSortOrder] = useState<SortOrder>('desc');
@@ -253,8 +253,8 @@ export const ReservationsList = () => {
   const fetchUnits = async () => {
     const { data, error } = await supabase
       .from('units')
-      .select('id, name')
-      .order('name');
+      .select('id, name, unit_number')
+      .order('unit_number');
 
     if (!error && data) {
       setUnits(data);
@@ -340,7 +340,7 @@ export const ReservationsList = () => {
     }
 
     if (unitFilter !== 'all') {
-      filtered = filtered.filter((r) => r.units?.name === unitFilter);
+      filtered = filtered.filter((r) => (r.units?.unit_number || r.units?.name) === unitFilter);
     }
 
     // Payment method filtering
@@ -674,8 +674,8 @@ export const ReservationsList = () => {
           <SelectContent>
             <SelectItem value="all">All Units</SelectItem>
             {units.map((unit) => (
-              <SelectItem key={unit.id} value={unit.name}>
-                {unit.name}
+              <SelectItem key={unit.id} value={unit.unit_number || unit.name}>
+                {unit.unit_number || unit.name}
               </SelectItem>
             ))}
           </SelectContent>
