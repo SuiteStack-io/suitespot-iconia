@@ -73,7 +73,7 @@ const ReservationsListPage = () => {
           </div>
         </div>
 
-        <ReservationsList />
+        <ReservationsList userRole={userRole} />
       </div>
     </div>
   );
