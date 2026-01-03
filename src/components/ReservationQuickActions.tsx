@@ -497,12 +497,28 @@ export const ReservationQuickActions = ({
         notes: `Extension of original booking ${reservation.booking_reference}`,
       };
 
-      // Insert the extension reservation
-      const { error: insertError } = await supabase
+      // Insert the extension reservation and get the ID
+      const { data: insertResult, error: insertError } = await supabase
         .from("reservations")
-        .insert(extensionReservation);
+        .insert(extensionReservation)
+        .select('id')
+        .single();
 
       if (insertError) throw insertError;
+
+      // Send admin notification for the extension
+      try {
+        await supabase.functions.invoke('send-extension-notification', {
+          body: { 
+            extensionReservationId: insertResult.id,
+            originalBookingReference: reservation.booking_reference 
+          }
+        });
+        console.log('Extension notification sent successfully');
+      } catch (notifError) {
+        console.error('Failed to send extension notification:', notifError);
+        // Don't fail the extension if notification fails
+      }
 
       // Update the original reservation's group_id if not already set
       if (!fullReservation.group_id) {
