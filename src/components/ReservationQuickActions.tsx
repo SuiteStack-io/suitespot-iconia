@@ -463,7 +463,8 @@ export const ReservationQuickActions = ({
       const extensionVATCalc = extensionSubtotalCalc * 0.14;
       const extensionTotalCalc = extensionSubtotalCalc + extensionVATCalc;
       const extensionCommissionRate = 10; // Standard direct rate for extensions
-      const extensionCommission = extensionTotalCalc * (extensionCommissionRate / 100);
+      // Commission calculated on subtotal (excluding VAT) - effective Jan 2026
+      const extensionCommission = extensionSubtotalCalc * (extensionCommissionRate / 100);
       const extensionNetRevenue = extensionTotalCalc - extensionCommission;
 
       // Generate or use existing group_id to link reservations
@@ -545,7 +546,8 @@ export const ReservationQuickActions = ({
     setProcessingLateCheckout(true);
     try {
       const commissionRate = 10;
-      const commissionAmount = LATE_CHECKOUT_FEE * (commissionRate / 100);
+      // Commission calculated on base amount (excluding VAT) - effective Jan 2026
+      const commissionAmount = lateCheckoutBase * (commissionRate / 100);
       const netRevenue = LATE_CHECKOUT_FEE - commissionAmount;
 
       // Generate or use existing group_id to link reservations
@@ -618,8 +620,10 @@ export const ReservationQuickActions = ({
     setSavingLateCheckoutEdit(true);
     try {
       const newFee = parseFloat(editLateCheckoutFee);
+      const baseAmount = newFee / 1.14; // Extract base excluding VAT
       const commissionRate = 10;
-      const commissionAmount = newFee * (commissionRate / 100);
+      // Commission calculated on base amount (excluding VAT) - effective Jan 2026
+      const commissionAmount = baseAmount * (commissionRate / 100);
       const netRevenue = newFee - commissionAmount;
 
       const { error } = await supabase
@@ -690,8 +694,10 @@ export const ReservationQuickActions = ({
     setSavingExtensionEdit(true);
     try {
       const newTotal = parseFloat(editExtensionFee);
+      const baseAmount = newTotal / 1.14; // Extract base excluding VAT
       const commissionRate = 10;
-      const commissionAmount = newTotal * (commissionRate / 100);
+      // Commission calculated on base amount (excluding VAT) - effective Jan 2026
+      const commissionAmount = baseAmount * (commissionRate / 100);
       const netRevenue = newTotal - commissionAmount;
 
       const { error } = await supabase
