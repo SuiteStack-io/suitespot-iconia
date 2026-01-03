@@ -21,6 +21,7 @@ interface Reservation {
   status: string;
   source: string;
   guest_names: string[];
+  booking_reference: string;
 }
 
 interface BlockedDate {
@@ -69,7 +70,7 @@ export const WeeklyCalendar = () => {
   const fetchReservations = async () => {
       const { data, error } = await supabase
         .from('reservations')
-        .select('id, unit_id, check_in_date, check_out_date, status, source, guest_names')
+        .select('id, unit_id, check_in_date, check_out_date, status, source, guest_names, booking_reference')
         .in('status', ['confirmed', 'checked-in', 'checked-out'])
         .is('cancelled_at', null);
     
@@ -125,7 +126,16 @@ export const WeeklyCalendar = () => {
       return date > checkIn && date < checkOut;
     });
 
-    return { checkingOut, checkingIn, staying };
+    // Check if checkingOut and checkingIn are part of the same extension
+    const isExtension = checkingOut && checkingIn && 
+      checkingOut.unit_id === checkingIn.unit_id &&
+      (
+        checkingIn.booking_reference === `${checkingOut.booking_reference}-EXT` ||
+        (checkingIn.booking_reference.includes('-EXT') && 
+          checkingIn.booking_reference.replace('-EXT', '') === checkingOut.booking_reference)
+      );
+
+    return { checkingOut, checkingIn, staying, isExtension };
   };
 
   const getReservationColor = (source: string, status?: string) => {
@@ -236,10 +246,10 @@ export const WeeklyCalendar = () => {
                   </div>
                 </div>
                 {weekDays.map((day, index) => {
-                  const { checkingOut, checkingIn, staying } = getReservationsForDate(day, unit.id);
+                  const { checkingOut, checkingIn, staying, isExtension } = getReservationsForDate(day, unit.id);
                   const blocked = isDateBlocked(day, unit.id);
                   const conflict = hasConflict(day, unit.id);
-                  const hasBothCheckOutAndIn = checkingOut && checkingIn;
+                  const hasBothCheckOutAndIn = checkingOut && checkingIn && !isExtension;
                   
                   return (
                     <div
@@ -261,6 +271,11 @@ export const WeeklyCalendar = () => {
                       ) : blocked ? (
                         <div className="flex items-center justify-center h-full">
                           <div className="text-white text-xs">Blocked</div>
+                        </div>
+                      ) : isExtension && checkingIn ? (
+                        // Extension day - show as continuous booking
+                        <div className={`h-full flex items-center justify-center ${getReservationColor(checkingIn.source, checkingIn.status)}`}>
+                          <div className="w-2 h-2 rounded-full bg-white"></div>
                         </div>
                       ) : hasBothCheckOutAndIn ? (
                         <div className="flex flex-col h-full">
