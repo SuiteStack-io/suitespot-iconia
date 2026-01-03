@@ -67,10 +67,11 @@ export const WeeklyCalendar = () => {
   };
 
   const fetchReservations = async () => {
-    const { data, error } = await supabase
-      .from('reservations')
-      .select('id, unit_id, check_in_date, check_out_date, status, source, guest_names')
-      .in('status', ['confirmed', 'checked-in', 'checked-out']);
+      const { data, error } = await supabase
+        .from('reservations')
+        .select('id, unit_id, check_in_date, check_out_date, status, source, guest_names')
+        .in('status', ['confirmed', 'checked-in', 'checked-out'])
+        .is('cancelled_at', null);
     
     if (error) {
       console.error('Error fetching reservations:', error);

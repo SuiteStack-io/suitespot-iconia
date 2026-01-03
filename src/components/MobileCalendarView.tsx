@@ -134,11 +134,12 @@ export const MobileCalendarView = () => {
     const startDate = format(startOfMonth(currentMonth), 'yyyy-MM-dd');
     const endDate = format(endOfMonth(addMonths(currentMonth, 2)), 'yyyy-MM-dd');
 
-    const { data: reservationsData } = await supabase
-      .from('reservations')
-      .select('*')
-      .in('status', ['confirmed', 'checked-in', 'checked-out', 'completed'])
-      .or(`and(check_in_date.lte.${endDate},check_out_date.gte.${startDate})`);
+      const { data: reservationsData } = await supabase
+        .from('reservations')
+        .select('*')
+        .in('status', ['confirmed', 'checked-in', 'checked-out', 'completed'])
+        .is('cancelled_at', null)
+        .or(`and(check_in_date.lte.${endDate},check_out_date.gte.${startDate})`);
     if (reservationsData) setReservations(reservationsData);
 
     const { data: blockedData } = await supabase
