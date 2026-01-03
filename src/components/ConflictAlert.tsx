@@ -32,6 +32,7 @@ export const ConflictAlert = () => {
         .from('reservations')
         .select('*, units(name, unit_number)')
         .eq('status', 'confirmed')
+        .is('cancelled_at', null)
         .order('check_in_date');
       
       if (reservations) {
