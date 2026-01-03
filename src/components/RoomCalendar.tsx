@@ -151,7 +151,8 @@ export const RoomCalendar = () => {
     const { data, error } = await supabase
       .from('reservations')
       .select('*')
-      .in('status', ['confirmed', 'checked-in', 'checked-out', 'completed']);
+      .in('status', ['confirmed', 'checked-in', 'checked-out', 'completed'])
+      .is('cancelled_at', null);
     
     if (error) {
       console.error('Error fetching reservations:', error);
