@@ -73,6 +73,13 @@ export const ReservationQuickActions = ({
   const [fullReservation, setFullReservation] = useState<any>(null);
   const [currentUserName, setCurrentUserName] = useState<string>("");
   
+  // Extension room and source selection state
+  const [extensionUnitId, setExtensionUnitId] = useState<string>("");
+  const [extensionUnits, setExtensionUnits] = useState<Unit[]>([]);
+  const [extensionUnitConflicts, setExtensionUnitConflicts] = useState<Map<string, boolean>>(new Map());
+  const [extensionSource, setExtensionSource] = useState<string>("");
+  const [userSources, setUserSources] = useState<string[]>([]);
+  
   // Late checkout state
   const [lateCheckoutMode, setLateCheckoutMode] = useState(false);
   const [processingLateCheckout, setProcessingLateCheckout] = useState(false);
@@ -116,6 +123,7 @@ export const ReservationQuickActions = ({
     if (open && reservation) {
       fetchAvailableUnits();
       fetchFullReservation();
+      fetchUserSources();
       // Reset modes when opening
       setExtendMode(false);
       setLateCheckoutMode(false);
@@ -128,15 +136,21 @@ export const ReservationQuickActions = ({
       setNewCheckoutDate(undefined);
       setExtensionPricePerNight("");
       setExtendConflict(false);
+      // Reset extension-specific state
+      setExtensionUnitId(reservation.unit_id);
+      setExtensionSource("");
+      setExtensionUnits([]);
+      setExtensionUnitConflicts(new Map());
     }
   }, [open, reservation]);
 
-  // Check for conflicts when new checkout date changes
+  // Check for conflicts when new checkout date or extension unit changes
   useEffect(() => {
     if (newCheckoutDate && reservation?.unit_id) {
       checkExtendConflict();
+      fetchExtensionUnits();
     }
-  }, [newCheckoutDate]);
+  }, [newCheckoutDate, extensionUnitId]);
 
   const fetchFullReservation = async () => {
     if (!reservation) return;
@@ -159,11 +173,13 @@ export const ReservationQuickActions = ({
       return;
     }
 
+    const unitToCheck = extensionUnitId || reservation.unit_id;
+
     // Check for conflicts in the extended period
     const { data: conflicts } = await supabase
       .from("reservations")
       .select("id")
-      .eq("unit_id", reservation.unit_id)
+      .eq("unit_id", unitToCheck)
       .neq("id", reservation.id)
       .in("status", ["confirmed", "checked-in"])
       .lt("check_in_date", format(newCheckoutDate, "yyyy-MM-dd"))
@@ -173,11 +189,59 @@ export const ReservationQuickActions = ({
     const { data: blockedDates } = await supabase
       .from("blocked_dates")
       .select("id")
-      .eq("unit_id", reservation.unit_id)
+      .eq("unit_id", unitToCheck)
       .gte("blocked_date", reservation.check_out_date)
       .lt("blocked_date", format(newCheckoutDate, "yyyy-MM-dd"));
 
     setExtendConflict((conflicts && conflicts.length > 0) || (blockedDates && blockedDates.length > 0));
+  };
+
+  const fetchExtensionUnits = async () => {
+    if (!newCheckoutDate || !reservation) return;
+    
+    // Fetch all available units at ICONIA
+    const { data: units } = await supabase
+      .from("units")
+      .select("id, name, unit_number, status")
+      .eq("location", "ICONIA")
+      .eq("status", "available")
+      .order("unit_number");
+    
+    // Check for conflicts in the extension period for each unit
+    const conflictMap = new Map<string, boolean>();
+    
+    for (const unit of units || []) {
+      const { data: conflicts } = await supabase
+        .from("reservations")
+        .select("id")
+        .eq("unit_id", unit.id)
+        .neq("id", reservation.id)
+        .in("status", ["confirmed", "checked-in"])
+        .lt("check_in_date", format(newCheckoutDate, "yyyy-MM-dd"))
+        .gt("check_out_date", reservation.check_out_date);
+      
+      const { data: blocked } = await supabase
+        .from("blocked_dates")
+        .select("id")
+        .eq("unit_id", unit.id)
+        .gte("blocked_date", reservation.check_out_date)
+        .lt("blocked_date", format(newCheckoutDate, "yyyy-MM-dd"));
+      
+      conflictMap.set(unit.id, (conflicts?.length || 0) > 0 || (blocked?.length || 0) > 0);
+    }
+    
+    setExtensionUnits(units || []);
+    setExtensionUnitConflicts(conflictMap);
+  };
+
+  const fetchUserSources = async () => {
+    const { data } = await supabase
+      .from("profiles")
+      .select("full_name")
+      .order("full_name");
+    
+    const names = data?.map(p => p.full_name).filter(Boolean) as string[] || [];
+    setUserSources(names);
   };
 
   const fetchAvailableUnits = async () => {
@@ -362,6 +426,15 @@ export const ReservationQuickActions = ({
   const handleExtendStay = async () => {
     if (!reservation || !newCheckoutDate || !extensionPricePerNight || !fullReservation) return;
     
+    if (!extensionSource) {
+      toast({
+        title: "Source Required",
+        description: "Please select a source for the extension",
+        variant: "destructive",
+      });
+      return;
+    }
+    
     const currentCheckout = new Date(reservation.check_out_date + 'T00:00:00');
     const additionalNights = differenceInCalendarDays(newCheckoutDate, currentCheckout);
     
@@ -386,19 +459,19 @@ export const ReservationQuickActions = ({
     setExtending(true);
     try {
       const pricePerNight = parseFloat(extensionPricePerNight);
-      const extensionSubtotal = additionalNights * pricePerNight;
-      const extensionVAT = extensionSubtotal * 0.14;
-      const extensionTotal = extensionSubtotal + extensionVAT;
+      const extensionSubtotalCalc = additionalNights * pricePerNight;
+      const extensionVATCalc = extensionSubtotalCalc * 0.14;
+      const extensionTotalCalc = extensionSubtotalCalc + extensionVATCalc;
       const extensionCommissionRate = 10; // Standard direct rate for extensions
-      const extensionCommission = extensionTotal * (extensionCommissionRate / 100);
-      const extensionNetRevenue = extensionTotal - extensionCommission;
+      const extensionCommission = extensionTotalCalc * (extensionCommissionRate / 100);
+      const extensionNetRevenue = extensionTotalCalc - extensionCommission;
 
       // Generate or use existing group_id to link reservations
       const groupId = fullReservation.group_id || crypto.randomUUID();
 
-      // Create a new reservation for the extension (attributed to current user)
+      // Create a new reservation for the extension
       const extensionReservation = {
-        unit_id: reservation.unit_id,
+        unit_id: extensionUnitId || reservation.unit_id, // Use selected unit
         check_in_date: reservation.check_out_date, // Extension starts where original ends
         check_out_date: format(newCheckoutDate, "yyyy-MM-dd"),
         
@@ -406,14 +479,14 @@ export const ReservationQuickActions = ({
         contact_email: fullReservation.contact_email,
         contact_phone: fullReservation.contact_phone,
         booking_reference: `${reservation.booking_reference}-EXT`,
-        source: currentUserName || "Admin", // Attribute to current user
+        source: extensionSource, // Use selected source
         channel: "Direct",
         status: fullReservation.status,
         number_of_guests: fullReservation.number_of_guests,
         adults: fullReservation.adults,
         children: fullReservation.children,
         guest_nationality: fullReservation.guest_nationality,
-        total_price: extensionTotal,
+        total_price: extensionTotalCalc,
         price_per_night: pricePerNight,
         commission_rate: extensionCommissionRate,
         commission_amount: extensionCommission,
@@ -438,9 +511,14 @@ export const ReservationQuickActions = ({
           .eq("id", reservation.id);
       }
 
+      const selectedUnit = extensionUnits.find(u => u.id === extensionUnitId);
+      const roomInfo = selectedUnit && selectedUnit.id !== reservation.unit_id 
+        ? ` in ${selectedUnit.name} #${selectedUnit.unit_number}` 
+        : '';
+
       toast({
         title: "Extension Created",
-        description: `${additionalNights} night${additionalNights > 1 ? 's' : ''} attributed to ${currentUserName || "Admin"} (+$${extensionTotal.toFixed(2)} incl. VAT)`,
+        description: `${additionalNights} night${additionalNights > 1 ? 's' : ''}${roomInfo} attributed to ${extensionSource} (+$${extensionTotalCalc.toFixed(2)} incl. VAT)`,
       });
 
       onOpenChange(false);
@@ -1229,6 +1307,43 @@ export const ReservationQuickActions = ({
                 </Popover>
               </div>
 
+              {/* Room Selection for Extension */}
+              {additionalNights > 0 && (
+                <div className="space-y-2">
+                  <label className="text-sm font-medium">Room for Extension</label>
+                  <Select value={extensionUnitId} onValueChange={(value) => {
+                    setExtensionUnitId(value);
+                  }}>
+                    <SelectTrigger>
+                      <SelectValue placeholder="Select room for extension" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      {extensionUnits.map((unit) => {
+                        const hasConflict = extensionUnitConflicts.get(unit.id);
+                        const isCurrentRoom = unit.id === reservation?.unit_id;
+                        return (
+                          <SelectItem 
+                            key={unit.id} 
+                            value={unit.id}
+                            disabled={hasConflict}
+                          >
+                            <div className="flex items-center gap-2">
+                              {hasConflict && <AlertTriangle className="h-3 w-3 text-destructive" />}
+                              <span>{unit.name} #{unit.unit_number}</span>
+                              {isCurrentRoom && <span className="text-xs text-muted-foreground">(Current)</span>}
+                              {hasConflict && <span className="text-xs text-destructive">(Conflict)</span>}
+                            </div>
+                          </SelectItem>
+                        );
+                      })}
+                    </SelectContent>
+                  </Select>
+                  <p className="text-xs text-muted-foreground">
+                    The price you enter below will apply regardless of the room's standard rate
+                  </p>
+                </div>
+              )}
+
               {additionalNights > 0 && (
                 <div className="p-3 bg-muted/50 rounded-lg">
                   <div className="text-sm text-muted-foreground">Additional Nights</div>
@@ -1270,15 +1385,26 @@ export const ReservationQuickActions = ({
                 </div>
               )}
 
-              {/* Attribution Notice */}
-              <div className="p-3 bg-primary/5 border border-primary/20 rounded-lg">
-                <div className="flex items-center gap-2 text-sm">
-                  <User className="h-4 w-4 text-primary" />
-                  <span className="text-muted-foreground">Extension attributed to:</span>
-                  <span className="font-medium">{currentUserName || "Admin"}</span>
-                </div>
-                <p className="text-xs text-muted-foreground mt-1">
-                  This creates a new reservation linked to the original. Commission (10%) will be credited to you.
+              {/* Source Selection */}
+              <div className="space-y-2">
+                <label className="text-sm font-medium">Source <span className="text-destructive">*</span></label>
+                <Select value={extensionSource} onValueChange={setExtensionSource}>
+                  <SelectTrigger>
+                    <SelectValue placeholder="Select source" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {userSources.map((userName) => (
+                      <SelectItem key={userName} value={userName}>
+                        {userName}
+                      </SelectItem>
+                    ))}
+                    <SelectItem value="KSS">KSS</SelectItem>
+                    <SelectItem value="booking.com">booking.com</SelectItem>
+                    <SelectItem value="Others">Others</SelectItem>
+                  </SelectContent>
+                </Select>
+                <p className="text-xs text-muted-foreground">
+                  This creates a new reservation linked to the original. Commission (10%) will be credited to the selected source.
                 </p>
               </div>
 
@@ -1310,7 +1436,7 @@ export const ReservationQuickActions = ({
                 <Button
                   className="flex-1 pointer-events-auto"
                   onClick={handleExtendStay}
-                  disabled={!canExtend || extending}
+                  disabled={!canExtend || extending || !extensionSource || extensionUnitConflicts.get(extensionUnitId)}
                 >
                   {extending ? (
                     <Loader2 className="h-4 w-4 mr-2 animate-spin" />
