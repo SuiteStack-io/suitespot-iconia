@@ -210,7 +210,17 @@ export const RoomCalendar = () => {
       return date > checkIn && date < checkOut;
     });
 
-    return { checkingOut, checkingIn, staying };
+    // Check if checkingOut and checkingIn are part of the same extension
+    // (one has -EXT suffix of the other's booking reference)
+    const isExtension = checkingOut && checkingIn && 
+      checkingOut.unit_id === checkingIn.unit_id &&
+      (
+        checkingIn.booking_reference === `${checkingOut.booking_reference}-EXT` ||
+        (checkingIn.booking_reference.includes('-EXT') && 
+          checkingIn.booking_reference.replace('-EXT', '') === checkingOut.booking_reference)
+      );
+
+    return { checkingOut, checkingIn, staying, isExtension };
   };
 
   const getReservationColor = (source: string, status?: string) => {
@@ -823,10 +833,10 @@ export const RoomCalendar = () => {
                       </PopoverContent>
                     </Popover>
                     {weekDays.map((day, index) => {
-                      const { checkingOut, checkingIn, staying } = getReservationsForDate(day, unit.id);
+                      const { checkingOut, checkingIn, staying, isExtension } = getReservationsForDate(day, unit.id);
                       const blocked = isDateBlocked(day, unit.id);
                       const conflict = hasConflict(day, unit.id);
-                      const hasBothCheckOutAndIn = checkingOut && checkingIn;
+                      const hasBothCheckOutAndIn = checkingOut && checkingIn && !isExtension;
                       
                       return (
                         <div
@@ -848,6 +858,11 @@ export const RoomCalendar = () => {
                           ) : blocked ? (
                             <div className="flex items-center justify-center h-full">
                               <div className="text-white text-xs">Blocked</div>
+                            </div>
+                          ) : isExtension && checkingIn ? (
+                            // Extension day - show as continuous booking (same as "staying")
+                            <div className={`h-full flex flex-col items-center justify-center ${getReservationColor(checkingIn.source, checkingIn.status)} px-1`}>
+                              {renderGuestName(checkingIn.guest_names[0])}
                             </div>
                           ) : hasBothCheckOutAndIn ? (
                             <div className="flex flex-col h-full">
