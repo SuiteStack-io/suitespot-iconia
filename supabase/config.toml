@@ -38,3 +38,6 @@ verify_jwt = false
 
 [functions.send-extension-notification]
 verify_jwt = false
+
+[functions.send-late-checkout-notification]
+verify_jwt = false

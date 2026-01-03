@@ -597,9 +597,11 @@ export const ReservationQuickActions = ({
       };
 
       // Insert the late checkout reservation
-      const { error: insertError } = await supabase
+      const { data: insertResult, error: insertError } = await supabase
         .from("reservations")
-        .insert(lateCheckoutReservation);
+        .insert(lateCheckoutReservation)
+        .select('id')
+        .single();
 
       if (insertError) throw insertError;
 
@@ -609,6 +611,19 @@ export const ReservationQuickActions = ({
           .from("reservations")
           .update({ group_id: groupId })
           .eq("id", reservation.id);
+      }
+
+      // Send admin notification for the late checkout
+      try {
+        await supabase.functions.invoke('send-late-checkout-notification', {
+          body: { 
+            lateCheckoutReservationId: insertResult.id,
+            originalBookingReference: reservation.booking_reference 
+          }
+        });
+      } catch (notifError) {
+        console.error('Failed to send late checkout notification:', notifError);
+        // Don't fail the late checkout if notification fails
       }
 
       toast({
