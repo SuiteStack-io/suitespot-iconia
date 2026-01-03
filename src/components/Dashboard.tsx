@@ -144,14 +144,14 @@ export const Dashboard = () => {
       .from('reservations')
       .select('id', { count: 'exact' })
       .eq('check_in_date', today)
-      .neq('status', 'Cancelled');
+      .neq('status', 'cancelled');
 
     // Today's departures
     const { data: departures } = await supabase
       .from('reservations')
       .select('id', { count: 'exact' })
       .eq('check_out_date', today)
-      .neq('status', 'Cancelled');
+      .neq('status', 'cancelled');
 
     // In-house count (reservations that are currently checked-in)
     const { data: inHouse } = await supabase
@@ -176,7 +176,7 @@ export const Dashboard = () => {
     const { data: revenueData } = await supabase
       .from('reservations')
       .select('total_price, net_revenue, commission_amount')
-      .neq('status', 'Cancelled');
+      .neq('status', 'cancelled');
 
     const totalRevenue = revenueData?.reduce((sum, r) => sum + (r.total_price || 0), 0) || 0;
     const netRevenue = revenueData?.reduce((sum, r) => sum + (r.net_revenue || 0), 0) || 0;
@@ -206,11 +206,11 @@ export const Dashboard = () => {
     switch (cardType) {
       case 'arrivals':
         setDialogTitle("Today's Arrivals");
-        query = query.eq('check_in_date', today).neq('status', 'Cancelled');
+        query = query.eq('check_in_date', today).neq('status', 'cancelled');
         break;
       case 'departures':
         setDialogTitle("Today's Departures");
-        query = query.eq('check_out_date', today).neq('status', 'Cancelled');
+        query = query.eq('check_out_date', today).neq('status', 'cancelled');
         break;
       case 'inhouse':
         setDialogTitle('In-House Now');
