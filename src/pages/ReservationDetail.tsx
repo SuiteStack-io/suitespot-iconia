@@ -90,6 +90,7 @@ interface Reservation {
   commission_amount: number | null;
   net_revenue: number | null;
   currency: string;
+  payment_method: string | null;
   notes: string | null;
   status: string;
   marriage_certificate_url: string | null;
@@ -201,6 +202,8 @@ const ReservationDetail = () => {
     status: '',
     notes: '',
     channel: '',
+    currency: 'USD',
+    payment_method: '',
   });
 
   const canEdit = userRole === 'admin';
@@ -271,6 +274,8 @@ const ReservationDetail = () => {
         status: data.status,
         channel: data.channel,
         source: data.source,
+        currency: data.currency || 'USD',
+        payment_method: data.payment_method || '',
       });
     }
   };
@@ -535,6 +540,8 @@ const ReservationDetail = () => {
         source: formData.source,
         status: formData.status,
         notes: formData.notes,
+        currency: formData.currency,
+        payment_method: formData.payment_method || null,
         id_passport_url: idPassportUrl,
         id_passport_url_back: idPassportUrlBack,
         marriage_certificate_url: marriageCertUrl,
@@ -1414,6 +1421,30 @@ Thank you for choosing SuiteSpot!`;
                     </SelectContent>
                   </Select>
                 </div>
+                <div>
+                  <Label>Currency</Label>
+                  <Select value={formData.currency} onValueChange={(value) => setFormData(prev => ({ ...prev, currency: value }))}>
+                    <SelectTrigger className="mt-2">
+                      <SelectValue placeholder="Select currency" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="USD">USD</SelectItem>
+                      <SelectItem value="EGP">EGP</SelectItem>
+                    </SelectContent>
+                  </Select>
+                </div>
+                <div>
+                  <Label>Payment Method</Label>
+                  <Select value={formData.payment_method} onValueChange={(value) => setFormData(prev => ({ ...prev, payment_method: value }))}>
+                    <SelectTrigger className="mt-2">
+                      <SelectValue placeholder="Select payment method" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="cash">Cash</SelectItem>
+                      <SelectItem value="credit_card">Credit Card</SelectItem>
+                    </SelectContent>
+                  </Select>
+                </div>
               </>
             ) : (
               <>
@@ -1476,6 +1507,18 @@ Thank you for choosing SuiteSpot!`;
                 <div>
                   <Label className="text-muted-foreground">Channel</Label>
                   <p className="mt-1 font-medium">{reservation.channel}</p>
+                </div>
+                <div>
+                  <Label className="text-muted-foreground">Currency</Label>
+                  <p className="mt-1 font-medium">{reservation.currency || 'USD'}</p>
+                </div>
+                <div>
+                  <Label className="text-muted-foreground">Payment Method</Label>
+                  <p className="mt-1 font-medium">
+                    {reservation.payment_method === 'cash' ? 'Cash' : 
+                     reservation.payment_method === 'credit_card' ? 'Credit Card' : 
+                     'Not Set'}
+                  </p>
                 </div>
               </>
             )}
