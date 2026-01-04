@@ -71,7 +71,7 @@ export default function CashSettlement() {
         .select('*, units(name, unit_number, booking_com_name)')
         .in('payment_method', ['cash', 'credit_card'])
         .neq('source', 'booking.com')
-        .neq('status', 'cancelled')
+        .not('status', 'ilike', '%cancelled%')
         .order('check_in_date', { ascending: false });
       
       if (error) throw error;
