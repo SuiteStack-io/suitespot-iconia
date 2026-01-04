@@ -649,7 +649,9 @@ export const ReservationsList = ({ userRole }: ReservationsListProps) => {
       'Status': statusLabels[r.status as keyof typeof statusLabels] || r.status,
       'Source': r.source,
       'Price/Night': r.price_per_night ? `$${Number(r.price_per_night).toFixed(2)}` : '-',
-      'Total': r.total_price ? `$${Number(r.total_price).toFixed(2)}` : '-',
+      'Net Revenue': r.total_price ? `$${(Number(r.total_price) / 1.14).toFixed(2)}` : '-',
+      'VAT (14%)': r.total_price ? `$${(Number(r.total_price) - Number(r.total_price) / 1.14).toFixed(2)}` : '-',
+      'Total Revenue': r.total_price ? `$${Number(r.total_price).toFixed(2)}` : '-',
       'Payment': formatPaymentMethod(r.payment_method),
       'Currency': getCurrencyLabel(r.currency),
       'Settled': formatSettled(r.settled),
@@ -1132,7 +1134,13 @@ export const ReservationsList = ({ userRole }: ReservationsListProps) => {
                 className="cursor-pointer hover:bg-muted/50 text-right"
                 onClick={() => handleSort('total_price')}
               >
-                Total {getSortIcon('total_price')}
+                Net Revenue {getSortIcon('total_price')}
+              </TableHead>
+              <TableHead className="text-right">
+                VAT (14%)
+              </TableHead>
+              <TableHead className="text-right">
+                Total Revenue
               </TableHead>
               <TableHead 
                 className="cursor-pointer hover:bg-muted/50"
@@ -1155,7 +1163,7 @@ export const ReservationsList = ({ userRole }: ReservationsListProps) => {
           <TableBody>
             {filteredReservations.length === 0 ? (
               <TableRow>
-                <TableCell colSpan={19} className="text-center text-muted-foreground">
+                <TableCell colSpan={21} className="text-center text-muted-foreground">
                   No reservations found
                 </TableCell>
               </TableRow>
@@ -1289,17 +1297,26 @@ export const ReservationsList = ({ userRole }: ReservationsListProps) => {
                     )}
                   </TableCell>
                   <TableCell 
+                    className="text-right cursor-pointer"
+                    onClick={() => navigate(`/reservation/${reservation.id}`)}
+                  >
+                    {reservation.total_price 
+                      ? `$${(Number(reservation.total_price) / 1.14).toFixed(2)}` 
+                      : '-'}
+                  </TableCell>
+                  <TableCell 
+                    className="text-right text-muted-foreground cursor-pointer"
+                    onClick={() => navigate(`/reservation/${reservation.id}`)}
+                  >
+                    {reservation.total_price 
+                      ? `$${(Number(reservation.total_price) - Number(reservation.total_price) / 1.14).toFixed(2)}` 
+                      : '-'}
+                  </TableCell>
+                  <TableCell 
                     className="text-right font-medium cursor-pointer"
                     onClick={() => navigate(`/reservation/${reservation.id}`)}
                   >
-                    {reservation.isGrouped && reservation.groupRooms ? (
-                      <div>
-                        ${reservation.groupRooms.reduce((sum, r) => sum + (Number(r.total_price) || 0), 0).toFixed(2)}
-                        <div className="text-xs text-muted-foreground">Combined</div>
-                      </div>
-                    ) : (
-                      reservation.total_price ? `$${Number(reservation.total_price).toFixed(2)}` : '-'
-                    )}
+                    {reservation.total_price ? `$${Number(reservation.total_price).toFixed(2)}` : '-'}
                   </TableCell>
                   <TableCell 
                     className="font-mono text-sm cursor-pointer"
