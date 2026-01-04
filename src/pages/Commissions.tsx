@@ -76,6 +76,7 @@ const Commissions = () => {
         .not('source', 'in', '("booking.com","direct website","Booking.com")')
         .not('commission_amount', 'is', null)
         .gt('commission_amount', 0)
+        .is('cancelled_at', null)
         .order('check_in_date', { ascending: false });
 
       if (error) throw error;
