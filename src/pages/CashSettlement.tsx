@@ -415,7 +415,7 @@ export default function CashSettlement() {
             <TableHead>Suite</TableHead>
             <TableHead>Room #</TableHead>
             <TableHead>Dates</TableHead>
-            <TableHead>Amount</TableHead>
+            <TableHead>Total Amount</TableHead>
             <TableHead>Payment</TableHead>
             <TableHead>Source</TableHead>
             <TableHead>Status</TableHead>
