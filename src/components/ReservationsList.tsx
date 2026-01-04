@@ -215,14 +215,20 @@ export const ReservationsList = ({ userRole }: ReservationsListProps) => {
     }
   };
 
+  // Check if a reservation is an extension (has -EXT suffix)
+  const isExtensionBooking = (bookingReference: string): boolean => {
+    return bookingReference?.toUpperCase().includes('-EXT');
+  };
+
   const processGroupedReservations = (reservationsList: Reservation[]): GroupedReservation[] => {
     const groupMap = new Map<string, Reservation[]>();
     const processedReservations: GroupedReservation[] = [];
     const processedGroupIds = new Set<string>();
 
-    // Group reservations by group_id
+    // Group reservations by group_id, but exclude extensions from grouping
+    // Extensions should always display as separate rows
     reservationsList.forEach(res => {
-      if (res.group_id) {
+      if (res.group_id && !isExtensionBooking(res.booking_reference)) {
         if (!groupMap.has(res.group_id)) {
           groupMap.set(res.group_id, []);
         }
@@ -232,7 +238,13 @@ export const ReservationsList = ({ userRole }: ReservationsListProps) => {
 
     // Process reservations
     reservationsList.forEach(res => {
-      if (res.group_id && groupMap.has(res.group_id)) {
+      // Extensions always display as individual rows, even if they have a group_id
+      if (isExtensionBooking(res.booking_reference)) {
+        processedReservations.push({
+          ...res,
+          isGrouped: false,
+        });
+      } else if (res.group_id && groupMap.has(res.group_id)) {
         const groupRooms = groupMap.get(res.group_id)!;
         
         // Only add the first reservation from each group
@@ -240,7 +252,7 @@ export const ReservationsList = ({ userRole }: ReservationsListProps) => {
           processedGroupIds.add(res.group_id);
           processedReservations.push({
             ...res,
-            isGrouped: true,
+            isGrouped: groupRooms.length > 1,
             groupCount: groupRooms.length,
             groupRooms: groupRooms,
           });
