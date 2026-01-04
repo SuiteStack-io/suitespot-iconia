@@ -129,7 +129,8 @@ export const RevenueBySource = () => {
     const { data, error } = await supabase
       .from('reservations')
       .select('source, total_price, commission_amount, net_revenue, guest_names, check_in_date, check_out_date, nights, payment_method, currency')
-      .neq('status', 'Cancelled');
+      .neq('status', 'Cancelled')
+      .is('cancelled_at', null);
 
     if (error) {
       console.error('Error fetching revenue by source:', error);

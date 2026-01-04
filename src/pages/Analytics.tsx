@@ -220,6 +220,7 @@ const Analytics = () => {
       .from('reservations')
       .select('total_price, net_revenue, commission_amount, channel, source')
       .neq('status', 'Cancelled')
+      .is('cancelled_at', null)
       .gte('check_in_date', startDate)
       .lte('check_in_date', endDate);
 
@@ -244,6 +245,7 @@ const Analytics = () => {
       .from('reservations')
       .select('*', { count: 'exact', head: true })
       .neq('status', 'Cancelled')
+      .is('cancelled_at', null)
       .gte('check_in_date', startDate)
       .lte('check_in_date', endDate);
       
@@ -254,6 +256,7 @@ const Analytics = () => {
       .from('reservations')
       .select('number_of_guests')
       .neq('status', 'Cancelled')
+      .is('cancelled_at', null)
       .gte('check_in_date', startDate)
       .lte('check_in_date', endDate);
     
@@ -287,6 +290,7 @@ const Analytics = () => {
       .from('reservations')
       .select('check_in_date, check_out_date, nights')
       .neq('status', 'Cancelled')
+      .is('cancelled_at', null)
       .gte('check_in_date', startDate)
       .lte('check_out_date', endDate);
     
@@ -325,6 +329,7 @@ const Analytics = () => {
       .from('reservations')
       .select('source, total_price, commission_amount, net_revenue')
       .neq('status', 'Cancelled')
+      .is('cancelled_at', null)
       .gte('check_in_date', startDate)
       .lte('check_in_date', endDate);
 
@@ -394,6 +399,7 @@ const Analytics = () => {
           .select('nights')
           .eq('unit_id', unit.id)
           .neq('status', 'Cancelled')
+          .is('cancelled_at', null)
           .gte('check_in_date', startDate)
           .lte('check_in_date', endDate);
 
@@ -444,6 +450,7 @@ const Analytics = () => {
       .from('reservations')
       .select('guest_names, check_in_date, check_out_date, nights, number_of_guests, source, payment_method, currency, units(name)')
       .neq('status', 'Cancelled')
+      .is('cancelled_at', null)
       .gte('check_in_date', startDate)
       .lte('check_in_date', endDate)
       .order('check_in_date', { ascending: false });
@@ -470,6 +477,7 @@ const Analytics = () => {
       .from('reservations')
       .select('guest_names, number_of_guests, check_in_date, check_out_date, payment_method, currency, units(name)')
       .neq('status', 'Cancelled')
+      .is('cancelled_at', null)
       .gte('check_in_date', startDate)
       .lte('check_in_date', endDate)
       .order('number_of_guests', { ascending: false });
@@ -494,6 +502,7 @@ const Analytics = () => {
       .from('reservations')
       .select('source, total_price, commission_amount, net_revenue')
       .neq('status', 'Cancelled')
+      .is('cancelled_at', null)
       .gte('check_in_date', startDate)
       .lte('check_in_date', endDate);
 
@@ -590,6 +599,7 @@ const Analytics = () => {
           .select('total_price')
           .eq('unit_id', unit.id)
           .neq('status', 'Cancelled')
+          .is('cancelled_at', null)
           .gte('check_in_date', startDate)
           .lte('check_in_date', endDate);
 
@@ -628,6 +638,7 @@ const Analytics = () => {
           .select('total_price, commission_amount, net_revenue')
           .eq('unit_id', unit.id)
           .neq('status', 'Cancelled')
+          .is('cancelled_at', null)
           .gte('check_in_date', startDate)
           .lte('check_in_date', endDate);
 
@@ -667,6 +678,7 @@ const Analytics = () => {
       .from('reservations')
       .select('source, total_price, commission_amount, commission_rate')
       .neq('status', 'Cancelled')
+      .is('cancelled_at', null)
       .gte('check_in_date', startDate)
       .lte('check_in_date', endDate);
 

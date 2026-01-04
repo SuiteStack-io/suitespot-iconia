@@ -87,6 +87,7 @@ export const RevenueByGuests = ({ mainDateRange }: RevenueByGuestsProps) => {
       .from('reservations')
       .select('id, guest_names, unit_id, price_per_night, total_price, guest_nationality, nights, payment_method, currency, units(unit_number)')
       .neq('status', 'Cancelled')
+      .is('cancelled_at', null)
       .gte('check_in_date', startDate)
       .lte('check_out_date', endDate);
 

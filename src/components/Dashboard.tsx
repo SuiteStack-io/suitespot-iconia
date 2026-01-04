@@ -144,14 +144,16 @@ export const Dashboard = () => {
       .from('reservations')
       .select('id', { count: 'exact' })
       .eq('check_in_date', today)
-      .neq('status', 'cancelled');
+      .neq('status', 'cancelled')
+      .is('cancelled_at', null);
 
     // Today's departures
     const { data: departures } = await supabase
       .from('reservations')
       .select('id', { count: 'exact' })
       .eq('check_out_date', today)
-      .neq('status', 'cancelled');
+      .neq('status', 'cancelled')
+      .is('cancelled_at', null);
 
     // In-house count (reservations that are currently checked-in)
     const { data: inHouse } = await supabase
@@ -163,7 +165,8 @@ export const Dashboard = () => {
     const { data: newBookings } = await supabase
       .from('reservations')
       .select('id', { count: 'exact' })
-      .gte('created_at', yesterday);
+      .gte('created_at', yesterday)
+      .is('cancelled_at', null);
 
     // Recent cancellations (last 7 days)
     const { data: cancellations } = await supabase
@@ -176,7 +179,8 @@ export const Dashboard = () => {
     const { data: revenueData } = await supabase
       .from('reservations')
       .select('total_price, net_revenue, commission_amount')
-      .neq('status', 'cancelled');
+      .neq('status', 'cancelled')
+      .is('cancelled_at', null);
 
     const totalRevenue = revenueData?.reduce((sum, r) => sum + (r.total_price || 0), 0) || 0;
     const netRevenue = revenueData?.reduce((sum, r) => sum + (r.net_revenue || 0), 0) || 0;
