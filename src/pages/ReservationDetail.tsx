@@ -897,7 +897,7 @@ Thank you for choosing SuiteSpot!`;
             {/* Mobile back button - icon only */}
             <Button 
               variant="ghost" 
-              onClick={() => navigate('/admin')}
+              onClick={() => navigate('/reservations-list')}
               className="md:hidden"
               size="icon"
             >
@@ -907,7 +907,7 @@ Thank you for choosing SuiteSpot!`;
             {/* Desktop back button with text */}
             <Button 
               variant="ghost" 
-              onClick={() => navigate('/admin')}
+              onClick={() => navigate('/reservations-list')}
               className="hidden md:flex items-center gap-2"
             >
               <ArrowLeft className="h-4 w-4" />
