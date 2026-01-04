@@ -221,52 +221,11 @@ export const ReservationsList = ({ userRole }: ReservationsListProps) => {
   };
 
   const processGroupedReservations = (reservationsList: Reservation[]): GroupedReservation[] => {
-    const groupMap = new Map<string, Reservation[]>();
-    const processedReservations: GroupedReservation[] = [];
-    const processedGroupIds = new Set<string>();
-
-    // Group reservations by group_id, but exclude extensions from grouping
-    // Extensions should always display as separate rows
-    reservationsList.forEach(res => {
-      if (res.group_id && !isExtensionBooking(res.booking_reference)) {
-        if (!groupMap.has(res.group_id)) {
-          groupMap.set(res.group_id, []);
-        }
-        groupMap.get(res.group_id)!.push(res);
-      }
-    });
-
-    // Process reservations
-    reservationsList.forEach(res => {
-      // Extensions always display as individual rows, even if they have a group_id
-      if (isExtensionBooking(res.booking_reference)) {
-        processedReservations.push({
-          ...res,
-          isGrouped: false,
-        });
-      } else if (res.group_id && groupMap.has(res.group_id)) {
-        const groupRooms = groupMap.get(res.group_id)!;
-        
-        // Only add the first reservation from each group
-        if (!processedGroupIds.has(res.group_id)) {
-          processedGroupIds.add(res.group_id);
-          processedReservations.push({
-            ...res,
-            isGrouped: groupRooms.length > 1,
-            groupCount: groupRooms.length,
-            groupRooms: groupRooms,
-          });
-        }
-      } else {
-        // Single reservation (no group)
-        processedReservations.push({
-          ...res,
-          isGrouped: false,
-        });
-      }
-    });
-
-    return processedReservations;
+    // No grouping - every reservation is displayed as its own row
+    return reservationsList.map(res => ({
+      ...res,
+      isGrouped: false,
+    }));
   };
 
   const fetchUnits = async () => {
