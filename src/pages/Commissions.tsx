@@ -225,19 +225,29 @@ const Commissions = () => {
   };
 
   const exportToExcel = () => {
-    const formatRow = (r: Reservation) => ({
-      'Team Member': r.source,
-      'Booking Reference': r.booking_reference,
-      'Suite': r.units?.booking_com_name || r.units?.name || 'Unassigned',
-      'Room #': r.units?.unit_number || '-',
-      'Guest': r.guest_names?.[0] || 'N/A',
-      'Check-in': format(new Date(r.check_in_date), 'MMM d, yyyy'),
-      'Check-out': format(new Date(r.check_out_date), 'MMM d, yyyy'),
-      'Revenue': r.total_price || 0,
-      'Commission': r.commission_amount || 0,
-      'Status': r.commission_paid === 'yes' ? 'Paid' : 'Unpaid',
-      'Paid On': r.commission_paid_at ? format(new Date(r.commission_paid_at), 'MMM d, yyyy') : '-',
-    });
+    const calcVAT = (totalPrice: number) => {
+      const netAmount = totalPrice / 1.14;
+      const vatAmount = totalPrice - netAmount;
+      return { netAmount, vatAmount };
+    };
+
+    const formatRow = (r: Reservation) => {
+      const vat = calcVAT(r.total_price || 0);
+      return {
+        'Team Member': r.source,
+        'Booking Reference': r.booking_reference,
+        'Suite': r.units?.booking_com_name || r.units?.name || 'Unassigned',
+        'Room #': r.units?.unit_number || '-',
+        'Guest': r.guest_names?.[0] || 'N/A',
+        'Check-in': format(new Date(r.check_in_date), 'MMM d, yyyy'),
+        'Check-out': format(new Date(r.check_out_date), 'MMM d, yyyy'),
+        'Revenue': r.total_price || 0,
+        'VAT (14%)': vat.vatAmount,
+        'Commission': r.commission_amount || 0,
+        'Status': r.commission_paid === 'yes' ? 'Paid' : 'Unpaid',
+        'Paid On': r.commission_paid_at ? format(new Date(r.commission_paid_at), 'MMM d, yyyy') : '-',
+      };
+    };
 
     const wb = XLSX.utils.book_new();
 
@@ -253,6 +263,7 @@ const Commissions = () => {
         'Check-in': '', 
         'Check-out': '', 
         'Revenue': unpaidCommissions.reduce((sum, r) => sum + (r.total_price || 0), 0), 
+        'VAT (14%)': unpaidCommissions.reduce((sum, r) => sum + calcVAT(r.total_price || 0).vatAmount, 0),
         'Commission': totalUnpaid, 
         'Status': '',
         'Paid On': ''
@@ -273,6 +284,7 @@ const Commissions = () => {
         'Check-in': '', 
         'Check-out': '', 
         'Revenue': paidCommissions.reduce((sum, r) => sum + (r.total_price || 0), 0), 
+        'VAT (14%)': paidCommissions.reduce((sum, r) => sum + calcVAT(r.total_price || 0).vatAmount, 0),
         'Commission': totalPaid, 
         'Status': '',
         'Paid On': ''
@@ -315,6 +327,12 @@ const Commissions = () => {
 
   const formatCurrency = (amount: number) => {
     return new Intl.NumberFormat('en-US', { style: 'currency', currency: 'USD' }).format(amount);
+  };
+
+  const calculateVAT = (totalPrice: number) => {
+    const netAmount = totalPrice / 1.14;
+    const vatAmount = totalPrice - netAmount;
+    return { netAmount, vatAmount };
   };
 
   if (loading || isLoading) {
@@ -559,6 +577,7 @@ const Commissions = () => {
                       <TableHead className="hidden lg:table-cell">Check-in</TableHead>
                       <TableHead className="hidden lg:table-cell">Check-out</TableHead>
                       <TableHead className="text-right">Revenue</TableHead>
+                      <TableHead className="text-right hidden lg:table-cell">VAT (14%)</TableHead>
                       <TableHead className="text-right">Commission</TableHead>
                       <TableHead>Action</TableHead>
                     </TableRow>
@@ -594,6 +613,9 @@ const Commissions = () => {
                           {format(new Date(reservation.check_out_date), 'MMM dd, yyyy')}
                         </TableCell>
                         <TableCell className="text-right">{formatCurrency(reservation.total_price || 0)}</TableCell>
+                        <TableCell className="text-right hidden lg:table-cell text-muted-foreground">
+                          {formatCurrency(calculateVAT(reservation.total_price || 0).vatAmount)}
+                        </TableCell>
                         <TableCell className="text-right font-semibold text-amber-600">
                           {formatCurrency(reservation.commission_amount || 0)}
                         </TableCell>
@@ -625,6 +647,9 @@ const Commissions = () => {
                       <TableCell colSpan={7} className="font-semibold">Total</TableCell>
                       <TableCell className="text-right font-semibold">
                         {formatCurrency(unpaidCommissions.reduce((sum, r) => sum + (r.total_price || 0), 0))}
+                      </TableCell>
+                      <TableCell className="text-right hidden lg:table-cell text-muted-foreground">
+                        {formatCurrency(unpaidCommissions.reduce((sum, r) => sum + calculateVAT(r.total_price || 0).vatAmount, 0))}
                       </TableCell>
                       <TableCell className="text-right font-semibold text-amber-600">
                         {formatCurrency(totalUnpaid)}
@@ -671,6 +696,7 @@ const Commissions = () => {
                       <TableHead className="hidden lg:table-cell">Check-in</TableHead>
                       <TableHead className="hidden lg:table-cell">Check-out</TableHead>
                       <TableHead className="text-right">Revenue</TableHead>
+                      <TableHead className="text-right hidden lg:table-cell">VAT (14%)</TableHead>
                       <TableHead className="text-right">Commission</TableHead>
                       <TableHead className="hidden md:table-cell">Paid On</TableHead>
                       <TableHead>Action</TableHead>
@@ -697,6 +723,9 @@ const Commissions = () => {
                           {format(new Date(reservation.check_out_date), 'MMM dd, yyyy')}
                         </TableCell>
                         <TableCell className="text-right">{formatCurrency(reservation.total_price || 0)}</TableCell>
+                        <TableCell className="text-right hidden lg:table-cell text-muted-foreground">
+                          {formatCurrency(calculateVAT(reservation.total_price || 0).vatAmount)}
+                        </TableCell>
                         <TableCell className="text-right font-semibold text-emerald-600">
                           {formatCurrency(reservation.commission_amount || 0)}
                         </TableCell>
@@ -732,6 +761,9 @@ const Commissions = () => {
                       <TableCell colSpan={7} className="font-semibold">Total</TableCell>
                       <TableCell className="text-right font-semibold">
                         {formatCurrency(paidCommissions.reduce((sum, r) => sum + (r.total_price || 0), 0))}
+                      </TableCell>
+                      <TableCell className="text-right hidden lg:table-cell text-muted-foreground">
+                        {formatCurrency(paidCommissions.reduce((sum, r) => sum + calculateVAT(r.total_price || 0).vatAmount, 0))}
                       </TableCell>
                       <TableCell className="text-right font-semibold text-emerald-600">
                         {formatCurrency(totalPaid)}
