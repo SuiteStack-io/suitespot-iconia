@@ -620,6 +620,7 @@ const Commissions = () => {
                       <TableHead className="text-right">Price/Night</TableHead>
                       <TableHead className="text-center">Nights</TableHead>
                       <TableHead className="hidden md:table-cell">Guest</TableHead>
+                      <TableHead className="hidden md:table-cell">Status</TableHead>
                       <TableHead className="hidden lg:table-cell">Check-in</TableHead>
                       <TableHead className="hidden lg:table-cell">Check-out</TableHead>
                       <TableHead className="text-right">Net Revenue</TableHead>
@@ -654,6 +655,25 @@ const Commissions = () => {
                         <TableCell className="text-right">{formatCurrency(reservation.price_per_night || 0)}</TableCell>
                         <TableCell className="text-center">{reservation.nights || 0}</TableCell>
                         <TableCell className="hidden md:table-cell">{reservation.guest_names?.[0] || 'N/A'}</TableCell>
+                        <TableCell className="hidden md:table-cell">
+                          <Badge 
+                            variant={
+                              reservation.status === 'checked-in' ? 'default' : 
+                              reservation.status === 'completed' ? 'secondary' : 
+                              'outline'
+                            }
+                            className={
+                              reservation.status === 'checked-in' ? 'bg-green-500' : 
+                              reservation.status === 'completed' ? 'bg-blue-500 text-white' : 
+                              ''
+                            }
+                          >
+                            {reservation.status === 'checked-in' ? 'Checked In' : 
+                             reservation.status === 'completed' ? 'Completed' : 
+                             reservation.status === 'confirmed' ? 'Confirmed' : 
+                             reservation.status}
+                          </Badge>
+                        </TableCell>
                         <TableCell className="hidden lg:table-cell">
                           {format(new Date(reservation.check_in_date), 'MMM dd, yyyy')}
                         </TableCell>
@@ -695,6 +715,7 @@ const Commissions = () => {
                       <TableCell colSpan={5} className="font-semibold">Total</TableCell>
                       <TableCell></TableCell>
                       <TableCell></TableCell>
+                      <TableCell className="hidden md:table-cell"></TableCell>
                       <TableCell className="hidden md:table-cell"></TableCell>
                       <TableCell className="hidden lg:table-cell"></TableCell>
                       <TableCell className="hidden lg:table-cell"></TableCell>
@@ -748,6 +769,7 @@ const Commissions = () => {
                       <TableHead className="text-right">Price/Night</TableHead>
                       <TableHead className="text-center">Nights</TableHead>
                       <TableHead className="hidden md:table-cell">Guest</TableHead>
+                      <TableHead className="hidden md:table-cell">Status</TableHead>
                       <TableHead className="hidden lg:table-cell">Check-in</TableHead>
                       <TableHead className="hidden lg:table-cell">Check-out</TableHead>
                       <TableHead className="text-right">Net Revenue</TableHead>
@@ -773,6 +795,25 @@ const Commissions = () => {
                         <TableCell className="text-right">{formatCurrency(reservation.price_per_night || 0)}</TableCell>
                         <TableCell className="text-center">{reservation.nights || 0}</TableCell>
                         <TableCell className="hidden md:table-cell">{reservation.guest_names?.[0] || 'N/A'}</TableCell>
+                        <TableCell className="hidden md:table-cell">
+                          <Badge 
+                            variant={
+                              reservation.status === 'checked-in' ? 'default' : 
+                              reservation.status === 'completed' ? 'secondary' : 
+                              'outline'
+                            }
+                            className={
+                              reservation.status === 'checked-in' ? 'bg-green-500' : 
+                              reservation.status === 'completed' ? 'bg-blue-500 text-white' : 
+                              ''
+                            }
+                          >
+                            {reservation.status === 'checked-in' ? 'Checked In' : 
+                             reservation.status === 'completed' ? 'Completed' : 
+                             reservation.status === 'confirmed' ? 'Confirmed' : 
+                             reservation.status}
+                          </Badge>
+                        </TableCell>
                         <TableCell className="hidden lg:table-cell">
                           {format(new Date(reservation.check_in_date), 'MMM dd, yyyy')}
                         </TableCell>
@@ -818,6 +859,7 @@ const Commissions = () => {
                       <TableCell colSpan={5} className="font-semibold">Total</TableCell>
                       <TableCell></TableCell>
                       <TableCell></TableCell>
+                      <TableCell className="hidden md:table-cell"></TableCell>
                       <TableCell className="hidden md:table-cell"></TableCell>
                       <TableCell className="hidden lg:table-cell"></TableCell>
                       <TableCell className="hidden lg:table-cell"></TableCell>
