@@ -10,6 +10,16 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/u
 import { Table, TableBody, TableCell, TableFooter, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Badge } from '@/components/ui/badge';
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from "@/components/ui/alert-dialog";
 import { Checkbox } from '@/components/ui/checkbox';
 import { ArrowLeft, Banknote, CreditCard, CheckCircle, CheckCircle2, Clock, Download, X } from 'lucide-react';
 import { format } from 'date-fns';
@@ -42,6 +52,7 @@ export default function CashSettlement() {
   const [activeModal, setActiveModal] = useState<ModalType>(null);
   const [sourceFilter, setSourceFilter] = useState<string>('all');
   const [selectedReservations, setSelectedReservations] = useState<Set<string>>(new Set());
+  const [showBulkSettleDialog, setShowBulkSettleDialog] = useState(false);
 
   // Fetch reservations excluding booking.com and cancelled
   const { data: reservations = [], isLoading } = useQuery({
@@ -107,7 +118,12 @@ export default function CashSettlement() {
 
   const handleBulkSettle = () => {
     if (selectedReservations.size === 0) return;
+    setShowBulkSettleDialog(true);
+  };
+
+  const confirmBulkSettle = () => {
     bulkSettleMutation.mutate(Array.from(selectedReservations));
+    setShowBulkSettleDialog(false);
   };
 
   // Calculate stats
@@ -558,6 +574,24 @@ export default function CashSettlement() {
           </div>
         </DialogContent>
       </Dialog>
+
+      {/* Bulk Settle Confirmation Dialog */}
+      <AlertDialog open={showBulkSettleDialog} onOpenChange={setShowBulkSettleDialog}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Confirm Bulk Settlement</AlertDialogTitle>
+            <AlertDialogDescription>
+              Are you sure you want to settle {selectedCount} reservation{selectedCount > 1 ? 's' : ''} totaling {formatCurrency(selectedTotal)}? This action cannot be undone.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>Cancel</AlertDialogCancel>
+            <AlertDialogAction onClick={confirmBulkSettle} className="bg-green-600 hover:bg-green-700">
+              Settle {selectedCount} Reservation{selectedCount > 1 ? 's' : ''}
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </div>
   );
 }
