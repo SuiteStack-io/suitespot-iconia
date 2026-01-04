@@ -865,6 +865,7 @@ export type Database = {
           total_price: number | null
           unit_id: string | null
           updated_at: string
+          vat_exempt: boolean | null
         }
         Insert: {
           adults?: number | null
@@ -917,6 +918,7 @@ export type Database = {
           total_price?: number | null
           unit_id?: string | null
           updated_at?: string
+          vat_exempt?: boolean | null
         }
         Update: {
           adults?: number | null
@@ -969,6 +971,7 @@ export type Database = {
           total_price?: number | null
           unit_id?: string | null
           updated_at?: string
+          vat_exempt?: boolean | null
         }
         Relationships: [
           {
