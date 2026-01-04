@@ -135,6 +135,10 @@ const Commissions = () => {
   const totalPaid = paidCommissions.reduce((sum, r) => sum + (r.commission_amount || 0), 0);
   const grandTotal = totalUnpaid + totalPaid;
 
+  // Calculate totals for selected reservations
+  const selectedCommissions = unpaidCommissions.filter(r => selectedIds.has(r.id));
+  const totalSelectedCommission = selectedCommissions.reduce((sum, r) => sum + calculateCommission(r), 0);
+
   const handleQuickFilter = (type: 'thisMonth' | 'lastMonth' | 'all') => {
     const now = new Date();
     if (type === 'thisMonth') {
@@ -585,14 +589,19 @@ const Commissions = () => {
                 </CardDescription>
               </div>
               {selectedIds.size > 0 && (
-                <Button 
-                  onClick={handleBulkMarkPaid} 
-                  disabled={bulkUpdating}
-                  className="gap-2 bg-emerald-600 hover:bg-emerald-700"
-                >
-                  <CheckCheck className="h-4 w-4" />
-                  Mark {selectedIds.size} as Paid
-                </Button>
+                <div className="flex items-center gap-4">
+                  <span className="text-sm text-muted-foreground">
+                    {selectedIds.size} selected · Commission: <span className="font-semibold text-foreground">{formatCurrency(totalSelectedCommission)}</span>
+                  </span>
+                  <Button 
+                    onClick={handleBulkMarkPaid} 
+                    disabled={bulkUpdating}
+                    className="gap-2 bg-emerald-600 hover:bg-emerald-700"
+                  >
+                    <CheckCheck className="h-4 w-4" />
+                    Mark {selectedIds.size} as Paid
+                  </Button>
+                </div>
               )}
             </div>
           </CardHeader>
