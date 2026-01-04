@@ -10,7 +10,8 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/u
 import { Table, TableBody, TableCell, TableFooter, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Badge } from '@/components/ui/badge';
-import { ArrowLeft, Banknote, CreditCard, CheckCircle, Clock, Download } from 'lucide-react';
+import { Checkbox } from '@/components/ui/checkbox';
+import { ArrowLeft, Banknote, CreditCard, CheckCircle, CheckCircle2, Clock, Download, X } from 'lucide-react';
 import { format } from 'date-fns';
 import { toast } from 'sonner';
 import * as XLSX from 'xlsx';
@@ -40,6 +41,7 @@ export default function CashSettlement() {
   
   const [activeModal, setActiveModal] = useState<ModalType>(null);
   const [sourceFilter, setSourceFilter] = useState<string>('all');
+  const [selectedReservations, setSelectedReservations] = useState<Set<string>>(new Set());
 
   // Fetch reservations excluding booking.com and cancelled
   const { data: reservations = [], isLoading } = useQuery({
@@ -68,14 +70,45 @@ export default function CashSettlement() {
       
       if (error) throw error;
     },
-    onSuccess: () => {
+    onSuccess: (_, reservationId) => {
       queryClient.invalidateQueries({ queryKey: ['cash-settlement-reservations'] });
       toast.success('Reservation marked as settled');
+      // Remove from selection if it was selected
+      setSelectedReservations(prev => {
+        const newSet = new Set(prev);
+        newSet.delete(reservationId);
+        return newSet;
+      });
     },
     onError: (error) => {
       toast.error('Failed to settle reservation: ' + error.message);
     },
   });
+
+  // Bulk settle mutation
+  const bulkSettleMutation = useMutation({
+    mutationFn: async (reservationIds: string[]) => {
+      const { error } = await supabase
+        .from('reservations')
+        .update({ settled: 'yes' })
+        .in('id', reservationIds);
+      
+      if (error) throw error;
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['cash-settlement-reservations'] });
+      toast.success(`${selectedReservations.size} reservations settled successfully`);
+      setSelectedReservations(new Set());
+    },
+    onError: (error) => {
+      toast.error('Failed to settle reservations: ' + error.message);
+    },
+  });
+
+  const handleBulkSettle = () => {
+    if (selectedReservations.size === 0) return;
+    bulkSettleMutation.mutate(Array.from(selectedReservations));
+  };
 
   // Calculate stats
   const stats = useMemo(() => {
@@ -122,6 +155,15 @@ export default function CashSettlement() {
   const unsettledCashReservations = filteredCashReservations.filter(r => r.settled !== 'yes');
   const settledCashReservations = filteredCashReservations.filter(r => r.settled === 'yes');
 
+  // Calculate selected totals
+  const selectedTotal = useMemo(() => {
+    return unsettledCashReservations
+      .filter(r => selectedReservations.has(r.id))
+      .reduce((sum, r) => sum + (r.total_price || 0), 0);
+  }, [unsettledCashReservations, selectedReservations]);
+
+  const selectedCount = selectedReservations.size;
+
   // Get unique sources for filter
   const uniqueSources = useMemo(() => {
     const sources = new Set(reservations.map(r => r.source));
@@ -130,6 +172,24 @@ export default function CashSettlement() {
 
   const formatCurrency = (amount: number) => {
     return new Intl.NumberFormat('en-US', { style: 'currency', currency: 'USD' }).format(amount);
+  };
+
+  const handleSelectAll = (checked: boolean) => {
+    if (checked) {
+      setSelectedReservations(new Set(unsettledCashReservations.map(r => r.id)));
+    } else {
+      setSelectedReservations(new Set());
+    }
+  };
+
+  const handleSelectReservation = (reservationId: string, checked: boolean) => {
+    const newSet = new Set(selectedReservations);
+    if (checked) {
+      newSet.add(reservationId);
+    } else {
+      newSet.delete(reservationId);
+    }
+    setSelectedReservations(newSet);
   };
 
   const exportToExcel = () => {
@@ -198,11 +258,26 @@ export default function CashSettlement() {
 
   const ReservationTable = ({ data, showSettleAction = false }: { data: Reservation[]; showSettleAction?: boolean }) => {
     const tableTotal = data.reduce((sum, r) => sum + (r.total_price || 0), 0);
+    const isAllSelected = showSettleAction && data.length > 0 && data.every(r => selectedReservations.has(r.id));
+    const isSomeSelected = showSettleAction && data.some(r => selectedReservations.has(r.id));
     
     return (
       <Table>
         <TableHeader>
           <TableRow>
+            {showSettleAction && (
+              <TableHead className="w-12">
+                <Checkbox 
+                  checked={isAllSelected}
+                  ref={(el) => {
+                    if (el) {
+                      (el as HTMLButtonElement).dataset.state = isSomeSelected && !isAllSelected ? 'indeterminate' : isAllSelected ? 'checked' : 'unchecked';
+                    }
+                  }}
+                  onCheckedChange={(checked) => handleSelectAll(!!checked)}
+                />
+              </TableHead>
+            )}
             <TableHead>Booking Ref</TableHead>
             <TableHead>Guest</TableHead>
             <TableHead>Suite</TableHead>
@@ -217,13 +292,21 @@ export default function CashSettlement() {
         <TableBody>
           {data.length === 0 ? (
             <TableRow>
-              <TableCell colSpan={showSettleAction ? 9 : 8} className="text-center text-muted-foreground py-8">
+              <TableCell colSpan={showSettleAction ? 10 : 8} className="text-center text-muted-foreground py-8">
                 No reservations found
               </TableCell>
             </TableRow>
           ) : (
             data.map((r) => (
-              <TableRow key={r.id}>
+              <TableRow key={r.id} className={selectedReservations.has(r.id) ? 'bg-primary/5' : ''}>
+                {showSettleAction && (
+                  <TableCell>
+                    <Checkbox 
+                      checked={selectedReservations.has(r.id)}
+                      onCheckedChange={(checked) => handleSelectReservation(r.id, !!checked)}
+                    />
+                  </TableCell>
+                )}
                 <TableCell className="font-mono text-sm">{r.booking_reference}</TableCell>
                 <TableCell>{r.guest_names?.[0] || 'N/A'}</TableCell>
                 <TableCell>{r.units?.booking_com_name || 'Unassigned'}</TableCell>
@@ -256,7 +339,7 @@ export default function CashSettlement() {
         {data.length > 0 && (
           <TableFooter>
             <TableRow className="bg-muted/50">
-              <TableCell colSpan={5} className="text-right font-semibold">
+              <TableCell colSpan={showSettleAction ? 6 : 5} className="text-right font-semibold">
                 Total ({data.length} reservations)
               </TableCell>
               <TableCell className="font-bold text-lg">{formatCurrency(tableTotal)}</TableCell>
@@ -382,6 +465,40 @@ export default function CashSettlement() {
             Export to Excel
           </Button>
         </div>
+
+        {/* Selection Summary Bar */}
+        {selectedCount > 0 && (
+          <div className="bg-primary/10 border border-primary/20 rounded-lg p-4 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
+            <div className="flex items-center gap-4">
+              <span className="font-medium text-primary">
+                {selectedCount} reservation{selectedCount > 1 ? 's' : ''} selected
+              </span>
+              <span className="text-foreground font-bold text-lg">
+                Total: {formatCurrency(selectedTotal)}
+              </span>
+            </div>
+            <div className="flex gap-2">
+              <Button 
+                variant="outline" 
+                size="sm"
+                onClick={() => setSelectedReservations(new Set())}
+                className="gap-1"
+              >
+                <X className="h-4 w-4" />
+                Clear
+              </Button>
+              <Button 
+                size="sm"
+                onClick={handleBulkSettle}
+                disabled={bulkSettleMutation.isPending}
+                className="bg-emerald-600 hover:bg-emerald-700 gap-2"
+              >
+                <CheckCircle2 className="h-4 w-4" />
+                Settle Selected ({selectedCount})
+              </Button>
+            </div>
+          </div>
+        )}
 
         {/* Unsettled Cash Table */}
         <Card>
