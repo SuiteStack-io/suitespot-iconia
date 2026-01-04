@@ -72,6 +72,7 @@ export default function CashSettlement() {
         .in('payment_method', ['cash', 'credit_card'])
         .neq('source', 'booking.com')
         .not('status', 'ilike', '%cancelled%')
+        .is('cancelled_at', null)
         .order('check_in_date', { ascending: false });
       
       if (error) throw error;
@@ -417,13 +418,14 @@ export default function CashSettlement() {
             <TableHead>Amount</TableHead>
             <TableHead>Payment</TableHead>
             <TableHead>Source</TableHead>
+            <TableHead>Status</TableHead>
             {(showSettleAction || showUnsettleAction) && <TableHead>Action</TableHead>}
           </TableRow>
         </TableHeader>
         <TableBody>
           {data.length === 0 ? (
             <TableRow>
-              <TableCell colSpan={hasCheckbox ? 10 : 8} className="text-center text-muted-foreground py-8">
+              <TableCell colSpan={hasCheckbox ? 11 : 9} className="text-center text-muted-foreground py-8">
                 No reservations found
               </TableCell>
             </TableRow>
@@ -452,6 +454,25 @@ export default function CashSettlement() {
                   </Badge>
                 </TableCell>
                 <TableCell className="capitalize">{r.source}</TableCell>
+                <TableCell>
+                  <Badge 
+                    variant={
+                      r.status === 'checked-in' ? 'default' : 
+                      r.status === 'completed' ? 'secondary' : 
+                      'outline'
+                    }
+                    className={
+                      r.status === 'checked-in' ? 'bg-green-500' : 
+                      r.status === 'completed' ? 'bg-blue-500 text-white' : 
+                      ''
+                    }
+                  >
+                    {r.status === 'checked-in' ? 'Checked In' : 
+                     r.status === 'completed' ? 'Completed' : 
+                     r.status === 'confirmed' ? 'Confirmed' : 
+                     r.status}
+                  </Badge>
+                </TableCell>
                 {showSettleAction && (
                   <TableCell>
                     <Button
@@ -503,7 +524,7 @@ export default function CashSettlement() {
                 Total ({data.length} reservations)
               </TableCell>
               <TableCell className="font-bold text-lg">{formatCurrency(tableTotal)}</TableCell>
-              <TableCell colSpan={(showSettleAction || showUnsettleAction) ? 3 : 2}></TableCell>
+              <TableCell colSpan={(showSettleAction || showUnsettleAction) ? 4 : 3}></TableCell>
             </TableRow>
           </TableFooter>
         )}
