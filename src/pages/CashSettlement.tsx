@@ -10,6 +10,8 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/u
 import { Table, TableBody, TableCell, TableFooter, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Badge } from '@/components/ui/badge';
+import { Calendar } from '@/components/ui/calendar';
+import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
 import {
   AlertDialog,
   AlertDialogAction,
@@ -21,10 +23,12 @@ import {
   AlertDialogTitle,
 } from "@/components/ui/alert-dialog";
 import { Checkbox } from '@/components/ui/checkbox';
-import { ArrowLeft, Banknote, CreditCard, CheckCircle, CheckCircle2, Clock, Download, X } from 'lucide-react';
-import { format } from 'date-fns';
+import { ArrowLeft, Banknote, CreditCard, CheckCircle, CheckCircle2, Clock, Download, X, CalendarIcon } from 'lucide-react';
+import { format, startOfMonth, endOfMonth, subMonths } from 'date-fns';
 import { toast } from 'sonner';
 import * as XLSX from 'xlsx';
+import { cn } from '@/lib/utils';
+import { DateRange } from 'react-day-picker';
 
 type Reservation = {
   id: string;
@@ -55,6 +59,8 @@ export default function CashSettlement() {
   const [showBulkSettleDialog, setShowBulkSettleDialog] = useState(false);
   const [selectedSettledReservations, setSelectedSettledReservations] = useState<Set<string>>(new Set());
   const [showBulkUnsettleDialog, setShowBulkUnsettleDialog] = useState(false);
+  const [dateRange, setDateRange] = useState<DateRange | undefined>(undefined);
+  const [dateFilterType, setDateFilterType] = useState<'check_in' | 'check_out'>('check_in');
 
   // Fetch reservations excluding booking.com and cancelled
   const { data: reservations = [], isLoading } = useQuery({
@@ -182,23 +188,45 @@ export default function CashSettlement() {
     };
   }, [reservations]);
 
+  // Helper function to check if reservation falls within date range
+  const isInDateRange = (reservation: Reservation): boolean => {
+    if (!dateRange?.from) return true;
+    
+    const dateToCheck = dateFilterType === 'check_in' 
+      ? new Date(reservation.check_in_date) 
+      : new Date(reservation.check_out_date);
+    
+    const fromDate = new Date(dateRange.from);
+    fromDate.setHours(0, 0, 0, 0);
+    
+    if (dateRange.to) {
+      const toDate = new Date(dateRange.to);
+      toDate.setHours(23, 59, 59, 999);
+      return dateToCheck >= fromDate && dateToCheck <= toDate;
+    }
+    
+    return dateToCheck >= fromDate && dateToCheck < new Date(fromDate.getTime() + 24 * 60 * 60 * 1000);
+  };
+
   // Filter reservations for main tables - cash only for settled/unsettled
   const filteredCashReservations = useMemo(() => {
     return reservations.filter(r => {
       if (r.payment_method !== 'cash') return false;
       if (sourceFilter !== 'all' && r.source !== sourceFilter) return false;
+      if (!isInDateRange(r)) return false;
       return true;
     });
-  }, [reservations, sourceFilter]);
+  }, [reservations, sourceFilter, dateRange, dateFilterType]);
 
   // Card reservations (separate table)
   const filteredCardReservations = useMemo(() => {
     return reservations.filter(r => {
       if (r.payment_method !== 'credit_card') return false;
       if (sourceFilter !== 'all' && r.source !== sourceFilter) return false;
+      if (!isInDateRange(r)) return false;
       return true;
     });
-  }, [reservations, sourceFilter]);
+  }, [reservations, sourceFilter, dateRange, dateFilterType]);
 
   const unsettledCashReservations = filteredCashReservations.filter(r => r.settled !== 'yes');
   const settledCashReservations = filteredCashReservations.filter(r => r.settled === 'yes');
@@ -578,19 +606,109 @@ export default function CashSettlement() {
 
         {/* Filters */}
         <div className="flex flex-wrap gap-4 items-center justify-between">
-          <Select value={sourceFilter} onValueChange={setSourceFilter}>
-            <SelectTrigger className="w-[180px]">
-              <SelectValue placeholder="Source" />
-            </SelectTrigger>
-            <SelectContent>
-              <SelectItem value="all">All Sources</SelectItem>
-              {uniqueSources.map((source) => (
-                <SelectItem key={source} value={source} className="capitalize">
-                  {source}
-                </SelectItem>
-              ))}
-            </SelectContent>
-          </Select>
+          <div className="flex flex-wrap gap-3 items-center">
+            <Select value={sourceFilter} onValueChange={setSourceFilter}>
+              <SelectTrigger className="w-[180px]">
+                <SelectValue placeholder="Source" />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="all">All Sources</SelectItem>
+                {uniqueSources.map((source) => (
+                  <SelectItem key={source} value={source} className="capitalize">
+                    {source}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+
+            <Select value={dateFilterType} onValueChange={(v) => setDateFilterType(v as 'check_in' | 'check_out')}>
+              <SelectTrigger className="w-[140px]">
+                <SelectValue />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="check_in">Check-in</SelectItem>
+                <SelectItem value="check_out">Check-out</SelectItem>
+              </SelectContent>
+            </Select>
+
+            <Popover>
+              <PopoverTrigger asChild>
+                <Button
+                  variant="outline"
+                  className={cn(
+                    "w-[280px] justify-start text-left font-normal",
+                    !dateRange?.from && "text-muted-foreground"
+                  )}
+                >
+                  <CalendarIcon className="mr-2 h-4 w-4" />
+                  {dateRange?.from ? (
+                    dateRange.to ? (
+                      <>
+                        {format(dateRange.from, "LLL dd, y")} - {format(dateRange.to, "LLL dd, y")}
+                      </>
+                    ) : (
+                      format(dateRange.from, "LLL dd, y")
+                    )
+                  ) : (
+                    <span>Pick a date range</span>
+                  )}
+                </Button>
+              </PopoverTrigger>
+              <PopoverContent className="w-auto p-0" align="start">
+                <div className="flex flex-col">
+                  <div className="flex gap-2 p-2 border-b">
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      onClick={() => {
+                        const now = new Date();
+                        setDateRange({ from: startOfMonth(now), to: endOfMonth(now) });
+                      }}
+                    >
+                      This Month
+                    </Button>
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      onClick={() => {
+                        const lastMonth = subMonths(new Date(), 1);
+                        setDateRange({ from: startOfMonth(lastMonth), to: endOfMonth(lastMonth) });
+                      }}
+                    >
+                      Last Month
+                    </Button>
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      onClick={() => setDateRange(undefined)}
+                    >
+                      Clear
+                    </Button>
+                  </div>
+                  <Calendar
+                    initialFocus
+                    mode="range"
+                    defaultMonth={dateRange?.from}
+                    selected={dateRange}
+                    onSelect={setDateRange}
+                    numberOfMonths={2}
+                    className={cn("p-3 pointer-events-auto")}
+                  />
+                </div>
+              </PopoverContent>
+            </Popover>
+
+            {dateRange?.from && (
+              <Button
+                variant="ghost"
+                size="icon"
+                onClick={() => setDateRange(undefined)}
+                className="h-9 w-9"
+              >
+                <X className="h-4 w-4" />
+              </Button>
+            )}
+          </div>
 
           <Button onClick={exportToExcel} variant="outline" className="gap-2">
             <Download className="h-4 w-4" />
