@@ -82,6 +82,7 @@ interface Reservation {
   confirmation_email_sent_at: string | null;
   payment_method: string | null;
   settled: string | null;
+  vat_exempt: boolean | null;
 }
 
 interface GroupedReservation extends Reservation {
@@ -207,7 +208,7 @@ export const ReservationsList = ({ userRole }: ReservationsListProps) => {
   const fetchReservations = async () => {
     const { data, error } = await supabase
       .from('reservations')
-      .select('id, booking_reference, check_in_date, check_out_date, nights, number_of_guests, guest_names, guest_nationality, status, source, price_per_night, total_price, commission_rate, commission_amount, net_revenue, currency, created_at, group_id, unit_id, contact_email, confirmation_email_status, confirmation_email_sent_at, payment_method, settled, units(name, unit_number)')
+      .select('id, booking_reference, check_in_date, check_out_date, nights, number_of_guests, guest_names, guest_nationality, status, source, price_per_night, total_price, commission_rate, commission_amount, net_revenue, currency, created_at, group_id, unit_id, contact_email, confirmation_email_status, confirmation_email_sent_at, payment_method, settled, vat_exempt, units(name, unit_number)')
       .order('check_in_date', { ascending: false });
 
     if (!error && data) {
@@ -637,27 +638,37 @@ export const ReservationsList = ({ userRole }: ReservationsListProps) => {
       ? filteredReservations.filter(r => selectedReservations.has(r.id))
       : filteredReservations;
 
-    return dataToExport.map(r => ({
-      'Suite Name': r.units?.name || 'N/A',
-      'Room #': r.units?.unit_number || '-',
-      'Guest Name(s)': r.guest_names.join(', '),
-      'Check-in': format(new Date(r.check_in_date), 'dd MMM yyyy'),
-      'Check-out': format(new Date(r.check_out_date), 'dd MMM yyyy'),
-      'Nights': r.nights,
-      'Guests': r.number_of_guests,
-      'Nationality': r.guest_nationality || 'N/A',
-      'Status': statusLabels[r.status as keyof typeof statusLabels] || r.status,
-      'Source': r.source,
-      'Price/Night': r.price_per_night ? `$${Number(r.price_per_night).toFixed(2)}` : '-',
-      'Net Revenue': r.total_price ? `$${(Number(r.total_price) / 1.14).toFixed(2)}` : '-',
-      'VAT (14%)': r.total_price ? `$${(Number(r.total_price) - Number(r.total_price) / 1.14).toFixed(2)}` : '-',
-      'Total Revenue': r.total_price ? `$${Number(r.total_price).toFixed(2)}` : '-',
-      'Payment': formatPaymentMethod(r.payment_method),
-      'Currency': getCurrencyLabel(r.currency),
-      'Settled': formatSettled(r.settled),
-      'Reference': r.booking_reference,
-      'Created': format(new Date(r.created_at), 'dd MMM yyyy'),
-    }));
+    return dataToExport.map(r => {
+      const isVatExempt = r.vat_exempt === true;
+      const netRevenue = r.total_price 
+        ? (isVatExempt ? Number(r.total_price) : Number(r.total_price) / 1.14)
+        : null;
+      const vatAmount = r.total_price 
+        ? (isVatExempt ? 0 : Number(r.total_price) - Number(r.total_price) / 1.14)
+        : null;
+      
+      return {
+        'Suite Name': r.units?.name || 'N/A',
+        'Room #': r.units?.unit_number || '-',
+        'Guest Name(s)': r.guest_names.join(', '),
+        'Check-in': format(new Date(r.check_in_date), 'dd MMM yyyy'),
+        'Check-out': format(new Date(r.check_out_date), 'dd MMM yyyy'),
+        'Nights': r.nights,
+        'Guests': r.number_of_guests,
+        'Nationality': r.guest_nationality || 'N/A',
+        'Status': statusLabels[r.status as keyof typeof statusLabels] || r.status,
+        'Source': r.source,
+        'Price/Night': r.price_per_night ? `$${Number(r.price_per_night).toFixed(2)}` : '-',
+        'Net Revenue': netRevenue !== null ? `$${netRevenue.toFixed(2)}` : '-',
+        'VAT (14%)': vatAmount !== null ? `$${vatAmount.toFixed(2)}` : '-',
+        'Total Revenue': r.total_price ? `$${Number(r.total_price).toFixed(2)}` : '-',
+        'Payment': formatPaymentMethod(r.payment_method),
+        'Currency': getCurrencyLabel(r.currency),
+        'Settled': formatSettled(r.settled),
+        'Reference': r.booking_reference,
+        'Created': format(new Date(r.created_at), 'dd MMM yyyy'),
+      };
+    });
   };
 
   const handleExportExcel = () => {
@@ -1301,7 +1312,7 @@ export const ReservationsList = ({ userRole }: ReservationsListProps) => {
                     onClick={() => navigate(`/reservation/${reservation.id}`)}
                   >
                     {reservation.total_price 
-                      ? `$${(Number(reservation.total_price) / 1.14).toFixed(2)}` 
+                      ? `$${(reservation.vat_exempt ? Number(reservation.total_price) : Number(reservation.total_price) / 1.14).toFixed(2)}` 
                       : '-'}
                   </TableCell>
                   <TableCell 
@@ -1309,7 +1320,7 @@ export const ReservationsList = ({ userRole }: ReservationsListProps) => {
                     onClick={() => navigate(`/reservation/${reservation.id}`)}
                   >
                     {reservation.total_price 
-                      ? `$${(Number(reservation.total_price) - Number(reservation.total_price) / 1.14).toFixed(2)}` 
+                      ? `$${(reservation.vat_exempt ? 0 : Number(reservation.total_price) - Number(reservation.total_price) / 1.14).toFixed(2)}` 
                       : '-'}
                   </TableCell>
                   <TableCell 
