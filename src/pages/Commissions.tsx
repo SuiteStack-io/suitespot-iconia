@@ -241,7 +241,7 @@ const Commissions = () => {
         'Guest': r.guest_names?.[0] || 'N/A',
         'Check-in': format(new Date(r.check_in_date), 'MMM d, yyyy'),
         'Check-out': format(new Date(r.check_out_date), 'MMM d, yyyy'),
-        'Revenue': r.total_price || 0,
+        'Net Revenue': vat.netAmount,
         'VAT (14%)': vat.vatAmount,
         'Commission': r.commission_amount || 0,
         'Status': r.commission_paid === 'yes' ? 'Paid' : 'Unpaid',
@@ -262,7 +262,7 @@ const Commissions = () => {
         'Guest': '', 
         'Check-in': '', 
         'Check-out': '', 
-        'Revenue': unpaidCommissions.reduce((sum, r) => sum + (r.total_price || 0), 0), 
+        'Net Revenue': unpaidCommissions.reduce((sum, r) => sum + calcVAT(r.total_price || 0).netAmount, 0), 
         'VAT (14%)': unpaidCommissions.reduce((sum, r) => sum + calcVAT(r.total_price || 0).vatAmount, 0),
         'Commission': totalUnpaid, 
         'Status': '',
@@ -283,7 +283,7 @@ const Commissions = () => {
         'Guest': '', 
         'Check-in': '', 
         'Check-out': '', 
-        'Revenue': paidCommissions.reduce((sum, r) => sum + (r.total_price || 0), 0), 
+        'Net Revenue': paidCommissions.reduce((sum, r) => sum + calcVAT(r.total_price || 0).netAmount, 0), 
         'VAT (14%)': paidCommissions.reduce((sum, r) => sum + calcVAT(r.total_price || 0).vatAmount, 0),
         'Commission': totalPaid, 
         'Status': '',
@@ -576,7 +576,7 @@ const Commissions = () => {
                       <TableHead className="hidden md:table-cell">Guest</TableHead>
                       <TableHead className="hidden lg:table-cell">Check-in</TableHead>
                       <TableHead className="hidden lg:table-cell">Check-out</TableHead>
-                      <TableHead className="text-right">Revenue</TableHead>
+                      <TableHead className="text-right">Net Revenue</TableHead>
                       <TableHead className="text-right hidden lg:table-cell">VAT (14%)</TableHead>
                       <TableHead className="text-right">Commission</TableHead>
                       <TableHead>Action</TableHead>
@@ -612,7 +612,7 @@ const Commissions = () => {
                         <TableCell className="hidden lg:table-cell">
                           {format(new Date(reservation.check_out_date), 'MMM dd, yyyy')}
                         </TableCell>
-                        <TableCell className="text-right">{formatCurrency(reservation.total_price || 0)}</TableCell>
+                        <TableCell className="text-right">{formatCurrency(calculateVAT(reservation.total_price || 0).netAmount)}</TableCell>
                         <TableCell className="text-right hidden lg:table-cell text-muted-foreground">
                           {formatCurrency(calculateVAT(reservation.total_price || 0).vatAmount)}
                         </TableCell>
@@ -646,7 +646,7 @@ const Commissions = () => {
                       <TableCell></TableCell>
                       <TableCell colSpan={7} className="font-semibold">Total</TableCell>
                       <TableCell className="text-right font-semibold">
-                        {formatCurrency(unpaidCommissions.reduce((sum, r) => sum + (r.total_price || 0), 0))}
+                        {formatCurrency(unpaidCommissions.reduce((sum, r) => sum + calculateVAT(r.total_price || 0).netAmount, 0))}
                       </TableCell>
                       <TableCell className="text-right hidden lg:table-cell text-muted-foreground">
                         {formatCurrency(unpaidCommissions.reduce((sum, r) => sum + calculateVAT(r.total_price || 0).vatAmount, 0))}
@@ -695,7 +695,7 @@ const Commissions = () => {
                       <TableHead className="hidden md:table-cell">Guest</TableHead>
                       <TableHead className="hidden lg:table-cell">Check-in</TableHead>
                       <TableHead className="hidden lg:table-cell">Check-out</TableHead>
-                      <TableHead className="text-right">Revenue</TableHead>
+                      <TableHead className="text-right">Net Revenue</TableHead>
                       <TableHead className="text-right hidden lg:table-cell">VAT (14%)</TableHead>
                       <TableHead className="text-right">Commission</TableHead>
                       <TableHead className="hidden md:table-cell">Paid On</TableHead>
@@ -722,7 +722,7 @@ const Commissions = () => {
                         <TableCell className="hidden lg:table-cell">
                           {format(new Date(reservation.check_out_date), 'MMM dd, yyyy')}
                         </TableCell>
-                        <TableCell className="text-right">{formatCurrency(reservation.total_price || 0)}</TableCell>
+                        <TableCell className="text-right">{formatCurrency(calculateVAT(reservation.total_price || 0).netAmount)}</TableCell>
                         <TableCell className="text-right hidden lg:table-cell text-muted-foreground">
                           {formatCurrency(calculateVAT(reservation.total_price || 0).vatAmount)}
                         </TableCell>
@@ -760,7 +760,7 @@ const Commissions = () => {
                     <TableRow>
                       <TableCell colSpan={7} className="font-semibold">Total</TableCell>
                       <TableCell className="text-right font-semibold">
-                        {formatCurrency(paidCommissions.reduce((sum, r) => sum + (r.total_price || 0), 0))}
+                        {formatCurrency(paidCommissions.reduce((sum, r) => sum + calculateVAT(r.total_price || 0).netAmount, 0))}
                       </TableCell>
                       <TableCell className="text-right hidden lg:table-cell text-muted-foreground">
                         {formatCurrency(paidCommissions.reduce((sum, r) => sum + calculateVAT(r.total_price || 0).vatAmount, 0))}
