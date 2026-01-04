@@ -1346,7 +1346,14 @@ export const ReservationsList = ({ userRole }: ReservationsListProps) => {
                     className="font-mono text-sm cursor-pointer"
                     onClick={() => navigate(`/reservation/${reservation.id}`)}
                   >
-                    {reservation.booking_reference}
+                    <div className="flex items-center gap-2">
+                      {reservation.booking_reference}
+                      {isExtensionBooking(reservation.booking_reference) && (
+                        <Badge variant="outline" className="text-xs bg-amber-50 text-amber-700 border-amber-200">
+                          Extension
+                        </Badge>
+                      )}
+                    </div>
                   </TableCell>
                   <TableCell 
                     className="cursor-pointer"
