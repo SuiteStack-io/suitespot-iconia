@@ -79,6 +79,8 @@ export const ReservationQuickActions = ({
   const [extensionUnitConflicts, setExtensionUnitConflicts] = useState<Map<string, boolean>>(new Map());
   const [extensionSource, setExtensionSource] = useState<string>("");
   const [userSources, setUserSources] = useState<string[]>([]);
+  const [extensionCurrency, setExtensionCurrency] = useState<string>("USD");
+  const [extensionPaymentMethod, setExtensionPaymentMethod] = useState<string>("");
   
   // Late checkout state
   const [lateCheckoutMode, setLateCheckoutMode] = useState(false);
@@ -141,6 +143,8 @@ export const ReservationQuickActions = ({
       setExtensionSource("");
       setExtensionUnits([]);
       setExtensionUnitConflicts(new Map());
+      setExtensionCurrency("USD");
+      setExtensionPaymentMethod("");
     }
   }, [open, reservation]);
 
@@ -435,6 +439,15 @@ export const ReservationQuickActions = ({
       return;
     }
     
+    if (!extensionPaymentMethod) {
+      toast({
+        title: "Payment Method Required",
+        description: "Please select a payment method for the extension",
+        variant: "destructive",
+      });
+      return;
+    }
+    
     const currentCheckout = new Date(reservation.check_out_date + 'T00:00:00');
     const additionalNights = differenceInCalendarDays(newCheckoutDate, currentCheckout);
     
@@ -493,7 +506,8 @@ export const ReservationQuickActions = ({
         commission_amount: extensionCommission,
         net_revenue: extensionNetRevenue,
         group_id: groupId,
-        currency: fullReservation.currency || "USD",
+        currency: extensionCurrency,
+        payment_method: extensionPaymentMethod,
         notes: `Extension of original booking ${reservation.booking_reference}`,
       };
 
@@ -1422,6 +1436,34 @@ export const ReservationQuickActions = ({
                 </div>
               )}
 
+              {/* Currency and Payment Method Selection */}
+              <div className="grid grid-cols-2 gap-4">
+                <div className="space-y-2">
+                  <label className="text-sm font-medium">Currency <span className="text-destructive">*</span></label>
+                  <Select value={extensionCurrency} onValueChange={setExtensionCurrency}>
+                    <SelectTrigger>
+                      <SelectValue placeholder="Select currency" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="USD">USD</SelectItem>
+                      <SelectItem value="EGP">EGP</SelectItem>
+                    </SelectContent>
+                  </Select>
+                </div>
+                <div className="space-y-2">
+                  <label className="text-sm font-medium">Payment Method <span className="text-destructive">*</span></label>
+                  <Select value={extensionPaymentMethod} onValueChange={setExtensionPaymentMethod}>
+                    <SelectTrigger>
+                      <SelectValue placeholder="Select payment" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="cash">Cash</SelectItem>
+                      <SelectItem value="credit_card">Credit Card</SelectItem>
+                    </SelectContent>
+                  </Select>
+                </div>
+              </div>
+
               {/* Source Selection */}
               <div className="space-y-2">
                 <label className="text-sm font-medium">Source <span className="text-destructive">*</span></label>
@@ -1473,7 +1515,7 @@ export const ReservationQuickActions = ({
                 <Button
                   className="flex-1 pointer-events-auto"
                   onClick={handleExtendStay}
-                  disabled={!canExtend || extending || !extensionSource || extensionUnitConflicts.get(extensionUnitId)}
+                  disabled={!canExtend || extending || !extensionSource || !extensionPaymentMethod || extensionUnitConflicts.get(extensionUnitId)}
                 >
                   {extending ? (
                     <Loader2 className="h-4 w-4 mr-2 animate-spin" />
