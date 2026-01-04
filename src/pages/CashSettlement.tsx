@@ -53,6 +53,8 @@ export default function CashSettlement() {
   const [sourceFilter, setSourceFilter] = useState<string>('all');
   const [selectedReservations, setSelectedReservations] = useState<Set<string>>(new Set());
   const [showBulkSettleDialog, setShowBulkSettleDialog] = useState(false);
+  const [selectedSettledReservations, setSelectedSettledReservations] = useState<Set<string>>(new Set());
+  const [showBulkUnsettleDialog, setShowBulkUnsettleDialog] = useState(false);
 
   // Fetch reservations excluding booking.com and cancelled
   const { data: reservations = [], isLoading } = useQuery({
@@ -126,6 +128,36 @@ export default function CashSettlement() {
     setShowBulkSettleDialog(false);
   };
 
+  // Bulk unsettle mutation
+  const bulkUnsettleMutation = useMutation({
+    mutationFn: async (reservationIds: string[]) => {
+      const { error } = await supabase
+        .from('reservations')
+        .update({ settled: 'no' })
+        .in('id', reservationIds);
+      
+      if (error) throw error;
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['cash-settlement-reservations'] });
+      toast.success(`${selectedSettledReservations.size} reservations unsettled successfully`);
+      setSelectedSettledReservations(new Set());
+    },
+    onError: (error) => {
+      toast.error('Failed to unsettle reservations: ' + error.message);
+    },
+  });
+
+  const handleBulkUnsettle = () => {
+    if (selectedSettledReservations.size === 0) return;
+    setShowBulkUnsettleDialog(true);
+  };
+
+  const confirmBulkUnsettle = () => {
+    bulkUnsettleMutation.mutate(Array.from(selectedSettledReservations));
+    setShowBulkUnsettleDialog(false);
+  };
+
   // Calculate stats
   const stats = useMemo(() => {
     const cashReservations = reservations.filter(r => r.payment_method === 'cash');
@@ -180,6 +212,15 @@ export default function CashSettlement() {
 
   const selectedCount = selectedReservations.size;
 
+  // Calculate selected settled totals
+  const selectedSettledTotal = useMemo(() => {
+    return settledCashReservations
+      .filter(r => selectedSettledReservations.has(r.id))
+      .reduce((sum, r) => sum + (r.total_price || 0), 0);
+  }, [settledCashReservations, selectedSettledReservations]);
+
+  const selectedSettledCount = selectedSettledReservations.size;
+
   // Get unique sources for filter
   const uniqueSources = useMemo(() => {
     const sources = new Set(reservations.map(r => r.source));
@@ -206,6 +247,24 @@ export default function CashSettlement() {
       newSet.delete(reservationId);
     }
     setSelectedReservations(newSet);
+  };
+
+  const handleSelectAllSettled = (checked: boolean) => {
+    if (checked) {
+      setSelectedSettledReservations(new Set(settledCashReservations.map(r => r.id)));
+    } else {
+      setSelectedSettledReservations(new Set());
+    }
+  };
+
+  const handleSelectSettledReservation = (reservationId: string, checked: boolean) => {
+    const newSet = new Set(selectedSettledReservations);
+    if (checked) {
+      newSet.add(reservationId);
+    } else {
+      newSet.delete(reservationId);
+    }
+    setSelectedSettledReservations(newSet);
   };
 
   const exportToExcel = () => {
@@ -272,16 +331,44 @@ export default function CashSettlement() {
 
   const modalData = getModalData();
 
-  const ReservationTable = ({ data, showSettleAction = false }: { data: Reservation[]; showSettleAction?: boolean }) => {
+  const ReservationTable = ({ 
+    data, 
+    showSettleAction = false,
+    showUnsettleAction = false 
+  }: { 
+    data: Reservation[]; 
+    showSettleAction?: boolean;
+    showUnsettleAction?: boolean;
+  }) => {
     const tableTotal = data.reduce((sum, r) => sum + (r.total_price || 0), 0);
-    const isAllSelected = showSettleAction && data.length > 0 && data.every(r => selectedReservations.has(r.id));
-    const isSomeSelected = showSettleAction && data.some(r => selectedReservations.has(r.id));
+    const hasCheckbox = showSettleAction || showUnsettleAction;
+    
+    // Determine selection state based on action type
+    const selectionSet = showUnsettleAction ? selectedSettledReservations : selectedReservations;
+    const isAllSelected = hasCheckbox && data.length > 0 && data.every(r => selectionSet.has(r.id));
+    const isSomeSelected = hasCheckbox && data.some(r => selectionSet.has(r.id));
+    
+    const handleSelectAllForTable = (checked: boolean) => {
+      if (showUnsettleAction) {
+        handleSelectAllSettled(checked);
+      } else {
+        handleSelectAll(checked);
+      }
+    };
+
+    const handleSelectRowForTable = (id: string, checked: boolean) => {
+      if (showUnsettleAction) {
+        handleSelectSettledReservation(id, checked);
+      } else {
+        handleSelectReservation(id, checked);
+      }
+    };
     
     return (
       <Table>
         <TableHeader>
           <TableRow>
-            {showSettleAction && (
+            {hasCheckbox && (
               <TableHead className="w-12">
                 <Checkbox 
                   checked={isAllSelected}
@@ -290,7 +377,7 @@ export default function CashSettlement() {
                       (el as HTMLButtonElement).dataset.state = isSomeSelected && !isAllSelected ? 'indeterminate' : isAllSelected ? 'checked' : 'unchecked';
                     }
                   }}
-                  onCheckedChange={(checked) => handleSelectAll(!!checked)}
+                  onCheckedChange={(checked) => handleSelectAllForTable(!!checked)}
                 />
               </TableHead>
             )}
@@ -302,24 +389,24 @@ export default function CashSettlement() {
             <TableHead>Amount</TableHead>
             <TableHead>Payment</TableHead>
             <TableHead>Source</TableHead>
-            {showSettleAction && <TableHead>Action</TableHead>}
+            {(showSettleAction || showUnsettleAction) && <TableHead>Action</TableHead>}
           </TableRow>
         </TableHeader>
         <TableBody>
           {data.length === 0 ? (
             <TableRow>
-              <TableCell colSpan={showSettleAction ? 10 : 8} className="text-center text-muted-foreground py-8">
+              <TableCell colSpan={hasCheckbox ? 10 : 8} className="text-center text-muted-foreground py-8">
                 No reservations found
               </TableCell>
             </TableRow>
           ) : (
             data.map((r) => (
-              <TableRow key={r.id} className={selectedReservations.has(r.id) ? 'bg-primary/5' : ''}>
-                {showSettleAction && (
+              <TableRow key={r.id} className={selectionSet.has(r.id) ? 'bg-primary/5' : ''}>
+                {hasCheckbox && (
                   <TableCell>
                     <Checkbox 
-                      checked={selectedReservations.has(r.id)}
-                      onCheckedChange={(checked) => handleSelectReservation(r.id, !!checked)}
+                      checked={selectionSet.has(r.id)}
+                      onCheckedChange={(checked) => handleSelectRowForTable(r.id, !!checked)}
                     />
                   </TableCell>
                 )}
@@ -348,6 +435,35 @@ export default function CashSettlement() {
                     </Button>
                   </TableCell>
                 )}
+                {showUnsettleAction && (
+                  <TableCell>
+                    <Button
+                      size="sm"
+                      variant="outline"
+                      onClick={() => {
+                        supabase
+                          .from('reservations')
+                          .update({ settled: 'no' })
+                          .eq('id', r.id)
+                          .then(({ error }) => {
+                            if (error) {
+                              toast.error('Failed to unsettle reservation');
+                            } else {
+                              queryClient.invalidateQueries({ queryKey: ['cash-settlement-reservations'] });
+                              toast.success('Reservation unsettled');
+                              setSelectedSettledReservations(prev => {
+                                const newSet = new Set(prev);
+                                newSet.delete(r.id);
+                                return newSet;
+                              });
+                            }
+                          });
+                      }}
+                    >
+                      Unsettle
+                    </Button>
+                  </TableCell>
+                )}
               </TableRow>
             ))
           )}
@@ -355,11 +471,11 @@ export default function CashSettlement() {
         {data.length > 0 && (
           <TableFooter>
             <TableRow className="bg-muted/50">
-              <TableCell colSpan={showSettleAction ? 6 : 5} className="text-right font-semibold">
+              <TableCell colSpan={hasCheckbox ? 6 : 5} className="text-right font-semibold">
                 Total ({data.length} reservations)
               </TableCell>
               <TableCell className="font-bold text-lg">{formatCurrency(tableTotal)}</TableCell>
-              <TableCell colSpan={showSettleAction ? 3 : 2}></TableCell>
+              <TableCell colSpan={(showSettleAction || showUnsettleAction) ? 3 : 2}></TableCell>
             </TableRow>
           </TableFooter>
         )}
@@ -530,6 +646,40 @@ export default function CashSettlement() {
           </CardContent>
         </Card>
 
+        {/* Settled Selection Summary Bar */}
+        {selectedSettledCount > 0 && (
+          <div className="bg-amber-50 border border-amber-200 rounded-lg p-4 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
+            <div className="flex items-center gap-4">
+              <span className="font-medium text-amber-700">
+                {selectedSettledCount} settled reservation{selectedSettledCount > 1 ? 's' : ''} selected
+              </span>
+              <span className="text-amber-900 font-bold text-lg">
+                Total: {formatCurrency(selectedSettledTotal)}
+              </span>
+            </div>
+            <div className="flex gap-2">
+              <Button 
+                variant="outline" 
+                size="sm"
+                onClick={() => setSelectedSettledReservations(new Set())}
+                className="gap-1"
+              >
+                <X className="h-4 w-4" />
+                Clear
+              </Button>
+              <Button 
+                size="sm"
+                variant="destructive"
+                onClick={handleBulkUnsettle}
+                disabled={bulkUnsettleMutation.isPending}
+                className="gap-2"
+              >
+                Unsettle Selected ({selectedSettledCount})
+              </Button>
+            </div>
+          </div>
+        )}
+
         {/* Settled Cash Table */}
         <Card>
           <CardHeader>
@@ -540,7 +690,7 @@ export default function CashSettlement() {
             </CardTitle>
           </CardHeader>
           <CardContent>
-            <ReservationTable data={settledCashReservations} />
+            <ReservationTable data={settledCashReservations} showUnsettleAction />
           </CardContent>
         </Card>
 
@@ -588,6 +738,24 @@ export default function CashSettlement() {
             <AlertDialogCancel>Cancel</AlertDialogCancel>
             <AlertDialogAction onClick={confirmBulkSettle} className="bg-green-600 hover:bg-green-700">
               Settle {selectedCount} Reservation{selectedCount > 1 ? 's' : ''}
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
+
+      {/* Bulk Unsettle Confirmation Dialog */}
+      <AlertDialog open={showBulkUnsettleDialog} onOpenChange={setShowBulkUnsettleDialog}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Confirm Bulk Unsettle</AlertDialogTitle>
+            <AlertDialogDescription>
+              Are you sure you want to unsettle {selectedSettledCount} reservation{selectedSettledCount > 1 ? 's' : ''} totaling {formatCurrency(selectedSettledTotal)}? These will be moved back to unsettled.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>Cancel</AlertDialogCancel>
+            <AlertDialogAction onClick={confirmBulkUnsettle} className="bg-amber-600 hover:bg-amber-700">
+              Unsettle {selectedSettledCount} Reservation{selectedSettledCount > 1 ? 's' : ''}
             </AlertDialogAction>
           </AlertDialogFooter>
         </AlertDialogContent>
