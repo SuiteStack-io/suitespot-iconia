@@ -33,7 +33,6 @@ import { toPng } from 'html-to-image';
 import { cn } from '@/lib/utils';
 import { CreateGuestAccountDialog } from '@/components/CreateGuestAccountDialog';
 import { SlideMenu } from '@/components/SlideMenu';
-import { AdminBreadcrumb } from '@/components/AdminBreadcrumb';
 import {
   AlertDialog,
   AlertDialogAction,
@@ -891,14 +890,29 @@ Thank you for choosing SuiteSpot!`;
   return (
     <div className="space-y-6">
       <div className="py-8">
-        <AdminBreadcrumb 
-          section="Reservations List" 
-          currentPage="Reservation Details" 
-          sectionPath="/reservations-list" 
-        />
         <div className="flex items-center justify-between">
           <div className="flex items-center gap-4">
             <SlideMenu userRole={userRole} />
+            
+            {/* Mobile back button - icon only */}
+            <Button 
+              variant="ghost" 
+              onClick={() => navigate('/reservations-list')}
+              className="md:hidden"
+              size="icon"
+            >
+              <ArrowLeft className="h-5 w-5" />
+            </Button>
+            
+            {/* Desktop back button with text */}
+            <Button 
+              variant="ghost" 
+              onClick={() => navigate('/reservations-list')}
+              className="hidden md:flex items-center gap-2"
+            >
+              <ArrowLeft className="h-4 w-4" />
+              Back
+            </Button>
             
             <div>
               <h1 className="text-3xl font-bold">Reservation Details</h1>
