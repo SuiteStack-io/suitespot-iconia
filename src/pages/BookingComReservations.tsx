@@ -107,6 +107,7 @@ const BookingComReservations = () => {
     const { data, error } = await supabase
       .from('units')
       .select('*')
+      .eq('location', 'ICONIA')
       .order('name');
     
     if (error) {
@@ -122,6 +123,7 @@ const BookingComReservations = () => {
       const { data: allUnits } = await supabase
         .from('units')
         .select('id, name, unit_number, unit_type')
+        .eq('location', 'ICONIA')
         .order('name');
 
       const unitsChecked = await Promise.all(
