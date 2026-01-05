@@ -1,9 +1,15 @@
+import { useState } from 'react';
 import { useNavigate, useLocation } from 'react-router-dom';
 import {
   Sheet,
   SheetContent,
   SheetTrigger,
 } from '@/components/ui/sheet';
+import {
+  Collapsible,
+  CollapsibleContent,
+  CollapsibleTrigger,
+} from '@/components/ui/collapsible';
 import { Button } from '@/components/ui/button';
 import {
   PanelLeft,
@@ -28,6 +34,7 @@ import {
   DollarSign,
   Wallet,
   Banknote,
+  ChevronDown,
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 
@@ -46,11 +53,13 @@ interface MenuSection {
   label: string;
   items: MenuItem[];
   showFor?: ('admin' | 'manager' | 'front_desk' | 'housekeeping')[];
+  collapsible?: boolean;
 }
 
 export function SlideMenu({ userRole }: SlideMenuProps) {
   const navigate = useNavigate();
   const location = useLocation();
+  const [almazaBayOpen, setAlmazaBayOpen] = useState(false);
 
   const menuSections: MenuSection[] = [
     {
@@ -63,6 +72,7 @@ export function SlideMenu({ userRole }: SlideMenuProps) {
         { title: 'Tickets Analytics', url: '/ticket-analytics', icon: BarChart3 },
       ],
       showFor: ['admin'],
+      collapsible: true,
     },
     {
       label: 'ICONIA',
@@ -139,16 +149,12 @@ export function SlideMenu({ userRole }: SlideMenuProps) {
 
           {/* Menu Sections */}
           <nav className="flex-1 overflow-y-auto px-3">
-            {filteredSections.map((section, sectionIndex) => (
-              <div key={section.label} className={sectionIndex > 0 ? 'mt-6' : ''}>
-                {/* Section Label */}
-                <div className="px-3 mb-2">
-                  <h3 className="text-xs font-semibold text-[hsl(30,12%,60%)] uppercase tracking-wider">
-                    {section.label}
-                  </h3>
-                </div>
+            {filteredSections.map((section, sectionIndex) => {
+              const isCollapsible = section.collapsible;
+              const isOpen = section.label === 'ALMAZA BAY' ? almazaBayOpen : true;
+              const setOpen = section.label === 'ALMAZA BAY' ? setAlmazaBayOpen : undefined;
 
-                {/* Menu Items */}
+              const sectionContent = (
                 <div className="space-y-1">
                   {section.items.map((item) => {
                     const Icon = item.icon;
@@ -172,8 +178,43 @@ export function SlideMenu({ userRole }: SlideMenuProps) {
                     );
                   })}
                 </div>
-              </div>
-            ))}
+              );
+
+              if (isCollapsible && setOpen) {
+                return (
+                  <Collapsible
+                    key={section.label}
+                    open={isOpen}
+                    onOpenChange={setOpen}
+                    className={sectionIndex > 0 ? 'mt-6' : ''}
+                  >
+                    <CollapsibleTrigger className="flex items-center justify-between w-full px-3 mb-2 group cursor-pointer">
+                      <h3 className="text-xs font-semibold text-[hsl(30,12%,60%)] uppercase tracking-wider group-hover:text-[hsl(30,15%,70%)] transition-colors">
+                        {section.label}
+                      </h3>
+                      <ChevronDown className={cn(
+                        'h-4 w-4 text-[hsl(30,12%,60%)] transition-transform duration-200',
+                        isOpen && 'rotate-180'
+                      )} />
+                    </CollapsibleTrigger>
+                    <CollapsibleContent>
+                      {sectionContent}
+                    </CollapsibleContent>
+                  </Collapsible>
+                );
+              }
+
+              return (
+                <div key={section.label} className={sectionIndex > 0 ? 'mt-6' : ''}>
+                  <div className="px-3 mb-2">
+                    <h3 className="text-xs font-semibold text-[hsl(30,12%,60%)] uppercase tracking-wider">
+                      {section.label}
+                    </h3>
+                  </div>
+                  {sectionContent}
+                </div>
+              );
+            })}
           </nav>
         </div>
       </SheetContent>
