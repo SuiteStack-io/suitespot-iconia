@@ -22,7 +22,7 @@ import {
 } from '@/components/ui/dialog';
 import { RadioGroup, RadioGroupItem } from '@/components/ui/radio-group';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
-import { Alert, AlertDescription } from '@/components/ui/alert';
+import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
 import suitespotLogo from '@/assets/suitespot-logo.png';
 import { SlideMenu } from '@/components/SlideMenu';
 import { AdminBreadcrumb } from '@/components/AdminBreadcrumb';
@@ -85,6 +85,12 @@ const BookingComReservations = () => {
   }[]>([]);
   const [loadingUnitsStatus, setLoadingUnitsStatus] = useState(false);
   const [showRoomSelector, setShowRoomSelector] = useState(false);
+  const [existingReservation, setExistingReservation] = useState<{
+    id: string;
+    guest_names: string[];
+    check_in_date: string;
+    check_out_date: string;
+  } | null>(null);
   const reservationCardRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
@@ -200,7 +206,17 @@ const BookingComReservations = () => {
             setUploadProgress(100);
             setUploadComplete(true);
             
-          setTimeout(() => {
+            // Check if booking already exists
+            const { data: existing } = await supabase
+              .from('reservations')
+              .select('id, guest_names, check_in_date, check_out_date')
+              .eq('booking_reference', data.data.bookingReference)
+              .neq('status', 'cancelled')
+              .maybeSingle();
+
+            setExistingReservation(existing);
+            
+            setTimeout(() => {
               setParsedData(data.data);
               setShowPreview(true);
               setUploadComplete(false);
@@ -844,6 +860,23 @@ const BookingComReservations = () => {
             </DialogDescription>
           </DialogHeader>
 
+          {existingReservation && (
+            <Alert variant="destructive">
+              <AlertTriangle className="h-4 w-4" />
+              <AlertTitle>Reservation Already Exists</AlertTitle>
+              <AlertDescription className="flex flex-col gap-2">
+                <span>This booking reference has already been imported.</span>
+                <Button 
+                  variant="link" 
+                  className="p-0 h-auto justify-start text-destructive-foreground hover:text-destructive-foreground/80"
+                  onClick={() => navigate(`/reservations/${existingReservation.id}`)}
+                >
+                  View existing reservation →
+                </Button>
+              </AlertDescription>
+            </Alert>
+          )}
+
           {parsedData && (
             <div ref={reservationCardRef} className="space-y-4 bg-background p-6 rounded-lg">
               <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
@@ -1051,10 +1084,10 @@ const BookingComReservations = () => {
               )}
             </Button>
             <div className="flex gap-2 w-full sm:w-auto">
-              <Button variant="outline" onClick={() => setShowPreview(false)} disabled={creating} className="flex-1 sm:flex-none">
+              <Button variant="outline" onClick={() => { setShowPreview(false); setExistingReservation(null); }} disabled={creating} className="flex-1 sm:flex-none">
                 Cancel
               </Button>
-              <Button onClick={handleConfirmReservation} disabled={creating || !parsedData?.unitId} className="flex-1 sm:flex-none">
+              <Button onClick={handleConfirmReservation} disabled={creating || !parsedData?.unitId || existingReservation !== null} className="flex-1 sm:flex-none">
                 {creating ? (
                   <>
                     <Loader2 className="h-4 w-4 mr-2 animate-spin" />
