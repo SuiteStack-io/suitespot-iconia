@@ -86,7 +86,7 @@ export function SlideMenu({ userRole }: SlideMenuProps) {
         { title: 'Tickets', url: '/guest-tickets', icon: Ticket },
         { title: 'App Accounts', url: '/guest-accounts', icon: Shield },
         { title: 'Guests', url: '/guests', icon: Users },
-        { title: 'My Commissions', url: '/my-commissions', icon: Wallet, showFor: ['manager'] },
+        { title: 'My Commissions', url: '/my-commissions', icon: Wallet, showFor: ['manager', 'admin'] },
       ],
     },
     {
