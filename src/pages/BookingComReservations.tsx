@@ -909,6 +909,64 @@ const BookingComReservations = () => {
                 </div>
               </div>
 
+              {/* Room Selection Dropdown - show when no room matched OR user clicked Change Room */}
+              {(!parsedData.unitId || showRoomSelector) && (
+                <div className="space-y-2 border rounded-lg p-4 bg-muted/50">
+                  <Label className="text-sm font-medium">
+                    {parsedData.unitId ? 'Change Room Assignment' : 'Select Room Manually'}
+                  </Label>
+                  {loadingUnitsStatus ? (
+                    <div className="flex items-center gap-2 text-sm text-muted-foreground">
+                      <Loader2 className="h-4 w-4 animate-spin" />
+                      Loading available rooms...
+                    </div>
+                  ) : (
+                    <Select 
+                      value={parsedData.unitId || ''} 
+                      onValueChange={(value) => {
+                        setParsedData({...parsedData, unitId: value});
+                        setShowRoomSelector(false);
+                      }}
+                    >
+                      <SelectTrigger className="bg-background">
+                        <SelectValue placeholder="Select a room..." />
+                      </SelectTrigger>
+                      <SelectContent className="bg-background">
+                        {unitsWithStatus.map((unit) => (
+                          <SelectItem 
+                            key={unit.id} 
+                            value={unit.id}
+                            disabled={unit.status !== 'available'}
+                            className="flex items-center justify-between"
+                          >
+                            <div className="flex items-center gap-2 w-full">
+                              <span>{unit.name} (#{unit.unit_number})</span>
+                              {unit.status !== 'available' && (
+                                <Badge 
+                                  variant="outline"
+                                  className={cn(
+                                    "ml-auto pointer-events-none text-xs",
+                                    unit.status === 'reserved' && "bg-orange-50 text-orange-600 border-orange-200",
+                                    unit.status === 'blocked' && "bg-red-50 text-red-600 border-red-200"
+                                  )}
+                                >
+                                  {unit.status === 'reserved' ? 'Reserved' : 'Blocked'}
+                                </Badge>
+                              )}
+                            </div>
+                          </SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                  )}
+                  {!parsedData.unitId && (
+                    <p className="text-xs text-yellow-600">
+                      ⚠ No room has been selected. Please choose a room above.
+                    </p>
+                  )}
+                </div>
+              )}
+
               <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                 <div>
                   <Label className="text-xs text-muted-foreground">Check-in</Label>
@@ -1001,64 +1059,6 @@ const BookingComReservations = () => {
                 <div>
                   <Label className="text-xs text-muted-foreground">Notes</Label>
                   <p className="text-sm">{parsedData.notes}</p>
-                </div>
-              )}
-
-              {/* Room Selection Dropdown - show when no room matched OR user clicked Change Room */}
-              {(!parsedData.unitId || showRoomSelector) && (
-                <div className="space-y-2 border rounded-lg p-4 bg-muted/50">
-                  <Label className="text-sm font-medium">
-                    {parsedData.unitId ? 'Change Room Assignment' : 'Select Room Manually'}
-                  </Label>
-                  {loadingUnitsStatus ? (
-                    <div className="flex items-center gap-2 text-sm text-muted-foreground">
-                      <Loader2 className="h-4 w-4 animate-spin" />
-                      Loading available rooms...
-                    </div>
-                  ) : (
-                    <Select 
-                      value={parsedData.unitId || ''} 
-                      onValueChange={(value) => {
-                        setParsedData({...parsedData, unitId: value});
-                        setShowRoomSelector(false);
-                      }}
-                    >
-                      <SelectTrigger className="bg-background">
-                        <SelectValue placeholder="Select a room..." />
-                      </SelectTrigger>
-                      <SelectContent className="bg-background">
-                        {unitsWithStatus.map((unit) => (
-                          <SelectItem 
-                            key={unit.id} 
-                            value={unit.id}
-                            disabled={unit.status !== 'available'}
-                            className="flex items-center justify-between"
-                          >
-                            <div className="flex items-center gap-2 w-full">
-                              <span>{unit.name} (#{unit.unit_number})</span>
-                              {unit.status !== 'available' && (
-                                <Badge 
-                                  variant="outline"
-                                  className={cn(
-                                    "ml-auto pointer-events-none text-xs",
-                                    unit.status === 'reserved' && "bg-orange-50 text-orange-600 border-orange-200",
-                                    unit.status === 'blocked' && "bg-red-50 text-red-600 border-red-200"
-                                  )}
-                                >
-                                  {unit.status === 'reserved' ? 'Reserved' : 'Blocked'}
-                                </Badge>
-                              )}
-                            </div>
-                          </SelectItem>
-                        ))}
-                      </SelectContent>
-                    </Select>
-                  )}
-                  {!parsedData.unitId && (
-                    <p className="text-xs text-yellow-600">
-                      ⚠ No room has been selected. Please choose a room above.
-                    </p>
-                  )}
                 </div>
               )}
             </div>
