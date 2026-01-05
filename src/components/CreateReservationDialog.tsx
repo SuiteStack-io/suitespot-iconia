@@ -1016,9 +1016,9 @@ export function CreateReservationDialog() {
         const subtotalForRoom = priceForRoom * nights;
         const taxAmountForRoom = subtotalForRoom * (taxPercentage / 100);
         const totalForRoomWithTax = subtotalForRoom + taxAmountForRoom;
-        // Commission calculated on subtotal (excluding VAT) - effective Jan 2026
-        const commissionAmount = (subtotalForRoom * commissionRate) / 100;
-        const netRevenue = totalForRoomWithTax - commissionAmount;
+        // Commission calculated on Net Revenue (total / 1.14 for non-VAT exempt) - effective Jan 2026
+        const netRevenue = totalForRoomWithTax / (1 + taxPercentage / 100);
+        const commissionAmount = (netRevenue * commissionRate) / 100;
 
         const reservationData = {
           booking_reference: `MAN-${Date.now()}-${roomIndex + 1}`,
