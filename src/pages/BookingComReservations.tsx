@@ -7,7 +7,9 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/com
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Progress } from '@/components/ui/progress';
-import { Upload, Loader2, CheckCircle, AlertTriangle, ArrowLeft, Download } from 'lucide-react';
+import { Upload, Loader2, CheckCircle, AlertTriangle, ArrowLeft, Download, ChevronDown } from 'lucide-react';
+import { Badge } from '@/components/ui/badge';
+import { cn } from '@/lib/utils';
 import { toPng } from 'html-to-image';
 import { useToast } from '@/hooks/use-toast';
 import {
@@ -74,6 +76,14 @@ const BookingComReservations = () => {
   const [otherAlternatives, setOtherAlternatives] = useState<any[]>([]);
   const [selectedAlternativeId, setSelectedAlternativeId] = useState<string>('');
   const [downloadingImage, setDownloadingImage] = useState(false);
+  const [unitsWithStatus, setUnitsWithStatus] = useState<{
+    id: string;
+    name: string;
+    unit_number: string;
+    unit_type: string;
+    status: 'available' | 'reserved' | 'blocked';
+  }[]>([]);
+  const [loadingUnitsStatus, setLoadingUnitsStatus] = useState(false);
   const reservationCardRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
@@ -96,6 +106,53 @@ const BookingComReservations = () => {
       console.error('Error fetching units:', error);
     } else {
       setUnits(data || []);
+    }
+  };
+
+  const fetchUnitsWithStatus = async (checkIn: string, checkOut: string) => {
+    setLoadingUnitsStatus(true);
+    try {
+      const { data: allUnits } = await supabase
+        .from('units')
+        .select('id, name, unit_number, unit_type')
+        .order('name');
+
+      const unitsChecked = await Promise.all(
+        (allUnits || []).map(async (unit) => {
+          // Check for conflicts
+          const { data: conflicts } = await supabase.rpc('check_reservation_overlap', {
+            p_unit_id: unit.id,
+            p_check_in_date: checkIn,
+            p_check_out_date: checkOut
+          });
+
+          // Check for blocked dates
+          const { data: blockedDates } = await supabase
+            .from('blocked_dates')
+            .select('id')
+            .eq('unit_id', unit.id)
+            .gte('blocked_date', checkIn)
+            .lt('blocked_date', checkOut);
+
+          let status: 'available' | 'reserved' | 'blocked' = 'available';
+          if (conflicts && conflicts.length > 0) status = 'reserved';
+          else if (blockedDates && blockedDates.length > 0) status = 'blocked';
+
+          return { ...unit, status };
+        })
+      );
+
+      // Sort: available first, then reserved, then blocked
+      unitsChecked.sort((a, b) => {
+        const order = { available: 0, reserved: 1, blocked: 2 };
+        return order[a.status] - order[b.status];
+      });
+
+      setUnitsWithStatus(unitsChecked);
+    } catch (error) {
+      console.error('Error fetching units with status:', error);
+    } finally {
+      setLoadingUnitsStatus(false);
     }
   };
 
@@ -142,11 +199,15 @@ const BookingComReservations = () => {
             setUploadProgress(100);
             setUploadComplete(true);
             
-            setTimeout(() => {
+          setTimeout(() => {
               setParsedData(data.data);
               setShowPreview(true);
               setUploadComplete(false);
               setUploading(false);
+              // Fetch units with status for manual room selection
+              if (data.data?.checkInDate && data.data?.checkOutDate) {
+                fetchUnitsWithStatus(data.data.checkInDate, data.data.checkOutDate);
+              }
             }, 1000);
           } else {
             throw new Error(data.error || 'Failed to parse reservation');
@@ -792,7 +853,7 @@ const BookingComReservations = () => {
                 <div>
                   <Label className="text-xs text-muted-foreground">Room</Label>
                   <p className="font-medium">{parsedData.roomName}</p>
-                  {parsedData.unitId ? (
+                  {parsedData.unitId && (
                     <>
                       <p className="text-sm text-green-600">
                         ✓ Matched: {getUnitName(parsedData.unitId)}
@@ -801,13 +862,9 @@ const BookingComReservations = () => {
                         ✓ Matched Room # {units.find(u => u.id === parsedData.unitId)?.unit_number || 'N/A'}
                       </p>
                     </>
-                  ) : (
-                    <div>
-                      <p className="text-sm text-yellow-600">⚠ No room matched</p>
-                      {parsedData.blockedUnitWarning && (
-                        <p className="text-sm text-orange-600">⚠ {parsedData.blockedUnitWarning}</p>
-                      )}
-                    </div>
+                  )}
+                  {!parsedData.unitId && parsedData.blockedUnitWarning && (
+                    <p className="text-sm text-orange-600">⚠ {parsedData.blockedUnitWarning}</p>
                   )}
                 </div>
               </div>
@@ -907,13 +964,58 @@ const BookingComReservations = () => {
                 </div>
               )}
 
-              {!parsedData.unitId && (
-                <div className="bg-yellow-50 border border-yellow-200 rounded-md p-4">
-                  <p className="text-sm text-yellow-800">
-                    ⚠ Warning: Could not automatically match the room. The reservation will be created without a room assignment.
+              {/* Room Selection Dropdown */}
+              <div className="space-y-2 border rounded-lg p-4 bg-muted/50">
+                <Label className="text-sm font-medium">
+                  {parsedData.unitId ? 'Change Room Assignment' : 'Select Room Manually'}
+                </Label>
+                {loadingUnitsStatus ? (
+                  <div className="flex items-center gap-2 text-sm text-muted-foreground">
+                    <Loader2 className="h-4 w-4 animate-spin" />
+                    Loading available rooms...
+                  </div>
+                ) : (
+                  <Select 
+                    value={parsedData.unitId || ''} 
+                    onValueChange={(value) => setParsedData({...parsedData, unitId: value})}
+                  >
+                    <SelectTrigger className="bg-background">
+                      <SelectValue placeholder="Select a room..." />
+                    </SelectTrigger>
+                    <SelectContent className="bg-background">
+                      {unitsWithStatus.map((unit) => (
+                        <SelectItem 
+                          key={unit.id} 
+                          value={unit.id}
+                          disabled={unit.status !== 'available'}
+                          className="flex items-center justify-between"
+                        >
+                          <div className="flex items-center gap-2 w-full">
+                            <span>{unit.name} (#{unit.unit_number})</span>
+                            {unit.status !== 'available' && (
+                              <Badge 
+                                variant="outline"
+                                className={cn(
+                                  "ml-auto pointer-events-none text-xs",
+                                  unit.status === 'reserved' && "bg-orange-50 text-orange-600 border-orange-200",
+                                  unit.status === 'blocked' && "bg-red-50 text-red-600 border-red-200"
+                                )}
+                              >
+                                {unit.status === 'reserved' ? 'Reserved' : 'Blocked'}
+                              </Badge>
+                            )}
+                          </div>
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                )}
+                {!parsedData.unitId && (
+                  <p className="text-xs text-yellow-600">
+                    ⚠ No room has been selected. Please choose a room above.
                   </p>
-                </div>
-              )}
+                )}
+              </div>
             </div>
           )}
 
@@ -940,7 +1042,7 @@ const BookingComReservations = () => {
               <Button variant="outline" onClick={() => setShowPreview(false)} disabled={creating} className="flex-1 sm:flex-none">
                 Cancel
               </Button>
-              <Button onClick={handleConfirmReservation} disabled={creating} className="flex-1 sm:flex-none">
+              <Button onClick={handleConfirmReservation} disabled={creating || !parsedData?.unitId} className="flex-1 sm:flex-none">
                 {creating ? (
                   <>
                     <Loader2 className="h-4 w-4 mr-2 animate-spin" />
