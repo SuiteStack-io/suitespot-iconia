@@ -24,6 +24,7 @@ interface Reservation {
   total_price: number;
   commission_rate: number;
   commission_amount: number;
+  commission_paid: string | null;
   net_revenue: number;
   source: string;
   payment_method: string | null;
@@ -40,6 +41,12 @@ const calculateVAT = (totalPrice: number, vatExempt: boolean = false) => {
   const netAmount = totalPrice / 1.14;
   const vatAmount = totalPrice - netAmount;
   return { netAmount, vatAmount };
+};
+
+// Calculate commission: 10% of Net Revenue (excludes VAT)
+const calculateCommission = (totalPrice: number, vatExempt: boolean = false) => {
+  const netRevenue = vatExempt ? totalPrice : totalPrice / 1.14;
+  return netRevenue * 0.10;
 };
 
 const MyReservations = () => {
@@ -104,9 +111,14 @@ const MyReservations = () => {
         const checkOut = new Date(res.check_out_date);
         const nights = Math.ceil((checkOut.getTime() - checkIn.getTime()) / (1000 * 60 * 60 * 24));
         
+        // Use stored amount for paid commissions, recalculate for unpaid
+        const commission = res.commission_paid === 'yes' 
+          ? (res.commission_amount || 0)
+          : calculateCommission(res.total_price || 0, res.vat_exempt || false);
+        
         return {
           totalReservations: acc.totalReservations + 1,
-          totalCommission: acc.totalCommission + (res.commission_amount || 0),
+          totalCommission: acc.totalCommission + commission,
           totalNights: acc.totalNights + nights,
         };
       },
@@ -134,7 +146,7 @@ const MyReservations = () => {
       // Fetch reservations where source matches user's name
       const { data, error } = await supabase
         .from('reservations')
-        .select('id, booking_reference, guest_names, check_in_date, check_out_date, status, total_price, commission_rate, commission_amount, net_revenue, source, payment_method, settled, vat_exempt, units(name, unit_number)')
+        .select('id, booking_reference, guest_names, check_in_date, check_out_date, status, total_price, commission_rate, commission_amount, commission_paid, net_revenue, source, payment_method, settled, vat_exempt, units(name, unit_number)')
         .eq('source', fullName)
         .order('check_in_date', { ascending: false });
 
@@ -142,13 +154,19 @@ const MyReservations = () => {
 
       setReservations(data || []);
 
-      // Calculate lifetime stats
+      // Calculate lifetime stats - use stored amount for paid, recalculate for unpaid
       const lifetime = (data || []).reduce(
-        (acc, res) => ({
-          totalCommission: acc.totalCommission + (res.commission_amount || 0),
-          totalRevenue: acc.totalRevenue + (res.total_price || 0),
-          totalReservations: acc.totalReservations + 1,
-        }),
+        (acc, res) => {
+          const commission = res.commission_paid === 'yes' 
+            ? (res.commission_amount || 0)
+            : calculateCommission(res.total_price || 0, res.vat_exempt || false);
+          
+          return {
+            totalCommission: acc.totalCommission + commission,
+            totalRevenue: acc.totalRevenue + (res.total_price || 0),
+            totalReservations: acc.totalReservations + 1,
+          };
+        },
         { totalCommission: 0, totalRevenue: 0, totalReservations: 0 }
       );
 
@@ -457,7 +475,10 @@ const MyReservations = () => {
                         </TableCell>
                         <TableCell className="text-right">
                           <span className="font-semibold text-primary bg-primary/10 px-2 py-1 rounded">
-                            ${reservation.commission_amount?.toFixed(2) || '0.00'}
+                            ${reservation.commission_paid === 'yes' 
+                              ? (reservation.commission_amount?.toFixed(2) || '0.00')
+                              : calculateCommission(reservation.total_price || 0, reservation.vat_exempt || false).toFixed(2)
+                            }
                           </span>
                         </TableCell>
                         <TableCell>
