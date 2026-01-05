@@ -472,8 +472,7 @@ const MyReservations = () => {
                           <Badge variant="outline">
                             {reservation.settled === 'booking_com' ? 'Booking.com' : 
                              reservation.settled === 'yes' ? 'Yes' : 
-                             reservation.settled === 'no' ? 'No' :
-                             'N/A'}
+                             'No'}
                           </Badge>
                         </TableCell>
                       </TableRow>
