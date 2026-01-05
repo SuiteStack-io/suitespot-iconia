@@ -84,6 +84,7 @@ const BookingComReservations = () => {
     status: 'available' | 'reserved' | 'blocked';
   }[]>([]);
   const [loadingUnitsStatus, setLoadingUnitsStatus] = useState(false);
+  const [showRoomSelector, setShowRoomSelector] = useState(false);
   const reservationCardRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
@@ -854,14 +855,20 @@ const BookingComReservations = () => {
                   <Label className="text-xs text-muted-foreground">Room</Label>
                   <p className="font-medium">{parsedData.roomName}</p>
                   {parsedData.unitId && (
-                    <>
+                    <div className="flex items-center gap-2 flex-wrap">
                       <p className="text-sm text-green-600">
-                        ✓ Matched: {getUnitName(parsedData.unitId)}
+                        ✓ Matched: {getUnitName(parsedData.unitId)} (#{units.find(u => u.id === parsedData.unitId)?.unit_number || 'N/A'})
                       </p>
-                      <p className="text-sm text-green-600">
-                        ✓ Matched Room # {units.find(u => u.id === parsedData.unitId)?.unit_number || 'N/A'}
-                      </p>
-                    </>
+                      <Button
+                        type="button"
+                        variant="ghost"
+                        size="sm"
+                        className="h-6 text-xs text-primary hover:text-primary/80"
+                        onClick={() => setShowRoomSelector(!showRoomSelector)}
+                      >
+                        {showRoomSelector ? 'Cancel' : 'Change Room'}
+                      </Button>
+                    </div>
                   )}
                   {!parsedData.unitId && parsedData.blockedUnitWarning && (
                     <p className="text-sm text-orange-600">⚠ {parsedData.blockedUnitWarning}</p>
@@ -964,58 +971,63 @@ const BookingComReservations = () => {
                 </div>
               )}
 
-              {/* Room Selection Dropdown */}
-              <div className="space-y-2 border rounded-lg p-4 bg-muted/50">
-                <Label className="text-sm font-medium">
-                  {parsedData.unitId ? 'Change Room Assignment' : 'Select Room Manually'}
-                </Label>
-                {loadingUnitsStatus ? (
-                  <div className="flex items-center gap-2 text-sm text-muted-foreground">
-                    <Loader2 className="h-4 w-4 animate-spin" />
-                    Loading available rooms...
-                  </div>
-                ) : (
-                  <Select 
-                    value={parsedData.unitId || ''} 
-                    onValueChange={(value) => setParsedData({...parsedData, unitId: value})}
-                  >
-                    <SelectTrigger className="bg-background">
-                      <SelectValue placeholder="Select a room..." />
-                    </SelectTrigger>
-                    <SelectContent className="bg-background">
-                      {unitsWithStatus.map((unit) => (
-                        <SelectItem 
-                          key={unit.id} 
-                          value={unit.id}
-                          disabled={unit.status !== 'available'}
-                          className="flex items-center justify-between"
-                        >
-                          <div className="flex items-center gap-2 w-full">
-                            <span>{unit.name} (#{unit.unit_number})</span>
-                            {unit.status !== 'available' && (
-                              <Badge 
-                                variant="outline"
-                                className={cn(
-                                  "ml-auto pointer-events-none text-xs",
-                                  unit.status === 'reserved' && "bg-orange-50 text-orange-600 border-orange-200",
-                                  unit.status === 'blocked' && "bg-red-50 text-red-600 border-red-200"
-                                )}
-                              >
-                                {unit.status === 'reserved' ? 'Reserved' : 'Blocked'}
-                              </Badge>
-                            )}
-                          </div>
-                        </SelectItem>
-                      ))}
-                    </SelectContent>
-                  </Select>
-                )}
-                {!parsedData.unitId && (
-                  <p className="text-xs text-yellow-600">
-                    ⚠ No room has been selected. Please choose a room above.
-                  </p>
-                )}
-              </div>
+              {/* Room Selection Dropdown - show when no room matched OR user clicked Change Room */}
+              {(!parsedData.unitId || showRoomSelector) && (
+                <div className="space-y-2 border rounded-lg p-4 bg-muted/50">
+                  <Label className="text-sm font-medium">
+                    {parsedData.unitId ? 'Change Room Assignment' : 'Select Room Manually'}
+                  </Label>
+                  {loadingUnitsStatus ? (
+                    <div className="flex items-center gap-2 text-sm text-muted-foreground">
+                      <Loader2 className="h-4 w-4 animate-spin" />
+                      Loading available rooms...
+                    </div>
+                  ) : (
+                    <Select 
+                      value={parsedData.unitId || ''} 
+                      onValueChange={(value) => {
+                        setParsedData({...parsedData, unitId: value});
+                        setShowRoomSelector(false);
+                      }}
+                    >
+                      <SelectTrigger className="bg-background">
+                        <SelectValue placeholder="Select a room..." />
+                      </SelectTrigger>
+                      <SelectContent className="bg-background">
+                        {unitsWithStatus.map((unit) => (
+                          <SelectItem 
+                            key={unit.id} 
+                            value={unit.id}
+                            disabled={unit.status !== 'available'}
+                            className="flex items-center justify-between"
+                          >
+                            <div className="flex items-center gap-2 w-full">
+                              <span>{unit.name} (#{unit.unit_number})</span>
+                              {unit.status !== 'available' && (
+                                <Badge 
+                                  variant="outline"
+                                  className={cn(
+                                    "ml-auto pointer-events-none text-xs",
+                                    unit.status === 'reserved' && "bg-orange-50 text-orange-600 border-orange-200",
+                                    unit.status === 'blocked' && "bg-red-50 text-red-600 border-red-200"
+                                  )}
+                                >
+                                  {unit.status === 'reserved' ? 'Reserved' : 'Blocked'}
+                                </Badge>
+                              )}
+                            </div>
+                          </SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                  )}
+                  {!parsedData.unitId && (
+                    <p className="text-xs text-yellow-600">
+                      ⚠ No room has been selected. Please choose a room above.
+                    </p>
+                  )}
+                </div>
+              )}
             </div>
           )}
 
