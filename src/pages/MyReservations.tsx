@@ -28,8 +28,19 @@ interface Reservation {
   source: string;
   payment_method: string | null;
   settled: string | null;
+  vat_exempt: boolean | null;
   units: { name: string; unit_number: string | null } | null;
 }
+
+// VAT calculation helper - matches Commissions page
+const calculateVAT = (totalPrice: number, vatExempt: boolean = false) => {
+  if (vatExempt) {
+    return { netAmount: totalPrice, vatAmount: 0 };
+  }
+  const netAmount = totalPrice / 1.14;
+  const vatAmount = totalPrice - netAmount;
+  return { netAmount, vatAmount };
+};
 
 const MyReservations = () => {
   const { user, loading, userRole } = useAuth();
@@ -123,7 +134,7 @@ const MyReservations = () => {
       // Fetch reservations where source matches user's name
       const { data, error } = await supabase
         .from('reservations')
-        .select('id, booking_reference, guest_names, check_in_date, check_out_date, status, total_price, commission_rate, commission_amount, net_revenue, source, payment_method, settled, units(name, unit_number)')
+        .select('id, booking_reference, guest_names, check_in_date, check_out_date, status, total_price, commission_rate, commission_amount, net_revenue, source, payment_method, settled, vat_exempt, units(name, unit_number)')
         .eq('source', fullName)
         .order('check_in_date', { ascending: false });
 
@@ -402,7 +413,8 @@ const MyReservations = () => {
                       <TableHead className="hidden md:table-cell">Check-in</TableHead>
                       <TableHead className="hidden md:table-cell">Check-out</TableHead>
                       <TableHead>Status</TableHead>
-                      <TableHead className="text-right">Total</TableHead>
+                      <TableHead className="text-right">Net Revenue</TableHead>
+                      <TableHead className="text-right hidden lg:table-cell">VAT (14%)</TableHead>
                       <TableHead className="text-right">Commission</TableHead>
                       <TableHead>Payment</TableHead>
                       <TableHead>Settled</TableHead>
@@ -438,7 +450,10 @@ const MyReservations = () => {
                           </Badge>
                         </TableCell>
                         <TableCell className="text-right">
-                          ${reservation.total_price?.toFixed(2) || '0.00'}
+                          ${calculateVAT(reservation.total_price || 0, reservation.vat_exempt || false).netAmount.toFixed(2)}
+                        </TableCell>
+                        <TableCell className="text-right hidden lg:table-cell text-muted-foreground">
+                          ${calculateVAT(reservation.total_price || 0, reservation.vat_exempt || false).vatAmount.toFixed(2)}
                         </TableCell>
                         <TableCell className="text-right">
                           <span className="font-semibold text-primary bg-primary/10 px-2 py-1 rounded">
