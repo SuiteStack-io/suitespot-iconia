@@ -123,11 +123,12 @@ const Commissions = () => {
   const unpaidCommissions = filteredReservations.filter(r => !r.commission_paid || r.commission_paid !== 'yes');
   const paidCommissions = filteredReservations.filter(r => r.commission_paid === 'yes');
 
-  // Calculate commission: nights × price_per_night × 10%
+  // Calculate commission: 10% of Net Revenue (total_price / 1.14 for non-VAT exempt)
   const calculateCommission = (r: Reservation) => {
-    const nights = r.nights || 0;
-    const pricePerNight = r.price_per_night || 0;
-    return nights * pricePerNight * 0.10;
+    const totalPrice = r.total_price || 0;
+    const vatExempt = r.vat_exempt || false;
+    const netRevenue = vatExempt ? totalPrice : totalPrice / 1.14;
+    return netRevenue * 0.10;
   };
 
   // For unpaid: recalculate commission; for paid: use stored commission_amount
