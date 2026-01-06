@@ -971,7 +971,7 @@ export const AvailabilityCalendar = () => {
       // Prepare table data with booking.com name + room number
       // Format dates as multi-line: Day of week, Day number, Month
       const headers = ['Room', ...exportDays.map(day => 
-        `${format(day, 'EEE')}\n${format(day, 'd')}\n${format(day, 'MMM')}`
+        `${format(day, 'EEEEE')}\n${format(day, 'd')}\n${format(day, 'MMM')}`
       )];
       
       // Group units by room type for separator headers
@@ -1048,29 +1048,29 @@ export const AvailabilityCalendar = () => {
         startY: startY,
         theme: 'grid',
         styles: { 
-          fontSize: 6, 
-          cellPadding: 1.5,
+          fontSize: 5, 
+          cellPadding: 1,
           halign: 'center',
           valign: 'middle',
-          minCellHeight: 8,
+          minCellHeight: 6,
           overflow: 'ellipsize',
         },
         headStyles: { 
           fillColor: [55, 65, 81], // gray-700
           textColor: 255,
-          fontSize: 7,
+          fontSize: 5,
           fontStyle: 'bold',
           halign: 'center',
           valign: 'middle',
-          cellPadding: 2,
-          minCellHeight: 14, // Taller to fit 3 lines (EEE\nd\nMMM)
+          cellPadding: 1,
+          minCellHeight: 12,
         },
         columnStyles: {
           0: { 
             fontStyle: 'bold', 
-            cellWidth: 45,
+            cellWidth: 30,
             halign: 'left',
-            fontSize: 7,
+            fontSize: 5,
           }
         },
         didParseCell: (data) => {
