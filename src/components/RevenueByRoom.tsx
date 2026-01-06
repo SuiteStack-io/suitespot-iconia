@@ -164,7 +164,7 @@ export const RevenueByRoom = ({ mainDateRange }: RevenueByRoomProps) => {
     // Fetch all units for selected location
     const { data: units, error: unitsError } = await supabase
       .from('units')
-      .select('id, name, unit_number, unit_size, unit_type')
+      .select('id, name, unit_number, unit_size, unit_type, booking_com_name')
       .eq('location', selectedLocation)
       .order('unit_number', { ascending: true });
 
@@ -233,7 +233,7 @@ export const RevenueByRoom = ({ mainDateRange }: RevenueByRoomProps) => {
 
       roomRevenueMap[unit.id] = {
         roomId: unit.id,
-        roomName: unit.name,
+        roomName: unit.booking_com_name || unit.name,
         roomNumber: unit.unit_number || 'N/A',
         area,
         terrace,
