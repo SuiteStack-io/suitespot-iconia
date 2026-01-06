@@ -7,7 +7,7 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/com
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Progress } from '@/components/ui/progress';
-import { Upload, Loader2, CheckCircle, AlertTriangle, ArrowLeft, Download, ChevronDown } from 'lucide-react';
+import { Upload, Loader2, CheckCircle, AlertTriangle, ArrowLeft, Download, Check } from 'lucide-react';
 import { Badge } from '@/components/ui/badge';
 import { cn } from '@/lib/utils';
 import { toPng } from 'html-to-image';
@@ -27,12 +27,24 @@ import suitespotLogo from '@/assets/suitespot-logo.png';
 import { SlideMenu } from '@/components/SlideMenu';
 import { AdminBreadcrumb } from '@/components/AdminBreadcrumb';
 
+interface RoomInfo {
+  roomName: string;
+  price: number;
+  unitId?: string;
+  matchedUnitName?: string;
+  status?: 'available' | 'reserved' | 'blocked' | 'no_match';
+  warning?: string;
+}
+
 interface ParsedReservation {
   bookingReference: string;
   guestNames: string[];
   checkInDate: string;
   checkOutDate: string;
   roomName: string;
+  rooms?: { roomName: string; price: number }[];
+  matchedRooms?: RoomInfo[];
+  isMultiRoom?: boolean;
   numberOfGuests: number;
   contactEmail?: string;
   contactPhone?: string;
@@ -48,6 +60,13 @@ interface ParsedReservation {
   nationality?: string;
   preferredLanguage?: string;
   blockedUnitWarning?: string;
+}
+
+interface RoomAssignment {
+  roomIndex: number;
+  roomName: string;
+  price: number;
+  unitId: string | null;
 }
 
 const BookingComReservations = () => {
@@ -71,6 +90,7 @@ const BookingComReservations = () => {
     checkOut: string;
     roomName: string;
     originalUnitType: string;
+    roomIndex?: number;
   } | null>(null);
   const [sameTypeAlternatives, setSameTypeAlternatives] = useState<any[]>([]);
   const [otherAlternatives, setOtherAlternatives] = useState<any[]>([]);
@@ -92,6 +112,9 @@ const BookingComReservations = () => {
     check_out_date: string;
   } | null>(null);
   const reservationCardRef = useRef<HTMLDivElement>(null);
+  
+  // Multi-room state
+  const [roomAssignments, setRoomAssignments] = useState<RoomAssignment[]>([]);
 
   useEffect(() => {
     if (!loading && !user) {
@@ -117,7 +140,7 @@ const BookingComReservations = () => {
     }
   };
 
-  const fetchUnitsWithStatus = async (checkIn: string, checkOut: string) => {
+  const fetchUnitsWithStatus = async (checkIn: string, checkOut: string, excludeUnitIds: string[] = []) => {
     setLoadingUnitsStatus(true);
     try {
       const { data: allUnits } = await supabase
@@ -179,7 +202,8 @@ const BookingComReservations = () => {
     setUploading(true);
     setUploadProgress(0);
     setUploadComplete(false);
-    setScreenshotFile(file); // Store the file for later upload
+    setScreenshotFile(file);
+    setRoomAssignments([]); // Reset room assignments
 
     try {
       // Convert to base64
@@ -217,6 +241,17 @@ const BookingComReservations = () => {
               .maybeSingle();
 
             setExistingReservation(existing);
+            
+            // Initialize room assignments from matched rooms
+            if (data.data.matchedRooms && data.data.matchedRooms.length > 0) {
+              const initialAssignments: RoomAssignment[] = data.data.matchedRooms.map((room: RoomInfo, index: number) => ({
+                roomIndex: index,
+                roomName: room.roomName,
+                price: room.price,
+                unitId: room.unitId || null
+              }));
+              setRoomAssignments(initialAssignments);
+            }
             
             setTimeout(() => {
               setParsedData(data.data);
@@ -303,6 +338,116 @@ const BookingComReservations = () => {
     if (!file) return;
     
     await processFile(file);
+  };
+
+  const updateRoomAssignment = (roomIndex: number, unitId: string | null) => {
+    setRoomAssignments(prev => 
+      prev.map(r => r.roomIndex === roomIndex ? { ...r, unitId } : r)
+    );
+  };
+
+  const getAssignedUnitIds = () => {
+    return roomAssignments.filter(r => r.unitId).map(r => r.unitId!);
+  };
+
+  const createSingleReservation = async (
+    roomAssignment: RoomAssignment,
+    screenshotUrl: string | null,
+    isPartOfMultiRoom: boolean = false
+  ) => {
+    if (!parsedData) return null;
+
+    const unitId = roomAssignment.unitId!;
+    
+    // Check for blocked dates first
+    const { data: blockedDates, error: blockedError } = await supabase
+      .from('blocked_dates')
+      .select('id, blocked_date, reason')
+      .eq('unit_id', unitId)
+      .gte('blocked_date', parsedData.checkInDate)
+      .lt('blocked_date', parsedData.checkOutDate);
+
+    if (blockedError) {
+      console.error('Error checking blocked dates:', blockedError);
+    }
+
+    // Check for overlapping reservations
+    const { data: conflicts, error: conflictCheckError } = await supabase
+      .rpc('check_reservation_overlap', {
+        p_unit_id: unitId,
+        p_check_in_date: parsedData.checkInDate,
+        p_check_out_date: parsedData.checkOutDate
+      });
+
+    if (conflictCheckError) {
+      console.error('Error checking for conflicts:', conflictCheckError);
+      throw new Error('Failed to check for reservation conflicts');
+    }
+
+    const hasBlockedDates = blockedDates && blockedDates.length > 0;
+    const hasConflicts = conflicts && conflicts.length > 0;
+
+    if (hasBlockedDates || hasConflicts) {
+      throw new Error(`Room ${getUnitName(unitId)} has conflicts or blocked dates`);
+    }
+
+    // Calculate price per night for this room
+    const checkIn = new Date(parsedData.checkInDate);
+    const checkOut = new Date(parsedData.checkOutDate);
+    const nights = Math.ceil((checkOut.getTime() - checkIn.getTime()) / (1000 * 60 * 60 * 24));
+    const pricePerNight = roomAssignment.price && nights > 0 ? roomAssignment.price / nights : null;
+    
+    // For multi-room: split commission proportionally
+    const totalPrice = parsedData.totalPrice || 0;
+    const roomPriceRatio = totalPrice > 0 ? roomAssignment.price / totalPrice : 1;
+    const roomCommissionAmount = parsedData.commissionAmount 
+      ? parsedData.commissionAmount * roomPriceRatio 
+      : null;
+    const roomCommissionableAmount = parsedData.commissionableAmount 
+      ? parsedData.commissionableAmount * roomPriceRatio 
+      : null;
+    
+    // Calculate commission rate
+    const commissionRate = roomCommissionAmount && roomAssignment.price 
+      ? (roomCommissionAmount / roomAssignment.price) * 100 
+      : null;
+
+    // Create reservation
+    const { data: reservation, error: reservationError } = await supabase
+      .from('reservations')
+      .insert({
+        booking_reference: parsedData.bookingReference,
+        guest_names: parsedData.guestNames || [],
+        guest_nationality: parsedData.nationality || null,
+        check_in_date: parsedData.checkInDate,
+        check_out_date: parsedData.checkOutDate,
+        unit_id: unitId,
+        number_of_guests: isPartOfMultiRoom 
+          ? Math.ceil(parsedData.numberOfGuests / roomAssignments.length) 
+          : parsedData.numberOfGuests,
+        contact_email: parsedData.contactEmail,
+        contact_phone: parsedData.contactPhone,
+        total_price: roomAssignment.price,
+        price_per_night: pricePerNight,
+        currency: parsedData.currency || 'USD',
+        adults: parsedData.adults || parsedData.numberOfGuests,
+        children: parsedData.children || 0,
+        commission_rate: commissionRate,
+        commission_amount: roomCommissionAmount,
+        net_revenue: roomCommissionableAmount,
+        notes: parsedData.notes,
+        status: 'confirmed',
+        source: 'booking.com',
+        channel: 'Booking.com',
+        preferred_language: parsedData.preferredLanguage || null,
+        booking_screenshot_url: screenshotUrl
+      })
+      .select()
+      .single();
+
+    if (reservationError) throw reservationError;
+
+    return reservation;
   };
 
   const createReservationWithUnit = async (unitId: string, unitName: string) => {
@@ -493,8 +638,8 @@ const BookingComReservations = () => {
               guestNames: parsedData.guestNames || [],
               checkIn: parsedData.checkInDate,
               checkOut: parsedData.checkOutDate,
-              unitName: parsedData.roomName, // Use Booking.com room name (e.g., "Double Room with Terrace")
-              unitId: unitId, // Pass the assigned unit ID
+              unitName: parsedData.roomName,
+              unitId: unitId,
               unitType: '',
               totalPrice: parsedData.totalPrice || 0,
               numberOfGuests: parsedData.numberOfGuests,
@@ -509,7 +654,6 @@ const BookingComReservations = () => {
           });
         } catch (emailError) {
           console.error('Error sending email:', emailError);
-          // Don't fail the whole operation if email fails
         }
       }
 
@@ -545,8 +689,148 @@ const BookingComReservations = () => {
     if (!parsedData) return;
     setCreating(true);
     
-    const unitName = getUnitName(parsedData.unitId);
-    await createReservationWithUnit(parsedData.unitId!, unitName);
+    const isMultiRoom = parsedData.isMultiRoom && roomAssignments.length > 1;
+    
+    if (isMultiRoom) {
+      // Multi-room reservation
+      try {
+        // Validate all rooms are assigned
+        const unassignedRooms = roomAssignments.filter(r => !r.unitId);
+        if (unassignedRooms.length > 0) {
+          toast({
+            title: 'Error',
+            description: `Please assign rooms to all ${unassignedRooms.length} unassigned room(s)`,
+            variant: 'destructive',
+          });
+          setCreating(false);
+          return;
+        }
+
+        // Check for duplicate assignments
+        const assignedIds = getAssignedUnitIds();
+        const uniqueIds = [...new Set(assignedIds)];
+        if (assignedIds.length !== uniqueIds.length) {
+          toast({
+            title: 'Error',
+            description: 'Cannot assign the same room to multiple bookings',
+            variant: 'destructive',
+          });
+          setCreating(false);
+          return;
+        }
+
+        // Upload screenshot once
+        let screenshotUrl: string | null = null;
+        if (screenshotFile) {
+          const fileExt = screenshotFile.name.split('.').pop();
+          const fileName = `${parsedData.bookingReference}-${Date.now()}.${fileExt}`;
+          const filePath = `${fileName}`;
+
+          const { error: uploadError } = await supabase.storage
+            .from('booking-screenshots')
+            .upload(filePath, screenshotFile);
+
+          if (!uploadError) {
+            screenshotUrl = filePath;
+          }
+        }
+
+        // Create reservations for each room
+        const createdReservations: any[] = [];
+        const errors: string[] = [];
+
+        for (const roomAssignment of roomAssignments) {
+          try {
+            const reservation = await createSingleReservation(roomAssignment, screenshotUrl, true);
+            if (reservation) {
+              createdReservations.push(reservation);
+            }
+          } catch (error: any) {
+            errors.push(`Room ${roomAssignment.roomIndex + 1}: ${error.message}`);
+          }
+        }
+
+        if (createdReservations.length > 0) {
+          // Send single notification for multi-room booking
+          if (parsedData.contactEmail) {
+            try {
+              const roomNames = roomAssignments.map(r => {
+                const unit = units.find(u => u.id === r.unitId);
+                return unit?.name || r.roomName;
+              }).join(', ');
+
+              await supabase.functions.invoke('send-reservation-notification', {
+                body: {
+                  reservationId: parsedData.bookingReference,
+                  guestNames: parsedData.guestNames || [],
+                  checkIn: parsedData.checkInDate,
+                  checkOut: parsedData.checkOutDate,
+                  unitName: roomNames,
+                  unitId: roomAssignments[0].unitId,
+                  unitType: '',
+                  totalPrice: parsedData.totalPrice || 0,
+                  numberOfGuests: parsedData.numberOfGuests,
+                  adults: parsedData.adults || parsedData.numberOfGuests,
+                  children: parsedData.children || 0,
+                  source: 'Booking.com',
+                  notes: parsedData.notes || null,
+                  guestNationality: parsedData.nationality || null,
+                  customerEmail: parsedData.contactEmail,
+                  customerPhone: parsedData.contactPhone || null,
+                }
+              });
+            } catch (emailError) {
+              console.error('Error sending email:', emailError);
+            }
+          }
+
+          toast({
+            title: 'Success',
+            description: `Created ${createdReservations.length} reservation(s) for ${parsedData.bookingReference}`,
+          });
+        }
+
+        if (errors.length > 0) {
+          toast({
+            title: 'Warning',
+            description: errors.join('. '),
+            variant: 'destructive',
+          });
+        }
+
+        setShowPreview(false);
+        setParsedData(null);
+        setScreenshotFile(null);
+        setRoomAssignments([]);
+        
+        const fileInput = document.getElementById('screenshot-upload') as HTMLInputElement;
+        if (fileInput) fileInput.value = '';
+
+      } catch (error: any) {
+        console.error('Error creating multi-room reservation:', error);
+        toast({
+          title: 'Error',
+          description: error.message || 'Failed to create reservations',
+          variant: 'destructive',
+        });
+      } finally {
+        setCreating(false);
+      }
+    } else {
+      // Single room reservation - use existing logic
+      const unitId = roomAssignments.length > 0 ? roomAssignments[0].unitId : parsedData.unitId;
+      if (!unitId) {
+        toast({
+          title: 'Error',
+          description: 'Please select a room',
+          variant: 'destructive',
+        });
+        setCreating(false);
+        return;
+      }
+      const unitName = getUnitName(unitId);
+      await createReservationWithUnit(unitId, unitName);
+    }
   };
 
   const handleAssignToAlternative = async () => {
@@ -621,6 +905,12 @@ const BookingComReservations = () => {
     }
   };
 
+  const allRoomsAssigned = roomAssignments.length > 0 && roomAssignments.every(r => r.unitId);
+  const hasNoDuplicateAssignments = () => {
+    const ids = getAssignedUnitIds();
+    return ids.length === [...new Set(ids)].length;
+  };
+
   return (
     <div className="min-h-screen bg-background">
       <header className="border-b bg-card">
@@ -663,7 +953,7 @@ const BookingComReservations = () => {
           <CardHeader>
             <CardTitle>Upload Reservation Screenshot</CardTitle>
             <CardDescription>
-              Upload a screenshot from Booking.com and we'll automatically extract the reservation details
+              Upload a screenshot from Booking.com and we'll automatically extract the reservation details. Supports single and multi-room bookings.
             </CardDescription>
           </CardHeader>
           <CardContent>
@@ -733,9 +1023,9 @@ const BookingComReservations = () => {
               <ol className="list-decimal list-inside space-y-2 text-sm text-muted-foreground">
                 <li>Take a screenshot of the reservation details from Booking.com</li>
                 <li>Upload the screenshot using the form above</li>
-                <li>Our AI will automatically extract all reservation details</li>
-                <li>Review and confirm the extracted information</li>
-                <li>The reservation will be created and an email will be sent to the guest</li>
+                <li>Our AI will automatically extract all reservation details (including multi-room bookings)</li>
+                <li>Review and assign rooms to each booking</li>
+                <li>The reservations will be created and emails sent to the guest</li>
               </ol>
             </CardContent>
           </Card>
@@ -858,7 +1148,10 @@ const BookingComReservations = () => {
           <DialogHeader>
             <DialogTitle>Confirm Reservation Details</DialogTitle>
             <DialogDescription>
-              Please review the extracted information before creating the reservation
+              {parsedData?.isMultiRoom 
+                ? `Multi-room booking detected (${roomAssignments.length} rooms). Please assign rooms to each booking.`
+                : 'Please review the extracted information before creating the reservation'
+              }
             </DialogDescription>
           </DialogHeader>
 
@@ -887,96 +1180,10 @@ const BookingComReservations = () => {
                   <p className="font-medium">{parsedData.bookingReference}</p>
                 </div>
                 <div>
-                  <Label className="text-xs text-muted-foreground">Room</Label>
-                  <p className="font-medium">{parsedData.roomName}</p>
-                  {parsedData.unitId && (
-                    <div className="flex items-center gap-2 flex-wrap">
-                      <p className="text-sm text-green-600">
-                        ✓ Matched: {getUnitName(parsedData.unitId)} (#{units.find(u => u.id === parsedData.unitId)?.unit_number || 'N/A'})
-                      </p>
-                      <Button
-                        type="button"
-                        variant="ghost"
-                        size="sm"
-                        className="h-6 text-xs text-primary hover:text-primary/80"
-                        onClick={() => setShowRoomSelector(!showRoomSelector)}
-                      >
-                        {showRoomSelector ? 'Cancel' : 'Change Room'}
-                      </Button>
-                    </div>
-                  )}
-                  {!parsedData.unitId && parsedData.blockedUnitWarning && (
-                    <p className="text-sm text-orange-600">⚠ {parsedData.blockedUnitWarning}</p>
-                  )}
-                </div>
-              </div>
-
-              {/* Room Selection Dropdown - show when no room matched OR user clicked Change Room */}
-              {(!parsedData.unitId || showRoomSelector) && (
-                <div className="space-y-2 border rounded-lg p-4 bg-muted/50">
-                  <Label className="text-sm font-medium">
-                    {parsedData.unitId ? 'Change Room Assignment' : 'Select Room Manually'}
-                  </Label>
-                  {loadingUnitsStatus ? (
-                    <div className="flex items-center gap-2 text-sm text-muted-foreground">
-                      <Loader2 className="h-4 w-4 animate-spin" />
-                      Loading available rooms...
-                    </div>
-                  ) : (
-                    <Select 
-                      value={parsedData.unitId || ''} 
-                      onValueChange={(value) => {
-                        setParsedData({...parsedData, unitId: value});
-                        setShowRoomSelector(false);
-                      }}
-                    >
-                      <SelectTrigger className="bg-background">
-                        <SelectValue placeholder="Select a room..." />
-                      </SelectTrigger>
-                      <SelectContent className="bg-background">
-                        {unitsWithStatus.map((unit) => (
-                          <SelectItem 
-                            key={unit.id} 
-                            value={unit.id}
-                            disabled={unit.status !== 'available'}
-                            className="flex items-center justify-between"
-                          >
-                            <div className="flex items-center gap-2 w-full">
-                              <span>{unit.name} (#{unit.unit_number})</span>
-                              {unit.status !== 'available' && (
-                                <Badge 
-                                  variant="outline"
-                                  className={cn(
-                                    "ml-auto pointer-events-none text-xs",
-                                    unit.status === 'reserved' && "bg-orange-50 text-orange-600 border-orange-200",
-                                    unit.status === 'blocked' && "bg-red-50 text-red-600 border-red-200"
-                                  )}
-                                >
-                                  {unit.status === 'reserved' ? 'Reserved' : 'Blocked'}
-                                </Badge>
-                              )}
-                            </div>
-                          </SelectItem>
-                        ))}
-                      </SelectContent>
-                    </Select>
-                  )}
-                  {!parsedData.unitId && (
-                    <p className="text-xs text-yellow-600">
-                      ⚠ No room has been selected. Please choose a room above.
-                    </p>
-                  )}
-                </div>
-              )}
-
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                <div>
-                  <Label className="text-xs text-muted-foreground">Check-in</Label>
-                  <p className="font-medium">{new Date(parsedData.checkInDate).toLocaleDateString()}</p>
-                </div>
-                <div>
-                  <Label className="text-xs text-muted-foreground">Check-out</Label>
-                  <p className="font-medium">{new Date(parsedData.checkOutDate).toLocaleDateString()}</p>
+                  <Label className="text-xs text-muted-foreground">Check-in / Check-out</Label>
+                  <p className="font-medium">
+                    {new Date(parsedData.checkInDate).toLocaleDateString()} - {new Date(parsedData.checkOutDate).toLocaleDateString()}
+                  </p>
                 </div>
               </div>
 
@@ -984,6 +1191,216 @@ const BookingComReservations = () => {
                 <Label className="text-xs text-muted-foreground">Guest Names</Label>
                 <p className="font-medium">{parsedData.guestNames.join(', ')}</p>
               </div>
+
+              {/* Multi-room assignment section */}
+              {parsedData.isMultiRoom && roomAssignments.length > 1 ? (
+                <div className="space-y-4">
+                  <div className="flex items-center gap-2">
+                    <Label className="text-sm font-medium">Room Assignments</Label>
+                    <Badge variant="secondary">{roomAssignments.length} rooms</Badge>
+                  </div>
+                  
+                  {roomAssignments.map((room, index) => {
+                    const assignedUnit = room.unitId ? units.find(u => u.id === room.unitId) : null;
+                    const otherAssignedIds = roomAssignments
+                      .filter(r => r.roomIndex !== room.roomIndex && r.unitId)
+                      .map(r => r.unitId!);
+                    
+                    return (
+                      <Card key={room.roomIndex} className="border-2">
+                        <CardContent className="p-4">
+                          <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
+                            <div className="flex-1">
+                              <div className="flex items-center gap-2 mb-1">
+                                <Badge variant="outline" className="text-xs">Room {index + 1}</Badge>
+                                {room.unitId && (
+                                  <Check className="h-4 w-4 text-green-600" />
+                                )}
+                              </div>
+                              <p className="font-medium">{room.roomName}</p>
+                              <p className="text-sm text-muted-foreground">
+                                {parsedData.currency} {room.price.toFixed(2)}
+                              </p>
+                            </div>
+                            
+                            <div className="w-full md:w-64">
+                              {loadingUnitsStatus ? (
+                                <div className="flex items-center gap-2 text-sm text-muted-foreground">
+                                  <Loader2 className="h-4 w-4 animate-spin" />
+                                  Loading...
+                                </div>
+                              ) : (
+                                <Select 
+                                  value={room.unitId || ''} 
+                                  onValueChange={(value) => updateRoomAssignment(room.roomIndex, value)}
+                                >
+                                  <SelectTrigger className={cn(
+                                    "bg-background",
+                                    !room.unitId && "border-orange-300"
+                                  )}>
+                                    <SelectValue placeholder="Select a room..." />
+                                  </SelectTrigger>
+                                  <SelectContent className="bg-background">
+                                    {unitsWithStatus.map((unit) => {
+                                      const isAssignedElsewhere = otherAssignedIds.includes(unit.id);
+                                      const isDisabled = unit.status !== 'available' || isAssignedElsewhere;
+                                      
+                                      return (
+                                        <SelectItem 
+                                          key={unit.id} 
+                                          value={unit.id}
+                                          disabled={isDisabled}
+                                          className="flex items-center justify-between"
+                                        >
+                                          <div className="flex items-center gap-2 w-full">
+                                            <span>{unit.name} (#{unit.unit_number})</span>
+                                            {isAssignedElsewhere && (
+                                              <Badge 
+                                                variant="outline"
+                                                className="ml-auto pointer-events-none text-xs bg-blue-50 text-blue-600 border-blue-200"
+                                              >
+                                                Assigned
+                                              </Badge>
+                                            )}
+                                            {!isAssignedElsewhere && unit.status !== 'available' && (
+                                              <Badge 
+                                                variant="outline"
+                                                className={cn(
+                                                  "ml-auto pointer-events-none text-xs",
+                                                  unit.status === 'reserved' && "bg-orange-50 text-orange-600 border-orange-200",
+                                                  unit.status === 'blocked' && "bg-red-50 text-red-600 border-red-200"
+                                                )}
+                                              >
+                                                {unit.status === 'reserved' ? 'Reserved' : 'Blocked'}
+                                              </Badge>
+                                            )}
+                                          </div>
+                                        </SelectItem>
+                                      );
+                                    })}
+                                  </SelectContent>
+                                </Select>
+                              )}
+                            </div>
+                          </div>
+                        </CardContent>
+                      </Card>
+                    );
+                  })}
+
+                  {!allRoomsAssigned && (
+                    <Alert>
+                      <AlertTriangle className="h-4 w-4" />
+                      <AlertDescription>
+                        Please assign rooms to all bookings before confirming.
+                      </AlertDescription>
+                    </Alert>
+                  )}
+
+                  {allRoomsAssigned && !hasNoDuplicateAssignments() && (
+                    <Alert variant="destructive">
+                      <AlertTriangle className="h-4 w-4" />
+                      <AlertDescription>
+                        Cannot assign the same room to multiple bookings.
+                      </AlertDescription>
+                    </Alert>
+                  )}
+                </div>
+              ) : (
+                /* Single room assignment */
+                <div className="space-y-2">
+                  <div>
+                    <Label className="text-xs text-muted-foreground">Room</Label>
+                    <p className="font-medium">{parsedData.roomName}</p>
+                    {roomAssignments.length > 0 && roomAssignments[0].unitId && (
+                      <div className="flex items-center gap-2 flex-wrap">
+                        <p className="text-sm text-green-600">
+                          ✓ Matched: {getUnitName(roomAssignments[0].unitId)} (#{units.find(u => u.id === roomAssignments[0].unitId)?.unit_number || 'N/A'})
+                        </p>
+                        <Button
+                          type="button"
+                          variant="ghost"
+                          size="sm"
+                          className="h-6 text-xs text-primary hover:text-primary/80"
+                          onClick={() => setShowRoomSelector(!showRoomSelector)}
+                        >
+                          {showRoomSelector ? 'Cancel' : 'Change Room'}
+                        </Button>
+                      </div>
+                    )}
+                    {roomAssignments.length > 0 && !roomAssignments[0].unitId && parsedData.blockedUnitWarning && (
+                      <p className="text-sm text-orange-600">⚠ {parsedData.blockedUnitWarning}</p>
+                    )}
+                  </div>
+
+                  {/* Room Selection Dropdown */}
+                  {(roomAssignments.length === 0 || !roomAssignments[0].unitId || showRoomSelector) && (
+                    <div className="space-y-2 border rounded-lg p-4 bg-muted/50">
+                      <Label className="text-sm font-medium">
+                        {roomAssignments[0]?.unitId ? 'Change Room Assignment' : 'Select Room Manually'}
+                      </Label>
+                      {loadingUnitsStatus ? (
+                        <div className="flex items-center gap-2 text-sm text-muted-foreground">
+                          <Loader2 className="h-4 w-4 animate-spin" />
+                          Loading available rooms...
+                        </div>
+                      ) : (
+                        <Select 
+                          value={roomAssignments[0]?.unitId || ''} 
+                          onValueChange={(value) => {
+                            if (roomAssignments.length > 0) {
+                              updateRoomAssignment(0, value);
+                            } else {
+                              setRoomAssignments([{
+                                roomIndex: 0,
+                                roomName: parsedData.roomName,
+                                price: parsedData.totalPrice || 0,
+                                unitId: value
+                              }]);
+                            }
+                            setShowRoomSelector(false);
+                          }}
+                        >
+                          <SelectTrigger className="bg-background">
+                            <SelectValue placeholder="Select a room..." />
+                          </SelectTrigger>
+                          <SelectContent className="bg-background">
+                            {unitsWithStatus.map((unit) => (
+                              <SelectItem 
+                                key={unit.id} 
+                                value={unit.id}
+                                disabled={unit.status !== 'available'}
+                                className="flex items-center justify-between"
+                              >
+                                <div className="flex items-center gap-2 w-full">
+                                  <span>{unit.name} (#{unit.unit_number})</span>
+                                  {unit.status !== 'available' && (
+                                    <Badge 
+                                      variant="outline"
+                                      className={cn(
+                                        "ml-auto pointer-events-none text-xs",
+                                        unit.status === 'reserved' && "bg-orange-50 text-orange-600 border-orange-200",
+                                        unit.status === 'blocked' && "bg-red-50 text-red-600 border-red-200"
+                                      )}
+                                    >
+                                      {unit.status === 'reserved' ? 'Reserved' : 'Blocked'}
+                                    </Badge>
+                                  )}
+                                </div>
+                              </SelectItem>
+                            ))}
+                          </SelectContent>
+                        </Select>
+                      )}
+                      {(!roomAssignments[0]?.unitId) && (
+                        <p className="text-xs text-yellow-600">
+                          ⚠ No room has been selected. Please choose a room above.
+                        </p>
+                      )}
+                    </div>
+                  )}
+                </div>
+              )}
 
               <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                 <div>
@@ -1030,7 +1447,7 @@ const BookingComReservations = () => {
                 <div className="space-y-4">
                   {parsedData.totalPrice && (
                     <div>
-                      <Label className="text-xs text-muted-foreground">Total Price</Label>
+                      <Label className="text-xs text-muted-foreground">Total Price (All Rooms)</Label>
                       <p className="font-medium">
                         {parsedData.currency} {parsedData.totalPrice}
                       </p>
@@ -1086,17 +1503,28 @@ const BookingComReservations = () => {
               )}
             </Button>
             <div className="flex gap-2 w-full sm:w-auto">
-              <Button variant="outline" onClick={() => { setShowPreview(false); setExistingReservation(null); }} disabled={creating} className="flex-1 sm:flex-none">
+              <Button variant="outline" onClick={() => { setShowPreview(false); setExistingReservation(null); setRoomAssignments([]); }} disabled={creating} className="flex-1 sm:flex-none">
                 Cancel
               </Button>
-              <Button onClick={handleConfirmReservation} disabled={creating || !parsedData?.unitId || existingReservation !== null} className="flex-1 sm:flex-none">
+              <Button 
+                onClick={handleConfirmReservation} 
+                disabled={
+                  creating || 
+                  existingReservation !== null || 
+                  !allRoomsAssigned || 
+                  !hasNoDuplicateAssignments()
+                } 
+                className="flex-1 sm:flex-none"
+              >
                 {creating ? (
                   <>
                     <Loader2 className="h-4 w-4 mr-2 animate-spin" />
                     Creating...
                   </>
                 ) : (
-                  'Confirm & Create'
+                  parsedData?.isMultiRoom && roomAssignments.length > 1 
+                    ? `Create ${roomAssignments.length} Reservations`
+                    : 'Confirm & Create'
                 )}
               </Button>
             </div>
