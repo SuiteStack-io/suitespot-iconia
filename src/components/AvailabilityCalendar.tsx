@@ -2,7 +2,7 @@ import { useState, useEffect, useRef } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
-import { ChevronLeft, ChevronRight, AlertCircle, CheckCircle, Calendar as CalendarIcon, Download, FileSpreadsheet, FileText, GripVertical, ArrowUpDown, Hash, Building2, Lock, Maximize2, Minimize2, Trash2 } from "lucide-react";
+import { ChevronLeft, ChevronRight, AlertCircle, CheckCircle, Calendar as CalendarIcon, Download, FileSpreadsheet, FileText, GripVertical, ArrowUpDown, Hash, Building2, Lock, Maximize2, Minimize2, Trash2, DollarSign, TrendingUp } from "lucide-react";
 import { format, addDays, startOfWeek, isSameDay, startOfMonth, endOfMonth, getDaysInMonth, eachDayOfInterval, startOfDay, differenceInDays, parseISO, subDays } from "date-fns";
 import { Badge } from "@/components/ui/badge";
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
@@ -40,6 +40,7 @@ interface Reservation {
   guest_names: string[];
   status: string;
   source?: string;
+  price_per_night?: number | null;
 }
 
 interface BlockedDate {
@@ -217,6 +218,13 @@ export const AvailabilityCalendar = () => {
   const { toast, dismiss } = useToast();
   const isMobile = useIsMobile();
   const [isFullscreen, setIsFullscreen] = useState(false);
+  
+  // Metrics state for Occupancy and RevPAR
+  const [occupancyRate, setOccupancyRate] = useState<number>(0);
+  const [revPAR, setRevPAR] = useState<number>(0);
+  const [totalRevenue, setTotalRevenue] = useState<number>(0);
+  const [bookedNights, setBookedNights] = useState<number>(0);
+  const [totalAvailableNights, setTotalAvailableNights] = useState<number>(0);
 
   // Force monthly view on mobile
   useEffect(() => {
@@ -432,6 +440,73 @@ export const AvailabilityCalendar = () => {
 
     setConflicts(conflictSet);
   };
+
+  // Calculate Occupancy and RevPAR metrics based on view mode
+  const calculateMetrics = () => {
+    if (units.length === 0) {
+      setOccupancyRate(0);
+      setRevPAR(0);
+      setTotalRevenue(0);
+      setBookedNights(0);
+      setTotalAvailableNights(0);
+      return;
+    }
+
+    // Get date range based on view mode
+    const startDate = viewMode === 'monthly' 
+      ? startOfMonth(currentMonth) 
+      : currentWeekStart;
+    const endDate = viewMode === 'monthly'
+      ? endOfMonth(currentMonth)
+      : addDays(currentWeekStart, 13);
+    
+    const daysInPeriod = differenceInDays(endDate, startDate) + 1;
+    const availableNights = units.length * daysInPeriod;
+    
+    // Calculate booked nights and revenue from reservations
+    let totalBookedNights = 0;
+    let periodRevenue = 0;
+    
+    reservations.forEach(reservation => {
+      // Only count reservations for units in current location
+      if (!units.find(u => u.id === reservation.unit_id)) return;
+      
+      const checkIn = new Date(reservation.check_in_date);
+      const checkOut = new Date(reservation.check_out_date);
+      
+      // Calculate overlap with current period
+      const overlapStart = checkIn > startDate ? checkIn : startDate;
+      const overlapEnd = checkOut < endDate ? checkOut : addDays(endDate, 1);
+      
+      if (overlapStart < overlapEnd) {
+        const nightsInPeriod = differenceInDays(overlapEnd, overlapStart);
+        totalBookedNights += nightsInPeriod;
+        
+        // Calculate revenue proportionally
+        const pricePerNight = reservation.price_per_night || 0;
+        periodRevenue += nightsInPeriod * pricePerNight;
+      }
+    });
+    
+    const occupancy = availableNights > 0 
+      ? (totalBookedNights / availableNights) * 100 
+      : 0;
+    
+    const revpar = availableNights > 0 
+      ? periodRevenue / availableNights 
+      : 0;
+    
+    setOccupancyRate(occupancy);
+    setRevPAR(revpar);
+    setTotalRevenue(periodRevenue);
+    setBookedNights(totalBookedNights);
+    setTotalAvailableNights(availableNights);
+  };
+
+  // Recalculate metrics when data changes
+  useEffect(() => {
+    calculateMetrics();
+  }, [units, reservations, viewMode, currentWeekStart, currentMonth]);
 
   const isDateBlocked = (date: Date, unitId: string) => {
     return blockedDates.some(blocked => {
@@ -994,6 +1069,48 @@ export const AvailabilityCalendar = () => {
         startY = 38;
       }
 
+      // Calculate metrics for export date range
+      const exportDaysCount = differenceInDays(exportDateRange.to, exportDateRange.from) + 1;
+      const exportAvailableNights = units.length * exportDaysCount;
+      let exportBookedNights = 0;
+      let exportRevenue = 0;
+      
+      (exportReservations || []).forEach((r: Reservation) => {
+        if (!units.find(u => u.id === r.unit_id)) return;
+        
+        const checkIn = new Date(r.check_in_date);
+        const checkOut = new Date(r.check_out_date);
+        const overlapStart = checkIn > exportDateRange.from ? checkIn : exportDateRange.from;
+        const overlapEnd = checkOut < exportDateRange.to ? checkOut : addDays(exportDateRange.to, 1);
+        
+        if (overlapStart < overlapEnd) {
+          const nightsInPeriod = differenceInDays(overlapEnd, overlapStart);
+          exportBookedNights += nightsInPeriod;
+          exportRevenue += nightsInPeriod * (r.price_per_night || 0);
+        }
+      });
+      
+      const exportOccupancy = exportAvailableNights > 0 
+        ? (exportBookedNights / exportAvailableNights) * 100 
+        : 0;
+      const exportRevPAR = exportAvailableNights > 0 
+        ? exportRevenue / exportAvailableNights 
+        : 0;
+
+      // Add Occupancy & RevPAR Summary
+      doc.setFontSize(10);
+      doc.setFont('helvetica', 'bold');
+      doc.text('Summary:', 14, startY);
+      
+      doc.setFont('helvetica', 'normal');
+      const summaryY = startY + 5;
+      doc.text(`Occupancy Rate: ${exportOccupancy.toFixed(1)}%`, 14, summaryY);
+      doc.text(`RevPAR: $${exportRevPAR.toFixed(2)}`, 70, summaryY);
+      doc.text(`Total Revenue: $${exportRevenue.toLocaleString()}`, 120, summaryY);
+      doc.text(`Booked Nights: ${exportBookedNights}/${exportAvailableNights}`, 190, summaryY);
+      
+      startY = summaryY + 10;
+
       // Prepare table data with booking.com name + room number
       // Format dates as multi-line: Day of week, Day number, Month
       const headers = ['Room', ...exportDays.map(day => 
@@ -1519,6 +1636,51 @@ export const AvailabilityCalendar = () => {
                 <ChevronRight className="h-4 w-4" />
               </Button>
             </div>
+          </div>
+        )}
+
+        {/* Occupancy & RevPAR Cards - Hidden in fullscreen */}
+        {!isFullscreen && (
+          <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mb-4">
+            {/* Occupancy Rate Card */}
+            <Card className="p-4">
+              <div className="flex items-center justify-between">
+                <div>
+                  <p className="text-sm text-muted-foreground">
+                    {viewMode === 'weekly' ? 'Weekly' : 'Monthly'} Occupancy
+                  </p>
+                  <p className="text-2xl font-bold text-primary">
+                    {occupancyRate.toFixed(1)}%
+                  </p>
+                </div>
+                <div className="h-12 w-12 rounded-full bg-primary/10 flex items-center justify-center">
+                  <TrendingUp className="h-6 w-6 text-primary" />
+                </div>
+              </div>
+              <p className="text-xs text-muted-foreground mt-2">
+                {bookedNights} of {totalAvailableNights} room nights
+              </p>
+            </Card>
+            
+            {/* RevPAR Card */}
+            <Card className="p-4">
+              <div className="flex items-center justify-between">
+                <div>
+                  <p className="text-sm text-muted-foreground">
+                    {viewMode === 'weekly' ? 'Weekly' : 'Monthly'} RevPAR
+                  </p>
+                  <p className="text-2xl font-bold text-green-600 dark:text-green-400">
+                    ${revPAR.toFixed(2)}
+                  </p>
+                </div>
+                <div className="h-12 w-12 rounded-full bg-green-100 dark:bg-green-900/30 flex items-center justify-center">
+                  <DollarSign className="h-6 w-6 text-green-600 dark:text-green-400" />
+                </div>
+              </div>
+              <p className="text-xs text-muted-foreground mt-2">
+                Total Revenue: ${totalRevenue.toLocaleString()}
+              </p>
+            </Card>
           </div>
         )}
 
