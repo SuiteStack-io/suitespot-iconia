@@ -65,6 +65,9 @@ interface DayAvailability {
 
 type ViewMode = 'weekly' | 'monthly';
 
+// Units that are blocked and should be excluded from occupancy/RevPAR calculations
+const BLOCKED_UNIT_NUMBERS = ['501', '512'];
+
 // Droppable Unit Row Component
 const DroppableUnitRow = ({ unit, children }: { unit: Unit; children: React.ReactNode }) => {
   const { isOver, setNodeRef } = useDroppable({
@@ -475,15 +478,18 @@ export const AvailabilityCalendar = () => {
       : addDays(currentWeekStart, 13);
     
     const daysInPeriod = differenceInDays(endDate, startDate) + 1;
-    const availableNights = units.length * daysInPeriod;
+    
+    // Filter out blocked units from calculations
+    const activeUnits = units.filter(u => !BLOCKED_UNIT_NUMBERS.includes(u.unit_number || ''));
+    const availableNights = activeUnits.length * daysInPeriod;
     
     // Calculate booked nights and revenue from reservations
     let totalBookedNights = 0;
     let periodRevenue = 0;
     
     reservations.forEach(reservation => {
-      // Only count reservations for units in current location
-      if (!units.find(u => u.id === reservation.unit_id)) return;
+      // Only count reservations for active units in current location
+      if (!activeUnits.find(u => u.id === reservation.unit_id)) return;
       
       const checkIn = new Date(reservation.check_in_date);
       const checkOut = new Date(reservation.check_out_date);
@@ -511,7 +517,7 @@ export const AvailabilityCalendar = () => {
       : 0;
     
     // Calculate per-unit metrics for breakdown
-    const perUnitMetrics: UnitMetrics[] = units.map(unit => {
+    const perUnitMetrics: UnitMetrics[] = activeUnits.map(unit => {
       let unitBookedNights = 0;
       let unitRevenue = 0;
       const unitAvailableNights = daysInPeriod;
