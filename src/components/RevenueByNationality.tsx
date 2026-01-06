@@ -32,7 +32,7 @@ export const RevenueByNationality = ({ mainDateRange }: RevenueByNationalityProp
       return mainDateRange;
     }
     return {
-      from: new Date(new Date().setMonth(new Date().getMonth() - 1)),
+      from: new Date(2024, 10, 1), // Nov 1, 2024
       to: new Date(),
     };
   });
@@ -73,7 +73,7 @@ export const RevenueByNationality = ({ mainDateRange }: RevenueByNationalityProp
       .select('guest_nationality, nights, price_per_night, total_price, vat_exempt, source, payment_method')
       .gte('check_in_date', format(dateRange.from, 'yyyy-MM-dd'))
       .lte('check_in_date', format(dateRange.to, 'yyyy-MM-dd'))
-      .in('status', ['confirmed', 'checked-in', 'checked-out']);
+      .in('status', ['confirmed', 'checked-in', 'checked-out', 'completed']);
 
     if (error) {
       console.error('Error fetching nationality revenues:', error);
