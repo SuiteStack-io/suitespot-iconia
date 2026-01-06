@@ -1137,14 +1137,29 @@ export const AvailabilityCalendar = () => {
           cellPadding: 1,
           minCellHeight: 12,
         },
-        columnStyles: {
-          0: { 
-            fontStyle: 'bold', 
-            cellWidth: 30,
-            halign: 'left',
-            fontSize: 5,
+        columnStyles: (() => {
+          const pageWidth = doc.internal.pageSize.getWidth();
+          const roomColumnWidth = 30;
+          const margins = 28; // 14 left + 14 right
+          const availableWidth = pageWidth - roomColumnWidth - margins;
+          const dayColumnWidth = availableWidth / exportDays.length;
+          
+          const styles: { [key: number]: any } = {
+            0: { 
+              fontStyle: 'bold', 
+              cellWidth: roomColumnWidth,
+              halign: 'left',
+              fontSize: 5,
+            }
+          };
+          
+          // Set fixed equal width for all day columns
+          for (let i = 1; i <= exportDays.length; i++) {
+            styles[i] = { cellWidth: dayColumnWidth };
           }
-        },
+          
+          return styles;
+        })(),
         didParseCell: (data) => {
           if (data.section === 'head') return;
           
