@@ -10,6 +10,12 @@ const corsHeaders = {
     "authorization, x-client-info, apikey, content-type",
 };
 
+interface RoomInfo {
+  roomName: string;
+  roomNumber: string;
+  price: number;
+}
+
 interface ReservationNotification {
   reservationId: string;
   guestNames: string[];
@@ -30,6 +36,8 @@ interface ReservationNotification {
   guestNationality: string | null;
   customerEmail?: string;
   customerPhone?: string;
+  isMultiRoom?: boolean;
+  rooms?: RoomInfo[];
 }
 
 const handler = async (req: Request): Promise<Response> => {
@@ -64,6 +72,8 @@ const handler = async (req: Request): Promise<Response> => {
       guestNationality,
       customerEmail,
       customerPhone,
+      isMultiRoom,
+      rooms,
     }: ReservationNotification = await req.json();
 
     console.log("Processing reservation notification:", reservationId);
@@ -460,13 +470,31 @@ const handler = async (req: Request): Promise<Response> => {
       try {
         // Build subject line with suite name and room number if available
         let subject = `New Reservation: ${guestNames.join(", ")}`;
-        if (matchedSuiteName && matchedRoomNumber) {
+        if (isMultiRoom && rooms && rooms.length > 1) {
+          subject = `New Multi-Room Reservation: ${guestNames.join(", ")} - ${rooms.length} Rooms`;
+        } else if (matchedSuiteName && matchedRoomNumber) {
           subject += ` - ${matchedSuiteName} - Room #${matchedRoomNumber}`;
         } else if (matchedSuiteName) {
           subject += ` - ${matchedSuiteName}`;
         } else {
           subject += ` - ${unitName}`;
         }
+        
+        // Build rooms HTML for multi-room bookings
+        const multiRoomHtml = isMultiRoom && rooms && rooms.length > 1 ? `
+          <div style="background: #fef3c7; padding: 15px; border-radius: 8px; margin-bottom: 20px; border-left: 4px solid #f59e0b;">
+            <strong style="color: #92400e;">🏨 Multi-Room Booking (${rooms.length} Rooms)</strong>
+          </div>
+          ${rooms.map((room, index) => `
+            <div style="background: #f8fafc; padding: 15px; border-radius: 8px; margin-bottom: 15px; border: 1px solid #e2e8f0;">
+              <strong style="color: #0f172a;">Room ${index + 1}: ${room.roomName}</strong>
+              <div style="margin-top: 8px;">
+                <span style="color: #6b7280;">Room #:</span> <strong>${room.roomNumber}</strong><br/>
+                <span style="color: #6b7280;">Price:</span> <strong>$${room.price.toFixed(2)}</strong>
+              </div>
+            </div>
+          `).join('')}
+        ` : '';
         
         const result = await resend.emails.send({
           from: "SuiteSpot Bookings <reservations@bookings.suitespoteg.com>",
@@ -573,6 +601,7 @@ const handler = async (req: Request): Promise<Response> => {
                   <div class="detail-value"><strong>${guestNames.join(", ")}</strong></div>
                 </div>
                 
+                ${isMultiRoom && rooms && rooms.length > 1 ? multiRoomHtml : `
                 <div class="detail-row">
                   <div class="detail-label">Unit:</div>
                   <div class="detail-value"><strong>${unitName}</strong></div>
@@ -591,6 +620,7 @@ const handler = async (req: Request): Promise<Response> => {
                   <div class="detail-value"><strong>${matchedRoomNumber}</strong></div>
                 </div>
                 ` : ''}
+                `}
                 
                 <div class="detail-row">
                   <div class="detail-label">Check-in:</div>
