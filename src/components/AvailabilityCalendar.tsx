@@ -993,18 +993,75 @@ export const AvailabilityCalendar = () => {
         });
       });
       
+      // Pre-calculate reservation spans for merged cells
+      const reservationSpans: Map<string, Array<{
+        reservationId: string;
+        guestName: string;
+        startDayIndex: number;
+        endDayIndex: number;
+        colSpan: number;
+      }>> = new Map();
+
+      sortedUnits.forEach((unit) => {
+        const unitReservations = (exportReservations || []).filter(
+          (r: Reservation) => r.unit_id === unit.id && r.status !== 'cancelled'
+        );
+        
+        const spans: Array<{
+          reservationId: string;
+          guestName: string;
+          startDayIndex: number;
+          endDayIndex: number;
+          colSpan: number;
+        }> = [];
+        
+        unitReservations.forEach((r: Reservation) => {
+          const checkIn = new Date(r.check_in_date);
+          const checkOut = new Date(r.check_out_date);
+          
+          let startIdx = -1, endIdx = -1;
+          exportDays.forEach((day, idx) => {
+            const dayStart = new Date(day);
+            dayStart.setHours(0, 0, 0, 0);
+            const checkInStart = new Date(checkIn);
+            checkInStart.setHours(0, 0, 0, 0);
+            const checkOutStart = new Date(checkOut);
+            checkOutStart.setHours(0, 0, 0, 0);
+            
+            const inRange = dayStart >= checkInStart && dayStart < checkOutStart;
+            if (inRange) {
+              if (startIdx === -1) startIdx = idx;
+              endIdx = idx;
+            }
+          });
+          
+          if (startIdx !== -1) {
+            spans.push({
+              reservationId: r.id,
+              guestName: r.guest_names?.[0] || 'Booked',
+              startDayIndex: startIdx,
+              endDayIndex: endIdx,
+              colSpan: endIdx - startIdx + 1
+            });
+          }
+        });
+        
+        reservationSpans.set(unit.id, spans);
+      });
+      
       // Build table data with room type separator rows
-      const tableData: string[][] = [];
+      type CellContent = string | { content: string; colSpan: number };
+      const tableData: CellContent[][] = [];
       const separatorRowIndices: number[] = [];
       let currentRoomType = '';
       
-      sortedUnits.forEach((unit, unitIndex) => {
+      sortedUnits.forEach((unit) => {
         const roomType = unit.booking_com_name || unit.name || 'Unknown';
         
         // Add separator row when room type changes
         if (roomType !== currentRoomType) {
           const roomCount = sortedUnits.filter(u => (u.booking_com_name || u.name) === roomType).length;
-          const separatorRow = [`${roomType} (${roomCount} room${roomCount > 1 ? 's' : ''})`, ...exportDays.map(() => '')];
+          const separatorRow: CellContent[] = [`${roomType} (${roomCount} room${roomCount > 1 ? 's' : ''})`, ...exportDays.map(() => '')];
           separatorRowIndices.push(tableData.length);
           tableData.push(separatorRow);
           currentRoomType = roomType;
@@ -1012,23 +1069,39 @@ export const AvailabilityCalendar = () => {
         
         // Room row: room number only (since room type is in separator)
         const roomNumber = unit.unit_number ? `#${unit.unit_number}` : unit.name;
-        const row = [roomNumber];
+        const row: CellContent[] = [roomNumber];
         
-        // Date columns: show guest names, "Blocked", or empty for available
-        exportDays.forEach((day) => {
+        // Get reservation spans for this unit
+        const spans = reservationSpans.get(unit.id) || [];
+        
+        // Build row with merged cells for reservations
+        let dayIdx = 0;
+        while (dayIdx < exportDays.length) {
+          const day = exportDays[dayIdx];
           const availability = getExportDayAvailability(unit, day);
+          
+          // Check if this is the start of a reservation span
+          const spanStart = spans.find(s => s.startDayIndex === dayIdx);
+          
           if (availability.hasConflict) {
+            // Conflict: show both guest names, no merge
             const guests = availability.reservations.map(r => r.guest_names?.[0] || 'Guest').join(' & ');
             row.push(guests);
+            dayIdx++;
+          } else if (spanStart && !availability.isBlocked) {
+            // Start of reservation span: create merged cell
+            row.push({ content: spanStart.guestName, colSpan: spanStart.colSpan });
+            dayIdx += spanStart.colSpan; // Skip the merged days
           } else if (availability.isBlocked) {
-            row.push('Blocked');
-          } else if (!availability.isAvailable && availability.reservations.length > 0) {
-            const guestName = availability.reservations[0]?.guest_names?.[0] || 'Booked';
-            row.push(guestName);
-          } else {
+            // Blocked: empty cell (styling handles black fill)
             row.push('');
+            dayIdx++;
+          } else {
+            // Available: empty cell
+            row.push('');
+            dayIdx++;
           }
-        });
+        }
         tableData.push(row);
       });
       
@@ -1113,8 +1186,8 @@ export const AvailabilityCalendar = () => {
                 data.cell.styles.fontStyle = 'bold';
                 break;
               case 'blocked':
-                data.cell.styles.fillColor = [55, 65, 81]; // gray-700
-                data.cell.styles.textColor = [255, 255, 255];
+                data.cell.styles.fillColor = [0, 0, 0]; // Pure black
+                data.cell.styles.textColor = [0, 0, 0]; // Black text (invisible)
                 break;
               case 'booked':
                 data.cell.styles.fillColor = [191, 219, 254]; // blue-200
