@@ -1014,7 +1014,16 @@ export const AvailabilityCalendar = () => {
           const availability = getExportDayAvailability(unit, day);
           if (availability.hasConflict) return 'conflict';
           if (availability.isBlocked) return 'blocked';
-          if (!availability.isAvailable) return 'booked';
+          if (!availability.isAvailable) {
+            // Check if this is the last night of stay (checkout next day)
+            const isCheckoutDay = availability.reservations?.some((r: Reservation) => {
+              const checkOut = new Date(r.check_out_date);
+              const dayAfter = new Date(day);
+              dayAfter.setDate(dayAfter.getDate() + 1);
+              return isSameDay(dayAfter, checkOut);
+            });
+            return isCheckoutDay ? 'checkout' : 'booked';
+          }
           return 'available';
         });
       });
@@ -1236,6 +1245,10 @@ export const AvailabilityCalendar = () => {
                 data.cell.styles.fillColor = [0, 0, 0]; // Pure black
                 data.cell.styles.textColor = [0, 0, 0]; // Black text (invisible)
                 break;
+              case 'checkout':
+                data.cell.styles.fillColor = [165, 180, 252]; // indigo-300 (darker shade for checkout)
+                data.cell.styles.textColor = [30, 64, 175]; // blue-800
+                break;
               case 'booked':
                 data.cell.styles.fillColor = [191, 219, 254]; // blue-200
                 data.cell.styles.textColor = [30, 64, 175]; // blue-800
@@ -1273,11 +1286,17 @@ export const AvailabilityCalendar = () => {
       doc.rect(14 + legendSpacing, legendY - 3, 8, 5, 'S');
       doc.text('Booked', 24 + legendSpacing, legendY);
       
-      // Blocked - dark gray
-      doc.setFillColor(55, 65, 81);
+      // Checkout - indigo
+      doc.setFillColor(165, 180, 252);
       doc.rect(14 + legendSpacing * 2, legendY - 3, 8, 5, 'F');
       doc.rect(14 + legendSpacing * 2, legendY - 3, 8, 5, 'S');
-      doc.text('Blocked', 24 + legendSpacing * 2, legendY);
+      doc.text('Checkout', 24 + legendSpacing * 2, legendY);
+      
+      // Blocked - dark gray
+      doc.setFillColor(55, 65, 81);
+      doc.rect(14 + legendSpacing * 3, legendY - 3, 8, 5, 'F');
+      doc.rect(14 + legendSpacing * 3, legendY - 3, 8, 5, 'S');
+      doc.text('Blocked', 24 + legendSpacing * 3, legendY);
       
 
       // Save
