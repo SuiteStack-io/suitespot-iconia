@@ -8,6 +8,7 @@ import { AdminBreadcrumb } from '@/components/AdminBreadcrumb';
 import { RevenueBySource } from '@/components/RevenueBySource';
 import { RevenueByRoom } from '@/components/RevenueByRoom';
 import { RevenueByGuests } from '@/components/RevenueByGuests';
+import { RevenueByNationality } from '@/components/RevenueByNationality';
 import { CancellationAnalytics } from '@/components/analytics/CancellationAnalytics';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { supabase } from '@/integrations/supabase/client';
@@ -1195,7 +1196,11 @@ const Analytics = () => {
             from: new Date(getDateRange().startDate),
             to: new Date(getDateRange().endDate)
           }} />
-<RevenueByGuests mainDateRange={customDateRange || {
+<RevenueByNationality mainDateRange={customDateRange || {
+            from: new Date(getDateRange().startDate),
+            to: new Date(getDateRange().endDate)
+          }} />
+          <RevenueByGuests mainDateRange={customDateRange || {
             from: new Date(getDateRange().startDate),
             to: new Date(getDateRange().endDate)
           }} />
