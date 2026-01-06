@@ -225,6 +225,20 @@ export const AvailabilityCalendar = () => {
   const [totalRevenue, setTotalRevenue] = useState<number>(0);
   const [bookedNights, setBookedNights] = useState<number>(0);
   const [totalAvailableNights, setTotalAvailableNights] = useState<number>(0);
+  const [showOccupancyModal, setShowOccupancyModal] = useState(false);
+  const [showRevPARModal, setShowRevPARModal] = useState(false);
+
+  interface UnitMetrics {
+    unitId: string;
+    unitName: string;
+    unitNumber: string;
+    bookedNights: number;
+    availableNights: number;
+    occupancyRate: number;
+    revenue: number;
+    revPAR: number;
+  }
+  const [unitMetrics, setUnitMetrics] = useState<UnitMetrics[]>([]);
 
   // Force monthly view on mobile
   useEffect(() => {
@@ -496,6 +510,46 @@ export const AvailabilityCalendar = () => {
       ? periodRevenue / availableNights 
       : 0;
     
+    // Calculate per-unit metrics for breakdown
+    const perUnitMetrics: UnitMetrics[] = units.map(unit => {
+      let unitBookedNights = 0;
+      let unitRevenue = 0;
+      const unitAvailableNights = daysInPeriod;
+      
+      reservations.forEach(reservation => {
+        if (reservation.unit_id !== unit.id) return;
+        
+        const checkIn = new Date(reservation.check_in_date);
+        const checkOut = new Date(reservation.check_out_date);
+        
+        const overlapStart = checkIn > startDate ? checkIn : startDate;
+        const overlapEnd = checkOut < endDate ? checkOut : addDays(endDate, 1);
+        
+        if (overlapStart < overlapEnd) {
+          const nightsInPeriod = differenceInDays(overlapEnd, overlapStart);
+          unitBookedNights += nightsInPeriod;
+          const pricePerNight = reservation.price_per_night || 0;
+          unitRevenue += nightsInPeriod * pricePerNight;
+        }
+      });
+      
+      return {
+        unitId: unit.id,
+        unitName: unit.booking_com_name || unit.name,
+        unitNumber: unit.unit_number || '',
+        bookedNights: unitBookedNights,
+        availableNights: unitAvailableNights,
+        occupancyRate: unitAvailableNights > 0 
+          ? (unitBookedNights / unitAvailableNights) * 100 
+          : 0,
+        revenue: unitRevenue,
+        revPAR: unitAvailableNights > 0 
+          ? unitRevenue / unitAvailableNights 
+          : 0,
+      };
+    });
+    
+    setUnitMetrics(perUnitMetrics);
     setOccupancyRate(occupancy);
     setRevPAR(revpar);
     setTotalRevenue(periodRevenue);
@@ -1643,7 +1697,10 @@ export const AvailabilityCalendar = () => {
         {!isFullscreen && (
           <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mb-4">
             {/* Occupancy Rate Card */}
-            <Card className="p-4">
+            <Card 
+              className="p-4 cursor-pointer hover:bg-muted/50 transition-colors"
+              onClick={() => setShowOccupancyModal(true)}
+            >
               <div className="flex items-center justify-between">
                 <div>
                   <p className="text-sm text-muted-foreground">
@@ -1663,18 +1720,21 @@ export const AvailabilityCalendar = () => {
             </Card>
             
             {/* RevPAR Card */}
-            <Card className="p-4">
+            <Card 
+              className="p-4 cursor-pointer hover:bg-muted/50 transition-colors"
+              onClick={() => setShowRevPARModal(true)}
+            >
               <div className="flex items-center justify-between">
                 <div>
                   <p className="text-sm text-muted-foreground">
                     {viewMode === 'weekly' ? 'Weekly' : 'Monthly'} RevPAR
                   </p>
-                  <p className="text-2xl font-bold text-green-600 dark:text-green-400">
+                  <p className="text-2xl font-bold text-foreground">
                     ${revPAR.toFixed(2)}
                   </p>
                 </div>
-                <div className="h-12 w-12 rounded-full bg-green-100 dark:bg-green-900/30 flex items-center justify-center">
-                  <DollarSign className="h-6 w-6 text-green-600 dark:text-green-400" />
+                <div className="h-12 w-12 rounded-full bg-muted flex items-center justify-center">
+                  <DollarSign className="h-6 w-6 text-foreground" />
                 </div>
               </div>
               <p className="text-xs text-muted-foreground mt-2">
@@ -2162,6 +2222,114 @@ export const AvailabilityCalendar = () => {
                 {exporting ? 'Exporting...' : 'Export'}
               </Button>
             </div>
+          </div>
+        </DialogContent>
+      </Dialog>
+
+      {/* Occupancy Breakdown Modal */}
+      <Dialog open={showOccupancyModal} onOpenChange={setShowOccupancyModal}>
+        <DialogContent className="max-w-2xl max-h-[80vh] overflow-y-auto">
+          <DialogHeader>
+            <DialogTitle>
+              {viewMode === 'weekly' ? 'Weekly' : 'Monthly'} Occupancy Breakdown
+            </DialogTitle>
+          </DialogHeader>
+          
+          {/* Summary */}
+          <div className="grid grid-cols-3 gap-4 mb-4">
+            <div className="text-center p-3 bg-primary/10 rounded-lg">
+              <p className="text-2xl font-bold text-primary">{occupancyRate.toFixed(1)}%</p>
+              <p className="text-xs text-muted-foreground">Overall Occupancy</p>
+            </div>
+            <div className="text-center p-3 bg-muted rounded-lg">
+              <p className="text-2xl font-bold">{bookedNights}</p>
+              <p className="text-xs text-muted-foreground">Booked Nights</p>
+            </div>
+            <div className="text-center p-3 bg-muted rounded-lg">
+              <p className="text-2xl font-bold">{totalAvailableNights}</p>
+              <p className="text-xs text-muted-foreground">Available Nights</p>
+            </div>
+          </div>
+          
+          {/* Per-Unit Table */}
+          <div className="border rounded-lg overflow-hidden">
+            <table className="w-full text-sm">
+              <thead className="bg-muted">
+                <tr>
+                  <th className="text-left py-2 px-3 font-medium">Unit</th>
+                  <th className="text-right py-2 px-3 font-medium">Booked</th>
+                  <th className="text-right py-2 px-3 font-medium">Available</th>
+                  <th className="text-right py-2 px-3 font-medium">Occupancy</th>
+                </tr>
+              </thead>
+              <tbody>
+                {unitMetrics.map(unit => (
+                  <tr key={unit.unitId} className="border-t">
+                    <td className="py-2 px-3">{unit.unitNumber} - {unit.unitName}</td>
+                    <td className="text-right py-2 px-3">{unit.bookedNights}</td>
+                    <td className="text-right py-2 px-3">{unit.availableNights}</td>
+                    <td className="text-right py-2 px-3 font-medium">
+                      {unit.occupancyRate.toFixed(1)}%
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        </DialogContent>
+      </Dialog>
+
+      {/* RevPAR Breakdown Modal */}
+      <Dialog open={showRevPARModal} onOpenChange={setShowRevPARModal}>
+        <DialogContent className="max-w-2xl max-h-[80vh] overflow-y-auto">
+          <DialogHeader>
+            <DialogTitle>
+              {viewMode === 'weekly' ? 'Weekly' : 'Monthly'} RevPAR Breakdown
+            </DialogTitle>
+          </DialogHeader>
+          
+          {/* Summary */}
+          <div className="grid grid-cols-3 gap-4 mb-4">
+            <div className="text-center p-3 bg-muted rounded-lg">
+              <p className="text-2xl font-bold">${revPAR.toFixed(2)}</p>
+              <p className="text-xs text-muted-foreground">Overall RevPAR</p>
+            </div>
+            <div className="text-center p-3 bg-muted rounded-lg">
+              <p className="text-2xl font-bold">${totalRevenue.toLocaleString()}</p>
+              <p className="text-xs text-muted-foreground">Total Revenue</p>
+            </div>
+            <div className="text-center p-3 bg-muted rounded-lg">
+              <p className="text-2xl font-bold">
+                ${bookedNights > 0 ? (totalRevenue / bookedNights).toFixed(2) : '0.00'}
+              </p>
+              <p className="text-xs text-muted-foreground">ADR</p>
+            </div>
+          </div>
+          
+          {/* Per-Unit Table */}
+          <div className="border rounded-lg overflow-hidden">
+            <table className="w-full text-sm">
+              <thead className="bg-muted">
+                <tr>
+                  <th className="text-left py-2 px-3 font-medium">Unit</th>
+                  <th className="text-right py-2 px-3 font-medium">Revenue</th>
+                  <th className="text-right py-2 px-3 font-medium">Nights</th>
+                  <th className="text-right py-2 px-3 font-medium">RevPAR</th>
+                </tr>
+              </thead>
+              <tbody>
+                {unitMetrics.map(unit => (
+                  <tr key={unit.unitId} className="border-t">
+                    <td className="py-2 px-3">{unit.unitNumber} - {unit.unitName}</td>
+                    <td className="text-right py-2 px-3">${unit.revenue.toLocaleString()}</td>
+                    <td className="text-right py-2 px-3">{unit.bookedNights}</td>
+                    <td className="text-right py-2 px-3 font-medium">
+                      ${unit.revPAR.toFixed(2)}
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
           </div>
         </DialogContent>
       </Dialog>
