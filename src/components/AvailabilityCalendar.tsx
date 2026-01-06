@@ -1246,11 +1246,6 @@ export const AvailabilityCalendar = () => {
       doc.rect(14 + legendSpacing * 2, legendY - 3, 8, 5, 'S');
       doc.text('Blocked', 24 + legendSpacing * 2, legendY);
       
-      // Conflict - red
-      doc.setFillColor(254, 202, 202);
-      doc.rect(14 + legendSpacing * 3, legendY - 3, 8, 5, 'F');
-      doc.rect(14 + legendSpacing * 3, legendY - 3, 8, 5, 'S');
-      doc.text('⚠️ Conflict', 24 + legendSpacing * 3, legendY);
 
       // Save
       const filename = `availability-calendar-${format(new Date(), 'yyyy-MM-dd')}.pdf`;
