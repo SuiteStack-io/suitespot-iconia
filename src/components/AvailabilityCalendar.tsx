@@ -240,6 +240,7 @@ export const AvailabilityCalendar = () => {
     occupancyRate: number;
     revenue: number;
     revPAR: number;
+    isBlocked?: boolean;
   }
   const [unitMetrics, setUnitMetrics] = useState<UnitMetrics[]>([]);
 
@@ -516,11 +517,12 @@ export const AvailabilityCalendar = () => {
       ? periodRevenue / availableNights 
       : 0;
     
-    // Calculate per-unit metrics for breakdown
-    const perUnitMetrics: UnitMetrics[] = activeUnits.map(unit => {
+    // Calculate per-unit metrics for breakdown (include all units, but blocked ones show 0 available)
+    const perUnitMetrics: UnitMetrics[] = units.map(unit => {
+      const isBlocked = BLOCKED_UNIT_NUMBERS.includes(unit.unit_number || '');
       let unitBookedNights = 0;
       let unitRevenue = 0;
-      const unitAvailableNights = daysInPeriod;
+      const unitAvailableNights = isBlocked ? 0 : daysInPeriod;
       
       reservations.forEach(reservation => {
         if (reservation.unit_id !== unit.id) return;
@@ -552,6 +554,7 @@ export const AvailabilityCalendar = () => {
         revPAR: unitAvailableNights > 0 
           ? unitRevenue / unitAvailableNights 
           : 0,
+        isBlocked,
       };
     });
     
