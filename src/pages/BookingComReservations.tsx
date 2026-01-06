@@ -754,10 +754,17 @@ const BookingComReservations = () => {
           // Send single notification for multi-room booking
           if (parsedData.contactEmail) {
             try {
-              const roomNames = roomAssignments.map(r => {
+              // Build rooms array with full details for multi-room booking
+              const roomsData = roomAssignments.map(r => {
                 const unit = units.find(u => u.id === r.unitId);
-                return unit?.name || r.roomName;
-              }).join(', ');
+                return {
+                  roomName: unit?.name || r.roomName,
+                  roomNumber: unit?.unit_number || '',
+                  price: r.price || 0
+                };
+              });
+
+              const roomNames = roomsData.map(r => r.roomName).join(', ');
 
               await supabase.functions.invoke('send-reservation-notification', {
                 body: {
@@ -777,6 +784,8 @@ const BookingComReservations = () => {
                   guestNationality: parsedData.nationality || null,
                   customerEmail: parsedData.contactEmail,
                   customerPhone: parsedData.contactPhone || null,
+                  isMultiRoom: true,
+                  rooms: roomsData,
                 }
               });
             } catch (emailError) {
