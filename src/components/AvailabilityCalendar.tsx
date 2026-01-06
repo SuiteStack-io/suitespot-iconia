@@ -881,6 +881,7 @@ export const AvailabilityCalendar = () => {
         .from('reservations')
         .select('*')
         .in('status', ['confirmed', 'checked-in', 'checked-out', 'completed'])
+        .is('cancelled_at', null)
         .lte('check_in_date', endDate)
         .gte('check_out_date', startDate);
       
