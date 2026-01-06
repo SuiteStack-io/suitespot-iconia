@@ -901,7 +901,15 @@ export const AvailabilityCalendar = () => {
           return isCheckInDay || isStayingDay || isCheckoutDayForCompleted;
         });
 
-        const hasConflict = dayReservations.length > 1;
+        // Check for actual conflicts - only count reservations staying overnight
+        // A turnover day (one checking out, one checking in) is NOT a conflict
+        const stayingOvernight = dayReservations.filter((r: Reservation) => {
+          const checkIn = new Date(r.check_in_date);
+          const checkOut = new Date(r.check_out_date);
+          // Guest is staying overnight if date >= checkIn AND date < checkOut
+          return date >= checkIn && date < checkOut;
+        });
+        const hasConflict = stayingOvernight.length > 1;
 
         return {
           date,
