@@ -867,9 +867,35 @@ export const AvailabilityCalendar = () => {
     if (!exportDateRange?.from || !exportDateRange?.to) return;
     
     setExporting(true);
+    // Helper function to detect Arabic text
+    const containsArabic = (text: string): boolean => {
+      return /[\u0600-\u06FF]/.test(text);
+    };
+
+    // Load Arabic font for PDF
+    const loadArabicFont = async (pdf: jsPDF): Promise<boolean> => {
+      try {
+        const response = await fetch('/fonts/Amiri-Regular.ttf');
+        if (!response.ok) throw new Error('Arabic font fetch failed');
+        const buffer = await response.arrayBuffer();
+        const base64 = btoa(
+          new Uint8Array(buffer).reduce((data, byte) => data + String.fromCharCode(byte), '')
+        );
+        pdf.addFileToVFS('Amiri-Regular.ttf', base64);
+        pdf.addFont('Amiri-Regular.ttf', 'Amiri', 'normal');
+        return true;
+      } catch (error) {
+        console.error('Failed to load Arabic font:', error);
+        return false;
+      }
+    };
+
     try {
       const doc = new jsPDF('l', 'mm', 'a4'); // landscape orientation
       const pageWidth = doc.internal.pageSize.width;
+      
+      // Load Arabic font
+      const hasArabicFont = await loadArabicFont(doc);
       
       const exportDays = eachDayOfInterval({ start: exportDateRange.from, end: exportDateRange.to });
       
@@ -1162,6 +1188,13 @@ export const AvailabilityCalendar = () => {
         })(),
         didParseCell: (data) => {
           if (data.section === 'head') return;
+          
+          // Check for Arabic text and use Amiri font
+          const cellText = Array.isArray(data.cell.text) ? data.cell.text.join('') : String(data.cell.text);
+          if (hasArabicFont && containsArabic(cellText)) {
+            data.cell.styles.font = 'Amiri';
+            data.cell.styles.fontSize = 6; // Slightly larger for Arabic readability
+          }
           
           const rowIndex = data.row.index;
           
