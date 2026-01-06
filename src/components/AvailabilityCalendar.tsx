@@ -1083,11 +1083,10 @@ export const AvailabilityCalendar = () => {
           // Check if this is the start of a reservation span
           const spanStart = spans.find(s => s.startDayIndex === dayIdx);
           
-          if (availability.hasConflict) {
-            // Conflict: show both guest names, no merge
-            const guests = availability.reservations.map(r => r.guest_names?.[0] || 'Guest').join(' & ');
-            row.push(guests);
-            dayIdx++;
+        if (availability.hasConflict) {
+          // Conflict: just show "Conflict" text
+          row.push('Conflict');
+          dayIdx++;
           } else if (spanStart && !availability.isBlocked) {
             // Start of reservation span: create merged cell
             row.push({ content: spanStart.guestName, colSpan: spanStart.colSpan });
