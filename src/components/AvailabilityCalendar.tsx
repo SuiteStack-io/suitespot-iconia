@@ -2359,6 +2359,7 @@ export const AvailabilityCalendar = () => {
                   <th className="text-left py-2 px-3 font-medium">Unit</th>
                   <th className="text-right py-2 px-3 font-medium">Net Revenue</th>
                   <th className="text-right py-2 px-3 font-medium">Nights</th>
+                  <th className="text-right py-2 px-3 font-medium">ADR</th>
                   <th className="text-right py-2 px-3 font-medium">RevPAR</th>
                 </tr>
               </thead>
@@ -2368,6 +2369,9 @@ export const AvailabilityCalendar = () => {
                     <td className="py-2 px-3">{unit.unitNumber} - {unit.unitName}</td>
                     <td className="text-right py-2 px-3">${Math.ceil(unit.netRevenue).toLocaleString()}</td>
                     <td className="text-right py-2 px-3">{unit.bookedNights}</td>
+                    <td className="text-right py-2 px-3">
+                      ${unit.bookedNights > 0 ? Math.ceil(unit.netRevenue / unit.bookedNights).toLocaleString() : '0'}
+                    </td>
                     <td className="text-right py-2 px-3 font-medium">
                       ${Math.ceil(unit.revPAR).toLocaleString()}
                     </td>
