@@ -28,6 +28,8 @@ interface Reservation {
   status: string;
   source: string;
   channel?: string;
+  group_id?: string | null;
+  created_at: string;
 }
 
 interface BlockedDate {
@@ -49,6 +51,7 @@ export const MobileCalendarView = () => {
   const [currentMonth, setCurrentMonth] = useState(startOfMonth(new Date()));
   const [units, setUnits] = useState<Unit[]>([]);
   const [reservations, setReservations] = useState<Reservation[]>([]);
+  const [extensionReservationIds, setExtensionReservationIds] = useState<Set<string>>(new Set());
   const [blockedDates, setBlockedDates] = useState<BlockedDate[]>([]);
   const [selectedDay, setSelectedDay] = useState<DayData | null>(null);
   const [sheetOpen, setSheetOpen] = useState(false);
@@ -140,7 +143,52 @@ export const MobileCalendarView = () => {
         .in('status', ['confirmed', 'checked-in', 'checked-out', 'completed'])
         .is('cancelled_at', null)
         .or(`and(check_in_date.lte.${endDate},check_out_date.gte.${startDate})`);
-    if (reservationsData) setReservations(reservationsData);
+    if (reservationsData) {
+      setReservations(reservationsData);
+      
+      // Detect extension reservations (same group_id, same unit, sequential dates)
+      const groupedReservations = new Map<string, typeof reservationsData>();
+      reservationsData.forEach(r => {
+        if (r.group_id && r.unit_id) {
+          const group = groupedReservations.get(r.group_id) || [];
+          group.push(r);
+          groupedReservations.set(r.group_id, group);
+        }
+      });
+
+      const extensionIds = new Set<string>();
+      groupedReservations.forEach((groupReservations) => {
+        if (groupReservations.length > 1) {
+          // Group by unit_id (only same-room bookings can be extensions)
+          const byUnit = new Map<string, typeof groupReservations>();
+          groupReservations.forEach(r => {
+            if (r.unit_id) {
+              const unitReservations = byUnit.get(r.unit_id) || [];
+              unitReservations.push(r);
+              byUnit.set(r.unit_id, unitReservations);
+            }
+          });
+          
+          // For each unit with multiple reservations, check for sequential dates
+          byUnit.forEach((unitReservations) => {
+            if (unitReservations.length > 1) {
+              const sorted = [...unitReservations].sort(
+                (a, b) => new Date(a.check_in_date).getTime() - new Date(b.check_in_date).getTime()
+              );
+              
+              for (let i = 1; i < sorted.length; i++) {
+                const prev = sorted[i - 1];
+                const curr = sorted[i];
+                if (new Date(prev.check_out_date).getTime() === new Date(curr.check_in_date).getTime()) {
+                  extensionIds.add(curr.id);
+                }
+              }
+            }
+          });
+        }
+      });
+      setExtensionReservationIds(extensionIds);
+    }
 
     const { data: blockedData } = await supabase
       .from('blocked_dates')
@@ -440,6 +488,11 @@ export const MobileCalendarView = () => {
                         >
                           <div className="flex items-center gap-2 flex-wrap">
                             <span className="font-medium text-sm">{reservation.guest_names[0]}</span>
+                            {extensionReservationIds.has(reservation.id) && (
+                              <Badge className="bg-purple-500 text-white text-xs">
+                                EXT
+                              </Badge>
+                            )}
                             {(reservation.status === 'completed' || reservation.status === 'checked-out') && (
                               <Badge variant="secondary" className="text-xs">
                                 {reservation.status.replace('-', ' ')}
