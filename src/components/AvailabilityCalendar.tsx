@@ -41,6 +41,7 @@ interface Reservation {
   status: string;
   source?: string;
   price_per_night?: number | null;
+  net_revenue?: number | null;
 }
 
 interface BlockedDate {
@@ -238,7 +239,7 @@ export const AvailabilityCalendar = () => {
     bookedNights: number;
     availableNights: number;
     occupancyRate: number;
-    revenue: number;
+    netRevenue: number;
     revPAR: number;
     isBlocked?: boolean;
   }
@@ -484,7 +485,7 @@ export const AvailabilityCalendar = () => {
     const activeUnits = units.filter(u => !BLOCKED_UNIT_NUMBERS.includes(u.unit_number || ''));
     const availableNights = activeUnits.length * daysInPeriod;
     
-    // Calculate booked nights and revenue from reservations
+    // Calculate booked nights and net revenue from reservations
     let totalBookedNights = 0;
     let periodRevenue = 0;
     
@@ -501,11 +502,15 @@ export const AvailabilityCalendar = () => {
       
       if (overlapStart < overlapEnd) {
         const nightsInPeriod = differenceInDays(overlapEnd, overlapStart);
+        const totalNights = differenceInDays(checkOut, checkIn);
         totalBookedNights += nightsInPeriod;
         
-        // Calculate revenue proportionally
-        const pricePerNight = reservation.price_per_night || 0;
-        periodRevenue += nightsInPeriod * pricePerNight;
+        // Use net_revenue from database (proportional for partial periods)
+        const netRevenue = reservation.net_revenue || 0;
+        const proportionalNetRevenue = totalNights > 0 
+          ? (netRevenue / totalNights) * nightsInPeriod 
+          : 0;
+        periodRevenue += proportionalNetRevenue;
       }
     });
     
@@ -535,9 +540,14 @@ export const AvailabilityCalendar = () => {
         
         if (overlapStart < overlapEnd) {
           const nightsInPeriod = differenceInDays(overlapEnd, overlapStart);
+          const totalNights = differenceInDays(checkOut, checkIn);
           unitBookedNights += nightsInPeriod;
-          const pricePerNight = reservation.price_per_night || 0;
-          unitRevenue += nightsInPeriod * pricePerNight;
+          
+          // Use net_revenue from database (proportional for partial periods)
+          const netRevenue = reservation.net_revenue || 0;
+          unitRevenue += totalNights > 0 
+            ? (netRevenue / totalNights) * nightsInPeriod 
+            : 0;
         }
       });
       
@@ -550,7 +560,7 @@ export const AvailabilityCalendar = () => {
         occupancyRate: unitAvailableNights > 0 
           ? (unitBookedNights / unitAvailableNights) * 100 
           : 0,
-        revenue: unitRevenue,
+        netRevenue: unitRevenue,
         revPAR: unitAvailableNights > 0 
           ? unitRevenue / unitAvailableNights 
           : 0,
@@ -1747,7 +1757,7 @@ export const AvailabilityCalendar = () => {
                 </div>
               </div>
               <p className="text-xs text-muted-foreground mt-2">
-                Total Revenue: ${totalRevenue.toLocaleString()}
+                Total Net Revenue: ${totalRevenue.toLocaleString()}
               </p>
             </Card>
           </div>
@@ -2305,7 +2315,7 @@ export const AvailabilityCalendar = () => {
             </div>
             <div className="text-center p-3 bg-muted rounded-lg">
               <p className="text-2xl font-bold">${totalRevenue.toLocaleString()}</p>
-              <p className="text-xs text-muted-foreground">Total Revenue</p>
+              <p className="text-xs text-muted-foreground">Total Net Revenue</p>
             </div>
             <div className="text-center p-3 bg-muted rounded-lg">
               <p className="text-2xl font-bold">
@@ -2321,7 +2331,7 @@ export const AvailabilityCalendar = () => {
               <thead className="bg-muted">
                 <tr>
                   <th className="text-left py-2 px-3 font-medium">Unit</th>
-                  <th className="text-right py-2 px-3 font-medium">Revenue</th>
+                  <th className="text-right py-2 px-3 font-medium">Net Revenue</th>
                   <th className="text-right py-2 px-3 font-medium">Nights</th>
                   <th className="text-right py-2 px-3 font-medium">RevPAR</th>
                 </tr>
@@ -2330,7 +2340,7 @@ export const AvailabilityCalendar = () => {
                 {unitMetrics.map(unit => (
                   <tr key={unit.unitId} className="border-t">
                     <td className="py-2 px-3">{unit.unitNumber} - {unit.unitName}</td>
-                    <td className="text-right py-2 px-3">${unit.revenue.toLocaleString()}</td>
+                    <td className="text-right py-2 px-3">${unit.netRevenue.toLocaleString()}</td>
                     <td className="text-right py-2 px-3">{unit.bookedNights}</td>
                     <td className="text-right py-2 px-3 font-medium">
                       ${unit.revPAR.toFixed(2)}
