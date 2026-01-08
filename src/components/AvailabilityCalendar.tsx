@@ -1749,7 +1749,7 @@ export const AvailabilityCalendar = () => {
                     {viewMode === 'weekly' ? 'Weekly' : 'Monthly'} RevPAR
                   </p>
                   <p className="text-2xl font-bold text-foreground">
-                    ${revPAR.toFixed(2)}
+                    ${Math.ceil(revPAR).toLocaleString()}
                   </p>
                 </div>
                 <div className="h-12 w-12 rounded-full bg-muted flex items-center justify-center">
@@ -1757,7 +1757,7 @@ export const AvailabilityCalendar = () => {
                 </div>
               </div>
               <p className="text-xs text-muted-foreground mt-2">
-                Total Net Revenue: ${totalRevenue.toLocaleString()}
+                Total Net Revenue: ${Math.ceil(totalRevenue).toLocaleString()}
               </p>
             </Card>
           </div>
@@ -2310,16 +2310,16 @@ export const AvailabilityCalendar = () => {
           {/* Summary */}
           <div className="grid grid-cols-3 gap-4 mb-4">
             <div className="text-center p-3 bg-muted rounded-lg">
-              <p className="text-2xl font-bold">${revPAR.toFixed(2)}</p>
+              <p className="text-2xl font-bold">${Math.ceil(revPAR).toLocaleString()}</p>
               <p className="text-xs text-muted-foreground">Overall RevPAR</p>
             </div>
             <div className="text-center p-3 bg-muted rounded-lg">
-              <p className="text-2xl font-bold">${totalRevenue.toLocaleString()}</p>
+              <p className="text-2xl font-bold">${Math.ceil(totalRevenue).toLocaleString()}</p>
               <p className="text-xs text-muted-foreground">Total Net Revenue</p>
             </div>
             <div className="text-center p-3 bg-muted rounded-lg">
               <p className="text-2xl font-bold">
-                ${bookedNights > 0 ? (totalRevenue / bookedNights).toFixed(2) : '0.00'}
+                ${bookedNights > 0 ? Math.ceil(totalRevenue / bookedNights).toLocaleString() : '0'}
               </p>
               <p className="text-xs text-muted-foreground">ADR</p>
             </div>
@@ -2340,10 +2340,10 @@ export const AvailabilityCalendar = () => {
                 {unitMetrics.map(unit => (
                   <tr key={unit.unitId} className="border-t">
                     <td className="py-2 px-3">{unit.unitNumber} - {unit.unitName}</td>
-                    <td className="text-right py-2 px-3">${unit.netRevenue.toLocaleString()}</td>
+                    <td className="text-right py-2 px-3">${Math.ceil(unit.netRevenue).toLocaleString()}</td>
                     <td className="text-right py-2 px-3">{unit.bookedNights}</td>
                     <td className="text-right py-2 px-3 font-medium">
-                      ${unit.revPAR.toFixed(2)}
+                      ${Math.ceil(unit.revPAR).toLocaleString()}
                     </td>
                   </tr>
                 ))}
