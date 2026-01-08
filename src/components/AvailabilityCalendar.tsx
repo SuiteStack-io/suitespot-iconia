@@ -200,7 +200,7 @@ const formatCompactNumber = (num: number): string => {
 export const AvailabilityCalendar = () => {
   const [units, setUnits] = useState<Unit[]>([]);
   const [reservations, setReservations] = useState<Reservation[]>([]);
-  const [extensionGroupIds, setExtensionGroupIds] = useState<Set<string>>(new Set());
+  const [extensionReservationIds, setExtensionReservationIds] = useState<Set<string>>(new Set());
   const [blockedDates, setBlockedDates] = useState<BlockedDate[]>([]);
   const [currentWeekStart, setCurrentWeekStart] = useState<Date>(startOfDay(new Date()));
   const [currentMonth, setCurrentMonth] = useState<Date>(startOfMonth(new Date()));
@@ -442,18 +442,29 @@ export const AvailabilityCalendar = () => {
       setReservations(reservationsData);
       detectConflicts(reservationsData);
       
-      // Compute extension groups (group_ids with more than 1 reservation)
-      const groupCounts = new Map<string, number>();
+      // Group reservations by group_id to find extensions
+      const groupedReservations = new Map<string, typeof reservationsData>();
       reservationsData.forEach(r => {
         if (r.group_id) {
-          groupCounts.set(r.group_id, (groupCounts.get(r.group_id) || 0) + 1);
+          const group = groupedReservations.get(r.group_id) || [];
+          group.push(r);
+          groupedReservations.set(r.group_id, group);
         }
       });
-      const extensionGroups = new Set<string>();
-      groupCounts.forEach((count, groupId) => {
-        if (count > 1) extensionGroups.add(groupId);
+
+      // Find extension reservation IDs (not the original in each group)
+      const extensionIds = new Set<string>();
+      groupedReservations.forEach((reservations) => {
+        if (reservations.length > 1) {
+          // Sort by created_at to find the original (earliest)
+          const sorted = [...reservations].sort(
+            (a, b) => new Date(a.created_at).getTime() - new Date(b.created_at).getTime()
+          );
+          // All except the first (original) are extensions
+          sorted.slice(1).forEach(r => extensionIds.add(r.id));
+        }
       });
-      setExtensionGroupIds(extensionGroups);
+      setExtensionReservationIds(extensionIds);
     }
 
     const { data: blockedData } = await supabase
@@ -713,9 +724,9 @@ export const AvailabilityCalendar = () => {
     return "bg-green-50 dark:bg-green-950/30 border-green-200 dark:border-green-800 hover:bg-green-100 dark:hover:bg-green-900/40";
   };
 
-  // Helper to check if a reservation is part of an extension group
-  const isPartOfExtension = (reservation: Reservation): boolean => {
-    return !!(reservation.group_id && extensionGroupIds.has(reservation.group_id));
+  // Helper to check if a reservation is an extension (not the original)
+  const isExtensionReservation = (reservation: Reservation): boolean => {
+    return extensionReservationIds.has(reservation.id);
   };
 
   // Get the full date range for a blocked period
@@ -2105,7 +2116,7 @@ export const AvailabilityCalendar = () => {
                                   unit={unit}
                                   getCellClassName={getCellClassName}
                                   onClick={() => handleCellClick(availability, unit, day)}
-                                  isExtended={isPartOfExtension(reservation)}
+                                  isExtended={isExtensionReservation(reservation)}
                                 />
                               ) : (
                                 <div
@@ -2122,7 +2133,7 @@ export const AvailabilityCalendar = () => {
                                     </div>
                                   ) : reservation ? (
                                     <div className="flex flex-col items-center justify-center h-full px-1 overflow-hidden relative">
-                                      {isPartOfExtension(reservation) && (
+                                      {isExtensionReservation(reservation) && (
                                         <span className="absolute top-0 right-0 text-[6px] bg-purple-500 text-white px-0.5 rounded-bl font-semibold leading-tight">
                                           EXT
                                         </span>
@@ -2198,7 +2209,7 @@ export const AvailabilityCalendar = () => {
                                     {availability.reservations.map((r, idx) => (
                                       <div key={idx} className="text-xs mt-1">
                                         {r.guest_names[0]}
-                                        {isPartOfExtension(r) && (
+                                        {isExtensionReservation(r) && (
                                           <span className="ml-1 text-purple-500 font-semibold">(Extended Stay)</span>
                                         )}
                                         <br />
