@@ -2322,7 +2322,7 @@ export const AvailabilityCalendar = () => {
 
       {/* RevPAR Breakdown Modal */}
       <Dialog open={showRevPARModal} onOpenChange={setShowRevPARModal}>
-        <DialogContent className="max-w-2xl max-h-[80vh] overflow-y-auto">
+        <DialogContent className="max-w-2xl max-h-[80vh] overflow-y-auto p-4 md:p-6">
           <DialogHeader>
             <DialogTitle>
               {viewMode === 'weekly' ? 'Weekly' : 'Monthly'} RevPAR Breakdown
@@ -2356,23 +2356,32 @@ export const AvailabilityCalendar = () => {
             <table className="w-full text-sm">
               <thead className="bg-muted">
                 <tr>
-                  <th className="text-left py-2 px-3 font-medium">Unit</th>
-                  <th className="text-right py-2 px-3 font-medium">Net Revenue</th>
-                  <th className="text-right py-2 px-3 font-medium">Nights</th>
-                  <th className="text-right py-2 px-3 font-medium">ADR</th>
-                  <th className="text-right py-2 px-3 font-medium">RevPAR</th>
+                  <th className="text-left py-2 px-1 md:px-3 font-medium">Unit</th>
+                  <th className="text-right py-2 px-1 md:px-3 font-medium">
+                    <span className="hidden md:inline">Net Revenue</span>
+                    <span className="md:hidden">Net Rev</span>
+                  </th>
+                  <th className="text-right py-2 px-1 md:px-3 font-medium">
+                    <span className="hidden md:inline">Nights</span>
+                    <span className="md:hidden">Nts</span>
+                  </th>
+                  <th className="text-right py-2 px-1 md:px-3 font-medium">ADR</th>
+                  <th className="text-right py-2 px-1 md:px-3 font-medium">RevPAR</th>
                 </tr>
               </thead>
               <tbody>
                 {unitMetrics.map(unit => (
                   <tr key={unit.unitId} className="border-t">
-                    <td className="py-2 px-3">{unit.unitNumber} - {unit.unitName}</td>
-                    <td className="text-right py-2 px-3">${Math.ceil(unit.netRevenue).toLocaleString()}</td>
-                    <td className="text-right py-2 px-3">{unit.bookedNights}</td>
-                    <td className="text-right py-2 px-3">
+                    <td className="py-2 px-1 md:px-3">{unit.unitNumber} - {unit.unitName}</td>
+                    <td className="text-right py-2 px-1 md:px-3">
+                      <span className="hidden md:inline">${Math.ceil(unit.netRevenue).toLocaleString()}</span>
+                      <span className="md:hidden">${formatCompactNumber(Math.ceil(unit.netRevenue))}</span>
+                    </td>
+                    <td className="text-right py-2 px-1 md:px-3">{unit.bookedNights}</td>
+                    <td className="text-right py-2 px-1 md:px-3">
                       ${unit.bookedNights > 0 ? Math.ceil(unit.netRevenue / unit.bookedNights).toLocaleString() : '0'}
                     </td>
-                    <td className="text-right py-2 px-3 font-medium">
+                    <td className="text-right py-2 px-1 md:px-3 font-medium">
                       ${Math.ceil(unit.revPAR).toLocaleString()}
                     </td>
                   </tr>
