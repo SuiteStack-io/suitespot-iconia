@@ -38,6 +38,10 @@ import { toast } from 'sonner';
 
 type TimePeriod = 'week' | 'month' | 'quarter' | 'ytd';
 
+const formatCurrency = (value: number): string => {
+  return Math.ceil(value).toLocaleString('en-US');
+};
+
 const Analytics = () => {
   const { userRole, loading } = useAuth();
   const navigate = useNavigate();
@@ -1062,7 +1066,7 @@ const Analytics = () => {
             </CardHeader>
             <CardContent>
               <div className="text-2xl font-bold">
-                ${totalNights > 0 ? (revenueStats.totalRevenue / totalNights).toFixed(2) : '0.00'}
+                ${totalNights > 0 ? formatCurrency(revenueStats.totalRevenue / totalNights) : '0'}
               </div>
               <p className="text-xs text-muted-foreground mt-1">Average Daily Rate</p>
             </CardContent>
@@ -1075,7 +1079,7 @@ const Analytics = () => {
             </CardHeader>
             <CardContent>
               <div className="text-2xl font-bold">
-                ${totalAvailableRooms > 0 ? (revenueStats.totalRevenue / totalAvailableRooms).toFixed(2) : '0.00'}
+                ${totalAvailableRooms > 0 ? formatCurrency(revenueStats.totalRevenue / totalAvailableRooms) : '0'}
               </div>
               <p className="text-xs text-muted-foreground mt-1">Revenue per Available Room</p>
             </CardContent>
@@ -1113,17 +1117,17 @@ const Analytics = () => {
             </CardHeader>
             <CardContent>
               <div className="text-2xl font-bold">
-                ${revenueStats.totalRevenue.toFixed(2)}
+                ${formatCurrency(revenueStats.totalRevenue)}
               </div>
               <p className="text-xs text-muted-foreground mt-1">Gross revenue</p>
               <div className="mt-3 pt-3 border-t space-y-1">
                 <div className="flex justify-between text-xs">
                   <span className="text-muted-foreground">Landlord ({landlordPercentage}%)</span>
-                  <span className="font-semibold">${landlordTotalRevenue.toFixed(2)}</span>
+                  <span className="font-semibold">${formatCurrency(landlordTotalRevenue)}</span>
                 </div>
                 <div className="flex justify-between text-xs">
                   <span className="text-muted-foreground">SuiteSpot ({100 - landlordPercentage}%)</span>
-                  <span className="font-semibold">${suitespotTotalRevenue.toFixed(2)}</span>
+                  <span className="font-semibold">${formatCurrency(suitespotTotalRevenue)}</span>
                 </div>
               </div>
             </CardContent>
@@ -1136,17 +1140,17 @@ const Analytics = () => {
             </CardHeader>
             <CardContent>
               <div className="text-2xl font-bold">
-                ${revenueStats.netRevenue.toFixed(2)}
+                ${formatCurrency(revenueStats.netRevenue)}
               </div>
               <p className="text-xs text-muted-foreground mt-1">After commission</p>
               <div className="mt-3 pt-3 border-t space-y-1">
                 <div className="flex justify-between text-xs">
                   <span className="text-muted-foreground">Landlord ({landlordPercentage}%)</span>
-                  <span className="font-semibold">${landlordNetRevenue.toFixed(2)}</span>
+                  <span className="font-semibold">${formatCurrency(landlordNetRevenue)}</span>
                 </div>
                 <div className="flex justify-between text-xs">
                   <span className="text-muted-foreground">SuiteSpot ({100 - landlordPercentage}%)</span>
-                  <span className="font-semibold">${suitespotNetRevenue.toFixed(2)}</span>
+                  <span className="font-semibold">${formatCurrency(suitespotNetRevenue)}</span>
                 </div>
               </div>
             </CardContent>
@@ -1159,7 +1163,7 @@ const Analytics = () => {
             </CardHeader>
             <CardContent>
               <div className="text-2xl font-bold">
-                ${revenueStats.totalCommission.toFixed(2)}
+                ${formatCurrency(revenueStats.totalCommission)}
               </div>
               <p className="text-xs text-muted-foreground mt-1">Total commission</p>
               <div className="mt-3 pt-3 border-t space-y-1">
@@ -1172,13 +1176,13 @@ const Analytics = () => {
                     <ChevronRight className="h-3 w-3 opacity-0 group-hover:opacity-100 transition-opacity" />
                   </button>
                   <span className="font-semibold">
-                    ${directCommission.toFixed(2)} ({revenueStats.totalCommission > 0 ? ((directCommission / revenueStats.totalCommission) * 100).toFixed(1) : 0}%)
+                    ${formatCurrency(directCommission)} ({revenueStats.totalCommission > 0 ? ((directCommission / revenueStats.totalCommission) * 100).toFixed(1) : 0}%)
                   </span>
                 </div>
                 <div className="flex justify-between text-xs">
                   <span className="text-muted-foreground">Booking.com</span>
                   <span className="font-semibold">
-                    ${bookingComCommission.toFixed(2)} ({revenueStats.totalCommission > 0 ? ((bookingComCommission / revenueStats.totalCommission) * 100).toFixed(1) : 0}%)
+                    ${formatCurrency(bookingComCommission)} ({revenueStats.totalCommission > 0 ? ((bookingComCommission / revenueStats.totalCommission) * 100).toFixed(1) : 0}%)
                   </span>
                 </div>
               </div>
@@ -1435,13 +1439,13 @@ const Analytics = () => {
                         </TableCell>
                         <TableCell className="text-right">{sourcesData.bookingCom.count}</TableCell>
                         <TableCell className="text-right">
-                          ${sourcesData.bookingCom.grossRevenue.toFixed(2)}
+                          ${formatCurrency(sourcesData.bookingCom.grossRevenue)}
                         </TableCell>
                         <TableCell className="text-right text-amber-600">
-                          ${sourcesData.bookingCom.commission.toFixed(2)}
+                          ${formatCurrency(sourcesData.bookingCom.commission)}
                         </TableCell>
                         <TableCell className="text-right text-green-600 font-semibold">
-                          ${sourcesData.bookingCom.netRevenue.toFixed(2)}
+                          ${formatCurrency(sourcesData.bookingCom.netRevenue)}
                         </TableCell>
                       </TableRow>
                     )}
@@ -1467,13 +1471,13 @@ const Analytics = () => {
                           </TableCell>
                           <TableCell className="text-right">{sourcesData.direct.count}</TableCell>
                           <TableCell className="text-right">
-                            ${sourcesData.direct.grossRevenue.toFixed(2)}
+                            ${formatCurrency(sourcesData.direct.grossRevenue)}
                           </TableCell>
                           <TableCell className="text-right text-amber-600">
-                            ${sourcesData.direct.commission.toFixed(2)}
+                            ${formatCurrency(sourcesData.direct.commission)}
                           </TableCell>
                           <TableCell className="text-right text-green-600 font-semibold">
-                            ${sourcesData.direct.netRevenue.toFixed(2)}
+                            ${formatCurrency(sourcesData.direct.netRevenue)}
                           </TableCell>
                         </TableRow>
                         
@@ -1487,13 +1491,13 @@ const Analytics = () => {
                             </TableCell>
                             <TableCell className="text-right text-muted-foreground">{source.count}</TableCell>
                             <TableCell className="text-right text-muted-foreground">
-                              ${source.grossRevenue.toFixed(2)}
+                              ${formatCurrency(source.grossRevenue)}
                             </TableCell>
                             <TableCell className="text-right text-amber-500">
-                              ${source.commission.toFixed(2)}
+                              ${formatCurrency(source.commission)}
                             </TableCell>
                             <TableCell className="text-right text-green-500">
-                              ${source.netRevenue.toFixed(2)}
+                              ${formatCurrency(source.netRevenue)}
                             </TableCell>
                           </TableRow>
                         ))}
@@ -1507,13 +1511,13 @@ const Analytics = () => {
                         {sourcesData.bookingCom.count + sourcesData.direct.count}
                       </TableCell>
                       <TableCell className="text-right">
-                        ${(sourcesData.bookingCom.grossRevenue + sourcesData.direct.grossRevenue).toFixed(2)}
+                        ${formatCurrency(sourcesData.bookingCom.grossRevenue + sourcesData.direct.grossRevenue)}
                       </TableCell>
                       <TableCell className="text-right text-amber-600">
-                        ${(sourcesData.bookingCom.commission + sourcesData.direct.commission).toFixed(2)}
+                        ${formatCurrency(sourcesData.bookingCom.commission + sourcesData.direct.commission)}
                       </TableCell>
                       <TableCell className="text-right text-green-600">
-                        ${(sourcesData.bookingCom.netRevenue + sourcesData.direct.netRevenue).toFixed(2)}
+                        ${formatCurrency(sourcesData.bookingCom.netRevenue + sourcesData.direct.netRevenue)}
                       </TableCell>
                     </TableRow>
                   </>
@@ -1556,9 +1560,9 @@ const Analytics = () => {
                         <TableCell className="font-medium">{unit.unitName}</TableCell>
                         <TableCell>{unit.unitNumber}</TableCell>
                         <TableCell className="text-right">{unit.bookings}</TableCell>
-                        <TableCell className="text-right">${unit.grossRevenue.toFixed(2)}</TableCell>
-                        <TableCell className="text-right">${unit.landlordShare.toFixed(2)}</TableCell>
-                        <TableCell className="text-right">${unit.suitespotShare.toFixed(2)}</TableCell>
+                        <TableCell className="text-right">${formatCurrency(unit.grossRevenue)}</TableCell>
+                        <TableCell className="text-right">${formatCurrency(unit.landlordShare)}</TableCell>
+                        <TableCell className="text-right">${formatCurrency(unit.suitespotShare)}</TableCell>
                       </TableRow>
                     ))}
                     <TableRow className="bg-muted/50 font-semibold">
@@ -1567,13 +1571,13 @@ const Analytics = () => {
                         {totalRevenueDetails.reduce((sum, u) => sum + u.bookings, 0)}
                       </TableCell>
                       <TableCell className="text-right text-emerald-600">
-                        ${totalRevenueDetails.reduce((sum, u) => sum + u.grossRevenue, 0).toFixed(2)}
+                        ${formatCurrency(totalRevenueDetails.reduce((sum, u) => sum + u.grossRevenue, 0))}
                       </TableCell>
                       <TableCell className="text-right">
-                        ${totalRevenueDetails.reduce((sum, u) => sum + u.landlordShare, 0).toFixed(2)}
+                        ${formatCurrency(totalRevenueDetails.reduce((sum, u) => sum + u.landlordShare, 0))}
                       </TableCell>
                       <TableCell className="text-right">
-                        ${totalRevenueDetails.reduce((sum, u) => sum + u.suitespotShare, 0).toFixed(2)}
+                        ${formatCurrency(totalRevenueDetails.reduce((sum, u) => sum + u.suitespotShare, 0))}
                       </TableCell>
                     </TableRow>
                   </>
@@ -1616,29 +1620,29 @@ const Analytics = () => {
                       <TableRow key={index}>
                         <TableCell className="font-medium">{unit.unitName}</TableCell>
                         <TableCell>{unit.unitNumber}</TableCell>
-                        <TableCell className="text-right">${unit.grossRevenue.toFixed(2)}</TableCell>
-                        <TableCell className="text-right text-amber-600">${unit.commission.toFixed(2)}</TableCell>
-                        <TableCell className="text-right font-semibold">${unit.netRevenue.toFixed(2)}</TableCell>
-                        <TableCell className="text-right">${unit.landlordShare.toFixed(2)}</TableCell>
-                        <TableCell className="text-right">${unit.suitespotShare.toFixed(2)}</TableCell>
+                        <TableCell className="text-right">${formatCurrency(unit.grossRevenue)}</TableCell>
+                        <TableCell className="text-right text-amber-600">${formatCurrency(unit.commission)}</TableCell>
+                        <TableCell className="text-right font-semibold">${formatCurrency(unit.netRevenue)}</TableCell>
+                        <TableCell className="text-right">${formatCurrency(unit.landlordShare)}</TableCell>
+                        <TableCell className="text-right">${formatCurrency(unit.suitespotShare)}</TableCell>
                       </TableRow>
                     ))}
                     <TableRow className="bg-muted/50 font-semibold">
                       <TableCell colSpan={2}>Total</TableCell>
                       <TableCell className="text-right">
-                        ${netRevenueDetails.reduce((sum, u) => sum + u.grossRevenue, 0).toFixed(2)}
+                        ${formatCurrency(netRevenueDetails.reduce((sum, u) => sum + u.grossRevenue, 0))}
                       </TableCell>
                       <TableCell className="text-right text-amber-600">
-                        ${netRevenueDetails.reduce((sum, u) => sum + u.commission, 0).toFixed(2)}
+                        ${formatCurrency(netRevenueDetails.reduce((sum, u) => sum + u.commission, 0))}
                       </TableCell>
                       <TableCell className="text-right text-green-600">
-                        ${netRevenueDetails.reduce((sum, u) => sum + u.netRevenue, 0).toFixed(2)}
+                        ${formatCurrency(netRevenueDetails.reduce((sum, u) => sum + u.netRevenue, 0))}
                       </TableCell>
                       <TableCell className="text-right">
-                        ${netRevenueDetails.reduce((sum, u) => sum + u.landlordShare, 0).toFixed(2)}
+                        ${formatCurrency(netRevenueDetails.reduce((sum, u) => sum + u.landlordShare, 0))}
                       </TableCell>
                       <TableCell className="text-right">
-                        ${netRevenueDetails.reduce((sum, u) => sum + u.suitespotShare, 0).toFixed(2)}
+                        ${formatCurrency(netRevenueDetails.reduce((sum, u) => sum + u.suitespotShare, 0))}
                       </TableCell>
                     </TableRow>
                   </>
@@ -1688,10 +1692,10 @@ const Analytics = () => {
                           </span>
                         </TableCell>
                         <TableCell className="text-right">{source.bookings}</TableCell>
-                        <TableCell className="text-right">${source.grossRevenue.toFixed(2)}</TableCell>
+                        <TableCell className="text-right">${formatCurrency(source.grossRevenue)}</TableCell>
                         <TableCell className="text-right">{source.commissionRate}%</TableCell>
                         <TableCell className="text-right text-amber-600 font-semibold">
-                          ${source.commissionAmount.toFixed(2)}
+                          ${formatCurrency(source.commissionAmount)}
                         </TableCell>
                       </TableRow>
                     ))}
@@ -1701,11 +1705,11 @@ const Analytics = () => {
                         {commissionDetails.reduce((sum, s) => sum + s.bookings, 0)}
                       </TableCell>
                       <TableCell className="text-right">
-                        ${commissionDetails.reduce((sum, s) => sum + s.grossRevenue, 0).toFixed(2)}
+                        ${formatCurrency(commissionDetails.reduce((sum, s) => sum + s.grossRevenue, 0))}
                       </TableCell>
                       <TableCell className="text-right">-</TableCell>
                       <TableCell className="text-right text-amber-600">
-                        ${commissionDetails.reduce((sum, s) => sum + s.commissionAmount, 0).toFixed(2)}
+                        ${formatCurrency(commissionDetails.reduce((sum, s) => sum + s.commissionAmount, 0))}
                       </TableCell>
                     </TableRow>
                   </>
@@ -1748,14 +1752,14 @@ const Analytics = () => {
                         <TableCell className="font-medium">{source.source}</TableCell>
                         <TableCell className="text-right">{source.count}</TableCell>
                         <TableCell className="text-right">
-                          ${source.grossRevenue.toFixed(2)}
+                          ${formatCurrency(source.grossRevenue)}
                         </TableCell>
                         <TableCell className="text-right">{source.commissionRate}%</TableCell>
                         <TableCell className="text-right text-amber-600">
-                          ${source.commission.toFixed(2)}
+                          ${formatCurrency(source.commission)}
                         </TableCell>
                         <TableCell className="text-right text-green-600 font-semibold">
-                          ${source.netRevenue.toFixed(2)}
+                          ${formatCurrency(source.netRevenue)}
                         </TableCell>
                       </TableRow>
                     ))}
@@ -1765,14 +1769,14 @@ const Analytics = () => {
                         {directSourceDetails.reduce((sum, s) => sum + s.count, 0)}
                       </TableCell>
                       <TableCell className="text-right">
-                        ${directSourceDetails.reduce((sum, s) => sum + s.grossRevenue, 0).toFixed(2)}
+                        ${formatCurrency(directSourceDetails.reduce((sum, s) => sum + s.grossRevenue, 0))}
                       </TableCell>
                       <TableCell className="text-right">-</TableCell>
                       <TableCell className="text-right text-amber-600">
-                        ${directSourceDetails.reduce((sum, s) => sum + s.commission, 0).toFixed(2)}
+                        ${formatCurrency(directSourceDetails.reduce((sum, s) => sum + s.commission, 0))}
                       </TableCell>
                       <TableCell className="text-right text-green-600">
-                        ${directSourceDetails.reduce((sum, s) => sum + s.netRevenue, 0).toFixed(2)}
+                        ${formatCurrency(directSourceDetails.reduce((sum, s) => sum + s.netRevenue, 0))}
                       </TableCell>
                     </TableRow>
                   </>
