@@ -175,6 +175,17 @@ const SplitTurnoverCell = ({
   );
 };
 
+// Helper function to format large numbers compactly for mobile
+const formatCompactNumber = (num: number): string => {
+  if (num >= 1000) {
+    const formatted = (num / 1000).toFixed(1);
+    return formatted.endsWith('.0') 
+      ? formatted.slice(0, -2) + 'k' 
+      : formatted + 'k';
+  }
+  return num.toLocaleString();
+};
+
 export const AvailabilityCalendar = () => {
   const [units, setUnits] = useState<Unit[]>([]);
   const [reservations, setReservations] = useState<Reservation[]>([]);
@@ -2319,24 +2330,24 @@ export const AvailabilityCalendar = () => {
           </DialogHeader>
           
           {/* Summary */}
-          <div className="grid grid-cols-4 gap-4 mb-4">
-            <div className="text-center p-3 bg-muted rounded-lg">
-              <p className="text-2xl font-bold">
+          <div className="grid grid-cols-4 gap-2 md:gap-4 mb-4">
+            <div className="text-center p-2 md:p-3 bg-muted rounded-lg">
+              <p className="text-lg md:text-2xl font-bold">
                 ${bookedNights > 0 ? Math.ceil(totalRevenue / bookedNights).toLocaleString() : '0'}
               </p>
               <p className="text-xs text-muted-foreground">ADR</p>
             </div>
-            <div className="text-center p-3 bg-muted rounded-lg">
-              <p className="text-2xl font-bold">${Math.ceil(revPAR).toLocaleString()}</p>
-              <p className="text-xs text-muted-foreground">Overall RevPAR</p>
+            <div className="text-center p-2 md:p-3 bg-muted rounded-lg">
+              <p className="text-lg md:text-2xl font-bold">${Math.ceil(revPAR).toLocaleString()}</p>
+              <p className="text-xs text-muted-foreground">RevPAR</p>
             </div>
-            <div className="text-center p-3 bg-muted rounded-lg">
-              <p className="text-2xl font-bold">${Math.ceil(totalRevenue).toLocaleString()}</p>
-              <p className="text-xs text-muted-foreground">Total Net Revenue</p>
+            <div className="text-center p-2 md:p-3 bg-muted rounded-lg">
+              <p className="text-lg md:text-2xl font-bold">${formatCompactNumber(Math.ceil(totalRevenue))}</p>
+              <p className="text-xs text-muted-foreground">Net Revenue</p>
             </div>
-            <div className="text-center p-3 bg-muted rounded-lg">
-              <p className="text-2xl font-bold">${Math.ceil(totalGrossRevenue).toLocaleString()}</p>
-              <p className="text-xs text-muted-foreground">Total Gross Revenue</p>
+            <div className="text-center p-2 md:p-3 bg-muted rounded-lg">
+              <p className="text-lg md:text-2xl font-bold">${formatCompactNumber(Math.ceil(totalGrossRevenue))}</p>
+              <p className="text-xs text-muted-foreground">Gross Revenue</p>
             </div>
           </div>
           
