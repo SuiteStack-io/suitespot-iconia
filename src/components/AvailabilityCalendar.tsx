@@ -445,23 +445,48 @@ export const AvailabilityCalendar = () => {
       // Group reservations by group_id to find extensions
       const groupedReservations = new Map<string, typeof reservationsData>();
       reservationsData.forEach(r => {
-        if (r.group_id) {
+        if (r.group_id && r.unit_id) {
           const group = groupedReservations.get(r.group_id) || [];
           group.push(r);
           groupedReservations.set(r.group_id, group);
         }
       });
 
-      // Find extension reservation IDs (not the original in each group)
+      // Find extension reservation IDs
+      // An extension must be: same group_id, same unit_id, and sequential dates
       const extensionIds = new Set<string>();
-      groupedReservations.forEach((reservations) => {
-        if (reservations.length > 1) {
-          // Sort by created_at to find the original (earliest)
-          const sorted = [...reservations].sort(
-            (a, b) => new Date(a.created_at).getTime() - new Date(b.created_at).getTime()
-          );
-          // All except the first (original) are extensions
-          sorted.slice(1).forEach(r => extensionIds.add(r.id));
+      groupedReservations.forEach((groupReservations) => {
+        if (groupReservations.length > 1) {
+          // Group by unit_id (only same-room bookings can be extensions)
+          const byUnit = new Map<string, typeof groupReservations>();
+          groupReservations.forEach(r => {
+            if (r.unit_id) {
+              const unitReservations = byUnit.get(r.unit_id) || [];
+              unitReservations.push(r);
+              byUnit.set(r.unit_id, unitReservations);
+            }
+          });
+          
+          // For each unit with multiple reservations, check for sequential dates
+          byUnit.forEach((unitReservations) => {
+            if (unitReservations.length > 1) {
+              // Sort by check_in_date
+              const sorted = [...unitReservations].sort(
+                (a, b) => new Date(a.check_in_date).getTime() - new Date(b.check_in_date).getTime()
+              );
+              
+              // Check if they're sequential (checkout = next check-in)
+              for (let i = 1; i < sorted.length; i++) {
+                const prev = sorted[i - 1];
+                const curr = sorted[i];
+                
+                // If check_out of previous = check_in of current, it's an extension
+                if (new Date(prev.check_out_date).getTime() === new Date(curr.check_in_date).getTime()) {
+                  extensionIds.add(curr.id);
+                }
+              }
+            }
+          });
         }
       });
       setExtensionReservationIds(extensionIds);
