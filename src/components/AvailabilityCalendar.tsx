@@ -1060,12 +1060,41 @@ export const AvailabilityCalendar = () => {
       }
     };
 
+    // Load Playfair Display font for PDF
+    const loadPlayfairFont = async (pdf: jsPDF): Promise<boolean> => {
+      try {
+        const regularResponse = await fetch('/fonts/PlayfairDisplay-Regular.ttf');
+        if (!regularResponse.ok) throw new Error('Playfair font fetch failed');
+        const regularBuffer = await regularResponse.arrayBuffer();
+        const regularBase64 = btoa(
+          new Uint8Array(regularBuffer).reduce((data, byte) => data + String.fromCharCode(byte), '')
+        );
+        pdf.addFileToVFS('PlayfairDisplay-Regular.ttf', regularBase64);
+        pdf.addFont('PlayfairDisplay-Regular.ttf', 'Playfair Display', 'normal');
+        
+        const boldResponse = await fetch('/fonts/PlayfairDisplay-Bold.ttf');
+        if (!boldResponse.ok) throw new Error('Playfair Bold font fetch failed');
+        const boldBuffer = await boldResponse.arrayBuffer();
+        const boldBase64 = btoa(
+          new Uint8Array(boldBuffer).reduce((data, byte) => data + String.fromCharCode(byte), '')
+        );
+        pdf.addFileToVFS('PlayfairDisplay-Bold.ttf', boldBase64);
+        pdf.addFont('PlayfairDisplay-Bold.ttf', 'Playfair Display', 'bold');
+        
+        return true;
+      } catch (error) {
+        console.error('Failed to load Playfair Display font:', error);
+        return false;
+      }
+    };
+
     try {
       const doc = new jsPDF('l', 'mm', 'a4'); // landscape orientation
       const pageWidth = doc.internal.pageSize.width;
       
-      // Load Arabic font
+      // Load fonts
       const hasArabicFont = await loadArabicFont(doc);
+      const hasPlayfairFont = await loadPlayfairFont(doc);
       
       const exportDays = eachDayOfInterval({ start: exportDateRange.from, end: exportDateRange.to });
       
@@ -1137,13 +1166,21 @@ export const AvailabilityCalendar = () => {
         logoImg.src = '/suitespot-logo-3.png';
       });
       
-      // Title and date range (next to logo)
-      doc.setFontSize(18);
-      doc.setFont('helvetica', 'bold');
+      // Title and date range (next to logo) - Playfair Display font
+      doc.setFontSize(24);
+      if (hasPlayfairFont) {
+        doc.setFont('Playfair Display', 'normal');
+      } else {
+        doc.setFont('helvetica', 'bold');
+      }
       doc.text('Unit Availability Calendar', 45, 16);
       
       doc.setFontSize(11);
-      doc.setFont('helvetica', 'normal');
+      if (hasPlayfairFont) {
+        doc.setFont('Playfair Display', 'normal');
+      } else {
+        doc.setFont('helvetica', 'normal');
+      }
       doc.text(`${format(exportDateRange.from, 'MMMM d, yyyy')} - ${format(exportDateRange.to, 'MMMM d, yyyy')}`, 45, 24);
       
       // Generated timestamp (right side)
@@ -1166,12 +1203,16 @@ export const AvailabilityCalendar = () => {
 
       // Calculate metrics for export date range
       const exportDaysCount = differenceInDays(exportDateRange.to, exportDateRange.from) + 1;
-      const exportAvailableNights = units.length * exportDaysCount;
+      
+      // Filter out blocked units from calculations (matching calendar card logic)
+      const activeUnits = units.filter(u => !BLOCKED_UNIT_NUMBERS.includes(u.unit_number || ''));
+      const exportAvailableNights = activeUnits.length * exportDaysCount;
       let exportBookedNights = 0;
       let exportRevenue = 0;
       
       (exportReservations || []).forEach((r: Reservation) => {
-        if (!units.find(u => u.id === r.unit_id)) return;
+        // Only count reservations for active units
+        if (!activeUnits.find(u => u.id === r.unit_id)) return;
         
         const checkIn = new Date(r.check_in_date);
         const checkOut = new Date(r.check_out_date);
@@ -1180,8 +1221,15 @@ export const AvailabilityCalendar = () => {
         
         if (overlapStart < overlapEnd) {
           const nightsInPeriod = differenceInDays(overlapEnd, overlapStart);
+          const totalNights = differenceInDays(checkOut, checkIn);
           exportBookedNights += nightsInPeriod;
-          exportRevenue += nightsInPeriod * (r.price_per_night || 0);
+          
+          // Use net_revenue with proration (matching calendar card logic)
+          const netRevenue = r.net_revenue || 0;
+          const proportionalNetRevenue = totalNights > 0 
+            ? (netRevenue / totalNights) * nightsInPeriod 
+            : 0;
+          exportRevenue += proportionalNetRevenue;
         }
       });
       
