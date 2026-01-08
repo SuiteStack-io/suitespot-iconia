@@ -97,12 +97,14 @@ const DraggableReservationCell = ({
   unit,
   getCellClassName,
   onClick,
+  isExtended,
 }: {
   reservation: Reservation;
   availability: DayAvailability;
   unit: Unit;
   getCellClassName: (availability: DayAvailability) => string;
   onClick: () => void;
+  isExtended?: boolean;
 }) => {
   const { attributes, listeners, setNodeRef, transform, isDragging } = useDraggable({
     id: reservation.id,
@@ -131,7 +133,12 @@ const DraggableReservationCell = ({
       }`}
       onClick={onClick}
     >
-      <div className="flex flex-col items-center justify-center h-full px-1 overflow-hidden">
+      <div className="flex flex-col items-center justify-center h-full px-1 overflow-hidden relative">
+        {isExtended && (
+          <span className="absolute top-0 right-0 text-[6px] bg-purple-500 text-white px-0.5 rounded-bl font-semibold leading-tight">
+            EXT
+          </span>
+        )}
         <span className="text-[10px] text-blue-600 dark:text-blue-400 font-medium text-center leading-tight">
           {firstName}
         </span>
@@ -193,6 +200,7 @@ const formatCompactNumber = (num: number): string => {
 export const AvailabilityCalendar = () => {
   const [units, setUnits] = useState<Unit[]>([]);
   const [reservations, setReservations] = useState<Reservation[]>([]);
+  const [extensionGroupIds, setExtensionGroupIds] = useState<Set<string>>(new Set());
   const [blockedDates, setBlockedDates] = useState<BlockedDate[]>([]);
   const [currentWeekStart, setCurrentWeekStart] = useState<Date>(startOfDay(new Date()));
   const [currentMonth, setCurrentMonth] = useState<Date>(startOfMonth(new Date()));
@@ -433,6 +441,19 @@ export const AvailabilityCalendar = () => {
     if (reservationsData) {
       setReservations(reservationsData);
       detectConflicts(reservationsData);
+      
+      // Compute extension groups (group_ids with more than 1 reservation)
+      const groupCounts = new Map<string, number>();
+      reservationsData.forEach(r => {
+        if (r.group_id) {
+          groupCounts.set(r.group_id, (groupCounts.get(r.group_id) || 0) + 1);
+        }
+      });
+      const extensionGroups = new Set<string>();
+      groupCounts.forEach((count, groupId) => {
+        if (count > 1) extensionGroups.add(groupId);
+      });
+      setExtensionGroupIds(extensionGroups);
     }
 
     const { data: blockedData } = await supabase
@@ -690,6 +711,11 @@ export const AvailabilityCalendar = () => {
       return "bg-blue-100 dark:bg-blue-900/30 border-blue-300 dark:border-blue-700 hover:bg-blue-200 dark:hover:bg-blue-800/40 cursor-pointer";
     }
     return "bg-green-50 dark:bg-green-950/30 border-green-200 dark:border-green-800 hover:bg-green-100 dark:hover:bg-green-900/40";
+  };
+
+  // Helper to check if a reservation is part of an extension group
+  const isPartOfExtension = (reservation: Reservation): boolean => {
+    return !!(reservation.group_id && extensionGroupIds.has(reservation.group_id));
   };
 
   // Get the full date range for a blocked period
@@ -2079,6 +2105,7 @@ export const AvailabilityCalendar = () => {
                                   unit={unit}
                                   getCellClassName={getCellClassName}
                                   onClick={() => handleCellClick(availability, unit, day)}
+                                  isExtended={isPartOfExtension(reservation)}
                                 />
                               ) : (
                                 <div
@@ -2094,7 +2121,12 @@ export const AvailabilityCalendar = () => {
                                       <span className="text-[10px] font-medium text-muted-foreground">Blocked</span>
                                     </div>
                                   ) : reservation ? (
-                                    <div className="flex flex-col items-center justify-center h-full px-1 overflow-hidden">
+                                    <div className="flex flex-col items-center justify-center h-full px-1 overflow-hidden relative">
+                                      {isPartOfExtension(reservation) && (
+                                        <span className="absolute top-0 right-0 text-[6px] bg-purple-500 text-white px-0.5 rounded-bl font-semibold leading-tight">
+                                          EXT
+                                        </span>
+                                      )}
                                       <span className="text-[10px] text-blue-600 dark:text-blue-400 font-medium text-center leading-tight">
                                         {reservation.guest_names[0]?.split(' ')[0]}
                                       </span>
@@ -2166,6 +2198,9 @@ export const AvailabilityCalendar = () => {
                                     {availability.reservations.map((r, idx) => (
                                       <div key={idx} className="text-xs mt-1">
                                         {r.guest_names[0]}
+                                        {isPartOfExtension(r) && (
+                                          <span className="ml-1 text-purple-500 font-semibold">(Extended Stay)</span>
+                                        )}
                                         <br />
                                         {r.booking_reference}
                                       </div>
