@@ -42,6 +42,7 @@ interface Reservation {
   source?: string;
   price_per_night?: number | null;
   net_revenue?: number | null;
+  total_price?: number | null;
 }
 
 interface BlockedDate {
@@ -227,6 +228,7 @@ export const AvailabilityCalendar = () => {
   const [occupancyRate, setOccupancyRate] = useState<number>(0);
   const [revPAR, setRevPAR] = useState<number>(0);
   const [totalRevenue, setTotalRevenue] = useState<number>(0);
+  const [totalGrossRevenue, setTotalGrossRevenue] = useState<number>(0);
   const [bookedNights, setBookedNights] = useState<number>(0);
   const [totalAvailableNights, setTotalAvailableNights] = useState<number>(0);
   const [showOccupancyModal, setShowOccupancyModal] = useState(false);
@@ -488,6 +490,7 @@ export const AvailabilityCalendar = () => {
     // Calculate booked nights and net revenue from reservations
     let totalBookedNights = 0;
     let periodRevenue = 0;
+    let periodGrossRevenue = 0;
     
     reservations.forEach(reservation => {
       // Only count reservations for active units in current location
@@ -511,6 +514,13 @@ export const AvailabilityCalendar = () => {
           ? (netRevenue / totalNights) * nightsInPeriod 
           : 0;
         periodRevenue += proportionalNetRevenue;
+        
+        // Calculate gross revenue from total_price (proportional for partial periods)
+        const grossRevenue = reservation.total_price || 0;
+        const proportionalGrossRevenue = totalNights > 0 
+          ? (grossRevenue / totalNights) * nightsInPeriod 
+          : 0;
+        periodGrossRevenue += proportionalGrossRevenue;
       }
     });
     
@@ -572,6 +582,7 @@ export const AvailabilityCalendar = () => {
     setOccupancyRate(occupancy);
     setRevPAR(revpar);
     setTotalRevenue(periodRevenue);
+    setTotalGrossRevenue(periodGrossRevenue);
     setBookedNights(totalBookedNights);
     setTotalAvailableNights(availableNights);
   };
@@ -2308,7 +2319,13 @@ export const AvailabilityCalendar = () => {
           </DialogHeader>
           
           {/* Summary */}
-          <div className="grid grid-cols-3 gap-4 mb-4">
+          <div className="grid grid-cols-4 gap-4 mb-4">
+            <div className="text-center p-3 bg-muted rounded-lg">
+              <p className="text-2xl font-bold">
+                ${bookedNights > 0 ? Math.ceil(totalRevenue / bookedNights).toLocaleString() : '0'}
+              </p>
+              <p className="text-xs text-muted-foreground">ADR</p>
+            </div>
             <div className="text-center p-3 bg-muted rounded-lg">
               <p className="text-2xl font-bold">${Math.ceil(revPAR).toLocaleString()}</p>
               <p className="text-xs text-muted-foreground">Overall RevPAR</p>
@@ -2318,10 +2335,8 @@ export const AvailabilityCalendar = () => {
               <p className="text-xs text-muted-foreground">Total Net Revenue</p>
             </div>
             <div className="text-center p-3 bg-muted rounded-lg">
-              <p className="text-2xl font-bold">
-                ${bookedNights > 0 ? Math.ceil(totalRevenue / bookedNights).toLocaleString() : '0'}
-              </p>
-              <p className="text-xs text-muted-foreground">ADR</p>
+              <p className="text-2xl font-bold">${Math.ceil(totalGrossRevenue).toLocaleString()}</p>
+              <p className="text-xs text-muted-foreground">Total Gross Revenue</p>
             </div>
           </div>
           
