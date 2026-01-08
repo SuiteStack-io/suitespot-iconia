@@ -2,7 +2,7 @@ import { useEffect, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { supabase } from '@/integrations/supabase/client';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
-import { Calendar, LogIn, LogOut, TrendingUp, DollarSign, CheckCircle, Undo2, XCircle } from 'lucide-react';
+import { Calendar, LogIn, LogOut, TrendingUp, DollarSign, CheckCircle, Undo2, XCircle, FileSignature } from 'lucide-react';
 import { format } from 'date-fns';
 import { ConflictAlert } from './ConflictAlert';
 import { PendingAssignmentsAlert } from './PendingAssignmentsAlert';
@@ -640,18 +640,32 @@ export const Dashboard = () => {
                         </div>
                         <div className="flex gap-2">
                           {reservation.status === 'confirmed' && !dialogTitle.includes('Departures') && (
-                            <Button
-                              size="sm"
-                              onClick={(e) => {
-                                e.stopPropagation();
-                                handleStatusChange(reservation.id, 'checked-in');
-                              }}
-                              disabled={updating === reservation.id}
-                              className="gap-1"
-                            >
-                              <CheckCircle className="h-3 w-3" />
-                              Check In
-                            </Button>
+                            <>
+                              <Button
+                                size="sm"
+                                variant="outline"
+                                onClick={(e) => {
+                                  e.stopPropagation();
+                                  window.open(`/guest-checkin/${reservation.id}`, '_blank');
+                                }}
+                                className="gap-1"
+                              >
+                                <FileSignature className="h-3 w-3" />
+                                Guest Form
+                              </Button>
+                              <Button
+                                size="sm"
+                                onClick={(e) => {
+                                  e.stopPropagation();
+                                  handleStatusChange(reservation.id, 'checked-in');
+                                }}
+                                disabled={updating === reservation.id}
+                                className="gap-1"
+                              >
+                                <CheckCircle className="h-3 w-3" />
+                                Check In
+                              </Button>
+                            </>
                           )}
                           {reservation.status === 'confirmed' && dialogTitle.includes('Departures') && (
                             <Button
