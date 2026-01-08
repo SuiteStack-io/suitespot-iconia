@@ -44,6 +44,7 @@ interface Reservation {
   price_per_night?: number | null;
   net_revenue?: number | null;
   total_price?: number | null;
+  group_id?: string | null;
 }
 
 interface BlockedDate {
@@ -63,6 +64,8 @@ interface DayAvailability {
   checkingInReservation?: Reservation;
   isTurnoverDay: boolean;
   isAvailableForTurnover: boolean; // checkout exists but no check-in - available for same-day booking
+  isExtensionContinuation?: boolean; // same guest extending in same room
+  extensionReservation?: Reservation; // the continuing reservation
 }
 
 
@@ -642,7 +645,18 @@ export const AvailabilityCalendar = () => {
       (r.status === 'confirmed' || r.status === 'checked-in')
     );
     
-    const isTurnoverDay = !!checkingOutReservation && !!checkingInReservation;
+    // Check if this is an extension (same group_id, same unit, same guest continuing)
+    const isExtensionContinuation = !!(
+      checkingOutReservation && 
+      checkingInReservation &&
+      checkingOutReservation.group_id &&
+      checkingOutReservation.group_id === checkingInReservation.group_id &&
+      checkingOutReservation.unit_id === checkingInReservation.unit_id &&
+      checkingOutReservation.guest_names[0] === checkingInReservation.guest_names[0]
+    );
+    
+    // Only mark as turnover if it's NOT an extension continuation
+    const isTurnoverDay = !!checkingOutReservation && !!checkingInReservation && !isExtensionContinuation;
     
     // Available for same-day turnover: checkout exists but no check-in scheduled
     const isAvailableForTurnover = !!checkingOutReservation && !checkingInReservation;
@@ -656,10 +670,12 @@ export const AvailabilityCalendar = () => {
       hasConflict,
       isBlocked,
       reservations: dayReservations,
-      checkingOutReservation,
-      checkingInReservation,
+      checkingOutReservation: isExtensionContinuation ? undefined : checkingOutReservation,
+      checkingInReservation: isExtensionContinuation ? undefined : checkingInReservation,
       isTurnoverDay,
       isAvailableForTurnover,
+      isExtensionContinuation,
+      extensionReservation: isExtensionContinuation ? checkingInReservation : undefined,
     };
   };
 
@@ -2095,7 +2111,14 @@ export const AvailabilityCalendar = () => {
                             <TooltipContent>
                               <div className="text-sm">
                                 <div className="font-medium">{format(day, 'MMM d, yyyy')}</div>
-                                {availability.isTurnoverDay && availability.checkingOutReservation && availability.checkingInReservation ? (
+                            {availability.isExtensionContinuation && availability.extensionReservation ? (
+                                  <div>
+                                    <div className="text-blue-500 font-semibold">Extension Continues</div>
+                                    <div className="text-xs mt-1">
+                                      {availability.extensionReservation.guest_names[0]} - Same room extension
+                                    </div>
+                                  </div>
+                                ) : availability.isTurnoverDay && availability.checkingOutReservation && availability.checkingInReservation ? (
                                   <div>
                                     <div className="text-orange-500 font-semibold">Turnover Day</div>
                                     <div className="text-xs mt-1 text-orange-600 dark:text-orange-400">
