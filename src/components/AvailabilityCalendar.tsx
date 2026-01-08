@@ -2357,7 +2357,7 @@ export const AvailabilityCalendar = () => {
               <thead className="bg-muted">
                 <tr>
                   <th className="text-left py-2 px-3 font-medium">Unit</th>
-                  <th className="text-right py-2 px-1 md:px-3 font-medium text-xs md:text-sm">Net Revenue</th>
+                  <th className="text-right py-2 px-1 md:px-3 font-medium text-xs md:text-sm">NetRev</th>
                   <th className="text-right py-2 px-1 md:px-3 font-medium text-xs md:text-sm">Nights</th>
                   <th className="text-right py-2 px-1 md:px-3 font-medium text-xs md:text-sm">ADR</th>
                   <th className="text-right py-2 px-1 md:px-3 font-medium text-xs md:text-sm">RevPAR</th>
@@ -2367,13 +2367,20 @@ export const AvailabilityCalendar = () => {
                 {unitMetrics.map(unit => (
                   <tr key={unit.unitId} className="border-t">
                     <td className="py-2 px-3">{unit.unitNumber} - {unit.unitName}</td>
-                    <td className="text-right py-2 px-1 md:px-3 text-xs md:text-sm">${Math.ceil(unit.netRevenue).toLocaleString()}</td>
+                    <td className="text-right py-2 px-1 md:px-3 text-xs md:text-sm">
+                      ${isMobile ? formatCompactNumber(Math.ceil(unit.netRevenue)) : Math.ceil(unit.netRevenue).toLocaleString()}
+                    </td>
                     <td className="text-right py-2 px-1 md:px-3 text-xs md:text-sm">{unit.bookedNights}</td>
                     <td className="text-right py-2 px-1 md:px-3 text-xs md:text-sm">
-                      ${unit.bookedNights > 0 ? Math.ceil(unit.netRevenue / unit.bookedNights).toLocaleString() : '0'}
+                      ${unit.bookedNights > 0 
+                        ? (isMobile 
+                            ? formatCompactNumber(Math.ceil(unit.netRevenue / unit.bookedNights)) 
+                            : Math.ceil(unit.netRevenue / unit.bookedNights).toLocaleString()
+                          ) 
+                        : '0'}
                     </td>
                     <td className="text-right py-2 px-1 md:px-3 font-medium text-xs md:text-sm">
-                      ${Math.ceil(unit.revPAR).toLocaleString()}
+                      ${isMobile ? formatCompactNumber(Math.ceil(unit.revPAR)) : Math.ceil(unit.revPAR).toLocaleString()}
                     </td>
                   </tr>
                 ))}
