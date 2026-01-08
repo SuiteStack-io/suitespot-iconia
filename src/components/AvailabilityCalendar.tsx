@@ -1,4 +1,5 @@
 import { useState, useEffect, useRef } from "react";
+import { useAuth } from "@/lib/auth";
 import { supabase } from "@/integrations/supabase/client";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -234,6 +235,7 @@ export const AvailabilityCalendar = () => {
   const { toast, dismiss } = useToast();
   const isMobile = useIsMobile();
   const [isFullscreen, setIsFullscreen] = useState(false);
+  const { userRole } = useAuth();
   
   // Metrics state for Occupancy and RevPAR
   const [occupancyRate, setOccupancyRate] = useState<number>(0);
@@ -1808,28 +1810,30 @@ export const AvailabilityCalendar = () => {
               </p>
             </Card>
             
-            {/* RevPAR Card */}
-            <Card 
-              className="p-4 cursor-pointer hover:bg-muted/50 transition-colors"
-              onClick={() => setShowRevPARModal(true)}
-            >
-              <div className="flex items-center justify-between">
-                <div>
-                  <p className="text-sm text-muted-foreground">
-                    {viewMode === 'weekly' ? 'Weekly' : 'Monthly'} RevPAR
-                  </p>
-                  <p className="text-2xl font-bold text-foreground">
-                    ${Math.ceil(revPAR).toLocaleString()}
-                  </p>
+            {/* RevPAR Card - Admin Only */}
+            {userRole === 'admin' && (
+              <Card 
+                className="p-4 cursor-pointer hover:bg-muted/50 transition-colors"
+                onClick={() => setShowRevPARModal(true)}
+              >
+                <div className="flex items-center justify-between">
+                  <div>
+                    <p className="text-sm text-muted-foreground">
+                      {viewMode === 'weekly' ? 'Weekly' : 'Monthly'} RevPAR
+                    </p>
+                    <p className="text-2xl font-bold text-foreground">
+                      ${Math.ceil(revPAR).toLocaleString()}
+                    </p>
+                  </div>
+                  <div className="h-12 w-12 rounded-full bg-muted flex items-center justify-center">
+                    <DollarSign className="h-6 w-6 text-foreground" />
+                  </div>
                 </div>
-                <div className="h-12 w-12 rounded-full bg-muted flex items-center justify-center">
-                  <DollarSign className="h-6 w-6 text-foreground" />
-                </div>
-              </div>
-              <p className="text-xs text-muted-foreground mt-2">
-                Total Net Revenue: ${Math.ceil(totalRevenue).toLocaleString()}
-              </p>
-            </Card>
+                <p className="text-xs text-muted-foreground mt-2">
+                  Total Net Revenue: ${Math.ceil(totalRevenue).toLocaleString()}
+                </p>
+              </Card>
+            )}
           </div>
         )}
 
