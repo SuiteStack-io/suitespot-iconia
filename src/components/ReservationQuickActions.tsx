@@ -35,6 +35,8 @@ interface Unit {
   name: string;
   unit_number: string;
   status?: string;
+  booking_com_name?: string;
+  location?: string;
 }
 
 interface ConflictInfo {
@@ -206,7 +208,7 @@ export const ReservationQuickActions = ({
     // Fetch all available units at ICONIA
     const { data: units } = await supabase
       .from("units")
-      .select("id, name, unit_number, status")
+      .select("id, name, unit_number, status, booking_com_name")
       .eq("location", "ICONIA")
       .eq("status", "available")
       .order("unit_number");
@@ -253,20 +255,21 @@ export const ReservationQuickActions = ({
     setLoading(true);
 
     try {
-      // Fetch all available units
+      // Fetch all available ICONIA units with booking_com_name
       const { data: units, error: unitsError } = await supabase
         .from("units")
-        .select("id, name, unit_number, status")
+        .select("id, name, unit_number, status, booking_com_name, location")
         .eq("status", "available")
+        .eq("location", "ICONIA")
         .order("unit_number");
 
       if (unitsError) throw unitsError;
 
-      // Fetch reservations that might conflict
+      // Fetch reservations that might conflict (only confirmed and checked-in)
       const { data: conflictingReservations, error: resError } = await supabase
         .from("reservations")
         .select("*")
-        .in("status", ["confirmed", "checked-in", "checked-out", "completed"])
+        .in("status", ["confirmed", "checked-in"])
         .neq("id", reservation.id)
         .or(`and(check_in_date.lt.${reservation.check_out_date},check_out_date.gt.${reservation.check_in_date})`);
 
@@ -1163,7 +1166,7 @@ export const ReservationQuickActions = ({
                 <label className="text-sm font-medium">Current Room</label>
                 <div className="p-3 border rounded-lg bg-background">
                   {currentUnit ? (
-                    <span>{currentUnit.name} #{currentUnit.unit_number}</span>
+                    <span>{(currentUnit as any).booking_com_name || currentUnit.name} #{currentUnit.unit_number}</span>
                   ) : (
                     <span className="text-muted-foreground">Not assigned</span>
                   )}
@@ -1196,7 +1199,7 @@ export const ReservationQuickActions = ({
                               {conflict?.hasConflict && (
                                 <AlertTriangle className="h-3 w-3 text-destructive" />
                               )}
-                              <span>{unit.name} #{unit.unit_number}</span>
+                              <span>{unit.booking_com_name || unit.name} #{unit.unit_number}</span>
                               {conflict?.hasConflict && (
                                 <span className="text-xs text-destructive ml-1">
                                   (Conflict)
