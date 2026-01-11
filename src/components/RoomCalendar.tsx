@@ -176,8 +176,8 @@ export const RoomCalendar = () => {
     
     const conflictingReservations = reservations.filter(res => {
       if (res.unit_id !== unitId || !['confirmed', 'checked-in', 'checked-out'].includes(res.status)) return false;
-      const checkIn = new Date(res.check_in_date);
-      const checkOut = new Date(res.check_out_date);
+      const checkIn = startOfDay(new Date(res.check_in_date));
+      const checkOut = startOfDay(new Date(res.check_out_date));
       return date >= checkIn && date < checkOut;
     });
     return conflictingReservations.length > 1;
@@ -193,20 +193,20 @@ export const RoomCalendar = () => {
   const getReservationsForDate = (date: Date, unitId: string) => {
     const checkingOut = reservations.find(reservation => {
       if (reservation.unit_id !== unitId) return false;
-      const checkOut = new Date(reservation.check_out_date);
+      const checkOut = startOfDay(new Date(reservation.check_out_date));
       return isSameDay(date, checkOut);
     });
 
     const checkingIn = reservations.find(reservation => {
       if (reservation.unit_id !== unitId) return false;
-      const checkIn = new Date(reservation.check_in_date);
+      const checkIn = startOfDay(new Date(reservation.check_in_date));
       return isSameDay(date, checkIn);
     });
 
     const staying = reservations.find(reservation => {
       if (reservation.unit_id !== unitId) return false;
-      const checkIn = new Date(reservation.check_in_date);
-      const checkOut = new Date(reservation.check_out_date);
+      const checkIn = startOfDay(new Date(reservation.check_in_date));
+      const checkOut = startOfDay(new Date(reservation.check_out_date));
       return date > checkIn && date < checkOut;
     });
 
@@ -313,8 +313,8 @@ export const RoomCalendar = () => {
       const unitInFilteredList = filteredUnits.some(u => u.id === r.unit_id);
       if (!unitInFilteredList) return false;
       
-      const checkIn = new Date(r.check_in_date);
-      const checkOut = new Date(r.check_out_date);
+      const checkIn = startOfDay(new Date(r.check_in_date));
+      const checkOut = startOfDay(new Date(r.check_out_date));
       const isCheckInDay = isSameDay(date, checkIn);
       const isStayingDay = date > checkIn && date < checkOut;
       return isCheckInDay || isStayingDay;
@@ -382,8 +382,8 @@ export const RoomCalendar = () => {
       const unitInFilteredList = filteredUnits.some(u => u.id === r.unit_id);
       if (!unitInFilteredList) return false;
       
-      const checkIn = new Date(r.check_in_date);
-      const checkOut = new Date(r.check_out_date);
+      const checkIn = startOfDay(new Date(r.check_in_date));
+      const checkOut = startOfDay(new Date(r.check_out_date));
       const isActiveOnDate = date >= checkIn && date < checkOut;
       const extendsIntoNextMonth = checkOut > nextMonthStart;
       
@@ -395,8 +395,8 @@ export const RoomCalendar = () => {
       const unitInFilteredList = filteredUnits.some(u => u.id === r.unit_id);
       if (!unitInFilteredList) return false;
       
-      const checkIn = new Date(r.check_in_date);
-      const checkOut = new Date(r.check_out_date);
+      const checkIn = startOfDay(new Date(r.check_in_date));
+      const checkOut = startOfDay(new Date(r.check_out_date));
       const isActiveOnDate = date >= checkIn && date < checkOut;
       const startedPrevMonth = checkIn <= prevMonthEnd;
       
