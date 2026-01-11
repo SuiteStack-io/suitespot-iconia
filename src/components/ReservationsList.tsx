@@ -563,12 +563,13 @@ export const ReservationsList = ({ userRole }: ReservationsListProps) => {
           guest_names,
           check_in_date,
           check_out_date,
+          nights,
           number_of_guests,
           total_price,
           currency,
           source,
           channel,
-          units (name, unit_number)
+          units (name, unit_number, booking_com_name)
         `)
         .in('id', Array.from(selectedReservations));
 
@@ -580,19 +581,18 @@ export const ReservationsList = ({ userRole }: ReservationsListProps) => {
           try {
             await supabase.functions.invoke('send-cancellation-notification', {
               body: {
-                bookingReference: reservation.booking_reference,
-                guestNames: reservation.guest_names,
-                checkInDate: reservation.check_in_date,
-                checkOutDate: reservation.check_out_date,
-                unitName: reservation.units?.name || 'Unknown',
-                unitNumber: reservation.units?.unit_number || '',
-                numberOfGuests: reservation.number_of_guests,
-                totalPrice: reservation.total_price,
-                currency: reservation.currency,
+                reservation_id: reservation.id,
+                booking_reference: reservation.booking_reference,
+                guest_names: reservation.guest_names,
+                check_in_date: reservation.check_in_date,
+                check_out_date: reservation.check_out_date,
+                nights: reservation.nights || 1,
+                total_price: reservation.total_price,
+                currency: reservation.currency || 'USD',
+                channel: reservation.channel || '',
                 source: reservation.source,
-                channel: reservation.channel,
-                cancelledAt: new Date().toISOString(),
-                cancelledBy: 'Admin'
+                unit_name: (reservation.units as any)?.booking_com_name || reservation.units?.name || 'Unknown',
+                unit_number: reservation.units?.unit_number || '',
               }
             });
           } catch (emailError) {
