@@ -71,8 +71,14 @@ interface DayAvailability {
 
 type ViewMode = 'weekly' | 'monthly';
 
-// Units that are blocked and should be excluded from occupancy/RevPAR calculations
-const BLOCKED_UNIT_NUMBERS = ['501', '512'];
+// Helper function to count blocked dates for a unit within a date range
+const getBlockedDatesCount = (unitId: string, blockedDates: BlockedDate[], startDate: Date, endDate: Date): number => {
+  return blockedDates.filter(bd => {
+    if (bd.unit_id !== unitId) return false;
+    const blockedDate = startOfDay(new Date(bd.blocked_date));
+    return blockedDate >= startDate && blockedDate <= endDate;
+  }).length;
+};
 
 // Droppable Unit Row Component
 const DroppableUnitRow = ({ unit, children }: { unit: Unit; children: React.ReactNode }) => {
@@ -556,9 +562,13 @@ export const AvailabilityCalendar = () => {
     
     const daysInPeriod = differenceInDays(endDate, startDate) + 1;
     
-    // Filter out blocked units from calculations
-    const activeUnits = units.filter(u => !BLOCKED_UNIT_NUMBERS.includes(u.unit_number || ''));
-    const availableNights = activeUnits.length * daysInPeriod;
+    // Calculate available nights dynamically based on blocked_dates
+    // Each unit's available nights = total days - blocked days in period
+    let availableNights = 0;
+    units.forEach(unit => {
+      const blockedCount = getBlockedDatesCount(unit.id, blockedDates, startDate, endDate);
+      availableNights += (daysInPeriod - blockedCount);
+    });
     
     // Calculate booked nights and net revenue from reservations
     let totalBookedNights = 0;
@@ -566,8 +576,8 @@ export const AvailabilityCalendar = () => {
     let periodGrossRevenue = 0;
     
     reservations.forEach(reservation => {
-      // Only count reservations for active units in current location
-      if (!activeUnits.find(u => u.id === reservation.unit_id)) return;
+      // Only count reservations for units in current location
+      if (!units.find(u => u.id === reservation.unit_id)) return;
       
       const checkIn = new Date(reservation.check_in_date);
       const checkOut = new Date(reservation.check_out_date);
@@ -607,10 +617,11 @@ export const AvailabilityCalendar = () => {
     
     // Calculate per-unit metrics for breakdown (include all units, but blocked ones show 0 available)
     const perUnitMetrics: UnitMetrics[] = units.map(unit => {
-      const isBlocked = BLOCKED_UNIT_NUMBERS.includes(unit.unit_number || '');
+      const unitBlockedCount = getBlockedDatesCount(unit.id, blockedDates, startDate, endDate);
+      const unitAvailableNights = daysInPeriod - unitBlockedCount;
+      const isBlocked = unitAvailableNights === 0;
       let unitBookedNights = 0;
       let unitRevenue = 0;
-      const unitAvailableNights = isBlocked ? 0 : daysInPeriod;
       
       reservations.forEach(reservation => {
         if (reservation.unit_id !== unit.id) return;
@@ -660,10 +671,10 @@ export const AvailabilityCalendar = () => {
     setTotalAvailableNights(availableNights);
   };
 
-  // Recalculate metrics when data changes
+  // Recalculate metrics when data changes (including blocked dates)
   useEffect(() => {
     calculateMetrics();
-  }, [units, reservations, viewMode, currentWeekStart, currentMonth]);
+  }, [units, reservations, blockedDates, viewMode, currentWeekStart, currentMonth]);
 
   const isDateBlocked = (date: Date, unitId: string) => {
     return blockedDates.some(blocked => {
@@ -1284,15 +1295,19 @@ export const AvailabilityCalendar = () => {
       // Calculate metrics for export date range
       const exportDaysCount = differenceInDays(exportDateRange.to, exportDateRange.from) + 1;
       
-      // Filter out blocked units from calculations (matching calendar card logic)
-      const activeUnits = units.filter(u => !BLOCKED_UNIT_NUMBERS.includes(u.unit_number || ''));
-      const exportAvailableNights = activeUnits.length * exportDaysCount;
+      // Calculate available nights dynamically based on blocked_dates
+      let exportAvailableNights = 0;
+      units.forEach(unit => {
+        const blockedCount = getBlockedDatesCount(unit.id, blockedDates, exportDateRange.from, exportDateRange.to);
+        exportAvailableNights += (exportDaysCount - blockedCount);
+      });
+      
       let exportBookedNights = 0;
       let exportRevenue = 0;
       
       (exportReservations || []).forEach((r: Reservation) => {
-        // Only count reservations for active units
-        if (!activeUnits.find(u => u.id === r.unit_id)) return;
+        // Only count reservations for units in current location
+        if (!units.find(u => u.id === r.unit_id)) return;
         
         const checkIn = new Date(r.check_in_date);
         const checkOut = new Date(r.check_out_date);
