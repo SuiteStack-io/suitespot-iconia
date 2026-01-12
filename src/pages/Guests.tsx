@@ -12,15 +12,27 @@ import {
 } from "@/components/ui/table";
 import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
-import { Search, ChevronLeft, ChevronRight, Download, ArrowLeft } from "lucide-react";
+import { Search, ChevronLeft, ChevronRight, Download, ArrowLeft, FileText, Loader2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { format, startOfWeek, addDays, addWeeks, subWeeks, isSameDay, isWithinInterval, startOfMonth, endOfMonth, addMonths, subMonths, isSameMonth } from "date-fns";
 import { cn } from "@/lib/utils";
 import { useIsMobile } from "@/hooks/use-mobile";
 import { SlideMenu } from "@/components/SlideMenu";
+import { downloadCheckInPDF } from "@/lib/generateCheckInPDF";
+import { toast } from "sonner";
+
+interface CheckInAgreement {
+  reservation_id: string;
+  guest_full_name: string;
+  guest_phone: string;
+  guest_email: string;
+  signature_url: string;
+  signed_at: string;
+}
 
 interface GuestRecord {
+  reservationId: string;
   guestName: string;
   nationality: string | null;
   contactEmail: string | null;
@@ -50,6 +62,9 @@ const Guests = () => {
   const [selectedMonth, setSelectedMonth] = useState<Date>(new Date());
   const [statusFilter, setStatusFilter] = useState<string>("all");
   const [searchField, setSearchField] = useState<string>("all");
+  const [checkInAgreements, setCheckInAgreements] = useState<Map<string, CheckInAgreement>>(new Map());
+  const [guestFormFilter, setGuestFormFilter] = useState<string>("all");
+  const [downloadingForm, setDownloadingForm] = useState<string | null>(null);
 
   useEffect(() => {
     if (!authLoading && userRole !== "admin") {
@@ -59,11 +74,32 @@ const Guests = () => {
 
   useEffect(() => {
     fetchGuests();
+    fetchCheckInAgreements();
   }, []);
 
   useEffect(() => {
     filterGuests();
-  }, [searchQuery, guests, currentWeekStart, viewMode, selectedMonth, statusFilter, searchField]);
+  }, [searchQuery, guests, currentWeekStart, viewMode, selectedMonth, statusFilter, searchField, guestFormFilter, checkInAgreements]);
+
+  const fetchCheckInAgreements = async () => {
+    try {
+      const { data, error } = await supabase
+        .from('check_in_agreements')
+        .select('reservation_id, guest_full_name, guest_phone, guest_email, signature_url, signed_at');
+
+      if (error) throw error;
+
+      if (data) {
+        const agreementsMap = new Map<string, CheckInAgreement>();
+        data.forEach((agreement) => {
+          agreementsMap.set(agreement.reservation_id, agreement as CheckInAgreement);
+        });
+        setCheckInAgreements(agreementsMap);
+      }
+    } catch (error) {
+      console.error("Error fetching check-in agreements:", error);
+    }
+  };
 
   const fetchGuests = async () => {
     try {
@@ -82,6 +118,7 @@ const Guests = () => {
       reservations?.forEach((reservation) => {
         reservation.guest_names?.forEach((guestName: string, index: number) => {
           guestRecords.push({
+            reservationId: reservation.id,
             guestName,
             nationality: reservation.guest_nationality,
             contactEmail: reservation.contact_email,
@@ -169,8 +206,40 @@ const Guests = () => {
     if (statusFilter !== "all") {
       filtered = filtered.filter((guest) => guest.status === statusFilter);
     }
+
+    // Filter by guest form status
+    if (guestFormFilter === "completed") {
+      filtered = filtered.filter((guest) => checkInAgreements.has(guest.reservationId));
+    } else if (guestFormFilter === "pending") {
+      filtered = filtered.filter((guest) => !checkInAgreements.has(guest.reservationId));
+    }
     
     setFilteredGuests(filtered);
+  };
+
+  const handleDownloadGuestForm = async (guest: GuestRecord) => {
+    const agreement = checkInAgreements.get(guest.reservationId);
+    if (!agreement) return;
+
+    setDownloadingForm(guest.reservationId);
+    try {
+      await downloadCheckInPDF({
+        guestName: agreement.guest_full_name,
+        guestPhone: agreement.guest_phone,
+        guestEmail: agreement.guest_email,
+        unitName: guest.unitName || 'N/A',
+        checkInDate: guest.checkInDate,
+        checkOutDate: guest.checkOutDate,
+        signatureDataUrl: agreement.signature_url,
+        signedAt: new Date(agreement.signed_at),
+      }, `check-in-agreement-${guest.bookingReference}.pdf`);
+      toast.success('Guest form downloaded');
+    } catch (error) {
+      console.error('Error downloading PDF:', error);
+      toast.error('Failed to download guest form');
+    } finally {
+      setDownloadingForm(null);
+    }
   };
 
   const getWeekDays = () => {
@@ -256,6 +325,7 @@ const Guests = () => {
       "Total Guests",
       "Source",
       "Booking Reference",
+      "Guest Form",
       "Status"
     ];
 
@@ -281,6 +351,7 @@ const Guests = () => {
         guest.numberOfGuests.toString(),
         guest.source,
         guest.bookingReference,
+        checkInAgreements.has(guest.reservationId) ? "Completed" : "Pending",
         guest.status
       ];
     });
@@ -465,6 +536,17 @@ const Guests = () => {
                   <SelectItem value="checked-out">Checked-out</SelectItem>
                 </SelectContent>
               </Select>
+
+              <Select value={guestFormFilter} onValueChange={setGuestFormFilter}>
+                <SelectTrigger className={cn(isMobile ? "w-full" : "w-[180px]")}>
+                  <SelectValue placeholder="Guest Forms" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="all">All Forms</SelectItem>
+                  <SelectItem value="completed">Form Completed</SelectItem>
+                  <SelectItem value="pending">Form Pending</SelectItem>
+                </SelectContent>
+              </Select>
             </div>
           </div>
 
@@ -484,13 +566,14 @@ const Guests = () => {
                   <TableHead>Total Guests</TableHead>
                   <TableHead>Source</TableHead>
                   <TableHead>Booking Ref</TableHead>
+                  <TableHead>Guest Form</TableHead>
                   <TableHead>Status</TableHead>
                 </TableRow>
               </TableHeader>
               <TableBody>
                 {filteredGuests.length === 0 ? (
                   <TableRow>
-                    <TableCell colSpan={13} className="text-center text-muted-foreground">
+                    <TableCell colSpan={14} className="text-center text-muted-foreground">
                       No guests found for this {viewMode}
                     </TableCell>
                   </TableRow>
@@ -540,6 +623,28 @@ const Guests = () => {
                             ? highlightText(guest.bookingReference, searchQuery)
                             : guest.bookingReference
                           }
+                        </TableCell>
+                        <TableCell>
+                          {checkInAgreements.has(guest.reservationId) ? (
+                            <Button
+                              variant="ghost"
+                              size="sm"
+                              onClick={() => handleDownloadGuestForm(guest)}
+                              disabled={downloadingForm === guest.reservationId}
+                              className="text-green-600 hover:text-green-700 hover:bg-green-50 dark:hover:bg-green-950"
+                            >
+                              {downloadingForm === guest.reservationId ? (
+                                <Loader2 className="h-4 w-4 animate-spin" />
+                              ) : (
+                                <>
+                                  <FileText className="h-4 w-4 mr-1" />
+                                  <Download className="h-3 w-3" />
+                                </>
+                              )}
+                            </Button>
+                          ) : (
+                            <span className="text-muted-foreground text-xs">—</span>
+                          )}
                         </TableCell>
                         <TableCell>
                           <Badge className={cn("capitalize", getStatusColor(guest.status))}>
