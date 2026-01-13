@@ -631,7 +631,7 @@ export const Dashboard = () => {
   return (
     <>
       <PendingAssignmentsAlert />
-      <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-6">
+      <div className="grid gap-3 grid-cols-2 lg:grid-cols-6">
         {statCards.map((stat) => {
           const Icon = stat.icon;
           return (
@@ -640,12 +640,12 @@ export const Dashboard = () => {
               className="cursor-pointer hover:bg-accent/50 transition-colors"
               onClick={() => handleCardClick(stat.type)}
             >
-              <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-                <CardTitle className="text-sm font-medium">{stat.title}</CardTitle>
-                <Icon className={`h-4 w-4 ${stat.color}`} />
+              <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-1 sm:pb-2 p-3 sm:p-6">
+                <CardTitle className="text-xs sm:text-sm font-medium">{stat.title}</CardTitle>
+                <Icon className={`h-3 w-3 sm:h-4 sm:w-4 ${stat.color}`} />
               </CardHeader>
-              <CardContent>
-                <div className="text-2xl font-bold">
+              <CardContent className="p-3 pt-0 sm:p-6 sm:pt-0">
+                <div className="text-xl sm:text-2xl font-bold">
                   {stat.isRevenue ? `$${stat.value.toFixed(2)}` : stat.value}
                 </div>
               </CardContent>
