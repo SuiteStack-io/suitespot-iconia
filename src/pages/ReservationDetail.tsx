@@ -27,12 +27,13 @@ import {
 } from '@/components/ui/command';
 import { toast } from 'sonner';
 import { format } from 'date-fns';
-import { Edit2, X, CalendarIcon, Trash2, FileText, Download, Check, ChevronsUpDown, ArrowLeft, Clock, Plus, Link2, AlertTriangle, Loader2, MessageCircle, Mail, Upload } from 'lucide-react';
+import { Edit2, X, CalendarIcon, Trash2, FileText, Download, Check, ChevronsUpDown, ArrowLeft, Clock, Plus, Link2, AlertTriangle, Loader2, MessageCircle, Mail, Upload, ArrowLeftRight } from 'lucide-react';
 import { Progress } from '@/components/ui/progress';
 import { toPng } from 'html-to-image';
 import { cn } from '@/lib/utils';
 import { CreateGuestAccountDialog } from '@/components/CreateGuestAccountDialog';
 import { SlideMenu } from '@/components/SlideMenu';
+import { RoomTransferDialog } from '@/components/RoomTransferDialog';
 import {
   AlertDialog,
   AlertDialogAction,
@@ -77,6 +78,8 @@ interface Reservation {
   check_out_date: string;
   nights: number;
   number_of_guests: number;
+  adults: number | null;
+  children: number | null;
   guest_names: string[];
   guest_types: string[] | null;
   guest_genders: string[] | null;
@@ -169,6 +172,7 @@ const ReservationDetail = () => {
   const [chargeToDelete, setChargeToDelete] = useState<LinkedCharge | null>(null);
   const [deletingCharge, setDeletingCharge] = useState(false);
   const [downloadingConfirmation, setDownloadingConfirmation] = useState(false);
+  const [showRoomTransferDialog, setShowRoomTransferDialog] = useState(false);
   const confirmationRef = useRef<HTMLDivElement>(null);
   
   // Document upload states
@@ -939,6 +943,13 @@ Thank you for choosing SuiteSpot!`;
                 reservationId={reservation.id}
                 guestName={reservation.guest_names[0] || 'Guest'}
               />
+              <Button 
+                variant="outline"
+                onClick={() => setShowRoomTransferDialog(true)}
+              >
+                <ArrowLeftRight className="h-4 w-4 mr-2" />
+                Room Transfer
+              </Button>
               <Button onClick={() => setIsEditMode(true)}>
                 <Edit2 className="h-4 w-4 mr-2" />
                 Edit Reservation
@@ -997,6 +1008,13 @@ Thank you for choosing SuiteSpot!`;
               reservationId={reservation.id}
               guestName={reservation.guest_names[0] || 'Guest'}
             />
+            <Button 
+              variant="outline"
+              size="sm"
+              onClick={() => setShowRoomTransferDialog(true)}
+            >
+              <ArrowLeftRight className="h-4 w-4" />
+            </Button>
             <Button size="sm" onClick={() => setIsEditMode(true)}>
               <Edit2 className="h-4 w-4 mr-2" />
               Edit
@@ -1886,6 +1904,16 @@ Thank you for choosing SuiteSpot!`;
           </CardContent>
         </Card>
       )}
+
+      <RoomTransferDialog
+        open={showRoomTransferDialog}
+        onOpenChange={setShowRoomTransferDialog}
+        reservation={reservation}
+        onSuccess={() => {
+          fetchReservation();
+          setShowRoomTransferDialog(false);
+        }}
+      />
 
       <AlertDialog open={showDeleteDialog} onOpenChange={setShowDeleteDialog}>
         <AlertDialogContent>
