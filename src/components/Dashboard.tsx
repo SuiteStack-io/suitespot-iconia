@@ -2,7 +2,7 @@ import { useEffect, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { supabase } from '@/integrations/supabase/client';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
-import { Calendar, LogIn, LogOut, TrendingUp, DollarSign, CheckCircle, Undo2, XCircle, FileSignature } from 'lucide-react';
+import { Calendar, LogIn, LogOut, TrendingUp, DollarSign, CheckCircle, Undo2, XCircle, FileSignature, ArrowRightLeft } from 'lucide-react';
 import { format } from 'date-fns';
 import { ConflictAlert } from './ConflictAlert';
 import { PendingAssignmentsAlert } from './PendingAssignmentsAlert';
@@ -39,6 +39,18 @@ interface DashboardStats {
   totalRevenue: number;
   netRevenue: number;
   totalCommission: number;
+  todayTransfers: number;
+}
+
+interface RoomTransfer {
+  guestName: string;
+  fromRoom: string;
+  fromRoomNumber: string;
+  toRoom: string;
+  toRoomNumber: string;
+  fromReservationId: string;
+  toReservationId: string;
+  groupId: string;
 }
 
 interface Reservation {
@@ -82,10 +94,12 @@ export const Dashboard = () => {
     totalRevenue: 0,
     netRevenue: 0,
     totalCommission: 0,
+    todayTransfers: 0,
   });
   const [dialogOpen, setDialogOpen] = useState(false);
   const [dialogTitle, setDialogTitle] = useState('');
   const [dialogReservations, setDialogReservations] = useState<Reservation[]>([]);
+  const [dialogTransfers, setDialogTransfers] = useState<RoomTransfer[]>([]);
   const [updating, setUpdating] = useState<string | null>(null);
   const [selectedReservations, setSelectedReservations] = useState<Set<string>>(new Set());
   
@@ -221,6 +235,14 @@ export const Dashboard = () => {
     const netRevenue = revenueData?.reduce((sum, r) => sum + (r.net_revenue || 0), 0) || 0;
     const totalCommission = revenueData?.reduce((sum, r) => sum + (r.commission_amount || 0), 0) || 0;
 
+    // Count today's transfers (where one segment ends and another starts in same group)
+    const todayTransfers = (endingToday || []).filter(ending => {
+      if (!ending.group_id) return false;
+      return (startingToday || []).some(
+        starting => starting.group_id === ending.group_id && starting.id !== ending.id
+      );
+    }).length;
+
     setStats({
       todayArrivals: filteredArrivals.length,
       todayDepartures: filteredDepartures.length,
@@ -230,6 +252,7 @@ export const Dashboard = () => {
       totalRevenue,
       netRevenue,
       totalCommission,
+      todayTransfers,
     });
   };
 
@@ -239,6 +262,53 @@ export const Dashboard = () => {
     const sevenDaysAgo = format(new Date(Date.now() - 7 * 86400000), 'yyyy-MM-dd');
     
     const baseSelect = 'id, booking_reference, guest_names, guest_types, guest_genders, check_in_date, check_out_date, checked_in_at, checked_out_at, cancelled_at, status, total_price, number_of_guests, children, adults, source, channel, group_id, units(name, unit_number)';
+    
+    // Clear transfers when opening a non-transfer dialog
+    setDialogTransfers([]);
+    
+    if (cardType === 'transfers') {
+      setDialogTitle("Today's Room Transfers");
+      
+      // Get reservations ending today with full data
+      const { data: endingTodayFull } = await supabase
+        .from('reservations')
+        .select('id, group_id, guest_names, units(name, unit_number)')
+        .eq('check_out_date', today)
+        .neq('status', 'cancelled');
+      
+      // Get reservations starting today with full data
+      const { data: startingTodayFull } = await supabase
+        .from('reservations')
+        .select('id, group_id, guest_names, units(name, unit_number)')
+        .eq('check_in_date', today)
+        .neq('status', 'cancelled');
+      
+      // Build transfer pairs
+      const transfers: RoomTransfer[] = [];
+      (endingTodayFull || []).forEach(ending => {
+        if (!ending.group_id) return;
+        const startingMatch = (startingTodayFull || []).find(
+          starting => starting.group_id === ending.group_id && starting.id !== ending.id
+        );
+        if (startingMatch) {
+          transfers.push({
+            guestName: ending.guest_names?.[0] || 'Unknown Guest',
+            fromRoom: ending.units?.name || 'Unknown',
+            fromRoomNumber: ending.units?.unit_number || '',
+            toRoom: startingMatch.units?.name || 'Unknown',
+            toRoomNumber: startingMatch.units?.unit_number || '',
+            fromReservationId: ending.id,
+            toReservationId: startingMatch.id,
+            groupId: ending.group_id,
+          });
+        }
+      });
+      
+      setDialogTransfers(transfers);
+      setDialogReservations([]);
+      setDialogOpen(true);
+      return;
+    }
     
     if (cardType === 'arrivals') {
       setDialogTitle("Today's Arrivals");
@@ -542,12 +612,20 @@ export const Dashboard = () => {
       isRevenue: false,
       type: 'cancellations',
     },
+    {
+      title: 'Room Transfers',
+      value: stats.todayTransfers,
+      icon: ArrowRightLeft,
+      color: 'text-amber-600',
+      isRevenue: false,
+      type: 'transfers',
+    },
   ];
 
   return (
     <>
       <PendingAssignmentsAlert />
-      <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-5">
+      <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-6">
         {statCards.map((stat) => {
           const Icon = stat.icon;
           return (
@@ -625,7 +703,55 @@ export const Dashboard = () => {
             </DialogTitle>
           </DialogHeader>
           <div className="space-y-2">
-            {dialogReservations.length === 0 ? (
+            {dialogTitle.includes('Room Transfers') ? (
+              // Transfer-specific view
+              dialogTransfers.length === 0 ? (
+                <p className="text-muted-foreground text-center py-8">No room transfers today</p>
+              ) : (
+                dialogTransfers.map((transfer, index) => (
+                  <Card key={index} className="bg-amber-50 border-amber-200">
+                    <CardContent className="p-4">
+                      <div className="flex flex-col gap-3">
+                        <div className="flex items-center justify-between">
+                          <span className="font-semibold text-lg">{transfer.guestName}</span>
+                          <Badge variant="outline" className="bg-amber-100 text-amber-800 border-amber-300">
+                            Room Transfer
+                          </Badge>
+                        </div>
+                        <div className="flex items-center gap-3 text-sm">
+                          <div className="flex-1 p-3 bg-white rounded-lg border">
+                            <p className="text-muted-foreground text-xs">FROM</p>
+                            <p className="font-semibold">{transfer.fromRoom}</p>
+                            {transfer.fromRoomNumber && (
+                              <p className="text-primary">Room #{transfer.fromRoomNumber}</p>
+                            )}
+                          </div>
+                          <ArrowRightLeft className="h-5 w-5 text-amber-600 flex-shrink-0" />
+                          <div className="flex-1 p-3 bg-white rounded-lg border">
+                            <p className="text-muted-foreground text-xs">TO</p>
+                            <p className="font-semibold">{transfer.toRoom}</p>
+                            {transfer.toRoomNumber && (
+                              <p className="text-primary">Room #{transfer.toRoomNumber}</p>
+                            )}
+                          </div>
+                        </div>
+                        <Button
+                          variant="outline"
+                          size="sm"
+                          onClick={() => {
+                            setDialogOpen(false);
+                            navigate(`/reservation/${transfer.toReservationId}`);
+                          }}
+                          className="w-fit"
+                        >
+                          View Reservation
+                        </Button>
+                      </div>
+                    </CardContent>
+                  </Card>
+                ))
+              )
+            ) : dialogReservations.length === 0 ? (
               <p className="text-muted-foreground text-center py-8">No reservations found</p>
             ) : (
               dialogReservations.map((reservation) => (
