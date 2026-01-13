@@ -59,6 +59,7 @@ interface Reservation {
   adults: number | null;
   source: string;
   channel: string;
+  group_id: string | null;
   units: { name: string; unit_number: string | null } | null;
 }
 
@@ -139,21 +140,55 @@ export const Dashboard = () => {
     const yesterday = format(new Date(Date.now() - 86400000), 'yyyy-MM-dd');
     const sevenDaysAgo = format(new Date(Date.now() - 7 * 86400000), 'yyyy-MM-dd');
 
-    // Today's arrivals
-    const { data: arrivals } = await supabase
+    // Today's arrivals (with group_id for split-stay filtering)
+    const { data: allArrivals } = await supabase
       .from('reservations')
-      .select('id', { count: 'exact' })
+      .select('id, group_id')
       .eq('check_in_date', today)
       .neq('status', 'cancelled')
       .is('cancelled_at', null);
 
-    // Today's departures
-    const { data: departures } = await supabase
+    // Reservations ending today (for identifying transfers)
+    const { data: endingToday } = await supabase
       .from('reservations')
-      .select('id', { count: 'exact' })
+      .select('id, group_id')
       .eq('check_out_date', today)
       .neq('status', 'cancelled')
       .is('cancelled_at', null);
+
+    // Filter arrivals: exclude if another reservation in same group ends today (transfer-in)
+    const filteredArrivals = (allArrivals || []).filter(arrival => {
+      if (!arrival.group_id) return true; // No group = not a split-stay
+      const isTransferIn = (endingToday || []).some(
+        ending => ending.group_id === arrival.group_id && ending.id !== arrival.id
+      );
+      return !isTransferIn;
+    });
+
+    // Today's departures (with group_id for split-stay filtering)
+    const { data: allDepartures } = await supabase
+      .from('reservations')
+      .select('id, group_id')
+      .eq('check_out_date', today)
+      .neq('status', 'cancelled')
+      .is('cancelled_at', null);
+
+    // Reservations starting today (for identifying transfers)
+    const { data: startingToday } = await supabase
+      .from('reservations')
+      .select('id, group_id')
+      .eq('check_in_date', today)
+      .neq('status', 'cancelled')
+      .is('cancelled_at', null);
+
+    // Filter departures: exclude if another reservation in same group starts today (transfer-out)
+    const filteredDepartures = (allDepartures || []).filter(departure => {
+      if (!departure.group_id) return true; // No group = not a split-stay
+      const isTransferOut = (startingToday || []).some(
+        starting => starting.group_id === departure.group_id && starting.id !== departure.id
+      );
+      return !isTransferOut;
+    });
 
     // In-house count (reservations that are currently checked-in)
     const { data: inHouse } = await supabase
@@ -187,8 +222,8 @@ export const Dashboard = () => {
     const totalCommission = revenueData?.reduce((sum, r) => sum + (r.commission_amount || 0), 0) || 0;
 
     setStats({
-      todayArrivals: arrivals?.length || 0,
-      todayDepartures: departures?.length || 0,
+      todayArrivals: filteredArrivals.length,
+      todayDepartures: filteredDepartures.length,
       inHouse: inHouse?.length || 0,
       newBookings: newBookings?.length || 0,
       recentCancellations: cancellations?.length || 0,
@@ -203,19 +238,79 @@ export const Dashboard = () => {
     const yesterday = format(new Date(Date.now() - 86400000), 'yyyy-MM-dd');
     const sevenDaysAgo = format(new Date(Date.now() - 7 * 86400000), 'yyyy-MM-dd');
     
+    const baseSelect = 'id, booking_reference, guest_names, guest_types, guest_genders, check_in_date, check_out_date, checked_in_at, checked_out_at, cancelled_at, status, total_price, number_of_guests, children, adults, source, channel, group_id, units(name, unit_number)';
+    
+    if (cardType === 'arrivals') {
+      setDialogTitle("Today's Arrivals");
+      
+      // Fetch arrivals with group_id
+      const { data: arrivals } = await supabase
+        .from('reservations')
+        .select(baseSelect)
+        .eq('check_in_date', today)
+        .neq('status', 'cancelled')
+        .order('check_in_date', { ascending: true });
+      
+      // Fetch reservations ending today (to identify transfers)
+      const { data: endingToday } = await supabase
+        .from('reservations')
+        .select('id, group_id')
+        .eq('check_out_date', today)
+        .neq('status', 'cancelled');
+      
+      // Filter out transfer-in segments (where another segment in same group ends today)
+      const filtered = (arrivals || []).filter(arrival => {
+        if (!arrival.group_id) return true;
+        const isTransferIn = (endingToday || []).some(
+          ending => ending.group_id === arrival.group_id && ending.id !== arrival.id
+        );
+        return !isTransferIn;
+      });
+      
+      setDialogReservations(filtered as any);
+      setSelectedReservations(new Set());
+      setDialogOpen(true);
+      return;
+    }
+    
+    if (cardType === 'departures') {
+      setDialogTitle("Today's Departures");
+      
+      // Fetch departures with group_id
+      const { data: departures } = await supabase
+        .from('reservations')
+        .select(baseSelect)
+        .eq('check_out_date', today)
+        .neq('status', 'cancelled')
+        .order('check_in_date', { ascending: true });
+      
+      // Fetch reservations starting today (to identify transfers)
+      const { data: startingToday } = await supabase
+        .from('reservations')
+        .select('id, group_id')
+        .eq('check_in_date', today)
+        .neq('status', 'cancelled');
+      
+      // Filter out transfer-out segments (where another segment in same group starts today)
+      const filtered = (departures || []).filter(departure => {
+        if (!departure.group_id) return true;
+        const isTransferOut = (startingToday || []).some(
+          starting => starting.group_id === departure.group_id && starting.id !== departure.id
+        );
+        return !isTransferOut;
+      });
+      
+      setDialogReservations(filtered as any);
+      setSelectedReservations(new Set());
+      setDialogOpen(true);
+      return;
+    }
+    
     let query = supabase
       .from('reservations')
-      .select('id, booking_reference, guest_names, guest_types, guest_genders, check_in_date, check_out_date, checked_in_at, checked_out_at, cancelled_at, status, total_price, number_of_guests, children, adults, source, channel, units(name, unit_number)');
+      .select(baseSelect);
     
     switch (cardType) {
-      case 'arrivals':
-        setDialogTitle("Today's Arrivals");
-        query = query.eq('check_in_date', today).neq('status', 'cancelled');
-        break;
-      case 'departures':
-        setDialogTitle("Today's Departures");
-        query = query.eq('check_out_date', today).neq('status', 'cancelled');
-        break;
       case 'inhouse':
         setDialogTitle('In-House Now');
         query = query.eq('status', 'checked-in');
