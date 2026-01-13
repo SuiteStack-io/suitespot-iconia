@@ -130,6 +130,13 @@ const BookingComReservations = () => {
   // Split-stay state
   const [isSplitStay, setIsSplitStay] = useState(false);
   const [splitSegments, setSplitSegments] = useState<SplitStaySegment[]>([]);
+  const [segmentAvailability, setSegmentAvailability] = useState<Record<string, {
+    id: string;
+    name: string;
+    unit_number: string;
+    status: 'available' | 'reserved' | 'blocked';
+  }[]>>({});
+  const [loadingSegmentAvailability, setLoadingSegmentAvailability] = useState<Record<string, boolean>>({});
 
   useEffect(() => {
     if (!loading && !user) {
@@ -366,14 +373,68 @@ const BookingComReservations = () => {
   };
 
   // Split-stay helper functions
+  const fetchAvailabilityForSegment = async (segmentId: string, startDate: Date, endDate: Date) => {
+    setLoadingSegmentAvailability(prev => ({ ...prev, [segmentId]: true }));
+    
+    try {
+      const checkIn = format(startDate, 'yyyy-MM-dd');
+      const checkOut = format(endDate, 'yyyy-MM-dd');
+      
+      const { data: allUnits } = await supabase
+        .from('units')
+        .select('id, name, unit_number, unit_type')
+        .eq('location', 'ICONIA')
+        .order('name');
+
+      const unitsChecked = await Promise.all(
+        (allUnits || []).map(async (unit) => {
+          // Check for conflicts in this segment's date range
+          const { data: conflicts } = await supabase.rpc('check_reservation_overlap', {
+            p_unit_id: unit.id,
+            p_check_in_date: checkIn,
+            p_check_out_date: checkOut
+          });
+
+          // Check for blocked dates in this segment's date range
+          const { data: blockedDates } = await supabase
+            .from('blocked_dates')
+            .select('id')
+            .eq('unit_id', unit.id)
+            .gte('blocked_date', checkIn)
+            .lt('blocked_date', checkOut);
+
+          let status: 'available' | 'reserved' | 'blocked' = 'available';
+          if (conflicts && conflicts.length > 0) status = 'reserved';
+          else if (blockedDates && blockedDates.length > 0) status = 'blocked';
+
+          return { ...unit, status };
+        })
+      );
+
+      // Sort: available first, then reserved, then blocked
+      unitsChecked.sort((a, b) => {
+        const order = { available: 0, reserved: 1, blocked: 2 };
+        return order[a.status] - order[b.status];
+      });
+
+      setSegmentAvailability(prev => ({ ...prev, [segmentId]: unitsChecked }));
+    } catch (error) {
+      console.error('Error fetching segment availability:', error);
+    } finally {
+      setLoadingSegmentAvailability(prev => ({ ...prev, [segmentId]: false }));
+    }
+  };
+
   const initializeSplitStay = () => {
     if (!parsedData) return;
-    setSplitSegments([{
+    const segment = {
       id: crypto.randomUUID(),
       startDate: new Date(parsedData.checkInDate),
       endDate: new Date(parsedData.checkOutDate),
       unitId: roomAssignments[0]?.unitId || null
-    }]);
+    };
+    setSplitSegments([segment]);
+    fetchAvailabilityForSegment(segment.id, segment.startDate, segment.endDate);
   };
 
   const addSegment = () => {
@@ -384,16 +445,23 @@ const BookingComReservations = () => {
     
     const midpoint = addDays(lastSegment.startDate, Math.floor(daysInLastSegment / 2));
     
+    const modifiedLastSegment = { ...lastSegment, endDate: midpoint };
+    const newSegment = {
+      id: crypto.randomUUID(),
+      startDate: midpoint,
+      endDate: lastSegment.endDate,
+      unitId: null
+    };
+    
     setSplitSegments([
       ...splitSegments.slice(0, -1),
-      { ...lastSegment, endDate: midpoint },
-      {
-        id: crypto.randomUUID(),
-        startDate: midpoint,
-        endDate: lastSegment.endDate,
-        unitId: null
-      }
+      modifiedLastSegment,
+      newSegment
     ]);
+    
+    // Fetch availability for both affected segments
+    fetchAvailabilityForSegment(modifiedLastSegment.id, modifiedLastSegment.startDate, modifiedLastSegment.endDate);
+    fetchAvailabilityForSegment(newSegment.id, newSegment.startDate, newSegment.endDate);
   };
 
   const removeSegment = (id: string) => {
@@ -419,9 +487,17 @@ const BookingComReservations = () => {
       // Ensure consecutive dates
       if (field === 'endDate' && index < segments.length - 1) {
         updated[index + 1].startDate = date;
+        // Fetch availability for the adjacent segment too
+        fetchAvailabilityForSegment(updated[index + 1].id, date, updated[index + 1].endDate);
       } else if (field === 'startDate' && index > 0) {
         updated[index - 1].endDate = date;
+        // Fetch availability for the adjacent segment too
+        fetchAvailabilityForSegment(updated[index - 1].id, updated[index - 1].startDate, date);
       }
+      
+      // Fetch availability for the current segment
+      fetchAvailabilityForSegment(id, updated[index].startDate, updated[index].endDate);
+      
       return updated;
     });
   };
@@ -1757,10 +1833,10 @@ const BookingComReservations = () => {
                           {/* Room Selection */}
                           <div className="space-y-2">
                             <Label className="text-xs text-muted-foreground">Room</Label>
-                            {loadingUnitsStatus ? (
+                            {loadingSegmentAvailability[segment.id] ? (
                               <div className="flex items-center gap-2 text-sm text-muted-foreground">
                                 <Loader2 className="h-4 w-4 animate-spin" />
-                                Loading...
+                                Checking availability...
                               </div>
                             ) : (
                               <Select 
@@ -1771,7 +1847,7 @@ const BookingComReservations = () => {
                                   <SelectValue placeholder="Select a room..." />
                                 </SelectTrigger>
                                 <SelectContent className="bg-background">
-                                  {unitsWithStatus.map((unit) => {
+                                  {(segmentAvailability[segment.id] || []).map((unit) => {
                                     const isAssignedElsewhere = otherAssignedIds.includes(unit.id);
                                     return (
                                       <SelectItem 
@@ -1957,7 +2033,7 @@ const BookingComReservations = () => {
               )}
             </Button>
             <div className="flex gap-2 w-full sm:w-auto">
-              <Button variant="outline" onClick={() => { setShowPreview(false); setExistingReservation(null); setRoomAssignments([]); setSplitSegments([]); setIsSplitStay(false); }} disabled={creating} className="flex-1 sm:flex-none">
+              <Button variant="outline" onClick={() => { setShowPreview(false); setExistingReservation(null); setRoomAssignments([]); setSplitSegments([]); setIsSplitStay(false); setSegmentAvailability({}); setLoadingSegmentAvailability({}); }} disabled={creating} className="flex-1 sm:flex-none">
                 Cancel
               </Button>
               <Button 
