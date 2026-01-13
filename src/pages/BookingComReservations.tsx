@@ -1767,7 +1767,7 @@ const BookingComReservations = () => {
                       variant="outline"
                       size="sm"
                       onClick={addSegment}
-                      disabled={splitSegments.length >= 5 || (splitSegments.length > 0 && differenceInDays(splitSegments[splitSegments.length - 1].endDate, splitSegments[splitSegments.length - 1].startDate) < 2)}
+                      disabled={splitSegments.length >= 5 || (splitSegments.length > 0 && (differenceInDays(splitSegments[splitSegments.length - 1].endDate, splitSegments[splitSegments.length - 1].startDate) < 2 || !splitSegments[splitSegments.length - 1].unitId))}
                     >
                       <Plus className="h-4 w-4 mr-1" />
                       Add Segment
