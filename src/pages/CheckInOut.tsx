@@ -21,6 +21,7 @@ interface Reservation {
   check_out_date: string;
   status: string;
   number_of_guests: number;
+  group_id: string | null;
   units: { name: string; unit_number: string | null } | null;
 }
 
@@ -71,27 +72,59 @@ const CheckInOut = () => {
   const fetchTodayReservations = async () => {
     const today = format(new Date(), 'yyyy-MM-dd');
 
-    // Fetch arrivals (check-in today, status = confirmed)
+    // Fetch arrivals (check-in today, status = confirmed) with group_id for split-stay filtering
     const { data: arrivalsData } = await supabase
       .from('reservations')
-      .select('id, booking_reference, guest_names, guest_types, check_in_date, check_out_date, status, number_of_guests, units(name, unit_number)')
+      .select('id, booking_reference, guest_names, guest_types, check_in_date, check_out_date, status, number_of_guests, group_id, units(name, unit_number)')
       .eq('check_in_date', today)
       .eq('status', 'confirmed')
       .order('created_at', { ascending: false });
 
+    // Fetch reservations ending today (to identify transfer-in segments)
+    const { data: endingToday } = await supabase
+      .from('reservations')
+      .select('id, group_id')
+      .eq('check_out_date', today)
+      .neq('status', 'cancelled');
+
+    // Filter arrivals: exclude if another reservation in same group ends today (transfer-in)
+    const filteredArrivalsData = (arrivalsData || []).filter(arrival => {
+      if (!arrival.group_id) return true; // No group = not a split-stay
+      const isTransferIn = (endingToday || []).some(
+        ending => ending.group_id === arrival.group_id && ending.id !== arrival.id
+      );
+      return !isTransferIn;
+    });
+
     // Fetch departures (check-out today, all relevant statuses including already processed)
     const { data: departuresData } = await supabase
       .from('reservations')
-      .select('id, booking_reference, guest_names, guest_types, check_in_date, check_out_date, status, number_of_guests, units(name, unit_number)')
+      .select('id, booking_reference, guest_names, guest_types, check_in_date, check_out_date, status, number_of_guests, group_id, units(name, unit_number)')
       .eq('check_out_date', today)
       .in('status', ['checked-in', 'confirmed', 'checked-out', 'completed'])
       .order('created_at', { ascending: false });
 
-    setArrivals(arrivalsData || []);
-    setDepartures(departuresData || []);
+    // Fetch reservations starting today (to identify transfer-out segments)
+    const { data: startingToday } = await supabase
+      .from('reservations')
+      .select('id, group_id')
+      .eq('check_in_date', today)
+      .neq('status', 'cancelled');
+
+    // Filter departures: exclude if another reservation in same group starts today (transfer-out)
+    const filteredDeparturesData = (departuresData || []).filter(departure => {
+      if (!departure.group_id) return true; // No group = not a split-stay
+      const isTransferOut = (startingToday || []).some(
+        starting => starting.group_id === departure.group_id && starting.id !== departure.id
+      );
+      return !isTransferOut;
+    });
+
+    setArrivals(filteredArrivalsData as Reservation[]);
+    setDepartures(filteredDeparturesData as Reservation[]);
     
-    // Extract unique room types
-    const allReservations = [...(arrivalsData || []), ...(departuresData || [])];
+    // Extract unique room types from filtered reservations
+    const allReservations = [...filteredArrivalsData, ...filteredDeparturesData];
     const roomTypes = new Set(
       allReservations
         .map(r => r.units?.name)
