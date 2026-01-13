@@ -534,6 +534,67 @@ const BookingComReservations = () => {
     );
   };
 
+  const validateSplitSegments = (): { valid: boolean; error?: string } => {
+    if (splitSegments.length === 0) {
+      return { valid: false, error: 'No segments defined' };
+    }
+
+    // Check all segments have rooms assigned
+    const unassignedSegments = splitSegments.filter(s => !s.unitId);
+    if (unassignedSegments.length > 0) {
+      return { valid: false, error: `Please assign rooms to all ${unassignedSegments.length} unassigned segment(s)` };
+    }
+
+    // Check for invalid date ranges (end before or equal to start)
+    for (let i = 0; i < splitSegments.length; i++) {
+      const segment = splitSegments[i];
+      const nights = differenceInDays(segment.endDate, segment.startDate);
+      if (nights <= 0) {
+        return { valid: false, error: `Segment ${i + 1} has invalid dates: end date must be after start date` };
+      }
+    }
+
+    // Check for gaps or overlaps between consecutive segments
+    for (let i = 0; i < splitSegments.length - 1; i++) {
+      const current = splitSegments[i];
+      const next = splitSegments[i + 1];
+      const currentEndTime = current.endDate.getTime();
+      const nextStartTime = next.startDate.getTime();
+
+      if (currentEndTime !== nextStartTime) {
+        if (currentEndTime > nextStartTime) {
+          return { valid: false, error: `Segments ${i + 1} and ${i + 2} have overlapping dates` };
+        } else {
+          return { valid: false, error: `There is a gap between segments ${i + 1} and ${i + 2}` };
+        }
+      }
+    }
+
+    // Check total nights match booking
+    const totalAllocated = getTotalSegmentNights();
+    const totalRequired = parsedData?.nights || 0;
+    if (totalAllocated !== totalRequired) {
+      return { valid: false, error: `Total segment nights (${totalAllocated}) must equal booking nights (${totalRequired})` };
+    }
+
+    // Check first segment starts on check-in date
+    if (parsedData) {
+      const checkInDate = parseISO(parsedData.checkInDate);
+      if (splitSegments[0].startDate.getTime() !== checkInDate.getTime()) {
+        return { valid: false, error: 'First segment must start on the check-in date' };
+      }
+
+      // Check last segment ends on check-out date
+      const checkOutDate = parseISO(parsedData.checkOutDate);
+      const lastSegment = splitSegments[splitSegments.length - 1];
+      if (lastSegment.endDate.getTime() !== checkOutDate.getTime()) {
+        return { valid: false, error: 'Last segment must end on the check-out date' };
+      }
+    }
+
+    return { valid: true };
+  };
+
   const allSegmentsValid = () => {
     return splitSegments.length > 0 && 
       splitSegments.every(s => s.unitId) && 
@@ -881,6 +942,18 @@ const BookingComReservations = () => {
     
     // Handle Split-Stay mode
     if (isSplitStay && splitSegments.length > 1) {
+      // Validate split segments before proceeding
+      const validation = validateSplitSegments();
+      if (!validation.valid) {
+        toast({
+          title: 'Invalid Split Stay Configuration',
+          description: validation.error,
+          variant: 'destructive',
+        });
+        setCreating(false);
+        return;
+      }
+
       try {
         const groupId = crypto.randomUUID();
         const baseReference = parsedData.bookingReference;
