@@ -743,6 +743,38 @@ const handler = async (req: Request): Promise<Response> => {
                   <div style="font-size: 28px; font-weight: bold; color: #0f172a;">$${totalPrice.toFixed(2)}</div>
                 </div>
                 
+                ${isSplitStay && splitStaySegments && splitStaySegments.length > 1 ? (() => {
+                  const transfers = splitStaySegments.slice(0, -1).map((segment, index) => {
+                    const transferDate = new Date(segment.checkOut).toLocaleDateString("en-US", {
+                      weekday: "long",
+                      month: "long",
+                      day: "numeric",
+                    });
+                    const fromRoom = segment.roomName + ' (#' + segment.roomNumber + ')';
+                    const toRoom = splitStaySegments[index + 1].roomName + ' (#' + splitStaySegments[index + 1].roomNumber + ')';
+                    return { date: transferDate, from: fromRoom, to: toRoom };
+                  });
+                  
+                  return `
+                    <div style="background: #fef3c7; padding: 20px; border-radius: 8px; margin: 20px 0; border-left: 4px solid #f59e0b;">
+                      <strong style="color: #92400e; font-size: 16px;">⚠️ Room Transfer Reminder</strong>
+                      ${transfers.map(t => `
+                        <div style="margin-top: 12px; padding: 12px; background: #fffbeb; border-radius: 6px;">
+                          <div style="color: #78350f; font-weight: 600; font-size: 15px;">
+                            📅 ${t.date}
+                          </div>
+                          <div style="color: #92400e; font-size: 14px; margin-top: 6px;">
+                            Guest moves from <strong>${t.from}</strong> → <strong>${t.to}</strong>
+                          </div>
+                        </div>
+                      `).join('')}
+                      <p style="margin: 15px 0 0 0; font-size: 13px; color: #92400e;">
+                        Please coordinate with housekeeping to ensure both rooms are ready for the transfer.
+                      </p>
+                    </div>
+                  `;
+                })() : ''}
+                
                 <p style="color: #333; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', 'Roboto', 'Oxygen', 'Ubuntu', 'Cantarell', 'Fira Sans', 'Droid Sans', 'Helvetica Neue', sans-serif; font-size: 14px; line-height: 1.6; margin-top: 30px; margin-bottom: 10px;">
                   Please ensure the room is prepared according to our standard arrival checklist.<br/>
                   Front desk: kindly confirm the check-in time with the guest 24 hours before arrival.
