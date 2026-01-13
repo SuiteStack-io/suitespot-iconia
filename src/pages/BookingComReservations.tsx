@@ -7,7 +7,7 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/com
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Progress } from '@/components/ui/progress';
-import { Upload, Loader2, CheckCircle, AlertTriangle, ArrowLeft, Download, Check } from 'lucide-react';
+import { Upload, Loader2, CheckCircle, AlertTriangle, ArrowLeft, Download, Check, ArrowLeftRight, Plus, X, CalendarIcon } from 'lucide-react';
 import { Badge } from '@/components/ui/badge';
 import { cn } from '@/lib/utils';
 import { toPng } from 'html-to-image';
@@ -26,6 +26,10 @@ import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
 import suitespotLogo from '@/assets/suitespot-logo.png';
 import { SlideMenu } from '@/components/SlideMenu';
 import { AdminBreadcrumb } from '@/components/AdminBreadcrumb';
+import { Switch } from '@/components/ui/switch';
+import { Calendar } from '@/components/ui/calendar';
+import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
+import { format, differenceInDays, addDays } from 'date-fns';
 
 interface RoomInfo {
   roomName: string;
@@ -66,6 +70,13 @@ interface RoomAssignment {
   roomIndex: number;
   roomName: string;
   price: number;
+  unitId: string | null;
+}
+
+interface SplitStaySegment {
+  id: string;
+  startDate: Date;
+  endDate: Date;
   unitId: string | null;
 }
 
@@ -115,6 +126,10 @@ const BookingComReservations = () => {
   
   // Multi-room state
   const [roomAssignments, setRoomAssignments] = useState<RoomAssignment[]>([]);
+  
+  // Split-stay state
+  const [isSplitStay, setIsSplitStay] = useState(false);
+  const [splitSegments, setSplitSegments] = useState<SplitStaySegment[]>([]);
 
   useEffect(() => {
     if (!loading && !user) {
@@ -348,6 +363,85 @@ const BookingComReservations = () => {
 
   const getAssignedUnitIds = () => {
     return roomAssignments.filter(r => r.unitId).map(r => r.unitId!);
+  };
+
+  // Split-stay helper functions
+  const initializeSplitStay = () => {
+    if (!parsedData) return;
+    setSplitSegments([{
+      id: crypto.randomUUID(),
+      startDate: new Date(parsedData.checkInDate),
+      endDate: new Date(parsedData.checkOutDate),
+      unitId: roomAssignments[0]?.unitId || null
+    }]);
+  };
+
+  const addSegment = () => {
+    if (!parsedData || splitSegments.length === 0) return;
+    const lastSegment = splitSegments[splitSegments.length - 1];
+    const daysInLastSegment = differenceInDays(lastSegment.endDate, lastSegment.startDate);
+    if (daysInLastSegment < 2) return; // Need at least 2 nights to split
+    
+    const midpoint = addDays(lastSegment.startDate, Math.floor(daysInLastSegment / 2));
+    
+    setSplitSegments([
+      ...splitSegments.slice(0, -1),
+      { ...lastSegment, endDate: midpoint },
+      {
+        id: crypto.randomUUID(),
+        startDate: midpoint,
+        endDate: lastSegment.endDate,
+        unitId: null
+      }
+    ]);
+  };
+
+  const removeSegment = (id: string) => {
+    if (splitSegments.length <= 1) return;
+    const index = splitSegments.findIndex(s => s.id === id);
+    
+    const newSegments = [...splitSegments];
+    if (index > 0) {
+      newSegments[index - 1].endDate = newSegments[index].endDate;
+    } else if (newSegments.length > 1) {
+      newSegments[1].startDate = newSegments[0].startDate;
+    }
+    newSegments.splice(index, 1);
+    setSplitSegments(newSegments);
+  };
+
+  const updateSegmentDate = (id: string, field: 'startDate' | 'endDate', date: Date) => {
+    setSplitSegments(segments => {
+      const index = segments.findIndex(s => s.id === id);
+      const updated = [...segments];
+      updated[index] = { ...updated[index], [field]: date };
+      
+      // Ensure consecutive dates
+      if (field === 'endDate' && index < segments.length - 1) {
+        updated[index + 1].startDate = date;
+      } else if (field === 'startDate' && index > 0) {
+        updated[index - 1].endDate = date;
+      }
+      return updated;
+    });
+  };
+
+  const updateSegmentRoom = (id: string, unitId: string) => {
+    setSplitSegments(segments =>
+      segments.map(s => s.id === id ? { ...s, unitId } : s)
+    );
+  };
+
+  const getTotalSegmentNights = () => {
+    return splitSegments.reduce((total, seg) => 
+      total + differenceInDays(seg.endDate, seg.startDate), 0
+    );
+  };
+
+  const allSegmentsValid = () => {
+    return splitSegments.length > 0 && 
+      splitSegments.every(s => s.unitId) && 
+      getTotalSegmentNights() === (parsedData?.nights || 0);
   };
 
   const createSingleReservation = async (
@@ -688,6 +782,136 @@ const BookingComReservations = () => {
   const handleConfirmReservation = async () => {
     if (!parsedData) return;
     setCreating(true);
+    
+    // Handle Split-Stay mode
+    if (isSplitStay && splitSegments.length > 1) {
+      try {
+        const groupId = crypto.randomUUID();
+        const baseReference = parsedData.bookingReference;
+        const totalNights = parsedData.nights || 1;
+        const totalPrice = parsedData.totalPrice || 0;
+        const pricePerNight = totalPrice / totalNights;
+        
+        // Upload screenshot once
+        let screenshotUrl: string | null = null;
+        if (screenshotFile) {
+          const fileExt = screenshotFile.name.split('.').pop();
+          const fileName = `${baseReference}-${Date.now()}.${fileExt}`;
+          const { error: uploadError } = await supabase.storage
+            .from('booking-screenshots')
+            .upload(fileName, screenshotFile);
+          if (!uploadError) screenshotUrl = fileName;
+        }
+        
+        // Create reservation for each segment
+        const createdReservations: any[] = [];
+        const suffixes = ['A', 'B', 'C', 'D', 'E'];
+        
+        for (let i = 0; i < splitSegments.length; i++) {
+          const segment = splitSegments[i];
+          const segmentNights = differenceInDays(segment.endDate, segment.startDate);
+          const segmentPrice = pricePerNight * segmentNights;
+          
+          // Proportionally split commission
+          const priceRatio = segmentPrice / totalPrice;
+          const segmentCommission = (parsedData.commissionAmount || 0) * priceRatio;
+          const segmentNetRevenue = (parsedData.commissionableAmount || 0) * priceRatio;
+          const commissionRate = segmentCommission && segmentPrice 
+            ? (segmentCommission / segmentPrice) * 100 
+            : null;
+          
+          const { data: reservation, error } = await supabase
+            .from('reservations')
+            .insert({
+              booking_reference: splitSegments.length > 1 
+                ? `${baseReference}-${suffixes[i]}` 
+                : baseReference,
+              guest_names: parsedData.guestNames || [],
+              guest_nationality: parsedData.nationality || null,
+              check_in_date: format(segment.startDate, 'yyyy-MM-dd'),
+              check_out_date: format(segment.endDate, 'yyyy-MM-dd'),
+              nights: segmentNights,
+              unit_id: segment.unitId,
+              number_of_guests: parsedData.numberOfGuests,
+              contact_email: parsedData.contactEmail,
+              contact_phone: parsedData.contactPhone,
+              total_price: segmentPrice,
+              price_per_night: pricePerNight,
+              currency: parsedData.currency || 'USD',
+              adults: parsedData.adults || parsedData.numberOfGuests,
+              children: parsedData.children || 0,
+              commission_rate: commissionRate,
+              commission_amount: segmentCommission,
+              net_revenue: segmentNetRevenue,
+              notes: `Split-stay segment ${i + 1} of ${splitSegments.length}. ${parsedData.notes || ''}`.trim(),
+              status: 'confirmed',
+              source: 'booking.com',
+              channel: 'Booking.com',
+              preferred_language: parsedData.preferredLanguage || null,
+              booking_screenshot_url: screenshotUrl,
+              group_id: groupId,
+            })
+            .select()
+            .single();
+          
+          if (error) throw error;
+          if (reservation) createdReservations.push(reservation);
+        }
+        
+        // Send notification
+        if (parsedData.contactEmail && createdReservations.length > 0) {
+          const roomNames = splitSegments.map(seg => {
+            const unit = units.find(u => u.id === seg.unitId);
+            return unit?.name || 'Unknown';
+          }).join(' → ');
+          
+          try {
+            await supabase.functions.invoke('send-reservation-notification', {
+              body: {
+                reservationId: baseReference,
+                guestNames: parsedData.guestNames || [],
+                checkIn: parsedData.checkInDate,
+                checkOut: parsedData.checkOutDate,
+                unitName: roomNames,
+                totalPrice: parsedData.totalPrice || 0,
+                numberOfGuests: parsedData.numberOfGuests,
+                source: 'Booking.com',
+                notes: `Room transfer booking: ${roomNames}`,
+              }
+            });
+          } catch (emailError) {
+            console.error('Error sending email:', emailError);
+          }
+        }
+        
+        toast({
+          title: 'Success',
+          description: `Created ${createdReservations.length} split-stay reservation(s)`,
+        });
+        
+        // Reset state
+        setShowPreview(false);
+        setParsedData(null);
+        setScreenshotFile(null);
+        setRoomAssignments([]);
+        setSplitSegments([]);
+        setIsSplitStay(false);
+        
+        const fileInput = document.getElementById('screenshot-upload') as HTMLInputElement;
+        if (fileInput) fileInput.value = '';
+        
+      } catch (error: any) {
+        console.error('Error creating split-stay reservation:', error);
+        toast({
+          title: 'Error',
+          description: error.message || 'Failed to create split-stay reservations',
+          variant: 'destructive',
+        });
+      } finally {
+        setCreating(false);
+      }
+      return;
+    }
     
     const isMultiRoom = parsedData.isMultiRoom && roomAssignments.length > 1;
     
@@ -1411,6 +1635,227 @@ const BookingComReservations = () => {
                 </div>
               )}
 
+              {/* Split-Stay Toggle - only show for single room bookings */}
+              {!parsedData.isMultiRoom && (
+                <div className="flex items-center justify-between p-3 border rounded-lg bg-muted/30 mt-4">
+                  <div>
+                    <div className="flex items-center gap-2">
+                      <ArrowLeftRight className="h-4 w-4 text-muted-foreground" />
+                      <Label className="font-medium">Room Transfer / Split Stay</Label>
+                    </div>
+                    <p className="text-xs text-muted-foreground mt-1">
+                      Guest will change rooms during their stay
+                    </p>
+                  </div>
+                  <Switch 
+                    checked={isSplitStay} 
+                    onCheckedChange={(checked) => {
+                      setIsSplitStay(checked);
+                      if (checked) {
+                        initializeSplitStay();
+                      } else {
+                        setSplitSegments([]);
+                      }
+                    }}
+                  />
+                </div>
+              )}
+
+              {/* Split-Stay Segment Editor */}
+              {isSplitStay && splitSegments.length > 0 && (
+                <div className="space-y-4 mt-4">
+                  <div className="flex items-center justify-between">
+                    <Label className="font-semibold">Stay Segments</Label>
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      onClick={addSegment}
+                      disabled={splitSegments.length >= 5 || (splitSegments.length > 0 && differenceInDays(splitSegments[splitSegments.length - 1].endDate, splitSegments[splitSegments.length - 1].startDate) < 2)}
+                    >
+                      <Plus className="h-4 w-4 mr-1" />
+                      Add Segment
+                    </Button>
+                  </div>
+                  
+                  {splitSegments.map((segment, index) => {
+                    const segmentNights = differenceInDays(segment.endDate, segment.startDate);
+                    const otherAssignedIds = splitSegments
+                      .filter(s => s.id !== segment.id && s.unitId)
+                      .map(s => s.unitId!);
+                    const pricePerNight = (parsedData.totalPrice || 0) / (parsedData.nights || 1);
+                    const segmentPrice = pricePerNight * segmentNights;
+                    
+                    return (
+                      <Card key={segment.id} className="border-l-4 border-l-primary">
+                        <CardContent className="p-4 space-y-4">
+                          <div className="flex items-center justify-between">
+                            <div className="flex items-center gap-2">
+                              <Badge variant="secondary">Segment {index + 1}</Badge>
+                              <span className="text-sm text-muted-foreground">
+                                {segmentNights} night{segmentNights !== 1 ? 's' : ''} — {parsedData.currency} {segmentPrice.toFixed(2)}
+                              </span>
+                            </div>
+                            {splitSegments.length > 1 && (
+                              <Button
+                                variant="ghost"
+                                size="sm"
+                                onClick={() => removeSegment(segment.id)}
+                              >
+                                <X className="h-4 w-4" />
+                              </Button>
+                            )}
+                          </div>
+                          
+                          {/* Date Range */}
+                          <div className="grid grid-cols-2 gap-4">
+                            <div className="space-y-2">
+                              <Label className="text-xs text-muted-foreground">Check-in</Label>
+                              <Popover>
+                                <PopoverTrigger asChild>
+                                  <Button variant="outline" className="w-full justify-start text-left font-normal">
+                                    <CalendarIcon className="mr-2 h-4 w-4" />
+                                    {format(segment.startDate, 'MMM d, yyyy')}
+                                  </Button>
+                                </PopoverTrigger>
+                                <PopoverContent className="w-auto p-0 bg-background">
+                                  <Calendar
+                                    mode="single"
+                                    selected={segment.startDate}
+                                    onSelect={(date) => date && updateSegmentDate(segment.id, 'startDate', date)}
+                                    disabled={(date) => {
+                                      const checkIn = new Date(parsedData.checkInDate);
+                                      return date < checkIn || date >= segment.endDate;
+                                    }}
+                                  />
+                                </PopoverContent>
+                              </Popover>
+                            </div>
+                            <div className="space-y-2">
+                              <Label className="text-xs text-muted-foreground">Check-out</Label>
+                              <Popover>
+                                <PopoverTrigger asChild>
+                                  <Button variant="outline" className="w-full justify-start text-left font-normal">
+                                    <CalendarIcon className="mr-2 h-4 w-4" />
+                                    {format(segment.endDate, 'MMM d, yyyy')}
+                                  </Button>
+                                </PopoverTrigger>
+                                <PopoverContent className="w-auto p-0 bg-background">
+                                  <Calendar
+                                    mode="single"
+                                    selected={segment.endDate}
+                                    onSelect={(date) => date && updateSegmentDate(segment.id, 'endDate', date)}
+                                    disabled={(date) => {
+                                      const checkOut = new Date(parsedData.checkOutDate);
+                                      return date <= segment.startDate || date > checkOut;
+                                    }}
+                                  />
+                                </PopoverContent>
+                              </Popover>
+                            </div>
+                          </div>
+                          
+                          {/* Room Selection */}
+                          <div className="space-y-2">
+                            <Label className="text-xs text-muted-foreground">Room</Label>
+                            {loadingUnitsStatus ? (
+                              <div className="flex items-center gap-2 text-sm text-muted-foreground">
+                                <Loader2 className="h-4 w-4 animate-spin" />
+                                Loading...
+                              </div>
+                            ) : (
+                              <Select 
+                                value={segment.unitId || ''} 
+                                onValueChange={(value) => updateSegmentRoom(segment.id, value)}
+                              >
+                                <SelectTrigger className={cn("bg-background", !segment.unitId && "border-orange-300")}>
+                                  <SelectValue placeholder="Select a room..." />
+                                </SelectTrigger>
+                                <SelectContent className="bg-background">
+                                  {unitsWithStatus.map((unit) => {
+                                    const isAssignedElsewhere = otherAssignedIds.includes(unit.id);
+                                    return (
+                                      <SelectItem 
+                                        key={unit.id} 
+                                        value={unit.id}
+                                        disabled={unit.status !== 'available' || isAssignedElsewhere}
+                                      >
+                                        <div className="flex items-center gap-2">
+                                          <span>{unit.name} (#{unit.unit_number})</span>
+                                          {isAssignedElsewhere && (
+                                            <Badge variant="outline" className="text-xs bg-blue-50 text-blue-600">
+                                              Used in another segment
+                                            </Badge>
+                                          )}
+                                          {!isAssignedElsewhere && unit.status !== 'available' && (
+                                            <Badge 
+                                              variant="outline"
+                                              className={cn(
+                                                "text-xs",
+                                                unit.status === 'reserved' && "bg-orange-50 text-orange-600 border-orange-200",
+                                                unit.status === 'blocked' && "bg-red-50 text-red-600 border-red-200"
+                                              )}
+                                            >
+                                              {unit.status === 'reserved' ? 'Reserved' : 'Blocked'}
+                                            </Badge>
+                                          )}
+                                        </div>
+                                      </SelectItem>
+                                    );
+                                  })}
+                                </SelectContent>
+                              </Select>
+                            )}
+                          </div>
+                        </CardContent>
+                      </Card>
+                    );
+                  })}
+                  
+                  {/* Validation Messages */}
+                  {getTotalSegmentNights() !== parsedData.nights && (
+                    <Alert variant="destructive">
+                      <AlertTriangle className="h-4 w-4" />
+                      <AlertDescription>
+                        Segment nights ({getTotalSegmentNights()}) don't match total stay ({parsedData.nights} nights)
+                      </AlertDescription>
+                    </Alert>
+                  )}
+                  
+                  {splitSegments.some(s => !s.unitId) && (
+                    <Alert>
+                      <AlertTriangle className="h-4 w-4" />
+                      <AlertDescription>
+                        Please assign a room to all segments
+                      </AlertDescription>
+                    </Alert>
+                  )}
+                  
+                  {/* Split Summary */}
+                  <div className="p-4 bg-muted/50 rounded-lg space-y-2">
+                    <p className="font-medium text-sm">Split-Stay Summary</p>
+                    {splitSegments.map((seg, idx) => {
+                      const unit = units.find(u => u.id === seg.unitId);
+                      const nights = differenceInDays(seg.endDate, seg.startDate);
+                      const pricePerNightCalc = (parsedData.totalPrice || 0) / (parsedData.nights || 1);
+                      const segmentPriceCalc = pricePerNightCalc * nights;
+                      
+                      return (
+                        <div key={seg.id} className="text-sm border-l-2 border-primary pl-3">
+                          <p className="font-medium">
+                            Segment {idx + 1}: {unit?.name || 'Not selected'} 
+                            {unit?.unit_number && ` (#${unit.unit_number})`}
+                          </p>
+                          <p className="text-muted-foreground">
+                            {format(seg.startDate, 'MMM d')} → {format(seg.endDate, 'MMM d')} 
+                            ({nights} night{nights !== 1 ? 's' : ''}) — {parsedData.currency} {segmentPriceCalc.toFixed(2)}
+                          </p>
+                        </div>
+                      );
+                    })}
+                  </div>
+                </div>
+              )}
+
               <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                 <div>
                   <Label className="text-xs text-muted-foreground">Number of Guests</Label>
@@ -1512,7 +1957,7 @@ const BookingComReservations = () => {
               )}
             </Button>
             <div className="flex gap-2 w-full sm:w-auto">
-              <Button variant="outline" onClick={() => { setShowPreview(false); setExistingReservation(null); setRoomAssignments([]); }} disabled={creating} className="flex-1 sm:flex-none">
+              <Button variant="outline" onClick={() => { setShowPreview(false); setExistingReservation(null); setRoomAssignments([]); setSplitSegments([]); setIsSplitStay(false); }} disabled={creating} className="flex-1 sm:flex-none">
                 Cancel
               </Button>
               <Button 
@@ -1520,8 +1965,10 @@ const BookingComReservations = () => {
                 disabled={
                   creating || 
                   existingReservation !== null || 
-                  !allRoomsAssigned || 
-                  !hasNoDuplicateAssignments()
+                  (isSplitStay 
+                    ? !allSegmentsValid()
+                    : (!allRoomsAssigned || !hasNoDuplicateAssignments())
+                  )
                 } 
                 className="flex-1 sm:flex-none"
               >
@@ -1531,9 +1978,11 @@ const BookingComReservations = () => {
                     Creating...
                   </>
                 ) : (
-                  parsedData?.isMultiRoom && roomAssignments.length > 1 
-                    ? `Create ${roomAssignments.length} Reservations`
-                    : 'Confirm & Create'
+                  isSplitStay && splitSegments.length > 1
+                    ? `Create ${splitSegments.length} Reservations`
+                    : parsedData?.isMultiRoom && roomAssignments.length > 1 
+                      ? `Create ${roomAssignments.length} Reservations`
+                      : 'Confirm & Create'
                 )}
               </Button>
             </div>
