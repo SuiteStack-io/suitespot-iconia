@@ -29,7 +29,7 @@ import { AdminBreadcrumb } from '@/components/AdminBreadcrumb';
 import { Switch } from '@/components/ui/switch';
 import { Calendar } from '@/components/ui/calendar';
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
-import { format, differenceInDays, addDays } from 'date-fns';
+import { format, differenceInDays, addDays, parseISO } from 'date-fns';
 
 interface RoomInfo {
   roomName: string;
@@ -429,8 +429,8 @@ const BookingComReservations = () => {
     if (!parsedData) return;
     const segment = {
       id: crypto.randomUUID(),
-      startDate: new Date(parsedData.checkInDate),
-      endDate: new Date(parsedData.checkOutDate),
+      startDate: parseISO(parsedData.checkInDate),
+      endDate: parseISO(parsedData.checkOutDate),
       unitId: roomAssignments[0]?.unitId || null
     };
     setSplitSegments([segment]);
@@ -441,27 +441,47 @@ const BookingComReservations = () => {
     if (!parsedData || splitSegments.length === 0) return;
     const lastSegment = splitSegments[splitSegments.length - 1];
     const daysInLastSegment = differenceInDays(lastSegment.endDate, lastSegment.startDate);
-    if (daysInLastSegment < 2) return; // Need at least 2 nights to split
+    const totalNightsUsed = getTotalSegmentNights();
+    const totalNightsAvailable = parsedData?.nights || 0;
     
-    const midpoint = addDays(lastSegment.startDate, Math.floor(daysInLastSegment / 2));
+    // Cannot add if no nights remaining
+    if (totalNightsUsed >= totalNightsAvailable) return;
     
-    const modifiedLastSegment = { ...lastSegment, endDate: midpoint };
-    const newSegment = {
-      id: crypto.randomUUID(),
-      startDate: midpoint,
-      endDate: lastSegment.endDate,
-      unitId: null
-    };
+    const checkoutDate = parseISO(parsedData.checkOutDate);
     
-    setSplitSegments([
-      ...splitSegments.slice(0, -1),
-      modifiedLastSegment,
-      newSegment
-    ]);
-    
-    // Fetch availability for both affected segments
-    fetchAvailabilityForSegment(modifiedLastSegment.id, modifiedLastSegment.startDate, modifiedLastSegment.endDate);
-    fetchAvailabilityForSegment(newSegment.id, newSegment.startDate, newSegment.endDate);
+    if (daysInLastSegment >= 2) {
+      // Split the last segment in half (existing behavior)
+      const midpoint = addDays(lastSegment.startDate, Math.floor(daysInLastSegment / 2));
+      
+      const modifiedLastSegment = { ...lastSegment, endDate: midpoint };
+      const newSegment = {
+        id: crypto.randomUUID(),
+        startDate: midpoint,
+        endDate: lastSegment.endDate,
+        unitId: null
+      };
+      
+      setSplitSegments([
+        ...splitSegments.slice(0, -1),
+        modifiedLastSegment,
+        newSegment
+      ]);
+      
+      // Fetch availability for both affected segments
+      fetchAvailabilityForSegment(modifiedLastSegment.id, modifiedLastSegment.startDate, modifiedLastSegment.endDate);
+      fetchAvailabilityForSegment(newSegment.id, newSegment.startDate, newSegment.endDate);
+    } else {
+      // Last segment has 1 night - add a new segment for remaining nights
+      const newSegment = {
+        id: crypto.randomUUID(),
+        startDate: lastSegment.endDate,
+        endDate: checkoutDate,
+        unitId: null
+      };
+      
+      setSplitSegments([...splitSegments, newSegment]);
+      fetchAvailabilityForSegment(newSegment.id, newSegment.startDate, newSegment.endDate);
+    }
   };
 
   const removeSegment = (id: string) => {
@@ -1767,7 +1787,11 @@ const BookingComReservations = () => {
                       variant="outline"
                       size="sm"
                       onClick={addSegment}
-                      disabled={splitSegments.length >= 5 || (splitSegments.length > 0 && (differenceInDays(splitSegments[splitSegments.length - 1].endDate, splitSegments[splitSegments.length - 1].startDate) < 2 || !splitSegments[splitSegments.length - 1].unitId))}
+                      disabled={
+                        splitSegments.length >= 5 || 
+                        (splitSegments.length > 0 && !splitSegments[splitSegments.length - 1].unitId) ||
+                        getTotalSegmentNights() >= (parsedData?.nights || 0)
+                      }
                     >
                       <Plus className="h-4 w-4 mr-1" />
                       Add Segment
