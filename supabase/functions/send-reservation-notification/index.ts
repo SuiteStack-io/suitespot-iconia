@@ -16,6 +16,15 @@ interface RoomInfo {
   price: number;
 }
 
+interface SplitStaySegment {
+  roomName: string;
+  roomNumber: string;
+  checkIn: string;
+  checkOut: string;
+  nights: number;
+  price: number;
+}
+
 interface ReservationNotification {
   reservationId: string;
   guestNames: string[];
@@ -38,6 +47,8 @@ interface ReservationNotification {
   customerPhone?: string;
   isMultiRoom?: boolean;
   rooms?: RoomInfo[];
+  isSplitStay?: boolean;
+  splitStaySegments?: SplitStaySegment[];
 }
 
 const handler = async (req: Request): Promise<Response> => {
@@ -74,6 +85,8 @@ const handler = async (req: Request): Promise<Response> => {
       customerPhone,
       isMultiRoom,
       rooms,
+      isSplitStay,
+      splitStaySegments,
     }: ReservationNotification = await req.json();
 
     console.log("Processing reservation notification:", reservationId);
@@ -470,7 +483,9 @@ const handler = async (req: Request): Promise<Response> => {
       try {
         // Build subject line with suite name and room number if available
         let subject = `New Reservation: ${guestNames.join(", ")}`;
-        if (isMultiRoom && rooms && rooms.length > 1) {
+        if (isSplitStay && splitStaySegments && splitStaySegments.length > 1) {
+          subject = `Split-Stay Reservation: ${guestNames.join(", ")} - ${splitStaySegments.length} Rooms`;
+        } else if (isMultiRoom && rooms && rooms.length > 1) {
           subject = `New Multi-Room Reservation: ${guestNames.join(", ")} - ${rooms.length} Rooms`;
         } else if (matchedSuiteName && matchedRoomNumber) {
           subject += ` - ${matchedSuiteName} - Room #${matchedRoomNumber}`;
@@ -494,6 +509,50 @@ const handler = async (req: Request): Promise<Response> => {
               </div>
             </div>
           `).join('')}
+        ` : '';
+        
+        // Build split-stay HTML for room transfer bookings
+        const splitStayHtml = isSplitStay && splitStaySegments && splitStaySegments.length > 1 ? `
+          <div style="background: #dbeafe; padding: 15px; border-radius: 8px; margin-bottom: 20px; border-left: 4px solid #3b82f6;">
+            <strong style="color: #1e40af;">🔄 Split-Stay Reservation (${splitStaySegments.length} Segments)</strong>
+            <p style="margin: 8px 0 0 0; font-size: 13px; color: #1e3a8a;">Guest will change rooms during their stay</p>
+          </div>
+          ${splitStaySegments.map((segment, index) => {
+            const segmentCheckIn = new Date(segment.checkIn).toLocaleDateString("en-US", {
+              weekday: "short",
+              month: "short",
+              day: "numeric",
+            });
+            const segmentCheckOut = new Date(segment.checkOut).toLocaleDateString("en-US", {
+              weekday: "short",
+              month: "short",
+              day: "numeric",
+            });
+            return `
+              <div style="background: #f8fafc; padding: 15px; border-radius: 8px; margin-bottom: 15px; border: 1px solid #e2e8f0; border-left: 4px solid ${index === 0 ? '#22c55e' : '#3b82f6'};">
+                <div style="margin-bottom: 10px;">
+                  <strong style="color: #0f172a; font-size: 16px;">Segment ${index + 1}: ${segment.roomName}</strong>
+                  <span style="background: ${index === 0 ? '#dcfce7' : '#dbeafe'}; color: ${index === 0 ? '#166534' : '#1e40af'}; padding: 4px 10px; border-radius: 12px; font-size: 12px; font-weight: 600; margin-left: 10px;">
+                    ${segment.nights} night${segment.nights !== 1 ? 's' : ''}
+                  </span>
+                </div>
+                <table style="width: 100%; font-size: 14px;">
+                  <tr>
+                    <td style="color: #6b7280; padding: 4px 0; width: 100px;">Room #:</td>
+                    <td style="color: #111827; font-weight: 500;">${segment.roomNumber}</td>
+                  </tr>
+                  <tr>
+                    <td style="color: #6b7280; padding: 4px 0;">Dates:</td>
+                    <td style="color: #111827; font-weight: 500;">${segmentCheckIn} → ${segmentCheckOut}</td>
+                  </tr>
+                  <tr>
+                    <td style="color: #6b7280; padding: 4px 0;">Price:</td>
+                    <td style="color: #111827; font-weight: 500;">$${segment.price.toFixed(2)}</td>
+                  </tr>
+                </table>
+              </div>
+            `;
+          }).join('')}
         ` : '';
         
         const result = await resend.emails.send({
@@ -601,7 +660,8 @@ const handler = async (req: Request): Promise<Response> => {
                   <div class="detail-value"><strong>${guestNames.join(", ")}</strong></div>
                 </div>
                 
-                ${isMultiRoom && rooms && rooms.length > 1 ? multiRoomHtml : `
+                ${isSplitStay && splitStaySegments && splitStaySegments.length > 1 ? splitStayHtml : 
+                  (isMultiRoom && rooms && rooms.length > 1 ? multiRoomHtml : `
                 <div class="detail-row">
                   <div class="detail-label">Unit:</div>
                   <div class="detail-value"><strong>${unitName}</strong></div>
@@ -620,7 +680,7 @@ const handler = async (req: Request): Promise<Response> => {
                   <div class="detail-value"><strong>${matchedRoomNumber}</strong></div>
                 </div>
                 ` : ''}
-                `}
+                `)}
                 
                 <div class="detail-row">
                   <div class="detail-label">Check-in:</div>
