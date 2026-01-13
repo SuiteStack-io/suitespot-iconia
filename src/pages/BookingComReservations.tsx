@@ -29,7 +29,7 @@ import { AdminBreadcrumb } from '@/components/AdminBreadcrumb';
 import { Switch } from '@/components/ui/switch';
 import { Calendar } from '@/components/ui/calendar';
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
-import { format, differenceInDays, addDays, parseISO } from 'date-fns';
+import { format, differenceInCalendarDays, addDays, parseISO } from 'date-fns';
 
 interface RoomInfo {
   roomName: string;
@@ -440,7 +440,7 @@ const BookingComReservations = () => {
   const addSegment = () => {
     if (!parsedData || splitSegments.length === 0) return;
     const lastSegment = splitSegments[splitSegments.length - 1];
-    const daysInLastSegment = differenceInDays(lastSegment.endDate, lastSegment.startDate);
+    const daysInLastSegment = differenceInCalendarDays(lastSegment.endDate, lastSegment.startDate);
     const totalNightsUsed = getTotalSegmentNights();
     const totalNightsAvailable = parsedData?.nights || 0;
     
@@ -530,7 +530,7 @@ const BookingComReservations = () => {
 
   const getTotalSegmentNights = () => {
     return splitSegments.reduce((total, seg) => 
-      total + differenceInDays(seg.endDate, seg.startDate), 0
+      total + differenceInCalendarDays(seg.endDate, seg.startDate), 0
     );
   };
 
@@ -548,7 +548,7 @@ const BookingComReservations = () => {
     // Check for invalid date ranges (end before or equal to start)
     for (let i = 0; i < splitSegments.length; i++) {
       const segment = splitSegments[i];
-      const nights = differenceInDays(segment.endDate, segment.startDate);
+      const nights = differenceInCalendarDays(segment.endDate, segment.startDate);
       if (nights <= 0) {
         return { valid: false, error: `Segment ${i + 1} has invalid dates: end date must be after start date` };
       }
@@ -978,7 +978,7 @@ const BookingComReservations = () => {
         
         for (let i = 0; i < splitSegments.length; i++) {
           const segment = splitSegments[i];
-          const segmentNights = differenceInDays(segment.endDate, segment.startDate);
+          const segmentNights = differenceInCalendarDays(segment.endDate, segment.startDate);
           const segmentPrice = pricePerNight * segmentNights;
           
           // Proportionally split commission
@@ -1033,7 +1033,7 @@ const BookingComReservations = () => {
           
           const splitStaySegmentsData = splitSegments.map((seg) => {
             const unit = units.find(u => u.id === seg.unitId);
-            const segNights = differenceInDays(seg.endDate, seg.startDate);
+            const segNights = differenceInCalendarDays(seg.endDate, seg.startDate);
             const segmentPrice = pricePerNight * segNights;
             
             return {
@@ -1872,7 +1872,7 @@ const BookingComReservations = () => {
                   </div>
                   
                   {splitSegments.map((segment, index) => {
-                    const segmentNights = differenceInDays(segment.endDate, segment.startDate);
+                    const segmentNights = differenceInCalendarDays(segment.endDate, segment.startDate);
                     const otherAssignedIds = splitSegments
                       .filter(s => s.id !== segment.id && s.unitId)
                       .map(s => s.unitId!);
@@ -2029,7 +2029,7 @@ const BookingComReservations = () => {
                     <p className="font-medium text-sm">Split-Stay Summary</p>
                     {splitSegments.map((seg, idx) => {
                       const unit = units.find(u => u.id === seg.unitId);
-                      const nights = differenceInDays(seg.endDate, seg.startDate);
+                      const nights = differenceInCalendarDays(seg.endDate, seg.startDate);
                       const pricePerNightCalc = (parsedData.totalPrice || 0) / (parsedData.nights || 1);
                       const segmentPriceCalc = pricePerNightCalc * nights;
                       
