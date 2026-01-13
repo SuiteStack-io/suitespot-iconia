@@ -165,7 +165,7 @@ export const Dashboard = () => {
     // Reservations ending today (for identifying transfers)
     const { data: endingToday } = await supabase
       .from('reservations')
-      .select('id, group_id')
+      .select('id, group_id, unit_id')
       .eq('check_out_date', today)
       .neq('status', 'cancelled')
       .is('cancelled_at', null);
@@ -190,7 +190,7 @@ export const Dashboard = () => {
     // Reservations starting today (for identifying transfers)
     const { data: startingToday } = await supabase
       .from('reservations')
-      .select('id, group_id')
+      .select('id, group_id, unit_id')
       .eq('check_in_date', today)
       .neq('status', 'cancelled')
       .is('cancelled_at', null);
@@ -235,11 +235,14 @@ export const Dashboard = () => {
     const netRevenue = revenueData?.reduce((sum, r) => sum + (r.net_revenue || 0), 0) || 0;
     const totalCommission = revenueData?.reduce((sum, r) => sum + (r.commission_amount || 0), 0) || 0;
 
-    // Count today's transfers (where one segment ends and another starts in same group)
+    // Count today's transfers (where one segment ends and another starts in same group with DIFFERENT rooms)
     const todayTransfers = (endingToday || []).filter(ending => {
       if (!ending.group_id) return false;
       return (startingToday || []).some(
-        starting => starting.group_id === ending.group_id && starting.id !== ending.id
+        starting => 
+          starting.group_id === ending.group_id && 
+          starting.id !== ending.id &&
+          starting.unit_id !== ending.unit_id // Must be different rooms
       );
     }).length;
 
@@ -272,23 +275,26 @@ export const Dashboard = () => {
       // Get reservations ending today with full data
       const { data: endingTodayFull } = await supabase
         .from('reservations')
-        .select('id, group_id, guest_names, units(name, unit_number)')
+        .select('id, group_id, unit_id, guest_names, units(name, unit_number)')
         .eq('check_out_date', today)
         .neq('status', 'cancelled');
       
       // Get reservations starting today with full data
       const { data: startingTodayFull } = await supabase
         .from('reservations')
-        .select('id, group_id, guest_names, units(name, unit_number)')
+        .select('id, group_id, unit_id, guest_names, units(name, unit_number)')
         .eq('check_in_date', today)
         .neq('status', 'cancelled');
       
-      // Build transfer pairs
+      // Build transfer pairs - only include actual room changes
       const transfers: RoomTransfer[] = [];
       (endingTodayFull || []).forEach(ending => {
         if (!ending.group_id) return;
         const startingMatch = (startingTodayFull || []).find(
-          starting => starting.group_id === ending.group_id && starting.id !== ending.id
+          starting => 
+            starting.group_id === ending.group_id && 
+            starting.id !== ending.id &&
+            starting.unit_id !== ending.unit_id // Must be different rooms
         );
         if (startingMatch) {
           transfers.push({
