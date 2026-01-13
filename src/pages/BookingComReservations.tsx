@@ -934,12 +934,26 @@ const BookingComReservations = () => {
           if (reservation) createdReservations.push(reservation);
         }
         
-        // Send notification
+        // Send notification with split-stay segment details
         if (parsedData.contactEmail && createdReservations.length > 0) {
-          const roomNames = splitSegments.map(seg => {
+          const pricePerNight = (parsedData.totalPrice || 0) / (parsedData.nights || 1);
+          
+          const splitStaySegmentsData = splitSegments.map((seg) => {
             const unit = units.find(u => u.id === seg.unitId);
-            return unit?.name || 'Unknown';
-          }).join(' → ');
+            const segNights = differenceInDays(seg.endDate, seg.startDate);
+            const segmentPrice = pricePerNight * segNights;
+            
+            return {
+              roomName: unit?.name || 'Unknown',
+              roomNumber: unit?.unit_number || 'N/A',
+              checkIn: format(seg.startDate, 'yyyy-MM-dd'),
+              checkOut: format(seg.endDate, 'yyyy-MM-dd'),
+              nights: segNights,
+              price: segmentPrice,
+            };
+          });
+          
+          const roomNames = splitStaySegmentsData.map(s => s.roomName).join(' → ');
           
           try {
             await supabase.functions.invoke('send-reservation-notification', {
@@ -951,8 +965,15 @@ const BookingComReservations = () => {
                 unitName: roomNames,
                 totalPrice: parsedData.totalPrice || 0,
                 numberOfGuests: parsedData.numberOfGuests,
+                adults: parsedData.adults || parsedData.numberOfGuests,
+                children: parsedData.children || 0,
                 source: 'Booking.com',
-                notes: `Room transfer booking: ${roomNames}`,
+                guestNationality: parsedData.nationality || null,
+                notes: parsedData.notes || null,
+                customerEmail: parsedData.contactEmail,
+                customerPhone: parsedData.contactPhone,
+                isSplitStay: true,
+                splitStaySegments: splitStaySegmentsData,
               }
             });
           } catch (emailError) {
