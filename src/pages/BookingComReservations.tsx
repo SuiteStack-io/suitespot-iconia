@@ -999,7 +999,6 @@ const BookingComReservations = () => {
               guest_nationality: parsedData.nationality || null,
               check_in_date: format(segment.startDate, 'yyyy-MM-dd'),
               check_out_date: format(segment.endDate, 'yyyy-MM-dd'),
-              nights: segmentNights,
               unit_id: segment.unitId,
               number_of_guests: parsedData.numberOfGuests,
               contact_email: parsedData.contactEmail,
