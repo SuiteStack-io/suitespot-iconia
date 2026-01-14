@@ -2172,7 +2172,7 @@ export const AvailabilityCalendar = () => {
                                   onClick={() => handleCellClick(availability, unit, day)}
                                   isExtended={isExtensionReservation(reservation)}
                                   isCheckIn={isSameDay(new Date(reservation.check_in_date), day)}
-                                  isCheckOut={isSameDay(new Date(reservation.check_out_date), day)}
+                                  isCheckOut={(() => { const lastNight = new Date(reservation.check_out_date); lastNight.setDate(lastNight.getDate() - 1); return isSameDay(lastNight, day); })()}
                                 />
                               ) : (
                                 <div
@@ -2199,7 +2199,7 @@ export const AvailabilityCalendar = () => {
                                           CHECK IN
                                         </span>
                                       )}
-                                      {isSameDay(new Date(reservation.check_out_date), day) && (
+                                      {(() => { const lastNight = new Date(reservation.check_out_date); lastNight.setDate(lastNight.getDate() - 1); return isSameDay(lastNight, day); })() && (
                                         <span className="absolute top-0 right-0 text-[6px] bg-amber-500 text-white px-0.5 rounded-bl font-semibold leading-tight">
                                           CHECK OUT
                                         </span>
