@@ -9,7 +9,7 @@ export const BlogContentRenderer: React.FC<BlogContentRendererProps> = ({ conten
   const lines = content.split('\n');
   const elements: JSX.Element[] = [];
   let currentBulletList: string[] = [];
-  let currentNumberedList: string[] = [];
+  let currentNumberedList: { number: number; text: string }[] = [];
   let listKey = 0;
 
   const flushBulletList = () => {
@@ -27,10 +27,11 @@ export const BlogContentRenderer: React.FC<BlogContentRendererProps> = ({ conten
 
   const flushNumberedList = () => {
     if (currentNumberedList.length > 0) {
+      const startNumber = currentNumberedList[0].number;
       elements.push(
-        <ol key={`ol-${listKey++}`} className="list-decimal list-inside mb-4 space-y-1">
+        <ol key={`ol-${listKey++}`} start={startNumber} className="list-decimal list-inside mb-4 space-y-1">
           {currentNumberedList.map((item, i) => (
-            <li key={i} className="text-foreground">{renderInlineStyles(item)}</li>
+            <li key={i} className="text-foreground">{renderInlineStyles(item.text)}</li>
           ))}
         </ol>
       );
@@ -143,10 +144,13 @@ export const BlogContentRenderer: React.FC<BlogContentRendererProps> = ({ conten
     }
 
     // Numbered list: 1. text, 2. text, etc.
-    const numberedMatch = trimmedLine.match(/^\d+\.\s(.+)/);
+    const numberedMatch = trimmedLine.match(/^(\d+)\.\s(.+)/);
     if (numberedMatch) {
       flushBulletList();
-      currentNumberedList.push(numberedMatch[1]);
+      currentNumberedList.push({ 
+        number: parseInt(numberedMatch[1], 10), 
+        text: numberedMatch[2] 
+      });
       return;
     }
 
