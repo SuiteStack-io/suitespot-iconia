@@ -2047,20 +2047,23 @@ export const AvailabilityCalendar = () => {
                 {/* Header Row - Sticky */}
                 <div className={`grid gap-1 mb-2 pb-1 ${isFullscreen ? 'sticky top-0 z-20 bg-card' : ''}`} style={{ gridTemplateColumns: `160px repeat(${displayDays.length}, 70px)` }}>
                   <div className="font-medium text-sm p-2 sticky left-0 bg-card z-30 border-r border-border">Unit</div>
-                  {displayDays.map((day) => (
-                    <div
-                      key={day.toISOString()}
-                      className={`text-center text-xs p-2 rounded ${
-                        isSameDay(day, new Date())
-                          ? 'bg-primary text-primary-foreground font-semibold'
-                          : 'bg-card text-muted-foreground'
-                      }`}
-                    >
-                      <div>{format(day, 'EEE')}</div>
-                      <div className="font-medium">{format(day, 'd')}</div>
-                      <div className="text-[10px]">{format(day, 'MMM')}</div>
-                    </div>
-                  ))}
+                  {displayDays.map((day) => {
+                    const isToday = isSameDay(day, new Date());
+                    return (
+                      <div
+                        key={day.toISOString()}
+                        className={`text-center text-xs p-2 rounded ${
+                          isToday
+                            ? 'bg-primary text-primary-foreground font-semibold border-l-2 border-r-2 border-t-2 border-primary'
+                            : 'bg-card text-muted-foreground'
+                        }`}
+                      >
+                        <div>{format(day, 'EEE')}</div>
+                        <div className="font-medium">{format(day, 'd')}</div>
+                        <div className="text-[10px]">{format(day, 'MMM')}</div>
+                      </div>
+                    );
+                  })}
                 </div>
 
                 {/* Unit Rows */}
@@ -2091,7 +2094,7 @@ export const AvailabilityCalendar = () => {
                           </div>
                           {/* Empty cells for the rest of the grid */}
                           {displayDays.map((day) => (
-                            <div key={day.toISOString()} className="py-2" />
+                            <div key={day.toISOString()} className={`py-2 ${isSameDay(day, new Date()) ? 'border-l-2 border-r-2 border-primary' : ''}`} />
                           ))}
                         </div>
                       )}
@@ -2128,20 +2131,25 @@ export const AvailabilityCalendar = () => {
                         const reservation = availability.reservations[0];
                         const isDraggable = !isMobile && !availability.isAvailable && !availability.hasConflict && !availability.isBlocked && reservation;
                         
+                        const isToday = isSameDay(day, new Date());
+                        const todayBorderClass = isToday ? 'border-l-2 border-r-2 border-primary' : '';
+                        
                         return (
                           <Tooltip key={day.toISOString()}>
                             <TooltipTrigger asChild>
                               {/* Turnover day - split cell */}
                               {availability.isTurnoverDay && availability.checkingOutReservation && availability.checkingInReservation ? (
-                                <SplitTurnoverCell
-                                  checkingOutReservation={availability.checkingOutReservation}
-                                  checkingInReservation={availability.checkingInReservation}
-                                  onClick={() => handleCellClick(availability, unit, day)}
-                                />
+                                <div className={todayBorderClass}>
+                                  <SplitTurnoverCell
+                                    checkingOutReservation={availability.checkingOutReservation}
+                                    checkingInReservation={availability.checkingInReservation}
+                                    onClick={() => handleCellClick(availability, unit, day)}
+                                  />
+                                </div>
                               ) : availability.isAvailableForTurnover && availability.checkingOutReservation ? (
                                 /* Checkout-only cell - available for same-day turnover */
                                 <div
-                                  className="h-14 border rounded overflow-hidden cursor-pointer hover:ring-2 hover:ring-emerald-500/50 transition-all border-emerald-300 dark:border-emerald-700"
+                                  className={`h-14 border rounded overflow-hidden cursor-pointer hover:ring-2 hover:ring-emerald-500/50 transition-all border-emerald-300 dark:border-emerald-700 ${todayBorderClass}`}
                                   onClick={() => handleCellClick(availability, unit, day)}
                                 >
                                   {/* Top half - departing guest with blue styling */}
@@ -2157,18 +2165,20 @@ export const AvailabilityCalendar = () => {
                                   </div>
                                 </div>
                               ) : isDraggable ? (
-                                <DraggableReservationCell
-                                  reservation={reservation}
-                                  availability={availability}
-                                  unit={unit}
-                                  getCellClassName={getCellClassName}
-                                  onClick={() => handleCellClick(availability, unit, day)}
-                                  isExtended={isExtensionReservation(reservation)}
-                                  isCheckIn={isSameDay(new Date(reservation.check_in_date), day)}
-                                />
+                                <div className={todayBorderClass}>
+                                  <DraggableReservationCell
+                                    reservation={reservation}
+                                    availability={availability}
+                                    unit={unit}
+                                    getCellClassName={getCellClassName}
+                                    onClick={() => handleCellClick(availability, unit, day)}
+                                    isExtended={isExtensionReservation(reservation)}
+                                    isCheckIn={isSameDay(new Date(reservation.check_in_date), day)}
+                                  />
+                                </div>
                               ) : (
                                 <div
-                                  className={`h-14 border rounded transition-colors ${getCellClassName(availability)}`}
+                                  className={`h-14 border rounded transition-colors ${getCellClassName(availability)} ${todayBorderClass}`}
                                   onClick={() => handleCellClick(availability, unit, day)}
                                 >
                                   {availability.hasConflict ? (
