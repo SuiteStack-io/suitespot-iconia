@@ -27,47 +27,18 @@ export const AddUserDialog = ({ onUserAdded }: AddUserDialogProps = {}) => {
     setLoading(true);
 
     try {
-      // Store the current admin session before creating a new user
-      const { data: { session: currentSession } } = await supabase.auth.getSession();
-      
-      if (!currentSession) {
-        throw new Error('You must be logged in to create users');
-      }
-
-      // Create user via Supabase Auth (this will auto-login as the new user)
-      const { data: authData, error: authError } = await supabase.auth.signUp({
-        email: formData.email,
-        password: formData.password,
-        options: {
-          data: {
-            full_name: formData.fullName,
-          },
-        },
+      // Call edge function to create user with admin API
+      const { data, error } = await supabase.functions.invoke('create-admin-user', {
+        body: {
+          email: formData.email,
+          password: formData.password,
+          fullName: formData.fullName,
+          role: formData.role
+        }
       });
 
-      if (authError) throw authError;
-      if (!authData.user) throw new Error('Failed to create user');
-
-      const newUserId = authData.user.id;
-
-      // Immediately restore the admin session (sign out the new user, sign back in as admin)
-      await supabase.auth.setSession({
-        access_token: currentSession.access_token,
-        refresh_token: currentSession.refresh_token,
-      });
-
-      // Now assign role to the new user (as admin)
-      const { error: roleError } = await supabase
-        .from('user_roles')
-        .insert([{
-          user_id: newUserId,
-          role: formData.role as 'admin' | 'manager' | 'front_desk' | 'housekeeping',
-        }]);
-
-      if (roleError) {
-        console.error('Role assignment error:', roleError);
-        throw roleError;
-      }
+      if (error) throw error;
+      if (data?.error) throw new Error(data.error);
 
       // Success! Show message and close dialog
       toast.success('User created successfully!', {
@@ -77,20 +48,21 @@ export const AddUserDialog = ({ onUserAdded }: AddUserDialogProps = {}) => {
       // Reset form and close dialog
       setFormData({ email: '', password: '', fullName: '', role: 'front_desk' as 'admin' | 'manager' | 'front_desk' | 'housekeeping' });
       setOpen(false);
+      
+      // Callback to refresh user list
+      onUserAdded?.();
     } catch (error: any) {
       console.error('Error creating user:', error);
       
       // Provide specific error messages based on error type
-      if (error.message?.includes('violates row-level security') || error.code === '42501') {
-        toast.error('Permission denied: Unable to assign role to user. Please make sure you have admin privileges.');
+      if (error.message?.includes('Only admins')) {
+        toast.error('Permission denied: Only admins can create users.');
       } else if (error.message?.includes('already registered') || error.message?.includes('already exists')) {
         toast.error('This email is already registered in the system.');
       } else if (error.message?.includes('invalid email')) {
         toast.error('Please enter a valid email address.');
       } else if (error.message?.includes('password') && error.message?.includes('least')) {
         toast.error('Password must be at least 6 characters long.');
-      } else if (error.message?.includes('User already registered')) {
-        toast.error('A user with this email already exists.');
       } else {
         toast.error(error.message || 'Failed to create user. Please try again.');
       }
