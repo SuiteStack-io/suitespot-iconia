@@ -2094,7 +2094,7 @@ export const AvailabilityCalendar = () => {
                           </div>
                           {/* Empty cells for the rest of the grid */}
                           {displayDays.map((day) => (
-                            <div key={day.toISOString()} className={`py-2 ${isSameDay(day, new Date()) ? 'border-l-2 border-r-2 border-primary' : ''}`} />
+                            <div key={day.toISOString()} className="py-2" />
                           ))}
                         </div>
                       )}
