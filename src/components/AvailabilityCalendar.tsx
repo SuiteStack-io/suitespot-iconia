@@ -104,6 +104,7 @@ const DraggableReservationCell = ({
   getCellClassName,
   onClick,
   isExtended,
+  isCheckIn,
 }: {
   reservation: Reservation;
   availability: DayAvailability;
@@ -111,6 +112,7 @@ const DraggableReservationCell = ({
   getCellClassName: (availability: DayAvailability) => string;
   onClick: () => void;
   isExtended?: boolean;
+  isCheckIn?: boolean;
 }) => {
   const { attributes, listeners, setNodeRef, transform, isDragging } = useDraggable({
     id: reservation.id,
@@ -143,6 +145,11 @@ const DraggableReservationCell = ({
         {isExtended && (
           <span className="absolute top-0 right-0 text-[6px] bg-purple-500 text-white px-0.5 rounded-bl font-semibold leading-tight">
             EXT
+          </span>
+        )}
+        {isCheckIn && (
+          <span className="absolute top-0 right-0 text-[6px] bg-emerald-600 text-white px-0.5 rounded-bl font-semibold leading-tight">
+            CHECK IN
           </span>
         )}
         <span className="text-[10px] text-blue-600 dark:text-blue-400 font-medium text-center leading-tight">
@@ -2157,6 +2164,7 @@ export const AvailabilityCalendar = () => {
                                   getCellClassName={getCellClassName}
                                   onClick={() => handleCellClick(availability, unit, day)}
                                   isExtended={isExtensionReservation(reservation)}
+                                  isCheckIn={isSameDay(new Date(reservation.check_in_date), day)}
                                 />
                               ) : (
                                 <div
@@ -2176,6 +2184,11 @@ export const AvailabilityCalendar = () => {
                                       {isExtensionReservation(reservation) && (
                                         <span className="absolute top-0 right-0 text-[6px] bg-purple-500 text-white px-0.5 rounded-bl font-semibold leading-tight">
                                           EXT
+                                        </span>
+                                      )}
+                                      {isSameDay(new Date(reservation.check_in_date), day) && (
+                                        <span className="absolute top-0 right-0 text-[6px] bg-emerald-600 text-white px-0.5 rounded-bl font-semibold leading-tight">
+                                          CHECK IN
                                         </span>
                                       )}
                                       <span className="text-[10px] text-blue-600 dark:text-blue-400 font-medium text-center leading-tight">
