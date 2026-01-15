@@ -72,6 +72,7 @@ interface Reservation {
   source: string;
   channel: string;
   group_id: string | null;
+  payment_method: string | null;
   units: { name: string; unit_number: string | null } | null;
 }
 
@@ -264,7 +265,7 @@ export const Dashboard = () => {
     const yesterday = format(new Date(Date.now() - 86400000), 'yyyy-MM-dd');
     const sevenDaysAgo = format(new Date(Date.now() - 7 * 86400000), 'yyyy-MM-dd');
     
-    const baseSelect = 'id, booking_reference, guest_names, guest_types, guest_genders, check_in_date, check_out_date, checked_in_at, checked_out_at, cancelled_at, status, total_price, number_of_guests, children, adults, source, channel, group_id, units(name, unit_number)';
+    const baseSelect = 'id, booking_reference, guest_names, guest_types, guest_genders, check_in_date, check_out_date, checked_in_at, checked_out_at, cancelled_at, status, total_price, number_of_guests, children, adults, source, channel, payment_method, group_id, units(name, unit_number)';
     
     // Clear transfers when opening a non-transfer dialog
     setDialogTransfers([]);
@@ -802,6 +803,16 @@ export const Dashboard = () => {
                               : 'bg-emerald-100 text-emerald-800'}
                           >
                             {reservation.channel === 'Booking.com' ? 'Booking.com' : reservation.source}
+                          </Badge>
+                          <Badge 
+                            variant="outline"
+                            className={
+                              (reservation.channel === 'Booking.com' || reservation.payment_method === 'card')
+                                ? 'bg-indigo-100 text-indigo-800 border-indigo-300'
+                                : 'bg-amber-100 text-amber-800 border-amber-300'
+                            }
+                          >
+                            {reservation.channel === 'Booking.com' ? 'card' : (reservation.payment_method || 'card')}
                           </Badge>
                         </div>
                         <div className="space-y-1">
