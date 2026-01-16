@@ -11,6 +11,8 @@ import { useAuth } from '@/lib/auth';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Checkbox } from '@/components/ui/checkbox';
 import { SlideMenu } from '@/components/SlideMenu';
+import { CheckInDialog } from '@/components/CheckInDialog';
+import { CheckOutDialog } from '@/components/CheckOutDialog';
 
 interface Reservation {
   id: string;
@@ -22,6 +24,7 @@ interface Reservation {
   status: string;
   number_of_guests: number;
   group_id: string | null;
+  access_cards_given: number | null;
   units: { name: string; unit_number: string | null } | null;
 }
 
@@ -39,6 +42,9 @@ const CheckInOut = () => {
   const [selectedArrivals, setSelectedArrivals] = useState<Set<string>>(new Set());
   const [selectedDepartures, setSelectedDepartures] = useState<Set<string>>(new Set());
   const [availableRoomTypes, setAvailableRoomTypes] = useState<string[]>([]);
+  const [checkInDialogOpen, setCheckInDialogOpen] = useState(false);
+  const [checkOutDialogOpen, setCheckOutDialogOpen] = useState(false);
+  const [selectedReservation, setSelectedReservation] = useState<Reservation | null>(null);
 
   useEffect(() => {
     if (!loading && !user) {
@@ -75,7 +81,7 @@ const CheckInOut = () => {
     // Fetch arrivals (check-in today, status = confirmed) with group_id for split-stay filtering
     const { data: arrivalsData } = await supabase
       .from('reservations')
-      .select('id, booking_reference, guest_names, guest_types, check_in_date, check_out_date, status, number_of_guests, group_id, units(name, unit_number)')
+      .select('id, booking_reference, guest_names, guest_types, check_in_date, check_out_date, status, number_of_guests, group_id, access_cards_given, units(name, unit_number)')
       .eq('check_in_date', today)
       .eq('status', 'confirmed')
       .order('created_at', { ascending: false });
@@ -99,7 +105,7 @@ const CheckInOut = () => {
     // Fetch departures (check-out today, all relevant statuses including already processed)
     const { data: departuresData } = await supabase
       .from('reservations')
-      .select('id, booking_reference, guest_names, guest_types, check_in_date, check_out_date, status, number_of_guests, group_id, units(name, unit_number)')
+      .select('id, booking_reference, guest_names, guest_types, check_in_date, check_out_date, status, number_of_guests, group_id, access_cards_given, units(name, unit_number)')
       .eq('check_out_date', today)
       .in('status', ['checked-in', 'confirmed', 'checked-out', 'completed'])
       .order('created_at', { ascending: false });
@@ -167,12 +173,15 @@ const CheckInOut = () => {
     setFilteredDepartures(filteredDep);
   };
 
-  const handleCheckIn = async (reservationId: string) => {
+  const handleCheckIn = async (reservationId: string, accessCards: number) => {
     setUpdating(reservationId);
     try {
       const { error } = await supabase
         .from('reservations')
-        .update({ status: 'checked-in' })
+        .update({ 
+          status: 'checked-in',
+          access_cards_given: accessCards 
+        })
         .eq('id', reservationId);
 
       if (error) throw error;
@@ -191,6 +200,8 @@ const CheckInOut = () => {
         description: 'Guest checked in successfully',
       });
 
+      setCheckInDialogOpen(false);
+      setSelectedReservation(null);
       fetchTodayReservations();
     } catch (error: any) {
       toast({
@@ -228,6 +239,8 @@ const CheckInOut = () => {
         description: 'Guest checked out successfully',
       });
 
+      setCheckOutDialogOpen(false);
+      setSelectedReservation(null);
       fetchTodayReservations();
     } catch (error: any) {
       toast({
@@ -515,7 +528,10 @@ const CheckInOut = () => {
                               Guest Form
                             </Button>
                             <Button
-                              onClick={() => handleCheckIn(reservation.id)}
+                              onClick={() => {
+                                setSelectedReservation(reservation);
+                                setCheckInDialogOpen(true);
+                              }}
                               disabled={updating === reservation.id}
                               className="gap-2"
                             >
@@ -607,7 +623,10 @@ const CheckInOut = () => {
                             </p>
                           </div>
                           <Button
-                            onClick={() => handleCheckOut(reservation.id)}
+                            onClick={() => {
+                              setSelectedReservation(reservation);
+                              setCheckOutDialogOpen(true);
+                            }}
                             disabled={updating === reservation.id}
                             variant="outline"
                             className="gap-2"
@@ -624,6 +643,32 @@ const CheckInOut = () => {
             </CardContent>
           </Card>
         </div>
+
+        {/* Check-In Dialog */}
+        <CheckInDialog
+          open={checkInDialogOpen}
+          onOpenChange={setCheckInDialogOpen}
+          reservation={selectedReservation}
+          onConfirm={(accessCards) => {
+            if (selectedReservation) {
+              handleCheckIn(selectedReservation.id, accessCards);
+            }
+          }}
+          loading={updating === selectedReservation?.id}
+        />
+
+        {/* Check-Out Dialog */}
+        <CheckOutDialog
+          open={checkOutDialogOpen}
+          onOpenChange={setCheckOutDialogOpen}
+          reservation={selectedReservation}
+          onConfirm={() => {
+            if (selectedReservation) {
+              handleCheckOut(selectedReservation.id);
+            }
+          }}
+          loading={updating === selectedReservation?.id}
+        />
       </div>
     </div>
   );
