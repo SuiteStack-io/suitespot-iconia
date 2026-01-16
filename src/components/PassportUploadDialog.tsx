@@ -34,11 +34,13 @@ export const PassportUploadDialog = ({
   const [passports, setPassports] = useState<Passport[]>([]);
   const [uploading, setUploading] = useState(false);
   const [loading, setLoading] = useState(true);
+  const [newlyUploadedIds, setNewlyUploadedIds] = useState<string[]>([]);
   const fileInputRef = useRef<HTMLInputElement>(null);
 
   useEffect(() => {
     if (open && reservationId) {
       fetchPassports();
+      setNewlyUploadedIds([]);
     }
   }, [open, reservationId]);
 
@@ -128,14 +130,21 @@ export const PassportUploadDialog = ({
           .getPublicUrl(fileName);
 
         // Save to database
-        const { error: dbError } = await supabase
+        const { data: insertedData, error: dbError } = await supabase
           .from('reservation_passports')
           .insert({
             reservation_id: reservationId,
             passport_url: urlData.publicUrl
-          });
+          })
+          .select('id')
+          .single();
 
         if (dbError) throw dbError;
+        
+        // Track newly uploaded IDs
+        if (insertedData) {
+          setNewlyUploadedIds(prev => [...prev, insertedData.id]);
+        }
       }
 
       toast.success(`${files.length} passport${files.length > 1 ? 's' : ''} uploaded`);
@@ -170,12 +179,34 @@ export const PassportUploadDialog = ({
 
       if (error) throw error;
 
+      // Remove from newly uploaded tracking if applicable
+      setNewlyUploadedIds(prev => prev.filter(id => id !== passport.id));
+
       toast.success('Passport deleted');
       fetchPassports();
     } catch (error: any) {
       console.error('Delete error:', error);
       toast.error('Failed to delete passport');
     }
+  };
+
+  const handleCancel = async () => {
+    // Delete all newly uploaded passports
+    for (const id of newlyUploadedIds) {
+      const passport = passports.find(p => p.id === id);
+      if (passport) {
+        try {
+          const urlParts = passport.passport_url.split('/id-passports/');
+          const filePath = urlParts[urlParts.length - 1];
+          await supabase.storage.from('id-passports').remove([filePath]);
+          await supabase.from('reservation_passports').delete().eq('id', id);
+        } catch (error) {
+          console.error('Error removing passport:', error);
+        }
+      }
+    }
+    setNewlyUploadedIds([]);
+    onOpenChange(false);
   };
 
   return (
@@ -255,7 +286,10 @@ export const PassportUploadDialog = ({
           )}
         </div>
 
-        <div className="flex justify-end pt-4">
+        <div className="flex justify-end gap-2 pt-4">
+          <Button variant="outline" onClick={handleCancel}>
+            Cancel
+          </Button>
           <Button onClick={() => onOpenChange(false)}>
             Done
           </Button>
