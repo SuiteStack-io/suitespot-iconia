@@ -93,8 +93,8 @@ serve(async (req) => {
       };
     }).filter((u: any) => u.email); // Only users with emails
 
-    // Get admins for notification
-    const admins = userData.filter((user: any) => user.role === 'admin');
+    // Get admins and front desk for notification
+    const admins = userData.filter((user: any) => ['admin', 'front_desk'].includes(user.role));
     console.log(`Found ${admins.length} admin users`);
 
     // Get housekeeping staff for cleaning notification

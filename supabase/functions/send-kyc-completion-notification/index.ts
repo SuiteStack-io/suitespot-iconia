@@ -36,7 +36,7 @@ const handler = async (req: Request): Promise<Response> => {
     const { data: userRoles, error: rolesError } = await supabase
       .from("user_roles")
       .select("user_id")
-      .eq("role", "admin");
+      .in("role", ["admin", "front_desk"]);
 
     if (rolesError) {
       console.error("Error fetching admin roles:", rolesError);
