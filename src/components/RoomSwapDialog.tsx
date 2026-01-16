@@ -201,7 +201,7 @@ export const RoomSwapDialog = ({
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="sm:max-w-lg max-h-[90vh] overflow-y-auto">
+      <DialogContent className="sm:max-w-2xl max-h-[90vh] overflow-y-auto">
         <DialogHeader>
           <DialogTitle className="flex items-center gap-2">
             <ArrowLeftRight className="h-5 w-5" />
@@ -212,132 +212,151 @@ export const RoomSwapDialog = ({
           </DialogDescription>
         </DialogHeader>
 
-        <div className="space-y-4">
-          {/* Current Reservation */}
-          <div className="p-4 bg-primary/5 border border-primary/20 rounded-lg space-y-2">
-            <div className="text-xs font-medium text-muted-foreground uppercase tracking-wider">Current Reservation</div>
-            <div className="flex items-center justify-between">
-              <span className="font-semibold text-lg">{reservation.guest_names[0]}</span>
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+          {/* Left Column - Current Reservation & Room Selection */}
+          <div className="space-y-4">
+            {/* Current Reservation */}
+            <div className="p-4 bg-primary/5 border border-primary/20 rounded-lg space-y-2">
+              <div className="text-xs font-medium text-muted-foreground uppercase tracking-wider">Current Reservation</div>
+              <div className="font-semibold text-lg">{reservation.guest_names[0]}</div>
               <Badge variant="default">
                 {currentUnit?.booking_com_name || currentUnit?.name} #{currentUnit?.unit_number}
               </Badge>
+              <div className="text-sm text-muted-foreground">
+                {format(new Date(reservation.check_in_date), "MMM d")} 
+                <ArrowRight className="inline h-3 w-3 mx-1" />
+                {format(new Date(reservation.check_out_date), "MMM d, yyyy")}
+                <span className="ml-2">({nights} night{nights > 1 ? "s" : ""})</span>
+              </div>
+              <div className="text-xs text-muted-foreground">
+                Ref: {reservation.booking_reference}
+              </div>
             </div>
-            <div className="text-sm text-muted-foreground">
-              {format(new Date(reservation.check_in_date), "MMM d")} 
-              <ArrowRight className="inline h-3 w-3 mx-1" />
-              {format(new Date(reservation.check_out_date), "MMM d, yyyy")}
-              <span className="ml-2">({nights} night{nights > 1 ? "s" : ""})</span>
-            </div>
-            <div className="text-xs text-muted-foreground">
-              Ref: {reservation.booking_reference}
-            </div>
-          </div>
 
-          {/* Swap With Section */}
-          <div className="space-y-2">
-            <label className="text-sm font-medium">Select reservation to swap with:</label>
-            
-            {loading ? (
-              <div className="flex items-center justify-center p-8">
-                <Loader2 className="h-6 w-6 animate-spin text-muted-foreground" />
-              </div>
-            ) : swappableReservations.length === 0 ? (
-              <div className="p-4 bg-muted/50 rounded-lg text-center">
-                <AlertTriangle className="h-6 w-6 text-muted-foreground mx-auto mb-2" />
-                <p className="text-sm text-muted-foreground">
-                  No overlapping reservations in other rooms to swap with.
-                </p>
-              </div>
-            ) : (
-              <RadioGroup value={selectedSwapId} onValueChange={setSelectedSwapId}>
-                <div className="space-y-2 max-h-[200px] overflow-y-auto">
-                  {swappableReservations.map((res) => {
-                    const resNights = Math.ceil(
-                      (new Date(res.check_out_date).getTime() - new Date(res.check_in_date).getTime()) / 
-                      (1000 * 60 * 60 * 24)
-                    );
-                    return (
+            {/* Room Selection */}
+            <div className="space-y-2">
+              <label className="text-sm font-medium">Select room to swap with:</label>
+              
+              {loading ? (
+                <div className="flex items-center justify-center p-8">
+                  <Loader2 className="h-6 w-6 animate-spin text-muted-foreground" />
+                </div>
+              ) : swappableReservations.length === 0 ? (
+                <div className="p-4 bg-muted/50 rounded-lg text-center">
+                  <AlertTriangle className="h-6 w-6 text-muted-foreground mx-auto mb-2" />
+                  <p className="text-sm text-muted-foreground">
+                    No overlapping reservations in other rooms to swap with.
+                  </p>
+                </div>
+              ) : (
+                <RadioGroup value={selectedSwapId} onValueChange={setSelectedSwapId}>
+                  <div className="space-y-2 max-h-[200px] overflow-y-auto">
+                    {swappableReservations.map((res) => (
                       <label 
                         key={res.id} 
                         htmlFor={res.id}
-                        className={`flex items-start space-x-3 p-3 border rounded-lg cursor-pointer transition-colors ${
+                        className={`flex items-center space-x-3 p-3 border rounded-lg cursor-pointer transition-colors ${
                           selectedSwapId === res.id ? 'border-primary bg-primary/5' : 'hover:bg-muted/50'
                         }`}
                       >
-                        <RadioGroupItem value={res.id} id={res.id} className="mt-1" />
-                        <div className="flex-1">
-                          <div className="flex items-center justify-between">
-                            <span className="font-medium">{res.guest_names[0]}</span>
-                            <Badge variant="secondary" className="text-xs">
-                              {res.units?.booking_com_name || res.units?.name} #{res.units?.unit_number}
-                            </Badge>
-                          </div>
-                          <div className="text-xs text-muted-foreground mt-1">
-                            {format(new Date(res.check_in_date), "MMM d")} - {format(new Date(res.check_out_date), "MMM d")} ({resNights}n)
-                          </div>
-                        </div>
+                        <RadioGroupItem value={res.id} id={res.id} />
+                        <span className="font-medium">
+                          {res.units?.booking_com_name || res.units?.name} #{res.units?.unit_number}
+                        </span>
                       </label>
-                    );
-                  })}
-                </div>
-              </RadioGroup>
-            )}
+                    ))}
+                  </div>
+                </RadioGroup>
+              )}
+            </div>
           </div>
 
-          {/* Swap Summary */}
-          {selectedSwapReservation && (
-            <div className="p-4 bg-muted/50 rounded-lg space-y-3">
-              <div className="text-sm font-medium text-center">Swap Summary</div>
-              <div className="flex items-center justify-between gap-4 text-sm">
-                <div className="flex-1 text-center">
-                  <div className="font-medium">{reservation.guest_names[0]}</div>
-                  <div className="text-muted-foreground mt-1">
-                    <span className="line-through">{currentUnit?.booking_com_name || currentUnit?.name}</span>
+          {/* Right Column - Selected Room Details */}
+          <div className="space-y-4">
+            <div className="text-xs font-medium text-muted-foreground uppercase tracking-wider">Selected Room</div>
+            
+            {selectedSwapReservation ? (
+              <div className="p-4 border rounded-lg space-y-3 bg-muted/30">
+                <Badge variant="secondary" className="text-sm">
+                  {selectedSwapReservation.units?.booking_com_name || selectedSwapReservation.units?.name} #{selectedSwapReservation.units?.unit_number}
+                </Badge>
+                
+                <div className="space-y-2 pt-2">
+                  <div className="text-xs font-medium text-muted-foreground uppercase tracking-wider">Current Guest</div>
+                  <div className="font-semibold text-lg">{selectedSwapReservation.guest_names[0]}</div>
+                </div>
+
+                <div className="space-y-1">
+                  <div className="text-xs font-medium text-muted-foreground uppercase tracking-wider">Dates</div>
+                  <div className="text-sm">
+                    {format(new Date(selectedSwapReservation.check_in_date), "MMM d")} 
                     <ArrowRight className="inline h-3 w-3 mx-1" />
+                    {format(new Date(selectedSwapReservation.check_out_date), "MMM d, yyyy")}
+                    <span className="ml-2 text-muted-foreground">
+                      ({Math.ceil(
+                        (new Date(selectedSwapReservation.check_out_date).getTime() - new Date(selectedSwapReservation.check_in_date).getTime()) / 
+                        (1000 * 60 * 60 * 24)
+                      )} nights)
+                    </span>
+                  </div>
+                </div>
+
+                <div className="text-xs text-muted-foreground">
+                  Ref: {selectedSwapReservation.booking_reference}
+                </div>
+              </div>
+            ) : (
+              <div className="p-4 border border-dashed rounded-lg text-center text-muted-foreground min-h-[150px] flex items-center justify-center">
+                <p className="text-sm">Select a room to see guest details</p>
+              </div>
+            )}
+
+            {/* Swap Summary */}
+            {selectedSwapReservation && (
+              <div className="p-3 bg-primary/5 border border-primary/20 rounded-lg space-y-2">
+                <div className="text-xs font-medium text-muted-foreground uppercase tracking-wider">Swap Summary</div>
+                <div className="text-sm space-y-1">
+                  <div className="flex items-center gap-2">
+                    <span>{reservation.guest_names[0]}</span>
+                    <ArrowRight className="h-3 w-3" />
                     <span className="text-primary font-medium">
                       {selectedSwapReservation.units?.booking_com_name || selectedSwapReservation.units?.name}
                     </span>
                   </div>
-                </div>
-                <ArrowLeftRight className="h-5 w-5 text-muted-foreground shrink-0" />
-                <div className="flex-1 text-center">
-                  <div className="font-medium">{selectedSwapReservation.guest_names[0]}</div>
-                  <div className="text-muted-foreground mt-1">
-                    <span className="line-through">
-                      {selectedSwapReservation.units?.booking_com_name || selectedSwapReservation.units?.name}
-                    </span>
-                    <ArrowRight className="inline h-3 w-3 mx-1" />
+                  <div className="flex items-center gap-2">
+                    <span>{selectedSwapReservation.guest_names[0]}</span>
+                    <ArrowRight className="h-3 w-3" />
                     <span className="text-primary font-medium">
                       {currentUnit?.booking_com_name || currentUnit?.name}
                     </span>
                   </div>
                 </div>
               </div>
-            </div>
-          )}
-
-          {/* Actions */}
-          <div className="flex gap-2 pt-2">
-            <Button 
-              variant="outline" 
-              className="flex-1"
-              onClick={() => onOpenChange(false)}
-            >
-              Cancel
-            </Button>
-            <Button
-              className="flex-1"
-              onClick={handleSwap}
-              disabled={!selectedSwapId || swapping}
-            >
-              {swapping ? (
-                <Loader2 className="h-4 w-4 mr-2 animate-spin" />
-              ) : (
-                <ArrowLeftRight className="h-4 w-4 mr-2" />
-              )}
-              Confirm Swap
-            </Button>
+            )}
           </div>
+        </div>
+
+        {/* Actions */}
+        <div className="flex gap-2 pt-2">
+          <Button 
+            variant="outline" 
+            className="flex-1"
+            onClick={() => onOpenChange(false)}
+          >
+            Cancel
+          </Button>
+          <Button
+            className="flex-1"
+            onClick={handleSwap}
+            disabled={!selectedSwapId || swapping}
+          >
+            {swapping ? (
+              <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+            ) : (
+              <ArrowLeftRight className="h-4 w-4 mr-2" />
+            )}
+            Confirm Swap
+          </Button>
         </div>
       </DialogContent>
     </Dialog>
