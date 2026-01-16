@@ -819,6 +819,30 @@ export type Database = {
           },
         ]
       }
+      reservation_passports: {
+        Row: {
+          created_at: string | null
+          id: string
+          passport_url: string
+          reservation_id: string
+          uploaded_at: string | null
+        }
+        Insert: {
+          created_at?: string | null
+          id?: string
+          passport_url: string
+          reservation_id: string
+          uploaded_at?: string | null
+        }
+        Update: {
+          created_at?: string | null
+          id?: string
+          passport_url?: string
+          reservation_id?: string
+          uploaded_at?: string | null
+        }
+        Relationships: []
+      }
       reservations: {
         Row: {
           access_cards_given: number | null
