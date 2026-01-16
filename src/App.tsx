@@ -58,6 +58,7 @@ import Housekeeping from "./pages/Housekeeping";
 import ReservationsListPage from "./pages/ReservationsListPage";
 import CashSettlement from "./pages/CashSettlement";
 import Commissions from "./pages/Commissions";
+import GuestForms from "./pages/GuestForms";
 const queryClient = new QueryClient();
 
 const App = () => (
@@ -120,6 +121,7 @@ const App = () => (
               <Route path="/guest-accounts" element={<ProtectedRoute><GuestAccounts /></ProtectedRoute>} />
               <Route path="/analytics" element={<ProtectedRoute><Analytics /></ProtectedRoute>} />
               <Route path="/guests" element={<ProtectedRoute><Guests /></ProtectedRoute>} />
+              <Route path="/guest-forms" element={<ProtectedRoute><GuestForms /></ProtectedRoute>} />
               <Route path="/my-commissions" element={<ProtectedRoute><MyReservations /></ProtectedRoute>} />
               <Route path="/rooms" element={<ProtectedRoute><Rooms /></ProtectedRoute>} />
               <Route path="/homepage-management" element={<ProtectedRoute><HomepageManagement /></ProtectedRoute>} />
