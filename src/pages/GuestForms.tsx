@@ -14,7 +14,7 @@ import {
   isAfter,
   parseISO
 } from 'date-fns';
-import { downloadCheckInPDF } from '@/lib/generateCheckInPDF';
+import { downloadCheckInPDF, generateCheckInPDF } from '@/lib/generateCheckInPDF';
 import { cn } from '@/lib/utils';
 import { SlideMenu } from '@/components/SlideMenu';
 import { NotificationBell } from '@/components/NotificationBell';
@@ -50,6 +50,7 @@ import {
   Check,
   ExternalLink,
   ArrowLeft,
+  Eye,
 } from 'lucide-react';
 import { toast } from 'sonner';
 
@@ -97,6 +98,7 @@ export default function GuestForms() {
   const [emailModalOpen, setEmailModalOpen] = useState(false);
   const [copiedEmail, setCopiedEmail] = useState<string | null>(null);
   const [downloadingId, setDownloadingId] = useState<string | null>(null);
+  const [previewingId, setPreviewingId] = useState<string | null>(null);
 
   useEffect(() => {
     if (!authLoading && !user) {
@@ -272,6 +274,31 @@ export default function GuestForms() {
       toast.error('Failed to download PDF');
     } finally {
       setDownloadingId(null);
+    }
+  };
+
+  const handlePreviewPDF = async (reservation: Reservation, agreement: CheckInAgreement) => {
+    setPreviewingId(reservation.id);
+    try {
+      const pdfBlob = await generateCheckInPDF({
+        guestName: agreement.guest_full_name,
+        guestNationality: agreement.guest_nationality || '',
+        guestDateOfBirth: agreement.guest_date_of_birth || '',
+        guestPhone: agreement.guest_phone,
+        guestEmail: agreement.guest_email,
+        unitName: reservation.units?.name || 'N/A',
+        checkInDate: reservation.check_in_date,
+        checkOutDate: reservation.check_out_date,
+        signatureDataUrl: agreement.signature_url,
+        signedAt: new Date(agreement.signed_at),
+      });
+      const url = URL.createObjectURL(pdfBlob);
+      window.open(url, '_blank');
+    } catch (error) {
+      console.error('Error previewing PDF:', error);
+      toast.error('Failed to preview PDF');
+    } finally {
+      setPreviewingId(null);
     }
   };
 
@@ -598,14 +625,26 @@ export default function GuestForms() {
                         </TableCell>
                         <TableCell className="text-right">
                           {hasForm && agreement && (
-                            <Button
-                              variant="ghost"
-                              size="sm"
-                              onClick={() => handleDownloadPDF(reservation, agreement)}
-                              disabled={downloadingId === reservation.id}
-                            >
-                              <Download className="h-4 w-4" />
-                            </Button>
+                            <div className="flex items-center justify-end gap-1">
+                              <Button
+                                variant="ghost"
+                                size="sm"
+                                onClick={() => handlePreviewPDF(reservation, agreement)}
+                                disabled={previewingId === reservation.id}
+                                title="Preview in new tab"
+                              >
+                                <Eye className="h-4 w-4" />
+                              </Button>
+                              <Button
+                                variant="ghost"
+                                size="sm"
+                                onClick={() => handleDownloadPDF(reservation, agreement)}
+                                disabled={downloadingId === reservation.id}
+                                title="Download PDF"
+                              >
+                                <Download className="h-4 w-4" />
+                              </Button>
+                            </div>
                           )}
                         </TableCell>
                       </TableRow>
