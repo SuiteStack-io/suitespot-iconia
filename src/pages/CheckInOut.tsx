@@ -4,7 +4,7 @@ import { supabase } from '@/integrations/supabase/client';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
-import { LogIn, LogOut, CheckCircle, Filter, SortAsc, ArrowLeft, FileSignature } from 'lucide-react';
+import { LogIn, LogOut, CheckCircle, Filter, SortAsc, ArrowLeft, FileSignature, Upload } from 'lucide-react';
 import { format } from 'date-fns';
 import { useToast } from '@/hooks/use-toast';
 import { useAuth } from '@/lib/auth';
@@ -13,6 +13,7 @@ import { Checkbox } from '@/components/ui/checkbox';
 import { SlideMenu } from '@/components/SlideMenu';
 import { CheckInDialog } from '@/components/CheckInDialog';
 import { CheckOutDialog } from '@/components/CheckOutDialog';
+import { PassportUploadDialog } from '@/components/PassportUploadDialog';
 
 interface Reservation {
   id: string;
@@ -45,6 +46,8 @@ const CheckInOut = () => {
   const [checkInDialogOpen, setCheckInDialogOpen] = useState(false);
   const [checkOutDialogOpen, setCheckOutDialogOpen] = useState(false);
   const [selectedReservation, setSelectedReservation] = useState<Reservation | null>(null);
+  const [passportDialogOpen, setPassportDialogOpen] = useState(false);
+  const [passportReservation, setPassportReservation] = useState<Reservation | null>(null);
 
   useEffect(() => {
     if (!loading && !user) {
@@ -521,6 +524,18 @@ const CheckInOut = () => {
                             <Button
                               variant="outline"
                               size="sm"
+                              onClick={() => {
+                                setPassportReservation(reservation);
+                                setPassportDialogOpen(true);
+                              }}
+                              className="gap-2"
+                            >
+                              <Upload className="h-4 w-4" />
+                              Passport Upload
+                            </Button>
+                            <Button
+                              variant="outline"
+                              size="sm"
                               onClick={() => window.open(`/guest-checkin/${reservation.id}`, '_blank')}
                               className="gap-2"
                             >
@@ -668,6 +683,14 @@ const CheckInOut = () => {
             }
           }}
           loading={updating === selectedReservation?.id}
+        />
+
+        {/* Passport Upload Dialog */}
+        <PassportUploadDialog
+          open={passportDialogOpen}
+          onOpenChange={setPassportDialogOpen}
+          reservationId={passportReservation?.id || ''}
+          guestName={passportReservation?.guest_names[0] || 'Guest'}
         />
       </div>
     </div>
