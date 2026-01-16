@@ -2,11 +2,21 @@ import { useState, useEffect, useMemo } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/lib/auth';
-import { format } from 'date-fns';
+import { 
+  format, 
+  differenceInDays, 
+  differenceInHours,
+  startOfWeek,
+  startOfMonth,
+  startOfYear,
+  isAfter,
+  parseISO
+} from 'date-fns';
 import { downloadCheckInPDF } from '@/lib/generateCheckInPDF';
 import { cn } from '@/lib/utils';
 import { SlideMenu } from '@/components/SlideMenu';
 import { NotificationBell } from '@/components/NotificationBell';
+import { AdminBreadcrumb } from '@/components/AdminBreadcrumb';
 import {
   Table,
   TableBody,
@@ -37,6 +47,7 @@ import {
   Copy,
   Check,
   ExternalLink,
+  ArrowLeft,
 } from 'lucide-react';
 import { toast } from 'sonner';
 
@@ -67,6 +78,7 @@ interface CheckInAgreement {
 }
 
 type FilterType = 'all' | 'completed' | 'pending' | 'emails';
+type DateFilterType = 'all' | 'week' | 'month' | 'ytd';
 
 export default function GuestForms() {
   const navigate = useNavigate();
@@ -76,6 +88,7 @@ export default function GuestForms() {
   const [loading, setLoading] = useState(true);
   const [searchQuery, setSearchQuery] = useState('');
   const [activeFilter, setActiveFilter] = useState<FilterType>('all');
+  const [dateFilter, setDateFilter] = useState<DateFilterType>('all');
   const [emailModalOpen, setEmailModalOpen] = useState(false);
   const [copiedEmail, setCopiedEmail] = useState<string | null>(null);
   const [downloadingId, setDownloadingId] = useState<string | null>(null);
@@ -168,11 +181,36 @@ export default function GuestForms() {
     }));
   }, [reservations, agreementsMap]);
 
-  // Filtered data based on active filter and search
+  // Filtered data based on active filter, date filter, and search
   const filteredData = useMemo(() => {
     let data = tableData;
 
-    // Apply filter
+    // Apply date filter
+    if (dateFilter !== 'all') {
+      const now = new Date();
+      let startDate: Date;
+      
+      switch (dateFilter) {
+        case 'week':
+          startDate = startOfWeek(now, { weekStartsOn: 0 });
+          break;
+        case 'month':
+          startDate = startOfMonth(now);
+          break;
+        case 'ytd':
+          startDate = startOfYear(now);
+          break;
+        default:
+          startDate = new Date(0);
+      }
+      
+      data = data.filter(d => 
+        isAfter(parseISO(d.reservation.check_in_date), startDate) ||
+        isAfter(parseISO(d.reservation.check_out_date), startDate)
+      );
+    }
+
+    // Apply card filter
     if (activeFilter === 'completed') {
       data = data.filter(d => d.hasForm && d.reservation.status === 'checked-in');
     } else if (activeFilter === 'pending') {
@@ -200,7 +238,7 @@ export default function GuestForms() {
     }
 
     return data;
-  }, [tableData, activeFilter, searchQuery]);
+  }, [tableData, activeFilter, searchQuery, dateFilter]);
 
   const handleDownloadPDF = async (reservation: Reservation, agreement: CheckInAgreement) => {
     setDownloadingId(reservation.id);
@@ -249,9 +287,21 @@ export default function GuestForms() {
   const handleCardClick = (filter: FilterType) => {
     if (filter === 'emails') {
       setEmailModalOpen(true);
+    } else if (filter === 'all') {
+      setActiveFilter('all');
     } else {
       setActiveFilter(activeFilter === filter ? 'all' : filter);
     }
+  };
+
+  const getFormAge = (signedAt: string | null | undefined) => {
+    if (!signedAt) return '-';
+    const days = differenceInDays(new Date(), new Date(signedAt));
+    if (days === 0) {
+      const hours = differenceInHours(new Date(), new Date(signedAt));
+      return hours === 0 ? 'Just now' : `${hours}h ago`;
+    }
+    return days === 1 ? '1 day ago' : `${days} days ago`;
   };
 
   if (authLoading || loading) {
@@ -273,12 +323,36 @@ export default function GuestForms() {
     <div className="min-h-screen bg-background">
       {/* Header */}
       <header className="border-b bg-card">
-        <div className="container mx-auto px-4 py-4 flex items-center justify-between">
-          <div className="flex items-center gap-4">
-            <SlideMenu userRole={userRole} />
-            <h1 className="text-xl font-semibold">Guest Forms</h1>
+        <div className="container mx-auto px-4 py-4">
+          <AdminBreadcrumb section="ICONIA" currentPage="Guest Forms" />
+          <div className="flex items-center justify-between">
+            <div className="flex items-center gap-4">
+              <SlideMenu userRole={userRole} />
+              
+              {/* Mobile back button - icon only */}
+              <Button 
+                variant="ghost" 
+                onClick={() => navigate('/admin')}
+                className="md:hidden"
+                size="icon"
+              >
+                <ArrowLeft className="h-5 w-5" />
+              </Button>
+              
+              {/* Desktop back button with text */}
+              <Button 
+                variant="ghost" 
+                onClick={() => navigate('/admin')}
+                className="hidden md:flex items-center gap-2"
+              >
+                <ArrowLeft className="h-4 w-4" />
+                Back
+              </Button>
+              
+              <h1 className="text-xl font-semibold">Guest Forms</h1>
+            </div>
+            <NotificationBell />
           </div>
-          <NotificationBell />
         </div>
       </header>
 
@@ -295,13 +369,13 @@ export default function GuestForms() {
             <CardContent className="pt-6">
               <div className="flex items-center justify-between">
                 <div>
-                  <div className="text-2xl font-bold text-green-600">
+                  <div className="text-2xl font-bold">
                     {stats.checkedInWithForm}
                   </div>
                   <p className="text-sm text-muted-foreground">Forms Completed</p>
                   <p className="text-xs text-muted-foreground">(Checked-in guests)</p>
                 </div>
-                <FileCheck className="h-8 w-8 text-green-600 opacity-80" />
+                <FileCheck className="h-8 w-8 text-muted-foreground opacity-80" />
               </div>
             </CardContent>
           </Card>
@@ -309,20 +383,20 @@ export default function GuestForms() {
           <Card
             className={cn(
               'cursor-pointer transition-all hover:shadow-md',
-              activeFilter === 'pending' && 'ring-2 ring-destructive'
+              activeFilter === 'pending' && 'ring-2 ring-primary'
             )}
             onClick={() => handleCardClick('pending')}
           >
             <CardContent className="pt-6">
               <div className="flex items-center justify-between">
                 <div>
-                  <div className="text-2xl font-bold text-destructive">
+                  <div className="text-2xl font-bold">
                     {stats.checkedInWithoutForm}
                   </div>
                   <p className="text-sm text-muted-foreground">Forms Pending</p>
                   <p className="text-xs text-muted-foreground">(Checked-in guests)</p>
                 </div>
-                <FileX className="h-8 w-8 text-destructive opacity-80" />
+                <FileX className="h-8 w-8 text-muted-foreground opacity-80" />
               </div>
             </CardContent>
           </Card>
@@ -334,13 +408,13 @@ export default function GuestForms() {
             <CardContent className="pt-6">
               <div className="flex items-center justify-between">
                 <div>
-                  <div className="text-2xl font-bold text-blue-600">
+                  <div className="text-2xl font-bold">
                     {stats.totalEmails}
                   </div>
                   <p className="text-sm text-muted-foreground">Guest Emails</p>
                   <p className="text-xs text-muted-foreground">(Click to view list)</p>
                 </div>
-                <Mail className="h-8 w-8 text-blue-600 opacity-80" />
+                <Mail className="h-8 w-8 text-muted-foreground opacity-80" />
               </div>
             </CardContent>
           </Card>
@@ -350,7 +424,7 @@ export default function GuestForms() {
               'cursor-pointer transition-all hover:shadow-md',
               activeFilter === 'all' && 'ring-2 ring-primary'
             )}
-            onClick={() => setActiveFilter('all')}
+            onClick={() => handleCardClick('all')}
           >
             <CardContent className="pt-6">
               <div className="flex items-center justify-between">
@@ -365,9 +439,9 @@ export default function GuestForms() {
           </Card>
         </div>
 
-        {/* Search */}
-        <div className="flex items-center gap-4 mb-4">
-          <div className="relative flex-1 max-w-sm">
+        {/* Search and Date Filters */}
+        <div className="mb-6 flex flex-col sm:flex-row gap-4 items-start sm:items-center justify-between">
+          <div className="relative w-full sm:max-w-md">
             <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
             <Input
               placeholder="Search by name, booking ref, email, or room..."
@@ -376,11 +450,34 @@ export default function GuestForms() {
               className="pl-9"
             />
           </div>
-          {activeFilter !== 'all' && (
-            <Badge variant="secondary" className="cursor-pointer" onClick={() => setActiveFilter('all')}>
-              {activeFilter === 'completed' ? 'Forms Completed' : 'Forms Pending'} ✕
-            </Badge>
-          )}
+          <div className="flex items-center gap-2 flex-wrap">
+            <Button
+              variant={dateFilter === 'week' ? 'default' : 'outline'}
+              size="sm"
+              onClick={() => setDateFilter(dateFilter === 'week' ? 'all' : 'week')}
+            >
+              Week
+            </Button>
+            <Button
+              variant={dateFilter === 'month' ? 'default' : 'outline'}
+              size="sm"
+              onClick={() => setDateFilter(dateFilter === 'month' ? 'all' : 'month')}
+            >
+              Month
+            </Button>
+            <Button
+              variant={dateFilter === 'ytd' ? 'default' : 'outline'}
+              size="sm"
+              onClick={() => setDateFilter(dateFilter === 'ytd' ? 'all' : 'ytd')}
+            >
+              Year to Date
+            </Button>
+            {activeFilter !== 'all' && (
+              <Badge variant="secondary" className="cursor-pointer" onClick={() => setActiveFilter('all')}>
+                {activeFilter === 'completed' ? 'Forms Completed' : 'Forms Pending'} ✕
+              </Badge>
+            )}
+          </div>
         </div>
 
         {/* Table */}
@@ -388,24 +485,26 @@ export default function GuestForms() {
           <div className="rounded-md border">
             <Table>
               <TableHeader>
-                <TableRow>
-                  <TableHead>Room</TableHead>
-                  <TableHead>Guest Name</TableHead>
-                  <TableHead>Check-In</TableHead>
-                  <TableHead>Check-Out</TableHead>
-                  <TableHead>Booking Ref</TableHead>
-                  <TableHead>Form Status</TableHead>
-                  <TableHead>Form Name</TableHead>
-                  <TableHead>Form Email</TableHead>
-                  <TableHead>Form Phone</TableHead>
-                  <TableHead>Signed At</TableHead>
+              <TableRow>
+                <TableHead>Room</TableHead>
+                <TableHead>Guest Name</TableHead>
+                <TableHead>Check-In</TableHead>
+                <TableHead>Check-Out</TableHead>
+                <TableHead>Booking Ref</TableHead>
+                <TableHead>Check-In Status</TableHead>
+                <TableHead>Form Status</TableHead>
+                <TableHead>Form Name</TableHead>
+                <TableHead>Form Email</TableHead>
+                <TableHead>Form Phone</TableHead>
+                <TableHead>Signed At</TableHead>
+                <TableHead>Form Age</TableHead>
                   <TableHead className="text-right">Actions</TableHead>
                 </TableRow>
               </TableHeader>
               <TableBody>
                 {filteredData.length === 0 ? (
                   <TableRow>
-                    <TableCell colSpan={11} className="text-center py-8 text-muted-foreground">
+                    <TableCell colSpan={13} className="text-center py-8 text-muted-foreground">
                       No guest forms found
                     </TableCell>
                   </TableRow>
@@ -438,6 +537,17 @@ export default function GuestForms() {
                           </Button>
                         </TableCell>
                         <TableCell>
+                          <Badge 
+                            variant={reservation.status === 'checked-in' ? 'default' : 'secondary'}
+                            className={cn(
+                              reservation.status === 'checked-in' && 'bg-blue-600',
+                              reservation.status === 'checked-out' && 'bg-gray-500'
+                            )}
+                          >
+                            {reservation.status === 'checked-in' ? 'Checked In' : 'Checked Out'}
+                          </Badge>
+                        </TableCell>
+                        <TableCell>
                           {hasForm ? (
                             <Badge variant="default" className="bg-green-600">
                               Completed
@@ -453,6 +563,9 @@ export default function GuestForms() {
                           {agreement?.signed_at
                             ? format(new Date(agreement.signed_at), 'MMM d, yyyy h:mm a')
                             : '-'}
+                        </TableCell>
+                        <TableCell className="text-muted-foreground">
+                          {getFormAge(agreement?.signed_at)}
                         </TableCell>
                         <TableCell className="text-right">
                           {hasForm && agreement && (
