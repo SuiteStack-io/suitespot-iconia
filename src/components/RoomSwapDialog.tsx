@@ -1,10 +1,10 @@
 import { useState, useEffect } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from "@/components/ui/dialog";
+import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from "@/components/ui/alert-dialog";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
-import { Label } from "@/components/ui/label";
 import { useToast } from "@/hooks/use-toast";
 import { format } from "date-fns";
 import { ArrowRight, ArrowLeftRight, Loader2, AlertTriangle } from "lucide-react";
@@ -48,6 +48,7 @@ export const RoomSwapDialog = ({
   const [selectedSwapId, setSelectedSwapId] = useState<string>("");
   const [loading, setLoading] = useState(false);
   const [swapping, setSwapping] = useState(false);
+  const [showConfirmDialog, setShowConfirmDialog] = useState(false);
   const { toast } = useToast();
 
   useEffect(() => {
@@ -336,7 +337,7 @@ export const RoomSwapDialog = ({
           </Button>
           <Button
             className="flex-1"
-            onClick={handleSwap}
+            onClick={() => setShowConfirmDialog(true)}
             disabled={!selectedSwapId || swapping}
           >
             {swapping ? (
@@ -348,6 +349,68 @@ export const RoomSwapDialog = ({
           </Button>
         </div>
       </DialogContent>
+
+      {/* Confirmation Dialog */}
+      <AlertDialog open={showConfirmDialog} onOpenChange={setShowConfirmDialog}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle className="flex items-center gap-2">
+              <AlertTriangle className="h-5 w-5 text-amber-500" />
+              Confirm Room Swap
+            </AlertDialogTitle>
+            <AlertDialogDescription asChild>
+              <div className="space-y-4 pt-2">
+                <p>You are about to swap rooms between these two reservations:</p>
+                
+                {selectedSwapReservation && (
+                  <div className="space-y-3">
+                    <div className="p-3 bg-muted rounded-lg">
+                      <div className="font-medium">{reservation.guest_names[0]}</div>
+                      <div className="text-sm text-muted-foreground flex items-center gap-1">
+                        <span>{currentUnit?.booking_com_name || currentUnit?.name}</span>
+                        <ArrowRight className="h-3 w-3" />
+                        <span className="text-primary font-medium">
+                          {selectedSwapReservation.units?.booking_com_name || selectedSwapReservation.units?.name}
+                        </span>
+                      </div>
+                    </div>
+                    
+                    <div className="p-3 bg-muted rounded-lg">
+                      <div className="font-medium">{selectedSwapReservation.guest_names[0]}</div>
+                      <div className="text-sm text-muted-foreground flex items-center gap-1">
+                        <span>{selectedSwapReservation.units?.booking_com_name || selectedSwapReservation.units?.name}</span>
+                        <ArrowRight className="h-3 w-3" />
+                        <span className="text-primary font-medium">
+                          {currentUnit?.booking_com_name || currentUnit?.name}
+                        </span>
+                      </div>
+                    </div>
+                  </div>
+                )}
+                
+                <p className="text-amber-600 text-sm font-medium">
+                  Both guests will be notified of this room change.
+                </p>
+              </div>
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel disabled={swapping}>Cancel</AlertDialogCancel>
+            <AlertDialogAction 
+              onClick={handleSwap}
+              disabled={swapping}
+              className="bg-primary"
+            >
+              {swapping ? (
+                <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+              ) : (
+                <ArrowLeftRight className="h-4 w-4 mr-2" />
+              )}
+              Swap Rooms
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </Dialog>
   );
 };
