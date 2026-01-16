@@ -278,25 +278,6 @@ export default function GuestForms() {
   };
 
   const handlePreviewPDF = async (reservation: Reservation, agreement: CheckInAgreement) => {
-    // Open window immediately on user click to avoid popup blocker
-    const newWindow = window.open('', '_blank');
-    
-    if (!newWindow) {
-      toast.error('Please allow pop-ups to preview the PDF');
-      return;
-    }
-    
-    // Show loading message in the new window
-    newWindow.document.write(`
-      <html>
-        <head><title>Loading PDF...</title></head>
-        <body style="display:flex;justify-content:center;align-items:center;height:100vh;margin:0;font-family:system-ui,sans-serif;background:#f5f5f5;">
-          <p>Loading PDF preview...</p>
-        </body>
-      </html>
-    `);
-    newWindow.document.close();
-    
     setPreviewingId(reservation.id);
     try {
       const pdfBlob = await generateCheckInPDF({
@@ -312,29 +293,22 @@ export default function GuestForms() {
         signedAt: new Date(agreement.signed_at),
       });
       
-      const url = URL.createObjectURL(pdfBlob);
-      
-      // Write the PDF embed directly into the new window
-      newWindow.document.open();
-      newWindow.document.write(`
-        <!DOCTYPE html>
-        <html>
-          <head>
-            <title>Check-In Agreement - ${agreement.guest_full_name}</title>
-            <style>
-              html, body { margin: 0; padding: 0; height: 100%; overflow: hidden; }
-              embed { width: 100%; height: 100%; }
-            </style>
-          </head>
-          <body>
-            <embed src="${url}" type="application/pdf" width="100%" height="100%" />
-          </body>
-        </html>
-      `);
-      newWindow.document.close();
+      // Convert blob to base64 data URL
+      const reader = new FileReader();
+      reader.onloadend = () => {
+        const dataUrl = reader.result as string;
+        // Create a link and simulate click to open in new tab
+        const link = document.createElement('a');
+        link.href = dataUrl;
+        link.target = '_blank';
+        link.rel = 'noopener noreferrer';
+        document.body.appendChild(link);
+        link.click();
+        document.body.removeChild(link);
+      };
+      reader.readAsDataURL(pdfBlob);
     } catch (error) {
       console.error('Error previewing PDF:', error);
-      newWindow.close();
       toast.error('Failed to preview PDF');
     } finally {
       setPreviewingId(null);
