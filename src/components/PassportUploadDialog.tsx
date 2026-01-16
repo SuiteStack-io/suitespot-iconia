@@ -3,7 +3,7 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/u
 import { Button } from '@/components/ui/button';
 import { supabase } from '@/integrations/supabase/client';
 import { toast } from 'sonner';
-import { Plus, X, Upload, Loader2 } from 'lucide-react';
+import { Plus, X, Loader2, FileText } from 'lucide-react';
 
 interface PassportUploadDialogProps {
   open: boolean;
@@ -17,6 +17,13 @@ interface Passport {
   passport_url: string;
   uploaded_at: string;
 }
+
+const getFileNameFromUrl = (url: string): string => {
+  const parts = url.split('/');
+  const fullName = parts[parts.length - 1];
+  const nameWithoutTimestamp = fullName.replace(/^\d+-/, '');
+  return decodeURIComponent(nameWithoutTimestamp);
+};
 
 export const PassportUploadDialog = ({
   open,
@@ -190,13 +197,20 @@ export const PassportUploadDialog = ({
                 {passports.map((passport) => (
                   <div 
                     key={passport.id} 
-                    className="relative aspect-[3/4] bg-muted rounded-lg overflow-hidden group"
+                    className="relative aspect-[3/4] bg-muted rounded-lg overflow-hidden group flex flex-col items-center justify-center p-2 border"
                   >
-                    <img
-                      src={passport.passport_url}
-                      alt="Passport"
-                      className="w-full h-full object-cover"
-                    />
+                    <FileText className="h-8 w-8 text-muted-foreground mb-2" />
+                    <span className="text-xs text-center text-muted-foreground line-clamp-2 break-all">
+                      {getFileNameFromUrl(passport.passport_url)}
+                    </span>
+                    <a
+                      href={passport.passport_url}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="text-xs text-primary hover:underline mt-1"
+                    >
+                      View
+                    </a>
                     <button
                       onClick={() => handleDelete(passport)}
                       className="absolute top-1 right-1 p-1 bg-destructive text-destructive-foreground rounded-full opacity-0 group-hover:opacity-100 transition-opacity"
