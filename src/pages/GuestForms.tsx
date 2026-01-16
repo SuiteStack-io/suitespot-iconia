@@ -278,6 +278,24 @@ export default function GuestForms() {
   };
 
   const handlePreviewPDF = async (reservation: Reservation, agreement: CheckInAgreement) => {
+    // Open window immediately on user click to avoid popup blocker
+    const newWindow = window.open('', '_blank');
+    
+    if (!newWindow) {
+      toast.error('Please allow pop-ups to preview the PDF');
+      return;
+    }
+    
+    // Show loading message in the new window
+    newWindow.document.write(`
+      <html>
+        <head><title>Loading PDF...</title></head>
+        <body style="display:flex;justify-content:center;align-items:center;height:100vh;margin:0;font-family:system-ui,sans-serif;background:#f5f5f5;">
+          <p>Loading PDF preview...</p>
+        </body>
+      </html>
+    `);
+    
     setPreviewingId(reservation.id);
     try {
       const pdfBlob = await generateCheckInPDF({
@@ -292,10 +310,12 @@ export default function GuestForms() {
         signatureDataUrl: agreement.signature_url,
         signedAt: new Date(agreement.signed_at),
       });
+      
       const url = URL.createObjectURL(pdfBlob);
-      window.open(url, '_blank');
+      newWindow.location.href = url;
     } catch (error) {
       console.error('Error previewing PDF:', error);
+      newWindow.close();
       toast.error('Failed to preview PDF');
     } finally {
       setPreviewingId(null);
