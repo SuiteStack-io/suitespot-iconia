@@ -25,6 +25,8 @@ import { toast } from "sonner";
 interface CheckInAgreement {
   reservation_id: string;
   guest_full_name: string;
+  guest_nationality: string | null;
+  guest_date_of_birth: string | null;
   guest_phone: string;
   guest_email: string;
   signature_url: string;
@@ -85,7 +87,7 @@ const Guests = () => {
     try {
       const { data, error } = await supabase
         .from('check_in_agreements')
-        .select('reservation_id, guest_full_name, guest_phone, guest_email, signature_url, signed_at');
+        .select('reservation_id, guest_full_name, guest_nationality, guest_date_of_birth, guest_phone, guest_email, signature_url, signed_at');
 
       if (error) throw error;
 
@@ -225,6 +227,8 @@ const Guests = () => {
     try {
       await downloadCheckInPDF({
         guestName: agreement.guest_full_name,
+        guestNationality: agreement.guest_nationality || '',
+        guestDateOfBirth: agreement.guest_date_of_birth || '',
         guestPhone: agreement.guest_phone,
         guestEmail: agreement.guest_email,
         unitName: guest.unitName || 'N/A',
