@@ -10,11 +10,11 @@ import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover
 import { useToast } from "@/hooks/use-toast";
 import { useNavigate } from "react-router-dom";
 import { format, differenceInCalendarDays, addDays } from "date-fns";
-import { AlertTriangle, ArrowRight, Eye, Loader2, LogIn, LogOut, CalendarIcon, Plus, X, User, Clock, Pencil, Trash2 } from "lucide-react";
+import { AlertTriangle, ArrowRight, Eye, Loader2, LogIn, LogOut, CalendarIcon, Plus, X, User, Clock, Pencil, Trash2, ArrowLeftRight } from "lucide-react";
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from "@/components/ui/alert-dialog";
 import { cn } from "@/lib/utils";
 import { useAuth } from "@/lib/auth";
-
+import { RoomSwapDialog } from "@/components/RoomSwapDialog";
 interface Reservation {
   id: string;
   unit_id: string;
@@ -101,6 +101,9 @@ export const ReservationQuickActions = ({
   const [showDeleteExtensionConfirm, setShowDeleteExtensionConfirm] = useState(false);
   const [deletingExtension, setDeletingExtension] = useState(false);
   const [savingExtensionEdit, setSavingExtensionEdit] = useState(false);
+  
+  // Swap room state
+  const [swapDialogOpen, setSwapDialogOpen] = useState(false);
   
   const { toast } = useToast();
   const navigate = useNavigate();
@@ -1255,6 +1258,18 @@ export const ReservationQuickActions = ({
                   Move Room
                 </Button>
               </div>
+
+              {/* Swap Room Button */}
+              <div className="pt-2 border-t">
+                <Button
+                  variant="outline"
+                  className="w-full"
+                  onClick={() => setSwapDialogOpen(true)}
+                >
+                  <ArrowLeftRight className="h-4 w-4 mr-2" />
+                  Swap Rooms with Another Reservation
+                </Button>
+              </div>
             </>
           ) : lateCheckoutMode ? (
             /* Late Checkout Mode */
@@ -1586,6 +1601,15 @@ export const ReservationQuickActions = ({
           </AlertDialogContent>
         </AlertDialog>
       </DialogContent>
+
+      {/* Room Swap Dialog */}
+      <RoomSwapDialog
+        open={swapDialogOpen}
+        onOpenChange={setSwapDialogOpen}
+        reservation={reservation}
+        currentUnit={currentUnit}
+        onSuccess={onMoveComplete}
+      />
     </Dialog>
   );
 };
