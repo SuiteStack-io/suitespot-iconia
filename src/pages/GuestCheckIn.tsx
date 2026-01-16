@@ -6,7 +6,13 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Checkbox } from '@/components/ui/checkbox';
 import { SignaturePad } from '@/components/SignaturePad';
-import { Calendar } from '@/components/ui/calendar';
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from '@/components/ui/select';
 import {
   Dialog,
   DialogContent,
@@ -28,7 +34,7 @@ import {
   CommandList,
 } from '@/components/ui/command';
 import { toast } from 'sonner';
-import { Loader2, CheckCircle, Check, ChevronsUpDown, Download, CalendarIcon } from 'lucide-react';
+import { Loader2, CheckCircle, Check, ChevronsUpDown, Download } from 'lucide-react';
 import { format } from 'date-fns';
 import { cn } from '@/lib/utils';
 import { downloadCheckInPDF } from '@/lib/generateCheckInPDF';
@@ -150,8 +156,33 @@ const GuestCheckIn = () => {
   const [fullName, setFullName] = useState('');
   const [nationality, setNationality] = useState('');
   const [nationalityOpen, setNationalityOpen] = useState(false);
-  const [dateOfBirth, setDateOfBirth] = useState<Date | undefined>(undefined);
-  const [dateOfBirthOpen, setDateOfBirthOpen] = useState(false);
+  const [birthDay, setBirthDay] = useState<string>('');
+  const [birthMonth, setBirthMonth] = useState<string>('');
+  const [birthYear, setBirthYear] = useState<string>('1990');
+  
+  // Helper arrays for date dropdowns
+  const days = Array.from({ length: 31 }, (_, i) => (i + 1).toString());
+  const months = [
+    { value: '1', label: 'January' },
+    { value: '2', label: 'February' },
+    { value: '3', label: 'March' },
+    { value: '4', label: 'April' },
+    { value: '5', label: 'May' },
+    { value: '6', label: 'June' },
+    { value: '7', label: 'July' },
+    { value: '8', label: 'August' },
+    { value: '9', label: 'September' },
+    { value: '10', label: 'October' },
+    { value: '11', label: 'November' },
+    { value: '12', label: 'December' },
+  ];
+  const currentYear = new Date().getFullYear();
+  const years = Array.from({ length: currentYear - 1920 + 1 }, (_, i) => (currentYear - i).toString());
+  
+  // Computed date of birth
+  const dateOfBirth = birthDay && birthMonth && birthYear
+    ? new Date(parseInt(birthYear), parseInt(birthMonth) - 1, parseInt(birthDay))
+    : undefined;
   const [countryCode, setCountryCode] = useState('+20'); // Default to Egypt
   const [phone, setPhone] = useState('');
   const [countryCodeOpen, setCountryCodeOpen] = useState(false);
@@ -213,7 +244,7 @@ const GuestCheckIn = () => {
   const isFormValid = 
     fullName.trim() !== '' && 
     nationality.trim() !== '' &&
-    dateOfBirth !== undefined &&
+    birthDay !== '' && birthMonth !== '' && birthYear !== '' &&
     phone.trim() !== '' && 
     email.trim() !== '' && 
     signatureDataUrl !== null && 
@@ -500,36 +531,40 @@ const GuestCheckIn = () => {
                 <Label className="font-playfair text-sm font-normal">
                   Date of Birth
                 </Label>
-                <Popover open={dateOfBirthOpen} onOpenChange={setDateOfBirthOpen}>
-                  <PopoverTrigger asChild>
-                    <Button
-                      variant="outline"
-                      className={cn(
-                        "w-full justify-start text-left font-playfair mt-2",
-                        !dateOfBirth && "text-muted-foreground"
-                      )}
-                    >
-                      <CalendarIcon className="mr-2 h-4 w-4" />
-                      {dateOfBirth ? format(dateOfBirth, "MMMM d, yyyy") : "Select your date of birth"}
-                    </Button>
-                  </PopoverTrigger>
-                  <PopoverContent className="w-auto p-0" align="start">
-                    <Calendar
-                      mode="single"
-                      selected={dateOfBirth}
-                      onSelect={(date) => {
-                        setDateOfBirth(date);
-                        setDateOfBirthOpen(false);
-                      }}
-                      disabled={(date) => date > new Date() || date < new Date("1900-01-01")}
-                      initialFocus
-                      captionLayout="dropdown-buttons"
-                      fromYear={1920}
-                      toYear={new Date().getFullYear()}
-                      className={cn("p-3 pointer-events-auto")}
-                    />
-                  </PopoverContent>
-                </Popover>
+                <div className="grid grid-cols-3 gap-2 mt-2">
+                  <Select value={birthDay} onValueChange={setBirthDay}>
+                    <SelectTrigger className="font-playfair">
+                      <SelectValue placeholder="Day" />
+                    </SelectTrigger>
+                    <SelectContent className="bg-background max-h-[200px]">
+                      {days.map((day) => (
+                        <SelectItem key={day} value={day}>{day}</SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+
+                  <Select value={birthMonth} onValueChange={setBirthMonth}>
+                    <SelectTrigger className="font-playfair">
+                      <SelectValue placeholder="Month" />
+                    </SelectTrigger>
+                    <SelectContent className="bg-background max-h-[200px]">
+                      {months.map((month) => (
+                        <SelectItem key={month.value} value={month.value}>{month.label}</SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+
+                  <Select value={birthYear} onValueChange={setBirthYear}>
+                    <SelectTrigger className="font-playfair">
+                      <SelectValue placeholder="Year" />
+                    </SelectTrigger>
+                    <SelectContent className="bg-background max-h-[200px]">
+                      {years.map((year) => (
+                        <SelectItem key={year} value={year}>{year}</SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                </div>
               </div>
               <div>
                 <Label className="font-playfair text-sm font-normal">
