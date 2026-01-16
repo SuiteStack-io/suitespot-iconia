@@ -314,6 +314,18 @@ export default function GuestForms() {
     return days === 1 ? '1 day ago' : `${days} days ago`;
   };
 
+  const calculateAge = (dateOfBirth: string | null | undefined): string => {
+    if (!dateOfBirth) return '-';
+    const today = new Date();
+    const birthDate = new Date(dateOfBirth);
+    let age = today.getFullYear() - birthDate.getFullYear();
+    const monthDiff = today.getMonth() - birthDate.getMonth();
+    if (monthDiff < 0 || (monthDiff === 0 && today.getDate() < birthDate.getDate())) {
+      age--;
+    }
+    return age.toString();
+  };
+
   if (authLoading || loading) {
     return (
       <div className="min-h-screen bg-background">
@@ -517,7 +529,7 @@ export default function GuestForms() {
                 <TableHead>Form Phone</TableHead>
                 <TableHead>Signed At</TableHead>
                 <TableHead>Nationality</TableHead>
-                <TableHead>Form Age</TableHead>
+                <TableHead>Guest Age</TableHead>
                   <TableHead className="text-right">Actions</TableHead>
                 </TableRow>
               </TableHeader>
@@ -580,9 +592,9 @@ export default function GuestForms() {
                             ? format(new Date(agreement.signed_at), 'MMM d, yyyy h:mm a')
                             : '-'}
                         </TableCell>
-                        <TableCell>{reservation.guest_nationality || '-'}</TableCell>
+                        <TableCell>{agreement?.guest_nationality || '-'}</TableCell>
                         <TableCell className="text-muted-foreground">
-                          {getFormAge(agreement?.signed_at)}
+                          {calculateAge(agreement?.guest_date_of_birth)}
                         </TableCell>
                         <TableCell className="text-right">
                           {hasForm && agreement && (
