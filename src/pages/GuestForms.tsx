@@ -295,6 +295,7 @@ export default function GuestForms() {
         </body>
       </html>
     `);
+    newWindow.document.close();
     
     setPreviewingId(reservation.id);
     try {
@@ -312,7 +313,25 @@ export default function GuestForms() {
       });
       
       const url = URL.createObjectURL(pdfBlob);
-      newWindow.location.href = url;
+      
+      // Write the PDF embed directly into the new window
+      newWindow.document.open();
+      newWindow.document.write(`
+        <!DOCTYPE html>
+        <html>
+          <head>
+            <title>Check-In Agreement - ${agreement.guest_full_name}</title>
+            <style>
+              html, body { margin: 0; padding: 0; height: 100%; overflow: hidden; }
+              embed { width: 100%; height: 100%; }
+            </style>
+          </head>
+          <body>
+            <embed src="${url}" type="application/pdf" width="100%" height="100%" />
+          </body>
+        </html>
+      `);
+      newWindow.document.close();
     } catch (error) {
       console.error('Error previewing PDF:', error);
       newWindow.close();
