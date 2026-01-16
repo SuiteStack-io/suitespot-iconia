@@ -551,15 +551,7 @@ export default function GuestForms() {
                           </Button>
                         </TableCell>
                         <TableCell>
-                          <Badge 
-                            variant={reservation.status === 'checked-in' ? 'default' : 'secondary'}
-                            className={cn(
-                              reservation.status === 'checked-in' && 'bg-blue-600',
-                              reservation.status === 'checked-out' && 'bg-gray-500'
-                            )}
-                          >
-                            {reservation.status === 'checked-in' ? 'Checked In' : 'Checked Out'}
-                          </Badge>
+                          {reservation.status === 'checked-in' ? 'Checked In' : 'Checked Out'}
                         </TableCell>
                         <TableCell>
                           {hasForm ? (
