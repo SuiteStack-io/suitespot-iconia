@@ -7,7 +7,9 @@ import {
   differenceInDays, 
   differenceInHours,
   startOfWeek,
+  endOfWeek,
   startOfMonth,
+  endOfMonth,
   startOfYear,
   isAfter,
   parseISO
@@ -60,6 +62,7 @@ interface Reservation {
   id: string;
   booking_reference: string;
   guest_names: string[];
+  guest_nationality: string | null;
   check_in_date: string;
   check_out_date: string;
   status: string;
@@ -115,6 +118,7 @@ export default function GuestForms() {
           id,
           booking_reference,
           guest_names,
+          guest_nationality,
           check_in_date,
           check_out_date,
           status,
@@ -456,21 +460,30 @@ export default function GuestForms() {
               size="sm"
               onClick={() => setDateFilter(dateFilter === 'week' ? 'all' : 'week')}
             >
-              Week
+              {dateFilter === 'week' 
+                ? `${format(startOfWeek(new Date(), { weekStartsOn: 0 }), 'MMM d')} - ${format(endOfWeek(new Date(), { weekStartsOn: 0 }), 'MMM d')}`
+                : 'Week'
+              }
             </Button>
             <Button
               variant={dateFilter === 'month' ? 'default' : 'outline'}
               size="sm"
               onClick={() => setDateFilter(dateFilter === 'month' ? 'all' : 'month')}
             >
-              Month
+              {dateFilter === 'month' 
+                ? format(new Date(), 'MMMM yyyy')
+                : 'Month'
+              }
             </Button>
             <Button
               variant={dateFilter === 'ytd' ? 'default' : 'outline'}
               size="sm"
               onClick={() => setDateFilter(dateFilter === 'ytd' ? 'all' : 'ytd')}
             >
-              Year to Date
+              {dateFilter === 'ytd' 
+                ? `YTD ${format(new Date(), 'yyyy')}`
+                : 'Year to Date'
+              }
             </Button>
             {activeFilter !== 'all' && (
               <Badge variant="secondary" className="cursor-pointer" onClick={() => setActiveFilter('all')}>
@@ -497,6 +510,7 @@ export default function GuestForms() {
                 <TableHead>Form Email</TableHead>
                 <TableHead>Form Phone</TableHead>
                 <TableHead>Signed At</TableHead>
+                <TableHead>Nationality</TableHead>
                 <TableHead>Form Age</TableHead>
                   <TableHead className="text-right">Actions</TableHead>
                 </TableRow>
@@ -504,7 +518,7 @@ export default function GuestForms() {
               <TableBody>
                 {filteredData.length === 0 ? (
                   <TableRow>
-                    <TableCell colSpan={13} className="text-center py-8 text-muted-foreground">
+                    <TableCell colSpan={14} className="text-center py-8 text-muted-foreground">
                       No guest forms found
                     </TableCell>
                   </TableRow>
@@ -564,6 +578,7 @@ export default function GuestForms() {
                             ? format(new Date(agreement.signed_at), 'MMM d, yyyy h:mm a')
                             : '-'}
                         </TableCell>
+                        <TableCell>{reservation.guest_nationality || '-'}</TableCell>
                         <TableCell className="text-muted-foreground">
                           {getFormAge(agreement?.signed_at)}
                         </TableCell>
