@@ -815,6 +815,7 @@ export type Database = {
       }
       reservations: {
         Row: {
+          access_cards_given: number | null
           adults: number | null
           booking_reference: string
           booking_screenshot_url: string | null
@@ -868,6 +869,7 @@ export type Database = {
           vat_exempt: boolean | null
         }
         Insert: {
+          access_cards_given?: number | null
           adults?: number | null
           booking_reference: string
           booking_screenshot_url?: string | null
@@ -921,6 +923,7 @@ export type Database = {
           vat_exempt?: boolean | null
         }
         Update: {
+          access_cards_given?: number | null
           adults?: number | null
           booking_reference?: string
           booking_screenshot_url?: string | null
