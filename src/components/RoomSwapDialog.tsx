@@ -257,15 +257,15 @@ export const RoomSwapDialog = ({
                       (1000 * 60 * 60 * 24)
                     );
                     return (
-                      <div 
+                      <label 
                         key={res.id} 
+                        htmlFor={res.id}
                         className={`flex items-start space-x-3 p-3 border rounded-lg cursor-pointer transition-colors ${
                           selectedSwapId === res.id ? 'border-primary bg-primary/5' : 'hover:bg-muted/50'
                         }`}
-                        onClick={() => setSelectedSwapId(res.id)}
                       >
                         <RadioGroupItem value={res.id} id={res.id} className="mt-1" />
-                        <Label htmlFor={res.id} className="flex-1 cursor-pointer">
+                        <div className="flex-1">
                           <div className="flex items-center justify-between">
                             <span className="font-medium">{res.guest_names[0]}</span>
                             <Badge variant="secondary" className="text-xs">
@@ -275,8 +275,8 @@ export const RoomSwapDialog = ({
                           <div className="text-xs text-muted-foreground mt-1">
                             {format(new Date(res.check_in_date), "MMM d")} - {format(new Date(res.check_out_date), "MMM d")} ({resNights}n)
                           </div>
-                        </Label>
-                      </div>
+                        </div>
+                      </label>
                     );
                   })}
                 </div>
