@@ -111,7 +111,8 @@ export default function GuestForms() {
   const fetchData = async () => {
     setLoading(true);
     try {
-      // Fetch reservations with checked-in or checked-out status
+      // Fetch reservations with checked-in, checked-out, or confirmed status (where check-in date is today or earlier)
+      const today = format(new Date(), 'yyyy-MM-dd');
       const { data: reservationsData, error: reservationsError } = await supabase
         .from('reservations')
         .select(`
@@ -125,7 +126,8 @@ export default function GuestForms() {
           checked_in_at,
           units (name, unit_number)
         `)
-        .in('status', ['checked-in', 'checked-out'])
+        .in('status', ['checked-in', 'checked-out', 'confirmed'])
+        .lte('check_in_date', today)
         .order('check_in_date', { ascending: false });
 
       if (reservationsError) throw reservationsError;
@@ -551,7 +553,11 @@ export default function GuestForms() {
                           </Button>
                         </TableCell>
                         <TableCell>
-                          {reservation.status === 'checked-in' ? 'Checked In' : 'Checked Out'}
+                          {reservation.status === 'checked-in' 
+                            ? 'Checked In' 
+                            : reservation.status === 'checked-out' 
+                              ? 'Checked Out'
+                              : 'Pending Check-In'}
                         </TableCell>
                         <TableCell>
                           {hasForm ? (
