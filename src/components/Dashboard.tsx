@@ -3,6 +3,8 @@ import { useNavigate } from 'react-router-dom';
 import { supabase } from '@/integrations/supabase/client';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Calendar, LogIn, LogOut, TrendingUp, DollarSign, CheckCircle, Undo2, XCircle, FileSignature, ArrowRightLeft } from 'lucide-react';
+import { CheckInDialog } from './CheckInDialog';
+import { CheckOutDialog } from './CheckOutDialog';
 import { format } from 'date-fns';
 import { ConflictAlert } from './ConflictAlert';
 import { PendingAssignmentsAlert } from './PendingAssignmentsAlert';
@@ -73,6 +75,7 @@ interface Reservation {
   channel: string;
   group_id: string | null;
   payment_method: string | null;
+  access_cards_given: number | null;
   units: { name: string; unit_number: string | null } | null;
 }
 
@@ -108,6 +111,11 @@ export const Dashboard = () => {
   const [undoConfirmOpen, setUndoConfirmOpen] = useState(false);
   const [undoReservationId, setUndoReservationId] = useState<string | null>(null);
   const [undoType, setUndoType] = useState<'checkin' | 'checkout'>('checkout');
+  
+  // Check-in/Check-out dialog state
+  const [checkInDialogOpen, setCheckInDialogOpen] = useState(false);
+  const [checkOutDialogOpen, setCheckOutDialogOpen] = useState(false);
+  const [selectedReservation, setSelectedReservation] = useState<Reservation | null>(null);
 
   useEffect(() => {
     fetchStats();
@@ -265,7 +273,7 @@ export const Dashboard = () => {
     const yesterday = format(new Date(Date.now() - 86400000), 'yyyy-MM-dd');
     const sevenDaysAgo = format(new Date(Date.now() - 7 * 86400000), 'yyyy-MM-dd');
     
-    const baseSelect = 'id, booking_reference, guest_names, guest_types, guest_genders, check_in_date, check_out_date, checked_in_at, checked_out_at, cancelled_at, status, total_price, number_of_guests, children, adults, source, channel, payment_method, group_id, units(name, unit_number)';
+    const baseSelect = 'id, booking_reference, guest_names, guest_types, guest_genders, check_in_date, check_out_date, checked_in_at, checked_out_at, cancelled_at, status, total_price, number_of_guests, children, adults, source, channel, payment_method, group_id, access_cards_given, units(name, unit_number)';
     
     // Clear transfers when opening a non-transfer dialog
     setDialogTransfers([]);
@@ -504,6 +512,103 @@ export const Dashboard = () => {
     }
     setUndoConfirmOpen(false);
     setUndoReservationId(null);
+  };
+
+  const handleCheckInWithCards = async (reservationId: string, accessCards: number) => {
+    setUpdating(reservationId);
+    try {
+      const { error } = await supabase
+        .from('reservations')
+        .update({ 
+          status: 'checked-in',
+          checked_in_at: new Date().toISOString(),
+          access_cards_given: accessCards 
+        })
+        .eq('id', reservationId);
+
+      if (error) throw error;
+
+      // Send check-in notification
+      try {
+        await supabase.functions.invoke('send-checkin-notification', {
+          body: { reservationId }
+        });
+      } catch (notifError) {
+        console.error('Failed to send check-in notification:', notifError);
+      }
+
+      toast({
+        title: "Guest checked in",
+        description: `Access cards issued: ${accessCards}`,
+      });
+
+      fetchStats();
+      // Refresh the dialog data
+      if (dialogOpen) {
+        handleCardClick('arrivals');
+      }
+    } catch (error: any) {
+      toast({
+        title: "Error",
+        description: error.message,
+        variant: "destructive",
+      });
+    } finally {
+      setUpdating(null);
+      setCheckInDialogOpen(false);
+      setSelectedReservation(null);
+    }
+  };
+
+  const handleCheckOutWithDialog = async () => {
+    if (!selectedReservation) return;
+    
+    setUpdating(selectedReservation.id);
+    try {
+      const { error } = await supabase
+        .from('reservations')
+        .update({ 
+          status: 'checked-out',
+          checked_out_at: new Date().toISOString()
+        })
+        .eq('id', selectedReservation.id);
+
+      if (error) throw error;
+
+      // Send check-out notification
+      try {
+        const { data: { user } } = await supabase.auth.getUser();
+        await supabase.functions.invoke('send-checkout-notification', {
+          body: { reservationId: selectedReservation.id, userId: user?.id }
+        });
+      } catch (notifError) {
+        console.error('Failed to send check-out notification:', notifError);
+      }
+
+      toast({
+        title: "Guest checked out",
+        description: "Check-out completed successfully",
+      });
+
+      fetchStats();
+      // Refresh the dialog data
+      if (dialogOpen) {
+        const currentType = dialogTitle.includes('Arrivals') ? 'arrivals' : 
+                            dialogTitle.includes('Departures') ? 'departures' : 
+                            dialogTitle.includes('In-House') ? 'inhouse' : 'departures';
+        handleCardClick(currentType);
+      }
+    } catch (error: any) {
+      toast({
+        title: "Error",
+        description: error.message,
+        variant: "destructive",
+      });
+    } finally {
+      setUpdating(null);
+      setCheckOutDialogOpen(false);
+      setSelectedReservation(null);
+    }
   };
 
   const handleBulkCheckOut = async () => {
@@ -895,7 +1000,8 @@ export const Dashboard = () => {
                                 size="sm"
                                 onClick={(e) => {
                                   e.stopPropagation();
-                                  handleStatusChange(reservation.id, 'checked-in');
+                                  setSelectedReservation(reservation);
+                                  setCheckInDialogOpen(true);
                                 }}
                                 disabled={updating === reservation.id}
                                 className="gap-1"
@@ -911,7 +1017,8 @@ export const Dashboard = () => {
                               variant="outline"
                               onClick={(e) => {
                                 e.stopPropagation();
-                                handleStatusChange(reservation.id, 'checked-out');
+                                setSelectedReservation(reservation);
+                                setCheckOutDialogOpen(true);
                               }}
                               disabled={updating === reservation.id}
                               className="gap-1"
@@ -926,7 +1033,8 @@ export const Dashboard = () => {
                               variant="outline"
                               onClick={(e) => {
                                 e.stopPropagation();
-                                handleStatusChange(reservation.id, 'checked-out');
+                                setSelectedReservation(reservation);
+                                setCheckOutDialogOpen(true);
                               }}
                               disabled={updating === reservation.id}
                               className="gap-1"
@@ -1010,6 +1118,28 @@ export const Dashboard = () => {
           </AlertDialogFooter>
         </AlertDialogContent>
       </AlertDialog>
+
+      {/* Check-In Dialog */}
+      <CheckInDialog
+        open={checkInDialogOpen}
+        onOpenChange={setCheckInDialogOpen}
+        reservation={selectedReservation}
+        onConfirm={(accessCards) => {
+          if (selectedReservation) {
+            handleCheckInWithCards(selectedReservation.id, accessCards);
+          }
+        }}
+        loading={updating === selectedReservation?.id}
+      />
+
+      {/* Check-Out Dialog */}
+      <CheckOutDialog
+        open={checkOutDialogOpen}
+        onOpenChange={setCheckOutDialogOpen}
+        reservation={selectedReservation}
+        onConfirm={handleCheckOutWithDialog}
+        loading={updating === selectedReservation?.id}
+      />
     </>
   );
 };
