@@ -83,7 +83,7 @@ serve(async (req) => {
           role: roleRecord?.role
         };
       })
-      .filter((u: any) => u.email && u.role === 'admin');
+      .filter((u: any) => u.email && ['admin', 'front_desk'].includes(u.role));
 
     console.log(`Found ${admins.length} admin users to notify`);
 
