@@ -366,6 +366,9 @@ export const RoomSwapDialog = ({
                   <div className="space-y-3">
                     <div className="p-3 bg-muted rounded-lg">
                       <div className="font-medium">{reservation.guest_names[0]}</div>
+                      <div className="text-xs text-muted-foreground mb-1">
+                        {format(new Date(reservation.check_in_date), "MMM d")} - {format(new Date(reservation.check_out_date), "MMM d, yyyy")}
+                      </div>
                       <div className="text-sm text-muted-foreground flex items-center gap-1">
                         <span>{currentUnit?.booking_com_name || currentUnit?.name}</span>
                         <ArrowRight className="h-3 w-3" />
@@ -377,6 +380,9 @@ export const RoomSwapDialog = ({
                     
                     <div className="p-3 bg-muted rounded-lg">
                       <div className="font-medium">{selectedSwapReservation.guest_names[0]}</div>
+                      <div className="text-xs text-muted-foreground mb-1">
+                        {format(new Date(selectedSwapReservation.check_in_date), "MMM d")} - {format(new Date(selectedSwapReservation.check_out_date), "MMM d, yyyy")}
+                      </div>
                       <div className="text-sm text-muted-foreground flex items-center gap-1">
                         <span>{selectedSwapReservation.units?.booking_com_name || selectedSwapReservation.units?.name}</span>
                         <ArrowRight className="h-3 w-3" />
@@ -387,10 +393,6 @@ export const RoomSwapDialog = ({
                     </div>
                   </div>
                 )}
-                
-                <p className="text-amber-600 text-sm font-medium">
-                  Admin team will be notified to inform both guests of this room change.
-                </p>
               </div>
             </AlertDialogDescription>
           </AlertDialogHeader>
