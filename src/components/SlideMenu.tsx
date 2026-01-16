@@ -35,6 +35,7 @@ import {
   Wallet,
   Banknote,
   ChevronDown,
+  FileSignature,
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 
@@ -86,6 +87,7 @@ export function SlideMenu({ userRole }: SlideMenuProps) {
         { title: 'Tickets', url: '/guest-tickets', icon: Ticket },
         { title: 'App Accounts', url: '/guest-accounts', icon: Shield },
         { title: 'Guests', url: '/guests', icon: Users },
+        { title: 'Guest Forms', url: '/guest-forms', icon: FileSignature },
         { title: 'My Commissions', url: '/my-commissions', icon: Wallet, showFor: ['manager', 'admin'] },
       ],
     },

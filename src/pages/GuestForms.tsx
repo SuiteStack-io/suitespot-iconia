@@ -1,0 +1,527 @@
+import { useState, useEffect, useMemo } from 'react';
+import { useNavigate } from 'react-router-dom';
+import { supabase } from '@/integrations/supabase/client';
+import { useAuth } from '@/lib/auth';
+import { format } from 'date-fns';
+import { downloadCheckInPDF } from '@/lib/generateCheckInPDF';
+import { cn } from '@/lib/utils';
+import { SlideMenu } from '@/components/SlideMenu';
+import { NotificationBell } from '@/components/NotificationBell';
+import {
+  Table,
+  TableBody,
+  TableCell,
+  TableHead,
+  TableHeader,
+  TableRow,
+} from '@/components/ui/table';
+import { Card, CardContent } from '@/components/ui/card';
+import { Button } from '@/components/ui/button';
+import { Badge } from '@/components/ui/badge';
+import { Input } from '@/components/ui/input';
+import { Skeleton } from '@/components/ui/skeleton';
+import {
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+} from '@/components/ui/dialog';
+import { ScrollArea } from '@/components/ui/scroll-area';
+import {
+  FileCheck,
+  FileX,
+  Mail,
+  Files,
+  Download,
+  Search,
+  Copy,
+  Check,
+  ExternalLink,
+} from 'lucide-react';
+import { toast } from 'sonner';
+
+interface Unit {
+  name: string;
+  unit_number: string | null;
+}
+
+interface Reservation {
+  id: string;
+  booking_reference: string;
+  guest_names: string[];
+  check_in_date: string;
+  check_out_date: string;
+  status: string;
+  checked_in_at: string | null;
+  units: Unit | null;
+}
+
+interface CheckInAgreement {
+  id: string;
+  reservation_id: string;
+  guest_full_name: string;
+  guest_phone: string;
+  guest_email: string;
+  signature_url: string;
+  signed_at: string;
+}
+
+type FilterType = 'all' | 'completed' | 'pending' | 'emails';
+
+export default function GuestForms() {
+  const navigate = useNavigate();
+  const { user, userRole, loading: authLoading } = useAuth();
+  const [reservations, setReservations] = useState<Reservation[]>([]);
+  const [agreements, setAgreements] = useState<CheckInAgreement[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [searchQuery, setSearchQuery] = useState('');
+  const [activeFilter, setActiveFilter] = useState<FilterType>('all');
+  const [emailModalOpen, setEmailModalOpen] = useState(false);
+  const [copiedEmail, setCopiedEmail] = useState<string | null>(null);
+  const [downloadingId, setDownloadingId] = useState<string | null>(null);
+
+  useEffect(() => {
+    if (!authLoading && !user) {
+      navigate('/auth');
+    }
+  }, [user, authLoading, navigate]);
+
+  useEffect(() => {
+    if (user) {
+      fetchData();
+    }
+  }, [user]);
+
+  const fetchData = async () => {
+    setLoading(true);
+    try {
+      // Fetch reservations with checked-in or checked-out status
+      const { data: reservationsData, error: reservationsError } = await supabase
+        .from('reservations')
+        .select(`
+          id,
+          booking_reference,
+          guest_names,
+          check_in_date,
+          check_out_date,
+          status,
+          checked_in_at,
+          units (name, unit_number)
+        `)
+        .in('status', ['checked-in', 'checked-out'])
+        .order('check_in_date', { ascending: false });
+
+      if (reservationsError) throw reservationsError;
+
+      // Fetch all check-in agreements
+      const { data: agreementsData, error: agreementsError } = await supabase
+        .from('check_in_agreements')
+        .select('*');
+
+      if (agreementsError) throw agreementsError;
+
+      setReservations(reservationsData || []);
+      setAgreements(agreementsData || []);
+    } catch (error) {
+      console.error('Error fetching data:', error);
+      toast.error('Failed to load guest forms data');
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  // Create a map for quick agreement lookup
+  const agreementsMap = useMemo(() => {
+    return new Map(agreements.map(a => [a.reservation_id, a]));
+  }, [agreements]);
+
+  // Compute statistics
+  const stats = useMemo(() => {
+    const checkedInReservations = reservations.filter(r => r.status === 'checked-in');
+    const withForm = checkedInReservations.filter(r => agreementsMap.has(r.id));
+    const withoutForm = checkedInReservations.filter(r => !agreementsMap.has(r.id));
+    const uniqueEmails = new Set(
+      agreements.map(a => a.guest_email?.toLowerCase()).filter(Boolean)
+    );
+
+    return {
+      checkedInWithForm: withForm.length,
+      checkedInWithoutForm: withoutForm.length,
+      totalEmails: uniqueEmails.size,
+      totalForms: agreements.length,
+    };
+  }, [reservations, agreements, agreementsMap]);
+
+  // Get unique emails for modal
+  const uniqueEmails = useMemo(() => {
+    return [...new Set(
+      agreements.map(a => a.guest_email?.toLowerCase()).filter(Boolean)
+    )].sort();
+  }, [agreements]);
+
+  // Combined data for table
+  const tableData = useMemo(() => {
+    return reservations.map(res => ({
+      reservation: res,
+      agreement: agreementsMap.get(res.id) || null,
+      hasForm: agreementsMap.has(res.id),
+    }));
+  }, [reservations, agreementsMap]);
+
+  // Filtered data based on active filter and search
+  const filteredData = useMemo(() => {
+    let data = tableData;
+
+    // Apply filter
+    if (activeFilter === 'completed') {
+      data = data.filter(d => d.hasForm && d.reservation.status === 'checked-in');
+    } else if (activeFilter === 'pending') {
+      data = data.filter(d => !d.hasForm && d.reservation.status === 'checked-in');
+    }
+
+    // Apply search
+    if (searchQuery.trim()) {
+      const query = searchQuery.toLowerCase();
+      data = data.filter(d => {
+        const guestName = d.reservation.guest_names?.[0]?.toLowerCase() || '';
+        const bookingRef = d.reservation.booking_reference?.toLowerCase() || '';
+        const formName = d.agreement?.guest_full_name?.toLowerCase() || '';
+        const formEmail = d.agreement?.guest_email?.toLowerCase() || '';
+        const roomNumber = d.reservation.units?.unit_number?.toLowerCase() || '';
+
+        return (
+          guestName.includes(query) ||
+          bookingRef.includes(query) ||
+          formName.includes(query) ||
+          formEmail.includes(query) ||
+          roomNumber.includes(query)
+        );
+      });
+    }
+
+    return data;
+  }, [tableData, activeFilter, searchQuery]);
+
+  const handleDownloadPDF = async (reservation: Reservation, agreement: CheckInAgreement) => {
+    setDownloadingId(reservation.id);
+    try {
+      await downloadCheckInPDF(
+        {
+          guestName: agreement.guest_full_name,
+          guestPhone: agreement.guest_phone,
+          guestEmail: agreement.guest_email,
+          unitName: reservation.units?.name || 'N/A',
+          checkInDate: reservation.check_in_date,
+          checkOutDate: reservation.check_out_date,
+          signatureDataUrl: agreement.signature_url,
+          signedAt: new Date(agreement.signed_at),
+        },
+        `guest-form-${reservation.booking_reference}.pdf`
+      );
+      toast.success('PDF downloaded successfully');
+    } catch (error) {
+      console.error('Error downloading PDF:', error);
+      toast.error('Failed to download PDF');
+    } finally {
+      setDownloadingId(null);
+    }
+  };
+
+  const handleCopyEmail = async (email: string) => {
+    try {
+      await navigator.clipboard.writeText(email);
+      setCopiedEmail(email);
+      setTimeout(() => setCopiedEmail(null), 2000);
+    } catch {
+      toast.error('Failed to copy email');
+    }
+  };
+
+  const handleCopyAllEmails = async () => {
+    try {
+      await navigator.clipboard.writeText(uniqueEmails.join('\n'));
+      toast.success(`Copied ${uniqueEmails.length} emails to clipboard`);
+    } catch {
+      toast.error('Failed to copy emails');
+    }
+  };
+
+  const handleCardClick = (filter: FilterType) => {
+    if (filter === 'emails') {
+      setEmailModalOpen(true);
+    } else {
+      setActiveFilter(activeFilter === filter ? 'all' : filter);
+    }
+  };
+
+  if (authLoading || loading) {
+    return (
+      <div className="min-h-screen bg-background">
+        <div className="container mx-auto p-6">
+          <div className="grid gap-4 md:grid-cols-4 mb-6">
+            {[...Array(4)].map((_, i) => (
+              <Skeleton key={i} className="h-24" />
+            ))}
+          </div>
+          <Skeleton className="h-[500px]" />
+        </div>
+      </div>
+    );
+  }
+
+  return (
+    <div className="min-h-screen bg-background">
+      {/* Header */}
+      <header className="border-b bg-card">
+        <div className="container mx-auto px-4 py-4 flex items-center justify-between">
+          <div className="flex items-center gap-4">
+            <SlideMenu userRole={userRole} />
+            <h1 className="text-xl font-semibold">Guest Forms</h1>
+          </div>
+          <NotificationBell />
+        </div>
+      </header>
+
+      <div className="container mx-auto p-6">
+        {/* Stat Cards */}
+        <div className="grid gap-4 md:grid-cols-4 mb-6">
+          <Card
+            className={cn(
+              'cursor-pointer transition-all hover:shadow-md',
+              activeFilter === 'completed' && 'ring-2 ring-primary'
+            )}
+            onClick={() => handleCardClick('completed')}
+          >
+            <CardContent className="pt-6">
+              <div className="flex items-center justify-between">
+                <div>
+                  <div className="text-2xl font-bold text-green-600">
+                    {stats.checkedInWithForm}
+                  </div>
+                  <p className="text-sm text-muted-foreground">Forms Completed</p>
+                  <p className="text-xs text-muted-foreground">(Checked-in guests)</p>
+                </div>
+                <FileCheck className="h-8 w-8 text-green-600 opacity-80" />
+              </div>
+            </CardContent>
+          </Card>
+
+          <Card
+            className={cn(
+              'cursor-pointer transition-all hover:shadow-md',
+              activeFilter === 'pending' && 'ring-2 ring-destructive'
+            )}
+            onClick={() => handleCardClick('pending')}
+          >
+            <CardContent className="pt-6">
+              <div className="flex items-center justify-between">
+                <div>
+                  <div className="text-2xl font-bold text-destructive">
+                    {stats.checkedInWithoutForm}
+                  </div>
+                  <p className="text-sm text-muted-foreground">Forms Pending</p>
+                  <p className="text-xs text-muted-foreground">(Checked-in guests)</p>
+                </div>
+                <FileX className="h-8 w-8 text-destructive opacity-80" />
+              </div>
+            </CardContent>
+          </Card>
+
+          <Card
+            className="cursor-pointer transition-all hover:shadow-md"
+            onClick={() => handleCardClick('emails')}
+          >
+            <CardContent className="pt-6">
+              <div className="flex items-center justify-between">
+                <div>
+                  <div className="text-2xl font-bold text-blue-600">
+                    {stats.totalEmails}
+                  </div>
+                  <p className="text-sm text-muted-foreground">Guest Emails</p>
+                  <p className="text-xs text-muted-foreground">(Click to view list)</p>
+                </div>
+                <Mail className="h-8 w-8 text-blue-600 opacity-80" />
+              </div>
+            </CardContent>
+          </Card>
+
+          <Card
+            className={cn(
+              'cursor-pointer transition-all hover:shadow-md',
+              activeFilter === 'all' && 'ring-2 ring-primary'
+            )}
+            onClick={() => setActiveFilter('all')}
+          >
+            <CardContent className="pt-6">
+              <div className="flex items-center justify-between">
+                <div>
+                  <div className="text-2xl font-bold">{stats.totalForms}</div>
+                  <p className="text-sm text-muted-foreground">Total Forms</p>
+                  <p className="text-xs text-muted-foreground">(All time)</p>
+                </div>
+                <Files className="h-8 w-8 text-muted-foreground opacity-80" />
+              </div>
+            </CardContent>
+          </Card>
+        </div>
+
+        {/* Search */}
+        <div className="flex items-center gap-4 mb-4">
+          <div className="relative flex-1 max-w-sm">
+            <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+            <Input
+              placeholder="Search by name, booking ref, email, or room..."
+              value={searchQuery}
+              onChange={e => setSearchQuery(e.target.value)}
+              className="pl-9"
+            />
+          </div>
+          {activeFilter !== 'all' && (
+            <Badge variant="secondary" className="cursor-pointer" onClick={() => setActiveFilter('all')}>
+              {activeFilter === 'completed' ? 'Forms Completed' : 'Forms Pending'} ✕
+            </Badge>
+          )}
+        </div>
+
+        {/* Table */}
+        <Card>
+          <div className="rounded-md border">
+            <Table>
+              <TableHeader>
+                <TableRow>
+                  <TableHead>Room</TableHead>
+                  <TableHead>Guest Name</TableHead>
+                  <TableHead>Check-In</TableHead>
+                  <TableHead>Check-Out</TableHead>
+                  <TableHead>Booking Ref</TableHead>
+                  <TableHead>Form Status</TableHead>
+                  <TableHead>Form Name</TableHead>
+                  <TableHead>Form Email</TableHead>
+                  <TableHead>Form Phone</TableHead>
+                  <TableHead>Signed At</TableHead>
+                  <TableHead className="text-right">Actions</TableHead>
+                </TableRow>
+              </TableHeader>
+              <TableBody>
+                {filteredData.length === 0 ? (
+                  <TableRow>
+                    <TableCell colSpan={11} className="text-center py-8 text-muted-foreground">
+                      No guest forms found
+                    </TableCell>
+                  </TableRow>
+                ) : (
+                  filteredData.map(({ reservation, agreement, hasForm }) => {
+                    const isPending = !hasForm && reservation.status === 'checked-in';
+                    return (
+                      <TableRow
+                        key={reservation.id}
+                        className={cn(isPending && 'bg-destructive/5')}
+                      >
+                        <TableCell className="font-medium">
+                          {reservation.units?.unit_number || reservation.units?.name || '-'}
+                        </TableCell>
+                        <TableCell>{reservation.guest_names?.[0] || '-'}</TableCell>
+                        <TableCell>
+                          {format(new Date(reservation.check_in_date), 'MMM d, yyyy')}
+                        </TableCell>
+                        <TableCell>
+                          {format(new Date(reservation.check_out_date), 'MMM d, yyyy')}
+                        </TableCell>
+                        <TableCell>
+                          <Button
+                            variant="link"
+                            className="p-0 h-auto font-mono text-xs"
+                            onClick={() => navigate(`/reservation/${reservation.id}`)}
+                          >
+                            {reservation.booking_reference}
+                            <ExternalLink className="h-3 w-3 ml-1" />
+                          </Button>
+                        </TableCell>
+                        <TableCell>
+                          {hasForm ? (
+                            <Badge variant="default" className="bg-green-600">
+                              Completed
+                            </Badge>
+                          ) : (
+                            <Badge variant="destructive">Pending</Badge>
+                          )}
+                        </TableCell>
+                        <TableCell>{agreement?.guest_full_name || '-'}</TableCell>
+                        <TableCell>{agreement?.guest_email || '-'}</TableCell>
+                        <TableCell>{agreement?.guest_phone || '-'}</TableCell>
+                        <TableCell>
+                          {agreement?.signed_at
+                            ? format(new Date(agreement.signed_at), 'MMM d, yyyy h:mm a')
+                            : '-'}
+                        </TableCell>
+                        <TableCell className="text-right">
+                          {hasForm && agreement && (
+                            <Button
+                              variant="ghost"
+                              size="sm"
+                              onClick={() => handleDownloadPDF(reservation, agreement)}
+                              disabled={downloadingId === reservation.id}
+                            >
+                              <Download className="h-4 w-4" />
+                            </Button>
+                          )}
+                        </TableCell>
+                      </TableRow>
+                    );
+                  })
+                )}
+              </TableBody>
+            </Table>
+          </div>
+        </Card>
+      </div>
+
+      {/* Email List Modal */}
+      <Dialog open={emailModalOpen} onOpenChange={setEmailModalOpen}>
+        <DialogContent className="max-w-md">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2">
+              <Mail className="h-5 w-5" />
+              Guest Emails ({uniqueEmails.length})
+            </DialogTitle>
+          </DialogHeader>
+          <div className="space-y-4">
+            <Button onClick={handleCopyAllEmails} variant="outline" className="w-full">
+              <Copy className="h-4 w-4 mr-2" />
+              Copy All Emails
+            </Button>
+            <ScrollArea className="h-[400px] rounded-md border p-4">
+              {uniqueEmails.length === 0 ? (
+                <p className="text-center text-muted-foreground py-4">
+                  No emails collected yet
+                </p>
+              ) : (
+                <div className="space-y-2">
+                  {uniqueEmails.map(email => (
+                    <div
+                      key={email}
+                      className="flex items-center justify-between py-2 px-3 rounded-md hover:bg-muted transition-colors"
+                    >
+                      <span className="text-sm">{email}</span>
+                      <Button
+                        variant="ghost"
+                        size="sm"
+                        onClick={() => handleCopyEmail(email)}
+                      >
+                        {copiedEmail === email ? (
+                          <Check className="h-4 w-4 text-green-600" />
+                        ) : (
+                          <Copy className="h-4 w-4" />
+                        )}
+                      </Button>
+                    </div>
+                  ))}
+                </div>
+              )}
+            </ScrollArea>
+          </div>
+        </DialogContent>
+      </Dialog>
+    </div>
+  );
+}
