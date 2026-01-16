@@ -389,7 +389,7 @@ export const RoomSwapDialog = ({
                 )}
                 
                 <p className="text-amber-600 text-sm font-medium">
-                  Both guests will be notified of this room change.
+                  Admin team will be notified to inform both guests of this room change.
                 </p>
               </div>
             </AlertDialogDescription>
