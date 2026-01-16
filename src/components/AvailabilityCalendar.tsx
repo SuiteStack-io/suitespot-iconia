@@ -488,14 +488,26 @@ export const AvailabilityCalendar = () => {
                 (a, b) => new Date(a.check_in_date).getTime() - new Date(b.check_in_date).getTime()
               );
               
+              // Helper to extract base confirmation number (removes -A, -B suffix)
+              const getBaseConfirmation = (confirmationNumber: string) => 
+                confirmationNumber.replace(/-[A-Z]$/, '');
+
               // Check if they're sequential (checkout = next check-in)
               for (let i = 1; i < sorted.length; i++) {
                 const prev = sorted[i - 1];
                 const curr = sorted[i];
                 
-                // If check_out of previous = check_in of current, it's an extension
+                // If check_out of previous = check_in of current, check if it's an extension
                 if (new Date(prev.check_out_date).getTime() === new Date(curr.check_in_date).getTime()) {
-                  extensionIds.add(curr.id);
+                  // Check if they share the same base confirmation number (split booking)
+                  const prevBase = getBaseConfirmation(prev.booking_reference || '');
+                  const currBase = getBaseConfirmation(curr.booking_reference || '');
+                  
+                  // Only mark as extension if they have different base confirmation numbers
+                  // Same base = split booking segments, different base = true extension
+                  if (prevBase !== currBase || !prevBase) {
+                    extensionIds.add(curr.id);
+                  }
                 }
               }
             }
