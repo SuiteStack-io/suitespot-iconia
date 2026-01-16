@@ -100,24 +100,13 @@ export const RoomSwapDialog = ({
 
     setSwapping(true);
     try {
-      const reservation1UnitId = reservation.unit_id;
-      const reservation2UnitId = swapReservation.unit_id;
+      // Call the atomic swap function to avoid trigger conflicts
+      const { error } = await supabase.rpc('swap_reservation_rooms', {
+        reservation1_id: reservation.id,
+        reservation2_id: swapReservation.id
+      });
 
-      // Update reservation 1 to have reservation 2's room
-      const { error: error1 } = await supabase
-        .from("reservations")
-        .update({ unit_id: reservation2UnitId })
-        .eq("id", reservation.id);
-
-      if (error1) throw error1;
-
-      // Update reservation 2 to have reservation 1's room
-      const { error: error2 } = await supabase
-        .from("reservations")
-        .update({ unit_id: reservation1UnitId })
-        .eq("id", swapReservation.id);
-
-      if (error2) throw error2;
+      if (error) throw error;
 
       // Calculate nights for notifications
       const nights1 = Math.ceil(

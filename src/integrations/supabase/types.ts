@@ -1461,6 +1461,10 @@ export type Database = {
         Args: { p_account_id: string; p_new_password_hash: string }
         Returns: boolean
       }
+      swap_reservation_rooms: {
+        Args: { reservation1_id: string; reservation2_id: string }
+        Returns: undefined
+      }
       update_reservation_statuses: { Args: never; Returns: undefined }
     }
     Enums: {
