@@ -6,6 +6,7 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Checkbox } from '@/components/ui/checkbox';
 import { SignaturePad } from '@/components/SignaturePad';
+import { Calendar } from '@/components/ui/calendar';
 import {
   Dialog,
   DialogContent,
@@ -27,7 +28,7 @@ import {
   CommandList,
 } from '@/components/ui/command';
 import { toast } from 'sonner';
-import { Loader2, CheckCircle, Check, ChevronsUpDown, Download } from 'lucide-react';
+import { Loader2, CheckCircle, Check, ChevronsUpDown, Download, CalendarIcon } from 'lucide-react';
 import { format } from 'date-fns';
 import { cn } from '@/lib/utils';
 import { downloadCheckInPDF } from '@/lib/generateCheckInPDF';
@@ -147,6 +148,10 @@ const GuestCheckIn = () => {
   
   // Form state
   const [fullName, setFullName] = useState('');
+  const [nationality, setNationality] = useState('');
+  const [nationalityOpen, setNationalityOpen] = useState(false);
+  const [dateOfBirth, setDateOfBirth] = useState<Date | undefined>(undefined);
+  const [dateOfBirthOpen, setDateOfBirthOpen] = useState(false);
   const [countryCode, setCountryCode] = useState('+20'); // Default to Egypt
   const [phone, setPhone] = useState('');
   const [countryCodeOpen, setCountryCodeOpen] = useState(false);
@@ -157,6 +162,8 @@ const GuestCheckIn = () => {
   const [termsOfStayDialogOpen, setTermsOfStayDialogOpen] = useState(false);
   const [submittedData, setSubmittedData] = useState<{
     guestName: string;
+    guestNationality: string;
+    guestDateOfBirth: string;
     guestPhone: string;
     guestEmail: string;
     unitName: string;
@@ -205,6 +212,8 @@ const GuestCheckIn = () => {
 
   const isFormValid = 
     fullName.trim() !== '' && 
+    nationality.trim() !== '' &&
+    dateOfBirth !== undefined &&
     phone.trim() !== '' && 
     email.trim() !== '' && 
     signatureDataUrl !== null && 
@@ -242,6 +251,8 @@ const GuestCheckIn = () => {
         .insert({
           reservation_id: reservationId,
           guest_full_name: fullName.trim(),
+          guest_nationality: nationality,
+          guest_date_of_birth: dateOfBirth ? format(dateOfBirth, 'yyyy-MM-dd') : null,
           guest_phone: `${countryCode}${phone.trim()}`,
           guest_email: email.trim(),
           signature_url: publicUrl,
@@ -287,6 +298,8 @@ const GuestCheckIn = () => {
       
       setSubmittedData({
         guestName: fullName.trim(),
+        guestNationality: nationality,
+        guestDateOfBirth: dateOfBirth ? format(dateOfBirth, 'MMMM d, yyyy') : '',
         guestPhone: `${countryCode}${phone.trim()}`,
         guestEmail: email.trim(),
         unitName: unitDisplay,
@@ -426,6 +439,97 @@ const GuestCheckIn = () => {
                   className="font-playfair text-base mt-2"
                   placeholder="Enter your full name"
                 />
+              </div>
+              <div>
+                <Label className="font-playfair text-sm font-normal">
+                  Nationality
+                </Label>
+                <Popover open={nationalityOpen} onOpenChange={setNationalityOpen}>
+                  <PopoverTrigger asChild>
+                    <Button
+                      variant="outline"
+                      role="combobox"
+                      aria-expanded={nationalityOpen}
+                      className="w-full justify-between font-playfair mt-2"
+                    >
+                      {nationality ? (
+                        <span className="flex items-center gap-2">
+                          {COUNTRY_CODES.find((c) => c.name === nationality)?.flag || "🏳️"}
+                          {nationality}
+                        </span>
+                      ) : (
+                        <span className="text-muted-foreground">Select your nationality</span>
+                      )}
+                      <ChevronsUpDown className="ml-2 h-4 w-4 shrink-0 opacity-50" />
+                    </Button>
+                  </PopoverTrigger>
+                  <PopoverContent className="w-[300px] p-0" align="start">
+                    <Command>
+                      <CommandInput placeholder="Search country..." />
+                      <CommandList>
+                        <CommandEmpty>No country found.</CommandEmpty>
+                        <CommandGroup>
+                          {COUNTRY_CODES.map((country) => (
+                            <CommandItem
+                              key={`nationality-${country.country}`}
+                              value={country.name}
+                              onSelect={() => {
+                                setNationality(country.name);
+                                setNationalityOpen(false);
+                              }}
+                            >
+                              <Check
+                                className={cn(
+                                  "mr-2 h-4 w-4",
+                                  nationality === country.name ? "opacity-100" : "opacity-0"
+                                )}
+                              />
+                              <span className="flex items-center gap-2">
+                                <span className="text-lg">{country.flag}</span>
+                                <span>{country.name}</span>
+                              </span>
+                            </CommandItem>
+                          ))}
+                        </CommandGroup>
+                      </CommandList>
+                    </Command>
+                  </PopoverContent>
+                </Popover>
+              </div>
+              <div>
+                <Label className="font-playfair text-sm font-normal">
+                  Date of Birth
+                </Label>
+                <Popover open={dateOfBirthOpen} onOpenChange={setDateOfBirthOpen}>
+                  <PopoverTrigger asChild>
+                    <Button
+                      variant="outline"
+                      className={cn(
+                        "w-full justify-start text-left font-playfair mt-2",
+                        !dateOfBirth && "text-muted-foreground"
+                      )}
+                    >
+                      <CalendarIcon className="mr-2 h-4 w-4" />
+                      {dateOfBirth ? format(dateOfBirth, "MMMM d, yyyy") : "Select your date of birth"}
+                    </Button>
+                  </PopoverTrigger>
+                  <PopoverContent className="w-auto p-0" align="start">
+                    <Calendar
+                      mode="single"
+                      selected={dateOfBirth}
+                      onSelect={(date) => {
+                        setDateOfBirth(date);
+                        setDateOfBirthOpen(false);
+                      }}
+                      disabled={(date) => date > new Date() || date < new Date("1900-01-01")}
+                      initialFocus
+                      captionLayout="dropdown-buttons"
+                      fromYear={1920}
+                      toYear={new Date().getFullYear()}
+                      className={cn("p-3 pointer-events-auto")}
+                    />
+                  </PopoverContent>
+                </Popover>
               </div>
               <div>
                 <Label className="font-playfair text-sm font-normal">

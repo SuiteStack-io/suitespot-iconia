@@ -188,8 +188,10 @@ export type Database = {
       check_in_agreements: {
         Row: {
           created_at: string
+          guest_date_of_birth: string | null
           guest_email: string
           guest_full_name: string
+          guest_nationality: string | null
           guest_phone: string
           id: string
           reservation_id: string
@@ -199,8 +201,10 @@ export type Database = {
         }
         Insert: {
           created_at?: string
+          guest_date_of_birth?: string | null
           guest_email: string
           guest_full_name: string
+          guest_nationality?: string | null
           guest_phone: string
           id?: string
           reservation_id: string
@@ -210,8 +214,10 @@ export type Database = {
         }
         Update: {
           created_at?: string
+          guest_date_of_birth?: string | null
           guest_email?: string
           guest_full_name?: string
+          guest_nationality?: string | null
           guest_phone?: string
           id?: string
           reservation_id?: string

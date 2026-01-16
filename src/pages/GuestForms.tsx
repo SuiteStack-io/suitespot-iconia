@@ -74,6 +74,8 @@ interface CheckInAgreement {
   id: string;
   reservation_id: string;
   guest_full_name: string;
+  guest_nationality: string | null;
+  guest_date_of_birth: string | null;
   guest_phone: string;
   guest_email: string;
   signature_url: string;
@@ -252,6 +254,8 @@ export default function GuestForms() {
       await downloadCheckInPDF(
         {
           guestName: agreement.guest_full_name,
+          guestNationality: agreement.guest_nationality || '',
+          guestDateOfBirth: agreement.guest_date_of_birth || '',
           guestPhone: agreement.guest_phone,
           guestEmail: agreement.guest_email,
           unitName: reservation.units?.name || 'N/A',

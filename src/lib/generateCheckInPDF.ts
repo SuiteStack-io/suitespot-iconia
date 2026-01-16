@@ -2,6 +2,8 @@ import jsPDF from 'jspdf';
 
 interface CheckInData {
   guestName: string;
+  guestNationality: string;
+  guestDateOfBirth: string;
   guestPhone: string;
   guestEmail: string;
   unitName: string;
@@ -133,6 +135,10 @@ export const generateCheckInPDF = async (data: CheckInData): Promise<Blob> => {
   pdf.setFontSize(11);
   pdf.setFont('helvetica', 'normal');
   pdf.text(`Full Name: ${data.guestName}`, margin, yPos);
+  yPos += 6;
+  pdf.text(`Nationality: ${data.guestNationality}`, margin, yPos);
+  yPos += 6;
+  pdf.text(`Date of Birth: ${data.guestDateOfBirth}`, margin, yPos);
   yPos += 6;
   pdf.text(`Phone: ${data.guestPhone}`, margin, yPos);
   yPos += 6;
