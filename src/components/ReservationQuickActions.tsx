@@ -387,9 +387,18 @@ export const ReservationQuickActions = ({
     setUpdatingStatus(true);
     
     try {
+      const updateData: Record<string, any> = { status: newStatus };
+      
+      // Add timestamp for check-in/check-out
+      if (newStatus === 'checked-in') {
+        updateData.checked_in_at = new Date().toISOString();
+      } else if (newStatus === 'checked-out') {
+        updateData.checked_out_at = new Date().toISOString();
+      }
+      
       const { error } = await supabase
         .from("reservations")
-        .update({ status: newStatus })
+        .update(updateData)
         .eq("id", reservation.id);
 
       if (error) throw error;

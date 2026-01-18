@@ -222,7 +222,10 @@ const CheckInOut = () => {
     try {
       const { error } = await supabase
         .from('reservations')
-        .update({ status: 'checked-out' })
+        .update({ 
+          status: 'checked-out',
+          checked_out_at: new Date().toISOString()
+        })
         .eq('id', reservationId);
 
       if (error) throw error;
@@ -300,7 +303,10 @@ const CheckInOut = () => {
     setUpdating('bulk');
     try {
       const updates = Array.from(selectedDepartures).map(id =>
-        supabase.from('reservations').update({ status: 'checked-out' }).eq('id', id)
+        supabase.from('reservations').update({ 
+          status: 'checked-out',
+          checked_out_at: new Date().toISOString()
+        }).eq('id', id)
       );
 
       await Promise.all(updates);
