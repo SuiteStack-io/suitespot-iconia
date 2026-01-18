@@ -1354,12 +1354,15 @@ export const AvailabilityCalendar = () => {
         ? exportRevenue / exportAvailableNights 
         : 0;
 
-      // Add Occupancy & RevPAR Summary
-      doc.setFontSize(10);
-      doc.setFont('helvetica', 'bold');
+      // Add Occupancy Summary
+      doc.setFontSize(11);
+      if (hasPlayfairFont) {
+        doc.setFont('Playfair Display', 'normal');
+      } else {
+        doc.setFont('helvetica', 'bold');
+      }
       doc.text('Summary:', 14, startY);
-      
-      doc.setFont('helvetica', 'normal');
+
       const summaryY = startY + 5;
       doc.text(`Occupancy Rate: ${exportOccupancy.toFixed(1)}%`, 14, summaryY);
       doc.text(`Booked Nights: ${exportBookedNights}/${exportAvailableNights}`, 70, summaryY);
