@@ -183,6 +183,7 @@ const CheckInOut = () => {
         .from('reservations')
         .update({ 
           status: 'checked-in',
+          checked_in_at: new Date().toISOString(),
           access_cards_given: accessCards 
         })
         .eq('id', reservationId);
@@ -264,8 +265,12 @@ const CheckInOut = () => {
     
     setUpdating('bulk');
     try {
+      const now = new Date().toISOString();
       const updates = Array.from(selectedArrivals).map(id =>
-        supabase.from('reservations').update({ status: 'checked-in' }).eq('id', id)
+        supabase.from('reservations').update({ 
+          status: 'checked-in',
+          checked_in_at: now
+        }).eq('id', id)
       );
 
       await Promise.all(updates);
