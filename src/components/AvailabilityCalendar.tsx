@@ -4,7 +4,7 @@ import { supabase } from "@/integrations/supabase/client";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { ChevronLeft, ChevronRight, AlertCircle, CheckCircle, Calendar as CalendarIcon, Download, FileSpreadsheet, FileText, GripVertical, ArrowUpDown, Hash, Building2, Lock, Maximize2, Minimize2, Trash2, DollarSign, TrendingUp } from "lucide-react";
-import { format, addDays, startOfWeek, isSameDay, startOfMonth, endOfMonth, getDaysInMonth, eachDayOfInterval, startOfDay, differenceInDays, parseISO, subDays } from "date-fns";
+import { format, addDays, startOfWeek, isSameDay, startOfMonth, endOfMonth, getDaysInMonth, eachDayOfInterval, startOfDay, differenceInDays, parseISO, subDays, addMonths } from "date-fns";
 import { Badge } from "@/components/ui/badge";
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
@@ -1362,9 +1362,7 @@ export const AvailabilityCalendar = () => {
       doc.setFont('helvetica', 'normal');
       const summaryY = startY + 5;
       doc.text(`Occupancy Rate: ${exportOccupancy.toFixed(1)}%`, 14, summaryY);
-      doc.text(`RevPAR: $${exportRevPAR.toFixed(2)}`, 70, summaryY);
-      doc.text(`Total Revenue: $${exportRevenue.toLocaleString()}`, 120, summaryY);
-      doc.text(`Booked Nights: ${exportBookedNights}/${exportAvailableNights}`, 190, summaryY);
+      doc.text(`Booked Nights: ${exportBookedNights}/${exportAvailableNights}`, 70, summaryY);
       
       startY = summaryY + 10;
 
@@ -2431,6 +2429,46 @@ export const AvailabilityCalendar = () => {
           <div className="space-y-4">
             <div>
               <Label className="text-sm font-medium mb-2 block">Select Date Range</Label>
+              <div className="flex flex-wrap gap-2 mb-3">
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={() => {
+                    const lastMonth = addMonths(new Date(), -1);
+                    setExportDateRange({
+                      from: startOfMonth(lastMonth),
+                      to: endOfMonth(lastMonth)
+                    });
+                  }}
+                >
+                  {format(addMonths(new Date(), -1), 'MMMM')}
+                </Button>
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={() => {
+                    setExportDateRange({
+                      from: startOfMonth(new Date()),
+                      to: endOfMonth(new Date())
+                    });
+                  }}
+                >
+                  {format(new Date(), 'MMMM')}
+                </Button>
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={() => {
+                    const nextMonth = addMonths(new Date(), 1);
+                    setExportDateRange({
+                      from: startOfMonth(nextMonth),
+                      to: endOfMonth(nextMonth)
+                    });
+                  }}
+                >
+                  {format(addMonths(new Date(), 1), 'MMMM')}
+                </Button>
+              </div>
               {exportDateRange?.from && exportDateRange?.to && (
                 <p className="text-sm text-muted-foreground mb-2">
                   {format(exportDateRange.from, 'MMM d, yyyy')} - {format(exportDateRange.to, 'MMM d, yyyy')}
