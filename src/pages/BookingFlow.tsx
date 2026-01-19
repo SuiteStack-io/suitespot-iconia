@@ -1435,7 +1435,7 @@ const BookingFlow = () => {
             {/* Step 3: Review */}
             {step === 3 && (
               <div className="space-y-6">
-                <h3 className="text-lg font-semibold">Review Your Booking</h3>
+                <h3 className="text-lg font-semibold">Confirm your Booking</h3>
                 
                 <div className="space-y-4 p-4 bg-muted/30 rounded-lg">
                   <div>
