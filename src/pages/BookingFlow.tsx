@@ -16,6 +16,7 @@ import { supabase } from "@/integrations/supabase/client";
 import { useToast } from "@/hooks/use-toast";
 import { format, parseISO, subDays } from "date-fns";
 import { Dialog, DialogContent, DialogClose, DialogHeader, DialogTitle } from "@/components/ui/dialog";
+import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from "@/components/ui/accordion";
 import { Loader2, Bed, Bath, Users, Maximize2, Sofa, X, ChevronLeft, ChevronRight, Upload, Check, ChevronsUpDown, MapPin } from "lucide-react";
 import { cn } from "@/lib/utils";
 import type { DateRange } from "react-day-picker";
@@ -1533,6 +1534,40 @@ const BookingFlow = () => {
                               <span>Complimentary Mineral Water in the room upon arrival</span>
                             </li>
                           </ul>
+                        </div>
+                        
+                        {/* Rate Conditions */}
+                        <div className="border-t border-amber-400 pt-4 mt-4">
+                          <h2 className="text-2xl font-light mb-4">Rate conditions</h2>
+                          
+                          <Accordion type="multiple" defaultValue={["cancellable", "payment", "noshow"]}>
+                            <AccordionItem value="cancellable" className="border-b border-gray-200">
+                              <AccordionTrigger className="text-left font-bold text-base hover:no-underline">
+                                Rate is cancellable
+                              </AccordionTrigger>
+                              <AccordionContent className="text-muted-foreground">
+                                This rate is cancellable without fee until {dateRange?.from && format(subDays(dateRange.from, 2), "d MMMM yyyy")} 23:59 hotel local time. In case of cancellation beyond {dateRange?.from && format(subDays(dateRange.from, 1), "d MMMM yyyy")} 00:00 local time, a penalty of 1 night will be charged by the hotel on the credit card provided to guarantee the booking.
+                              </AccordionContent>
+                            </AccordionItem>
+                            
+                            <AccordionItem value="payment" className="border-b border-gray-200">
+                              <AccordionTrigger className="text-left font-bold text-base hover:no-underline">
+                                Payment at the end of the stay
+                              </AccordionTrigger>
+                              <AccordionContent className="text-muted-foreground">
+                                This rate requires no pre-payment. The entire stay must be paid to the hotel at the end of the stay.
+                              </AccordionContent>
+                            </AccordionItem>
+                            
+                            <AccordionItem value="noshow" className="border-b border-gray-200">
+                              <AccordionTrigger className="text-left font-bold text-base hover:no-underline">
+                                No show
+                              </AccordionTrigger>
+                              <AccordionContent className="text-muted-foreground">
+                                No show exposes the client to a penalty equal to 100% of the total stay. This penalty will be charged on the credit card.
+                              </AccordionContent>
+                            </AccordionItem>
+                          </Accordion>
                         </div>
                         
                         {/* Price breakdown */}
