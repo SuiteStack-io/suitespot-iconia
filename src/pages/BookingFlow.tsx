@@ -1198,12 +1198,7 @@ const BookingFlow = () => {
             {/* Step 2: Guest Details */}
             {step === 2 && (
               <div className="space-y-6">
-                <div>
-                  <Label className="text-lg font-semibold">Primary Guest Information</Label>
-                  <p className="text-sm text-muted-foreground mt-1">
-                    Additional guest details will be collected at check-in.
-                  </p>
-                </div>
+                <Label className="text-lg font-semibold">Guest Information</Label>
                 
                 {/* Primary Guest Form */}
                 <div className="space-y-3 p-4 border rounded-lg">
