@@ -500,23 +500,15 @@ const BookingFlow = () => {
     fetchBookedDates();
   }, [preSelectedUnitId]);
 
-  // Auto-sync guest names array when adults/children selectors change
+  // Initialize single primary guest form (additional guest details collected at check-in)
   useEffect(() => {
-    const totalGuests = adults + children;
-    
-    const newGuestFirstNames = Array(totalGuests).fill('').map((_, i) => guestFirstNames[i] || '');
-    const newGuestLastNames = Array(totalGuests).fill('').map((_, i) => guestLastNames[i] || '');
-    const newGuestTypes = Array(totalGuests).fill('adult' as 'adult' | 'child').map((_, i) => {
-      if (guestTypes[i]) return guestTypes[i];
-      return i < adults ? 'adult' : 'child';
-    });
-    const newGuestGenders = Array(totalGuests).fill('').map((_, i) => guestGenders[i] || '');
-    
-    setGuestFirstNames(newGuestFirstNames);
-    setGuestLastNames(newGuestLastNames);
-    setGuestTypes(newGuestTypes);
-    setGuestGenders(newGuestGenders);
-  }, [adults, children]);
+    if (guestFirstNames.length === 0) {
+      setGuestFirstNames(['']);
+      setGuestLastNames(['']);
+      setGuestTypes(['adult']);
+      setGuestGenders(['']);
+    }
+  }, []);
 
   // Check if a date range contains any fully booked dates
   const isRangeValid = (range: DateRange | undefined) => {
@@ -1206,82 +1198,57 @@ const BookingFlow = () => {
             {/* Step 2: Guest Details */}
             {step === 2 && (
               <div className="space-y-6">
-                <Label className="text-lg font-semibold">Guest Information</Label>
+                <div>
+                  <Label className="text-lg font-semibold">Primary Guest Information</Label>
+                  <p className="text-sm text-muted-foreground mt-1">
+                    Additional guest details will be collected at check-in.
+                  </p>
+                </div>
                 
-                {/* Guest Names with Types and Genders */}
-                <div className="space-y-4">
-                  {guestFirstNames.map((firstName, index) => (
-                    <div key={index} className="space-y-3 p-4 border rounded-lg">
-                      <div className="grid grid-cols-2 gap-3">
-                        <div>
-                          <Label>First Name <span className="text-destructive">*</span></Label>
-                          <Input
-                            placeholder="First name"
-                            value={firstName}
-                            onChange={(e) => updateGuestFirstName(index, e.target.value)}
-                          />
-                        </div>
-                        <div>
-                          <Label>Last Name <span className="text-destructive">*</span></Label>
-                          <Input
-                            placeholder="Last name"
-                            value={guestLastNames[index] || ''}
-                            onChange={(e) => updateGuestLastName(index, e.target.value)}
-                          />
-                        </div>
-                      </div>
-                      
-                      <div>
-                        <Label className="text-sm text-muted-foreground">
-                          Guest Type <span className="text-destructive">*</span>
-                        </Label>
-                        <RadioGroup
-                          value={guestTypes[index]}
-                          onValueChange={(value) => updateGuestType(index, value as 'adult' | 'child')}
-                          className="flex gap-4 mt-2"
-                        >
-                          <div className="flex items-center space-x-2">
-                            <RadioGroupItem value="adult" id={`adult-${index}`} />
-                            <Label htmlFor={`adult-${index}`} className="font-normal cursor-pointer">
-                              Adult
-                            </Label>
-                          </div>
-                          <div className="flex items-center space-x-2">
-                            <RadioGroupItem value="child" id={`child-${index}`} />
-                            <Label htmlFor={`child-${index}`} className="font-normal cursor-pointer">
-                              Child
-                            </Label>
-                          </div>
-                        </RadioGroup>
-                      </div>
-                      
-                      {guestTypes[index] === 'adult' && (
-                        <div>
-                          <Label className="text-sm text-muted-foreground">
-                            Gender <span className="text-destructive">*</span>
-                          </Label>
-                          <RadioGroup
-                            value={guestGenders[index] || ""}
-                            onValueChange={(value) => updateGuestGender(index, value as 'male' | 'female')}
-                            className="flex gap-4 mt-2"
-                          >
-                            <div className="flex items-center space-x-2">
-                              <RadioGroupItem value="male" id={`male-${index}`} />
-                              <Label htmlFor={`male-${index}`} className="font-normal cursor-pointer">
-                                Male
-                              </Label>
-                            </div>
-                            <div className="flex items-center space-x-2">
-                              <RadioGroupItem value="female" id={`female-${index}`} />
-                              <Label htmlFor={`female-${index}`} className="font-normal cursor-pointer">
-                                Female
-                              </Label>
-                            </div>
-                          </RadioGroup>
-                        </div>
-                      )}
+                {/* Primary Guest Form */}
+                <div className="space-y-3 p-4 border rounded-lg">
+                  <div className="grid grid-cols-2 gap-3">
+                    <div>
+                      <Label>First Name <span className="text-destructive">*</span></Label>
+                      <Input
+                        placeholder="First name"
+                        value={guestFirstNames[0] || ''}
+                        onChange={(e) => updateGuestFirstName(0, e.target.value)}
+                      />
                     </div>
-                  ))}
+                    <div>
+                      <Label>Last Name <span className="text-destructive">*</span></Label>
+                      <Input
+                        placeholder="Last name"
+                        value={guestLastNames[0] || ''}
+                        onChange={(e) => updateGuestLastName(0, e.target.value)}
+                      />
+                    </div>
+                  </div>
+                  
+                  <div>
+                    <Label className="text-sm text-muted-foreground">
+                      Gender <span className="text-destructive">*</span>
+                    </Label>
+                    <RadioGroup
+                      value={guestGenders[0] || ""}
+                      onValueChange={(value) => updateGuestGender(0, value as 'male' | 'female')}
+                      className="flex gap-4 mt-2"
+                    >
+                      <div className="flex items-center space-x-2">
+                        <RadioGroupItem value="male" id="male-0" />
+                        <Label htmlFor="male-0" className="font-normal cursor-pointer">
+                          Male
+                        </Label>
+                      </div>
+                      <div className="flex items-center space-x-2">
+                        <RadioGroupItem value="female" id="female-0" />
+                        <Label htmlFor="female-0" className="font-normal cursor-pointer">
+                          Female
+                        </Label>
+                      </div>
+                    </RadioGroup>
+                  </div>
                 </div>
 
                 {/* Nationality */}
