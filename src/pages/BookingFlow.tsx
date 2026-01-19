@@ -1,4 +1,4 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef } from "react";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
 import { Calendar } from "@/components/ui/calendar";
@@ -17,7 +17,8 @@ import { useToast } from "@/hooks/use-toast";
 import { format, parseISO, subDays } from "date-fns";
 import { Dialog, DialogContent, DialogClose, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from "@/components/ui/accordion";
-import { Loader2, Bed, Bath, Users, Maximize2, Sofa, X, ChevronLeft, ChevronRight, Upload, Check, ChevronsUpDown, MapPin } from "lucide-react";
+import { Loader2, Bed, Bath, Users, Maximize2, Sofa, X, ChevronLeft, ChevronRight, Upload, Check, ChevronsUpDown, MapPin, Lock, CreditCard } from "lucide-react";
+import { Checkbox } from "@/components/ui/checkbox";
 import { cn } from "@/lib/utils";
 import type { DateRange } from "react-day-picker";
 import { PublicNav } from "@/components/PublicNav";
@@ -160,6 +161,15 @@ const BookingFlow = () => {
   const [touchStart, setTouchStart] = useState<{ x: number; y: number } | null>(null);
   const [initialPinchDistance, setInitialPinchDistance] = useState<number | null>(null);
   const [isDetailsModalOpen, setIsDetailsModalOpen] = useState(false);
+  
+  // Payment card form state
+  const [cardHolder, setCardHolder] = useState("");
+  const [cardNumber, setCardNumber] = useState("");
+  const [expiryMonth, setExpiryMonth] = useState("");
+  const [expiryYear, setExpiryYear] = useState("");
+  const [storeCard, setStoreCard] = useState(false);
+  const [showPaymentSection, setShowPaymentSection] = useState(false);
+  const paymentSectionRef = useRef<HTMLDivElement>(null);
 
   // Initialize from URL parameters
   useEffect(() => {
@@ -1716,7 +1726,102 @@ const BookingFlow = () => {
                   })()}
                 </div>
 
-                <div className="flex gap-4">
+                {/* How to secure booking section */}
+                <div className="mt-6 space-y-4">
+                  <h3 className="text-2xl font-light">How do you want to secure your booking?</h3>
+                  
+                  <div className="bg-muted/30 rounded-lg p-4">
+                    <p className="text-sm">
+                      <span className="font-bold">Your credit card will not be charged.</span>{" "}
+                      It will be used to guarantee your booking until you arrive at the hotel
+                    </p>
+                  </div>
+                </div>
+
+                {/* Payment Card Section */}
+                <div ref={paymentSectionRef} className="mt-6 p-6 bg-white rounded-lg shadow-sm border">
+                  <h3 className="text-2xl font-light mb-4">Choose a Payment Card</h3>
+                  
+                  <p className="text-muted-foreground mb-4 text-sm">
+                    To secure your reservation request, please enter your payment details below. 
+                    Your card will be verified with a temporary pre-authorization of <span className="font-bold">€1</span>, 
+                    which will be automatically released.
+                  </p>
+                  
+                  {/* PCI DSS Compliant Badge */}
+                  <div className="flex items-center gap-3 mb-4">
+                    <span className="text-sm font-bold text-foreground">PCI DSS</span>
+                    <span className="text-green-600 text-sm font-medium flex items-center gap-1">
+                      <Check className="w-4 h-4" />
+                      100% secure & PCI DSS compliant
+                    </span>
+                    <Lock className="w-4 h-4 text-green-600" />
+                  </div>
+                  
+                  {/* Accepted Cards */}
+                  <p className="text-sm mb-3 text-muted-foreground">We only accept the following credit cards:</p>
+                  <div className="flex gap-2 mb-6 flex-wrap">
+                    <div className="px-3 py-1.5 bg-[#EB001B] text-white text-xs font-medium rounded flex items-center gap-1">
+                      <span className="w-4 h-4 bg-[#F79E1B] rounded-full inline-block" style={{marginLeft: '-2px'}}></span>
+                      Mastercard
+                    </div>
+                    <div className="px-3 py-1.5 bg-[#1A1F71] text-white text-xs font-medium rounded">VISA</div>
+                    <div className="px-3 py-1.5 bg-[#006FCF] text-white text-xs font-medium rounded">AMEX</div>
+                    <div className="px-3 py-1.5 bg-[#004A97] text-white text-xs font-medium rounded">Diners Club</div>
+                    <div className="px-3 py-1.5 bg-[#0B4EA2] text-white text-xs font-medium rounded">JCB</div>
+                  </div>
+                  
+                  {/* Card Form Fields (NO CVC) */}
+                  <div className="space-y-4">
+                    <div>
+                      <Input
+                        placeholder="Card Holder*"
+                        value={cardHolder}
+                        onChange={(e) => setCardHolder(e.target.value)}
+                        className="bg-background"
+                      />
+                    </div>
+                    
+                    <div className="relative">
+                      <Input
+                        placeholder="Card Number*"
+                        value={cardNumber}
+                        onChange={(e) => setCardNumber(e.target.value)}
+                        className="bg-background pr-10"
+                      />
+                      <CreditCard className="absolute right-3 top-1/2 -translate-y-1/2 w-5 h-5 text-muted-foreground" />
+                    </div>
+                    
+                    <div className="grid grid-cols-2 gap-4">
+                      <Input
+                        placeholder="Expiry Month*"
+                        value={expiryMonth}
+                        onChange={(e) => setExpiryMonth(e.target.value)}
+                        className="bg-background"
+                      />
+                      <Input
+                        placeholder="Expiry Year*"
+                        value={expiryYear}
+                        onChange={(e) => setExpiryYear(e.target.value)}
+                        className="bg-background"
+                      />
+                    </div>
+                    
+                    {/* Store card checkbox */}
+                    <div className="flex items-center gap-2 mt-4">
+                      <Checkbox
+                        id="storeCard"
+                        checked={storeCard}
+                        onCheckedChange={(checked) => setStoreCard(checked as boolean)}
+                      />
+                      <label htmlFor="storeCard" className="text-sm cursor-pointer">
+                        Store this card for seamless future reservations.
+                      </label>
+                    </div>
+                  </div>
+                </div>
+
+                <div className="flex gap-4 mt-6">
                   <Button
                     variant="outline"
                     onClick={() => setStep(2)}
@@ -1726,12 +1831,25 @@ const BookingFlow = () => {
                     Back
                   </Button>
                   <Button
-                    onClick={handleSubmit}
+                    onClick={() => {
+                      if (!cardHolder || !cardNumber || !expiryMonth || !expiryYear) {
+                        setShowPaymentSection(true);
+                        setTimeout(() => {
+                          paymentSectionRef.current?.scrollIntoView({ behavior: 'smooth', block: 'start' });
+                        }, 100);
+                        toast({
+                          title: "Payment Required",
+                          description: "Please fill in your payment card details to confirm your booking.",
+                        });
+                        return;
+                      }
+                      handleSubmit();
+                    }}
                     disabled={isSubmitting}
                     className="flex-1 bg-accent hover:bg-accent/90"
                   >
                     {isSubmitting && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
-                    Confirm and pay
+                    Confirm Booking
                   </Button>
                 </div>
               </div>
