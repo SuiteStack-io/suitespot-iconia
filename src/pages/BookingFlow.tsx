@@ -16,7 +16,7 @@ import { supabase } from "@/integrations/supabase/client";
 import { useToast } from "@/hooks/use-toast";
 import { format, parseISO } from "date-fns";
 import { Dialog, DialogContent, DialogClose } from "@/components/ui/dialog";
-import { Loader2, Bed, Bath, Users, Maximize2, Sofa, X, ChevronLeft, ChevronRight, Upload, Check, ChevronsUpDown } from "lucide-react";
+import { Loader2, Bed, Bath, Users, Maximize2, Sofa, X, ChevronLeft, ChevronRight, Upload, Check, ChevronsUpDown, MapPin } from "lucide-react";
 import { cn } from "@/lib/utils";
 import type { DateRange } from "react-day-picker";
 import { PublicNav } from "@/components/PublicNav";
@@ -840,8 +840,13 @@ const BookingFlow = () => {
 
       <div className="container mx-auto px-6 py-12 pt-24">
         <div className="max-w-4xl mx-auto">
-          <h1 className="text-4xl font-serif font-bold text-foreground mb-2">Book Your Stay</h1>
-          <p className="text-muted-foreground mb-8">Complete the form below to reserve your suite</p>
+          <div className="text-center mb-8">
+            <h1 className="text-4xl font-playfair font-bold text-foreground mb-3">ICONIA Zamalek</h1>
+            <div className="flex items-center justify-center gap-2 text-muted-foreground">
+              <MapPin className="w-4 h-4" />
+              <span className="uppercase tracking-wide text-sm">Cairo, Egypt</span>
+            </div>
+          </div>
 
           {/* Progress Steps */}
           <div className="flex items-center justify-center mb-12">
