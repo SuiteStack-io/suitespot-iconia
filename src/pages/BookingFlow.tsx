@@ -1055,7 +1055,7 @@ const BookingFlow = () => {
                             ) : (
                               groupedUnitTypes.map((group) => (
                                 <SelectItem key={group.unit_type} value={group.unit_type}>
-                                  {group.name} ({group.available_count} available)
+                                  {group.name}
                                 </SelectItem>
                               ))
                             )}
@@ -1068,14 +1068,6 @@ const BookingFlow = () => {
                       )}
                     </div>
 
-                    {/* Show availability message when a unit type is selected */}
-                    {selectedUnitType && groupedUnitTypes.length > 0 && (
-                      <div className="p-4 bg-accent/10 border border-accent/20 rounded-lg">
-                        <p className="text-sm text-foreground">
-                          <span className="font-semibold">{groupedUnitTypes.find(g => g.unit_type === selectedUnitType)?.available_count || 0} unit{(groupedUnitTypes.find(g => g.unit_type === selectedUnitType)?.available_count || 0) > 1 ? 's' : ''}</span> of this type {(groupedUnitTypes.find(g => g.unit_type === selectedUnitType)?.available_count || 0) > 1 ? 'are' : 'is'} available for your dates
-                        </p>
-                      </div>
-                    )}
 
                     {selectedUnit && units.length > 0 && (
                       <div className="p-4 border rounded-lg bg-muted/50">
