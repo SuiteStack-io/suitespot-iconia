@@ -26,7 +26,7 @@ interface Reservation {
   number_of_guests: number;
   group_id: string | null;
   access_cards_given: number | null;
-  units: { name: string; unit_number: string | null } | null;
+  units: { name: string; booking_com_name: string | null; unit_number: string | null } | null;
 }
 
 const CheckInOut = () => {
@@ -84,7 +84,7 @@ const CheckInOut = () => {
     // Fetch arrivals (check-in today, status = confirmed) with group_id for split-stay filtering
     const { data: arrivalsData } = await supabase
       .from('reservations')
-      .select('id, booking_reference, guest_names, guest_types, check_in_date, check_out_date, status, number_of_guests, group_id, access_cards_given, units(name, unit_number)')
+      .select('id, booking_reference, guest_names, guest_types, check_in_date, check_out_date, status, number_of_guests, group_id, access_cards_given, units(name, booking_com_name, unit_number)')
       .eq('check_in_date', today)
       .eq('status', 'confirmed')
       .order('created_at', { ascending: false });
@@ -108,7 +108,7 @@ const CheckInOut = () => {
     // Fetch departures (check-out today, all relevant statuses including already processed)
     const { data: departuresData } = await supabase
       .from('reservations')
-      .select('id, booking_reference, guest_names, guest_types, check_in_date, check_out_date, status, number_of_guests, group_id, access_cards_given, units(name, unit_number)')
+      .select('id, booking_reference, guest_names, guest_types, check_in_date, check_out_date, status, number_of_guests, group_id, access_cards_given, units(name, booking_com_name, unit_number)')
       .eq('check_out_date', today)
       .in('status', ['checked-in', 'confirmed', 'checked-out', 'completed'])
       .order('created_at', { ascending: false });
@@ -136,7 +136,7 @@ const CheckInOut = () => {
     const allReservations = [...filteredArrivalsData, ...filteredDeparturesData];
     const roomTypes = new Set(
       allReservations
-        .map(r => r.units?.name)
+        .map(r => r.units?.booking_com_name || r.units?.name)
         .filter((name): name is string => name !== null && name !== undefined)
     );
     setAvailableRoomTypes(Array.from(roomTypes));
@@ -152,8 +152,8 @@ const CheckInOut = () => {
 
     // Apply room type filter
     if (roomTypeFilter !== 'all') {
-      filteredArr = filteredArr.filter(r => r.units?.name === roomTypeFilter);
-      filteredDep = filteredDep.filter(r => r.units?.name === roomTypeFilter);
+      filteredArr = filteredArr.filter(r => (r.units?.booking_com_name || r.units?.name) === roomTypeFilter);
+      filteredDep = filteredDep.filter(r => (r.units?.booking_com_name || r.units?.name) === roomTypeFilter);
     }
 
     // Apply sorting

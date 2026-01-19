@@ -18,7 +18,7 @@ interface Reservation {
   booking_reference: string;
   guest_names: string[];
   access_cards_given: number | null;
-  units: { name: string; unit_number: string | null } | null;
+  units: { name: string; booking_com_name: string | null; unit_number: string | null } | null;
 }
 
 interface CheckOutDialogProps {
@@ -71,9 +71,9 @@ export const CheckOutDialog = ({
               </p>
             )}
             <p className="font-medium">{reservation.guest_names[0]}</p>
-            {reservation.units?.name && (
+            {(reservation.units?.booking_com_name || reservation.units?.name) && (
               <p className="text-sm text-muted-foreground">
-                {reservation.units.name}
+                {reservation.units?.booking_com_name || reservation.units?.name}
               </p>
             )}
           </div>

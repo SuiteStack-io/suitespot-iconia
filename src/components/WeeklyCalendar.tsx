@@ -10,6 +10,7 @@ interface Unit {
   id: string;
   unit_number: string | null;
   name: string;
+  booking_com_name: string | null;
   unit_type: string | null;
 }
 
@@ -57,7 +58,7 @@ export const WeeklyCalendar = () => {
   const fetchUnits = async () => {
     const { data, error } = await supabase
       .from('units')
-      .select('id, unit_number, name, unit_type')
+      .select('id, unit_number, name, booking_com_name, unit_type')
       .order('unit_number');
     
     if (error) {
@@ -241,7 +242,7 @@ export const WeeklyCalendar = () => {
               >
                 <div className="flex items-center text-sm font-medium p-2 bg-muted/50 rounded">
                   <div>
-                    <div>{unit.name}</div>
+                    <div>{unit.booking_com_name || unit.name}</div>
                     <div className="text-xs text-muted-foreground">#{unit.unit_number}</div>
                   </div>
                 </div>

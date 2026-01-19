@@ -54,12 +54,13 @@ interface Reservation {
   guest_types: string[] | null;
   guest_genders: string[] | null;
   guest_ages: number[] | null;
-  units: { name: string; unit_number: string | null } | null;
+  units: { name: string; booking_com_name: string | null; unit_number: string | null } | null;
 }
 
 interface Unit {
   id: string;
   name: string;
+  booking_com_name: string | null;
   unit_number: string | null;
   status: string;
 }
@@ -113,7 +114,7 @@ export function RoomTransferDialog({
       // Get all units
       const { data: allUnits, error: unitsError } = await supabase
         .from('units')
-        .select('id, name, unit_number, status')
+        .select('id, name, booking_com_name, unit_number, status')
         .eq('status', 'available')
         .order('name');
 
@@ -190,7 +191,7 @@ export function RoomTransferDialog({
       // Get the new unit details
       const { data: newUnit } = await supabase
         .from('units')
-        .select('name, unit_number')
+        .select('name, booking_com_name, unit_number')
         .eq('id', newUnitId)
         .single();
 
@@ -205,7 +206,7 @@ export function RoomTransferDialog({
           commission_amount: segment1Commission,
           net_revenue: segment1NetRevenue,
           group_id: groupId,
-          notes: `Room transfer on ${format(transferDate, 'MMM d')} to ${newUnit?.name || 'new room'}${newUnit?.unit_number ? ` (#${newUnit.unit_number})` : ''}. ${reservation.notes || ''}`.trim(),
+          notes: `Room transfer on ${format(transferDate, 'MMM d')} to ${newUnit?.booking_com_name || newUnit?.name || 'new room'}${newUnit?.unit_number ? ` (#${newUnit.unit_number})` : ''}. ${reservation.notes || ''}`.trim(),
         })
         .eq('id', reservation.id);
 
@@ -251,9 +252,9 @@ export function RoomTransferDialog({
           body: {
             guestName: reservation.guest_names[0] || 'Guest',
             bookingReference: reservation.booking_reference,
-            originalRoom: reservation.units?.name || 'N/A',
+            originalRoom: reservation.units?.booking_com_name || reservation.units?.name || 'N/A',
             originalUnit: reservation.units?.unit_number || 'N/A',
-            newRoom: newUnit?.name || 'N/A',
+            newRoom: newUnit?.booking_com_name || newUnit?.name || 'N/A',
             newUnit: newUnit?.unit_number || 'N/A',
             transferDate: format(transferDate, 'MMMM d, yyyy'),
             checkIn: format(checkInDate, 'MMMM d, yyyy'),
@@ -293,7 +294,7 @@ export function RoomTransferDialog({
             <div className="text-sm space-y-1">
               <p>
                 <span className="text-muted-foreground">Room:</span>{' '}
-                {reservation.units?.name || 'N/A'}
+                {reservation.units?.booking_com_name || reservation.units?.name || 'N/A'}
                 {reservation.units?.unit_number && ` (#${reservation.units.unit_number})`}
               </p>
               <p>
@@ -371,7 +372,7 @@ export function RoomTransferDialog({
                     <SelectContent>
                       {availableUnits.map((unit) => (
                         <SelectItem key={unit.id} value={unit.id}>
-                          {unit.name}
+                          {unit.booking_com_name || unit.name}
                           {unit.unit_number && ` (#${unit.unit_number})`}
                         </SelectItem>
                       ))}
@@ -396,7 +397,7 @@ export function RoomTransferDialog({
                   <div className="w-1 h-full bg-primary rounded-full" />
                   <div className="flex-1 text-sm">
                     <p className="font-medium">
-                      Segment 1: {reservation.units?.name || 'Current Room'}
+                      Segment 1: {reservation.units?.booking_com_name || reservation.units?.name || 'Current Room'}
                       {reservation.units?.unit_number && ` (#${reservation.units.unit_number})`}
                     </p>
                     <p className="text-muted-foreground">
@@ -417,7 +418,7 @@ export function RoomTransferDialog({
                   <div className="w-1 h-full bg-primary rounded-full" />
                   <div className="flex-1 text-sm">
                     <p className="font-medium">
-                      Segment 2: {selectedUnit?.name || 'New Room'}
+                      Segment 2: {selectedUnit?.booking_com_name || selectedUnit?.name || 'New Room'}
                       {selectedUnit?.unit_number && ` (#${selectedUnit.unit_number})`}
                     </p>
                     <p className="text-muted-foreground">

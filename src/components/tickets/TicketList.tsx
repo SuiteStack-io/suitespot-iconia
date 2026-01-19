@@ -110,7 +110,7 @@ export function TicketList({ tickets, loading, onUpdate }: TicketListProps) {
                   </span>
                   {ticket.reservations?.units && (
                     <span>
-                      <strong>Unit:</strong> {ticket.reservations.units.name}
+                      <strong>Unit:</strong> {ticket.reservations.units.booking_com_name || ticket.reservations.units.name}
                     </span>
                   )}
                   {ticket.assigned_to_profile && (
