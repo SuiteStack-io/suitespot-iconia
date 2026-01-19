@@ -1438,21 +1438,31 @@ const BookingFlow = () => {
                 <h3 className="text-lg font-semibold">Confirm your Booking</h3>
                 
                 <div className="space-y-4 p-4 bg-muted/30 rounded-lg">
-                  <div>
-                    <p className="text-sm text-muted-foreground">Dates</p>
-                    <p className="font-medium">
-                      {dateRange?.from && format(dateRange.from, "MMM dd, yyyy")} - {dateRange?.to && format(dateRange.to, "MMM dd, yyyy")}
-                      <span className="text-muted-foreground ml-2">({calculateNights()} nights)</span>
-                    </p>
+                  <div className="space-y-3">
+                    <div className="flex justify-between">
+                      <span className="font-medium">Check in</span>
+                      <span>{dateRange?.from && format(dateRange.from, "dd MMMM, yyyy")}</span>
+                    </div>
+                    <div className="flex justify-between">
+                      <span className="font-medium">Check out</span>
+                      <span>{dateRange?.to && format(dateRange.to, "dd MMMM, yyyy")}</span>
+                    </div>
+                    <div className="flex justify-between">
+                      <span className="font-medium">Nights</span>
+                      <span>{calculateNights()}</span>
+                    </div>
                   </div>
                   
-                  <div>
-                    <p className="text-sm text-muted-foreground">Suite Type</p>
-                    <p className="font-medium">
-                      {units.find(u => u.id === selectedUnit)?.name || selectedUnit}
-                      {units.find(u => u.id === selectedUnit)?.unit_number && 
-                        ` (Unit ${units.find(u => u.id === selectedUnit)?.unit_number})`}
-                    </p>
+                  <div className="border-t pt-4">
+                    <div className="flex justify-between">
+                      <span className="font-medium">Suite Type</span>
+                      <span>
+                        {units.find(u => u.id === selectedUnit)?.booking_com_name || 
+                         units.find(u => u.id === selectedUnit)?.name || selectedUnit}
+                        {units.find(u => u.id === selectedUnit)?.unit_number && 
+                          ` (Unit ${units.find(u => u.id === selectedUnit)?.unit_number})`}
+                      </span>
+                    </div>
                   </div>
 
                   <div>
