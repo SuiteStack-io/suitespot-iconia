@@ -1802,18 +1802,6 @@ const BookingFlow = () => {
                         className="bg-background"
                       />
                     </div>
-                    
-                    {/* Store card checkbox */}
-                    <div className="flex items-center gap-2 mt-4">
-                      <Checkbox
-                        id="storeCard"
-                        checked={storeCard}
-                        onCheckedChange={(checked) => setStoreCard(checked as boolean)}
-                      />
-                      <label htmlFor="storeCard" className="text-sm cursor-pointer">
-                        Store this card for seamless future reservations.
-                      </label>
-                    </div>
                   </div>
                 </div>
 
