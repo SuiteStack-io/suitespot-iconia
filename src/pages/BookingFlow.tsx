@@ -20,6 +20,8 @@ import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from "@/
 import { Loader2, Bed, Bath, Users, Maximize2, Sofa, X, ChevronLeft, ChevronRight, Upload, Check, ChevronsUpDown, MapPin, Lock, CreditCard } from "lucide-react";
 import { Checkbox } from "@/components/ui/checkbox";
 import { cn } from "@/lib/utils";
+import visaLogo from "@/assets/visa-logo.png";
+import mastercardLogo from "@/assets/mastercard-logo.png";
 import type { DateRange } from "react-day-picker";
 import { PublicNav } from "@/components/PublicNav";
 
@@ -1760,12 +1762,9 @@ const BookingFlow = () => {
                   
                   {/* Accepted Cards */}
                   <p className="text-sm mb-3 text-muted-foreground">We only accept the following credit cards:</p>
-                  <div className="flex gap-2 mb-6 flex-wrap">
-                    <div className="px-3 py-1.5 bg-[#EB001B] text-white text-xs font-medium rounded flex items-center gap-1">
-                      <span className="w-4 h-4 bg-[#F79E1B] rounded-full inline-block" style={{marginLeft: '-2px'}}></span>
-                      Mastercard
-                    </div>
-                    <div className="px-3 py-1.5 bg-[#1A1F71] text-white text-xs font-medium rounded">VISA</div>
+                  <div className="flex gap-3 mb-6 items-center">
+                    <img src={mastercardLogo} alt="Mastercard" className="h-8 object-contain" />
+                    <img src={visaLogo} alt="Visa" className="h-6 object-contain" />
                   </div>
                   
                   {/* Card Form Fields (NO CVC) */}
