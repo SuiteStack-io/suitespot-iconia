@@ -1426,7 +1426,7 @@ const BookingFlow = () => {
                     }
                     className="flex-1 bg-accent hover:bg-accent/90"
                   >
-                    Review Booking
+                    Confirm booking
                   </Button>
                 </div>
               </div>
