@@ -1532,10 +1532,6 @@ const BookingFlow = () => {
                               <Check className="w-4 h-4 text-muted-foreground" />
                               <span>Complimentary Mineral Water in the room upon arrival</span>
                             </li>
-                            <li className="flex items-center gap-2">
-                              <Check className="w-4 h-4 text-muted-foreground" />
-                              <span>Buffet breakfast for 2 daily</span>
-                            </li>
                           </ul>
                         </div>
                         
