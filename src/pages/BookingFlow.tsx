@@ -1465,7 +1465,10 @@ const BookingFlow = () => {
 
                   <div>
                     <p className="text-sm text-muted-foreground">Guests</p>
-                    <p className="font-medium">{adults} Adult{adults > 1 ? "s" : ""}, {children} Child{children !== 1 ? "ren" : ""}</p>
+                    <p className="font-medium">
+                      {adults} Adult{adults > 1 ? "s" : ""}
+                      {children > 0 && `, ${children} Child${children !== 1 ? "ren" : ""}`}
+                    </p>
                     <p className="text-sm mt-1">
                       {guestFirstNames.map((firstName, i) => 
                         `${firstName.trim()} ${guestLastNames[i]?.trim() || ''}`.trim()
