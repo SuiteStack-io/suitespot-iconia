@@ -864,7 +864,7 @@ const BookingFlow = () => {
                 <div className={`w-8 h-8 rounded-full flex items-center justify-center ${step >= 3 ? "bg-accent text-white" : "bg-muted"}`}>
                   3
                 </div>
-                <span className="text-sm font-medium">Review</span>
+                <span className="text-sm font-medium">Confirm Booking</span>
               </div>
             </div>
           </div>
