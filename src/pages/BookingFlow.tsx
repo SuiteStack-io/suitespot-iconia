@@ -143,7 +143,7 @@ const BookingFlow = () => {
   const [guestFirstNames, setGuestFirstNames] = useState<string[]>([""]);
   const [guestLastNames, setGuestLastNames] = useState<string[]>([""]);
   const [guestTypes, setGuestTypes] = useState<('adult' | 'child')[]>(["adult"]);
-  const [guestGenders, setGuestGenders] = useState<('male' | 'female' | '')[]>([""]);
+  const [guestGenders, setGuestGenders] = useState<string[]>([""]);
   const [adults, setAdults] = useState(0);
   const [children, setChildren] = useState(0);
   const [email, setEmail] = useState("");
@@ -552,7 +552,7 @@ const BookingFlow = () => {
     setGuestTypes(newGuestTypes);
   };
 
-  const updateGuestGender = (index: number, gender: 'male' | 'female') => {
+  const updateGuestGender = (index: number, gender: string) => {
     const newGuestGenders = [...guestGenders];
     newGuestGenders[index] = gender;
     setGuestGenders(newGuestGenders);
@@ -1223,26 +1223,21 @@ const BookingFlow = () => {
                   
                   <div>
                     <Label className="text-sm text-muted-foreground">
-                      Gender <span className="text-destructive">*</span>
+                      Title <span className="text-destructive">*</span>
                     </Label>
-                    <RadioGroup
+                    <Select
                       value={guestGenders[0] || ""}
-                      onValueChange={(value) => updateGuestGender(0, value as 'male' | 'female')}
-                      className="flex gap-4 mt-2"
+                      onValueChange={(value) => updateGuestGender(0, value as 'Mr.' | 'Mrs.' | 'Miss')}
                     >
-                      <div className="flex items-center space-x-2">
-                        <RadioGroupItem value="male" id="male-0" />
-                        <Label htmlFor="male-0" className="font-normal cursor-pointer">
-                          Male
-                        </Label>
-                      </div>
-                      <div className="flex items-center space-x-2">
-                        <RadioGroupItem value="female" id="female-0" />
-                        <Label htmlFor="female-0" className="font-normal cursor-pointer">
-                          Female
-                        </Label>
-                      </div>
-                    </RadioGroup>
+                      <SelectTrigger className="w-full mt-2">
+                        <SelectValue placeholder="Select title..." />
+                      </SelectTrigger>
+                      <SelectContent className="bg-background">
+                        <SelectItem value="Mr.">Mr.</SelectItem>
+                        <SelectItem value="Mrs.">Mrs.</SelectItem>
+                        <SelectItem value="Miss">Miss</SelectItem>
+                      </SelectContent>
+                    </Select>
                   </div>
                 </div>
 
