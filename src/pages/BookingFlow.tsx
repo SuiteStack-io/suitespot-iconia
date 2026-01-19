@@ -1766,9 +1766,6 @@ const BookingFlow = () => {
                       Mastercard
                     </div>
                     <div className="px-3 py-1.5 bg-[#1A1F71] text-white text-xs font-medium rounded">VISA</div>
-                    <div className="px-3 py-1.5 bg-[#006FCF] text-white text-xs font-medium rounded">AMEX</div>
-                    <div className="px-3 py-1.5 bg-[#004A97] text-white text-xs font-medium rounded">Diners Club</div>
-                    <div className="px-3 py-1.5 bg-[#0B4EA2] text-white text-xs font-medium rounded">JCB</div>
                   </div>
                   
                   {/* Card Form Fields (NO CVC) */}
