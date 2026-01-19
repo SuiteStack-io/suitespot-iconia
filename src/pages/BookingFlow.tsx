@@ -1809,33 +1809,15 @@ const BookingFlow = () => {
                   <Button
                     variant="outline"
                     onClick={() => setStep(2)}
-                    className="flex-1"
+                    className="w-full"
                     disabled={isSubmitting}
                   >
                     Back
                   </Button>
-                  <Button
-                    onClick={() => {
-                      if (!cardHolder || !cardNumber || !expiryMonth || !expiryYear) {
-                        setShowPaymentSection(true);
-                        setTimeout(() => {
-                          paymentSectionRef.current?.scrollIntoView({ behavior: 'smooth', block: 'start' });
-                        }, 100);
-                        toast({
-                          title: "Payment Required",
-                          description: "Please fill in your payment card details to confirm your booking.",
-                        });
-                        return;
-                      }
-                      handleSubmit();
-                    }}
-                    disabled={isSubmitting}
-                    className="flex-1 bg-accent hover:bg-accent/90"
-                  >
-                    {isSubmitting && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
-                    Confirm Booking
-                  </Button>
                 </div>
+                
+                {/* Spacer for sticky footer */}
+                <div className="h-24" />
               </div>
             )}
           </Card>
@@ -1907,6 +1889,34 @@ const BookingFlow = () => {
           )}
         </DialogContent>
       </Dialog>
+      {/* Sticky Footer with Confirm Booking Button - Only show on Step 3 */}
+      {step === 3 && (
+        <div className="fixed bottom-0 left-0 right-0 bg-background border-t shadow-lg z-50 p-4">
+          <div className="max-w-2xl mx-auto">
+            <Button
+              onClick={() => {
+                if (!cardHolder || !cardNumber || !expiryMonth || !expiryYear) {
+                  setShowPaymentSection(true);
+                  setTimeout(() => {
+                    paymentSectionRef.current?.scrollIntoView({ behavior: 'smooth', block: 'start' });
+                  }, 100);
+                  toast({
+                    title: "Payment Required",
+                    description: "Please fill in your payment card details to confirm your booking.",
+                  });
+                  return;
+                }
+                handleSubmit();
+              }}
+              disabled={isSubmitting}
+              className="w-full bg-[#2D2D2D] hover:bg-[#1D1D1D] text-white py-6 text-base font-medium uppercase tracking-wide rounded-lg"
+            >
+              {isSubmitting && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
+              CONFIRM BOOKING
+            </Button>
+          </div>
+        </div>
+      )}
     </div>
   );
 };
