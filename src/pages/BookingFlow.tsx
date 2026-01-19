@@ -1552,10 +1552,10 @@ const BookingFlow = () => {
                             
                             <AccordionItem value="payment" className="border-b border-gray-200">
                               <AccordionTrigger className="text-left font-bold text-base hover:no-underline">
-                                Payment at the end of the stay
+                                Payment at the beginning of your stay
                               </AccordionTrigger>
                               <AccordionContent className="text-muted-foreground">
-                                This rate requires no pre-payment. The entire stay must be paid to the hotel at the end of the stay.
+                                This rate requires no pre-payment. The entire stay must be paid to the hotel at the beginning of your stay.
                               </AccordionContent>
                             </AccordionItem>
                             
