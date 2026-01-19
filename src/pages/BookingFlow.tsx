@@ -1055,7 +1055,7 @@ const BookingFlow = () => {
                             ) : (
                               groupedUnitTypes.map((group) => (
                                 <SelectItem key={group.unit_type} value={group.unit_type}>
-                                  {group.name}
+                                  {group.name}{group.sample_unit.price_per_night ? ` - $${group.sample_unit.price_per_night}/night` : ''}
                                 </SelectItem>
                               ))
                             )}
