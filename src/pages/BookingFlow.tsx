@@ -14,8 +14,8 @@ import { Link, useNavigate, useSearchParams } from "react-router-dom";
 import { Helmet } from "react-helmet-async";
 import { supabase } from "@/integrations/supabase/client";
 import { useToast } from "@/hooks/use-toast";
-import { format, parseISO } from "date-fns";
-import { Dialog, DialogContent, DialogClose } from "@/components/ui/dialog";
+import { format, parseISO, subDays } from "date-fns";
+import { Dialog, DialogContent, DialogClose, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Loader2, Bed, Bath, Users, Maximize2, Sofa, X, ChevronLeft, ChevronRight, Upload, Check, ChevronsUpDown, MapPin } from "lucide-react";
 import { cn } from "@/lib/utils";
 import type { DateRange } from "react-day-picker";
@@ -158,6 +158,7 @@ const BookingFlow = () => {
   const [imageScale, setImageScale] = useState(1);
   const [touchStart, setTouchStart] = useState<{ x: number; y: number } | null>(null);
   const [initialPinchDistance, setInitialPinchDistance] = useState<number | null>(null);
+  const [isDetailsModalOpen, setIsDetailsModalOpen] = useState(false);
 
   // Initialize from URL parameters
   useEffect(() => {
@@ -1454,14 +1455,114 @@ const BookingFlow = () => {
                   </div>
                   
                   <div className="border-t pt-4">
-                    <div className="flex justify-between">
+                    <div className="flex justify-between items-start">
                       <span className="font-medium">Room Type</span>
-                      <span>
-                        {units.find(u => u.id === selectedUnit)?.booking_com_name || 
-                         units.find(u => u.id === selectedUnit)?.name || selectedUnit}
-                      </span>
+                      <div className="text-right">
+                        <span className="block">
+                          {units.find(u => u.id === selectedUnit)?.booking_com_name || 
+                           units.find(u => u.id === selectedUnit)?.name || selectedUnit}
+                        </span>
+                        {dateRange?.from && (
+                          <span className="block text-green-600 font-bold mt-1">
+                            FREE cancellation before {format(subDays(dateRange.from, 2), "d MMM yyyy")}
+                          </span>
+                        )}
+                        <button 
+                          onClick={() => setIsDetailsModalOpen(true)}
+                          className="text-sm underline text-muted-foreground hover:text-foreground mt-1"
+                        >
+                          Details & Conditions
+                        </button>
+                      </div>
                     </div>
                   </div>
+
+                  {/* Rate Details Modal */}
+                  <Dialog open={isDetailsModalOpen} onOpenChange={setIsDetailsModalOpen}>
+                    <DialogContent className="max-w-md">
+                      <DialogHeader>
+                        <DialogTitle className="text-2xl font-light">Rate Details</DialogTitle>
+                      </DialogHeader>
+                      
+                      <div className="space-y-4 mt-4">
+                        {/* Dates */}
+                        <div className="flex gap-8">
+                          <span className="font-medium w-24">Dates</span>
+                          <span>
+                            {dateRange?.from && format(dateRange.from, "d MMM")} - {dateRange?.to && format(dateRange.to, "d MMM yyyy")} ({calculateNights()} nights)
+                          </span>
+                        </div>
+                        
+                        {/* Guests */}
+                        <div className="flex gap-8">
+                          <span className="font-medium w-24">Guests</span>
+                          <span>
+                            {adults} Adult{adults > 1 ? "s" : ""}
+                            {children > 0 && `, ${children} Child${children !== 1 ? "ren" : ""}`}
+                          </span>
+                        </div>
+                        
+                        {/* Room type */}
+                        <div className="flex gap-8">
+                          <span className="font-medium w-24">Room type</span>
+                          <span>
+                            {units.find(u => u.id === selectedUnit)?.booking_com_name || 
+                             units.find(u => u.id === selectedUnit)?.name || selectedUnit}
+                          </span>
+                        </div>
+                        
+                        {/* Rate */}
+                        <div className="flex gap-8">
+                          <span className="font-medium w-24">Rate</span>
+                          <span>Room only</span>
+                        </div>
+                        
+                        <div className="border-t border-amber-400 pt-4 mt-4">
+                          <p className="uppercase text-sm tracking-wide mb-3">Included in this rate</p>
+                          <ul className="space-y-2">
+                            <li className="flex items-center gap-2">
+                              <Check className="w-4 h-4 text-muted-foreground" />
+                              <span>Welcome drink, upon arrival</span>
+                            </li>
+                            <li className="flex items-center gap-2">
+                              <Check className="w-4 h-4 text-muted-foreground" />
+                              <span>Complimentary Internet</span>
+                            </li>
+                            <li className="flex items-center gap-2">
+                              <Check className="w-4 h-4 text-muted-foreground" />
+                              <span>Complimentary Mineral Water in the room upon arrival</span>
+                            </li>
+                            <li className="flex items-center gap-2">
+                              <Check className="w-4 h-4 text-muted-foreground" />
+                              <span>Buffet breakfast for 2 daily</span>
+                            </li>
+                          </ul>
+                        </div>
+                        
+                        {/* Price breakdown */}
+                        {units.find(u => u.id === selectedUnit)?.price_per_night && (
+                          <>
+                            <div className="border-t border-amber-400 pt-4 flex justify-between">
+                              <span>Average nightly rate before tax</span>
+                              <span>US${units.find(u => u.id === selectedUnit)?.price_per_night}</span>
+                            </div>
+                            
+                            <div className="border-t border-amber-400 pt-4 flex justify-between font-medium">
+                              <span>Room total (tax included)</span>
+                              <span>US${(() => {
+                                const unit = units.find(u => u.id === selectedUnit);
+                                const nights = calculateNights();
+                                const pricePerNight = unit?.price_per_night || 0;
+                                const taxRate = unit?.tax_percentage || 0;
+                                const subtotal = pricePerNight * nights;
+                                return Math.round(subtotal * (1 + taxRate / 100));
+                              })()}</span>
+                            </div>
+                          </>
+                        )}
+                      </div>
+                    </DialogContent>
+                  </Dialog>
 
                   <div>
                     <p className="text-sm text-muted-foreground">Guests</p>
