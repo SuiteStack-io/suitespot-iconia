@@ -1455,7 +1455,7 @@ const BookingFlow = () => {
                   
                   <div className="border-t pt-4">
                     <div className="flex justify-between">
-                      <span className="font-medium">Unit Type</span>
+                      <span className="font-medium">Room Type</span>
                       <span>
                         {units.find(u => u.id === selectedUnit)?.booking_com_name || 
                          units.find(u => u.id === selectedUnit)?.name || selectedUnit}
