@@ -76,7 +76,7 @@ interface Reservation {
   group_id: string | null;
   payment_method: string | null;
   access_cards_given: number | null;
-  units: { name: string; unit_number: string | null } | null;
+  units: { name: string; booking_com_name: string | null; unit_number: string | null } | null;
 }
 
 const statusColors = {
@@ -273,7 +273,7 @@ export const Dashboard = () => {
     const yesterday = format(new Date(Date.now() - 86400000), 'yyyy-MM-dd');
     const sevenDaysAgo = format(new Date(Date.now() - 7 * 86400000), 'yyyy-MM-dd');
     
-    const baseSelect = 'id, booking_reference, guest_names, guest_types, guest_genders, check_in_date, check_out_date, checked_in_at, checked_out_at, cancelled_at, status, total_price, number_of_guests, children, adults, source, channel, payment_method, group_id, access_cards_given, units(name, unit_number)';
+    const baseSelect = 'id, booking_reference, guest_names, guest_types, guest_genders, check_in_date, check_out_date, checked_in_at, checked_out_at, cancelled_at, status, total_price, number_of_guests, children, adults, source, channel, payment_method, group_id, access_cards_given, units(name, booking_com_name, unit_number)';
     
     // Clear transfers when opening a non-transfer dialog
     setDialogTransfers([]);
@@ -284,14 +284,14 @@ export const Dashboard = () => {
       // Get reservations ending today with full data
       const { data: endingTodayFull } = await supabase
         .from('reservations')
-        .select('id, group_id, unit_id, guest_names, units(name, unit_number)')
+        .select('id, group_id, unit_id, guest_names, units(name, booking_com_name, unit_number)')
         .eq('check_out_date', today)
         .neq('status', 'cancelled');
       
       // Get reservations starting today with full data
       const { data: startingTodayFull } = await supabase
         .from('reservations')
-        .select('id, group_id, unit_id, guest_names, units(name, unit_number)')
+        .select('id, group_id, unit_id, guest_names, units(name, booking_com_name, unit_number)')
         .eq('check_in_date', today)
         .neq('status', 'cancelled');
       

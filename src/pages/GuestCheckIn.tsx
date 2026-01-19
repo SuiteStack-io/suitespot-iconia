@@ -139,6 +139,7 @@ interface Reservation {
   unit_id: string | null;
   units?: {
     name: string;
+    booking_com_name: string | null;
     unit_number: string | null;
   } | null;
 }
@@ -219,6 +220,7 @@ const GuestCheckIn = () => {
           unit_id,
           units (
             name,
+            booking_com_name,
             unit_number
           )
         `)
@@ -324,7 +326,7 @@ const GuestCheckIn = () => {
 
       // Store data for PDF generation
       const unitDisplay = reservation?.units 
-        ? `${reservation.units.name}${reservation.units.unit_number ? ` (${reservation.units.unit_number})` : ''}`
+        ? `${reservation.units.booking_com_name || reservation.units.name}${reservation.units.unit_number ? ` (${reservation.units.unit_number})` : ''}`
         : 'Your Unit';
       
       setSubmittedData({
@@ -426,7 +428,7 @@ const GuestCheckIn = () => {
   }
 
   const unitDisplay = reservation.units 
-    ? `${reservation.units.name}${reservation.units.unit_number ? ` (${reservation.units.unit_number})` : ''}`
+    ? `${reservation.units.booking_com_name || reservation.units.name}${reservation.units.unit_number ? ` (${reservation.units.unit_number})` : ''}`
     : 'Unassigned';
 
   return (

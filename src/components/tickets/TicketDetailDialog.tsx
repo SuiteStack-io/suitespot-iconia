@@ -182,7 +182,7 @@ export function TicketDetailDialog({ ticket, open, onOpenChange, onUpdate }: Tic
                 <div>
                   <Label className="text-muted-foreground">Unit</Label>
                   <p className="text-foreground">
-                    {ticket.reservations.units.name} - {ticket.reservations.units.unit_number}
+                    {ticket.reservations.units.booking_com_name || ticket.reservations.units.name} - {ticket.reservations.units.unit_number}
                   </p>
                 </div>
               )}

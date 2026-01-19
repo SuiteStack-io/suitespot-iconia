@@ -22,7 +22,7 @@ interface Reservation {
   id: string;
   booking_reference: string;
   guest_names: string[];
-  units: { name: string; unit_number: string | null } | null;
+  units: { name: string; booking_com_name: string | null; unit_number: string | null } | null;
 }
 
 interface CheckInDialogProps {
@@ -69,9 +69,9 @@ export const CheckInDialog = ({
               </p>
             )}
             <p className="font-medium">{reservation.guest_names[0]}</p>
-            {reservation.units?.name && (
+            {(reservation.units?.booking_com_name || reservation.units?.name) && (
               <p className="text-sm text-muted-foreground">
-                {reservation.units.name}
+                {reservation.units?.booking_com_name || reservation.units?.name}
               </p>
             )}
           </div>

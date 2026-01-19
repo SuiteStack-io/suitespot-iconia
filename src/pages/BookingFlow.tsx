@@ -100,6 +100,7 @@ const ARAB_NATIONALITIES = [
 interface Unit {
   id: string;
   name: string;
+  booking_com_name: string | null;
   unit_type: string | null;
   unit_number: string | null;
   status: string;
@@ -197,7 +198,7 @@ const BookingFlow = () => {
         if (preSelectedUnitId) {
           const { data: unit, error: unitError } = await supabase
             .from("units")
-            .select("id, name, unit_type, unit_number, status, beds, baths, max_guests, unit_size, sofa_bed, price_per_night, weekend_rate, tax_percentage, photos")
+            .select("id, name, booking_com_name, unit_type, unit_number, status, beds, baths, max_guests, unit_size, sofa_bed, price_per_night, weekend_rate, tax_percentage, photos")
             .eq("id", preSelectedUnitId)
             .eq("is_private", false)
             .eq("location", "ICONIA")
@@ -209,7 +210,7 @@ const BookingFlow = () => {
           // If a unit type is pre-selected, fetch all units of that type
           let query = supabase
             .from("units")
-            .select("id, name, unit_type, unit_number, status, beds, baths, max_guests, unit_size, sofa_bed, price_per_night, weekend_rate, tax_percentage, photos")
+            .select("id, name, booking_com_name, unit_type, unit_number, status, beds, baths, max_guests, unit_size, sofa_bed, price_per_night, weekend_rate, tax_percentage, photos")
             .eq("status", "available")
             .eq("unit_type", preSelectedUnitType)
             .eq("is_private", false)
@@ -275,7 +276,7 @@ const BookingFlow = () => {
           // Get all units if no pre-selection
           const { data: allUnits, error: unitsError } = await supabase
             .from("units")
-            .select("id, name, unit_type, unit_number, status, beds, baths, max_guests, unit_size, sofa_bed, price_per_night, weekend_rate, tax_percentage, photos")
+            .select("id, name, booking_com_name, unit_type, unit_number, status, beds, baths, max_guests, unit_size, sofa_bed, price_per_night, weekend_rate, tax_percentage, photos")
             .eq("status", "available")
             .eq("is_private", false)
             .eq("location", "ICONIA")
@@ -366,7 +367,7 @@ const BookingFlow = () => {
       if (!groupMap.has(unit.unit_type)) {
         groupMap.set(unit.unit_type, {
           unit_type: unit.unit_type,
-          name: unit.name,
+          name: unit.booking_com_name || unit.name,
           available_count: 1,
           available_unit_ids: [unit.id],
           sample_unit: unit,

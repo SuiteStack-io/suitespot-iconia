@@ -9,6 +9,7 @@ import { Loader2 } from "lucide-react";
 interface Unit {
   id: string;
   name: string;
+  booking_com_name: string | null;
   beds: number | null;
   baths: number | null;
   max_guests: number | null;
@@ -50,7 +51,7 @@ export const InventorySelectionModal = ({
     try {
       const { data, error } = await supabase
         .from("units")
-        .select("id, name, beds, baths, max_guests, photos")
+        .select("id, name, booking_com_name, beds, baths, max_guests, photos")
         .eq("location", "Almaza Bay")
         .eq("status", "available")
         .order("name");
@@ -164,11 +165,11 @@ export const InventorySelectionModal = ({
                       {unit.photos && unit.photos.length > 0 && (
                         <img
                           src={unit.photos[0]}
-                          alt={unit.name}
+                          alt={unit.booking_com_name || unit.name}
                           className="w-full h-32 object-cover rounded mb-2"
                         />
                       )}
-                      <h3 className="font-semibold mb-1">{unit.name}</h3>
+                      <h3 className="font-semibold mb-1">{unit.booking_com_name || unit.name}</h3>
                       <div className="text-sm text-muted-foreground space-y-1">
                         {unit.beds && <p>Beds: {unit.beds}</p>}
                         {unit.baths && <p>Baths: {unit.baths}</p>}

@@ -65,12 +65,12 @@ const PropertyMedia = () => {
           <div>
             <h1 className="text-3xl font-bold">Manage Property Media</h1>
             <p className="text-muted-foreground mt-1">
-              Upload and manage photos for {unit.name}
+              Upload and manage photos for {unit.booking_com_name || unit.name}
             </p>
           </div>
         </div>
 
-        <PropertyPhotoManager unitId={unit.id} unitName={unit.name} />
+        <PropertyPhotoManager unitId={unit.id} unitName={unit.booking_com_name || unit.name} />
       </div>
     </div>
   );

@@ -12,6 +12,7 @@ import { SEO } from "@/components/SEO";
 interface Unit {
   id: string;
   name: string;
+  booking_com_name: string | null;
   unit_type: string | null;
   unit_number: string | null;
   unit_size: string | null;
@@ -69,7 +70,7 @@ const Suites = () => {
       try {
         const { data, error } = await supabase
           .from("units")
-          .select("*")
+          .select("id, name, booking_com_name, unit_type, unit_number, unit_size, status, comments")
           .eq("status", "available")
           .eq("is_private", false)
           .eq("location", "ICONIA")
@@ -186,7 +187,7 @@ const Suites = () => {
                         </div>
                         <div className="p-8">
                           <h3 className="text-3xl font-serif font-bold text-foreground mb-2">
-                            {unit.name}
+                            {unit.booking_com_name || unit.name}
                           </h3>
                           {unit.availableCount && unit.availableCount > 1 && (
                             <p className="text-sm text-accent font-medium mb-2">

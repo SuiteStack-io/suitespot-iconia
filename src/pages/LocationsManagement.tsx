@@ -25,7 +25,7 @@ const LocationsManagement = () => {
     try {
       const { data, error } = await supabase
         .from("units")
-        .select("id, name, unit_number, address")
+        .select("id, name, booking_com_name, unit_number, address")
         .order("name");
 
       if (error) throw error;
@@ -103,7 +103,7 @@ const LocationsManagement = () => {
                 <SelectContent>
                   {units.map((unit) => (
                     <SelectItem key={unit.id} value={unit.id}>
-                      {unit.name} {unit.unit_number && `(${unit.unit_number})`}
+                      {unit.booking_com_name || unit.name} {unit.unit_number && `(${unit.unit_number})`}
                     </SelectItem>
                   ))}
                 </SelectContent>
