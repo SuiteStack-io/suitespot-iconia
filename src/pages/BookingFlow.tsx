@@ -1480,7 +1480,7 @@ const BookingFlow = () => {
 
                   {/* Rate Details Modal */}
                   <Dialog open={isDetailsModalOpen} onOpenChange={setIsDetailsModalOpen}>
-                    <DialogContent className="max-w-md">
+                    <DialogContent className="max-w-md max-h-[85vh] overflow-y-auto">
                       <DialogHeader>
                         <DialogTitle className="text-2xl font-light">Rate Details</DialogTitle>
                       </DialogHeader>
