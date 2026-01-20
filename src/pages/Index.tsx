@@ -12,6 +12,7 @@ import { useIsMobile } from '@/hooks/use-mobile';
 import { useToast } from '@/hooks/use-toast';
 import { supabase } from '@/integrations/supabase/client';
 import { useNotifications } from '@/hooks/useNotifications';
+import { Avatar, AvatarFallback } from '@/components/ui/avatar';
 
 const Index = () => {
   const { user, loading, signOut, userRole } = useAuth();
@@ -21,6 +22,37 @@ const Index = () => {
   const [syncing, setSyncing] = useState(false);
   const { permission, requestPermission } = useNotifications();
   const [showScrollTop, setShowScrollTop] = useState(false);
+  const [userName, setUserName] = useState<string>("");
+
+  useEffect(() => {
+    const fetchProfile = async () => {
+      if (!user) return;
+      
+      const { data, error } = await supabase
+        .from('profiles')
+        .select('full_name')
+        .eq('id', user.id)
+        .single();
+      
+      if (!error && data?.full_name) {
+        setUserName(data.full_name);
+      }
+    };
+    
+    fetchProfile();
+  }, [user]);
+
+  const getInitials = (name: string) => {
+    if (!name) return "";
+    const parts = name.trim().split(/\s+/);
+    if (parts.length === 1) return parts[0].charAt(0).toUpperCase();
+    return (parts[0].charAt(0) + parts[parts.length - 1].charAt(0)).toUpperCase();
+  };
+
+  const formatRole = (role: string | null) => {
+    if (!role) return "";
+    return role.charAt(0).toUpperCase() + role.slice(1).replace(/_/g, " ");
+  };
 
   useEffect(() => {
     if (permission === "default") {
@@ -75,6 +107,22 @@ const Index = () => {
 
           {/* Right side: Actions */}
           <div className="flex items-center gap-2">
+            {/* User Profile Display */}
+            <div className="flex items-center gap-2 mr-2">
+              <Avatar className="h-9 w-9 bg-muted">
+                <AvatarFallback className="text-sm font-medium text-muted-foreground">
+                  {getInitials(userName)}
+                </AvatarFallback>
+              </Avatar>
+              
+              <div className="hidden md:flex flex-col">
+                <span className="text-sm font-medium leading-tight">{userName}</span>
+                <span className="text-xs text-muted-foreground leading-tight">
+                  {formatRole(userRole)}
+                </span>
+              </div>
+            </div>
+
             <NotificationBell />
             <Button 
               variant="outline" 
