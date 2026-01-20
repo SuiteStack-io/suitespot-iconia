@@ -286,14 +286,16 @@ export const Dashboard = () => {
         .from('reservations')
         .select('id, group_id, unit_id, guest_names, units(name, booking_com_name, unit_number)')
         .eq('check_out_date', today)
-        .neq('status', 'cancelled');
+        .neq('status', 'cancelled')
+        .is('cancelled_at', null);
       
       // Get reservations starting today with full data
       const { data: startingTodayFull } = await supabase
         .from('reservations')
         .select('id, group_id, unit_id, guest_names, units(name, booking_com_name, unit_number)')
         .eq('check_in_date', today)
-        .neq('status', 'cancelled');
+        .neq('status', 'cancelled')
+        .is('cancelled_at', null);
       
       // Build transfer pairs - only include actual room changes
       const transfers: RoomTransfer[] = [];
@@ -334,6 +336,7 @@ export const Dashboard = () => {
         .select(baseSelect)
         .eq('check_in_date', today)
         .neq('status', 'cancelled')
+        .is('cancelled_at', null)
         .order('check_in_date', { ascending: true });
       
       // Fetch reservations ending today (to identify transfers)
@@ -341,7 +344,8 @@ export const Dashboard = () => {
         .from('reservations')
         .select('id, group_id')
         .eq('check_out_date', today)
-        .neq('status', 'cancelled');
+        .neq('status', 'cancelled')
+        .is('cancelled_at', null);
       
       // Filter out transfer-in segments (where another segment in same group ends today)
       const filtered = (arrivals || []).filter(arrival => {
@@ -367,6 +371,7 @@ export const Dashboard = () => {
         .select(baseSelect)
         .eq('check_out_date', today)
         .neq('status', 'cancelled')
+        .is('cancelled_at', null)
         .order('check_in_date', { ascending: true });
       
       // Fetch reservations starting today (to identify transfers)
@@ -374,7 +379,8 @@ export const Dashboard = () => {
         .from('reservations')
         .select('id, group_id')
         .eq('check_in_date', today)
-        .neq('status', 'cancelled');
+        .neq('status', 'cancelled')
+        .is('cancelled_at', null);
       
       // Filter out transfer-out segments (where another segment in same group starts today)
       const filtered = (departures || []).filter(departure => {
