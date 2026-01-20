@@ -171,7 +171,56 @@ const BookingFlow = () => {
   const [expiryYear, setExpiryYear] = useState("");
   const [storeCard, setStoreCard] = useState(false);
   const [showPaymentSection, setShowPaymentSection] = useState(false);
+  const [cardNumberError, setCardNumberError] = useState("");
+  const [expiryError, setExpiryError] = useState("");
   const paymentSectionRef = useRef<HTMLDivElement>(null);
+
+  // Card number formatting (spaces every 4 digits)
+  const formatCardNumber = (value: string) => {
+    const digitsOnly = value.replace(/\D/g, "");
+    const limited = digitsOnly.slice(0, 16);
+    return limited.replace(/(\d{4})(?=\d)/g, "$1 ");
+  };
+
+  // Luhn algorithm for card number validation
+  const isValidLuhn = (cardNum: string) => {
+    const digits = cardNum.replace(/\D/g, "");
+    if (digits.length < 13 || digits.length > 19) return false;
+    
+    let sum = 0;
+    let isEven = false;
+    
+    for (let i = digits.length - 1; i >= 0; i--) {
+      let digit = parseInt(digits[i], 10);
+      
+      if (isEven) {
+        digit *= 2;
+        if (digit > 9) digit -= 9;
+      }
+      
+      sum += digit;
+      isEven = !isEven;
+    }
+    
+    return sum % 10 === 0;
+  };
+
+  // Check if card is expired
+  const isCardExpired = (month: string, year: string) => {
+    if (!month || !year || month.length < 2 || year.length < 2) return false;
+    
+    const currentDate = new Date();
+    const currentMonth = currentDate.getMonth() + 1;
+    const currentYear = currentDate.getFullYear();
+    
+    const expMonth = parseInt(month, 10);
+    const expYear = parseInt(`20${year}`, 10);
+    
+    if (expYear < currentYear) return true;
+    if (expYear === currentYear && expMonth < currentMonth) return true;
+    
+    return false;
+  };
 
   // Initialize from URL parameters
   useEffect(() => {
@@ -1778,29 +1827,84 @@ const BookingFlow = () => {
                       />
                     </div>
                     
-                    <div className="relative">
-                      <Input
-                        placeholder="Card Number*"
-                        value={cardNumber}
-                        onChange={(e) => setCardNumber(e.target.value)}
-                        className="bg-background pr-10"
-                      />
-                      <CreditCard className="absolute right-3 top-1/2 -translate-y-1/2 w-5 h-5 text-muted-foreground" />
+                    <div>
+                      <div className="relative">
+                        <Input
+                          placeholder="Card Number*"
+                          value={cardNumber}
+                          onChange={(e) => {
+                            const formatted = formatCardNumber(e.target.value);
+                            setCardNumber(formatted);
+                            
+                            const digitsOnly = formatted.replace(/\D/g, "");
+                            if (digitsOnly.length === 16) {
+                              if (!isValidLuhn(digitsOnly)) {
+                                setCardNumberError("Invalid card number");
+                              } else {
+                                setCardNumberError("");
+                              }
+                            } else {
+                              setCardNumberError("");
+                            }
+                          }}
+                          className={cn("bg-background pr-10", cardNumberError && "border-destructive")}
+                          maxLength={19}
+                        />
+                        <CreditCard className="absolute right-3 top-1/2 -translate-y-1/2 w-5 h-5 text-muted-foreground" />
+                      </div>
+                      {cardNumberError && (
+                        <p className="text-sm text-destructive mt-1">{cardNumberError}</p>
+                      )}
                     </div>
                     
-                    <div className="grid grid-cols-2 gap-4">
-                      <Input
-                        placeholder="Expiry Month*"
-                        value={expiryMonth}
-                        onChange={(e) => setExpiryMonth(e.target.value)}
-                        className="bg-background"
-                      />
-                      <Input
-                        placeholder="Expiry Year*"
-                        value={expiryYear}
-                        onChange={(e) => setExpiryYear(e.target.value)}
-                        className="bg-background"
-                      />
+                    <div>
+                      <div className="grid grid-cols-2 gap-4">
+                        <Input
+                          placeholder="MM"
+                          value={expiryMonth}
+                          onChange={(e) => {
+                            const value = e.target.value.replace(/\D/g, "").slice(0, 2);
+                            setExpiryMonth(value);
+                            
+                            if (value.length === 2) {
+                              const monthNum = parseInt(value, 10);
+                              if (monthNum < 1 || monthNum > 12) {
+                                setExpiryError("Invalid month (01-12)");
+                              } else if (expiryYear.length === 2 && isCardExpired(value, expiryYear)) {
+                                setExpiryError("Card has expired");
+                              } else {
+                                setExpiryError("");
+                              }
+                            } else {
+                              setExpiryError("");
+                            }
+                          }}
+                          className={cn("bg-background", expiryError && "border-destructive")}
+                          maxLength={2}
+                        />
+                        <Input
+                          placeholder="YY"
+                          value={expiryYear}
+                          onChange={(e) => {
+                            const value = e.target.value.replace(/\D/g, "").slice(0, 2);
+                            setExpiryYear(value);
+                            
+                            if (value.length === 2 && expiryMonth.length === 2) {
+                              const monthNum = parseInt(expiryMonth, 10);
+                              if (monthNum >= 1 && monthNum <= 12 && isCardExpired(expiryMonth, value)) {
+                                setExpiryError("Card has expired");
+                              } else {
+                                setExpiryError("");
+                              }
+                            }
+                          }}
+                          className={cn("bg-background", expiryError && "border-destructive")}
+                          maxLength={2}
+                        />
+                      </div>
+                      {expiryError && (
+                        <p className="text-sm text-destructive mt-1">{expiryError}</p>
+                      )}
                     </div>
                   </div>
                 </div>
@@ -1895,6 +1999,7 @@ const BookingFlow = () => {
           <div className="max-w-2xl mx-auto">
             <Button
               onClick={() => {
+                // Check if all fields are filled
                 if (!cardHolder || !cardNumber || !expiryMonth || !expiryYear) {
                   setShowPaymentSection(true);
                   setTimeout(() => {
@@ -1906,6 +2011,30 @@ const BookingFlow = () => {
                   });
                   return;
                 }
+                
+                // Validate card number with Luhn algorithm
+                const digitsOnly = cardNumber.replace(/\D/g, "");
+                if (digitsOnly.length < 16 || !isValidLuhn(digitsOnly)) {
+                  setCardNumberError("Please enter a valid card number");
+                  paymentSectionRef.current?.scrollIntoView({ behavior: 'smooth', block: 'start' });
+                  return;
+                }
+                
+                // Validate month is 01-12
+                const monthNum = parseInt(expiryMonth, 10);
+                if (monthNum < 1 || monthNum > 12) {
+                  setExpiryError("Invalid month (01-12)");
+                  paymentSectionRef.current?.scrollIntoView({ behavior: 'smooth', block: 'start' });
+                  return;
+                }
+                
+                // Validate expiry date
+                if (isCardExpired(expiryMonth, expiryYear)) {
+                  setExpiryError("Card has expired");
+                  paymentSectionRef.current?.scrollIntoView({ behavior: 'smooth', block: 'start' });
+                  return;
+                }
+                
                 handleSubmit();
               }}
               disabled={isSubmitting}
