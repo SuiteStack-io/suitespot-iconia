@@ -1,4 +1,5 @@
 import { useEffect, useState } from 'react';
+import { CreateReservationDialog } from '@/components/CreateReservationDialog';
 import { supabase } from '@/integrations/supabase/client';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
@@ -923,20 +924,10 @@ export const ReservationsList = ({ userRole }: ReservationsListProps) => {
           </Button>
         )}
 
-        {/* Export buttons - hidden on mobile */}
-        <Button
-          variant="default"
-          onClick={handleExportExcel}
-          className="hidden md:flex sm:w-auto"
-        >
-          <FileSpreadsheet className="h-4 w-4 mr-2" />
-          Export Excel
-          {(selectedReservations.size > 0 || filteredReservations.length > 0) && (
-            <Badge variant="secondary" className="ml-2">
-              {selectedReservations.size > 0 ? selectedReservations.size : filteredReservations.length}
-            </Badge>
-          )}
-        </Button>
+        {/* Create Reservation button - hidden on mobile */}
+        <div className="hidden md:block">
+          <CreateReservationDialog />
+        </div>
 
       </div>
 
