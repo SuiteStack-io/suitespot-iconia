@@ -20,6 +20,7 @@ import Analytics from "./pages/Analytics";
 import Guests from "./pages/Guests";
 import MyReservations from "./pages/MyReservations";
 import Rooms from "./pages/Rooms";
+import RoomRates from "./pages/RoomRates";
 import PublicHome from "./pages/PublicHome";
 import BookingFlow from "./pages/BookingFlow";
 import BookingConfirmation from "./pages/BookingConfirmation";
@@ -124,6 +125,7 @@ const App = () => (
               <Route path="/guest-forms" element={<ProtectedRoute><GuestForms /></ProtectedRoute>} />
               <Route path="/my-commissions" element={<ProtectedRoute><MyReservations /></ProtectedRoute>} />
               <Route path="/rooms" element={<ProtectedRoute><Rooms /></ProtectedRoute>} />
+              <Route path="/room-rates" element={<ProtectedRoute><RoomRates /></ProtectedRoute>} />
               <Route path="/homepage-management" element={<ProtectedRoute><HomepageManagement /></ProtectedRoute>} />
               <Route path="/settings" element={<ProtectedRoute><Settings /></ProtectedRoute>} />
         <Route path="/booking-com-reservations" element={<ProtectedRoute><BookingComReservations /></ProtectedRoute>} />
