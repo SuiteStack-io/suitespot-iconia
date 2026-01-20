@@ -1571,7 +1571,20 @@ export const AvailabilityCalendar = () => {
           return styles;
         })(),
         didParseCell: (data) => {
-          if (data.section === 'head') return;
+          // Calculate today's column index
+          const today = startOfDay(new Date());
+          const todayDayIndex = exportDays.findIndex(day => isSameDay(day, today));
+          const todayTableColumnIndex = todayDayIndex >= 0 ? todayDayIndex + 1 : -1; // +1 for Room column
+          
+          // Handle header section - highlight today's column
+          if (data.section === 'head') {
+            if (todayTableColumnIndex > 0 && data.column.index === todayTableColumnIndex) {
+              data.cell.styles.fillColor = [31, 41, 55]; // gray-800 (dark)
+              data.cell.styles.textColor = [255, 255, 255]; // white
+              data.cell.styles.fontStyle = 'bold';
+            }
+            return;
+          }
           
           // Check for Arabic text and use Amiri font
           const cellText = Array.isArray(data.cell.text) ? data.cell.text.join('') : String(data.cell.text);
@@ -1606,13 +1619,16 @@ export const AvailabilityCalendar = () => {
           const actualUnitIndex = rowIndex - separatorsBefore;
           const dayIndex = data.column.index - 1;
           
+          // Check if this is today's column
+          const isToday = todayTableColumnIndex > 0 && data.column.index === todayTableColumnIndex;
+          
           if (actualUnitIndex >= 0 && actualUnitIndex < availabilityMatrix.length && 
               dayIndex >= 0 && dayIndex < availabilityMatrix[actualUnitIndex].length) {
             const status = availabilityMatrix[actualUnitIndex][dayIndex];
             
             switch (status) {
               case 'conflict':
-                data.cell.styles.fillColor = [254, 202, 202]; // red-200
+                data.cell.styles.fillColor = isToday ? [254, 226, 226] : [254, 202, 202]; // lighter red for today
                 data.cell.styles.textColor = [153, 27, 27]; // red-800
                 data.cell.styles.fontStyle = 'bold';
                 break;
@@ -1621,17 +1637,23 @@ export const AvailabilityCalendar = () => {
                 data.cell.styles.textColor = [0, 0, 0]; // Black text (invisible)
                 break;
               case 'checkout':
-                data.cell.styles.fillColor = [165, 180, 252]; // indigo-300 (darker shade for checkout)
+                data.cell.styles.fillColor = isToday ? [199, 210, 254] : [165, 180, 252]; // lighter indigo for today
                 data.cell.styles.textColor = [30, 64, 175]; // blue-800
                 break;
               case 'booked':
-                data.cell.styles.fillColor = [191, 219, 254]; // blue-200
+                data.cell.styles.fillColor = isToday ? [219, 234, 254] : [191, 219, 254]; // lighter blue for today
                 data.cell.styles.textColor = [30, 64, 175]; // blue-800
                 break;
               case 'available':
-                data.cell.styles.fillColor = [220, 252, 231]; // green-200
-                data.cell.styles.textColor = [22, 101, 52]; // green-800
+                data.cell.styles.fillColor = isToday ? [254, 252, 232] : [220, 252, 231]; // cream/yellow-50 for today, green otherwise
+                data.cell.styles.textColor = isToday ? [133, 77, 14] : [22, 101, 52]; // yellow-800 or green-800
                 break;
+            }
+            
+            // Add subtle border for today's column cells
+            if (isToday) {
+              data.cell.styles.lineWidth = 0.3;
+              data.cell.styles.lineColor = [202, 138, 4]; // yellow-600 border
             }
           }
         }
