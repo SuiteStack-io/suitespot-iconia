@@ -109,7 +109,10 @@ const Index = () => {
           <div className="flex items-center gap-2">
             {/* User Profile Display */}
             <div className="flex items-center gap-2 mr-2">
-              <Avatar className="h-9 w-9 bg-muted">
+              <Avatar 
+                className="h-9 w-9 bg-muted md:cursor-default cursor-pointer"
+                onClick={() => isMobile && signOut()}
+              >
                 <AvatarFallback className="text-sm font-medium text-muted-foreground">
                   {getInitials(userName)}
                 </AvatarFallback>
