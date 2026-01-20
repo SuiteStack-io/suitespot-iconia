@@ -5,6 +5,12 @@ import { Dashboard } from '@/components/Dashboard';
 import { CreateReservationDialog } from '@/components/CreateReservationDialog';
 import { Button } from '@/components/ui/button';
 import { LogOut, RefreshCw, Bell, ArrowUp } from 'lucide-react';
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuTrigger,
+} from '@/components/ui/dropdown-menu';
 import { NotificationBell } from '@/components/NotificationBell';
 import { SlideMenu } from '@/components/SlideMenu';
 import suitespotLogo from '@/assets/suitespot-logo.png';
@@ -109,20 +115,40 @@ const Index = () => {
           <div className="flex items-center gap-2">
             {/* User Profile Display */}
             <div className="flex items-center gap-2 mr-2">
-              <Avatar 
-                className="h-9 w-9 bg-muted md:cursor-default cursor-pointer"
-                onClick={() => isMobile && signOut()}
-              >
-                <AvatarFallback className="text-sm font-medium text-muted-foreground">
-                  {getInitials(userName)}
-                </AvatarFallback>
-              </Avatar>
-              
-              <div className="hidden md:flex flex-col">
-                <span className="text-sm font-medium leading-tight">{userName}</span>
-                <span className="text-xs text-muted-foreground leading-tight">
-                  {formatRole(userRole)}
-                </span>
+              {/* Mobile: Dropdown menu */}
+              <div className="md:hidden">
+                <DropdownMenu>
+                  <DropdownMenuTrigger asChild>
+                    <Avatar className="h-9 w-9 bg-muted cursor-pointer">
+                      <AvatarFallback className="text-sm font-medium text-muted-foreground">
+                        {getInitials(userName)}
+                      </AvatarFallback>
+                    </Avatar>
+                  </DropdownMenuTrigger>
+                  <DropdownMenuContent align="end" className="w-48">
+                    <div className="px-2 py-1.5 text-sm font-medium">{userName}</div>
+                    <div className="px-2 pb-2 text-xs text-muted-foreground">{formatRole(userRole)}</div>
+                    <DropdownMenuItem onClick={() => signOut()} className="text-destructive focus:text-destructive">
+                      <LogOut className="h-4 w-4 mr-2" />
+                      Sign Out
+                    </DropdownMenuItem>
+                  </DropdownMenuContent>
+                </DropdownMenu>
+              </div>
+
+              {/* Desktop: Avatar + Name */}
+              <div className="hidden md:flex items-center gap-2">
+                <Avatar className="h-9 w-9 bg-muted">
+                  <AvatarFallback className="text-sm font-medium text-muted-foreground">
+                    {getInitials(userName)}
+                  </AvatarFallback>
+                </Avatar>
+                <div className="flex flex-col">
+                  <span className="text-sm font-medium leading-tight">{userName}</span>
+                  <span className="text-xs text-muted-foreground leading-tight">
+                    {formatRole(userRole)}
+                  </span>
+                </div>
               </div>
             </div>
 
