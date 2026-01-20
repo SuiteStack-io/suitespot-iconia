@@ -79,6 +79,7 @@ export function SlideMenu({ userRole }: SlideMenuProps) {
       label: 'ICONIA',
       items: [
         { title: 'Rooms', url: '/rooms', icon: DoorOpen },
+        { title: 'Room Rates', url: '/room-rates', icon: DollarSign },
         { title: 'Reservations List', url: '/reservations-list', icon: ClipboardList },
         { title: 'Calendar', url: '/calendar', icon: CalendarDays },
         { title: 'Check-In/Out', url: '/check-in-out', icon: DoorClosed },
