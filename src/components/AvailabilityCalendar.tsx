@@ -1628,7 +1628,7 @@ export const AvailabilityCalendar = () => {
             
             switch (status) {
               case 'conflict':
-                data.cell.styles.fillColor = isToday ? [254, 226, 226] : [254, 202, 202]; // lighter red for today
+                data.cell.styles.fillColor = [254, 202, 202]; // red-200
                 data.cell.styles.textColor = [153, 27, 27]; // red-800
                 data.cell.styles.fontStyle = 'bold';
                 break;
@@ -1637,24 +1637,24 @@ export const AvailabilityCalendar = () => {
                 data.cell.styles.textColor = [0, 0, 0]; // Black text (invisible)
                 break;
               case 'checkout':
-                data.cell.styles.fillColor = isToday ? [199, 210, 254] : [165, 180, 252]; // lighter indigo for today
+                data.cell.styles.fillColor = [165, 180, 252]; // indigo-300
                 data.cell.styles.textColor = [30, 64, 175]; // blue-800
                 break;
               case 'booked':
-                data.cell.styles.fillColor = isToday ? [219, 234, 254] : [191, 219, 254]; // lighter blue for today
+                data.cell.styles.fillColor = [191, 219, 254]; // blue-200
                 data.cell.styles.textColor = [30, 64, 175]; // blue-800
                 break;
               case 'available':
-                data.cell.styles.fillColor = isToday ? [254, 252, 232] : [220, 252, 231]; // cream/yellow-50 for today, green otherwise
-                data.cell.styles.textColor = isToday ? [133, 77, 14] : [22, 101, 52]; // yellow-800 or green-800
+                data.cell.styles.fillColor = [220, 252, 231]; // green-200
+                data.cell.styles.textColor = [22, 101, 52]; // green-800
                 break;
             }
-            
-            // Add subtle border for today's column cells
-            if (isToday) {
-              data.cell.styles.lineWidth = 0.3;
-              data.cell.styles.lineColor = [202, 138, 4]; // yellow-600 border
-            }
+          }
+          
+          // Add black vertical lines on sides for today's column
+          if (isToday) {
+            data.cell.styles.lineColor = [0, 0, 0]; // Black
+            data.cell.styles.lineWidth = { top: 0, bottom: 0, left: 0.5, right: 0.5 };
           }
         }
       });
