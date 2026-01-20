@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react';
+import React, { useEffect, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { supabase } from '@/integrations/supabase/client';
 import { SlideMenu } from '@/components/SlideMenu';
@@ -122,9 +122,9 @@ const RoomRates = () => {
               {sortedRoomTypes.map((roomType) => {
                 const roomUnits = groupedUnits[roomType];
                 return (
-                  <>
+                  <React.Fragment key={roomType}>
                     {/* Group Header */}
-                    <TableRow key={`header-${roomType}`} className="bg-muted/30 hover:bg-muted/40">
+                    <TableRow className="bg-muted/30 hover:bg-muted/40">
                       <TableCell colSpan={4} className="py-3">
                         <div className="flex items-center gap-2">
                           <Building2 className="h-4 w-4 text-muted-foreground" />
@@ -162,7 +162,7 @@ const RoomRates = () => {
                         </TableCell>
                       </TableRow>
                     ))}
-                  </>
+                  </React.Fragment>
                 );
               })}
               
