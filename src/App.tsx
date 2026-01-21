@@ -24,7 +24,7 @@ import RoomRates from "./pages/RoomRates";
 import PublicHome from "./pages/PublicHome";
 import BookingFlow from "./pages/BookingFlow";
 import BookingConfirmation from "./pages/BookingConfirmation";
-import OurStory from "./pages/OurStory";
+import IconiaZamalek from "./pages/IconiaZamalek";
 import About from "./pages/About";
 import Locations from "./pages/Locations";
 import Suites from "./pages/Suites";
@@ -77,7 +77,7 @@ const App = () => (
               <Route path="/" element={<PublicHome />} />
               <Route path="/book" element={<BookingFlow />} />
               <Route path="/booking-confirmation" element={<BookingConfirmation />} />
-              <Route path="/our-story" element={<OurStory />} />
+              <Route path="/iconia-zamalek" element={<IconiaZamalek />} />
               <Route path="/about" element={<About />} />
               <Route path="/locations" element={<Locations />} />
               <Route path="/suites" element={<Suites />} />

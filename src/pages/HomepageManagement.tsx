@@ -46,7 +46,7 @@ export default function HomepageManagement() {
         <Tabs value={activeTab} onValueChange={setActiveTab} className="w-full">
           <TabsList className="grid w-full max-w-lg grid-cols-4 mb-6">
             <TabsTrigger value="homepage">Homepage</TabsTrigger>
-            <TabsTrigger value="our-story">Our Story</TabsTrigger>
+            <TabsTrigger value="iconia-zamalek">ICONIA Zamalek</TabsTrigger>
             <TabsTrigger value="blog">Blog</TabsTrigger>
             <TabsTrigger value="faq">FAQ</TabsTrigger>
           </TabsList>
@@ -59,11 +59,11 @@ export default function HomepageManagement() {
             />
           </TabsContent>
 
-          <TabsContent value="our-story" className="space-y-6">
+          <TabsContent value="iconia-zamalek" className="space-y-6">
             <SlideshowManager
               tableName="our_story_slideshow"
               bucketName="our-story-slideshow"
-              title="Our Story Slideshow Management"
+              title="ICONIA Zamalek Slideshow Management"
             />
           </TabsContent>
 
