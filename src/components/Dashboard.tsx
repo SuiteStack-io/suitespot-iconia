@@ -77,6 +77,7 @@ interface Reservation {
   payment_method: string | null;
   access_cards_given: number | null;
   units: { name: string; booking_com_name: string | null; unit_number: string | null } | null;
+  check_in_agreements?: { id: string }[] | null;
 }
 
 const statusColors = {
@@ -273,7 +274,7 @@ export const Dashboard = () => {
     const yesterday = format(new Date(Date.now() - 86400000), 'yyyy-MM-dd');
     const sevenDaysAgo = format(new Date(Date.now() - 7 * 86400000), 'yyyy-MM-dd');
     
-    const baseSelect = 'id, booking_reference, guest_names, guest_types, guest_genders, check_in_date, check_out_date, checked_in_at, checked_out_at, cancelled_at, status, total_price, number_of_guests, children, adults, source, channel, payment_method, group_id, access_cards_given, units(name, booking_com_name, unit_number)';
+    const baseSelect = 'id, booking_reference, guest_names, guest_types, guest_genders, check_in_date, check_out_date, checked_in_at, checked_out_at, cancelled_at, status, total_price, number_of_guests, children, adults, source, channel, payment_method, group_id, access_cards_given, units(name, booking_com_name, unit_number), check_in_agreements(id)';
     
     // Clear transfers when opening a non-transfer dialog
     setDialogTransfers([]);
@@ -1034,20 +1035,44 @@ export const Dashboard = () => {
                             </Button>
                           )}
                           {reservation.status === 'checked-in' && (
-                            <Button
-                              size="sm"
-                              variant="outline"
-                              onClick={(e) => {
-                                e.stopPropagation();
-                                setSelectedReservation(reservation);
-                                setCheckOutDialogOpen(true);
-                              }}
-                              disabled={updating === reservation.id}
-                              className="gap-1"
-                            >
-                              <CheckCircle className="h-3 w-3" />
-                              Check Out
-                            </Button>
+                            <>
+                              {reservation.check_in_agreements && reservation.check_in_agreements.length > 0 ? (
+                                <Badge 
+                                  variant="secondary" 
+                                  className="bg-green-100 text-green-800 border-green-300 gap-1 cursor-default"
+                                >
+                                  <FileSignature className="h-3 w-3" />
+                                  Form Done
+                                </Badge>
+                              ) : (
+                                <Button
+                                  size="sm"
+                                  variant="outline"
+                                  onClick={(e) => {
+                                    e.stopPropagation();
+                                    window.open(`/guest-checkin/${reservation.id}`, '_blank');
+                                  }}
+                                  className="gap-1"
+                                >
+                                  <FileSignature className="h-3 w-3" />
+                                  Guest Form
+                                </Button>
+                              )}
+                              <Button
+                                size="sm"
+                                variant="outline"
+                                onClick={(e) => {
+                                  e.stopPropagation();
+                                  setSelectedReservation(reservation);
+                                  setCheckOutDialogOpen(true);
+                                }}
+                                disabled={updating === reservation.id}
+                                className="gap-1"
+                              >
+                                <CheckCircle className="h-3 w-3" />
+                                Check Out
+                              </Button>
+                            </>
                           )}
                           {dialogTitle.includes('Departures') && (reservation.status === 'checked-out' || reservation.status === 'completed') && (
                             <Button
