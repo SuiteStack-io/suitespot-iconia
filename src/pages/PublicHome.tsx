@@ -8,7 +8,6 @@ import { PublicNav } from "@/components/PublicNav";
 import { HeroSlideshow } from "@/components/HeroSlideshow";
 import { SEO } from "@/components/SEO";
 import { useRef } from "react";
-
 const PublicHome = () => {
   const touchStartX = useRef<number>(0);
   const touchEndX = useRef<number>(0);
@@ -31,53 +30,42 @@ const PublicHome = () => {
       window.dispatchEvent(event);
     }
   };
-
   const organizationJsonLd = {
     "@context": "https://schema.org",
-    "@graph": [
-      {
-        "@type": "Organization",
-        "@id": "https://findyoursuitespot.com/#organization",
-        "name": "SuiteSpot Hospitality",
-        "url": "https://findyoursuitespot.com",
-        "logo": {
-          "@type": "ImageObject",
-          "url": "https://findyoursuitespot.com/suitespot-logo-3.png"
-        },
-        "description": "Premium serviced apartments in Cairo, Egypt. Blending hotel service with home comfort.",
-        "address": {
-          "@type": "PostalAddress",
-          "streetAddress": "16 Mohammed Thakeb St, Iconia Building",
-          "addressLocality": "Zamalek",
-          "addressRegion": "Cairo",
-          "addressCountry": "EG"
-        },
-        "contactPoint": {
-          "@type": "ContactPoint",
-          "email": "info@findyoursuitespot.com",
-          "contactType": "customer service"
-        }
+    "@graph": [{
+      "@type": "Organization",
+      "@id": "https://findyoursuitespot.com/#organization",
+      "name": "SuiteSpot Hospitality",
+      "url": "https://findyoursuitespot.com",
+      "logo": {
+        "@type": "ImageObject",
+        "url": "https://findyoursuitespot.com/suitespot-logo-3.png"
       },
-      {
-        "@type": "WebSite",
-        "@id": "https://findyoursuitespot.com/#website",
-        "url": "https://findyoursuitespot.com",
-        "name": "SuiteSpot Hospitality",
-        "publisher": {
-          "@id": "https://findyoursuitespot.com/#organization"
-        }
+      "description": "Premium serviced apartments in Cairo, Egypt. Blending hotel service with home comfort.",
+      "address": {
+        "@type": "PostalAddress",
+        "streetAddress": "16 Mohammed Thakeb St, Iconia Building",
+        "addressLocality": "Zamalek",
+        "addressRegion": "Cairo",
+        "addressCountry": "EG"
+      },
+      "contactPoint": {
+        "@type": "ContactPoint",
+        "email": "info@findyoursuitespot.com",
+        "contactType": "customer service"
       }
-    ]
+    }, {
+      "@type": "WebSite",
+      "@id": "https://findyoursuitespot.com/#website",
+      "url": "https://findyoursuitespot.com",
+      "name": "SuiteSpot Hospitality",
+      "publisher": {
+        "@id": "https://findyoursuitespot.com/#organization"
+      }
+    }]
   };
-
-  return (
-    <div className="min-h-screen">
-      <SEO
-        title="SuiteSpot Hospitality | Premium Serviced Apartments in Cairo, Egypt"
-        description="Experience luxury serviced apartments in Zamalek, Cairo. SuiteSpot blends hotel service with home comfort. Wellness programs, stunning Nile views, and authentic Egyptian hospitality."
-        path="/"
-        additionalJsonLd={organizationJsonLd}
-      />
+  return <div className="min-h-screen">
+      <SEO title="SuiteSpot Hospitality | Premium Serviced Apartments in Cairo, Egypt" description="Experience luxury serviced apartments in Zamalek, Cairo. SuiteSpot blends hotel service with home comfort. Wellness programs, stunning Nile views, and authentic Egyptian hospitality." path="/" additionalJsonLd={organizationJsonLd} />
 
       {/* Navigation */}
       <PublicNav />
@@ -95,7 +83,7 @@ const PublicHome = () => {
           <p className="text-[20px] md:text-[28px] font-playfair font-light text-white/90 mb-48 md:mb-8 animate-fade-in" style={{
           animationDelay: "0.2s",
           textShadow: "2px 2px 4px rgba(0,0,0,0.8), 0 0 20px rgba(0,0,0,0.6)"
-        }}>Blending the comfort of home with the service of a boutique hotel in Cairo</p>
+        }}>Blending the comfort of home with the service of a boutique hotel in ICONIA, Zamalek</p>
           
           {/* Desktop buttons only */}
           <div className="hidden sm:flex gap-4 justify-center animate-fade-in mb-8 mt-16" style={{
@@ -260,8 +248,6 @@ const PublicHome = () => {
           </div>
         </div>
       </footer>
-    </div>
-  );
+    </div>;
 };
-
 export default PublicHome;
