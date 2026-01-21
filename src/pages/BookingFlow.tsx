@@ -1794,7 +1794,7 @@ const BookingFlow = () => {
                   <h3 className="text-2xl font-light mb-4">Choose a Payment Card</h3>
                   
                   <p className="text-muted-foreground mb-4 text-sm">
-                    No prepayment required. Payment is made at the hotel upon arrival. Card details are used only to confirm your reservation.
+                    No prepayment required. <span className="font-bold">Payment is made at the hotel upon arrival. Card details are used only to confirm your reservation.</span>
                   </p>
                   
                   {/* PCI DSS Compliant Badge */}
