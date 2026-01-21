@@ -44,7 +44,7 @@ export const PublicFooter = () => {
           <div>
             <h4 className="font-semibold text-foreground mb-4">Explore</h4>
             <div className="space-y-2">
-              <Link to="/our-story" className="block text-sm text-muted-foreground hover:text-foreground transition-colors">Our Story</Link>
+              <Link to="/iconia-zamalek" className="block text-sm text-muted-foreground hover:text-foreground transition-colors">ICONIA Zamalek</Link>
               <Link to="/locations" className="block text-sm text-muted-foreground hover:text-foreground transition-colors">Locations</Link>
               <Link to="/suites" className="block text-sm text-muted-foreground hover:text-foreground transition-colors">Suites</Link>
             </div>

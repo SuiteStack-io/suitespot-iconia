@@ -6,17 +6,17 @@ import { PublicNav } from "@/components/PublicNav";
 import { PublicFooter } from "@/components/PublicFooter";
 import { SEO } from "@/components/SEO";
 
-const OurStory = () => {
+const IconiaZamalek = () => {
   return (
     <div className="min-h-screen bg-background">
       <SEO
-        title="Our Story | From AUC Dorms to ICONIA & SuiteSpot"
+        title="ICONIA Zamalek | redefining serviced apartment living in Egypt"
         description="From the historic AUC dormitory to ICONIA and SuiteSpot. Discover our journey of transforming iconic Cairo buildings into wellness-focused stays."
-        path="/our-story"
+        path="/iconia-zamalek"
         breadcrumbs={[
           { name: "Home", path: "/" },
           { name: "About", path: "/about" },
-          { name: "Our Story" }
+          { name: "ICONIA Zamalek" }
         ]}
       />
 
@@ -26,7 +26,7 @@ const OurStory = () => {
         {/* Hero Section */}
         <section className="py-8 md:py-13 px-[20px] mx-[40px] bg-gradient-to-b from-primary/5 to-background">
           <div className="container mx-auto max-w-4xl text-center">
-            <h1 className="font-playfair font-semibold text-[40px] md:text-[80px] tracking-[-0.02em] leading-[1.1] text-foreground mb-6">Our Story</h1>
+            <h1 className="font-playfair font-semibold text-[40px] md:text-[80px] tracking-[-0.02em] leading-[1.1] text-foreground mb-6">ICONIA Zamalek</h1>
             <p className="font-playfair font-medium text-[24px] md:text-[36px] text-muted-foreground">From AUC Dorms to Iconia & SuiteSpot | Our Hospitality Story in Cairo</p>
           </div>
         </section>
@@ -126,4 +126,4 @@ const OurStory = () => {
   );
 };
 
-export default OurStory;
+export default IconiaZamalek;

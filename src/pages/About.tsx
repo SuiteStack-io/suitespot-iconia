@@ -413,10 +413,10 @@ This is more than a place to sleep. It’s a better way to stay.
               Explore More
             </h2>
             <div className="grid md:grid-cols-3 gap-6">
-              <Link to="/our-story" className="group">
+              <Link to="/iconia-zamalek" className="group">
                 <Card className="p-6 hover:shadow-lg transition-all hover:scale-105">
                   <h3 className="font-playfair text-[20px] font-medium mb-2 text-foreground group-hover:text-primary transition-colors">
-                    Our Story →
+                    ICONIA Zamalek →
                   </h3>
                   <p className="font-playfair text-[16px] font-normal text-muted-foreground leading-[1.5]">
                     Learn about our journey and vision
@@ -511,7 +511,7 @@ This is more than a place to sleep. It’s a better way to stay.
                 <h4 className="font-semibold text-foreground mb-4">Explore</h4>
                 <div className="space-y-2">
                   <Link to="/about" className="block text-sm text-muted-foreground hover:text-foreground">About</Link>
-                  <Link to="/our-story" className="block text-sm text-muted-foreground hover:text-foreground">Our Story</Link>
+                  <Link to="/iconia-zamalek" className="block text-sm text-muted-foreground hover:text-foreground">ICONIA Zamalek</Link>
                   <Link to="/locations" className="block text-sm text-muted-foreground hover:text-foreground">Locations</Link>
                   <Link to="/suites" className="block text-sm text-muted-foreground hover:text-foreground">Suites</Link>
                 </div>

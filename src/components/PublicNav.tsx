@@ -51,8 +51,8 @@ export const PublicNav = () => {
           <Link to="/blog" className="font-playfair font-medium text-[14px] text-white hover:text-white/80 transition-colors">
             Blog
           </Link>
-          <Link to="/our-story" className="font-playfair font-medium text-[14px] text-white hover:text-white/80 transition-colors">
-            Our Story
+          <Link to="/iconia-zamalek" className="font-playfair font-medium text-[14px] text-white hover:text-white/80 transition-colors">
+            ICONIA Zamalek
           </Link>
           <Link to="/faq" className="font-playfair font-medium text-[14px] text-white hover:text-white/80 transition-colors">
             FAQ
@@ -135,11 +135,11 @@ export const PublicNav = () => {
               Blog
             </Link>
             <Link 
-              to="/our-story" 
+              to="/iconia-zamalek" 
               className="block py-3 font-playfair font-medium text-[14px] text-foreground hover:text-accent transition-colors border-b border-border"
               onClick={handleMenuClose}
             >
-              Our Story
+              ICONIA Zamalek
             </Link>
             <Link 
               to="/faq" 

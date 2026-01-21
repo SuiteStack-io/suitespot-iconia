@@ -135,7 +135,7 @@ const PublicHome = () => {
             wellness, style, and authentic Egyptian hospitality.
           </p>
           <Button asChild size="lg" className="bg-accent hover:bg-accent/90 text-white font-playfair font-medium text-[14px]">
-            <Link to="/our-story">Our Story</Link>
+            <Link to="/iconia-zamalek">ICONIA Zamalek</Link>
           </Button>
         </div>
       </section>
@@ -222,7 +222,7 @@ const PublicHome = () => {
               <h4 className="font-playfair font-medium text-[14px] text-foreground mb-4">Explore</h4>
               <div className="space-y-2">
                 <Link to="/about" className="block text-[14px] font-playfair font-normal leading-[1.5] text-muted-foreground hover:text-foreground">About</Link>
-                <Link to="/our-story" className="block text-[14px] font-playfair font-normal leading-[1.5] text-muted-foreground hover:text-foreground">Our Story</Link>
+                <Link to="/iconia-zamalek" className="block text-[14px] font-playfair font-normal leading-[1.5] text-muted-foreground hover:text-foreground">ICONIA Zamalek</Link>
                 <Link to="/locations" className="block text-[14px] font-playfair font-normal leading-[1.5] text-muted-foreground hover:text-foreground">Locations</Link>
                 <Link to="/suites" className="block text-[14px] font-playfair font-normal leading-[1.5] text-muted-foreground hover:text-foreground">Suites</Link>
               </div>
