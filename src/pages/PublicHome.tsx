@@ -83,7 +83,7 @@ const PublicHome = () => {
           <p className="text-[20px] md:text-[28px] font-playfair font-light text-white/90 mb-48 md:mb-8 animate-fade-in" style={{
           animationDelay: "0.2s",
           textShadow: "2px 2px 4px rgba(0,0,0,0.8), 0 0 20px rgba(0,0,0,0.6)"
-        }}>Blending the comfort of home with the service of a boutique hotel in ICONIA, Zamalek</p>
+        }}>Blending the comfort of home with the service of a boutique hotel in ICONIA Zamalek</p>
           
           {/* Desktop buttons only */}
           <div className="hidden sm:flex gap-4 justify-center animate-fade-in mb-8 mt-16" style={{
