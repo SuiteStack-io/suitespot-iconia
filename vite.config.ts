@@ -15,7 +15,7 @@ export default defineConfig(({ mode }) => ({
     mode === "development" && componentTagger(),
     VitePWA({
       registerType: "autoUpdate",
-      includeAssets: ["favicon.ico", "suitespot-logo-3.png"],
+      includeAssets: ["favicon.ico", "suitespot-logo-3.png", "sitemap.xml", "robots.txt"],
       manifest: {
         name: "SuiteSpot Guest Portal",
         short_name: "SuiteSpot",
@@ -44,6 +44,7 @@ export default defineConfig(({ mode }) => ({
       workbox: {
         globPatterns: ["**/*.{js,css,html,ico,png,svg}"],
         globIgnores: ["**/slideshow/**"],
+        navigateFallbackDenylist: [/^\/sitemap\.xml$/, /^\/robots\.txt$/],
         maximumFileSizeToCacheInBytes: 10 * 1024 * 1024, // 10 MB
         runtimeCaching: [
           {
