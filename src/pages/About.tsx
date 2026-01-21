@@ -10,8 +10,8 @@ const organizationJsonLd = {
   "@type": "Organization",
   "name": "SuiteSpot Hospitality",
   "alternateName": "SuiteSpot",
-  "url": "https://findyoursuitespot.com",
-  "logo": "https://findyoursuitespot.com/suitespot-logo-3.png",
+  "url": "https://www.findyoursuitespot.com",
+  "logo": "https://www.findyoursuitespot.com/suitespot-logo-3.png",
   "description": "SuiteSpot Hospitality redefines serviced apartment living in Egypt, blending local culture, modern design, and hotel-level service.",
   "foundingDate": "2024",
   "foundingLocation": {

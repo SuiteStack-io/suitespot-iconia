@@ -31,4 +31,4 @@ Allow: /
 User-agent: *
 Allow: /
 
-Sitemap: https://findyoursuitespot.com/sitemap.xml
+Sitemap: https://www.findyoursuitespot.com/sitemap.xml

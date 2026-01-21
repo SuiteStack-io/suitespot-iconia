@@ -34,12 +34,12 @@ const PublicHome = () => {
     "@context": "https://schema.org",
     "@graph": [{
       "@type": "Organization",
-      "@id": "https://findyoursuitespot.com/#organization",
+      "@id": "https://www.findyoursuitespot.com/#organization",
       "name": "SuiteSpot Hospitality",
-      "url": "https://findyoursuitespot.com",
+      "url": "https://www.findyoursuitespot.com",
       "logo": {
         "@type": "ImageObject",
-        "url": "https://findyoursuitespot.com/suitespot-logo-3.png"
+        "url": "https://www.findyoursuitespot.com/suitespot-logo-3.png"
       },
       "description": "Premium serviced apartments in Cairo, Egypt. Blending hotel service with home comfort.",
       "address": {
@@ -56,11 +56,11 @@ const PublicHome = () => {
       }
     }, {
       "@type": "WebSite",
-      "@id": "https://findyoursuitespot.com/#website",
-      "url": "https://findyoursuitespot.com",
+      "@id": "https://www.findyoursuitespot.com/#website",
+      "url": "https://www.findyoursuitespot.com",
       "name": "SuiteSpot Hospitality",
       "publisher": {
-        "@id": "https://findyoursuitespot.com/#organization"
+        "@id": "https://www.findyoursuitespot.com/#organization"
       }
     }]
   };

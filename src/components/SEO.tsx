@@ -1,6 +1,6 @@
 import { Helmet } from 'react-helmet-async';
 
-const BASE_URL = 'https://findyoursuitespot.com';
+const BASE_URL = 'https://www.findyoursuitespot.com';
 const DEFAULT_OG_IMAGE = '/slideshow/iconia-zamalek.jpg';
 const SITE_NAME = 'SuiteSpot Hospitality';
 
