@@ -1794,9 +1794,7 @@ const BookingFlow = () => {
                   <h3 className="text-2xl font-light mb-4">Choose a Payment Card</h3>
                   
                   <p className="text-muted-foreground mb-4 text-sm">
-                    To secure your reservation request, please enter your payment details below. 
-                    Your card will be verified with a temporary pre-authorization of <span className="font-bold">€1</span>, 
-                    which will be automatically released.
+                    No prepayment required. Payment is made at the hotel upon arrival. Card details are used only to confirm your reservation.
                   </p>
                   
                   {/* PCI DSS Compliant Badge */}
