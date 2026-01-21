@@ -989,7 +989,7 @@ export const Dashboard = () => {
                           <p className="font-semibold">${reservation.total_price?.toFixed(2) || '0.00'}</p>
                         </div>
                         <div className="flex gap-2">
-                          {reservation.status === 'confirmed' && !dialogTitle.includes('Departures') && (
+                          {reservation.status === 'confirmed' && dialogTitle.includes('Arrivals') && (
                             <>
                               <Button
                                 size="sm"
