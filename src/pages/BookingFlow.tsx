@@ -21,7 +21,7 @@ import { Loader2, Bed, Bath, Users, Maximize2, Sofa, X, ChevronLeft, ChevronRigh
 import { Checkbox } from "@/components/ui/checkbox";
 import { cn } from "@/lib/utils";
 import visaLogo from "@/assets/visa-logo.png";
-import mastercardLogo from "@/assets/mastercard-logo.png";
+import mastercardLogo from "@/assets/mastercard-logo.jpg";
 import type { DateRange } from "react-day-picker";
 import { PublicNav } from "@/components/PublicNav";
 
