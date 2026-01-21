@@ -19,6 +19,7 @@ interface Unit {
   name: string;
   unit_number: string | null;
   booking_com_name: string | null;
+  unit_size: string | null;
   view: string | null;
   price_per_night: number | null;
   weekend_rate: number | null;
@@ -42,7 +43,7 @@ const RoomRates = () => {
     try {
       const { data, error } = await supabase
         .from('units')
-        .select('id, name, unit_number, booking_com_name, view, price_per_night, weekend_rate')
+        .select('id, name, unit_number, booking_com_name, unit_size, view, price_per_night, weekend_rate')
         .eq('location', 'ICONIA')
         .order('booking_com_name')
         .order('unit_number');
@@ -113,6 +114,7 @@ const RoomRates = () => {
             <TableHeader>
               <TableRow className="bg-muted/50">
                 <TableHead className="font-semibold">Room Type</TableHead>
+                <TableHead className="font-semibold">Room Size</TableHead>
                 <TableHead className="font-semibold">View</TableHead>
                 <TableHead className="font-semibold text-right">Weekday Rate</TableHead>
                 <TableHead className="font-semibold text-right">Weekend Rate</TableHead>
@@ -125,7 +127,7 @@ const RoomRates = () => {
                   <React.Fragment key={roomType}>
                     {/* Group Header */}
                     <TableRow className="bg-muted/30 hover:bg-muted/40">
-                      <TableCell colSpan={4} className="py-3">
+                      <TableCell colSpan={5} className="py-3">
                         <div className="flex items-center gap-2">
                           <Building2 className="h-4 w-4 text-muted-foreground" />
                           <span className="font-semibold text-foreground">
@@ -152,6 +154,9 @@ const RoomRates = () => {
                           </span>
                         </TableCell>
                         <TableCell className="text-muted-foreground">
+                          {unit.unit_size || '—'}
+                        </TableCell>
+                        <TableCell className="text-muted-foreground">
                           {unit.view || '—'}
                         </TableCell>
                         <TableCell className="text-right font-medium">
@@ -168,7 +173,7 @@ const RoomRates = () => {
               
               {units.length === 0 && (
                 <TableRow>
-                  <TableCell colSpan={4} className="text-center py-8 text-muted-foreground">
+                  <TableCell colSpan={5} className="text-center py-8 text-muted-foreground">
                     No rooms found
                   </TableCell>
                 </TableRow>
