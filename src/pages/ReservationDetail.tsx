@@ -104,6 +104,7 @@ interface Reservation {
   updated_at: string;
   group_id: string | null;
   units: { name: string; unit_number: string | null; booking_com_name: string | null; tax_percentage: number | null } | null;
+  vat_exempt: boolean | null;
 }
 
 interface Unit {
@@ -1486,18 +1487,47 @@ Thank you for choosing SuiteSpot!`;
                   <Label className="text-muted-foreground">Nights</Label>
                   <p className="mt-1 font-medium">{reservation.nights}</p>
                 </div>
-                <div>
-                  <Label className="text-muted-foreground">Price per Night</Label>
-                  <p className="mt-1 font-medium">
-                    ${reservation.price_per_night ? Number(reservation.price_per_night).toFixed(2) : 'N/A'}
-                  </p>
-                </div>
-                <div>
-                  <Label className="text-muted-foreground">Total Price</Label>
-                  <p className="mt-1 font-medium">
-                    ${reservation.total_price} {reservation.currency}
-                  </p>
-                </div>
+                {(() => {
+                  // Calculate pricing breakdown for display
+                  const pricePerNight = reservation?.price_per_night || 0;
+                  const nights = reservation?.nights || 0;
+                  const subtotal = pricePerNight * nights;
+                  const taxPercentage = reservation?.units?.tax_percentage || 14;
+                  const isVatExempt = reservation?.vat_exempt === true;
+                  const taxAmount = isVatExempt ? 0 : subtotal * (taxPercentage / 100);
+                  const totalWithTax = subtotal + taxAmount;
+                  
+                  return (
+                    <>
+                      <div>
+                        <Label className="text-muted-foreground">Price per Night</Label>
+                        <p className="mt-1 font-medium">
+                          {reservation.currency} {Number(pricePerNight).toFixed(2)}
+                        </p>
+                      </div>
+                      <div>
+                        <Label className="text-muted-foreground">Subtotal ({nights} nights)</Label>
+                        <p className="mt-1 font-medium">
+                          {reservation.currency} {subtotal.toFixed(2)}
+                        </p>
+                      </div>
+                      {!isVatExempt && taxPercentage > 0 && (
+                        <div>
+                          <Label className="text-muted-foreground">Taxes & Fees ({taxPercentage}%)</Label>
+                          <p className="mt-1 font-medium">
+                            {reservation.currency} {taxAmount.toFixed(2)}
+                          </p>
+                        </div>
+                      )}
+                      <div>
+                        <Label className="text-muted-foreground font-semibold">Total Price</Label>
+                        <p className="mt-1 font-bold text-lg">
+                          {reservation.currency} {totalWithTax.toFixed(2)}
+                        </p>
+                      </div>
+                    </>
+                  );
+                })()}
                 <div>
                   <Label className="text-muted-foreground">Commission Rate</Label>
                   <p className="mt-1 font-medium">
