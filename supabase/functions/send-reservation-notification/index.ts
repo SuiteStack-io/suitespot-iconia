@@ -139,6 +139,16 @@ const handler = async (req: Request): Promise<Response> => {
         (1000 * 60 * 60 * 24)
     );
 
+    // Format short dates for subject line (e.g., "Feb 4")
+    const checkInShort = new Date(checkIn).toLocaleDateString("en-US", {
+      month: "short",
+      day: "numeric",
+    });
+    const checkOutShort = new Date(checkOut).toLocaleDateString("en-US", {
+      month: "short",
+      day: "numeric",
+    });
+
     // Send customer confirmation email first
     if (customerEmail) {
       console.log(`Sending customer confirmation to: ${customerEmail}`);
@@ -481,18 +491,16 @@ const handler = async (req: Request): Promise<Response> => {
       console.log(`Attempting to send email to: ${user.email}`);
       
       try {
-        // Build subject line with suite name and room number if available
+        // Build subject line with dates and room number
         let subject = `New Reservation: ${guestNames.join(", ")}`;
         if (isSplitStay && splitStaySegments && splitStaySegments.length > 1) {
-          subject = `Split-Stay Reservation: ${guestNames.join(", ")} - ${splitStaySegments.length} Rooms`;
+          subject = `Split-Stay Reservation: ${guestNames.join(", ")} - ${checkInShort} to ${checkOutShort} - ${splitStaySegments.length} Rooms`;
         } else if (isMultiRoom && rooms && rooms.length > 1) {
-          subject = `New Multi-Room Reservation: ${guestNames.join(", ")} - ${rooms.length} Rooms`;
-        } else if (matchedSuiteName && matchedRoomNumber) {
-          subject += ` - ${matchedSuiteName} - Room #${matchedRoomNumber}`;
-        } else if (matchedSuiteName) {
-          subject += ` - ${matchedSuiteName}`;
+          subject = `New Multi-Room Reservation: ${guestNames.join(", ")} - ${checkInShort} to ${checkOutShort} - ${rooms.length} Rooms`;
+        } else if (matchedRoomNumber) {
+          subject += ` - ${checkInShort} to ${checkOutShort} - Room #${matchedRoomNumber}`;
         } else {
-          subject += ` - ${unitName}`;
+          subject += ` - ${checkInShort} to ${checkOutShort}`;
         }
         
         // Build rooms HTML for multi-room bookings
