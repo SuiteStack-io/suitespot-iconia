@@ -79,11 +79,11 @@ const PublicHome = () => {
         <div className="relative z-10 text-center px-6 max-w-4xl mt-16 md:mt-0" onTouchStart={handleHeroTouchStart} onTouchMove={handleHeroTouchMove} onTouchEnd={handleHeroTouchEnd}>
           <h1 className="text-[40px] md:text-[60px] font-playfair font-semibold tracking-[-0.02em] text-white mb-6 animate-fade-in" style={{
           textShadow: "1px 1px 3px rgba(0,0,0,0.6), 0 0 15px rgba(0,0,0,0.4)"
-        }}>Welcome Home</h1>
+        }}>ICONIA Zamalek</h1>
           <p className="text-[20px] md:text-[28px] font-playfair font-light text-white/90 mb-48 md:mb-8 animate-fade-in" style={{
           animationDelay: "0.2s",
           textShadow: "2px 2px 4px rgba(0,0,0,0.8), 0 0 20px rgba(0,0,0,0.6)"
-        }}>Blending the comfort of home with the service of a boutique hotel in ICONIA Zamalek</p>
+        }}>More space than a hotel. More service than an apartment. All the comfort of home.</p>
           
           {/* Desktop buttons only */}
           <div className="hidden sm:flex gap-4 justify-center animate-fade-in mb-8 mt-16" style={{
