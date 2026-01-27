@@ -160,6 +160,11 @@ const DraggableReservationCell = ({
             {lastName}
           </span>
         )}
+        {reservation.source?.toLowerCase().includes('booking') && (
+          <span className="absolute bottom-0 right-0 text-[6px] bg-[#003580] text-white px-0.5 rounded-tl font-medium leading-tight">
+            booking.com
+          </span>
+        )}
       </div>
     </div>
   );
@@ -190,10 +195,15 @@ const SplitTurnoverCell = ({
         </span>
       </div>
       {/* Bottom half - arriving guest (bold/active) */}
-      <div className="h-1/2 bg-blue-200 dark:bg-blue-800/50 flex items-center justify-center">
+      <div className="h-1/2 bg-blue-200 dark:bg-blue-800/50 flex items-center justify-center relative">
         <span className="text-[9px] text-blue-700 dark:text-blue-300 font-semibold truncate px-1 flex items-center gap-0.5">
           <span className="opacity-70">↓</span> {arrivingName}
         </span>
+        {checkingInReservation.source?.toLowerCase().includes('booking') && (
+          <span className="absolute bottom-0 right-0 text-[6px] bg-[#003580] text-white px-0.5 rounded-tl font-medium leading-tight">
+            booking.com
+          </span>
+        )}
       </div>
     </div>
   );
@@ -2187,11 +2197,16 @@ export const AvailabilityCalendar = () => {
                                   className={`h-14 border rounded overflow-hidden cursor-pointer hover:ring-2 hover:ring-emerald-500/50 transition-all border-emerald-300 dark:border-emerald-700 ${todayBorderClass}`}
                                   onClick={() => handleCellClick(availability, unit, day)}
                                 >
-                                  {/* Top half - departing guest with blue styling */}
-                                  <div className="h-1/2 bg-blue-100 dark:bg-blue-900/30 flex items-center justify-center border-b border-emerald-300 dark:border-emerald-700 px-1 overflow-hidden">
+                                {/* Top half - departing guest with blue styling */}
+                                  <div className="h-1/2 bg-blue-100 dark:bg-blue-900/30 flex items-center justify-center border-b border-emerald-300 dark:border-emerald-700 px-1 overflow-hidden relative">
                                     <span className="text-[9px] text-blue-600 dark:text-blue-400 font-medium text-center leading-tight truncate">
                                       {availability.checkingOutReservation.guest_names[0]}
                                     </span>
+                                    {availability.checkingOutReservation.source?.toLowerCase().includes('booking') && (
+                                      <span className="absolute bottom-0 right-0 text-[5px] bg-[#003580] text-white px-0.5 rounded-tl font-medium leading-tight">
+                                        B.com
+                                      </span>
+                                    )}
                                   </div>
                                   {/* Bottom half - available indicator */}
                                   <div className="h-1/2 bg-green-700/85 dark:bg-green-600/85 flex items-center justify-center gap-0.5">
@@ -2242,6 +2257,11 @@ export const AvailabilityCalendar = () => {
                                       {reservation.guest_names[0]?.split(' ').slice(1).join(' ') && (
                                         <span className="text-[10px] text-blue-600 dark:text-blue-400 font-medium text-center leading-tight">
                                           {reservation.guest_names[0]?.split(' ').slice(1).join(' ')}
+                                        </span>
+                                      )}
+                                      {reservation.source?.toLowerCase().includes('booking') && (
+                                        <span className="absolute bottom-0 right-0 text-[6px] bg-[#003580] text-white px-0.5 rounded-tl font-medium leading-tight">
+                                          booking.com
                                         </span>
                                       )}
                                     </div>
