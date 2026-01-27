@@ -1,17 +1,8 @@
 
-
-## Plan: Update Reservation Email Subject Line Format
+## Plan: Add "booking.com" Badge to Calendar Reservation Cells
 
 ### Overview
-Modify the internal team notification email subject line to show check-in/check-out dates instead of the suite/room type name.
-
----
-
-### Current vs New Format
-
-| Current Subject | New Subject |
-|-----------------|-------------|
-| New Reservation: Safiyah Alotaibi - One Bedroom Suite with Balcony - Room #504 | New Reservation: Safiyah Alotaibi - Feb 4 to Feb 9 - Room #504 |
+Add a dark blue "booking.com" badge in the bottom-right corner of calendar cells for reservations that came from Booking.com. This provides instant visual identification of the booking source.
 
 ---
 
@@ -19,16 +10,29 @@ Modify the internal team notification email subject line to show check-in/check-
 
 ```text
 ┌─────────────────────────────────────────────────────────────────────────────┐
-│  CURRENT EMAIL SUBJECT:                                                      │
-│  ──────────────────────                                                      │
-│  New Reservation: Safiyah Alotaibi - One Bedroom Suite with Balcony         │
-│                                       - Room #504                            │
+│  CURRENT CELL:                                                               │
+│  ┌────────────────────┐                                                      │
+│  │  [CHECK IN]        │  ← Top-right badge (EXT or CHECK IN)                │
+│  │    Nevine          │                                                      │
+│  │    Abadir          │                                                      │
+│  └────────────────────┘                                                      │
 │                                                                              │
 │  ↓ CHANGE TO ↓                                                              │
 │                                                                              │
-│  NEW EMAIL SUBJECT:                                                          │
-│  ─────────────────                                                           │
-│  New Reservation: Safiyah Alotaibi - Feb 4 to Feb 9 - Room #504             │
+│  NEW CELL (for Booking.com reservations):                                    │
+│  ┌────────────────────┐                                                      │
+│  │  [CHECK IN]        │  ← Top-right (existing)                             │
+│  │    Nevine          │                                                      │
+│  │    Abadir          │                                                      │
+│  │      [booking.com] │  ← NEW: Bottom-right, dark blue badge               │
+│  └────────────────────┘                                                      │
+│                                                                              │
+│  Badge Design:                                                               │
+│  • Dark blue background (#003580 - Booking.com brand color)                 │
+│  • White text "booking.com"                                                  │
+│  • Font size: 6px                                                            │
+│  • Position: absolute bottom-0 right-0                                       │
+│  • Rounded corners (rounded-tl)                                              │
 └─────────────────────────────────────────────────────────────────────────────┘
 ```
 
@@ -36,58 +40,168 @@ Modify the internal team notification email subject line to show check-in/check-
 
 ### Technical Changes
 
-#### File: `supabase/functions/send-reservation-notification/index.ts`
-
-**1. Add short date formatting (before the subject line logic, around line 136)**
-
-Create short date format strings for the subject line:
+#### Helper Function
+Create a helper to detect Booking.com source:
 
 ```typescript
-// Format short dates for subject line (e.g., "Feb 4")
-const checkInShort = new Date(checkIn).toLocaleDateString("en-US", {
-  month: "short",
-  day: "numeric",
-});
-const checkOutShort = new Date(checkOut).toLocaleDateString("en-US", {
-  month: "short",
-  day: "numeric",
-});
+const isBookingComSource = (source: string | undefined): boolean => {
+  return source?.toLowerCase().includes('booking') || false;
+};
 ```
-
-**2. Update subject line logic (lines 484-496)**
-
-Replace the suite name with dates in the subject:
-
-```typescript
-// Build subject line with dates and room number
-let subject = `New Reservation: ${guestNames.join(", ")}`;
-if (isSplitStay && splitStaySegments && splitStaySegments.length > 1) {
-  subject = `Split-Stay Reservation: ${guestNames.join(", ")} - ${checkInShort} to ${checkOutShort} - ${splitStaySegments.length} Rooms`;
-} else if (isMultiRoom && rooms && rooms.length > 1) {
-  subject = `New Multi-Room Reservation: ${guestNames.join(", ")} - ${checkInShort} to ${checkOutShort} - ${rooms.length} Rooms`;
-} else if (matchedRoomNumber) {
-  subject += ` - ${checkInShort} to ${checkOutShort} - Room #${matchedRoomNumber}`;
-} else {
-  subject += ` - ${checkInShort} to ${checkOutShort}`;
-}
-```
-
----
-
-### Expected Results
-
-| Scenario | Subject Line |
-|----------|--------------|
-| Standard reservation | `New Reservation: Safiyah Alotaibi - Feb 4 to Feb 9 - Room #504` |
-| Multi-room booking | `New Multi-Room Reservation: John Doe - Jan 15 to Jan 20 - 2 Rooms` |
-| Split-stay booking | `Split-Stay Reservation: Jane Smith - Feb 1 to Feb 10 - 3 Rooms` |
-| No room assigned yet | `New Reservation: Guest Name - Mar 5 to Mar 8` |
 
 ---
 
 ### Files to Modify
 
-| File | Changes |
-|------|---------|
-| `supabase/functions/send-reservation-notification/index.ts` | Add short date formatting, update subject line to use dates instead of suite name |
+#### 1. `src/components/AvailabilityCalendar.tsx`
 
+**Locations to update:**
+
+| Component/Section | Line Range | Change |
+|-------------------|------------|--------|
+| `DraggableReservationCell` | ~144-163 | Add badge after guest name display |
+| Non-draggable reservation cell | ~2228-2247 | Add badge after guest name display |
+| `SplitTurnoverCell` (arriving guest section) | ~193-196 | Add small badge indicator |
+| Checkout-only cell (departing guest section) | ~2191-2194 | Add badge for departing Booking.com guest |
+
+**Implementation for `DraggableReservationCell` (~line 162):**
+
+```tsx
+<div className="flex flex-col items-center justify-center h-full px-1 overflow-hidden relative">
+  {/* Existing EXT badge */}
+  {isExtended && (
+    <span className="absolute top-0 right-0 text-[6px] bg-purple-500 text-white px-0.5 rounded-bl font-semibold leading-tight">
+      EXT
+    </span>
+  )}
+  {/* Existing CHECK IN badge */}
+  {isCheckIn && (
+    <span className="absolute top-0 right-0 text-[6px] bg-emerald-600 text-white px-0.5 rounded-bl font-semibold leading-tight">
+      CHECK IN
+    </span>
+  )}
+  {/* Guest name display */}
+  <span className="text-[10px] text-blue-600 dark:text-blue-400 font-medium text-center leading-tight">
+    {firstName}
+  </span>
+  {lastName && (
+    <span className="text-[10px] text-blue-600 dark:text-blue-400 font-medium text-center leading-tight">
+      {lastName}
+    </span>
+  )}
+  {/* NEW: Booking.com badge */}
+  {reservation.source?.toLowerCase().includes('booking') && (
+    <span className="absolute bottom-0 right-0 text-[6px] bg-[#003580] text-white px-0.5 rounded-tl font-medium leading-tight">
+      booking.com
+    </span>
+  )}
+</div>
+```
+
+**Implementation for non-draggable cells (~line 2247):**
+
+Add the same badge pattern after the guest name span elements.
+
+---
+
+#### 2. `src/components/RoomCalendar.tsx`
+
+**Location:** Monthly calendar day cells and weekly view cells
+
+The RoomCalendar shows aggregate counts per day rather than individual reservations in cells. The badge would apply in the day detail sheet when showing individual reservations.
+
+**Sheet reservation cards (~line 862-899):** Add badge indicator when displaying individual reservation cards.
+
+---
+
+#### 3. `src/components/MobileCalendarView.tsx`
+
+**Location:** Day detail sheet (~lines 479-515)
+
+Add badge to the reservation cards displayed in the bottom sheet when viewing day details.
+
+```tsx
+{/* In the reservation card badges section */}
+<div className="flex items-center gap-2 flex-wrap">
+  <span className="font-medium text-sm">{reservation.guest_names[0]}</span>
+  {/* Existing EXT badge */}
+  {extensionReservationIds.has(reservation.id) && (
+    <Badge className="bg-purple-500 text-white text-xs">EXT</Badge>
+  )}
+  {/* Existing source badge - already shows source */}
+  <Badge className={`${getSourceColor(reservation)} text-black text-xs`}>
+    {reservation.channel || reservation.source}
+  </Badge>
+</div>
+```
+
+Note: MobileCalendarView already displays the source as a badge, so no additional changes needed there.
+
+---
+
+#### 4. `src/components/WeeklyCalendar.tsx`
+
+**Locations to update:**
+
+| Section | Line Range | Change |
+|---------|------------|--------|
+| Check-in cell | ~294-297 | Add badge below "IN" text |
+| Checkout cell | ~290-293 | Add badge below "OUT" text |
+| Staying cell | ~298-301 | Add badge below center dot |
+| Extension cell | ~276-280 | Add badge below center dot |
+| Split cell (IN/OUT) | ~281-289 | Add badge to bottom section |
+
+**Implementation example for staying cell:**
+
+```tsx
+} : staying ? (
+  <div className={`h-full flex flex-col items-center justify-center relative ${getReservationColor(staying.source, staying.status)}`}>
+    <div className="w-2 h-2 rounded-full bg-white"></div>
+    {staying.source?.toLowerCase().includes('booking') && (
+      <span className="absolute bottom-0 right-0 text-[5px] bg-[#003580] text-white px-0.5 rounded-tl font-medium leading-tight">
+        B.com
+      </span>
+    )}
+  </div>
+) : null
+```
+
+Note: In WeeklyCalendar, cells are smaller, so use abbreviated "B.com" text.
+
+---
+
+### Badge Variations by Component
+
+| Component | Badge Text | Font Size | Notes |
+|-----------|-----------|-----------|-------|
+| AvailabilityCalendar | "booking.com" | 6px | Full text, cells are larger |
+| RoomCalendar (sheet) | Already has source badge | - | No change needed |
+| MobileCalendarView | Already has source badge | - | No change needed |
+| WeeklyCalendar | "B.com" | 5px | Abbreviated, cells are compact |
+
+---
+
+### Implementation Notes
+
+1. **Consistency**: Badge appears in the main calendar grid cells (AvailabilityCalendar, WeeklyCalendar) where users need quick visual identification
+
+2. **Color Choice**: Using Booking.com's official brand color (#003580) for instant recognition
+
+3. **Positioning**: Bottom-right corner chosen because:
+   - Top-right is reserved for EXT/CHECK IN badges
+   - Guest name is centered vertically
+   - Won't obscure guest name text
+
+4. **Non-intrusive**: Small 6px/5px font size keeps it visible but not distracting
+
+5. **Source Detection**: Checks if `source` field contains "booking" (case-insensitive) to match existing patterns in the codebase
+
+---
+
+### Expected Result
+
+After implementation:
+- AvailabilityCalendar cells for Booking.com reservations will show a small dark blue "booking.com" badge in the bottom-right corner
+- WeeklyCalendar cells will show "B.com" badge for Booking.com reservations
+- Admin bookings and Direct Website bookings will have no badge (differentiated by cell background color already)
+- Consistent appearance across desktop calendar views
