@@ -1,4 +1,5 @@
 
+
 ## Plan: Add "booking.com" Badge to Calendar Reservation Cells
 
 ### Overview
@@ -98,58 +99,19 @@ const isBookingComSource = (source: string | undefined): boolean => {
 </div>
 ```
 
-**Implementation for non-draggable cells (~line 2247):**
-
-Add the same badge pattern after the guest name span elements.
-
 ---
 
-#### 2. `src/components/RoomCalendar.tsx`
-
-**Location:** Monthly calendar day cells and weekly view cells
-
-The RoomCalendar shows aggregate counts per day rather than individual reservations in cells. The badge would apply in the day detail sheet when showing individual reservations.
-
-**Sheet reservation cards (~line 862-899):** Add badge indicator when displaying individual reservation cards.
-
----
-
-#### 3. `src/components/MobileCalendarView.tsx`
-
-**Location:** Day detail sheet (~lines 479-515)
-
-Add badge to the reservation cards displayed in the bottom sheet when viewing day details.
-
-```tsx
-{/* In the reservation card badges section */}
-<div className="flex items-center gap-2 flex-wrap">
-  <span className="font-medium text-sm">{reservation.guest_names[0]}</span>
-  {/* Existing EXT badge */}
-  {extensionReservationIds.has(reservation.id) && (
-    <Badge className="bg-purple-500 text-white text-xs">EXT</Badge>
-  )}
-  {/* Existing source badge - already shows source */}
-  <Badge className={`${getSourceColor(reservation)} text-black text-xs`}>
-    {reservation.channel || reservation.source}
-  </Badge>
-</div>
-```
-
-Note: MobileCalendarView already displays the source as a badge, so no additional changes needed there.
-
----
-
-#### 4. `src/components/WeeklyCalendar.tsx`
+#### 2. `src/components/WeeklyCalendar.tsx`
 
 **Locations to update:**
 
 | Section | Line Range | Change |
 |---------|------------|--------|
-| Check-in cell | ~294-297 | Add badge below "IN" text |
-| Checkout cell | ~290-293 | Add badge below "OUT" text |
-| Staying cell | ~298-301 | Add badge below center dot |
 | Extension cell | ~276-280 | Add badge below center dot |
 | Split cell (IN/OUT) | ~281-289 | Add badge to bottom section |
+| Checkout cell | ~290-293 | Add badge below "OUT" text |
+| Check-in cell | ~294-297 | Add badge below "IN" text |
+| Staying cell | ~298-301 | Add badge below center dot |
 
 **Implementation example for staying cell:**
 
@@ -205,3 +167,4 @@ After implementation:
 - WeeklyCalendar cells will show "B.com" badge for Booking.com reservations
 - Admin bookings and Direct Website bookings will have no badge (differentiated by cell background color already)
 - Consistent appearance across desktop calendar views
+
