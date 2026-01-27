@@ -275,29 +275,54 @@ export const WeeklyCalendar = () => {
                         </div>
                       ) : isExtension && checkingIn ? (
                         // Extension day - show as continuous booking
-                        <div className={`h-full flex items-center justify-center ${getReservationColor(checkingIn.source, checkingIn.status)}`}>
+                        <div className={`h-full flex items-center justify-center relative ${getReservationColor(checkingIn.source, checkingIn.status)}`}>
                           <div className="w-2 h-2 rounded-full bg-white"></div>
+                          {checkingIn.source?.toLowerCase().includes('booking') && (
+                            <span className="absolute bottom-0 right-0 text-[5px] bg-[#003580] text-white px-0.5 rounded-tl font-medium leading-tight">
+                              B.com
+                            </span>
+                          )}
                         </div>
                       ) : hasBothCheckOutAndIn ? (
                         <div className="flex flex-col h-full">
                           <div className={`flex-1 flex items-center justify-center text-[10px] border-b ${getReservationColor(checkingOut.source, checkingOut.status)}`}>
                             OUT
                           </div>
-                          <div className={`flex-1 flex items-center justify-center text-[10px] ${getReservationColor(checkingIn.source, checkingIn.status)}`}>
+                          <div className={`flex-1 flex items-center justify-center text-[10px] relative ${getReservationColor(checkingIn.source, checkingIn.status)}`}>
                             IN
+                            {checkingIn.source?.toLowerCase().includes('booking') && (
+                              <span className="absolute bottom-0 right-0 text-[5px] bg-[#003580] text-white px-0.5 rounded-tl font-medium leading-tight">
+                                B.com
+                              </span>
+                            )}
                           </div>
                         </div>
                       ) : checkingOut ? (
-                        <div className={`h-full flex items-center justify-center text-xs ${getReservationColor(checkingOut.source, checkingOut.status)}`}>
+                        <div className={`h-full flex items-center justify-center text-xs relative ${getReservationColor(checkingOut.source, checkingOut.status)}`}>
                           OUT
+                          {checkingOut.source?.toLowerCase().includes('booking') && (
+                            <span className="absolute bottom-0 right-0 text-[5px] bg-[#003580] text-white px-0.5 rounded-tl font-medium leading-tight">
+                              B.com
+                            </span>
+                          )}
                         </div>
                       ) : checkingIn ? (
-                        <div className={`h-full flex items-center justify-center text-xs ${getReservationColor(checkingIn.source, checkingIn.status)}`}>
+                        <div className={`h-full flex items-center justify-center text-xs relative ${getReservationColor(checkingIn.source, checkingIn.status)}`}>
                           IN
+                          {checkingIn.source?.toLowerCase().includes('booking') && (
+                            <span className="absolute bottom-0 right-0 text-[5px] bg-[#003580] text-white px-0.5 rounded-tl font-medium leading-tight">
+                              B.com
+                            </span>
+                          )}
                         </div>
                       ) : staying ? (
-                        <div className={`h-full flex items-center justify-center ${getReservationColor(staying.source, staying.status)}`}>
+                        <div className={`h-full flex items-center justify-center relative ${getReservationColor(staying.source, staying.status)}`}>
                           <div className="w-2 h-2 rounded-full bg-white"></div>
+                          {staying.source?.toLowerCase().includes('booking') && (
+                            <span className="absolute bottom-0 right-0 text-[5px] bg-[#003580] text-white px-0.5 rounded-tl font-medium leading-tight">
+                              B.com
+                            </span>
+                          )}
                         </div>
                       ) : null}
                     </div>
