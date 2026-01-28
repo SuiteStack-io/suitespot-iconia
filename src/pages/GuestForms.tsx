@@ -51,6 +51,9 @@ import {
   ExternalLink,
   ArrowLeft,
   Eye,
+  ArrowUpDown,
+  ArrowUp,
+  ArrowDown,
 } from 'lucide-react';
 import { toast } from 'sonner';
 
@@ -85,6 +88,8 @@ interface CheckInAgreement {
 
 type FilterType = 'all' | 'completed' | 'pending' | 'emails';
 type DateFilterType = 'all' | 'week' | 'month' | 'ytd';
+type SortField = 'check_in_status' | 'form_status' | 'signed_at' | null;
+type SortOrder = 'asc' | 'desc';
 
 export default function GuestForms() {
   const navigate = useNavigate();
@@ -99,6 +104,8 @@ export default function GuestForms() {
   const [copiedEmail, setCopiedEmail] = useState<string | null>(null);
   const [downloadingId, setDownloadingId] = useState<string | null>(null);
   const [previewingId, setPreviewingId] = useState<string | null>(null);
+  const [sortField, setSortField] = useState<SortField>(null);
+  const [sortOrder, setSortOrder] = useState<SortOrder>('asc');
 
   useEffect(() => {
     if (!authLoading && !user) {
@@ -191,7 +198,7 @@ export default function GuestForms() {
     }));
   }, [reservations, agreementsMap]);
 
-  // Filtered data based on active filter, date filter, and search
+  // Filtered data based on active filter, date filter, search, and sorting
   const filteredData = useMemo(() => {
     let data = tableData;
 
@@ -247,8 +254,40 @@ export default function GuestForms() {
       });
     }
 
+    // Apply sorting
+    if (sortField) {
+      data = [...data].sort((a, b) => {
+        let aVal: number;
+        let bVal: number;
+
+        switch (sortField) {
+          case 'check_in_status':
+            // Order: checked-in > checked-out > confirmed (Pending)
+            const statusOrder: Record<string, number> = { 'checked-in': 1, 'checked-out': 2, 'confirmed': 3 };
+            aVal = statusOrder[a.reservation.status] || 4;
+            bVal = statusOrder[b.reservation.status] || 4;
+            break;
+          case 'form_status':
+            // Completed (true) comes before Pending (false)
+            aVal = a.hasForm ? 0 : 1;
+            bVal = b.hasForm ? 0 : 1;
+            break;
+          case 'signed_at':
+            aVal = a.agreement?.signed_at ? new Date(a.agreement.signed_at).getTime() : 0;
+            bVal = b.agreement?.signed_at ? new Date(b.agreement.signed_at).getTime() : 0;
+            break;
+          default:
+            return 0;
+        }
+
+        if (aVal < bVal) return sortOrder === 'asc' ? -1 : 1;
+        if (aVal > bVal) return sortOrder === 'asc' ? 1 : -1;
+        return 0;
+      });
+    }
+
     return data;
-  }, [tableData, activeFilter, searchQuery, dateFilter]);
+  }, [tableData, activeFilter, searchQuery, dateFilter, sortField, sortOrder]);
 
   const handleDownloadPDF = async (reservation: Reservation, agreement: CheckInAgreement) => {
     setDownloadingId(reservation.id);
@@ -342,6 +381,24 @@ export default function GuestForms() {
     } else {
       setActiveFilter(activeFilter === filter ? 'all' : filter);
     }
+  };
+
+  const handleSort = (field: SortField) => {
+    if (sortField === field) {
+      setSortOrder(sortOrder === 'asc' ? 'desc' : 'asc');
+    } else {
+      setSortField(field);
+      setSortOrder('asc');
+    }
+  };
+
+  const getSortIcon = (field: SortField) => {
+    if (sortField !== field) {
+      return <ArrowUpDown className="h-3.5 w-3.5 text-muted-foreground/50" />;
+    }
+    return sortOrder === 'asc' 
+      ? <ArrowUp className="h-3.5 w-3.5" /> 
+      : <ArrowDown className="h-3.5 w-3.5" />;
   };
 
   const getFormAge = (signedAt: string | null | undefined) => {
@@ -562,12 +619,36 @@ export default function GuestForms() {
                 <TableHead>Check-In</TableHead>
                 <TableHead>Check-Out</TableHead>
                 <TableHead>Booking Ref</TableHead>
-                <TableHead>Check-In Status</TableHead>
-                <TableHead>Form Status</TableHead>
+                <TableHead 
+                  className="cursor-pointer hover:bg-muted/50 select-none transition-colors"
+                  onClick={() => handleSort('check_in_status')}
+                >
+                  <div className="flex items-center gap-1">
+                    Check-In Status
+                    {getSortIcon('check_in_status')}
+                  </div>
+                </TableHead>
+                <TableHead 
+                  className="cursor-pointer hover:bg-muted/50 select-none transition-colors"
+                  onClick={() => handleSort('form_status')}
+                >
+                  <div className="flex items-center gap-1">
+                    Form Status
+                    {getSortIcon('form_status')}
+                  </div>
+                </TableHead>
                 <TableHead>Form Name</TableHead>
                 <TableHead>Form Email</TableHead>
                 <TableHead>Form Phone</TableHead>
-                <TableHead>Signed At</TableHead>
+                <TableHead 
+                  className="cursor-pointer hover:bg-muted/50 select-none transition-colors"
+                  onClick={() => handleSort('signed_at')}
+                >
+                  <div className="flex items-center gap-1">
+                    Signed At
+                    {getSortIcon('signed_at')}
+                  </div>
+                </TableHead>
                 <TableHead>Nationality</TableHead>
                 <TableHead>Guest Age</TableHead>
                   <TableHead className="text-right">Actions</TableHead>
