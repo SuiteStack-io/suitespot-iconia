@@ -1,21 +1,20 @@
 
-## Plan: Remove Check Out Button from Today's Arrivals Card
+## Plan: Change Recent Cancellations from 7 Days to 24 Hours
 
 ### Overview
-Remove the "Check Out" button that appears for checked-in guests in the Today's Arrivals modal. Keep the "Form Done" badge and "Undo" button intact.
+Update the "Recent Cancellations" card to show cancellations from the last 24 hours instead of the last 7 days, matching the behavior of the "New Bookings (24h)" card.
 
 ---
 
 ### Current Behavior
-When a guest is checked-in on Today's Arrivals card, the following actions are shown:
-- ✅ "Form Done" badge (or "Guest Form" button)
-- ❌ "Check Out" button (to be removed)
-- ✅ "Undo" button
+- Card title: "Recent Cancellations"
+- Modal title: "Recent Cancellations (Last 7 Days)"
+- Query filter: `cancelled_at >= sevenDaysAgo`
 
 ### Desired Behavior
-- ✅ "Form Done" badge (or "Guest Form" button)
-- ✅ "Undo" button
-- No "Check Out" button on Arrivals (Check Out should only appear on Departures)
+- Card title: "Recent Cancellations (24h)"
+- Modal title: "Recent Cancellations (Last 24h)"
+- Query filter: `cancelled_at >= yesterday`
 
 ---
 
@@ -23,57 +22,77 @@ When a guest is checked-in on Today's Arrivals card, the following actions are s
 
 #### File: `src/components/Dashboard.tsx`
 
-**Modify the checked-in status action buttons (lines 1026-1065)**
+**1. Update fetchStats query (lines 232-237)**
 
-The current code shows the Check Out button for ALL checked-in reservations:
-
-```tsx
-{reservation.status === 'checked-in' && (
-  <>
-    {/* Form Done badge or Guest Form button */}
-    {reservation.check_in_agreements && reservation.check_in_agreements.length > 0 ? (
-      <Badge>Form Done</Badge>
-    ) : (
-      <Button>Guest Form</Button>
-    )}
-    
-    {/* Check Out button - shows for ALL modals */}
-    <Button>Check Out</Button>  // ← Remove this from Arrivals only
-  </>
-)}
+Change from:
+```typescript
+// Recent cancellations (last 7 days)
+const { data: cancellations } = await supabase
+  .from('reservations')
+  .select('id', { count: 'exact' })
+  .eq('status', 'cancelled')
+  .gte('cancelled_at', sevenDaysAgo);
 ```
 
-**Change to conditionally hide Check Out on Arrivals:**
+To:
+```typescript
+// Recent cancellations (last 24h)
+const { data: cancellations } = await supabase
+  .from('reservations')
+  .select('id', { count: 'exact' })
+  .eq('status', 'cancelled')
+  .gte('cancelled_at', yesterday);
+```
 
-```tsx
-{reservation.status === 'checked-in' && (
-  <>
-    {/* Form Done badge or Guest Form button */}
-    {reservation.check_in_agreements && reservation.check_in_agreements.length > 0 ? (
-      <Badge>Form Done</Badge>
-    ) : (
-      <Button>Guest Form</Button>
-    )}
-    
-    {/* Check Out button - only show on Departures and In-House, NOT Arrivals */}
-    {!dialogTitle.includes('Arrivals') && (
-      <Button>Check Out</Button>
-    )}
-  </>
-)}
+**2. Update handleCardClick case (lines 419-422)**
+
+Change from:
+```typescript
+case 'cancellations':
+  setDialogTitle('Recent Cancellations (Last 7 Days)');
+  query = query.eq('status', 'cancelled').gte('cancelled_at', sevenDaysAgo);
+  break;
+```
+
+To:
+```typescript
+case 'cancellations':
+  setDialogTitle('Recent Cancellations (Last 24h)');
+  query = query.eq('status', 'cancelled').gte('cancelled_at', yesterday);
+  break;
+```
+
+**3. Update stat card title (line 732)**
+
+Change from:
+```typescript
+{
+  title: 'Recent Cancellations',
+  ...
+}
+```
+
+To:
+```typescript
+{
+  title: 'Recent Cancellations (24h)',
+  ...
+}
 ```
 
 ---
 
 ### Files to Modify
 
-| File | Changes |
-|------|---------|
-| `src/components/Dashboard.tsx` | Wrap Check Out button (lines 1050-1063) with condition `!dialogTitle.includes('Arrivals')` |
+| File | Lines | Changes |
+|------|-------|---------|
+| `src/components/Dashboard.tsx` | 232-237 | Change query from `sevenDaysAgo` to `yesterday` |
+| `src/components/Dashboard.tsx` | 419-422 | Update modal title and query filter |
+| `src/components/Dashboard.tsx` | 732 | Update card title to include "(24h)" |
 
 ---
 
 ### Expected Result
-- Today's Arrivals modal: Shows "Form Done" badge and "Undo" button for checked-in guests (no Check Out)
-- Today's Departures modal: Shows "Check Out" button as before
-- In-House Now modal: Shows "Check Out" button as before
+- Dashboard card will show "Recent Cancellations (24h)" with count of cancellations in last 24 hours
+- Clicking the card opens a modal with title "Recent Cancellations (Last 24h)"
+- Only cancellations from the last 24 hours will be displayed, matching the "New Bookings" card behavior
