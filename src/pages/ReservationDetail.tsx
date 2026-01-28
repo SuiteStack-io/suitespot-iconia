@@ -1492,6 +1492,40 @@ Thank you for choosing SuiteSpot!`;
                   const pricePerNight = reservation?.price_per_night || 0;
                   const nights = reservation?.nights || 0;
                   const subtotal = pricePerNight * nights;
+                  
+                  // For Booking.com: total_price is already VAT-inclusive, don't add tax
+                  const isBookingCom = reservation?.source?.toLowerCase().includes('booking') || 
+                                       reservation?.channel === 'Booking.com';
+                  
+                  if (isBookingCom) {
+                    // Booking.com prices are already VAT-inclusive - use database value directly
+                    const totalPrice = reservation?.total_price || subtotal;
+                    
+                    return (
+                      <>
+                        <div>
+                          <Label className="text-muted-foreground">Price per Night</Label>
+                          <p className="mt-1 font-medium">
+                            {reservation.currency} {Number(pricePerNight).toFixed(2)}
+                          </p>
+                        </div>
+                        <div>
+                          <Label className="text-muted-foreground">Subtotal ({nights} nights)</Label>
+                          <p className="mt-1 font-medium">
+                            {reservation.currency} {subtotal.toFixed(2)}
+                          </p>
+                        </div>
+                        <div>
+                          <Label className="text-muted-foreground font-semibold">Total Price (incl. VAT)</Label>
+                          <p className="mt-1 font-bold text-lg">
+                            {reservation.currency} {Number(totalPrice).toFixed(2)}
+                          </p>
+                        </div>
+                      </>
+                    );
+                  }
+                  
+                  // Manual/Direct reservations: calculate VAT breakdown
                   const taxPercentage = reservation?.units?.tax_percentage || 14;
                   const isVatExempt = reservation?.vat_exempt === true;
                   const taxAmount = isVatExempt ? 0 : subtotal * (taxPercentage / 100);
@@ -1520,7 +1554,7 @@ Thank you for choosing SuiteSpot!`;
                         </div>
                       )}
                       <div>
-                        <Label className="text-muted-foreground font-semibold">Total Price</Label>
+                        <Label className="text-muted-foreground font-semibold">Total Price (incl. VAT)</Label>
                         <p className="mt-1 font-bold text-lg">
                           {reservation.currency} {totalWithTax.toFixed(2)}
                         </p>
