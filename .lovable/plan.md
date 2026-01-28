@@ -1,9 +1,8 @@
 
-
-## Plan: Merge Check-In and Guest Form Buttons
+## Plan: Add Sortable Headers to Guest Forms Table
 
 ### Overview
-Replace the separate "Guest Form" and "Check In" buttons with a single wide button that requires completing the guest check-in form to officially check in a guest. The existing `GuestCheckIn.tsx` already handles the automatic status change from "confirmed" to "checked-in" upon form submission.
+Add sorting functionality to the "Check-In Status", "Form Status", and "Signed At" columns in the Guest Forms table. The headers will be clickable and display a subtle sort icon to indicate they are interactive.
 
 ---
 
@@ -11,21 +10,24 @@ Replace the separate "Guest Form" and "Check In" buttons with a single wide butt
 
 ```text
 ┌─────────────────────────────────────────────────────────────────────────────┐
-│  CURRENT LAYOUT (Today's Arrivals - confirmed status):                       │
-│                                                                              │
-│  ┌─────────────┐  ┌──────────────┐                                          │
-│  │ Guest Form  │  │   Check In   │   ← Two separate buttons                 │
-│  └─────────────┘  └──────────────┘                                          │
+│  CURRENT HEADERS:                                                            │
+│  ┌──────────────┐ ┌─────────────┐ ┌───────────┐                             │
+│  │ Check-In     │ │ Form Status │ │ Signed At │   <- Plain text headers     │
+│  │ Status       │ │             │ │           │                             │
+│  └──────────────┘ └─────────────┘ └───────────┘                             │
 │                                                                              │
 │  ↓ CHANGE TO ↓                                                              │
 │                                                                              │
-│  NEW LAYOUT (merged button):                                                 │
-│  ┌────────────────────────────────────────────┐                              │
-│  │  ✓ Check In (Complete Guest Form)          │   ← Single wide button      │
-│  └────────────────────────────────────────────┘                              │
+│  NEW HEADERS (clickable with sort icons):                                    │
+│  ┌──────────────────┐ ┌─────────────────┐ ┌───────────────┐                 │
+│  │ Check-In     ↕   │ │ Form Status ↕   │ │ Signed At ↕   │  <- Clickable  │
+│  │ Status           │ │                 │ │               │     with icons │
+│  └──────────────────┘ └─────────────────┘ └───────────────┘                 │
 │                                                                              │
-│  When clicked: Opens guest check-in form in new tab                          │
-│  Upon form completion: Status auto-updates to "checked-in"                   │
+│  When clicked:                                                               │
+│   - First click: Sort ascending (↑)                                          │
+│   - Second click: Sort descending (↓)                                        │
+│   - Click different column: Reset to ascending                               │
 └─────────────────────────────────────────────────────────────────────────────┘
 ```
 
@@ -33,77 +35,152 @@ Replace the separate "Guest Form" and "Check In" buttons with a single wide butt
 
 ### Technical Changes
 
-#### File: `src/components/Dashboard.tsx`
+#### File: `src/pages/GuestForms.tsx`
 
-**Replace buttons for "confirmed" status in Arrivals dialog (lines 997-1025):**
-
-Current code:
+**1. Add new imports for sorting icons (line 54):**
 ```tsx
-{reservation.status === 'confirmed' && dialogTitle.includes('Arrivals') && (
-  <>
-    <Button size="sm" variant="outline" onClick={...}>
-      <FileSignature className="h-3 w-3" />
-      Guest Form
-    </Button>
-    <Button size="sm" onClick={...}>
-      <CheckCircle className="h-3 w-3" />
-      Check In
-    </Button>
-  </>
-)}
+import {
+  // ... existing imports
+  ArrowUpDown,
+  ArrowUp,
+  ArrowDown,
+} from 'lucide-react';
 ```
 
-Change to:
+**2. Add sorting state (around line 100):**
 ```tsx
-{reservation.status === 'confirmed' && dialogTitle.includes('Arrivals') && (
-  <Button
-    size="sm"
-    onClick={(e) => {
-      e.stopPropagation();
-      window.open(`/guest-checkin/${reservation.id}`, '_blank');
-    }}
-    className="gap-1 w-full sm:w-auto min-w-[200px]"
-  >
-    <CheckCircle className="h-3 w-3" />
-    Check In (Complete Guest Form)
-  </Button>
-)}
+type SortField = 'check_in_status' | 'form_status' | 'signed_at' | null;
+type SortOrder = 'asc' | 'desc';
+
+// Inside component:
+const [sortField, setSortField] = useState<SortField>(null);
+const [sortOrder, setSortOrder] = useState<SortOrder>('asc');
+```
+
+**3. Add sorting handler function (after line 345):**
+```tsx
+const handleSort = (field: SortField) => {
+  if (sortField === field) {
+    setSortOrder(sortOrder === 'asc' ? 'desc' : 'asc');
+  } else {
+    setSortField(field);
+    setSortOrder('asc');
+  }
+};
+
+const getSortIcon = (field: SortField) => {
+  if (sortField !== field) {
+    return <ArrowUpDown className="h-3.5 w-3.5 text-muted-foreground/50" />;
+  }
+  return sortOrder === 'asc' 
+    ? <ArrowUp className="h-3.5 w-3.5" /> 
+    : <ArrowDown className="h-3.5 w-3.5" />;
+};
+```
+
+**4. Update filteredData useMemo to include sorting (lines 195-251):**
+```tsx
+const filteredData = useMemo(() => {
+  let data = tableData;
+
+  // ... existing filtering logic ...
+
+  // Apply sorting
+  if (sortField) {
+    data = [...data].sort((a, b) => {
+      let aVal: any;
+      let bVal: any;
+
+      switch (sortField) {
+        case 'check_in_status':
+          // Order: checked-in > checked-out > confirmed (Pending)
+          const statusOrder = { 'checked-in': 1, 'checked-out': 2, 'confirmed': 3 };
+          aVal = statusOrder[a.reservation.status] || 4;
+          bVal = statusOrder[b.reservation.status] || 4;
+          break;
+        case 'form_status':
+          // Completed (true) comes before Pending (false)
+          aVal = a.hasForm ? 0 : 1;
+          bVal = b.hasForm ? 0 : 1;
+          break;
+        case 'signed_at':
+          aVal = a.agreement?.signed_at ? new Date(a.agreement.signed_at).getTime() : 0;
+          bVal = b.agreement?.signed_at ? new Date(b.agreement.signed_at).getTime() : 0;
+          break;
+        default:
+          return 0;
+      }
+
+      if (aVal < bVal) return sortOrder === 'asc' ? -1 : 1;
+      if (aVal > bVal) return sortOrder === 'asc' ? 1 : -1;
+      return 0;
+    });
+  }
+
+  return data;
+}, [tableData, activeFilter, searchQuery, dateFilter, sortField, sortOrder]);
+```
+
+**5. Update table headers to be clickable (lines 565-570):**
+
+Replace:
+```tsx
+<TableHead>Check-In Status</TableHead>
+<TableHead>Form Status</TableHead>
+...
+<TableHead>Signed At</TableHead>
+```
+
+With:
+```tsx
+<TableHead 
+  className="cursor-pointer hover:bg-muted/50 select-none"
+  onClick={() => handleSort('check_in_status')}
+>
+  <div className="flex items-center gap-1">
+    Check-In Status
+    {getSortIcon('check_in_status')}
+  </div>
+</TableHead>
+<TableHead 
+  className="cursor-pointer hover:bg-muted/50 select-none"
+  onClick={() => handleSort('form_status')}
+>
+  <div className="flex items-center gap-1">
+    Form Status
+    {getSortIcon('form_status')}
+  </div>
+</TableHead>
+...
+<TableHead 
+  className="cursor-pointer hover:bg-muted/50 select-none"
+  onClick={() => handleSort('signed_at')}
+>
+  <div className="flex items-center gap-1">
+    Signed At
+    {getSortIcon('signed_at')}
+  </div>
+</TableHead>
 ```
 
 ---
 
-### Existing Auto Check-In Logic (No Changes Needed)
+### Sorting Behavior
 
-The `GuestCheckIn.tsx` already handles the automatic status update:
-
-```typescript
-// Lines 297-309 in GuestCheckIn.tsx
-const { error: statusError } = await supabase
-  .from('reservations')
-  .update({ 
-    status: 'checked-in',
-    checked_in_at: new Date().toISOString()
-  })
-  .eq('id', reservationId);
-```
-
-This means when a guest completes the form:
-1. Check-in agreement is saved to the database
-2. Reservation status automatically changes to "checked-in"
-3. Notification is sent to all admins
-4. Dashboard will reflect the new status on refresh
+| Column | Ascending Order | Descending Order |
+|--------|-----------------|------------------|
+| Check-In Status | Checked In -> Checked Out -> Pending | Pending -> Checked Out -> Checked In |
+| Form Status | Completed -> Pending | Pending -> Completed |
+| Signed At | Oldest first (empty last) | Newest first (empty last) |
 
 ---
 
-### Workflow After Implementation
+### Visual Indicators
 
-1. Guest arrives → Reservation shows in "Today's Arrivals" with `confirmed` status
-2. Staff clicks "Check In (Complete Guest Form)" → Opens guest form in new tab
-3. Guest/staff completes form → Status auto-updates to "checked-in"
-4. Dashboard refreshes → Guest now shows:
-   - "Form Done" badge (green)
-   - "Check Out" button
-   - Appears in "In-House Now" card
+- **Inactive column**: Subtle two-way arrow icon (ArrowUpDown) with muted color
+- **Active ascending**: Single up arrow (ArrowUp) with full opacity
+- **Active descending**: Single down arrow (ArrowDown) with full opacity
+- **Hover state**: Light background highlight on the header cell
 
 ---
 
@@ -111,5 +188,14 @@ This means when a guest completes the form:
 
 | File | Changes |
 |------|---------|
-| `src/components/Dashboard.tsx` | Replace two buttons (Guest Form + Check In) with single merged button for confirmed reservations in Arrivals dialog |
+| `src/pages/GuestForms.tsx` | Add sorting state, handler, and update table headers with click functionality and icons |
 
+---
+
+### Expected Result
+
+- Three column headers ("Check-In Status", "Form Status", "Signed At") become clickable
+- Each header shows a subtle sort icon to indicate interactivity
+- Clicking toggles between ascending and descending order
+- The active sort column's icon changes to show current direction
+- Sorting integrates with existing filters (search, date, card filters)
