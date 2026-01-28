@@ -1,10 +1,9 @@
 
 
-## Plan: Inline Check-In/Check-Out Progress on Dashboard Cards
+## Plan: Display Direct vs Booking.com Breakdown on New Bookings Card
 
 ### Goal
-1. Make Today's Arrivals card same height as other cards by moving "1/3 checked in" inline with the count
-2. Add similar checkout progress to Today's Departures card
+Show the split between Direct and Booking.com bookings on the "New Bookings (24h)" card with count and percentage, positioned on the right side inline with the value.
 
 ---
 
@@ -12,126 +11,108 @@
 
 #### File: `src/components/Dashboard.tsx`
 
-**1. Update DashboardStats interface (line 35-46)**
+**1. Update DashboardStats interface (lines 35-47)**
 
-Add `departuresCheckedOut`:
+Add properties for booking source breakdown:
 
 ```tsx
 interface DashboardStats {
   todayArrivals: number;
   arrivalsCheckedIn: number;
   todayDepartures: number;
-  departuresCheckedOut: number;  // NEW
+  departuresCheckedOut: number;
+  inHouse: number;
+  newBookings: number;
+  newBookingsDirect: number;      // NEW
+  newBookingsBookingCom: number;  // NEW
+  recentCancellations: number;
   // ... rest unchanged
 }
 ```
 
-**2. Update initial state (line 94-105)**
+**2. Update initial state (lines 95-107)**
 
-Add default value:
+Add default values:
 
 ```tsx
 const [stats, setStats] = useState<DashboardStats>({
-  todayArrivals: 0,
-  arrivalsCheckedIn: 0,
-  todayDepartures: 0,
-  departuresCheckedOut: 0,  // NEW
+  // ... existing
+  newBookings: 0,
+  newBookingsDirect: 0,      // NEW
+  newBookingsBookingCom: 0,  // NEW
   // ... rest unchanged
 });
 ```
 
-**3. Update departures query (lines 200-205)**
+**3. Update newBookings query (lines 240-244)**
 
-Add status to select:
+Add channel to the select:
 
 ```tsx
-const { data: allDepartures } = await supabase
+// New bookings in last 24h
+const { data: newBookings } = await supabase
   .from('reservations')
-  .select('id, group_id, status')  // Add status
-  .eq('check_out_date', today)
-  .neq('status', 'cancelled')
+  .select('id, channel')  // Add channel
+  .gte('created_at', yesterday)
   .is('cancelled_at', null);
 ```
 
-**4. Calculate checked-out count (after line 222)**
+**4. Calculate source breakdown (after line 244)**
 
 ```tsx
-// Count how many departures are already checked out
-const departuresCheckedOut = filteredDepartures.filter(
-  departure => departure.status === 'checked-out' || departure.status === 'completed'
+// Calculate booking source breakdown
+const newBookingsBookingCom = (newBookings || []).filter(
+  b => b.channel === 'Booking.com'
 ).length;
+const newBookingsDirect = (newBookings?.length || 0) - newBookingsBookingCom;
 ```
 
-**5. Update setStats (line 268-278)**
+**5. Update setStats (around line 281)**
+
+Include the new stats:
 
 ```tsx
 setStats({
-  todayArrivals: filteredArrivals.length,
-  arrivalsCheckedIn,
-  todayDepartures: filteredDepartures.length,
-  departuresCheckedOut,  // NEW
+  // ... existing
+  newBookings: newBookings?.length || 0,
+  newBookingsDirect,
+  newBookingsBookingCom,
   // ... rest unchanged
 });
 ```
 
-**6. Add subtitle to Departures card (lines 718-725)**
+**6. Add subtitle to New Bookings card (lines 746-752)**
 
 ```tsx
 {
-  title: "Today's Departures",
-  value: stats.todayDepartures,
-  icon: LogOut,
-  color: 'text-orange-600',
+  title: 'New Bookings (24h)',
+  value: stats.newBookings,
+  icon: TrendingUp,
+  color: 'text-purple-600',
   isRevenue: false,
-  type: 'departures',
-  subtitle: stats.todayDepartures > 0 
-    ? `${stats.departuresCheckedOut}/${stats.todayDepartures} checked out` 
+  type: 'newbookings',
+  subtitle: stats.newBookings > 0 
+    ? `${stats.newBookingsDirect} Direct (${Math.round((stats.newBookingsDirect / stats.newBookings) * 100)}%) · ${stats.newBookingsBookingCom} B.com` 
     : undefined,
 },
-```
-
-**7. Update CardContent to display subtitle inline (lines 776-784)**
-
-Change from stacked layout to inline with flexbox:
-
-```tsx
-<CardContent className="p-3 pt-0 sm:p-6 sm:pt-0">
-  <div className="flex items-baseline justify-between">
-    <div className="text-xl sm:text-2xl font-bold">
-      {stat.isRevenue ? `$${stat.value.toFixed(2)}` : stat.value}
-    </div>
-    {stat.subtitle && (
-      <span className="text-xs text-muted-foreground">
-        {stat.subtitle}
-      </span>
-    )}
-  </div>
-</CardContent>
 ```
 
 ---
 
 ### Expected Result
 
-Cards will display progress inline:
-
 ```
-┌────────────────────────────────────────┐
-│ Today's Arrivals                    →] │
-│                                        │
-│ 3                        1/3 checked in│
-└────────────────────────────────────────┘
-
-┌────────────────────────────────────────┐
-│ Today's Departures                  ←] │
-│                                        │
-│ 2                      0/2 checked out │
-└────────────────────────────────────────┘
+┌──────────────────────────────────────────────────────────────┐
+│ New Bookings (24h)                                        ↗] │
+│                                                              │
+│ 5                              3 Direct (60%) · 2 B.com      │
+└──────────────────────────────────────────────────────────────┘
 ```
 
-- Count on left, progress on right (same line)
-- Cards maintain consistent height
-- Progress updates in real-time
+- Total count on left
+- Breakdown with percentages on right
+- Same inline layout as arrivals/departures cards
+- Updates in real-time with new bookings
 
 ---
 
@@ -139,5 +120,5 @@ Cards will display progress inline:
 
 | File | Changes |
 |------|---------|
-| `src/components/Dashboard.tsx` | Add `departuresCheckedOut` stat, update queries, display subtitles inline |
+| `src/components/Dashboard.tsx` | Add booking source stats, update query to include channel, display breakdown subtitle |
 
