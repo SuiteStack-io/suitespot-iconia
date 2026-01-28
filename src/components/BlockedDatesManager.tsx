@@ -19,6 +19,7 @@ interface Unit {
   id: string;
   name: string;
   unit_number: string | null;
+  booking_com_name?: string | null;
 }
 
 interface BlockedDate {
@@ -80,7 +81,7 @@ export const BlockedDatesManager = () => {
     try {
       const { data, error } = await supabase
         .from("units")
-        .select("id, name, unit_number")
+        .select("id, name, unit_number, booking_com_name")
         .eq("status", "available")
         .order("unit_number", { ascending: true });
 
@@ -537,7 +538,7 @@ export const BlockedDatesManager = () => {
                             selectedUnitIds.includes('all') && "text-muted-foreground"
                           )}
                         >
-                          #{unit.unit_number} - {unit.name}
+                          #{unit.unit_number} - {unit.booking_com_name || unit.name}
                         </label>
                       </div>
                     ))}
@@ -629,7 +630,7 @@ export const BlockedDatesManager = () => {
               <SelectItem value="all">All Units</SelectItem>
               {units.map((unit) => (
                 <SelectItem key={unit.id} value={unit.id}>
-                  #{unit.unit_number} - {unit.name}
+                  #{unit.unit_number} - {unit.booking_com_name || unit.name}
                 </SelectItem>
               ))}
             </SelectContent>
