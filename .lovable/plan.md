@@ -1,186 +1,139 @@
 
-## Plan: Add Sortable Headers to Guest Forms Table
 
-### Overview
-Add sorting functionality to the "Check-In Status", "Form Status", and "Signed At" columns in the Guest Forms table. The headers will be clickable and display a subtle sort icon to indicate they are interactive.
+## Plan: Fix Guest Form Status Update Not Working
+
+### Problem Identified
+The guest check-in form saves successfully, but the reservation status is NOT being updated from `confirmed` to `checked-in`. This is confirmed by database data:
+
+| Guest | Form Signed At | Reservation Status | checked_in_at |
+|-------|---------------|-------------------|---------------|
+| Ammar Alhindi | Jan 28, 1:52 PM | confirmed | null |
+| Abraham Waxler | Jan 26, 11:52 AM | confirmed | null |
+| H RRR | Jan 24, 1:32 PM | confirmed | null |
+
+### Root Cause
+The guest form is accessed by **unauthenticated users** (public URL). While the `check_in_agreements` table allows public inserts, the `reservations` table UPDATE is blocked by Row Level Security (RLS) policies that require authentication.
+
+The code in `GuestCheckIn.tsx` lines 297-309 attempts to update the reservation:
+```typescript
+const { error: statusError } = await supabase
+  .from('reservations')
+  .update({ status: 'checked-in', checked_in_at: new Date().toISOString() })
+  .eq('id', reservationId);
+```
+
+This update returns no error but affects 0 rows because RLS blocks unauthenticated updates.
 
 ---
 
-### Visual Summary
+### Solution: Create a Database Function with SECURITY DEFINER
 
-```text
-┌─────────────────────────────────────────────────────────────────────────────┐
-│  CURRENT HEADERS:                                                            │
-│  ┌──────────────┐ ┌─────────────┐ ┌───────────┐                             │
-│  │ Check-In     │ │ Form Status │ │ Signed At │   <- Plain text headers     │
-│  │ Status       │ │             │ │           │                             │
-│  └──────────────┘ └─────────────┘ └───────────┘                             │
-│                                                                              │
-│  ↓ CHANGE TO ↓                                                              │
-│                                                                              │
-│  NEW HEADERS (clickable with sort icons):                                    │
-│  ┌──────────────────┐ ┌─────────────────┐ ┌───────────────┐                 │
-│  │ Check-In     ↕   │ │ Form Status ↕   │ │ Signed At ↕   │  <- Clickable  │
-│  │ Status           │ │                 │ │               │     with icons │
-│  └──────────────────┘ └─────────────────┘ └───────────────┘                 │
-│                                                                              │
-│  When clicked:                                                               │
-│   - First click: Sort ascending (↑)                                          │
-│   - Second click: Sort descending (↓)                                        │
-│   - Click different column: Reset to ascending                               │
-└─────────────────────────────────────────────────────────────────────────────┘
-```
+Create a secure database function that bypasses RLS to update the reservation status. This function will:
+1. Verify the check-in agreement exists for the reservation
+2. Update the status only if the reservation is currently "confirmed"
+3. Return success/failure for proper error handling
 
 ---
 
 ### Technical Changes
 
-#### File: `src/pages/GuestForms.tsx`
+#### 1. Create Database Migration
 
-**1. Add new imports for sorting icons (line 54):**
-```tsx
-import {
-  // ... existing imports
-  ArrowUpDown,
-  ArrowUp,
-  ArrowDown,
-} from 'lucide-react';
+Add a new PostgreSQL function `update_reservation_status_on_checkin`:
+
+```sql
+CREATE OR REPLACE FUNCTION public.update_reservation_status_on_checkin(
+  p_reservation_id UUID
+)
+RETURNS BOOLEAN
+LANGUAGE plpgsql
+SECURITY DEFINER
+SET search_path = public
+AS $$
+DECLARE
+  v_agreement_exists BOOLEAN;
+  v_current_status TEXT;
+BEGIN
+  -- Check if a check-in agreement exists for this reservation
+  SELECT EXISTS(
+    SELECT 1 FROM check_in_agreements WHERE reservation_id = p_reservation_id
+  ) INTO v_agreement_exists;
+  
+  IF NOT v_agreement_exists THEN
+    RETURN FALSE;
+  END IF;
+  
+  -- Get current reservation status
+  SELECT status INTO v_current_status
+  FROM reservations
+  WHERE id = p_reservation_id;
+  
+  -- Only update if currently confirmed (prevent duplicate check-ins)
+  IF v_current_status = 'confirmed' THEN
+    UPDATE reservations
+    SET status = 'checked-in',
+        checked_in_at = NOW()
+    WHERE id = p_reservation_id;
+    
+    RETURN TRUE;
+  END IF;
+  
+  -- Already checked in or other status
+  RETURN TRUE;
+END;
+$$;
 ```
 
-**2. Add sorting state (around line 100):**
-```tsx
-type SortField = 'check_in_status' | 'form_status' | 'signed_at' | null;
-type SortOrder = 'asc' | 'desc';
+#### 2. Update GuestCheckIn.tsx
 
-// Inside component:
-const [sortField, setSortField] = useState<SortField>(null);
-const [sortOrder, setSortOrder] = useState<SortOrder>('asc');
+Replace the direct update with an RPC call:
+
+**Current code (lines 297-309):**
+```typescript
+const { error: statusError } = await supabase
+  .from('reservations')
+  .update({ 
+    status: 'checked-in',
+    checked_in_at: new Date().toISOString()
+  })
+  .eq('id', reservationId);
+
+if (statusError) {
+  console.error('Error updating reservation status:', statusError);
+  toast.error('Check-in saved but status update failed');
+}
 ```
 
-**3. Add sorting handler function (after line 345):**
-```tsx
-const handleSort = (field: SortField) => {
-  if (sortField === field) {
-    setSortOrder(sortOrder === 'asc' ? 'desc' : 'asc');
-  } else {
-    setSortField(field);
-    setSortOrder('asc');
-  }
-};
+**New code:**
+```typescript
+// Update reservation status using RPC (bypasses RLS for anonymous users)
+const { data: statusUpdated, error: statusError } = await supabase
+  .rpc('update_reservation_status_on_checkin', {
+    p_reservation_id: reservationId
+  });
 
-const getSortIcon = (field: SortField) => {
-  if (sortField !== field) {
-    return <ArrowUpDown className="h-3.5 w-3.5 text-muted-foreground/50" />;
-  }
-  return sortOrder === 'asc' 
-    ? <ArrowUp className="h-3.5 w-3.5" /> 
-    : <ArrowDown className="h-3.5 w-3.5" />;
-};
+if (statusError) {
+  console.error('Error updating reservation status:', statusError);
+  toast.error('Check-in saved but status update failed');
+} else if (!statusUpdated) {
+  console.error('Status update returned false - agreement may not exist');
+  toast.error('Check-in saved but status update failed');
+}
 ```
 
-**4. Update filteredData useMemo to include sorting (lines 195-251):**
-```tsx
-const filteredData = useMemo(() => {
-  let data = tableData;
+#### 3. Fix Existing Data
 
-  // ... existing filtering logic ...
+Run a one-time SQL to fix reservations that already have forms but were never marked as checked-in:
 
-  // Apply sorting
-  if (sortField) {
-    data = [...data].sort((a, b) => {
-      let aVal: any;
-      let bVal: any;
-
-      switch (sortField) {
-        case 'check_in_status':
-          // Order: checked-in > checked-out > confirmed (Pending)
-          const statusOrder = { 'checked-in': 1, 'checked-out': 2, 'confirmed': 3 };
-          aVal = statusOrder[a.reservation.status] || 4;
-          bVal = statusOrder[b.reservation.status] || 4;
-          break;
-        case 'form_status':
-          // Completed (true) comes before Pending (false)
-          aVal = a.hasForm ? 0 : 1;
-          bVal = b.hasForm ? 0 : 1;
-          break;
-        case 'signed_at':
-          aVal = a.agreement?.signed_at ? new Date(a.agreement.signed_at).getTime() : 0;
-          bVal = b.agreement?.signed_at ? new Date(b.agreement.signed_at).getTime() : 0;
-          break;
-        default:
-          return 0;
-      }
-
-      if (aVal < bVal) return sortOrder === 'asc' ? -1 : 1;
-      if (aVal > bVal) return sortOrder === 'asc' ? 1 : -1;
-      return 0;
-    });
-  }
-
-  return data;
-}, [tableData, activeFilter, searchQuery, dateFilter, sortField, sortOrder]);
+```sql
+UPDATE reservations r
+SET status = 'checked-in',
+    checked_in_at = c.signed_at
+FROM check_in_agreements c
+WHERE r.id = c.reservation_id
+  AND r.status = 'confirmed'
+  AND r.check_out_date >= CURRENT_DATE;
 ```
-
-**5. Update table headers to be clickable (lines 565-570):**
-
-Replace:
-```tsx
-<TableHead>Check-In Status</TableHead>
-<TableHead>Form Status</TableHead>
-...
-<TableHead>Signed At</TableHead>
-```
-
-With:
-```tsx
-<TableHead 
-  className="cursor-pointer hover:bg-muted/50 select-none"
-  onClick={() => handleSort('check_in_status')}
->
-  <div className="flex items-center gap-1">
-    Check-In Status
-    {getSortIcon('check_in_status')}
-  </div>
-</TableHead>
-<TableHead 
-  className="cursor-pointer hover:bg-muted/50 select-none"
-  onClick={() => handleSort('form_status')}
->
-  <div className="flex items-center gap-1">
-    Form Status
-    {getSortIcon('form_status')}
-  </div>
-</TableHead>
-...
-<TableHead 
-  className="cursor-pointer hover:bg-muted/50 select-none"
-  onClick={() => handleSort('signed_at')}
->
-  <div className="flex items-center gap-1">
-    Signed At
-    {getSortIcon('signed_at')}
-  </div>
-</TableHead>
-```
-
----
-
-### Sorting Behavior
-
-| Column | Ascending Order | Descending Order |
-|--------|-----------------|------------------|
-| Check-In Status | Checked In -> Checked Out -> Pending | Pending -> Checked Out -> Checked In |
-| Form Status | Completed -> Pending | Pending -> Completed |
-| Signed At | Oldest first (empty last) | Newest first (empty last) |
-
----
-
-### Visual Indicators
-
-- **Inactive column**: Subtle two-way arrow icon (ArrowUpDown) with muted color
-- **Active ascending**: Single up arrow (ArrowUp) with full opacity
-- **Active descending**: Single down arrow (ArrowDown) with full opacity
-- **Hover state**: Light background highlight on the header cell
 
 ---
 
@@ -188,14 +141,16 @@ With:
 
 | File | Changes |
 |------|---------|
-| `src/pages/GuestForms.tsx` | Add sorting state, handler, and update table headers with click functionality and icons |
+| Database | Create `update_reservation_status_on_checkin` function |
+| `src/pages/GuestCheckIn.tsx` | Replace direct update with RPC call |
+| Database | One-time fix for existing stuck reservations |
 
 ---
 
 ### Expected Result
 
-- Three column headers ("Check-In Status", "Form Status", "Signed At") become clickable
-- Each header shows a subtle sort icon to indicate interactivity
-- Clicking toggles between ascending and descending order
-- The active sort column's icon changes to show current direction
-- Sorting integrates with existing filters (search, date, card filters)
+1. When a guest completes the check-in form, the function will update the reservation status
+2. The "Check-In Status" column will correctly show "Checked In" for guests who completed the form
+3. Existing stuck reservations will be fixed by the data repair query
+4. The function is secure - it only updates status if a valid check-in agreement exists
+
