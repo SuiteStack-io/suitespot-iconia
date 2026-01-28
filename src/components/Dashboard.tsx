@@ -1047,20 +1047,23 @@ export const Dashboard = () => {
                                   Guest Form
                                 </Button>
                               )}
-                              <Button
-                                size="sm"
-                                variant="outline"
-                                onClick={(e) => {
-                                  e.stopPropagation();
-                                  setSelectedReservation(reservation);
-                                  setCheckOutDialogOpen(true);
-                                }}
-                                disabled={updating === reservation.id}
-                                className="gap-1"
-                              >
-                                <CheckCircle className="h-3 w-3" />
-                                Check Out
-                              </Button>
+                              {/* Only show Check Out on Departures and In-House, NOT Arrivals */}
+                              {!dialogTitle.includes('Arrivals') && (
+                                <Button
+                                  size="sm"
+                                  variant="outline"
+                                  onClick={(e) => {
+                                    e.stopPropagation();
+                                    setSelectedReservation(reservation);
+                                    setCheckOutDialogOpen(true);
+                                  }}
+                                  disabled={updating === reservation.id}
+                                  className="gap-1"
+                                >
+                                  <CheckCircle className="h-3 w-3" />
+                                  Check Out
+                                </Button>
+                              )}
                             </>
                           )}
                           {dialogTitle.includes('Departures') && (reservation.status === 'checked-out' || reservation.status === 'completed') && (
