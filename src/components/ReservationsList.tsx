@@ -30,7 +30,7 @@ import {
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
 import { Calendar } from '@/components/ui/calendar';
 import { format } from 'date-fns';
-import { Search, Users, Check, CalendarIcon, Download, FileSpreadsheet, X, Mail, CheckCircle2, XCircle, Clock, Eye, FileText, Minus, Trash2, AlertTriangle } from 'lucide-react';
+import { Search, Users, Check, CalendarIcon, Download, FileSpreadsheet, X, Mail, CheckCircle2, XCircle, Clock, Eye, FileText, Minus, Trash2, AlertTriangle, ArrowUpDown, ArrowUp, ArrowDown } from 'lucide-react';
 import { Separator } from '@/components/ui/separator';
 import {
   AlertDialog,
@@ -406,8 +406,12 @@ export const ReservationsList = ({ userRole }: ReservationsListProps) => {
   };
 
   const getSortIcon = (field: SortField) => {
-    if (sortField !== field) return '';
-    return sortOrder === 'asc' ? ' ↑' : ' ↓';
+    if (sortField !== field) {
+      return <ArrowUpDown className="h-3.5 w-3.5 text-muted-foreground/50" />;
+    }
+    return sortOrder === 'asc' 
+      ? <ArrowUp className="h-3.5 w-3.5" /> 
+      : <ArrowDown className="h-3.5 w-3.5" />;
   };
 
   const handleSelectAll = (checked: boolean) => {
@@ -1083,7 +1087,9 @@ export const ReservationsList = ({ userRole }: ReservationsListProps) => {
                 className="w-[180px] min-w-[180px] max-w-[180px] cursor-pointer hover:bg-muted/50 sticky left-[50px] z-20 bg-background"
                 onClick={() => handleSort('units')}
               >
-                Room Name {getSortIcon('units')}
+                <div className="flex items-center gap-1">
+                  Room Name {getSortIcon('units')}
+                </div>
               </TableHead>
               <TableHead className="w-[80px] min-w-[80px] max-w-[80px] sticky left-[230px] z-20 bg-background">
                 Room #
@@ -1092,62 +1098,82 @@ export const ReservationsList = ({ userRole }: ReservationsListProps) => {
                 className="w-[180px] min-w-[180px] max-w-[180px] cursor-pointer hover:bg-muted/50 sticky left-[310px] z-20 bg-background"
                 onClick={() => handleSort('guest_names')}
               >
-                Guest Name(s) {getSortIcon('guest_names')}
+                <div className="flex items-center gap-1">
+                  Guest Name(s) {getSortIcon('guest_names')}
+                </div>
               </TableHead>
               <TableHead 
                 className="cursor-pointer hover:bg-muted/50 border-r border-border shadow-[2px_0_5px_-2px_rgba(0,0,0,0.1)]"
                 onClick={() => handleSort('source')}
               >
-                Source {getSortIcon('source')}
+                <div className="flex items-center gap-1">
+                  Source {getSortIcon('source')}
+                </div>
               </TableHead>
               <TableHead 
                 className="cursor-pointer hover:bg-muted/50"
                 onClick={() => handleSort('check_in_date')}
               >
-                Check-in {getSortIcon('check_in_date')}
+                <div className="flex items-center gap-1">
+                  Check-in {getSortIcon('check_in_date')}
+                </div>
               </TableHead>
               <TableHead 
                 className="cursor-pointer hover:bg-muted/50"
                 onClick={() => handleSort('check_out_date')}
               >
-                Check-out {getSortIcon('check_out_date')}
+                <div className="flex items-center gap-1">
+                  Check-out {getSortIcon('check_out_date')}
+                </div>
               </TableHead>
               <TableHead 
                 className="cursor-pointer hover:bg-muted/50"
                 onClick={() => handleSort('nights')}
               >
-                Nights {getSortIcon('nights')}
+                <div className="flex items-center gap-1">
+                  Nights {getSortIcon('nights')}
+                </div>
               </TableHead>
               <TableHead 
                 className="cursor-pointer hover:bg-muted/50"
                 onClick={() => handleSort('number_of_guests')}
               >
-                Guests {getSortIcon('number_of_guests')}
+                <div className="flex items-center gap-1">
+                  Guests {getSortIcon('number_of_guests')}
+                </div>
               </TableHead>
               <TableHead 
                 className="cursor-pointer hover:bg-muted/50"
                 onClick={() => handleSort('guest_nationality')}
               >
-                Nationality {getSortIcon('guest_nationality')}
+                <div className="flex items-center gap-1">
+                  Nationality {getSortIcon('guest_nationality')}
+                </div>
               </TableHead>
               <TableHead 
                 className="cursor-pointer hover:bg-muted/50"
                 onClick={() => handleSort('status')}
               >
-                Status {getSortIcon('status')}
+                <div className="flex items-center gap-1">
+                  Status {getSortIcon('status')}
+                </div>
               </TableHead>
               <TableHead>Check-in Doc</TableHead>
               <TableHead 
                 className="cursor-pointer hover:bg-muted/50 text-right"
                 onClick={() => handleSort('price_per_night')}
               >
-                Price/Night {getSortIcon('price_per_night')}
+                <div className="flex items-center justify-end gap-1">
+                  Price/Night {getSortIcon('price_per_night')}
+                </div>
               </TableHead>
               <TableHead 
                 className="cursor-pointer hover:bg-muted/50 text-right"
                 onClick={() => handleSort('total_price')}
               >
-                Net Revenue {getSortIcon('total_price')}
+                <div className="flex items-center justify-end gap-1">
+                  Net Revenue {getSortIcon('total_price')}
+                </div>
               </TableHead>
               <TableHead className="text-right">
                 VAT (14%)
@@ -1159,13 +1185,17 @@ export const ReservationsList = ({ userRole }: ReservationsListProps) => {
                 className="cursor-pointer hover:bg-muted/50"
                 onClick={() => handleSort('booking_reference')}
               >
-                Reference {getSortIcon('booking_reference')}
+                <div className="flex items-center gap-1">
+                  Reference {getSortIcon('booking_reference')}
+                </div>
               </TableHead>
               <TableHead 
                 className="cursor-pointer hover:bg-muted/50"
                 onClick={() => handleSort('created_at')}
               >
-                Date Created {getSortIcon('created_at')}
+                <div className="flex items-center gap-1">
+                  Date Created {getSortIcon('created_at')}
+                </div>
               </TableHead>
               <TableHead>Email</TableHead>
               <TableHead>Payment</TableHead>
