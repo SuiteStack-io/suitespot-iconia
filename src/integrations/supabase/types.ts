@@ -1498,6 +1498,10 @@ export type Database = {
         Args: { reservation1_id: string; reservation2_id: string }
         Returns: undefined
       }
+      update_reservation_status_on_checkin: {
+        Args: { p_reservation_id: string }
+        Returns: boolean
+      }
       update_reservation_statuses: { Args: never; Returns: undefined }
     }
     Enums: {
