@@ -294,17 +294,17 @@ const GuestCheckIn = () => {
 
       if (insertError) throw insertError;
 
-      // Update reservation status to checked-in with timestamp
-      const { error: statusError } = await supabase
-        .from('reservations')
-        .update({ 
-          status: 'checked-in',
-          checked_in_at: new Date().toISOString()
-        })
-        .eq('id', reservationId);
+      // Update reservation status using RPC (bypasses RLS for anonymous users)
+      const { data: statusUpdated, error: statusError } = await supabase
+        .rpc('update_reservation_status_on_checkin', {
+          p_reservation_id: reservationId
+        });
 
       if (statusError) {
         console.error('Error updating reservation status:', statusError);
+        toast.error('Check-in saved but status update failed');
+      } else if (!statusUpdated) {
+        console.error('Status update returned false - agreement may not exist');
         toast.error('Check-in saved but status update failed');
       }
 
