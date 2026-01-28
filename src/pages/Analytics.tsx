@@ -230,7 +230,8 @@ const Analytics = () => {
       .lte('check_in_date', endDate);
 
     const totalRevenue = revenueData?.reduce((sum, r) => sum + (r.total_price || 0), 0) || 0;
-    const netRevenue = revenueData?.reduce((sum, r) => sum + (r.net_revenue || 0), 0) || 0;
+    // Calculate net revenue dynamically instead of reading from database
+    const netRevenue = revenueData?.reduce((sum, r) => sum + ((r.total_price || 0) - (r.commission_amount || 0)), 0) || 0;
     const totalCommission = revenueData?.reduce((sum, r) => sum + (r.commission_amount || 0), 0) || 0;
 
     // Calculate commission by source - Booking.com only vs everything else (Direct)
@@ -367,7 +368,8 @@ const Analytics = () => {
       sourceMap[source].count += 1;
       sourceMap[source].grossRevenue += reservation.total_price || 0;
       sourceMap[source].commission += reservation.commission_amount || 0;
-      sourceMap[source].netRevenue += reservation.net_revenue || 0;
+      // Calculate net revenue dynamically
+      sourceMap[source].netRevenue += (reservation.total_price || 0) - (reservation.commission_amount || 0);
     });
 
     const sourceArray = Object.values(sourceMap).sort(
@@ -543,7 +545,8 @@ const Analytics = () => {
       directSourceMap[source].count += 1;
       directSourceMap[source].grossRevenue += reservation.total_price || 0;
       directSourceMap[source].commission += reservation.commission_amount || 0;
-      directSourceMap[source].netRevenue += reservation.net_revenue || 0;
+      // Calculate net revenue dynamically
+      directSourceMap[source].netRevenue += (reservation.total_price || 0) - (reservation.commission_amount || 0);
     });
 
     const directBreakdown = Object.values(directSourceMap).sort(
@@ -555,7 +558,8 @@ const Analytics = () => {
       count: directData.length,
       grossRevenue: directData.reduce((sum, r) => sum + (r.total_price || 0), 0),
       commission: directData.reduce((sum, r) => sum + (r.commission_amount || 0), 0),
-      netRevenue: directData.reduce((sum, r) => sum + (r.net_revenue || 0), 0),
+      // Calculate net revenue dynamically
+      netRevenue: directData.reduce((sum, r) => sum + ((r.total_price || 0) - (r.commission_amount || 0)), 0),
     };
 
     setSourcesData({
