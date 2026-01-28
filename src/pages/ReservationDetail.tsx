@@ -1579,7 +1579,9 @@ Thank you for choosing SuiteSpot!`;
                 <div>
                   <Label className="text-muted-foreground">Net Revenue</Label>
                   <p className="mt-1 font-medium">
-                    ${reservation.net_revenue ? Number(reservation.net_revenue).toFixed(1) : 'N/A'}
+                    {reservation.total_price && reservation.commission_amount
+                      ? `$${(Number(reservation.total_price) - Number(reservation.commission_amount)).toFixed(2)}`
+                      : 'N/A'}
                   </p>
                 </div>
                 <div>
