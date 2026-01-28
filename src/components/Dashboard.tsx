@@ -214,13 +214,14 @@ export const Dashboard = () => {
       return !isTransferOut;
     });
 
-    // In-house count (reservations that are currently checked-in AND checkout date hasn't passed)
-      const { data: inHouse } = await supabase
-        .from('reservations')
-        .select('id', { count: 'exact' })
-        .eq('status', 'checked-in')
-        .gte('check_out_date', today)
-        .is('cancelled_at', null);
+    // In-house: guests currently staying (check_in_date <= today AND check_out_date > today)
+    const { data: inHouse } = await supabase
+      .from('reservations')
+      .select('id', { count: 'exact' })
+      .in('status', ['confirmed', 'checked-in'])
+      .lte('check_in_date', today)
+      .gt('check_out_date', today)
+      .is('cancelled_at', null);
 
     // New bookings in last 24h
     const { data: newBookings } = await supabase
@@ -405,10 +406,14 @@ export const Dashboard = () => {
       .select(baseSelect);
     
     switch (cardType) {
-        case 'inhouse':
-          setDialogTitle('In-House Now');
-          query = query.eq('status', 'checked-in').gte('check_out_date', today).is('cancelled_at', null);
-          break;
+      case 'inhouse':
+        setDialogTitle('In-House Now');
+        query = query
+          .in('status', ['confirmed', 'checked-in'])
+          .lte('check_in_date', today)
+          .gt('check_out_date', today)
+          .is('cancelled_at', null);
+        break;
       case 'newbookings':
         setDialogTitle('New Bookings (Last 24h)');
         query = query.gte('created_at', yesterday);
