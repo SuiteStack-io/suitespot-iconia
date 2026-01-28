@@ -160,14 +160,16 @@ export const RevenueBySource = () => {
       sourceMap[source].count += 1;
       sourceMap[source].grossRevenue += reservation.total_price || 0;
       sourceMap[source].commission += reservation.commission_amount || 0;
-      sourceMap[source].netRevenue += reservation.net_revenue || 0;
+      // Calculate net revenue dynamically instead of reading from database
+      const calculatedNetRevenue = (reservation.total_price || 0) - (reservation.commission_amount || 0);
+      sourceMap[source].netRevenue += calculatedNetRevenue;
       
       // Store booking details for all sources (for expandable breakdowns)
       if (reservation.guest_names?.[0]) {
         sourceMap[source].bookingDetails?.push({
           guestName: reservation.guest_names[0],
           totalPrice: reservation.total_price || 0,
-          netRevenue: reservation.net_revenue || 0,
+          netRevenue: calculatedNetRevenue,
           checkInDate: reservation.check_in_date,
           checkOutDate: reservation.check_out_date,
           nights: reservation.nights || 0,

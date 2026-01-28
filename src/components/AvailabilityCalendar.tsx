@@ -44,6 +44,7 @@ interface Reservation {
   price_per_night?: number | null;
   net_revenue?: number | null;
   total_price?: number | null;
+  commission_amount?: number | null;
   group_id?: string | null;
 }
 
@@ -620,10 +621,10 @@ export const AvailabilityCalendar = () => {
         const totalNights = differenceInDays(checkOut, checkIn);
         totalBookedNights += nightsInPeriod;
         
-        // Use net_revenue from database (proportional for partial periods)
-        const netRevenue = reservation.net_revenue || 0;
+        // Calculate net revenue dynamically instead of reading from database
+        const calculatedNetRevenue = (reservation.total_price || 0) - (reservation.commission_amount || 0);
         const proportionalNetRevenue = totalNights > 0 
-          ? (netRevenue / totalNights) * nightsInPeriod 
+          ? (calculatedNetRevenue / totalNights) * nightsInPeriod 
           : 0;
         periodRevenue += proportionalNetRevenue;
         
@@ -666,10 +667,10 @@ export const AvailabilityCalendar = () => {
           const totalNights = differenceInDays(checkOut, checkIn);
           unitBookedNights += nightsInPeriod;
           
-          // Use net_revenue from database (proportional for partial periods)
-          const netRevenue = reservation.net_revenue || 0;
+          // Calculate net revenue dynamically instead of reading from database
+          const calculatedNetRevenue = (reservation.total_price || 0) - (reservation.commission_amount || 0);
           unitRevenue += totalNights > 0 
-            ? (netRevenue / totalNights) * nightsInPeriod 
+            ? (calculatedNetRevenue / totalNights) * nightsInPeriod 
             : 0;
         }
       });
