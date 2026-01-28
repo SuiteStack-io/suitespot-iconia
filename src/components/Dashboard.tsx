@@ -39,6 +39,8 @@ interface DashboardStats {
   departuresCheckedOut: number;
   inHouse: number;
   newBookings: number;
+  newBookingsDirect: number;
+  newBookingsBookingCom: number;
   recentCancellations: number;
   totalRevenue: number;
   netRevenue: number;
@@ -99,6 +101,8 @@ export const Dashboard = () => {
     departuresCheckedOut: 0,
     inHouse: 0,
     newBookings: 0,
+    newBookingsDirect: 0,
+    newBookingsBookingCom: 0,
     recentCancellations: 0,
     totalRevenue: 0,
     netRevenue: 0,
@@ -239,9 +243,15 @@ export const Dashboard = () => {
     // New bookings in last 24h
     const { data: newBookings } = await supabase
       .from('reservations')
-      .select('id', { count: 'exact' })
+      .select('id, channel')
       .gte('created_at', yesterday)
       .is('cancelled_at', null);
+
+    // Calculate booking source breakdown
+    const newBookingsBookingCom = (newBookings || []).filter(
+      b => b.channel === 'Booking.com'
+    ).length;
+    const newBookingsDirect = (newBookings?.length || 0) - newBookingsBookingCom;
 
     // Recent cancellations (last 24h)
     const { data: cancellations } = await supabase
@@ -279,6 +289,8 @@ export const Dashboard = () => {
       departuresCheckedOut,
       inHouse: inHouse?.length || 0,
       newBookings: newBookings?.length || 0,
+      newBookingsDirect,
+      newBookingsBookingCom,
       recentCancellations: cancellations?.length || 0,
       totalRevenue,
       netRevenue,
@@ -749,6 +761,9 @@ export const Dashboard = () => {
       color: 'text-purple-600',
       isRevenue: false,
       type: 'newbookings',
+      subtitle: stats.newBookings > 0 
+        ? `${stats.newBookingsDirect} Direct (${Math.round((stats.newBookingsDirect / stats.newBookings) * 100)}%) · ${stats.newBookingsBookingCom} B.com` 
+        : undefined,
     },
     {
       title: 'Recent Cancellations (24h)',
