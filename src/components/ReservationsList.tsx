@@ -767,6 +767,11 @@ export const ReservationsList = ({ userRole }: ReservationsListProps) => {
     }
   };
 
+  // Helper to detect Booking.com reservations
+  const isBookingComReservation = (reservation: Reservation): boolean => {
+    return reservation.source?.toLowerCase().includes('booking') || false;
+  };
+
   return (
     <div className="space-y-4">
       <div className="flex flex-col sm:flex-row gap-4">
@@ -1369,50 +1374,68 @@ export const ReservationsList = ({ userRole }: ReservationsListProps) => {
                     )}
                   </TableCell>
                   <TableCell onClick={(e) => e.stopPropagation()}>
-                    <Select
-                      value={reservation.payment_method || ''}
-                      onValueChange={(value) => handlePaymentMethodChange(reservation.id, value)}
-                    >
-                      <SelectTrigger className="w-[110px] h-8 text-xs">
-                        <SelectValue placeholder="Select..." />
-                      </SelectTrigger>
-                      <SelectContent>
-                        <SelectItem value="cash">Cash</SelectItem>
-                        <SelectItem value="credit_card">Credit Card</SelectItem>
-                        <SelectItem value="booking_com">Booking.com</SelectItem>
-                      </SelectContent>
-                    </Select>
+                    {isBookingComReservation(reservation) ? (
+                      <span className="text-sm text-muted-foreground px-2 py-1 bg-muted rounded">
+                        Credit Card
+                      </span>
+                    ) : (
+                      <Select
+                        value={reservation.payment_method || ''}
+                        onValueChange={(value) => handlePaymentMethodChange(reservation.id, value)}
+                      >
+                        <SelectTrigger className="w-[110px] h-8 text-xs">
+                          <SelectValue placeholder="Select..." />
+                        </SelectTrigger>
+                        <SelectContent>
+                          <SelectItem value="cash">Cash</SelectItem>
+                          <SelectItem value="credit_card">Credit Card</SelectItem>
+                          <SelectItem value="booking_com">Booking.com</SelectItem>
+                        </SelectContent>
+                      </Select>
+                    )}
                   </TableCell>
                   <TableCell onClick={(e) => e.stopPropagation()}>
-                    <Select
-                      value={reservation.currency || ''}
-                      onValueChange={(value) => handleCurrencyChange(reservation.id, value)}
-                    >
-                      <SelectTrigger className="w-[140px] h-8 text-xs">
-                        <SelectValue placeholder="Select..." />
-                      </SelectTrigger>
-                      <SelectContent>
-                        <SelectItem value="USD">Dollars (USD)</SelectItem>
-                        <SelectItem value="AED">Dirhams (AED)</SelectItem>
-                        <SelectItem value="SAR">Riyals (SAR)</SelectItem>
-                        <SelectItem value="EGP">Egyptian Pounds (EGP)</SelectItem>
-                      </SelectContent>
-                    </Select>
+                    {isBookingComReservation(reservation) ? (
+                      <span className="text-sm text-muted-foreground px-2 py-1 bg-muted rounded">
+                        Dollars (USD)
+                      </span>
+                    ) : (
+                      <Select
+                        value={reservation.currency || ''}
+                        onValueChange={(value) => handleCurrencyChange(reservation.id, value)}
+                      >
+                        <SelectTrigger className="w-[140px] h-8 text-xs">
+                          <SelectValue placeholder="Select..." />
+                        </SelectTrigger>
+                        <SelectContent>
+                          <SelectItem value="USD">Dollars (USD)</SelectItem>
+                          <SelectItem value="AED">Dirhams (AED)</SelectItem>
+                          <SelectItem value="SAR">Riyals (SAR)</SelectItem>
+                          <SelectItem value="EGP">Egyptian Pounds (EGP)</SelectItem>
+                        </SelectContent>
+                      </Select>
+                    )}
                   </TableCell>
                   <TableCell onClick={(e) => e.stopPropagation()}>
-                    <Select
-                      value={reservation.settled || ''}
-                      onValueChange={(value) => handleSettledChange(reservation.id, value)}
-                    >
-                      <SelectTrigger className="w-[110px] h-8 text-xs">
-                        <SelectValue placeholder="Select..." />
-                      </SelectTrigger>
-                      <SelectContent>
-                        <SelectItem value="booking_com">Booking.com</SelectItem>
-                        <SelectItem value="yes">Yes</SelectItem>
-                        <SelectItem value="no">No</SelectItem>
-                      </SelectContent>
-                    </Select>
+                    {isBookingComReservation(reservation) ? (
+                      <span className="text-sm text-muted-foreground px-2 py-1 bg-muted rounded">
+                        Booking.com
+                      </span>
+                    ) : (
+                      <Select
+                        value={reservation.settled || ''}
+                        onValueChange={(value) => handleSettledChange(reservation.id, value)}
+                      >
+                        <SelectTrigger className="w-[110px] h-8 text-xs">
+                          <SelectValue placeholder="Select..." />
+                        </SelectTrigger>
+                        <SelectContent>
+                          <SelectItem value="booking_com">Booking.com</SelectItem>
+                          <SelectItem value="yes">Yes</SelectItem>
+                          <SelectItem value="no">No</SelectItem>
+                        </SelectContent>
+                      </Select>
+                    )}
                   </TableCell>
                 </TableRow>
               ))

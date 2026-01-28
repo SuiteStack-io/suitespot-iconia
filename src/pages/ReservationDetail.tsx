@@ -1442,27 +1442,39 @@ Thank you for choosing SuiteSpot!`;
                 </div>
                 <div>
                   <Label>Currency</Label>
-                  <Select value={formData.currency} onValueChange={(value) => setFormData(prev => ({ ...prev, currency: value }))}>
-                    <SelectTrigger className="mt-2">
-                      <SelectValue placeholder="Select currency" />
-                    </SelectTrigger>
-                    <SelectContent>
-                      <SelectItem value="USD">USD</SelectItem>
-                      <SelectItem value="EGP">EGP</SelectItem>
-                    </SelectContent>
-                  </Select>
+                  {formData.source?.toLowerCase().includes('booking') ? (
+                    <div className="mt-2 px-3 py-2 bg-muted rounded-md text-sm text-muted-foreground">
+                      USD (Booking.com)
+                    </div>
+                  ) : (
+                    <Select value={formData.currency} onValueChange={(value) => setFormData(prev => ({ ...prev, currency: value }))}>
+                      <SelectTrigger className="mt-2">
+                        <SelectValue placeholder="Select currency" />
+                      </SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="USD">USD</SelectItem>
+                        <SelectItem value="EGP">EGP</SelectItem>
+                      </SelectContent>
+                    </Select>
+                  )}
                 </div>
                 <div>
                   <Label>Payment Method</Label>
-                  <Select value={formData.payment_method} onValueChange={(value) => setFormData(prev => ({ ...prev, payment_method: value }))}>
-                    <SelectTrigger className="mt-2">
-                      <SelectValue placeholder="Select payment method" />
-                    </SelectTrigger>
-                    <SelectContent>
-                      <SelectItem value="cash">Cash</SelectItem>
-                      <SelectItem value="credit_card">Credit Card</SelectItem>
-                    </SelectContent>
-                  </Select>
+                  {formData.source?.toLowerCase().includes('booking') ? (
+                    <div className="mt-2 px-3 py-2 bg-muted rounded-md text-sm text-muted-foreground">
+                      Credit Card (Booking.com)
+                    </div>
+                  ) : (
+                    <Select value={formData.payment_method} onValueChange={(value) => setFormData(prev => ({ ...prev, payment_method: value }))}>
+                      <SelectTrigger className="mt-2">
+                        <SelectValue placeholder="Select payment method" />
+                      </SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="cash">Cash</SelectItem>
+                        <SelectItem value="credit_card">Credit Card</SelectItem>
+                      </SelectContent>
+                    </Select>
+                  )}
                 </div>
               </>
             ) : (
