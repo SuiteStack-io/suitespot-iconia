@@ -69,7 +69,7 @@ interface Reservation {
   guest_names: string[];
   guest_nationality: string | null;
   status: string;
-  units: { name: string; unit_number: string | null } | null;
+  units: { name: string; unit_number: string | null; booking_com_name: string | null } | null;
   source: string;
   price_per_night: number | null;
   total_price: number | null;
@@ -211,7 +211,7 @@ export const ReservationsList = ({ userRole }: ReservationsListProps) => {
   const fetchReservations = async () => {
     const { data, error } = await supabase
       .from('reservations')
-      .select('id, booking_reference, check_in_date, check_out_date, nights, number_of_guests, guest_names, guest_nationality, status, source, price_per_night, total_price, commission_rate, commission_amount, net_revenue, currency, created_at, group_id, unit_id, contact_email, confirmation_email_status, confirmation_email_sent_at, payment_method, settled, vat_exempt, units(name, unit_number)')
+      .select('id, booking_reference, check_in_date, check_out_date, nights, number_of_guests, guest_names, guest_nationality, status, source, price_per_night, total_price, commission_rate, commission_amount, net_revenue, currency, created_at, group_id, unit_id, contact_email, confirmation_email_status, confirmation_email_sent_at, payment_method, settled, vat_exempt, units(name, unit_number, booking_com_name)')
       .order('check_in_date', { ascending: false });
 
     if (!error && data) {
@@ -1083,16 +1083,22 @@ export const ReservationsList = ({ userRole }: ReservationsListProps) => {
                 className="w-[180px] min-w-[180px] max-w-[180px] cursor-pointer hover:bg-muted/50 sticky left-[50px] z-20 bg-background"
                 onClick={() => handleSort('units')}
               >
-                Suite Name {getSortIcon('units')}
+                Room Name {getSortIcon('units')}
               </TableHead>
               <TableHead className="w-[80px] min-w-[80px] max-w-[80px] sticky left-[230px] z-20 bg-background">
                 Room #
               </TableHead>
               <TableHead 
-                className="w-[180px] min-w-[180px] max-w-[180px] cursor-pointer hover:bg-muted/50 sticky left-[310px] z-20 bg-background border-r border-border shadow-[2px_0_5px_-2px_rgba(0,0,0,0.1)]"
+                className="w-[180px] min-w-[180px] max-w-[180px] cursor-pointer hover:bg-muted/50 sticky left-[310px] z-20 bg-background"
                 onClick={() => handleSort('guest_names')}
               >
                 Guest Name(s) {getSortIcon('guest_names')}
+              </TableHead>
+              <TableHead 
+                className="cursor-pointer hover:bg-muted/50 border-r border-border shadow-[2px_0_5px_-2px_rgba(0,0,0,0.1)]"
+                onClick={() => handleSort('source')}
+              >
+                Source {getSortIcon('source')}
               </TableHead>
               <TableHead 
                 className="cursor-pointer hover:bg-muted/50"
@@ -1131,12 +1137,6 @@ export const ReservationsList = ({ userRole }: ReservationsListProps) => {
                 Status {getSortIcon('status')}
               </TableHead>
               <TableHead>Check-in Doc</TableHead>
-              <TableHead 
-                className="cursor-pointer hover:bg-muted/50"
-                onClick={() => handleSort('source')}
-              >
-                Source {getSortIcon('source')}
-              </TableHead>
               <TableHead 
                 className="cursor-pointer hover:bg-muted/50 text-right"
                 onClick={() => handleSort('price_per_night')}
@@ -1197,7 +1197,7 @@ export const ReservationsList = ({ userRole }: ReservationsListProps) => {
                     onClick={() => navigate(`/reservation/${reservation.id}`)}
                   >
                     <div className="flex items-center gap-2">
-                      {reservation.units?.name || 'N/A'}
+                      {reservation.units?.booking_com_name || reservation.units?.name || 'N/A'}
                       {reservation.isGrouped && reservation.groupCount && (
                         <Badge 
                           variant="outline" 
@@ -1221,10 +1221,18 @@ export const ReservationsList = ({ userRole }: ReservationsListProps) => {
                     )}
                   </TableCell>
                   <TableCell 
-                    className="w-[180px] min-w-[180px] max-w-[180px] cursor-pointer sticky left-[310px] z-10 bg-background border-r border-border shadow-[2px_0_5px_-2px_rgba(0,0,0,0.1)]"
+                    className="w-[180px] min-w-[180px] max-w-[180px] cursor-pointer sticky left-[310px] z-10 bg-background"
                     onClick={() => navigate(`/reservation/${reservation.id}`)}
                   >
                     {reservation.guest_names?.length > 0 ? reservation.guest_names.join(', ') : 'N/A'}
+                  </TableCell>
+                  <TableCell 
+                    className="cursor-pointer border-r border-border shadow-[2px_0_5px_-2px_rgba(0,0,0,0.1)]"
+                    onClick={() => navigate(`/reservation/${reservation.id}`)}
+                  >
+                    {reservation.source?.toLowerCase().includes('booking') 
+                      ? 'Booking.com' 
+                      : reservation.source || 'N/A'}
                   </TableCell>
                   <TableCell 
                     className="cursor-pointer"
@@ -1292,12 +1300,6 @@ export const ReservationsList = ({ userRole }: ReservationsListProps) => {
                         <Minus className="h-4 w-4" />
                       </span>
                     )}
-                  </TableCell>
-                  <TableCell 
-                    className="cursor-pointer"
-                    onClick={() => navigate(`/reservation/${reservation.id}`)}
-                  >
-                    {reservation.source}
                   </TableCell>
                   <TableCell 
                     className="text-right cursor-pointer"
