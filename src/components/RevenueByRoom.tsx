@@ -177,7 +177,7 @@ export const RevenueByRoom = ({ mainDateRange }: RevenueByRoomProps) => {
     // Fetch reservations for the date range
     const { data: reservations, error: reservationsError } = await supabase
       .from('reservations')
-      .select('unit_id, total_price, net_revenue, check_in_date, check_out_date, nights')
+      .select('unit_id, total_price, commission_amount, check_in_date, check_out_date, nights')
       .neq('status', 'Cancelled')
       .is('cancelled_at', null)
       .gte('check_in_date', startDate)
@@ -198,7 +198,7 @@ export const RevenueByRoom = ({ mainDateRange }: RevenueByRoomProps) => {
       ) || [];
 
       const totalRevenue = unitReservations.reduce(
-        (sum, r) => sum + (r.net_revenue || r.total_price || 0),
+        (sum, r) => sum + ((r.total_price || 0) - (r.commission_amount || 0)),
         0
       );
       
