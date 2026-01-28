@@ -229,12 +229,12 @@ export const Dashboard = () => {
       .gte('created_at', yesterday)
       .is('cancelled_at', null);
 
-    // Recent cancellations (last 7 days)
+    // Recent cancellations (last 24h)
     const { data: cancellations } = await supabase
       .from('reservations')
       .select('id', { count: 'exact' })
       .eq('status', 'cancelled')
-      .gte('cancelled_at', sevenDaysAgo);
+      .gte('cancelled_at', yesterday);
 
     // Revenue calculations
     const { data: revenueData } = await supabase
@@ -417,8 +417,8 @@ export const Dashboard = () => {
         query = query.gte('created_at', yesterday);
         break;
       case 'cancellations':
-        setDialogTitle('Recent Cancellations (Last 7 Days)');
-        query = query.eq('status', 'cancelled').gte('cancelled_at', sevenDaysAgo);
+        setDialogTitle('Recent Cancellations (Last 24h)');
+        query = query.eq('status', 'cancelled').gte('cancelled_at', yesterday);
         break;
     }
     
@@ -729,7 +729,7 @@ export const Dashboard = () => {
       type: 'newbookings',
     },
     {
-      title: 'Recent Cancellations',
+      title: 'Recent Cancellations (24h)',
       value: stats.recentCancellations,
       icon: XCircle,
       color: 'text-red-600',
