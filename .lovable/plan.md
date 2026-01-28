@@ -1,16 +1,9 @@
 
 
-## Plan: Fix "In-House Now" Card to Show Currently Staying Guests
+## Plan: Revert "In-House Now" to Only Show Checked-In Guests
 
-### Problem Identified
-The "In-House Now" card only shows reservations with `status = 'checked-in'`, but several guests are physically in-house without their status being updated:
-
-| Room | Guest | Status | Should Show? |
-|------|-------|--------|--------------|
-| 511 | rawan tarabzoni | confirmed | Yes (check-in was Jan 27) |
-| 518 | Mounira Elbalawy | checked-in | Yes |
-| 417/418 | H RRR | confirmed | Yes (check-in was Jan 24) |
-| 503 | Abraham Waxler | confirmed | Yes (check-in was Jan 26) |
+### Overview
+Change the "In-House Now" card back to only display guests who have officially checked in (status = 'checked-in'). Guests with 'confirmed' status will not appear, even if their check-in date has passed.
 
 ---
 
@@ -18,25 +11,22 @@ The "In-House Now" card only shows reservations with `status = 'checked-in'`, bu
 
 ```text
 ┌─────────────────────────────────────────────────────────────────────────────┐
-│  CURRENT BEHAVIOR:                                                           │
+│  CURRENT BEHAVIOR (after previous change):                                   │
 │  ┌──────────────────┐                                                        │
 │  │  In-House Now    │                                                        │
-│  │        1         │  ← Only counts status='checked-in'                    │
+│  │        4         │  ← Shows confirmed + checked-in guests                │
 │  └──────────────────┘                                                        │
 │                                                                              │
 │  ↓ CHANGE TO ↓                                                              │
 │                                                                              │
-│  FIXED BEHAVIOR:                                                             │
+│  REVERTED BEHAVIOR:                                                          │
 │  ┌──────────────────┐                                                        │
 │  │  In-House Now    │                                                        │
-│  │        4         │  ← Counts all guests currently staying                │
-│  └──────────────────┘     (check_in_date <= today AND check_out_date > today)│
+│  │        1         │  ← Only shows status='checked-in' guests              │
+│  └──────────────────┘                                                        │
 │                                                                              │
-│  When clicked, shows:                                                        │
-│  - Room 511: rawan tarabzoni                                                │
-│  - Room 518: Mounira Elbalawy                                               │
-│  - Room 417/418: H RRR                                                       │
-│  - Room 503: Abraham Waxler                                                  │
+│  Logic: Only guests who completed the guest form (which triggers             │
+│  automatic check-in) will appear in "In-House Now"                           │
 └─────────────────────────────────────────────────────────────────────────────┘
 ```
 
@@ -46,41 +36,32 @@ The "In-House Now" card only shows reservations with `status = 'checked-in'`, bu
 
 #### File: `src/components/Dashboard.tsx`
 
-**1. Update the in-house count query (lines 217-223):**
+**1. Revert the in-house count query (lines 217-224):**
 
-Current (incorrect):
+Current:
 ```typescript
 const { data: inHouse } = await supabase
   .from('reservations')
   .select('id', { count: 'exact' })
-  .eq('status', 'checked-in')  // ← Only counts checked-in
+  .in('status', ['confirmed', 'checked-in'])
+  .lte('check_in_date', today)
+  .gt('check_out_date', today)
+  .is('cancelled_at', null);
+```
+
+Change to:
+```typescript
+const { data: inHouse } = await supabase
+  .from('reservations')
+  .select('id', { count: 'exact' })
+  .eq('status', 'checked-in')
   .gte('check_out_date', today)
   .is('cancelled_at', null);
 ```
 
-Change to (correct):
-```typescript
-// In-house: guests currently staying (check_in_date <= today AND check_out_date > today)
-const { data: inHouse } = await supabase
-  .from('reservations')
-  .select('id', { count: 'exact' })
-  .in('status', ['confirmed', 'checked-in'])  // Include confirmed guests who should be in-house
-  .lte('check_in_date', today)  // Check-in date has passed or is today
-  .gt('check_out_date', today)  // Check-out date is in the future
-  .is('cancelled_at', null);
-```
-
-**2. Update the dialog query for "In-House Now" (lines 407-411):**
+**2. Revert the dialog query for "In-House Now" (lines 406-414):**
 
 Current:
-```typescript
-case 'inhouse':
-  setDialogTitle('In-House Now');
-  query = query.eq('status', 'checked-in').gte('check_out_date', today).is('cancelled_at', null);
-  break;
-```
-
-Change to:
 ```typescript
 case 'inhouse':
   setDialogTitle('In-House Now');
@@ -92,25 +73,32 @@ case 'inhouse':
   break;
 ```
 
+Change to:
+```typescript
+case 'inhouse':
+  setDialogTitle('In-House Now');
+  query = query
+    .eq('status', 'checked-in')
+    .gte('check_out_date', today)
+    .is('cancelled_at', null);
+  break;
+```
+
 ---
 
-### Logic Explanation
+### Workflow After Both Changes
 
-A guest is "In-House Now" if:
-1. Their check-in date is today or earlier (`check_in_date <= today`)
-2. Their check-out date is tomorrow or later (`check_out_date > today`)
-3. Status is either 'confirmed' or 'checked-in' (not cancelled/completed)
-4. Reservation is not soft-deleted (`cancelled_at IS NULL`)
-
-This matches the real-world scenario where guests arrive even if staff hasn't updated the status.
+1. Guest arrives → Appears in "Today's Arrivals" with "Check In (Complete Guest Form)" button
+2. Staff clicks button → Opens guest form in new tab
+3. Guest completes form → Status automatically changes to "checked-in"
+4. Dashboard refreshes → Guest now appears in "In-House Now" card
+5. Guests who haven't completed the form remain in "Today's Arrivals" only
 
 ---
 
 ### Expected Result
 
-After implementation:
-- Card shows "4" instead of "1"
-- Clicking the card shows all 4 rooms: 511, 518, 417/418, 503
-- Includes guests whose status hasn't been updated yet by front desk
-- Still excludes cancelled reservations
+- "In-House Now" only shows guests with status = 'checked-in'
+- Completing the guest form is required to appear in "In-House Now"
+- This enforces the check-in workflow through the guest form
 
