@@ -1,142 +1,162 @@
 
+## Plan: Lock Payment/Currency/Settled Fields for Booking.com Reservations
 
-## Plan: Calculate Net Revenue Dynamically Across All Revenue Reports
+### Problem Summary
+Currently, all reservations in the Reservations List show editable dropdowns for Payment Method, Currency, and Settled status - even for Booking.com reservations. The user wants:
 
-### Problem
-The `net_revenue` field stored in the database for Booking.com reservations is incorrect ($360.00 instead of $350.06). Multiple components across the application read this incorrect value, causing revenue reports to be inaccurate.
+1. **Booking.com reservations** to have these fields **locked** with pre-set values:
+   - Payment Method: `credit_card` (shown as "Credit Card")
+   - Currency: `USD`
+   - Settled: `booking_com` (shown as "Booking.com")
 
-**Correct Formula:** `Net Revenue = Total Price - Commission Amount`
+2. **Manual/Direct reservations** should keep these fields **editable**
 
----
-
-### Files That Need Updates
-
-| File | Usage | Lines |
-|------|-------|-------|
-| `src/components/RevenueBySource.tsx` | Revenue by Source table, totals, exports | 163, 170 |
-| `src/pages/Analytics.tsx` | Dashboard stats, source breakdown dialogs | 233, 370, 546, 558 |
-| `src/components/AvailabilityCalendar.tsx` | Calendar occupancy metrics | 624, 670 |
+Note: The sync function (`sync-booking-gmail`) already correctly sets `payment_method: 'booking_com'`, `settled: 'booking_com'`, and `currency: 'USD'` for new Booking.com reservations. The issue is only in the UI display and editability.
 
 ---
 
 ### Technical Changes
 
-#### 1. File: `src/components/RevenueBySource.tsx`
+#### File: `src/components/ReservationsList.tsx`
 
-**Line 163 - Change aggregation to calculate instead of read:**
+**1. Create helper function to detect Booking.com reservations (after line 768)**
+
 ```tsx
-// FROM:
-sourceMap[source].netRevenue += reservation.net_revenue || 0;
-
-// TO:
-const calculatedNetRevenue = (reservation.total_price || 0) - (reservation.commission_amount || 0);
-sourceMap[source].netRevenue += calculatedNetRevenue;
+const isBookingComReservation = (reservation: Reservation): boolean => {
+  return reservation.source?.toLowerCase().includes('booking') || false;
+};
 ```
 
-**Line 170 - Change booking details to calculate:**
-```tsx
-// FROM:
-netRevenue: reservation.net_revenue || 0,
+**2. Modify Payment Method column (lines 1371-1385)**
 
-// TO:
-netRevenue: (reservation.total_price || 0) - (reservation.commission_amount || 0),
+Change from editable Select to conditional rendering:
+- For Booking.com: Display static text "Credit Card" (disabled appearance)
+- For Manual: Keep existing editable Select
+
+**3. Modify Currency column (lines 1386-1401)**
+
+Change from editable Select to conditional rendering:
+- For Booking.com: Display static text "Dollars (USD)" (disabled appearance)
+- For Manual: Keep existing editable Select
+
+**4. Modify Settled column (lines 1402-1416)**
+
+Change from editable Select to conditional rendering:
+- For Booking.com: Display static text "Booking.com" (disabled appearance)
+- For Manual: Keep existing editable Select
+
+---
+
+#### File: `src/pages/ReservationDetail.tsx`
+
+**5. Modify edit mode for Payment Method (lines 1455-1466)**
+
+When in edit mode for Booking.com reservations:
+- Hide or disable the Payment Method dropdown
+- Show static read-only value instead
+
+**6. Modify edit mode for Currency (lines 1443-1454)**
+
+When in edit mode for Booking.com reservations:
+- Hide or disable the Currency dropdown
+- Show static read-only value instead
+
+---
+
+### Implementation Details
+
+**In ReservationsList.tsx - Payment Method column:**
+
+```tsx
+<TableCell onClick={(e) => e.stopPropagation()}>
+  {isBookingComReservation(reservation) ? (
+    <span className="text-sm text-muted-foreground px-2 py-1 bg-muted rounded">
+      Credit Card
+    </span>
+  ) : (
+    <Select
+      value={reservation.payment_method || ''}
+      onValueChange={(value) => handlePaymentMethodChange(reservation.id, value)}
+    >
+      <SelectTrigger className="w-[110px] h-8 text-xs">
+        <SelectValue placeholder="Select..." />
+      </SelectTrigger>
+      <SelectContent>
+        <SelectItem value="cash">Cash</SelectItem>
+        <SelectItem value="credit_card">Credit Card</SelectItem>
+        <SelectItem value="booking_com">Booking.com</SelectItem>
+      </SelectContent>
+    </Select>
+  )}
+</TableCell>
+```
+
+**In ReservationsList.tsx - Currency column:**
+
+```tsx
+<TableCell onClick={(e) => e.stopPropagation()}>
+  {isBookingComReservation(reservation) ? (
+    <span className="text-sm text-muted-foreground px-2 py-1 bg-muted rounded">
+      Dollars (USD)
+    </span>
+  ) : (
+    <Select
+      value={reservation.currency || ''}
+      onValueChange={(value) => handleCurrencyChange(reservation.id, value)}
+    >
+      {/* existing options */}
+    </Select>
+  )}
+</TableCell>
+```
+
+**In ReservationsList.tsx - Settled column:**
+
+```tsx
+<TableCell onClick={(e) => e.stopPropagation()}>
+  {isBookingComReservation(reservation) ? (
+    <span className="text-sm text-muted-foreground px-2 py-1 bg-muted rounded">
+      Booking.com
+    </span>
+  ) : (
+    <Select
+      value={reservation.settled || ''}
+      onValueChange={(value) => handleSettledChange(reservation.id, value)}
+    >
+      {/* existing options */}
+    </Select>
+  )}
+</TableCell>
 ```
 
 ---
 
-#### 2. File: `src/pages/Analytics.tsx`
+### Files to Modify
 
-**Line 233 - Change main stats calculation:**
-```tsx
-// FROM:
-const netRevenue = revenueData?.reduce((sum, r) => sum + (r.net_revenue || 0), 0) || 0;
-
-// TO:
-const netRevenue = revenueData?.reduce((sum, r) => 
-  sum + ((r.total_price || 0) - (r.commission_amount || 0)), 0) || 0;
-```
-
-**Line 370 - Change direct source details aggregation:**
-```tsx
-// FROM:
-sourceMap[source].netRevenue += reservation.net_revenue || 0;
-
-// TO:
-sourceMap[source].netRevenue += (reservation.total_price || 0) - (reservation.commission_amount || 0);
-```
-
-**Line 546 - Change direct source map aggregation:**
-```tsx
-// FROM:
-directSourceMap[source].netRevenue += reservation.net_revenue || 0;
-
-// TO:
-directSourceMap[source].netRevenue += (reservation.total_price || 0) - (reservation.commission_amount || 0);
-```
-
-**Line 558 - Change direct totals calculation:**
-```tsx
-// FROM:
-netRevenue: directData.reduce((sum, r) => sum + (r.net_revenue || 0), 0),
-
-// TO:
-netRevenue: directData.reduce((sum, r) => sum + ((r.total_price || 0) - (r.commission_amount || 0)), 0),
-```
-
----
-
-#### 3. File: `src/components/AvailabilityCalendar.tsx`
-
-**Lines 624-627 - Change period revenue calculation:**
-```tsx
-// FROM:
-const netRevenue = reservation.net_revenue || 0;
-const proportionalNetRevenue = totalNights > 0 
-  ? (netRevenue / totalNights) * nightsInPeriod 
-  : 0;
-
-// TO:
-const calculatedNetRevenue = (reservation.total_price || 0) - (reservation.commission_amount || 0);
-const proportionalNetRevenue = totalNights > 0 
-  ? (calculatedNetRevenue / totalNights) * nightsInPeriod 
-  : 0;
-```
-
-**Lines 670-673 - Change per-unit revenue calculation:**
-```tsx
-// FROM:
-const netRevenue = reservation.net_revenue || 0;
-unitRevenue += totalNights > 0 
-  ? (netRevenue / totalNights) * nightsInPeriod 
-  : 0;
-
-// TO:
-const calculatedNetRevenue = (reservation.total_price || 0) - (reservation.commission_amount || 0);
-unitRevenue += totalNights > 0 
-  ? (calculatedNetRevenue / totalNights) * nightsInPeriod 
-  : 0;
-```
-
----
-
-### Summary of Impact
-
-This change will ensure:
-- **All past Booking.com reservations** display correct net revenue
-- **All future reservations** use the calculated value
-- **Revenue by Source report** shows accurate totals
-- **Analytics dashboard** displays correct net revenue stats
-- **Calendar occupancy metrics** calculate accurate RevPAR
-- **Excel/CSV exports** include correct net revenue figures
+| File | Lines | Changes |
+|------|-------|---------|
+| `src/components/ReservationsList.tsx` | ~768, 1371-1416 | Add helper function; conditionally render static text vs editable Select for Payment/Currency/Settled columns |
+| `src/pages/ReservationDetail.tsx` | 1443-1466 | Disable or hide Payment Method and Currency dropdowns in edit mode for Booking.com reservations |
 
 ---
 
 ### Expected Result
 
-For the Booking.com reservation in question:
-- Total Price: $414.00
-- Commission: $63.94  
-- **Net Revenue: $350.06** (calculated everywhere, not read from database)
+**Reservations List - Booking.com reservations will show:**
+- Payment: "Credit Card" (non-editable, muted styling)
+- Currency: "Dollars (USD)" (non-editable, muted styling)
+- Settled: "Booking.com" (non-editable, muted styling)
 
-All revenue reports, analytics, and calendar metrics will now show the correct net revenue for all Booking.com reservations, including past bookings.
+**Reservations List - Manual reservations will show:**
+- Payment: Editable dropdown (Cash, Credit Card, Booking.com)
+- Currency: Editable dropdown (USD, AED, SAR, EGP)
+- Settled: Editable dropdown (Booking.com, Yes, No)
 
+**Reservation Detail Page - Booking.com reservations:**
+- Payment Method and Currency fields will be non-editable in edit mode
+
+---
+
+### Additional Note
+
+Existing Booking.com reservations that may have incorrect values (e.g., empty Payment or Currency) will still display the locked UI with the correct fixed values ("Credit Card", "USD", "Booking.com") based on the source detection, ensuring visual consistency even if the database values differ.
