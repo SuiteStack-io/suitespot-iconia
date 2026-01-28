@@ -995,33 +995,17 @@ export const Dashboard = () => {
                         </div>
                         <div className="flex gap-2">
                           {reservation.status === 'confirmed' && dialogTitle.includes('Arrivals') && (
-                            <>
-                              <Button
-                                size="sm"
-                                variant="outline"
-                                onClick={(e) => {
-                                  e.stopPropagation();
-                                  window.open(`/guest-checkin/${reservation.id}`, '_blank');
-                                }}
-                                className="gap-1"
-                              >
-                                <FileSignature className="h-3 w-3" />
-                                Guest Form
-                              </Button>
-                              <Button
-                                size="sm"
-                                onClick={(e) => {
-                                  e.stopPropagation();
-                                  setSelectedReservation(reservation);
-                                  setCheckInDialogOpen(true);
-                                }}
-                                disabled={updating === reservation.id}
-                                className="gap-1"
-                              >
-                                <CheckCircle className="h-3 w-3" />
-                                Check In
-                              </Button>
-                            </>
+                            <Button
+                              size="sm"
+                              onClick={(e) => {
+                                e.stopPropagation();
+                                window.open(`/guest-checkin/${reservation.id}`, '_blank');
+                              }}
+                              className="gap-1 w-full sm:w-auto min-w-[200px]"
+                            >
+                              <CheckCircle className="h-3 w-3" />
+                              Check In (Complete Guest Form)
+                            </Button>
                           )}
                           {reservation.status === 'confirmed' && dialogTitle.includes('Departures') && (
                             <Button
