@@ -28,7 +28,7 @@ const ReservationsListPage = () => {
   const isAdmin = userRole === 'admin';
 
   return (
-    <div className="min-h-screen bg-background p-6">
+    <div className="min-h-screen bg-background p-2 md:p-6">
       <div className="container mx-auto">
         <div className="mb-8">
           <div className="flex items-center gap-4">
