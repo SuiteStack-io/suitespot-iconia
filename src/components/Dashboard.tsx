@@ -762,7 +762,7 @@ export const Dashboard = () => {
       isRevenue: false,
       type: 'newbookings',
       subtitle: stats.newBookings > 0 
-        ? `${stats.newBookingsDirect} Direct (${Math.round((stats.newBookingsDirect / stats.newBookings) * 100)}%) · ${stats.newBookingsBookingCom} B.com` 
+        ? `${stats.newBookingsDirect} Direct (${Math.round((stats.newBookingsDirect / stats.newBookings) * 100)}%) · ${stats.newBookingsBookingCom} Booking.com (${Math.round((stats.newBookingsBookingCom / stats.newBookings) * 100)}%)` 
         : undefined,
     },
     {
