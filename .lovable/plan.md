@@ -1,68 +1,133 @@
 
-## Plan: Add Create Reservation Button to Calendar Page
 
-### Changes Required
+## Plan: Display Check-In Progress on Today's Arrivals Card
 
-Add a "Create Reservation" button to the Unit Availability Calendar page, positioned next to the Monthly RevPAR cards on the right side.
+### Goal
+Show how many of today's arrivals have checked in directly on the card (e.g., "1/3 checked in") without needing to click.
 
 ---
 
 ### Technical Changes
 
-#### File: `src/components/AvailabilityCalendar.tsx`
+#### File: `src/components/Dashboard.tsx`
 
-**1. Add import for CreateReservationDialog (around line 16)**
+**1. Update DashboardStats interface (line 35-45)**
+
+Add a new property to track arrivals that are checked in:
 
 ```tsx
-import { CreateReservationDialog } from "./CreateReservationDialog";
+interface DashboardStats {
+  todayArrivals: number;
+  arrivalsCheckedIn: number;  // NEW
+  todayDepartures: number;
+  // ... rest unchanged
+}
 ```
 
-**2. Modify the metrics cards grid to include the button (lines 1933-1983)**
+**2. Update initial state (line 93-103)**
 
-Change the grid layout to accommodate the new button. The cards grid currently uses:
+Add default value for the new stat:
+
 ```tsx
-<div className="grid grid-cols-2 md:grid-cols-4 gap-4 mb-4">
+const [stats, setStats] = useState<DashboardStats>({
+  todayArrivals: 0,
+  arrivalsCheckedIn: 0,  // NEW
+  todayDepartures: 0,
+  // ... rest unchanged
+});
 ```
 
-Update to add the Create Reservation button as a third element that aligns to the right:
+**3. Update fetchStats query (lines 167-173)**
+
+Modify the arrivals query to also fetch status:
 
 ```tsx
-<div className="flex gap-4 mb-4 flex-wrap items-start">
-  {/* Occupancy Card */}
-  <Card className="p-4 cursor-pointer hover:bg-muted/50 transition-colors flex-1 min-w-[200px] max-w-[300px]">
-    ...
-  </Card>
-  
-  {/* RevPAR Card - Admin Only */}
-  {userRole === 'admin' && (
-    <Card className="p-4 cursor-pointer hover:bg-muted/50 transition-colors flex-1 min-w-[200px] max-w-[300px]">
-      ...
-    </Card>
+// Today's arrivals (with group_id and status for split-stay filtering)
+const { data: allArrivals } = await supabase
+  .from('reservations')
+  .select('id, group_id, status')  // Add status
+  .eq('check_in_date', today)
+  .neq('status', 'cancelled')
+  .is('cancelled_at', null);
+```
+
+**4. Calculate checked-in count (after line 190)**
+
+After filtering arrivals, count how many are checked in:
+
+```tsx
+// Count how many arrivals are already checked in
+const arrivalsCheckedIn = filteredArrivals.filter(
+  arrival => arrival.status === 'checked-in'
+).length;
+```
+
+**5. Update setStats (line 261-271)**
+
+Include the new stat:
+
+```tsx
+setStats({
+  todayArrivals: filteredArrivals.length,
+  arrivalsCheckedIn,  // NEW
+  todayDepartures: filteredDepartures.length,
+  // ... rest unchanged
+});
+```
+
+**6. Update statCards array to include subtitle (lines 698-706)**
+
+Add a subtitle property to the arrivals card:
+
+```tsx
+{
+  title: "Today's Arrivals",
+  value: stats.todayArrivals,
+  icon: LogIn,
+  color: 'text-blue-600',
+  isRevenue: false,
+  type: 'arrivals',
+  subtitle: stats.todayArrivals > 0 
+    ? `${stats.arrivalsCheckedIn}/${stats.todayArrivals} checked in` 
+    : undefined,
+},
+```
+
+**7. Update Card rendering (lines 753-772)**
+
+Add subtitle display to the card component:
+
+```tsx
+<CardContent className="p-3 pt-0 sm:p-6 sm:pt-0">
+  <div className="text-xl sm:text-2xl font-bold">
+    {stat.isRevenue ? `$${stat.value.toFixed(2)}` : stat.value}
+  </div>
+  {stat.subtitle && (
+    <p className="text-xs text-muted-foreground mt-1">
+      {stat.subtitle}
+    </p>
   )}
-  
-  {/* Spacer to push button to right */}
-  <div className="flex-1" />
-  
-  {/* Create Reservation Button */}
-  <CreateReservationDialog />
-</div>
+</CardContent>
 ```
 
 ---
 
-### Visual Layout After Changes
+### Expected Result
+
+The Today's Arrivals card will display:
 
 ```
-┌─────────────────────────────────────────────────────────────────────────┐
-│  < Previous     January 2026           Weekly View   Next >            │
-├─────────────────────────────────────────────────────────────────────────┤
-│  ┌──────────────────┐  ┌──────────────────┐              ┌───────────┐ │
-│  │ Monthly Occupancy│  │ Monthly RevPAR   │              │+ Create   │ │
-│  │ 67.5%            │  │ $71              │              │Reservation│ │
-│  │ 220 of 326 nights│  │ Total Rev: $22k  │              └───────────┘ │
-│  └──────────────────┘  └──────────────────┘                            │
-└─────────────────────────────────────────────────────────────────────────┘
+┌─────────────────────────────────┐
+│ Today's Arrivals           →]  │
+│                                 │
+│ 3                               │
+│ 1/3 checked in                  │
+└─────────────────────────────────┘
 ```
+
+- Shows total arrivals count (3)
+- Below it shows check-in progress (1/3 checked in)
+- Updates in real-time as guests check in
 
 ---
 
@@ -70,13 +135,5 @@ Update to add the Create Reservation button as a third element that aligns to th
 
 | File | Changes |
 |------|---------|
-| `src/components/AvailabilityCalendar.tsx` | Add import for CreateReservationDialog, restructure metrics section to include button on right |
+| `src/components/Dashboard.tsx` | Add `arrivalsCheckedIn` stat, update query, add subtitle to arrivals card |
 
----
-
-### Expected Result
-
-- Create Reservation button appears on the same row as the occupancy/RevPAR cards
-- Button is positioned on the right side, below the navigation controls
-- Button styling matches the dark theme used elsewhere in the app
-- Clicking the button opens the CreateReservationDialog modal
