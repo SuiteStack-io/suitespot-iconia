@@ -1,9 +1,9 @@
 
 
-## Plan: Revert "In-House Now" to Only Show Checked-In Guests
+## Plan: Merge Check-In and Guest Form Buttons
 
 ### Overview
-Change the "In-House Now" card back to only display guests who have officially checked in (status = 'checked-in'). Guests with 'confirmed' status will not appear, even if their check-in date has passed.
+Replace the separate "Guest Form" and "Check In" buttons with a single wide button that requires completing the guest check-in form to officially check in a guest. The existing `GuestCheckIn.tsx` already handles the automatic status change from "confirmed" to "checked-in" upon form submission.
 
 ---
 
@@ -11,22 +11,21 @@ Change the "In-House Now" card back to only display guests who have officially c
 
 ```text
 ┌─────────────────────────────────────────────────────────────────────────────┐
-│  CURRENT BEHAVIOR (after previous change):                                   │
-│  ┌──────────────────┐                                                        │
-│  │  In-House Now    │                                                        │
-│  │        4         │  ← Shows confirmed + checked-in guests                │
-│  └──────────────────┘                                                        │
+│  CURRENT LAYOUT (Today's Arrivals - confirmed status):                       │
+│                                                                              │
+│  ┌─────────────┐  ┌──────────────┐                                          │
+│  │ Guest Form  │  │   Check In   │   ← Two separate buttons                 │
+│  └─────────────┘  └──────────────┘                                          │
 │                                                                              │
 │  ↓ CHANGE TO ↓                                                              │
 │                                                                              │
-│  REVERTED BEHAVIOR:                                                          │
-│  ┌──────────────────┐                                                        │
-│  │  In-House Now    │                                                        │
-│  │        1         │  ← Only shows status='checked-in' guests              │
-│  └──────────────────┘                                                        │
+│  NEW LAYOUT (merged button):                                                 │
+│  ┌────────────────────────────────────────────┐                              │
+│  │  ✓ Check In (Complete Guest Form)          │   ← Single wide button      │
+│  └────────────────────────────────────────────┘                              │
 │                                                                              │
-│  Logic: Only guests who completed the guest form (which triggers             │
-│  automatic check-in) will appear in "In-House Now"                           │
+│  When clicked: Opens guest check-in form in new tab                          │
+│  Upon form completion: Status auto-updates to "checked-in"                   │
 └─────────────────────────────────────────────────────────────────────────────┘
 ```
 
@@ -36,69 +35,81 @@ Change the "In-House Now" card back to only display guests who have officially c
 
 #### File: `src/components/Dashboard.tsx`
 
-**1. Revert the in-house count query (lines 217-224):**
+**Replace buttons for "confirmed" status in Arrivals dialog (lines 997-1025):**
 
-Current:
-```typescript
-const { data: inHouse } = await supabase
-  .from('reservations')
-  .select('id', { count: 'exact' })
-  .in('status', ['confirmed', 'checked-in'])
-  .lte('check_in_date', today)
-  .gt('check_out_date', today)
-  .is('cancelled_at', null);
+Current code:
+```tsx
+{reservation.status === 'confirmed' && dialogTitle.includes('Arrivals') && (
+  <>
+    <Button size="sm" variant="outline" onClick={...}>
+      <FileSignature className="h-3 w-3" />
+      Guest Form
+    </Button>
+    <Button size="sm" onClick={...}>
+      <CheckCircle className="h-3 w-3" />
+      Check In
+    </Button>
+  </>
+)}
 ```
 
 Change to:
-```typescript
-const { data: inHouse } = await supabase
-  .from('reservations')
-  .select('id', { count: 'exact' })
-  .eq('status', 'checked-in')
-  .gte('check_out_date', today)
-  .is('cancelled_at', null);
-```
-
-**2. Revert the dialog query for "In-House Now" (lines 406-414):**
-
-Current:
-```typescript
-case 'inhouse':
-  setDialogTitle('In-House Now');
-  query = query
-    .in('status', ['confirmed', 'checked-in'])
-    .lte('check_in_date', today)
-    .gt('check_out_date', today)
-    .is('cancelled_at', null);
-  break;
-```
-
-Change to:
-```typescript
-case 'inhouse':
-  setDialogTitle('In-House Now');
-  query = query
-    .eq('status', 'checked-in')
-    .gte('check_out_date', today)
-    .is('cancelled_at', null);
-  break;
+```tsx
+{reservation.status === 'confirmed' && dialogTitle.includes('Arrivals') && (
+  <Button
+    size="sm"
+    onClick={(e) => {
+      e.stopPropagation();
+      window.open(`/guest-checkin/${reservation.id}`, '_blank');
+    }}
+    className="gap-1 w-full sm:w-auto min-w-[200px]"
+  >
+    <CheckCircle className="h-3 w-3" />
+    Check In (Complete Guest Form)
+  </Button>
+)}
 ```
 
 ---
 
-### Workflow After Both Changes
+### Existing Auto Check-In Logic (No Changes Needed)
 
-1. Guest arrives → Appears in "Today's Arrivals" with "Check In (Complete Guest Form)" button
-2. Staff clicks button → Opens guest form in new tab
-3. Guest completes form → Status automatically changes to "checked-in"
-4. Dashboard refreshes → Guest now appears in "In-House Now" card
-5. Guests who haven't completed the form remain in "Today's Arrivals" only
+The `GuestCheckIn.tsx` already handles the automatic status update:
+
+```typescript
+// Lines 297-309 in GuestCheckIn.tsx
+const { error: statusError } = await supabase
+  .from('reservations')
+  .update({ 
+    status: 'checked-in',
+    checked_in_at: new Date().toISOString()
+  })
+  .eq('id', reservationId);
+```
+
+This means when a guest completes the form:
+1. Check-in agreement is saved to the database
+2. Reservation status automatically changes to "checked-in"
+3. Notification is sent to all admins
+4. Dashboard will reflect the new status on refresh
 
 ---
 
-### Expected Result
+### Workflow After Implementation
 
-- "In-House Now" only shows guests with status = 'checked-in'
-- Completing the guest form is required to appear in "In-House Now"
-- This enforces the check-in workflow through the guest form
+1. Guest arrives → Reservation shows in "Today's Arrivals" with `confirmed` status
+2. Staff clicks "Check In (Complete Guest Form)" → Opens guest form in new tab
+3. Guest/staff completes form → Status auto-updates to "checked-in"
+4. Dashboard refreshes → Guest now shows:
+   - "Form Done" badge (green)
+   - "Check Out" button
+   - Appears in "In-House Now" card
+
+---
+
+### Files to Modify
+
+| File | Changes |
+|------|---------|
+| `src/components/Dashboard.tsx` | Replace two buttons (Guest Form + Check In) with single merged button for confirmed reservations in Arrivals dialog |
 
