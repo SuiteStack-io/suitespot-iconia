@@ -36,6 +36,7 @@ interface DashboardStats {
   todayArrivals: number;
   arrivalsCheckedIn: number;
   todayDepartures: number;
+  departuresCheckedOut: number;
   inHouse: number;
   newBookings: number;
   recentCancellations: number;
@@ -95,6 +96,7 @@ export const Dashboard = () => {
     todayArrivals: 0,
     arrivalsCheckedIn: 0,
     todayDepartures: 0,
+    departuresCheckedOut: 0,
     inHouse: 0,
     newBookings: 0,
     recentCancellations: 0,
@@ -196,10 +198,10 @@ export const Dashboard = () => {
       arrival => arrival.status === 'checked-in'
     ).length;
 
-    // Today's departures (with group_id for split-stay filtering)
+    // Today's departures (with group_id and status for split-stay filtering)
     const { data: allDepartures } = await supabase
       .from('reservations')
-      .select('id, group_id')
+      .select('id, group_id, status')
       .eq('check_out_date', today)
       .neq('status', 'cancelled')
       .is('cancelled_at', null);
@@ -220,6 +222,11 @@ export const Dashboard = () => {
       );
       return !isTransferOut;
     });
+
+    // Count how many departures are already checked out
+    const departuresCheckedOut = filteredDepartures.filter(
+      departure => departure.status === 'checked-out' || departure.status === 'completed'
+    ).length;
 
     // In-house: only guests who have officially checked in (status = 'checked-in')
     const { data: inHouse } = await supabase
@@ -269,6 +276,7 @@ export const Dashboard = () => {
       todayArrivals: filteredArrivals.length,
       arrivalsCheckedIn,
       todayDepartures: filteredDepartures.length,
+      departuresCheckedOut,
       inHouse: inHouse?.length || 0,
       newBookings: newBookings?.length || 0,
       recentCancellations: cancellations?.length || 0,
@@ -722,6 +730,9 @@ export const Dashboard = () => {
       color: 'text-orange-600',
       isRevenue: false,
       type: 'departures',
+      subtitle: stats.todayDepartures > 0 
+        ? `${stats.departuresCheckedOut}/${stats.todayDepartures} checked out` 
+        : undefined,
     },
     {
       title: 'In-House Now',
@@ -774,14 +785,16 @@ export const Dashboard = () => {
                 <Icon className={`h-3 w-3 sm:h-4 sm:w-4 ${stat.color}`} />
               </CardHeader>
               <CardContent className="p-3 pt-0 sm:p-6 sm:pt-0">
-                <div className="text-xl sm:text-2xl font-bold">
-                  {stat.isRevenue ? `$${stat.value.toFixed(2)}` : stat.value}
+                <div className="flex items-baseline justify-between">
+                  <div className="text-xl sm:text-2xl font-bold">
+                    {stat.isRevenue ? `$${stat.value.toFixed(2)}` : stat.value}
+                  </div>
+                  {stat.subtitle && (
+                    <span className="text-xs text-muted-foreground">
+                      {stat.subtitle}
+                    </span>
+                  )}
                 </div>
-                {stat.subtitle && (
-                  <p className="text-xs text-muted-foreground mt-1">
-                    {stat.subtitle}
-                  </p>
-                )}
               </CardContent>
             </Card>
           );
