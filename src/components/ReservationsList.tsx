@@ -929,10 +929,6 @@ export const ReservationsList = ({ userRole }: ReservationsListProps) => {
           </Button>
         )}
 
-        {/* Create Reservation button - hidden on mobile */}
-        <div className="hidden md:block">
-          <CreateReservationDialog />
-        </div>
 
       </div>
 
