@@ -34,6 +34,7 @@ import {
 
 interface DashboardStats {
   todayArrivals: number;
+  arrivalsCheckedIn: number;
   todayDepartures: number;
   inHouse: number;
   newBookings: number;
@@ -92,6 +93,7 @@ export const Dashboard = () => {
   const { toast } = useToast();
   const [stats, setStats] = useState<DashboardStats>({
     todayArrivals: 0,
+    arrivalsCheckedIn: 0,
     todayDepartures: 0,
     inHouse: 0,
     newBookings: 0,
@@ -164,10 +166,10 @@ export const Dashboard = () => {
     const yesterday = format(new Date(Date.now() - 86400000), 'yyyy-MM-dd');
     const sevenDaysAgo = format(new Date(Date.now() - 7 * 86400000), 'yyyy-MM-dd');
 
-    // Today's arrivals (with group_id for split-stay filtering)
+    // Today's arrivals (with group_id and status for split-stay filtering)
     const { data: allArrivals } = await supabase
       .from('reservations')
-      .select('id, group_id')
+      .select('id, group_id, status')
       .eq('check_in_date', today)
       .neq('status', 'cancelled')
       .is('cancelled_at', null);
@@ -188,6 +190,11 @@ export const Dashboard = () => {
       );
       return !isTransferIn;
     });
+
+    // Count how many arrivals are already checked in
+    const arrivalsCheckedIn = filteredArrivals.filter(
+      arrival => arrival.status === 'checked-in'
+    ).length;
 
     // Today's departures (with group_id for split-stay filtering)
     const { data: allDepartures } = await supabase
@@ -260,6 +267,7 @@ export const Dashboard = () => {
 
     setStats({
       todayArrivals: filteredArrivals.length,
+      arrivalsCheckedIn,
       todayDepartures: filteredDepartures.length,
       inHouse: inHouse?.length || 0,
       newBookings: newBookings?.length || 0,
@@ -703,6 +711,9 @@ export const Dashboard = () => {
       color: 'text-blue-600',
       isRevenue: false,
       type: 'arrivals',
+      subtitle: stats.todayArrivals > 0 
+        ? `${stats.arrivalsCheckedIn}/${stats.todayArrivals} checked in` 
+        : undefined,
     },
     {
       title: "Today's Departures",
@@ -766,6 +777,11 @@ export const Dashboard = () => {
                 <div className="text-xl sm:text-2xl font-bold">
                   {stat.isRevenue ? `$${stat.value.toFixed(2)}` : stat.value}
                 </div>
+                {stat.subtitle && (
+                  <p className="text-xs text-muted-foreground mt-1">
+                    {stat.subtitle}
+                  </p>
+                )}
               </CardContent>
             </Card>
           );
