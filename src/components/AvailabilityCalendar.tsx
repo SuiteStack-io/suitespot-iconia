@@ -14,6 +14,7 @@ import jsPDF from 'jspdf';
 import autoTable from 'jspdf-autotable';
 import * as XLSX from 'xlsx';
 import { ReservationQuickActions } from "./ReservationQuickActions";
+import { CreateReservationDialog } from "./CreateReservationDialog";
 import { DndContext, DragEndEvent, DragOverlay, DragStartEvent, useDraggable, useDroppable, PointerSensor, useSensor, useSensors } from "@dnd-kit/core";
 import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
@@ -1932,10 +1933,10 @@ export const AvailabilityCalendar = () => {
 
         {/* Occupancy & RevPAR Cards - Hidden in fullscreen */}
         {!isFullscreen && (
-          <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mb-4">
+          <div className="flex gap-4 mb-4 flex-wrap items-start">
             {/* Occupancy Rate Card */}
             <Card 
-              className="p-4 cursor-pointer hover:bg-muted/50 transition-colors"
+              className="p-4 cursor-pointer hover:bg-muted/50 transition-colors flex-1 min-w-[200px] max-w-[300px]"
               onClick={() => setShowOccupancyModal(true)}
             >
               <div className="flex items-center justify-between">
@@ -1959,7 +1960,7 @@ export const AvailabilityCalendar = () => {
             {/* RevPAR Card - Admin Only */}
             {userRole === 'admin' && (
               <Card 
-                className="p-4 cursor-pointer hover:bg-muted/50 transition-colors"
+                className="p-4 cursor-pointer hover:bg-muted/50 transition-colors flex-1 min-w-[200px] max-w-[300px]"
                 onClick={() => setShowRevPARModal(true)}
               >
                 <div className="flex items-center justify-between">
@@ -1980,6 +1981,12 @@ export const AvailabilityCalendar = () => {
                 </p>
               </Card>
             )}
+            
+            {/* Spacer to push button to right */}
+            <div className="flex-1" />
+            
+            {/* Create Reservation Button */}
+            <CreateReservationDialog />
           </div>
         )}
 
