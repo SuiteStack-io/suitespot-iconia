@@ -214,13 +214,12 @@ export const Dashboard = () => {
       return !isTransferOut;
     });
 
-    // In-house: guests currently staying (check_in_date <= today AND check_out_date > today)
+    // In-house: only guests who have officially checked in (status = 'checked-in')
     const { data: inHouse } = await supabase
       .from('reservations')
       .select('id', { count: 'exact' })
-      .in('status', ['confirmed', 'checked-in'])
-      .lte('check_in_date', today)
-      .gt('check_out_date', today)
+      .eq('status', 'checked-in')
+      .gte('check_out_date', today)
       .is('cancelled_at', null);
 
     // New bookings in last 24h
@@ -409,9 +408,8 @@ export const Dashboard = () => {
       case 'inhouse':
         setDialogTitle('In-House Now');
         query = query
-          .in('status', ['confirmed', 'checked-in'])
-          .lte('check_in_date', today)
-          .gt('check_out_date', today)
+          .eq('status', 'checked-in')
+          .gte('check_out_date', today)
           .is('cancelled_at', null);
         break;
       case 'newbookings':
