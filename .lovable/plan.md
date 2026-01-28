@@ -1,9 +1,10 @@
 
 
-## Plan: Display Check-In Progress on Today's Arrivals Card
+## Plan: Inline Check-In/Check-Out Progress on Dashboard Cards
 
 ### Goal
-Show how many of today's arrivals have checked in directly on the card (e.g., "1/3 checked in") without needing to click.
+1. Make Today's Arrivals card same height as other cards by moving "1/3 checked in" inline with the count
+2. Add similar checkout progress to Today's Departures card
 
 ---
 
@@ -11,102 +12,100 @@ Show how many of today's arrivals have checked in directly on the card (e.g., "1
 
 #### File: `src/components/Dashboard.tsx`
 
-**1. Update DashboardStats interface (line 35-45)**
+**1. Update DashboardStats interface (line 35-46)**
 
-Add a new property to track arrivals that are checked in:
+Add `departuresCheckedOut`:
 
 ```tsx
 interface DashboardStats {
   todayArrivals: number;
-  arrivalsCheckedIn: number;  // NEW
+  arrivalsCheckedIn: number;
   todayDepartures: number;
+  departuresCheckedOut: number;  // NEW
   // ... rest unchanged
 }
 ```
 
-**2. Update initial state (line 93-103)**
+**2. Update initial state (line 94-105)**
 
-Add default value for the new stat:
+Add default value:
 
 ```tsx
 const [stats, setStats] = useState<DashboardStats>({
   todayArrivals: 0,
-  arrivalsCheckedIn: 0,  // NEW
+  arrivalsCheckedIn: 0,
   todayDepartures: 0,
+  departuresCheckedOut: 0,  // NEW
   // ... rest unchanged
 });
 ```
 
-**3. Update fetchStats query (lines 167-173)**
+**3. Update departures query (lines 200-205)**
 
-Modify the arrivals query to also fetch status:
+Add status to select:
 
 ```tsx
-// Today's arrivals (with group_id and status for split-stay filtering)
-const { data: allArrivals } = await supabase
+const { data: allDepartures } = await supabase
   .from('reservations')
   .select('id, group_id, status')  // Add status
-  .eq('check_in_date', today)
+  .eq('check_out_date', today)
   .neq('status', 'cancelled')
   .is('cancelled_at', null);
 ```
 
-**4. Calculate checked-in count (after line 190)**
-
-After filtering arrivals, count how many are checked in:
+**4. Calculate checked-out count (after line 222)**
 
 ```tsx
-// Count how many arrivals are already checked in
-const arrivalsCheckedIn = filteredArrivals.filter(
-  arrival => arrival.status === 'checked-in'
+// Count how many departures are already checked out
+const departuresCheckedOut = filteredDepartures.filter(
+  departure => departure.status === 'checked-out' || departure.status === 'completed'
 ).length;
 ```
 
-**5. Update setStats (line 261-271)**
-
-Include the new stat:
+**5. Update setStats (line 268-278)**
 
 ```tsx
 setStats({
   todayArrivals: filteredArrivals.length,
-  arrivalsCheckedIn,  // NEW
+  arrivalsCheckedIn,
   todayDepartures: filteredDepartures.length,
+  departuresCheckedOut,  // NEW
   // ... rest unchanged
 });
 ```
 
-**6. Update statCards array to include subtitle (lines 698-706)**
-
-Add a subtitle property to the arrivals card:
+**6. Add subtitle to Departures card (lines 718-725)**
 
 ```tsx
 {
-  title: "Today's Arrivals",
-  value: stats.todayArrivals,
-  icon: LogIn,
-  color: 'text-blue-600',
+  title: "Today's Departures",
+  value: stats.todayDepartures,
+  icon: LogOut,
+  color: 'text-orange-600',
   isRevenue: false,
-  type: 'arrivals',
-  subtitle: stats.todayArrivals > 0 
-    ? `${stats.arrivalsCheckedIn}/${stats.todayArrivals} checked in` 
+  type: 'departures',
+  subtitle: stats.todayDepartures > 0 
+    ? `${stats.departuresCheckedOut}/${stats.todayDepartures} checked out` 
     : undefined,
 },
 ```
 
-**7. Update Card rendering (lines 753-772)**
+**7. Update CardContent to display subtitle inline (lines 776-784)**
 
-Add subtitle display to the card component:
+Change from stacked layout to inline with flexbox:
 
 ```tsx
 <CardContent className="p-3 pt-0 sm:p-6 sm:pt-0">
-  <div className="text-xl sm:text-2xl font-bold">
-    {stat.isRevenue ? `$${stat.value.toFixed(2)}` : stat.value}
+  <div className="flex items-baseline justify-between">
+    <div className="text-xl sm:text-2xl font-bold">
+      {stat.isRevenue ? `$${stat.value.toFixed(2)}` : stat.value}
+    </div>
+    {stat.subtitle && (
+      <span className="text-xs text-muted-foreground">
+        {stat.subtitle}
+      </span>
+    )}
   </div>
-  {stat.subtitle && (
-    <p className="text-xs text-muted-foreground mt-1">
-      {stat.subtitle}
-    </p>
-  )}
 </CardContent>
 ```
 
@@ -114,20 +113,25 @@ Add subtitle display to the card component:
 
 ### Expected Result
 
-The Today's Arrivals card will display:
+Cards will display progress inline:
 
 ```
-┌─────────────────────────────────┐
-│ Today's Arrivals           →]  │
-│                                 │
-│ 3                               │
-│ 1/3 checked in                  │
-└─────────────────────────────────┘
+┌────────────────────────────────────────┐
+│ Today's Arrivals                    →] │
+│                                        │
+│ 3                        1/3 checked in│
+└────────────────────────────────────────┘
+
+┌────────────────────────────────────────┐
+│ Today's Departures                  ←] │
+│                                        │
+│ 2                      0/2 checked out │
+└────────────────────────────────────────┘
 ```
 
-- Shows total arrivals count (3)
-- Below it shows check-in progress (1/3 checked in)
-- Updates in real-time as guests check in
+- Count on left, progress on right (same line)
+- Cards maintain consistent height
+- Progress updates in real-time
 
 ---
 
@@ -135,5 +139,5 @@ The Today's Arrivals card will display:
 
 | File | Changes |
 |------|---------|
-| `src/components/Dashboard.tsx` | Add `arrivalsCheckedIn` stat, update query, add subtitle to arrivals card |
+| `src/components/Dashboard.tsx` | Add `departuresCheckedOut` stat, update queries, display subtitles inline |
 
