@@ -1069,28 +1069,28 @@ export const ReservationsList = ({ userRole }: ReservationsListProps) => {
         <Table>
           <TableHeader>
             <TableRow>
-              <TableHead className="w-[50px] min-w-[50px] max-w-[50px] sticky left-0 z-20 bg-background">
+              <TableHead className="w-[40px] md:w-[50px] min-w-[40px] md:min-w-[50px] max-w-[40px] md:max-w-[50px] sticky left-0 z-20 bg-background">
                 <Checkbox
                   checked={selectedReservations.size === filteredReservations.length && filteredReservations.length > 0}
                   onCheckedChange={handleSelectAll}
                 />
               </TableHead>
               <TableHead 
-                className="w-[180px] min-w-[180px] max-w-[180px] cursor-pointer hover:bg-muted/50 sticky left-[50px] z-20 bg-background"
+                className="w-[100px] md:w-[180px] min-w-[100px] md:min-w-[180px] max-w-[100px] md:max-w-[180px] cursor-pointer hover:bg-muted/50 sticky left-[40px] md:left-[50px] z-20 bg-background"
                 onClick={() => handleSort('units')}
               >
-                <div className="flex items-center gap-1">
+                <div className="flex items-center gap-1 truncate">
                   Room Name {getSortIcon('units')}
                 </div>
               </TableHead>
-              <TableHead className="w-[80px] min-w-[80px] max-w-[80px] sticky left-[230px] z-20 bg-background">
+              <TableHead className="w-[50px] md:w-[80px] min-w-[50px] md:min-w-[80px] max-w-[50px] md:max-w-[80px] sticky left-[140px] md:left-[230px] z-20 bg-background">
                 Room #
               </TableHead>
               <TableHead 
-                className="w-[180px] min-w-[180px] max-w-[180px] cursor-pointer hover:bg-muted/50 sticky left-[310px] z-20 bg-background"
+                className="w-[120px] md:w-[180px] min-w-[120px] md:min-w-[180px] max-w-[120px] md:max-w-[180px] cursor-pointer hover:bg-muted/50 md:sticky md:left-[310px] z-20 bg-background"
                 onClick={() => handleSort('guest_names')}
               >
-                <div className="flex items-center gap-1">
+                <div className="flex items-center gap-1 truncate">
                   Guest Name(s) {getSortIcon('guest_names')}
                 </div>
               </TableHead>
@@ -1208,22 +1208,22 @@ export const ReservationsList = ({ userRole }: ReservationsListProps) => {
                   key={reservation.id}
                   className="hover:bg-muted/50"
                 >
-                  <TableCell onClick={(e) => e.stopPropagation()} className="w-[50px] min-w-[50px] max-w-[50px] sticky left-0 z-10 bg-background">
+                  <TableCell onClick={(e) => e.stopPropagation()} className="w-[40px] md:w-[50px] min-w-[40px] md:min-w-[50px] max-w-[40px] md:max-w-[50px] sticky left-0 z-10 bg-background">
                     <Checkbox
                       checked={selectedReservations.has(reservation.id)}
                       onCheckedChange={(checked) => handleSelectReservation(reservation.id, checked as boolean)}
                     />
                   </TableCell>
                   <TableCell 
-                    className="w-[180px] min-w-[180px] max-w-[180px] font-medium cursor-pointer sticky left-[50px] z-10 bg-background"
+                    className="w-[100px] md:w-[180px] min-w-[100px] md:min-w-[180px] max-w-[100px] md:max-w-[180px] font-medium cursor-pointer sticky left-[40px] md:left-[50px] z-10 bg-background"
                     onClick={() => navigate(`/reservation/${reservation.id}`)}
                   >
-                    <div className="flex items-center gap-2">
-                      {reservation.units?.booking_com_name || reservation.units?.name || 'N/A'}
+                    <div className="flex items-center gap-2 truncate">
+                      <span className="truncate">{reservation.units?.booking_com_name || reservation.units?.name || 'N/A'}</span>
                       {reservation.isGrouped && reservation.groupCount && (
                         <Badge 
                           variant="outline" 
-                          className="bg-blue-50 text-blue-700 border-blue-300 hover:bg-blue-100"
+                          className="bg-blue-50 text-blue-700 border-blue-300 hover:bg-blue-100 shrink-0"
                           onClick={(e) => handleViewGroup(reservation.groupRooms!, e)}
                         >
                           <Users className="h-3 w-3 mr-1" />
@@ -1233,7 +1233,7 @@ export const ReservationsList = ({ userRole }: ReservationsListProps) => {
                     </div>
                   </TableCell>
                   <TableCell 
-                    className="w-[80px] min-w-[80px] max-w-[80px] cursor-pointer sticky left-[230px] z-10 bg-background"
+                    className="w-[50px] md:w-[80px] min-w-[50px] md:min-w-[80px] max-w-[50px] md:max-w-[80px] cursor-pointer sticky left-[140px] md:left-[230px] z-10 bg-background"
                     onClick={() => navigate(`/reservation/${reservation.id}`)}
                   >
                     {reservation.isGrouped && reservation.groupCount ? (
@@ -1243,10 +1243,10 @@ export const ReservationsList = ({ userRole }: ReservationsListProps) => {
                     )}
                   </TableCell>
                   <TableCell 
-                    className="w-[180px] min-w-[180px] max-w-[180px] cursor-pointer sticky left-[310px] z-10 bg-background"
+                    className="w-[120px] md:w-[180px] min-w-[120px] md:min-w-[180px] max-w-[120px] md:max-w-[180px] cursor-pointer md:sticky md:left-[310px] z-10 bg-background"
                     onClick={() => navigate(`/reservation/${reservation.id}`)}
                   >
-                    {reservation.guest_names?.length > 0 ? reservation.guest_names.join(', ') : 'N/A'}
+                    <span className="truncate block">{reservation.guest_names?.length > 0 ? reservation.guest_names.join(', ') : 'N/A'}</span>
                   </TableCell>
                   <TableCell 
                     className="cursor-pointer border-r border-border shadow-[2px_0_5px_-2px_rgba(0,0,0,0.1)]"
