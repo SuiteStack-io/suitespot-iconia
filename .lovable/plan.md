@@ -1,144 +1,121 @@
 
 
-## Plan: Update Guest Forms Page Actions Column
+## Plan: Fix Passport View Error - Use Signed URLs for Private Bucket
 
-### Goal
-1. Remove the Preview (eye icon) button from the Actions column
-2. Add a Passport upload button with the same functionality and design as in the Check-In page
-3. Keep only the Download button for PDF
+### Problem
+The `id-passports` storage bucket is **private** (not public), but the code is using `getPublicUrl()` to generate URLs. When users click "View", they get a "Bucket not found" error because public URLs don't work for private buckets.
+
+### Solution
+Change the approach to use **signed URLs** for viewing files from the private bucket. Instead of storing a public URL in the database, store only the file path and generate signed URLs on-demand when viewing.
 
 ---
 
 ### Technical Changes
 
-#### File: `src/pages/GuestForms.tsx`
+#### File: `src/components/PassportUploadDialog.tsx`
 
-**1. Add PassportUploadDialog import (line ~17)**
+**1. Update upload logic to store file path instead of public URL (lines 127-138)**
 
-```tsx
-import { PassportUploadDialog } from '@/components/PassportUploadDialog';
-```
-
-**2. Add BookOpen/Passport icon import from lucide-react (line ~57)**
-
-Replace the Eye icon with BookOpen (passport-like icon):
-```tsx
-import {
-  FileCheck,
-  FileX,
-  Mail,
-  Files,
-  Download,
-  Search,
-  Copy,
-  Check,
-  ExternalLink,
-  ArrowLeft,
-  BookOpen,  // Add this - passport icon
-  ArrowUpDown,
-  ArrowUp,
-  ArrowDown,
-} from 'lucide-react';
-```
-
-**3. Add state for passport dialog (around line ~108)**
+Change from storing `publicUrl` to storing just the file path:
 
 ```tsx
-const [passportDialogOpen, setPassportDialogOpen] = useState(false);
-const [passportReservation, setPassportReservation] = useState<{ id: string; guestName: string } | null>(null);
+// Before
+const { data: urlData } = supabase.storage
+  .from('id-passports')
+  .getPublicUrl(fileName);
+
+const { data: insertedData, error: dbError } = await supabase
+  .from('reservation_passports')
+  .insert({
+    reservation_id: reservationId,
+    passport_url: urlData.publicUrl  // Stores full public URL (doesn't work)
+  })
 ```
-
-**4. Update the Actions column in the table (lines ~726-748)**
-
-Remove the Preview button and add a Passport upload button:
-
-From:
-```tsx
-<TableCell className="text-right">
-  {hasForm && agreement && (
-    <div className="flex items-center justify-end gap-1">
-      <Button
-        variant="ghost"
-        size="sm"
-        onClick={() => handlePreviewPDF(reservation, agreement)}
-        disabled={previewingId === reservation.id}
-        title="Preview in new tab"
-      >
-        <Eye className="h-4 w-4" />
-      </Button>
-      <Button
-        variant="ghost"
-        size="sm"
-        onClick={() => handleDownloadPDF(reservation, agreement)}
-        disabled={downloadingId === reservation.id}
-        title="Download PDF"
-      >
-        <Download className="h-4 w-4" />
-      </Button>
-    </div>
-  )}
-</TableCell>
-```
-
-To:
-```tsx
-<TableCell className="text-right">
-  <div className="flex items-center justify-end gap-1">
-    <Button
-      variant="ghost"
-      size="sm"
-      onClick={() => {
-        setPassportReservation({
-          id: reservation.id,
-          guestName: agreement?.guest_full_name || reservation.guest_names?.[0] || 'Guest'
-        });
-        setPassportDialogOpen(true);
-      }}
-      title="Upload Passports"
-    >
-      <BookOpen className="h-4 w-4" />
-    </Button>
-    {hasForm && agreement && (
-      <Button
-        variant="ghost"
-        size="sm"
-        onClick={() => handleDownloadPDF(reservation, agreement)}
-        disabled={downloadingId === reservation.id}
-        title="Download PDF"
-      >
-        <Download className="h-4 w-4" />
-      </Button>
-    )}
-  </div>
-</TableCell>
-```
-
-**5. Add PassportUploadDialog component before closing the main div (around line ~800)**
 
 ```tsx
-<PassportUploadDialog
-  open={passportDialogOpen}
-  onOpenChange={setPassportDialogOpen}
-  reservationId={passportReservation?.id || ''}
-  guestName={passportReservation?.guestName || 'Guest'}
-/>
+// After - store the file path only
+const { data: insertedData, error: dbError } = await supabase
+  .from('reservation_passports')
+  .insert({
+    reservation_id: reservationId,
+    passport_url: fileName  // Store just the file path
+  })
 ```
 
-**6. Remove unused previewingId state and handlePreviewPDF function**
+**2. Add a function to generate signed URLs for viewing (new function)**
 
-Since the preview button is removed:
-- Remove `const [previewingId, setPreviewingId] = useState<string | null>(null);` (line ~106)
-- Remove the `handlePreviewPDF` function (lines ~319-355)
+```tsx
+const getSignedUrl = async (filePath: string): Promise<string | null> => {
+  // Extract just the path if it's a full URL (for backwards compatibility)
+  let path = filePath;
+  if (filePath.includes('/id-passports/')) {
+    path = filePath.split('/id-passports/').pop() || filePath;
+  }
+  
+  const { data, error } = await supabase.storage
+    .from('id-passports')
+    .createSignedUrl(path, 3600); // 1 hour expiry
+    
+  if (error) {
+    console.error('Error creating signed URL:', error);
+    return null;
+  }
+  return data.signedUrl;
+};
+```
+
+**3. Update the View link to use signed URLs (lines 237-244)**
+
+Replace the direct link with a button that generates a signed URL on click:
+
+```tsx
+// Before
+<a
+  href={passport.passport_url}
+  target="_blank"
+  rel="noopener noreferrer"
+  className="text-xs text-primary hover:underline mt-1"
+>
+  View
+</a>
+
+// After
+<button
+  onClick={async () => {
+    const url = await getSignedUrl(passport.passport_url);
+    if (url) {
+      window.open(url, '_blank');
+    } else {
+      toast.error('Failed to load passport');
+    }
+  }}
+  className="text-xs text-primary hover:underline mt-1"
+>
+  View
+</button>
+```
+
+**4. Update delete handler for backwards compatibility (lines 165-167)**
+
+Ensure the delete handler works with both old full URLs and new file paths:
+
+```tsx
+// Already handles this with:
+const urlParts = passport.passport_url.split('/id-passports/');
+const filePath = urlParts[urlParts.length - 1];
+// This works for both full URLs and file paths
+```
 
 ---
 
-### Visual Result
+### Why Signed URLs?
 
-| Before | After |
-|--------|-------|
-| Eye icon (Preview) + Download icon | BookOpen icon (Passport) + Download icon |
-| Preview only shows for completed forms | Passport button shows for all rows |
-| Download only shows for completed forms | Download still only shows for completed forms |
+| Approach | Pros | Cons |
+|----------|------|------|
+| Public bucket | Simple URLs work directly | Anyone with URL can access passports - security risk! |
+| Signed URLs | Secure - temporary access only | Requires generating URL on each view |
+
+Passports contain sensitive personal information, so keeping the bucket private with signed URLs is the correct security approach.
 
 ---
 
@@ -146,13 +123,11 @@ Since the preview button is removed:
 
 | File | Changes |
 |------|---------|
-| `src/pages/GuestForms.tsx` | Import PassportUploadDialog, add BookOpen icon, add passport dialog state, update Actions column, add PassportUploadDialog component, remove preview functionality |
+| `src/components/PassportUploadDialog.tsx` | Store file path instead of public URL, add `getSignedUrl` function, update View button to use signed URLs |
 
 ---
 
-### Dependencies
+### Backwards Compatibility
 
-No new dependencies needed - using existing:
-- `PassportUploadDialog` component already exists
-- `BookOpen` icon from lucide-react (passport-like icon)
+The solution handles existing records that have full public URLs stored by extracting the file path from them. New uploads will store only the file path.
 
