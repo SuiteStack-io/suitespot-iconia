@@ -829,7 +829,7 @@ export const Dashboard = () => {
       <Dialog open={dialogOpen} onOpenChange={setDialogOpen}>
         <DialogContent className="max-w-3xl max-h-[80vh] flex flex-col overflow-hidden">
           <DialogHeader className="sticky top-0 bg-background z-10 pb-4 border-b shrink-0">
-            <DialogTitle className="flex items-center justify-between">
+            <DialogTitle className="flex items-center gap-4 pr-8">
               <span>{dialogTitle}</span>
               {dialogTitle.includes('Departures') && dialogReservations.length > 0 && (
                 <div className="flex items-center gap-2">
