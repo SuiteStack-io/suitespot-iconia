@@ -1,122 +1,98 @@
 
-## Plan: Display Booking.com Names in Suite Name Column
+
+## Plan: Make Title Headers Sticky in Dashboard Card Modals
 
 ### Current State
 
-Looking at the screenshot and code, the "Suite Name" column on the Rooms Management page shows internal suite names like:
-- "Deluxe One Bedroom Suite"
-- "Family Suite"  
-- "Junior One Bedroom Suite"
+Looking at the Dashboard page, there are several modals that open when clicking on dashboard cards:
 
-But these should display the **booking.com names** instead (which are already stored in the database).
+| Modal | Current Implementation | Needs Sticky Header |
+|-------|----------------------|---------------------|
+| Today's Arrivals / Departures / In-House / etc. | Already has sticky header | No change needed |
+| Occupancy Breakdown Modal | Header scrolls with content | Yes |
+| RevPAR Breakdown Modal | Header scrolls with content | Yes |
 
-### Visual Summary
+The main reservation list modal (Today's Arrivals, Departures, In-House, New Bookings, Cancellations, Transfers) already has the sticky header pattern correctly implemented.
 
-```text
-┌─────────────────────────────────────────────────────────────────────┐
-│                    BEFORE                                           │
-├─────┬─────────────────────────┬────────┬──────────────────────────┐
-│ Nr  │ Suite Name              │ Room # │ ... Booking.com Name     │
-├─────┼─────────────────────────┼────────┼──────────────────────────┤
-│  1  │ Deluxe One Bedroom Suite│  506   │ ... [Duplicate column]   │
-│  2  │ Family Suite            │  417   │ ... [Duplicate column]   │
-└─────┴─────────────────────────┴────────┴──────────────────────────┘
+### Solution
 
-                              ⬇
-
-┌─────────────────────────────────────────────────────────────────────┐
-│                    AFTER                                            │
-├─────┬─────────────────────────┬────────┬──────────────────────────┐
-│ Nr  │ Suite Name              │ Room # │ ... (column removed)     │
-├─────┼─────────────────────────┼────────┼──────────────────────────┤
-│  1  │ Suite with Terrace      │  506   │ ...                      │
-│  2  │ Family Suite (2-BR)     │  417   │ ...                      │
-└─────┴─────────────────────────┴────────┴──────────────────────────┘
-```
+Apply the same sticky header pattern used in the main Dashboard dialog to the Occupancy and RevPAR breakdown modals in the AvailabilityCalendar component.
 
 ---
 
 ### Technical Changes
 
-#### File: `src/pages/Rooms.tsx`
+#### File: `src/components/AvailabilityCalendar.tsx`
 
-**1. Update table header (line 892)**
+**1. Occupancy Breakdown Modal (lines 2558-2607)**
 
-Change header label to reflect it now shows booking.com names:
-```tsx
-// Before
-<th>Suite Name</th>
-
-// After  
-<th>Suite Name</th>  // Keep the same label for consistency
-```
-
-**2. Update table body cell (lines 1130-1143)**
-
-Change the data cell to display `booking_com_name` instead of `name`:
-
-```tsx
-// Before (line 1141)
-unit.name
-
-// After
-unit.booking_com_name || unit.name
-```
-
-**3. Update new room row (lines 944-950)**
-
-Update the input to edit `booking_com_name` when adding a new room:
+Update DialogContent and DialogHeader structure:
 
 ```tsx
 // Before
-<Input
-  value={newUnit.name}
-  onChange={(e) => setNewUnit({ ...newUnit, name: e.target.value })}
-  placeholder="Room name"
-/>
+<DialogContent className="max-w-2xl max-h-[80vh] overflow-y-auto">
+  <DialogHeader>
+    <DialogTitle>...</DialogTitle>
+  </DialogHeader>
+  {/* content */}
+</DialogContent>
 
 // After
-<Input
-  value={newUnit.booking_com_name || ''}
-  onChange={(e) => setNewUnit({ ...newUnit, booking_com_name: e.target.value })}
-  placeholder="Room name"
-/>
+<DialogContent className="max-w-2xl max-h-[80vh] flex flex-col overflow-hidden">
+  <DialogHeader className="sticky top-0 bg-background z-10 pb-4 border-b shrink-0 pr-8">
+    <DialogTitle>...</DialogTitle>
+  </DialogHeader>
+  <div className="overflow-y-auto flex-1 pt-4 space-y-4">
+    {/* Summary and Table content moved here */}
+  </div>
+</DialogContent>
 ```
 
-**4. Update edit mode (lines 1131-1138)**
+**2. RevPAR Breakdown Modal (lines 2610-2678)**
 
-Change the edit input to use `booking_com_name`:
+Apply the same pattern:
 
 ```tsx
 // Before
-value={isBulkEdit ? bulkEditUnits[unit.id]?.name : editedUnit.name}
-onChange={(e) => 
-  isBulkEdit 
-    ? handleBulkEditChange(unit.id, 'name', e.target.value)
-    : setEditedUnit({ ...editedUnit, name: e.target.value })
-}
+<DialogContent className="max-w-2xl max-h-[80vh] overflow-y-auto">
+  <DialogHeader>
+    <DialogTitle>...</DialogTitle>
+  </DialogHeader>
+  {/* content */}
+</DialogContent>
 
 // After
-value={isBulkEdit ? (bulkEditUnits[unit.id]?.booking_com_name || '') : (editedUnit.booking_com_name || '')}
-onChange={(e) => 
-  isBulkEdit 
-    ? handleBulkEditChange(unit.id, 'booking_com_name', e.target.value)
-    : setEditedUnit({ ...editedUnit, booking_com_name: e.target.value })
-}
+<DialogContent className="max-w-2xl max-h-[80vh] flex flex-col overflow-hidden">
+  <DialogHeader className="sticky top-0 bg-background z-10 pb-4 border-b shrink-0 pr-8">
+    <DialogTitle>...</DialogTitle>
+  </DialogHeader>
+  <div className="overflow-y-auto flex-1 pt-4 space-y-4">
+    {/* Summary and Table content moved here */}
+  </div>
+</DialogContent>
 ```
 
 ---
 
-### Summary of Changes
+### Sticky Header Pattern Explained
 
-| Location | Current Value | New Value |
-|----------|---------------|-----------|
-| Table data cell (line 1141) | `unit.name` | `unit.booking_com_name \|\| unit.name` |
-| Edit mode input (lines 1131-1138) | Uses `name` field | Uses `booking_com_name` field |
-| Add room input (lines 944-950) | Uses `name` field | Uses `booking_com_name` field |
+The pattern involves:
+1. `DialogContent` uses `flex flex-col overflow-hidden` to create a flex container that clips overflow
+2. `DialogHeader` uses `sticky top-0 bg-background z-10 shrink-0 pr-8 border-b` to stay fixed at top
+3. Content is wrapped in a `div` with `overflow-y-auto flex-1` to create the scrollable area
+4. `pr-8` ensures the header background covers the area where the X close button sits
+
+---
 
 ### Files to Modify
 
 | File | Changes |
 |------|---------|
-| `src/pages/Rooms.tsx` | Update Suite Name column to display and edit `booking_com_name` instead of `name` |
+| `src/components/AvailabilityCalendar.tsx` | Update Occupancy and RevPAR modals with sticky header pattern |
+
+---
+
+### Expected Result
+
+When scrolling through long lists of units in the Occupancy or RevPAR breakdown modals, the title header ("Weekly/Monthly Occupancy Breakdown" or "Weekly/Monthly RevPAR Breakdown") will remain visible at the top, along with the X close button.
+
