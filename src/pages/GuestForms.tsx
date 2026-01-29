@@ -702,7 +702,13 @@ export default function GuestForms() {
                               Completed
                             </Badge>
                           ) : (
-                            <Badge variant="destructive">Pending</Badge>
+                            <Badge 
+                              variant="destructive"
+                              className="cursor-pointer hover:bg-destructive/80 transition-colors"
+                              onClick={() => window.open(`/guest-checkin/${reservation.id}`, '_blank')}
+                            >
+                              Pending
+                            </Badge>
                           )}
                         </TableCell>
                         <TableCell>{agreement?.guest_full_name || '-'}</TableCell>
