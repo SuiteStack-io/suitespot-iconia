@@ -1,22 +1,26 @@
 
+## Plan: Fix Extension Badge Priority Over Check-In Badge
 
-## Plan: Make Title Headers Sticky in Dashboard Card Modals
+### Problem
 
-### Current State
+In the calendar view, reservations that are extensions (purple EXT badge) are incorrectly showing a green "CHECK IN" badge when the current day matches their `check_in_date`. 
 
-Looking at the Dashboard page, there are several modals that open when clicking on dashboard cards:
+Both badges occupy the same position (`absolute top-0 right-0`), and the CHECK IN badge renders after EXT, causing it to visually override the extension indicator.
 
-| Modal | Current Implementation | Needs Sticky Header |
-|-------|----------------------|---------------------|
-| Today's Arrivals / Departures / In-House / etc. | Already has sticky header | No change needed |
-| Occupancy Breakdown Modal | Header scrolls with content | Yes |
-| RevPAR Breakdown Modal | Header scrolls with content | Yes |
+**Business Logic:** An extension reservation represents a "continued stay" - the guest is already in-house and simply extending their stay. Showing "CHECK IN" is misleading since no new guest arrival is occurring.
 
-The main reservation list modal (Today's Arrivals, Departures, In-House, New Bookings, Cancellations, Transfers) already has the sticky header pattern correctly implemented.
+---
 
 ### Solution
 
-Apply the same sticky header pattern used in the main Dashboard dialog to the Occupancy and RevPAR breakdown modals in the AvailabilityCalendar component.
+Modify the badge display logic so that **extension reservations never show the CHECK IN badge**. The EXT badge takes priority.
+
+Change:
+```typescript
+// Show CHECK IN only if it's check-in day AND not an extension
+isCheckIn && !isExtension → show CHECK IN
+isExtension → show EXT
+```
 
 ---
 
@@ -24,63 +28,45 @@ Apply the same sticky header pattern used in the main Dashboard dialog to the Oc
 
 #### File: `src/components/AvailabilityCalendar.tsx`
 
-**1. Occupancy Breakdown Modal (lines 2558-2607)**
+**1. DraggableReservationCell component (lines 147-156)**
 
-Update DialogContent and DialogHeader structure:
+Update to prevent showing CHECK IN when extension:
+
+```tsx
+// Before (line 152-156)
+{isCheckIn && (
+  <span className="absolute top-0 right-0 ...">
+    CHECK IN
+  </span>
+)}
+
+// After
+{isCheckIn && !isExtended && (
+  <span className="absolute top-0 right-0 ...">
+    CHECK IN
+  </span>
+)}
+```
+
+**2. Non-draggable reservation cell (lines 2257-2261)**
+
+Apply same fix:
 
 ```tsx
 // Before
-<DialogContent className="max-w-2xl max-h-[80vh] overflow-y-auto">
-  <DialogHeader>
-    <DialogTitle>...</DialogTitle>
-  </DialogHeader>
-  {/* content */}
-</DialogContent>
+{isSameDay(new Date(reservation.check_in_date), day) && (
+  <span className="absolute top-0 right-0 ...">
+    CHECK IN
+  </span>
+)}
 
 // After
-<DialogContent className="max-w-2xl max-h-[80vh] flex flex-col overflow-hidden">
-  <DialogHeader className="sticky top-0 bg-background z-10 pb-4 border-b shrink-0 pr-8">
-    <DialogTitle>...</DialogTitle>
-  </DialogHeader>
-  <div className="overflow-y-auto flex-1 pt-4 space-y-4">
-    {/* Summary and Table content moved here */}
-  </div>
-</DialogContent>
+{isSameDay(new Date(reservation.check_in_date), day) && !isExtensionReservation(reservation) && (
+  <span className="absolute top-0 right-0 ...">
+    CHECK IN
+  </span>
+)}
 ```
-
-**2. RevPAR Breakdown Modal (lines 2610-2678)**
-
-Apply the same pattern:
-
-```tsx
-// Before
-<DialogContent className="max-w-2xl max-h-[80vh] overflow-y-auto">
-  <DialogHeader>
-    <DialogTitle>...</DialogTitle>
-  </DialogHeader>
-  {/* content */}
-</DialogContent>
-
-// After
-<DialogContent className="max-w-2xl max-h-[80vh] flex flex-col overflow-hidden">
-  <DialogHeader className="sticky top-0 bg-background z-10 pb-4 border-b shrink-0 pr-8">
-    <DialogTitle>...</DialogTitle>
-  </DialogHeader>
-  <div className="overflow-y-auto flex-1 pt-4 space-y-4">
-    {/* Summary and Table content moved here */}
-  </div>
-</DialogContent>
-```
-
----
-
-### Sticky Header Pattern Explained
-
-The pattern involves:
-1. `DialogContent` uses `flex flex-col overflow-hidden` to create a flex container that clips overflow
-2. `DialogHeader` uses `sticky top-0 bg-background z-10 shrink-0 pr-8 border-b` to stay fixed at top
-3. Content is wrapped in a `div` with `overflow-y-auto flex-1` to create the scrollable area
-4. `pr-8` ensures the header background covers the area where the X close button sits
 
 ---
 
@@ -88,11 +74,10 @@ The pattern involves:
 
 | File | Changes |
 |------|---------|
-| `src/components/AvailabilityCalendar.tsx` | Update Occupancy and RevPAR modals with sticky header pattern |
+| `src/components/AvailabilityCalendar.tsx` | Add `!isExtended` / `!isExtensionReservation()` condition to CHECK IN badge displays |
 
 ---
 
 ### Expected Result
 
-When scrolling through long lists of units in the Occupancy or RevPAR breakdown modals, the title header ("Weekly/Monthly Occupancy Breakdown" or "Weekly/Monthly RevPAR Breakdown") will remain visible at the top, along with the X close button.
-
+Extension reservations will show the **purple EXT badge** on their start date, NOT the green CHECK IN badge. Regular (non-extension) reservations will continue to show the CHECK IN badge on their arrival day.
