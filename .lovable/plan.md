@@ -1,93 +1,126 @@
 
+## Plan: Fix Checkout Email - Timestamp and Subject Line
 
-## Plan: Change Suite Name to Booking.com Name in Calendar Page Filters
+### Problems Identified
 
-### Goal
-Update the unit filter dropdowns on the Calendar page to display the **booking.com name** instead of the internal suite name.
+1. **Checkout timestamp shows "Not recorded"**: The edge function fetches the reservation after the status update, but there's a race condition - the database might not have fully committed the `checked_out_at` timestamp yet when the fetch happens.
+
+2. **Email subject shows suite name instead of guest name**: Currently shows "Guest Checked Out - Large One Bedroom Suite - Room #511" but should show "Guest Checked Out - Rawan Tarabzoni - Room #511"
 
 ---
 
-### Problem Analysis
+### Solution
 
-Looking at the screenshot, the dropdown shows entries like:
-- "#501 - One Bedroom Suite with Balcony"
-- "#502 - One Bedroom Suite with Balcony"
+**Fix 1**: Pass the checkout timestamp directly to the edge function instead of relying on re-fetching from database
 
-However, according to the database:
-- Unit 501 has `booking_com_name: "Suite with Terrace"` 
-- Unit 502 has `booking_com_name: "Suite with Terrace"`
-
-The expected display should be:
-- "#501 - Suite with Terrace"
-- "#502 - Suite with Terrace"
-
-The code already uses `booking_com_name || name` fallback logic, so there may be a caching issue or the units data needs to be fetched with the updated column. However, reviewing the code confirms the logic is correct - so the fix is just ensuring consistency across all dropdowns.
+**Fix 2**: Update the email subject to use guest name instead of unit name
 
 ---
 
 ### Technical Changes
 
-#### File: `src/components/BlockedDatesManager.tsx`
+#### File: `supabase/functions/send-checkout-notification/index.ts`
 
-The unit filter dropdown and room selection checkboxes need to verify they're using `booking_com_name || name`:
-
-**Line 541** - Room selection checkbox label (already correct):
-```tsx
-#{unit.unit_number} - {unit.booking_com_name || unit.name}
+**1. Update the interface to accept timestamp (line 12-15)**:
+```typescript
+interface CheckOutNotificationRequest {
+  reservationId: string;
+  userId?: string;
+  checkedOutAt?: string; // New parameter
+}
 ```
 
-**Line 633** - Filter dropdown (already correct):
-```tsx
-#{unit.unit_number} - {unit.booking_com_name || unit.name}
+**2. Update timestamp logic (line 120-131)**:
+```typescript
+// Use the timestamp passed in, or fall back to the one from database
+const checkedOutAt = checkedOutAtParam || reservation.checked_out_at 
+  ? new Date(checkedOutAtParam || reservation.checked_out_at).toLocaleString('en-US', {
+      timeZone: 'Africa/Cairo',
+      year: 'numeric',
+      month: 'short',
+      day: 'numeric',
+      hour: 'numeric',
+      minute: '2-digit',
+      hour12: true
+    })
+  : 'Not recorded';
 ```
 
-The blocked dates list display also shows the unit name. Need to update this to show booking_com_name.
+**3. Update email subject (line 139)**:
+```typescript
+// Before
+subject: `Guest Checked Out - ${unitName} - Room #${roomNumber}`,
 
-**Line 156** - Group creation uses `units.name` directly from the joined query:
-```tsx
-unitName: date.units?.name || 'All Rooms',
+// After
+subject: `Guest Checked Out - ${guestName} - Room #${roomNumber}`,
 ```
 
-This should be updated to prefer `booking_com_name`:
-```tsx
-unitName: date.units?.booking_com_name || date.units?.name || 'All Rooms',
+---
+
+#### File: `src/pages/CheckInOut.tsx`
+
+**Pass timestamp to edge function (line 237-239)**:
+```typescript
+await supabase.functions.invoke('send-checkout-notification', {
+  body: { 
+    reservationId, 
+    userId: user?.id,
+    checkedOutAt: new Date().toISOString() // Pass the timestamp
+  }
+});
 ```
 
-**Line 100-105** - The query needs to include `booking_com_name`:
-```sql
-units (
-  name,
-  unit_number,
-  booking_com_name
-)
+---
+
+#### File: `src/components/Dashboard.tsx`
+
+**Pass timestamp to edge function (line 503-505)**:
+```typescript
+await supabase.functions.invoke('send-checkout-notification', {
+  body: { 
+    reservationId, 
+    userId: user?.id,
+    checkedOutAt: new Date().toISOString() // Pass the timestamp
+  }
+});
 ```
 
-#### File: `src/components/RoomCalendar.tsx`
+Also update bulk checkout (line 674-676) with the same pattern.
 
-**Lines 685-687** - Room Type filter dropdown (already correct):
-```tsx
-{[...new Set(units.map(u => u.booking_com_name || u.name))].sort().map(name => (
-  <SelectItem key={name} value={name}>{name}</SelectItem>
-))}
+---
+
+#### File: `src/components/ReservationQuickActions.tsx`
+
+**Pass timestamp to edge function (line 418-420)**:
+```typescript
+await supabase.functions.invoke('send-checkout-notification', {
+  body: { 
+    reservationId: reservation.id, 
+    userId: user?.id,
+    checkedOutAt: new Date().toISOString() // Pass the timestamp
+  }
+});
 ```
-
-This is already using the correct logic.
 
 ---
 
 ### Summary of Changes
 
-| File | Location | Change |
-|------|----------|--------|
-| `BlockedDatesManager.tsx` | Line 100-105 | Add `booking_com_name` to the units join query |
-| `BlockedDatesManager.tsx` | Line 156 | Update unitName to prefer booking_com_name |
-| `BlockedDatesManager.tsx` | Interface (line 31-34) | Add `booking_com_name` to the units type |
+| File | Changes |
+|------|---------|
+| `supabase/functions/send-checkout-notification/index.ts` | Add `checkedOutAt` param, use it for timestamp, change email subject to use guest name |
+| `src/pages/CheckInOut.tsx` | Pass `checkedOutAt` timestamp when invoking function |
+| `src/components/Dashboard.tsx` | Pass `checkedOutAt` timestamp in all checkout function calls |
+| `src/components/ReservationQuickActions.tsx` | Pass `checkedOutAt` timestamp when invoking function |
 
 ---
 
-### Files to Modify
+### Expected Result
 
-| File | Changes |
-|------|---------|
-| `src/components/BlockedDatesManager.tsx` | Update joined units query to include booking_com_name, update unitName assignment to prefer booking_com_name |
+Email subject will change from:
+> "Guest Checked Out - Large One Bedroom Suite - Room #511"
 
+To:
+> "Guest Checked Out - Rawan Tarabzoni - Room #511"
+
+And the "Checked Out At" field will show the actual timestamp instead of "Not recorded".
