@@ -63,6 +63,24 @@ export const PassportUploadDialog = ({
     }
   };
 
+  const getSignedUrl = async (filePath: string): Promise<string | null> => {
+    // Extract just the path if it's a full URL (for backwards compatibility)
+    let path = filePath;
+    if (filePath.includes('/id-passports/')) {
+      path = filePath.split('/id-passports/').pop() || filePath;
+    }
+    
+    const { data, error } = await supabase.storage
+      .from('id-passports')
+      .createSignedUrl(path, 3600); // 1 hour expiry
+      
+    if (error) {
+      console.error('Error creating signed URL:', error);
+      return null;
+    }
+    return data.signedUrl;
+  };
+
   const compressImage = async (file: File): Promise<Blob> => {
     return new Promise((resolve, reject) => {
       const canvas = document.createElement('canvas');
@@ -124,17 +142,12 @@ export const PassportUploadDialog = ({
 
         if (uploadError) throw uploadError;
 
-        // Get public URL
-        const { data: urlData } = supabase.storage
-          .from('id-passports')
-          .getPublicUrl(fileName);
-
-        // Save to database
+        // Save to database - store file path only (not public URL since bucket is private)
         const { data: insertedData, error: dbError } = await supabase
           .from('reservation_passports')
           .insert({
             reservation_id: reservationId,
-            passport_url: urlData.publicUrl
+            passport_url: fileName
           })
           .select('id')
           .single();
@@ -234,14 +247,19 @@ export const PassportUploadDialog = ({
                     <span className="text-xs text-center text-muted-foreground line-clamp-2 break-all">
                       {getFileNameFromUrl(passport.passport_url)}
                     </span>
-                    <a
-                      href={passport.passport_url}
-                      target="_blank"
-                      rel="noopener noreferrer"
+                    <button
+                      onClick={async () => {
+                        const url = await getSignedUrl(passport.passport_url);
+                        if (url) {
+                          window.open(url, '_blank');
+                        } else {
+                          toast.error('Failed to load passport');
+                        }
+                      }}
                       className="text-xs text-primary hover:underline mt-1"
                     >
                       View
-                    </a>
+                    </button>
                     <button
                       onClick={() => handleDelete(passport)}
                       className="absolute top-1 right-1 p-1 bg-destructive text-destructive-foreground rounded-full opacity-0 group-hover:opacity-100 transition-opacity"
