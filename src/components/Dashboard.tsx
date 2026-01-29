@@ -1111,19 +1111,27 @@ export const Dashboard = () => {
                             </>
                           )}
                           {dialogTitle.includes('Departures') && (reservation.status === 'checked-out' || reservation.status === 'completed') && (
-                            <Button
-                              size="sm"
-                              variant="ghost"
-                              onClick={(e) => {
-                                e.stopPropagation();
-                                handleUndoClick(reservation.id, 'checkout');
-                              }}
-                              disabled={updating === reservation.id}
-                              className="gap-1 text-orange-600 hover:text-orange-700 hover:bg-orange-50"
-                            >
-                              <Undo2 className="h-3 w-3" />
-                              Undo
-                            </Button>
+                            <>
+                              <Badge 
+                                variant="secondary" 
+                                className="bg-green-100 text-green-800 border-green-300 px-4 py-1"
+                              >
+                                Checked Out
+                              </Badge>
+                              <Button
+                                size="sm"
+                                variant="ghost"
+                                onClick={(e) => {
+                                  e.stopPropagation();
+                                  handleUndoClick(reservation.id, 'checkout');
+                                }}
+                                disabled={updating === reservation.id}
+                                className="gap-1 text-orange-600 hover:text-orange-700 hover:bg-orange-50"
+                              >
+                                <Undo2 className="h-3 w-3" />
+                                Undo
+                              </Button>
+                            </>
                           )}
                           {dialogTitle.includes('Arrivals') && reservation.status === 'checked-in' && (
                             <Button
