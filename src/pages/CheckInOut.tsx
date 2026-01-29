@@ -235,7 +235,7 @@ const CheckInOut = () => {
       try {
         const { data: { user } } = await supabase.auth.getUser();
         await supabase.functions.invoke('send-checkout-notification', {
-          body: { reservationId, userId: user?.id }
+          body: { reservationId, userId: user?.id, checkedOutAt: new Date().toISOString() }
         });
       } catch (notifError) {
         console.error('Failed to send check-out notification:', notifError);
@@ -318,9 +318,10 @@ const CheckInOut = () => {
 
       // Send check-out notifications for all checked-out guests
       const { data: { user } } = await supabase.auth.getUser();
+      const checkoutTimestamp = new Date().toISOString();
       const notificationPromises = Array.from(selectedDepartures).map(reservationId =>
         supabase.functions.invoke('send-checkout-notification', {
-          body: { reservationId, userId: user?.id }
+          body: { reservationId, userId: user?.id, checkedOutAt: checkoutTimestamp }
         }).catch(err => console.error('Failed to send check-out notification:', err))
       );
       
