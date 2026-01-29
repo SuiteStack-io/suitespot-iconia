@@ -14,7 +14,7 @@ import {
   isAfter,
   parseISO
 } from 'date-fns';
-import { downloadCheckInPDF, generateCheckInPDF } from '@/lib/generateCheckInPDF';
+import { downloadCheckInPDF } from '@/lib/generateCheckInPDF';
 import { cn } from '@/lib/utils';
 import { SlideMenu } from '@/components/SlideMenu';
 import { NotificationBell } from '@/components/NotificationBell';
@@ -50,11 +50,12 @@ import {
   Check,
   ExternalLink,
   ArrowLeft,
-  Eye,
+  BookOpen,
   ArrowUpDown,
   ArrowUp,
   ArrowDown,
 } from 'lucide-react';
+import { PassportUploadDialog } from '@/components/PassportUploadDialog';
 import { toast } from 'sonner';
 
 interface Unit {
@@ -103,9 +104,10 @@ export default function GuestForms() {
   const [emailModalOpen, setEmailModalOpen] = useState(false);
   const [copiedEmail, setCopiedEmail] = useState<string | null>(null);
   const [downloadingId, setDownloadingId] = useState<string | null>(null);
-  const [previewingId, setPreviewingId] = useState<string | null>(null);
   const [sortField, setSortField] = useState<SortField>(null);
   const [sortOrder, setSortOrder] = useState<SortOrder>('asc');
+  const [passportDialogOpen, setPassportDialogOpen] = useState(false);
+  const [passportReservation, setPassportReservation] = useState<{ id: string; guestName: string } | null>(null);
 
   useEffect(() => {
     if (!authLoading && !user) {
@@ -313,44 +315,6 @@ export default function GuestForms() {
       toast.error('Failed to download PDF');
     } finally {
       setDownloadingId(null);
-    }
-  };
-
-  const handlePreviewPDF = async (reservation: Reservation, agreement: CheckInAgreement) => {
-    setPreviewingId(reservation.id);
-    try {
-      const pdfBlob = await generateCheckInPDF({
-        guestName: agreement.guest_full_name,
-        guestNationality: agreement.guest_nationality || '',
-        guestDateOfBirth: agreement.guest_date_of_birth || '',
-        guestPhone: agreement.guest_phone,
-        guestEmail: agreement.guest_email,
-        unitName: reservation.units?.name || 'N/A',
-        checkInDate: reservation.check_in_date,
-        checkOutDate: reservation.check_out_date,
-        signatureDataUrl: agreement.signature_url,
-        signedAt: new Date(agreement.signed_at),
-      });
-      
-      // Convert blob to base64 data URL
-      const reader = new FileReader();
-      reader.onloadend = () => {
-        const dataUrl = reader.result as string;
-        // Create a link and simulate click to open in new tab
-        const link = document.createElement('a');
-        link.href = dataUrl;
-        link.target = '_blank';
-        link.rel = 'noopener noreferrer';
-        document.body.appendChild(link);
-        link.click();
-        document.body.removeChild(link);
-      };
-      reader.readAsDataURL(pdfBlob);
-    } catch (error) {
-      console.error('Error previewing PDF:', error);
-      toast.error('Failed to preview PDF');
-    } finally {
-      setPreviewingId(null);
     }
   };
 
@@ -724,17 +688,22 @@ export default function GuestForms() {
                           {calculateAge(agreement?.guest_date_of_birth)}
                         </TableCell>
                         <TableCell className="text-right">
-                          {hasForm && agreement && (
-                            <div className="flex items-center justify-end gap-1">
-                              <Button
-                                variant="ghost"
-                                size="sm"
-                                onClick={() => handlePreviewPDF(reservation, agreement)}
-                                disabled={previewingId === reservation.id}
-                                title="Preview in new tab"
-                              >
-                                <Eye className="h-4 w-4" />
-                              </Button>
+                          <div className="flex items-center justify-end gap-1">
+                            <Button
+                              variant="ghost"
+                              size="sm"
+                              onClick={() => {
+                                setPassportReservation({
+                                  id: reservation.id,
+                                  guestName: agreement?.guest_full_name || reservation.guest_names?.[0] || 'Guest'
+                                });
+                                setPassportDialogOpen(true);
+                              }}
+                              title="Upload Passports"
+                            >
+                              <BookOpen className="h-4 w-4" />
+                            </Button>
+                            {hasForm && agreement && (
                               <Button
                                 variant="ghost"
                                 size="sm"
@@ -744,8 +713,8 @@ export default function GuestForms() {
                               >
                                 <Download className="h-4 w-4" />
                               </Button>
-                            </div>
-                          )}
+                            )}
+                          </div>
                         </TableCell>
                       </TableRow>
                     );
@@ -803,6 +772,14 @@ export default function GuestForms() {
           </div>
         </DialogContent>
       </Dialog>
+
+      {/* Passport Upload Dialog */}
+      <PassportUploadDialog
+        open={passportDialogOpen}
+        onOpenChange={setPassportDialogOpen}
+        reservationId={passportReservation?.id || ''}
+        guestName={passportReservation?.guestName || 'Guest'}
+      />
     </div>
   );
 }
