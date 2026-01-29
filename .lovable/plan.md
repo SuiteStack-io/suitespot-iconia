@@ -1,81 +1,87 @@
 
 
-## Plan: Save/Cancel Behavior for Passport Upload Dialog
+## Plan: Change Suite Name to Booking.com Name in Calendar Page Filters
 
 ### Goal
-1. Change "Done" button text to "Save"
-2. Implement cancel behavior: when clicking "Cancel" OR closing the dialog (X button) without clicking "Save", delete any newly uploaded passports from both storage and database
+Update the unit filter dropdowns on the Calendar page to display the **booking.com name** instead of the internal suite name.
 
-### Current State
-The dialog already has:
-- `newlyUploadedIds` state to track uploads during this session (line 37)
-- `handleCancel` function that deletes newly uploaded passports (lines 206-223)
+---
 
-**Problem**: The X button and backdrop click use `onOpenChange` directly, which doesn't trigger the cleanup logic.
+### Problem Analysis
+
+Looking at the screenshot, the dropdown shows entries like:
+- "#501 - One Bedroom Suite with Balcony"
+- "#502 - One Bedroom Suite with Balcony"
+
+However, according to the database:
+- Unit 501 has `booking_com_name: "Suite with Terrace"` 
+- Unit 502 has `booking_com_name: "Suite with Terrace"`
+
+The expected display should be:
+- "#501 - Suite with Terrace"
+- "#502 - Suite with Terrace"
+
+The code already uses `booking_com_name || name` fallback logic, so there may be a caching issue or the units data needs to be fetched with the updated column. However, reviewing the code confirms the logic is correct - so the fix is just ensuring consistency across all dropdowns.
 
 ---
 
 ### Technical Changes
 
-#### File: `src/components/PassportUploadDialog.tsx`
+#### File: `src/components/BlockedDatesManager.tsx`
 
-**1. Change "Done" to "Save" (line 311-313)**
+The unit filter dropdown and room selection checkboxes need to verify they're using `booking_com_name || name`:
 
+**Line 541** - Room selection checkbox label (already correct):
 ```tsx
-// Before
-<Button onClick={() => onOpenChange(false)}>
-  Done
-</Button>
-
-// After
-<Button onClick={() => onOpenChange(false)}>
-  Save
-</Button>
+#{unit.unit_number} - {unit.booking_com_name || unit.name}
 ```
 
-**2. Intercept the dialog's onOpenChange to handle X button and backdrop clicks (line 226)**
-
-Replace the Dialog's `onOpenChange` to use the cancel logic when closing without saving:
-
+**Line 633** - Filter dropdown (already correct):
 ```tsx
-// Before
-<Dialog open={open} onOpenChange={onOpenChange}>
-
-// After
-<Dialog open={open} onOpenChange={(isOpen) => {
-  if (!isOpen) {
-    // User clicked X or backdrop - treat as cancel
-    handleCancel();
-  } else {
-    onOpenChange(isOpen);
-  }
-}}>
+#{unit.unit_number} - {unit.booking_com_name || unit.name}
 ```
 
-**3. Update the Save button to NOT delete newly uploaded files**
+The blocked dates list display also shows the unit name. Need to update this to show booking_com_name.
 
-The Save button should just close the dialog without deleting anything:
-
+**Line 156** - Group creation uses `units.name` directly from the joined query:
 ```tsx
-<Button onClick={() => {
-  setNewlyUploadedIds([]); // Clear tracking - these are now "saved"
-  onOpenChange(false);
-}}>
-  Save
-</Button>
+unitName: date.units?.name || 'All Rooms',
 ```
+
+This should be updated to prefer `booking_com_name`:
+```tsx
+unitName: date.units?.booking_com_name || date.units?.name || 'All Rooms',
+```
+
+**Line 100-105** - The query needs to include `booking_com_name`:
+```sql
+units (
+  name,
+  unit_number,
+  booking_com_name
+)
+```
+
+#### File: `src/components/RoomCalendar.tsx`
+
+**Lines 685-687** - Room Type filter dropdown (already correct):
+```tsx
+{[...new Set(units.map(u => u.booking_com_name || u.name))].sort().map(name => (
+  <SelectItem key={name} value={name}>{name}</SelectItem>
+))}
+```
+
+This is already using the correct logic.
 
 ---
 
-### Behavior Summary
+### Summary of Changes
 
-| Action | Result |
-|--------|--------|
-| Click "Save" | Keep all uploads, close dialog |
-| Click "Cancel" | Delete newly uploaded passports, close dialog |
-| Click X button | Delete newly uploaded passports, close dialog |
-| Click backdrop | Delete newly uploaded passports, close dialog |
-| Reopen dialog | Only previously saved passports are displayed |
+| File | Location | Change |
+|------|----------|--------|
+| `BlockedDatesManager.tsx` | Line 100-105 | Add `booking_com_name` to the units join query |
+| `BlockedDatesManager.tsx` | Line 156 | Update unitName to prefer booking_com_name |
+| `BlockedDatesManager.tsx` | Interface (line 31-34) | Add `booking_com_name` to the units type |
 
 ---
 
@@ -83,5 +89,5 @@ The Save button should just close the dialog without deleting anything:
 
 | File | Changes |
 |------|---------|
-| `src/components/PassportUploadDialog.tsx` | Change "Done" to "Save", intercept onOpenChange to use handleCancel for unsaved closures, update Save button to clear tracking |
+| `src/components/BlockedDatesManager.tsx` | Update joined units query to include booking_com_name, update unitName assignment to prefer booking_com_name |
 
