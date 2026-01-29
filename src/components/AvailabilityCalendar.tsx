@@ -2556,123 +2556,127 @@ export const AvailabilityCalendar = () => {
 
       {/* Occupancy Breakdown Modal */}
       <Dialog open={showOccupancyModal} onOpenChange={setShowOccupancyModal}>
-        <DialogContent className="max-w-2xl max-h-[80vh] overflow-y-auto">
-          <DialogHeader>
+        <DialogContent className="max-w-2xl max-h-[80vh] flex flex-col overflow-hidden">
+          <DialogHeader className="sticky top-0 bg-background z-10 pb-4 border-b shrink-0 pr-8">
             <DialogTitle>
               {viewMode === 'weekly' ? 'Weekly' : 'Monthly'} Occupancy Breakdown
             </DialogTitle>
           </DialogHeader>
           
-          {/* Summary */}
-          <div className="grid grid-cols-3 gap-4 mb-4">
-            <div className="text-center p-3 bg-primary/10 rounded-lg">
-              <p className="text-2xl font-bold text-primary">{occupancyRate.toFixed(1)}%</p>
-              <p className="text-xs text-muted-foreground">Overall Occupancy</p>
+          <div className="overflow-y-auto flex-1 pt-4 space-y-4">
+            {/* Summary */}
+            <div className="grid grid-cols-3 gap-4">
+              <div className="text-center p-3 bg-primary/10 rounded-lg">
+                <p className="text-2xl font-bold text-primary">{occupancyRate.toFixed(1)}%</p>
+                <p className="text-xs text-muted-foreground">Overall Occupancy</p>
+              </div>
+              <div className="text-center p-3 bg-muted rounded-lg">
+                <p className="text-2xl font-bold">{bookedNights}</p>
+                <p className="text-xs text-muted-foreground">Booked Nights</p>
+              </div>
+              <div className="text-center p-3 bg-muted rounded-lg">
+                <p className="text-2xl font-bold">{totalAvailableNights}</p>
+                <p className="text-xs text-muted-foreground">Available Nights</p>
+              </div>
             </div>
-            <div className="text-center p-3 bg-muted rounded-lg">
-              <p className="text-2xl font-bold">{bookedNights}</p>
-              <p className="text-xs text-muted-foreground">Booked Nights</p>
-            </div>
-            <div className="text-center p-3 bg-muted rounded-lg">
-              <p className="text-2xl font-bold">{totalAvailableNights}</p>
-              <p className="text-xs text-muted-foreground">Available Nights</p>
-            </div>
-          </div>
-          
-          {/* Per-Unit Table */}
-          <div className="border rounded-lg overflow-hidden">
-            <table className="w-full text-sm">
-              <thead className="bg-muted">
-                <tr>
-                  <th className="text-left py-2 px-3 font-medium">Unit</th>
-                  <th className="text-right py-2 px-3 font-medium">Booked</th>
-                  <th className="text-right py-2 px-3 font-medium">Available</th>
-                  <th className="text-right py-2 px-3 font-medium">Occupancy</th>
-                </tr>
-              </thead>
-              <tbody>
-                {unitMetrics.map(unit => (
-                  <tr key={unit.unitId} className="border-t">
-                    <td className="py-2 px-3">{unit.unitNumber} - {unit.unitName}</td>
-                    <td className="text-right py-2 px-3">{unit.bookedNights}</td>
-                    <td className="text-right py-2 px-3">{unit.availableNights}</td>
-                    <td className="text-right py-2 px-3 font-medium">
-                      {unit.occupancyRate.toFixed(1)}%
-                    </td>
+            
+            {/* Per-Unit Table */}
+            <div className="border rounded-lg overflow-hidden">
+              <table className="w-full text-sm">
+                <thead className="bg-muted">
+                  <tr>
+                    <th className="text-left py-2 px-3 font-medium">Unit</th>
+                    <th className="text-right py-2 px-3 font-medium">Booked</th>
+                    <th className="text-right py-2 px-3 font-medium">Available</th>
+                    <th className="text-right py-2 px-3 font-medium">Occupancy</th>
                   </tr>
-                ))}
-              </tbody>
-            </table>
+                </thead>
+                <tbody>
+                  {unitMetrics.map(unit => (
+                    <tr key={unit.unitId} className="border-t">
+                      <td className="py-2 px-3">{unit.unitNumber} - {unit.unitName}</td>
+                      <td className="text-right py-2 px-3">{unit.bookedNights}</td>
+                      <td className="text-right py-2 px-3">{unit.availableNights}</td>
+                      <td className="text-right py-2 px-3 font-medium">
+                        {unit.occupancyRate.toFixed(1)}%
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
           </div>
         </DialogContent>
       </Dialog>
 
       {/* RevPAR Breakdown Modal */}
       <Dialog open={showRevPARModal} onOpenChange={setShowRevPARModal}>
-        <DialogContent className="max-w-2xl max-h-[80vh] overflow-y-auto">
-          <DialogHeader>
+        <DialogContent className="max-w-2xl max-h-[80vh] flex flex-col overflow-hidden">
+          <DialogHeader className="sticky top-0 bg-background z-10 pb-4 border-b shrink-0 pr-8">
             <DialogTitle>
               {viewMode === 'weekly' ? 'Weekly' : 'Monthly'} RevPAR Breakdown
             </DialogTitle>
           </DialogHeader>
           
-          {/* Summary */}
-          <div className="grid grid-cols-4 gap-2 md:gap-4 mb-4">
-            <div className="text-center p-2 md:p-3 bg-muted rounded-lg">
-              <p className="text-lg md:text-2xl font-bold">
-                ${bookedNights > 0 ? Math.ceil(totalRevenue / bookedNights).toLocaleString() : '0'}
-              </p>
-              <p className="text-xs text-muted-foreground">ADR</p>
+          <div className="overflow-y-auto flex-1 pt-4 space-y-4">
+            {/* Summary */}
+            <div className="grid grid-cols-4 gap-2 md:gap-4">
+              <div className="text-center p-2 md:p-3 bg-muted rounded-lg">
+                <p className="text-lg md:text-2xl font-bold">
+                  ${bookedNights > 0 ? Math.ceil(totalRevenue / bookedNights).toLocaleString() : '0'}
+                </p>
+                <p className="text-xs text-muted-foreground">ADR</p>
+              </div>
+              <div className="text-center p-2 md:p-3 bg-muted rounded-lg">
+                <p className="text-lg md:text-2xl font-bold">${Math.ceil(revPAR).toLocaleString()}</p>
+                <p className="text-xs text-muted-foreground">RevPAR</p>
+              </div>
+              <div className="text-center p-2 md:p-3 bg-muted rounded-lg">
+                <p className="text-lg md:text-2xl font-bold">${formatCompactNumber(Math.ceil(totalRevenue))}</p>
+                <p className="text-xs text-muted-foreground">Net Revenue</p>
+              </div>
+              <div className="text-center p-2 md:p-3 bg-muted rounded-lg">
+                <p className="text-lg md:text-2xl font-bold">${formatCompactNumber(Math.ceil(totalGrossRevenue))}</p>
+                <p className="text-xs text-muted-foreground">Gross Revenue</p>
+              </div>
             </div>
-            <div className="text-center p-2 md:p-3 bg-muted rounded-lg">
-              <p className="text-lg md:text-2xl font-bold">${Math.ceil(revPAR).toLocaleString()}</p>
-              <p className="text-xs text-muted-foreground">RevPAR</p>
-            </div>
-            <div className="text-center p-2 md:p-3 bg-muted rounded-lg">
-              <p className="text-lg md:text-2xl font-bold">${formatCompactNumber(Math.ceil(totalRevenue))}</p>
-              <p className="text-xs text-muted-foreground">Net Revenue</p>
-            </div>
-            <div className="text-center p-2 md:p-3 bg-muted rounded-lg">
-              <p className="text-lg md:text-2xl font-bold">${formatCompactNumber(Math.ceil(totalGrossRevenue))}</p>
-              <p className="text-xs text-muted-foreground">Gross Revenue</p>
-            </div>
-          </div>
-          
-          {/* Per-Unit Table */}
-          <div className="border rounded-lg overflow-hidden">
-            <table className="w-full text-sm">
-              <thead className="bg-muted">
-                <tr>
-                  <th className="text-left py-2 px-3 font-medium">Unit</th>
-                  <th className="text-right py-2 px-1 md:px-3 font-medium text-xs md:text-sm">NetRev</th>
-                  <th className="text-right py-2 px-1 md:px-3 font-medium text-xs md:text-sm">Nights</th>
-                  <th className="text-right py-2 px-1 md:px-3 font-medium text-xs md:text-sm">ADR</th>
-                  <th className="text-right py-2 px-1 md:px-3 font-medium text-xs md:text-sm">RevPAR</th>
-                </tr>
-              </thead>
-              <tbody>
-                {unitMetrics.map(unit => (
-                  <tr key={unit.unitId} className="border-t">
-                    <td className="py-2 px-3">{unit.unitNumber} - {unit.unitName}</td>
-                    <td className="text-right py-2 px-1 md:px-3 text-xs md:text-sm">
-                      ${isMobile ? formatCompactNumber(Math.ceil(unit.netRevenue)) : Math.ceil(unit.netRevenue).toLocaleString()}
-                    </td>
-                    <td className="text-right py-2 px-1 md:px-3 text-xs md:text-sm">{unit.bookedNights}</td>
-                    <td className="text-right py-2 px-1 md:px-3 text-xs md:text-sm">
-                      ${unit.bookedNights > 0 
-                        ? (isMobile 
-                            ? formatCompactNumber(Math.ceil(unit.netRevenue / unit.bookedNights)) 
-                            : Math.ceil(unit.netRevenue / unit.bookedNights).toLocaleString()
-                          ) 
-                        : '0'}
-                    </td>
-                    <td className="text-right py-2 px-1 md:px-3 font-medium text-xs md:text-sm">
-                      ${isMobile ? formatCompactNumber(Math.ceil(unit.revPAR)) : Math.ceil(unit.revPAR).toLocaleString()}
-                    </td>
+            
+            {/* Per-Unit Table */}
+            <div className="border rounded-lg overflow-hidden">
+              <table className="w-full text-sm">
+                <thead className="bg-muted">
+                  <tr>
+                    <th className="text-left py-2 px-3 font-medium">Unit</th>
+                    <th className="text-right py-2 px-1 md:px-3 font-medium text-xs md:text-sm">NetRev</th>
+                    <th className="text-right py-2 px-1 md:px-3 font-medium text-xs md:text-sm">Nights</th>
+                    <th className="text-right py-2 px-1 md:px-3 font-medium text-xs md:text-sm">ADR</th>
+                    <th className="text-right py-2 px-1 md:px-3 font-medium text-xs md:text-sm">RevPAR</th>
                   </tr>
-                ))}
-              </tbody>
-            </table>
+                </thead>
+                <tbody>
+                  {unitMetrics.map(unit => (
+                    <tr key={unit.unitId} className="border-t">
+                      <td className="py-2 px-3">{unit.unitNumber} - {unit.unitName}</td>
+                      <td className="text-right py-2 px-1 md:px-3 text-xs md:text-sm">
+                        ${isMobile ? formatCompactNumber(Math.ceil(unit.netRevenue)) : Math.ceil(unit.netRevenue).toLocaleString()}
+                      </td>
+                      <td className="text-right py-2 px-1 md:px-3 text-xs md:text-sm">{unit.bookedNights}</td>
+                      <td className="text-right py-2 px-1 md:px-3 text-xs md:text-sm">
+                        ${unit.bookedNights > 0 
+                          ? (isMobile 
+                              ? formatCompactNumber(Math.ceil(unit.netRevenue / unit.bookedNights)) 
+                              : Math.ceil(unit.netRevenue / unit.bookedNights).toLocaleString()
+                            ) 
+                          : '0'}
+                      </td>
+                      <td className="text-right py-2 px-1 md:px-3 font-medium text-xs md:text-sm">
+                        ${isMobile ? formatCompactNumber(Math.ceil(unit.revPAR)) : Math.ceil(unit.revPAR).toLocaleString()}
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
           </div>
         </DialogContent>
       </Dialog>
