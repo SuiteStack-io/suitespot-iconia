@@ -1,9 +1,19 @@
 
 
-## Plan: Add "Checked Out" Badge Next to Undo Button
+## Plan: Make Dialog Headers Sticky in Dashboard Cards
 
 ### Goal
-Add a wide "Checked Out" badge next to the Undo button for reservations that have been checked out in the Today's Departures modal, providing clear visual confirmation of the check-out status.
+When scrolling through reservation cards in the dashboard modals (Today's Departures, Today's Arrivals, In-House Now, etc.), keep the dialog title and close "X" button visible at the top of the modal.
+
+---
+
+### Technical Approach
+
+The current dialog structure places `overflow-y-auto` on the entire `DialogContent`, which means the header scrolls away with the content. To fix this:
+
+1. Restructure the dialog so the `DialogHeader` stays fixed
+2. Move scrolling to only the content area
+3. Add proper z-index and background to the sticky header
 
 ---
 
@@ -11,74 +21,71 @@ Add a wide "Checked Out" badge next to the Undo button for reservations that hav
 
 #### File: `src/components/Dashboard.tsx`
 
-**Update the Undo button section (lines 1113-1127)**
+**1. Update DialogContent to use flex layout instead of overflow (line 830)**
 
 From:
 ```tsx
-{dialogTitle.includes('Departures') && (reservation.status === 'checked-out' || reservation.status === 'completed') && (
-  <Button
-    size="sm"
-    variant="ghost"
-    onClick={(e) => {
-      e.stopPropagation();
-      handleUndoClick(reservation.id, 'checkout');
-    }}
-    disabled={updating === reservation.id}
-    className="gap-1 text-orange-600 hover:text-orange-700 hover:bg-orange-50"
-  >
-    <Undo2 className="h-3 w-3" />
-    Undo
-  </Button>
-)}
+<DialogContent className="max-w-3xl max-h-[80vh] overflow-y-auto">
 ```
 
 To:
 ```tsx
-{dialogTitle.includes('Departures') && (reservation.status === 'checked-out' || reservation.status === 'completed') && (
-  <>
-    <Badge 
-      variant="secondary" 
-      className="bg-green-100 text-green-800 border-green-300 px-4 py-1"
-    >
-      Checked Out
-    </Badge>
-    <Button
-      size="sm"
-      variant="ghost"
-      onClick={(e) => {
-        e.stopPropagation();
-        handleUndoClick(reservation.id, 'checkout');
-      }}
-      disabled={updating === reservation.id}
-      className="gap-1 text-orange-600 hover:text-orange-700 hover:bg-orange-50"
-    >
-      <Undo2 className="h-3 w-3" />
-      Undo
-    </Button>
-  </>
-)}
+<DialogContent className="max-w-3xl max-h-[80vh] flex flex-col overflow-hidden">
+```
+
+**2. Make DialogHeader sticky with proper styling (line 831)**
+
+From:
+```tsx
+<DialogHeader>
+```
+
+To:
+```tsx
+<DialogHeader className="sticky top-0 bg-background z-10 pb-4 border-b shrink-0">
+```
+
+**3. Make the content area scrollable (line 873)**
+
+From:
+```tsx
+<div className="space-y-2">
+```
+
+To:
+```tsx
+<div className="space-y-2 overflow-y-auto flex-1 pt-4">
 ```
 
 ---
 
-### Expected Result
+### Visual Result
 
-**Before:**
-| Status | Actions |
-|--------|---------|
-| checked-out/completed | [Undo button only] |
-
-**After:**
-| Status | Actions |
-|--------|---------|
-| checked-out/completed | [Checked Out badge] [Undo button] |
+| Scroll Position | Header Behavior |
+|-----------------|-----------------|
+| Top of modal | Header visible normally |
+| Middle of list | Header stays fixed at top, content scrolls behind it |
+| Bottom of list | Header still visible, close X accessible |
 
 ---
 
-### Visual Design
-- Wide badge with `px-4 py-1` for increased padding
-- Green styling (`bg-green-100 text-green-800 border-green-300`) to indicate success/completion
-- Positioned directly before the Undo button in the flex container
+### Layout Structure After Changes
+
+```text
++----------------------------------+
+|  DialogContent (flex, no scroll) |
+|  +----------------------------+  |
+|  | DialogHeader (sticky, z-10)|  | <-- Stays fixed
+|  | Title + Select All + Close |  |
+|  +----------------------------+  |
+|  | Content Area (scrollable)  |  | <-- Only this scrolls
+|  | Room #417/418 card         |  |
+|  | Room #503 card             |  |
+|  | Room #511 card             |  |
+|  | ...more cards...           |  |
+|  +----------------------------+  |
++----------------------------------+
+```
 
 ---
 
@@ -86,5 +93,5 @@ To:
 
 | File | Changes |
 |------|---------|
-| `src/components/Dashboard.tsx` | Add "Checked Out" badge before Undo button in departures view (lines 1113-1127) |
+| `src/components/Dashboard.tsx` | Update dialog structure with sticky header and scrollable content area (3 line changes) |
 
