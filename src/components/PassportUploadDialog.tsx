@@ -223,7 +223,13 @@ export const PassportUploadDialog = ({
   };
 
   return (
-    <Dialog open={open} onOpenChange={onOpenChange}>
+    <Dialog open={open} onOpenChange={(isOpen) => {
+      if (!isOpen) {
+        handleCancel();
+      } else {
+        onOpenChange(isOpen);
+      }
+    }}>
       <DialogContent className="max-w-lg">
         <DialogHeader>
           <DialogTitle>Upload Passports - {guestName}</DialogTitle>
@@ -308,8 +314,11 @@ export const PassportUploadDialog = ({
           <Button variant="outline" onClick={handleCancel}>
             Cancel
           </Button>
-          <Button onClick={() => onOpenChange(false)}>
-            Done
+          <Button onClick={() => {
+            setNewlyUploadedIds([]);
+            onOpenChange(false);
+          }}>
+            Save
           </Button>
         </div>
       </DialogContent>
