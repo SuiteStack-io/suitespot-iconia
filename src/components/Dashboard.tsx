@@ -832,7 +832,7 @@ export const Dashboard = () => {
             <DialogTitle className="flex items-center justify-between">
               <span>{dialogTitle}</span>
               {dialogTitle.includes('Departures') && dialogReservations.length > 0 && (
-                <div className="flex items-center gap-2">
+                <div className="flex items-center gap-2 mr-6">
                   {/* Direct checkout for single departure */}
                   {dialogReservations.length === 1 && (dialogReservations[0].status === 'checked-in' || dialogReservations[0].status === 'confirmed') && (
                     <Button
