@@ -12,6 +12,7 @@ const corsHeaders = {
 interface CheckOutNotificationRequest {
   reservationId: string;
   userId?: string;
+  checkedOutAt?: string;
 }
 
 serve(async (req) => {
@@ -24,7 +25,7 @@ serve(async (req) => {
     const supabaseServiceKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!;
     const supabase = createClient(supabaseUrl, supabaseServiceKey);
 
-    const { reservationId, userId }: CheckOutNotificationRequest = await req.json();
+    const { reservationId, userId, checkedOutAt: checkedOutAtParam }: CheckOutNotificationRequest = await req.json();
 
     console.log('Sending check-out notification for reservation:', reservationId);
 
@@ -117,9 +118,10 @@ serve(async (req) => {
     const roomNumber = reservation.units?.unit_number || 'N/A';
     const estimatedMinutes = reservation.units?.estimated_cleaning_minutes || 45;
     
-    // Format check-out timestamp in Cairo time
-    const checkedOutAt = reservation.checked_out_at 
-      ? new Date(reservation.checked_out_at).toLocaleString('en-US', {
+    // Format check-out timestamp in Cairo time - use passed param first, then DB value
+    const checkedOutTimestamp = checkedOutAtParam || reservation.checked_out_at;
+    const checkedOutAt = checkedOutTimestamp 
+      ? new Date(checkedOutTimestamp).toLocaleString('en-US', {
           timeZone: 'Africa/Cairo',
           year: 'numeric',
           month: 'short',
@@ -136,7 +138,7 @@ serve(async (req) => {
         const emailResponse = await resend.emails.send({
           from: "SuiteSpot Housekeeping <housekeeping@bookings.suitespoteg.com>",
           to: [staff.email],
-          subject: `Guest Checked Out - ${unitName} - Room #${roomNumber}`,
+          subject: `Guest Checked Out - ${guestName} - Room #${roomNumber}`,
           html: `
             <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto;">
               <h2 style="color: #ea580c;">Guest Checked Out - Room Ready for Cleaning</h2>

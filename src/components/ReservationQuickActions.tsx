@@ -416,7 +416,7 @@ export const ReservationQuickActions = ({
         try {
           const { data: { user } } = await supabase.auth.getUser();
           await supabase.functions.invoke('send-checkout-notification', {
-            body: { reservationId: reservation.id, userId: user?.id }
+            body: { reservationId: reservation.id, userId: user?.id, checkedOutAt: new Date().toISOString() }
           });
         } catch (notifError) {
           console.error('Failed to send check-out notification:', notifError);
