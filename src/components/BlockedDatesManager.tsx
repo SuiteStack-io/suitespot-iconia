@@ -31,6 +31,7 @@ interface BlockedDate {
   units?: {
     name: string;
     unit_number: string | null;
+    booking_com_name?: string | null;
   } | null;
 }
 
@@ -101,7 +102,8 @@ export const BlockedDatesManager = () => {
           *,
           units (
             name,
-            unit_number
+            unit_number,
+            booking_com_name
           )
         `)
         .order("blocked_date", { ascending: true });
@@ -153,7 +155,7 @@ export const BlockedDatesManager = () => {
           endDate: date.blocked_date,
           reason: date.reason,
           unit_id: date.unit_id,
-          unitName: date.units?.name || 'All Rooms',
+          unitName: date.units?.booking_com_name || date.units?.name || 'All Rooms',
           unitNumber: date.units?.unit_number || null,
           dateCount: 1,
           ids: [date.id],
