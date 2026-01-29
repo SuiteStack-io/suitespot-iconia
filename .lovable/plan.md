@@ -1,12 +1,17 @@
 
 
-## Plan: Fix Passport View Error - Use Signed URLs for Private Bucket
+## Plan: Save/Cancel Behavior for Passport Upload Dialog
 
-### Problem
-The `id-passports` storage bucket is **private** (not public), but the code is using `getPublicUrl()` to generate URLs. When users click "View", they get a "Bucket not found" error because public URLs don't work for private buckets.
+### Goal
+1. Change "Done" button text to "Save"
+2. Implement cancel behavior: when clicking "Cancel" OR closing the dialog (X button) without clicking "Save", delete any newly uploaded passports from both storage and database
 
-### Solution
-Change the approach to use **signed URLs** for viewing files from the private bucket. Instead of storing a public URL in the database, store only the file path and generate signed URLs on-demand when viewing.
+### Current State
+The dialog already has:
+- `newlyUploadedIds` state to track uploads during this session (line 37)
+- `handleCancel` function that deletes newly uploaded passports (lines 206-223)
+
+**Problem**: The X button and backdrop click use `onOpenChange` directly, which doesn't trigger the cleanup logic.
 
 ---
 
@@ -14,108 +19,63 @@ Change the approach to use **signed URLs** for viewing files from the private bu
 
 #### File: `src/components/PassportUploadDialog.tsx`
 
-**1. Update upload logic to store file path instead of public URL (lines 127-138)**
-
-Change from storing `publicUrl` to storing just the file path:
+**1. Change "Done" to "Save" (line 311-313)**
 
 ```tsx
 // Before
-const { data: urlData } = supabase.storage
-  .from('id-passports')
-  .getPublicUrl(fileName);
-
-const { data: insertedData, error: dbError } = await supabase
-  .from('reservation_passports')
-  .insert({
-    reservation_id: reservationId,
-    passport_url: urlData.publicUrl  // Stores full public URL (doesn't work)
-  })
-```
-
-```tsx
-// After - store the file path only
-const { data: insertedData, error: dbError } = await supabase
-  .from('reservation_passports')
-  .insert({
-    reservation_id: reservationId,
-    passport_url: fileName  // Store just the file path
-  })
-```
-
-**2. Add a function to generate signed URLs for viewing (new function)**
-
-```tsx
-const getSignedUrl = async (filePath: string): Promise<string | null> => {
-  // Extract just the path if it's a full URL (for backwards compatibility)
-  let path = filePath;
-  if (filePath.includes('/id-passports/')) {
-    path = filePath.split('/id-passports/').pop() || filePath;
-  }
-  
-  const { data, error } = await supabase.storage
-    .from('id-passports')
-    .createSignedUrl(path, 3600); // 1 hour expiry
-    
-  if (error) {
-    console.error('Error creating signed URL:', error);
-    return null;
-  }
-  return data.signedUrl;
-};
-```
-
-**3. Update the View link to use signed URLs (lines 237-244)**
-
-Replace the direct link with a button that generates a signed URL on click:
-
-```tsx
-// Before
-<a
-  href={passport.passport_url}
-  target="_blank"
-  rel="noopener noreferrer"
-  className="text-xs text-primary hover:underline mt-1"
->
-  View
-</a>
+<Button onClick={() => onOpenChange(false)}>
+  Done
+</Button>
 
 // After
-<button
-  onClick={async () => {
-    const url = await getSignedUrl(passport.passport_url);
-    if (url) {
-      window.open(url, '_blank');
-    } else {
-      toast.error('Failed to load passport');
-    }
-  }}
-  className="text-xs text-primary hover:underline mt-1"
->
-  View
-</button>
+<Button onClick={() => onOpenChange(false)}>
+  Save
+</Button>
 ```
 
-**4. Update delete handler for backwards compatibility (lines 165-167)**
+**2. Intercept the dialog's onOpenChange to handle X button and backdrop clicks (line 226)**
 
-Ensure the delete handler works with both old full URLs and new file paths:
+Replace the Dialog's `onOpenChange` to use the cancel logic when closing without saving:
 
 ```tsx
-// Already handles this with:
-const urlParts = passport.passport_url.split('/id-passports/');
-const filePath = urlParts[urlParts.length - 1];
-// This works for both full URLs and file paths
+// Before
+<Dialog open={open} onOpenChange={onOpenChange}>
+
+// After
+<Dialog open={open} onOpenChange={(isOpen) => {
+  if (!isOpen) {
+    // User clicked X or backdrop - treat as cancel
+    handleCancel();
+  } else {
+    onOpenChange(isOpen);
+  }
+}}>
+```
+
+**3. Update the Save button to NOT delete newly uploaded files**
+
+The Save button should just close the dialog without deleting anything:
+
+```tsx
+<Button onClick={() => {
+  setNewlyUploadedIds([]); // Clear tracking - these are now "saved"
+  onOpenChange(false);
+}}>
+  Save
+</Button>
 ```
 
 ---
 
-### Why Signed URLs?
+### Behavior Summary
 
-| Approach | Pros | Cons |
-|----------|------|------|
-| Public bucket | Simple URLs work directly | Anyone with URL can access passports - security risk! |
-| Signed URLs | Secure - temporary access only | Requires generating URL on each view |
-
-Passports contain sensitive personal information, so keeping the bucket private with signed URLs is the correct security approach.
+| Action | Result |
+|--------|--------|
+| Click "Save" | Keep all uploads, close dialog |
+| Click "Cancel" | Delete newly uploaded passports, close dialog |
+| Click X button | Delete newly uploaded passports, close dialog |
+| Click backdrop | Delete newly uploaded passports, close dialog |
+| Reopen dialog | Only previously saved passports are displayed |
 
 ---
 
@@ -123,11 +83,5 @@ Passports contain sensitive personal information, so keeping the bucket private 
 
 | File | Changes |
 |------|---------|
-| `src/components/PassportUploadDialog.tsx` | Store file path instead of public URL, add `getSignedUrl` function, update View button to use signed URLs |
-
----
-
-### Backwards Compatibility
-
-The solution handles existing records that have full public URLs stored by extracting the file path from them. New uploads will store only the file path.
+| `src/components/PassportUploadDialog.tsx` | Change "Done" to "Save", intercept onOpenChange to use handleCancel for unsaved closures, update Save button to clear tracking |
 
