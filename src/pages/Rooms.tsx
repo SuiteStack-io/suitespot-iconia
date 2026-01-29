@@ -1130,15 +1130,15 @@ const Rooms = () => {
                       {isEditing ? (
                         <Input
                           className="w-full min-w-[180px]"
-                          value={isBulkEdit ? bulkEditUnits[unit.id]?.name : editedUnit.name}
+                          value={isBulkEdit ? (bulkEditUnits[unit.id]?.booking_com_name || '') : (editedUnit.booking_com_name || '')}
                           onChange={(e) => 
                             isBulkEdit 
-                              ? handleBulkEditChange(unit.id, 'name', e.target.value)
-                              : setEditedUnit({ ...editedUnit, name: e.target.value })
+                              ? handleBulkEditChange(unit.id, 'booking_com_name', e.target.value)
+                              : setEditedUnit({ ...editedUnit, booking_com_name: e.target.value })
                           }
                         />
                       ) : (
-                        unit.name
+                        unit.booking_com_name || unit.name
                       )}
                     </TableCell>
                     <TableCell className="min-w-[100px] sticky left-[250px] z-[5] bg-background border-r">
