@@ -1,9 +1,15 @@
 
 
-## Plan: Adjust Select All Button Position for Close Button Visibility
+## Plan: Fix Cropped Close Button in Dashboard Dialogs
 
-### Goal
-Move the "Select All" button and associated controls slightly to the left so the dialog's close "X" button is fully visible without overlap.
+### Problem
+The close "X" button appears cropped/hidden because:
+1. The close button is absolutely positioned at `right-4 top-4` inside `DialogContent`
+2. The sticky `DialogHeader` has `bg-background` which creates an opaque layer at the top
+3. The sticky header's background is covering the close button
+
+### Solution
+Add padding-right to the `DialogHeader` to ensure the close button area remains clear, and ensure the sticky header doesn't visually conflict with the close button position.
 
 ---
 
@@ -11,25 +17,30 @@ Move the "Select All" button and associated controls slightly to the left so the
 
 #### File: `src/components/Dashboard.tsx`
 
-**Update the button container to add right margin (line 835)**
+**Update DialogHeader to add right padding for the close button (line 831)**
 
 From:
 ```tsx
-<div className="flex items-center gap-2">
+<DialogHeader className="sticky top-0 bg-background z-10 pb-4 border-b shrink-0">
 ```
 
 To:
 ```tsx
-<div className="flex items-center gap-2 mr-6">
+<DialogHeader className="sticky top-0 bg-background z-10 pb-4 border-b shrink-0 pr-8">
 ```
+
+This adds 32px (pr-8) of right padding to the header content, ensuring the title and buttons don't extend into the close button's space.
 
 ---
 
-### Visual Result
+### Why This Works
 
-| Before | After |
-|--------|-------|
-| Buttons crowding the close X | 24px (mr-6) gap between buttons and X |
+| Component | Position | Fix |
+|-----------|----------|-----|
+| Close button | Absolute at `right-4 top-4` (16px from right) | Unchanged |
+| DialogHeader | Sticky with bg-background | Add `pr-8` (32px padding) to clear close button area |
+
+The `pr-8` gives enough room for the close button (16px from edge + 16px button width = 32px = 8 × 4px).
 
 ---
 
@@ -37,5 +48,5 @@ To:
 
 | File | Changes |
 |------|---------|
-| `src/components/Dashboard.tsx` | Add `mr-6` to the button container on line 835 |
+| `src/components/Dashboard.tsx` | Add `pr-8` to DialogHeader className on line 831 |
 
