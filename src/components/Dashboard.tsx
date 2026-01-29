@@ -827,8 +827,8 @@ export const Dashboard = () => {
       </div>
 
       <Dialog open={dialogOpen} onOpenChange={setDialogOpen}>
-        <DialogContent className="max-w-3xl max-h-[80vh] overflow-y-auto">
-          <DialogHeader>
+        <DialogContent className="max-w-3xl max-h-[80vh] flex flex-col overflow-hidden">
+          <DialogHeader className="sticky top-0 bg-background z-10 pb-4 border-b shrink-0">
             <DialogTitle className="flex items-center justify-between">
               <span>{dialogTitle}</span>
               {dialogTitle.includes('Departures') && dialogReservations.length > 0 && (
@@ -870,7 +870,7 @@ export const Dashboard = () => {
               )}
             </DialogTitle>
           </DialogHeader>
-          <div className="space-y-2">
+          <div className="space-y-2 overflow-y-auto flex-1 pt-4">
             {dialogTitle.includes('Room Transfers') ? (
               // Transfer-specific view
               dialogTransfers.length === 0 ? (
