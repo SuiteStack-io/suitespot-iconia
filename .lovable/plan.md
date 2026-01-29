@@ -1,66 +1,84 @@
 
 
-## Plan: Make Pending Status Clickable to Open Guest Form
+## Plan: Add "Checked Out" Badge Next to Undo Button
 
 ### Goal
-Make the "Pending" status badge in the Guest Forms table clickable so it opens the guest check-in form in a new tab for completion.
+Add a wide "Checked Out" badge next to the Undo button for reservations that have been checked out in the Today's Departures modal, providing clear visual confirmation of the check-out status.
 
 ---
 
 ### Technical Changes
 
-#### File: `src/pages/GuestForms.tsx`
+#### File: `src/components/Dashboard.tsx`
 
-**Update the Form Status cell (lines 699-707)**
+**Update the Undo button section (lines 1113-1127)**
 
-Currently, the Pending badge is not interactive:
+From:
 ```tsx
-<TableCell>
-  {hasForm ? (
-    <Badge variant="default" className="bg-green-600">
-      Completed
-    </Badge>
-  ) : (
-    <Badge variant="destructive">Pending</Badge>
-  )}
-</TableCell>
+{dialogTitle.includes('Departures') && (reservation.status === 'checked-out' || reservation.status === 'completed') && (
+  <Button
+    size="sm"
+    variant="ghost"
+    onClick={(e) => {
+      e.stopPropagation();
+      handleUndoClick(reservation.id, 'checkout');
+    }}
+    disabled={updating === reservation.id}
+    className="gap-1 text-orange-600 hover:text-orange-700 hover:bg-orange-50"
+  >
+    <Undo2 className="h-3 w-3" />
+    Undo
+  </Button>
+)}
 ```
 
-Change the Pending badge to be clickable and open the guest form in a new tab:
-
+To:
 ```tsx
-<TableCell>
-  {hasForm ? (
-    <Badge variant="default" className="bg-green-600">
-      Completed
-    </Badge>
-  ) : (
+{dialogTitle.includes('Departures') && (reservation.status === 'checked-out' || reservation.status === 'completed') && (
+  <>
     <Badge 
-      variant="destructive"
-      className="cursor-pointer hover:bg-destructive/80 transition-colors"
-      onClick={() => window.open(`/guest-checkin/${reservation.id}`, '_blank')}
+      variant="secondary" 
+      className="bg-green-100 text-green-800 border-green-300 px-4 py-1"
     >
-      Pending
+      Checked Out
     </Badge>
-  )}
-</TableCell>
+    <Button
+      size="sm"
+      variant="ghost"
+      onClick={(e) => {
+        e.stopPropagation();
+        handleUndoClick(reservation.id, 'checkout');
+      }}
+      disabled={updating === reservation.id}
+      className="gap-1 text-orange-600 hover:text-orange-700 hover:bg-orange-50"
+    >
+      <Undo2 className="h-3 w-3" />
+      Undo
+    </Button>
+  </>
+)}
 ```
 
 ---
 
-### Behavior
+### Expected Result
 
-| Status | Behavior |
-|--------|----------|
-| **Completed** | Green badge, not clickable |
-| **Pending** | Red badge, clickable - opens `/guest-checkin/{reservationId}` in new tab |
+**Before:**
+| Status | Actions |
+|--------|---------|
+| checked-out/completed | [Undo button only] |
+
+**After:**
+| Status | Actions |
+|--------|---------|
+| checked-out/completed | [Checked Out badge] [Undo button] |
 
 ---
 
-### Visual Feedback
-- Add `cursor-pointer` to show clickability
-- Add `hover:bg-destructive/80` for hover state
-- Add `transition-colors` for smooth hover effect
+### Visual Design
+- Wide badge with `px-4 py-1` for increased padding
+- Green styling (`bg-green-100 text-green-800 border-green-300`) to indicate success/completion
+- Positioned directly before the Undo button in the flex container
 
 ---
 
@@ -68,5 +86,5 @@ Change the Pending badge to be clickable and open the guest form in a new tab:
 
 | File | Changes |
 |------|---------|
-| `src/pages/GuestForms.tsx` | Make Pending badge clickable with onClick handler to open guest form in new tab |
+| `src/components/Dashboard.tsx` | Add "Checked Out" badge before Undo button in departures view (lines 1113-1127) |
 
