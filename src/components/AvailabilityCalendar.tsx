@@ -149,7 +149,7 @@ const DraggableReservationCell = ({
             EXT
           </span>
         )}
-        {isCheckIn && (
+        {isCheckIn && !isExtended && (
           <span className="absolute top-0 right-0 text-[6px] bg-emerald-600 text-white px-0.5 rounded-bl font-semibold leading-tight">
             CHECK IN
           </span>
@@ -2254,7 +2254,7 @@ export const AvailabilityCalendar = () => {
                                           EXT
                                         </span>
                                       )}
-                                      {isSameDay(new Date(reservation.check_in_date), day) && (
+                                      {isSameDay(new Date(reservation.check_in_date), day) && !isExtensionReservation(reservation) && (
                                         <span className="absolute top-0 right-0 text-[6px] bg-emerald-600 text-white px-0.5 rounded-bl font-semibold leading-tight">
                                           CHECK IN
                                         </span>
