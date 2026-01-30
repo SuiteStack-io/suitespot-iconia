@@ -17,7 +17,7 @@ import { Calendar } from '@/components/ui/calendar';
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
 import { DateRange } from 'react-day-picker';
 import { cn } from '@/lib/utils';
-import { format } from 'date-fns';
+import { format, startOfMonth, endOfMonth, addMonths, isSameMonth } from 'date-fns';
 import { Slider } from '@/components/ui/slider';
 import {
   Dialog,
@@ -215,6 +215,16 @@ const Analytics = () => {
   const handleTabChange = (value: string) => {
     setTimePeriod(value as TimePeriod);
     setCustomDateRange(undefined); // Clear custom date range when tab is selected
+  };
+
+  const isMonthSelected = (monthDate: Date): boolean => {
+    if (!customDateRange?.from || !customDateRange?.to) return false;
+    const monthStart = startOfMonth(monthDate);
+    const monthEnd = endOfMonth(monthDate);
+    return isSameMonth(customDateRange.from, monthStart) && 
+           isSameMonth(customDateRange.to, monthEnd) &&
+           customDateRange.from.getDate() === 1 &&
+           customDateRange.to.getDate() === monthEnd.getDate();
   };
 
   const fetchAllStats = async () => {
@@ -981,6 +991,47 @@ const Analytics = () => {
                 />
               </PopoverContent>
             </Popover>
+          </div>
+          {/* Quick Month Filters */}
+          <div className="flex justify-center gap-2 pt-2">
+            <Button
+              variant={isMonthSelected(addMonths(new Date(), -1)) ? 'default' : 'outline'}
+              size="sm"
+              onClick={() => {
+                const lastMonth = addMonths(new Date(), -1);
+                setCustomDateRange({
+                  from: startOfMonth(lastMonth),
+                  to: endOfMonth(lastMonth)
+                });
+              }}
+            >
+              {format(addMonths(new Date(), -1), 'MMMM')}
+            </Button>
+            <Button
+              variant={isMonthSelected(new Date()) ? 'default' : 'outline'}
+              size="sm"
+              onClick={() => {
+                setCustomDateRange({
+                  from: startOfMonth(new Date()),
+                  to: endOfMonth(new Date())
+                });
+              }}
+            >
+              {format(new Date(), 'MMMM')}
+            </Button>
+            <Button
+              variant={isMonthSelected(addMonths(new Date(), 1)) ? 'default' : 'outline'}
+              size="sm"
+              onClick={() => {
+                const nextMonth = addMonths(new Date(), 1);
+                setCustomDateRange({
+                  from: startOfMonth(nextMonth),
+                  to: endOfMonth(nextMonth)
+                });
+              }}
+            >
+              {format(addMonths(new Date(), 1), 'MMMM')}
+            </Button>
           </div>
         </div>
 
