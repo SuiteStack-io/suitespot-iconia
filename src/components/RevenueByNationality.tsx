@@ -264,9 +264,9 @@ export const RevenueByNationality = ({ mainDateRange }: RevenueByNationalityProp
                   <TableRow key={index}>
                     <TableCell className="font-medium">{item.nationality}</TableCell>
                     <TableCell className="text-right">{item.totalNights}</TableCell>
-                    <TableCell className="text-right">{item.revenuePercentage.toFixed(1)}%</TableCell>
-                    <TableCell className="text-right">${item.avgPricePerNight.toFixed(2)}</TableCell>
-                    <TableCell className="text-right font-semibold">${item.totalRevenue.toFixed(2)}</TableCell>
+                    <TableCell className="text-right">{(item.revenuePercentage ?? 0).toFixed(1)}%</TableCell>
+                    <TableCell className="text-right">${(item.avgPricePerNight ?? 0).toFixed(2)}</TableCell>
+                    <TableCell className="text-right font-semibold">${(item.totalRevenue ?? 0).toFixed(2)}</TableCell>
                     <TableCell>{item.source}</TableCell>
                     <TableCell>{item.payment}</TableCell>
                   </TableRow>
