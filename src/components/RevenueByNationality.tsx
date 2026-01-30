@@ -9,13 +9,14 @@ import { DateRange } from 'react-day-picker';
 interface NationalityRevenue {
   nationality: string;
   totalNights: number;
+  revenuePercentage: number;
   avgPricePerNight: number;
   totalRevenue: number;
   source: string;
   payment: string;
 }
 
-type SortField = 'nationality' | 'totalNights' | 'avgPricePerNight' | 'totalRevenue' | 'source' | 'payment';
+type SortField = 'nationality' | 'totalNights' | 'revenuePercentage' | 'avgPricePerNight' | 'totalRevenue' | 'source' | 'payment';
 type SortOrder = 'asc' | 'desc';
 
 interface RevenueByNationalityProps {
@@ -117,6 +118,11 @@ export const RevenueByNationality = ({ mainDateRange }: RevenueByNationalityProp
       nationalityMap[nationality].payments[payment] = (nationalityMap[nationality].payments[payment] || 0) + 1;
     });
 
+    // Calculate grand total revenue first
+    const grandTotalRevenue = Object.values(nationalityMap).reduce(
+      (sum, data) => sum + data.totalRevenue, 0
+    );
+
     // Convert to array and calculate averages
     const revenues: NationalityRevenue[] = Object.entries(nationalityMap).map(([nationality, data]) => {
       // Get most common source and payment
@@ -126,6 +132,7 @@ export const RevenueByNationality = ({ mainDateRange }: RevenueByNationalityProp
       return {
         nationality,
         totalNights: data.totalNights,
+        revenuePercentage: grandTotalRevenue > 0 ? (data.totalRevenue / grandTotalRevenue) * 100 : 0,
         avgPricePerNight: data.totalNights > 0 ? data.totalPricePerNight / data.totalNights : 0,
         totalRevenue: data.totalRevenue,
         source: formatSource(mostCommonSource),
@@ -148,6 +155,7 @@ export const RevenueByNationality = ({ mainDateRange }: RevenueByNationalityProp
           comparison = a[field].localeCompare(b[field]);
           break;
         case 'totalNights':
+        case 'revenuePercentage':
         case 'avgPricePerNight':
         case 'totalRevenue':
           comparison = a[field] - b[field];
@@ -199,6 +207,15 @@ export const RevenueByNationality = ({ mainDateRange }: RevenueByNationalityProp
                 </TableHead>
                 <TableHead 
                   className="text-right cursor-pointer hover:bg-muted/50"
+                  onClick={() => handleSort('revenuePercentage')}
+                >
+                  <div className="flex items-center justify-end">
+                    % Revenue
+                    {getSortIcon('revenuePercentage')}
+                  </div>
+                </TableHead>
+                <TableHead 
+                  className="text-right cursor-pointer hover:bg-muted/50"
                   onClick={() => handleSort('avgPricePerNight')}
                 >
                   <div className="flex items-center justify-end">
@@ -238,7 +255,7 @@ export const RevenueByNationality = ({ mainDateRange }: RevenueByNationalityProp
             <TableBody>
               {nationalityRevenues.length === 0 ? (
                 <TableRow>
-                  <TableCell colSpan={6} className="text-center text-muted-foreground py-8">
+                  <TableCell colSpan={7} className="text-center text-muted-foreground py-8">
                     No data available for selected period
                   </TableCell>
                 </TableRow>
@@ -247,6 +264,7 @@ export const RevenueByNationality = ({ mainDateRange }: RevenueByNationalityProp
                   <TableRow key={index}>
                     <TableCell className="font-medium">{item.nationality}</TableCell>
                     <TableCell className="text-right">{item.totalNights}</TableCell>
+                    <TableCell className="text-right">{item.revenuePercentage.toFixed(1)}%</TableCell>
                     <TableCell className="text-right">${item.avgPricePerNight.toFixed(2)}</TableCell>
                     <TableCell className="text-right font-semibold">${item.totalRevenue.toFixed(2)}</TableCell>
                     <TableCell>{item.source}</TableCell>
