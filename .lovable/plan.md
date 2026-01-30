@@ -1,36 +1,24 @@
 
-
-## Plan: Fix Analytics Occupancy Rate to Match Calendar Calculation
+## Plan: Fix Analytics Occupancy Calculation to Match Calendar Exactly
 
 ### Problem Identified
 
-The Analytics page shows **43.4%** occupancy while the Unit Availability Calendar shows **68.4%** for January 2026. This is a 25% difference!
+Analytics shows **69.6%** occupancy while Calendar shows **68.4%** for January 2026. The 1.2% difference is caused by:
 
-**Root Cause Analysis:**
+1. **Manual date math with `Math.ceil`** in Analytics (line 337) vs **`differenceInDays`** from date-fns in Calendar (line 621)
+2. `Math.ceil` can round up fractional days caused by timezone differences when parsing date strings
+3. `differenceInDays` correctly computes whole-day differences without timezone issues
 
-| Issue | Analytics Page | Calendar |
-|-------|---------------|----------|
-| **1. Units counted** | ALL units (13 total from `select('id')`) | Only ICONIA units filtered by location (12 units) |
-| **2. Occupancy formula** | `r.nights` (full reservation nights) | Proportional nights in period |
-| **3. Query approach** | Uses `check_in_date >= start AND check_out_date <= end` | Uses overlap query to catch reservations spanning periods |
+**Example of the problem:**
+- When dates are parsed from strings like `'2026-01-01'`, they become midnight in local timezone
+- Date arithmetic with `.getTime()` can produce fractional results due to DST or timezone differences
+- `Math.ceil` rounds these up, potentially adding extra "nights" to some reservations
 
-The key differences:
-
-1. **Wrong unit count**: Line 299-301 fetches ALL units (`select('id')`) instead of only ICONIA units (12 units shown on calendar). This inflates the denominator.
-
-2. **Using `r.nights` instead of proportional calculation**: Line 313 sums `r.nights` which counts full reservation nights, not just nights within the period. A reservation from Dec 28 to Jan 5 would count ALL nights, not just the 5 January nights.
-
-3. **Query logic mismatch**: The reservation query uses `gte('check_in_date', startDate).lte('check_out_date', endDate)` which only finds reservations that start AND end within the period. It misses:
-   - Reservations starting before Jan 1 but extending into January
-   - Reservations starting in January but extending past Jan 31
+---
 
 ### Solution
 
-Update the Analytics occupancy calculation to match the Calendar's approach exactly:
-
-1. Filter units by ICONIA location and available status
-2. Query reservations using overlap logic (catches all relevant bookings)
-3. Calculate proportional nights within the period
+Replace the manual date calculation in Analytics with the same `differenceInDays` and `addDays` functions used by AvailabilityCalendar.
 
 ---
 
@@ -38,125 +26,69 @@ Update the Analytics occupancy calculation to match the Calendar's approach exac
 
 #### File: `src/pages/Analytics.tsx`
 
-**1. Update unit query (lines 299-303)**
+**1. Update imports (line 20)**
 
-Filter to ICONIA available units only:
+Add `differenceInDays` and `addDays` from date-fns:
 
 ```tsx
 // Before
-const { data: units } = await supabase
-  .from('units')
-  .select('id');
-  
-const totalUnits = units?.length || 1;
+import { format, startOfMonth, endOfMonth, addMonths, isSameMonth } from 'date-fns';
 
 // After
-const { data: units } = await supabase
-  .from('units')
-  .select('id')
-  .eq('location', 'ICONIA')
-  .eq('status', 'available');
-  
-const totalUnits = units?.length || 1;
+import { format, startOfMonth, endOfMonth, addMonths, isSameMonth, differenceInDays, addDays } from 'date-fns';
 ```
 
-**2. Update reservation query (lines 305-311)**
+**2. Update days calculation (line 319)**
 
-Use overlap logic to catch all reservations that touch the period:
+Use `differenceInDays` instead of manual math:
 
 ```tsx
 // Before
-const { data: reservations } = await supabase
-  .from('reservations')
-  .select('check_in_date, check_out_date, nights')
-  .neq('status', 'Cancelled')
-  .is('cancelled_at', null)
-  .gte('check_in_date', startDate)
-  .lte('check_out_date', endDate);
+const days = Math.ceil((end.getTime() - start.getTime()) / (1000 * 60 * 60 * 24)) + 1;
 
 // After
-const { data: reservations } = await supabase
-  .from('reservations')
-  .select('check_in_date, check_out_date, nights, unit_id')
-  .in('status', ['confirmed', 'checked-in', 'checked-out', 'completed'])
-  .is('cancelled_at', null)
-  .lte('check_in_date', endDate)
-  .gte('check_out_date', startDate);
+const days = differenceInDays(end, start) + 1;
 ```
 
-**3. Update blocked nights query (lines 322-332)**
+**3. Update overlap calculation (lines 333-337)**
 
-Use the already-fetched ICONIA units:
+Use `addDays` and `differenceInDays` to match Calendar logic exactly:
 
 ```tsx
 // Before
-const { data: unitIds } = await supabase
-  .from('units')
-  .select('id')
-  .eq('location', 'ICONIA');
+const overlapStart = checkIn > start ? checkIn : start;
+const overlapEnd = checkOut < end ? checkOut : new Date(end.getTime() + 86400000); // add 1 day to end
 
-const { count: totalBlockedNights } = await supabase
-  .from('blocked_dates')
-  .select('*', { count: 'exact', head: true })
-  .in('unit_id', unitIds?.map(u => u.id) || [])
-  .gte('blocked_date', startDate)
-  .lte('blocked_date', endDate);
+if (overlapStart < overlapEnd) {
+  const nightsInPeriod = Math.ceil((overlapEnd.getTime() - overlapStart.getTime()) / (1000 * 60 * 60 * 24));
+  totalNights += nightsInPeriod;
+}
 
-// After - use the already-fetched units
-const { count: totalBlockedNights } = await supabase
-  .from('blocked_dates')
-  .select('*', { count: 'exact', head: true })
-  .in('unit_id', units?.map(u => u.id) || [])
-  .gte('blocked_date', startDate)
-  .lte('blocked_date', endDate);
-```
+// After
+const overlapStart = checkIn > start ? checkIn : start;
+const overlapEnd = checkOut < end ? checkOut : addDays(end, 1);
 
-**4. Replace total nights calculation (lines 313-314)**
-
-Calculate proportional nights within period (matching calendar logic):
-
-```tsx
-// Before
-const totalNights = reservations?.reduce((sum, r) => sum + (r.nights || 0), 0) || 0;
-setTotalNights(totalNights);
-
-// After - Calculate proportional nights within period
-const unitIdSet = new Set(units?.map(u => u.id) || []);
-let totalNights = 0;
-
-reservations?.forEach(r => {
-  // Only count reservations for ICONIA units
-  if (!r.unit_id || !unitIdSet.has(r.unit_id)) return;
-  
-  const checkIn = new Date(r.check_in_date);
-  const checkOut = new Date(r.check_out_date);
-  
-  // Calculate overlap with current period
-  const overlapStart = checkIn > start ? checkIn : start;
-  const overlapEnd = checkOut < end ? checkOut : new Date(end.getTime() + 86400000); // add 1 day to end
-  
-  if (overlapStart < overlapEnd) {
-    const nightsInPeriod = Math.ceil((overlapEnd.getTime() - overlapStart.getTime()) / (1000 * 60 * 60 * 24));
-    totalNights += nightsInPeriod;
-  }
-});
-
-setTotalNights(totalNights);
+if (overlapStart < overlapEnd) {
+  const nightsInPeriod = differenceInDays(overlapEnd, overlapStart);
+  totalNights += nightsInPeriod;
+}
 ```
 
 ---
 
-### Calculation Comparison
+### Why This Fixes It
 
-**January 2026 (31 days):**
+| Calculation Method | Issue | Result |
+|-------------------|-------|--------|
+| `Math.ceil` on milliseconds | Rounds up fractional days from timezone differences | **Inflated nights** (69.6%) |
+| `differenceInDays` from date-fns | Compares calendar days correctly | **Accurate nights** (68.4%) |
 
-| Metric | Before (Analytics) | After (Fixed) |
-|--------|-------------------|---------------|
-| Total Units | 13 (all) | 12 (ICONIA only) |
-| Days in Period | 31 | 31 |
-| Available Nights | ~400 (13 × 31 - blocked) | ~326 (12 × 31 - blocked) |
-| Booked Nights | Lower (missing overlap reservations) | Higher (includes all overlapping reservations) |
-| Occupancy | 43.4% | ~68.4% |
+The Calendar at line 621 uses:
+```tsx
+const nightsInPeriod = differenceInDays(overlapEnd, overlapStart);
+```
+
+Analytics needs to match this exactly.
 
 ---
 
@@ -164,17 +96,13 @@ setTotalNights(totalNights);
 
 | File | Changes |
 |------|---------|
-| `src/pages/Analytics.tsx` | Fix occupancy calculation to use ICONIA units, overlap query, and proportional nights |
+| `src/pages/Analytics.tsx` | Import `differenceInDays` and `addDays`, replace manual date math |
 
 ---
 
 ### Expected Result
 
 After this fix:
-- Analytics page and Calendar will show the same occupancy rate for January 2026 (~68.4%)
-- Both components will use identical calculation logic:
-  - Same unit filtering (ICONIA, available status)
-  - Same reservation overlap detection
-  - Same proportional nights calculation
-  - Same blocked dates handling
-
+- Analytics will show **68.4%** occupancy for January 2026
+- Matches exactly with the Calendar's occupancy calculation
+- Both use identical date arithmetic via date-fns
