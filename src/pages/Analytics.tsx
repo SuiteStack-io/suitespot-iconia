@@ -17,7 +17,7 @@ import { Calendar } from '@/components/ui/calendar';
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
 import { DateRange } from 'react-day-picker';
 import { cn } from '@/lib/utils';
-import { format, startOfMonth, endOfMonth, addMonths, isSameMonth, differenceInDays, addDays } from 'date-fns';
+import { format, startOfMonth, endOfMonth, addMonths, isSameMonth, differenceInDays, addDays, startOfDay } from 'date-fns';
 import { Slider } from '@/components/ui/slider';
 import {
   Dialog,
@@ -314,8 +314,9 @@ const Analytics = () => {
       .gte('check_out_date', startDate);
     
     // Calculate days dynamically from actual date range
-    const start = new Date(startDate);
-    const end = new Date(endDate);
+    // Normalize dates to midnight to ensure consistent comparisons
+    const start = startOfDay(new Date(startDate));
+    const end = startOfDay(new Date(endDate));
     const days = differenceInDays(end, start) + 1;
     
     // Calculate proportional nights within period (matching calendar logic)
@@ -326,12 +327,13 @@ const Analytics = () => {
       // Only count reservations for ICONIA units
       if (!r.unit_id || !unitIdSet.has(r.unit_id)) return;
       
-      const checkIn = new Date(r.check_in_date);
-      const checkOut = new Date(r.check_out_date);
+      const checkIn = startOfDay(new Date(r.check_in_date));
+      const checkOut = startOfDay(new Date(r.check_out_date));
       
-      // Calculate overlap with current period (using date-fns to match Calendar logic exactly)
+      // Calculate overlap with current period
+      // Use <= for end comparison since checkout on last day should still be within period
       const overlapStart = checkIn > start ? checkIn : start;
-      const overlapEnd = checkOut < end ? checkOut : addDays(end, 1);
+      const overlapEnd = checkOut <= end ? checkOut : addDays(end, 1);
       
       if (overlapStart < overlapEnd) {
         const nightsInPeriod = differenceInDays(overlapEnd, overlapStart);
