@@ -1,10 +1,10 @@
 
 
-## Plan: Hide Export CSV Button on Mobile
+## Plan: Add Room Nights Subheading to Occupancy Rate Card
 
-### Change Summary
+### Summary
 
-Hide the "Export CSV" button on mobile devices for the Analytics page, keeping only "Export Excel" visible on smaller screens.
+Add a subheading to the Occupancy Rate card in Analytics showing the breakdown format "X of Y room nights" (e.g., "223 of 326 room nights").
 
 ---
 
@@ -12,28 +12,37 @@ Hide the "Export CSV" button on mobile devices for the Analytics page, keeping o
 
 #### File: `src/pages/Analytics.tsx`
 
-**Line 966-969** - Add responsive class to hide button on mobile:
+**Lines 1064-1070** - Add the room nights subheading below the percentage:
 
 ```tsx
 // Before
-<Button variant="outline" size="sm" onClick={handleExportCSV}>
-  <Download className="h-4 w-4 mr-2" />
-  Export CSV
-</Button>
+<CardContent>
+  <div className="text-2xl font-bold">
+    {occupancyRate.toFixed(1)}%
+  </div>
+  <p className="text-xs text-muted-foreground mt-1">
+    Last {timePeriod}
+  </p>
+</CardContent>
 
 // After
-<Button variant="outline" size="sm" onClick={handleExportCSV} className="hidden md:flex">
-  <Download className="h-4 w-4 mr-2" />
-  Export CSV
-</Button>
+<CardContent>
+  <div className="text-2xl font-bold">
+    {occupancyRate.toFixed(1)}%
+  </div>
+  <p className="text-xs text-muted-foreground mt-1">
+    {totalNights} of {totalAvailableRooms} room nights
+  </p>
+</CardContent>
 ```
 
 ---
 
-### How It Works
+### State Variables Used
 
-- `hidden` - Hides the button by default (mobile)
-- `md:flex` - Shows the button with flex display on screens 768px and wider (desktop/tablet)
+Both values are already available in state:
+- `totalNights` - Number of booked room nights in the period
+- `totalAvailableRooms` - Total available room nights (units × days - blocked nights)
 
 ---
 
@@ -41,5 +50,5 @@ Hide the "Export CSV" button on mobile devices for the Analytics page, keeping o
 
 | File | Change |
 |------|--------|
-| `src/pages/Analytics.tsx` | Add `hidden md:flex` class to Export CSV button |
+| `src/pages/Analytics.tsx` | Update occupancy card subheading to show room nights breakdown |
 
