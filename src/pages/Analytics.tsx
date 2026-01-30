@@ -295,39 +295,57 @@ const Analytics = () => {
       indirect: { count: indirectReservations.length, revenue: indirectRevenue } 
     });
     
-    // Calculate occupancy rate
+    // Calculate occupancy rate - filter to ICONIA available units only
     const { data: units } = await supabase
       .from('units')
-      .select('id');
+      .select('id')
+      .eq('location', 'ICONIA')
+      .eq('status', 'available');
       
     const totalUnits = units?.length || 1;
     
+    // Use overlap query to catch all reservations that touch the period
     const { data: reservations } = await supabase
       .from('reservations')
-      .select('check_in_date, check_out_date, nights')
-      .neq('status', 'Cancelled')
+      .select('check_in_date, check_out_date, nights, unit_id')
+      .in('status', ['confirmed', 'checked-in', 'checked-out', 'completed'])
       .is('cancelled_at', null)
-      .gte('check_in_date', startDate)
-      .lte('check_out_date', endDate);
-    
-    const totalNights = reservations?.reduce((sum, r) => sum + (r.nights || 0), 0) || 0;
-    setTotalNights(totalNights);
+      .lte('check_in_date', endDate)
+      .gte('check_out_date', startDate);
     
     // Calculate days dynamically from actual date range
     const start = new Date(startDate);
     const end = new Date(endDate);
     const days = Math.ceil((end.getTime() - start.getTime()) / (1000 * 60 * 60 * 24)) + 1;
     
-    // Get total blocked nights for all ICONIA units in date range
-    const { data: unitIds } = await supabase
-      .from('units')
-      .select('id')
-      .eq('location', 'ICONIA');
+    // Calculate proportional nights within period (matching calendar logic)
+    const unitIdSet = new Set(units?.map(u => u.id) || []);
+    let totalNights = 0;
 
+    reservations?.forEach(r => {
+      // Only count reservations for ICONIA units
+      if (!r.unit_id || !unitIdSet.has(r.unit_id)) return;
+      
+      const checkIn = new Date(r.check_in_date);
+      const checkOut = new Date(r.check_out_date);
+      
+      // Calculate overlap with current period
+      const overlapStart = checkIn > start ? checkIn : start;
+      const overlapEnd = checkOut < end ? checkOut : new Date(end.getTime() + 86400000); // add 1 day to end
+      
+      if (overlapStart < overlapEnd) {
+        const nightsInPeriod = Math.ceil((overlapEnd.getTime() - overlapStart.getTime()) / (1000 * 60 * 60 * 24));
+        totalNights += nightsInPeriod;
+      }
+    });
+
+    setTotalNights(totalNights);
+
+    // Get total blocked nights for ICONIA units in date range
     const { count: totalBlockedNights } = await supabase
       .from('blocked_dates')
       .select('*', { count: 'exact', head: true })
-      .in('unit_id', unitIds?.map(u => u.id) || [])
+      .in('unit_id', units?.map(u => u.id) || [])
       .gte('blocked_date', startDate)
       .lte('blocked_date', endDate);
     
