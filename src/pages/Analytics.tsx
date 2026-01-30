@@ -1066,7 +1066,7 @@ const Analytics = () => {
                 {occupancyRate.toFixed(1)}%
               </div>
               <p className="text-xs text-muted-foreground mt-1">
-                Last {timePeriod}
+                {totalNights} of {totalAvailableRooms} room nights
               </p>
             </CardContent>
           </Card>
