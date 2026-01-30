@@ -1057,14 +1057,14 @@ const Analytics = () => {
 
       <main className="container mx-auto px-4 py-8 space-y-8">
 
-        <div className="grid gap-4 md:grid-cols-4">
+        <div className="grid gap-3 grid-cols-2 md:grid-cols-4">
           <Card className="cursor-pointer hover:shadow-lg transition-shadow" onClick={handleOccupancyClick}>
-            <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-              <CardTitle className="text-sm font-medium">Occupancy Rate</CardTitle>
-              <TrendingUp className="h-4 w-4 text-blue-600" />
+            <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-1 sm:pb-2 p-3 sm:p-6">
+              <CardTitle className="text-xs sm:text-sm font-medium">Occupancy Rate</CardTitle>
+              <TrendingUp className="h-3 w-3 sm:h-4 sm:w-4 text-blue-600" />
             </CardHeader>
-            <CardContent>
-              <div className="text-2xl font-bold">
+            <CardContent className="p-3 pt-0 sm:p-6 sm:pt-0">
+              <div className="text-xl sm:text-2xl font-bold">
                 {occupancyRate.toFixed(1)}%
               </div>
               <p className="text-xs text-muted-foreground mt-1">
@@ -1074,12 +1074,12 @@ const Analytics = () => {
           </Card>
 
           <Card className="cursor-pointer hover:shadow-lg transition-shadow" onClick={handleBookingsClick}>
-            <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-              <CardTitle className="text-sm font-medium">Total Bookings</CardTitle>
-              <CalendarIcon className="h-4 w-4 text-purple-600" />
+            <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-1 sm:pb-2 p-3 sm:p-6">
+              <CardTitle className="text-xs sm:text-sm font-medium">Total Bookings</CardTitle>
+              <CalendarIcon className="h-3 w-3 sm:h-4 sm:w-4 text-purple-600" />
             </CardHeader>
-            <CardContent>
-              <div className="text-2xl font-bold">
+            <CardContent className="p-3 pt-0 sm:p-6 sm:pt-0">
+              <div className="text-xl sm:text-2xl font-bold">
                 {totalBookings}
               </div>
               <p className="text-xs text-muted-foreground mt-1">
@@ -1089,12 +1089,12 @@ const Analytics = () => {
           </Card>
 
           <Card className="cursor-pointer hover:shadow-lg transition-shadow" onClick={handleGuestsClick}>
-            <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-              <CardTitle className="text-sm font-medium">Guests</CardTitle>
-              <Users className="h-4 w-4 text-teal-600" />
+            <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-1 sm:pb-2 p-3 sm:p-6">
+              <CardTitle className="text-xs sm:text-sm font-medium">Guests</CardTitle>
+              <Users className="h-3 w-3 sm:h-4 sm:w-4 text-teal-600" />
             </CardHeader>
-            <CardContent>
-              <div className="text-2xl font-bold">
+            <CardContent className="p-3 pt-0 sm:p-6 sm:pt-0">
+              <div className="text-xl sm:text-2xl font-bold">
                 {totalGuests}
               </div>
               <p className="text-xs text-muted-foreground mt-1">
@@ -1104,15 +1104,15 @@ const Analytics = () => {
           </Card>
 
           <Card className="cursor-pointer hover:shadow-lg transition-shadow" onClick={handleSourcesClick}>
-            <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-              <CardTitle className="text-sm font-medium">Booking Sources</CardTitle>
-              <BarChart3 className="h-4 w-4 text-indigo-600" />
+            <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-1 sm:pb-2 p-3 sm:p-6">
+              <CardTitle className="text-xs sm:text-sm font-medium">Booking Sources</CardTitle>
+              <BarChart3 className="h-3 w-3 sm:h-4 sm:w-4 text-indigo-600" />
             </CardHeader>
-            <CardContent>
-              <div className="space-y-2">
+            <CardContent className="p-3 pt-0 sm:p-6 sm:pt-0">
+              <div className="space-y-1 sm:space-y-2">
                 <div className="flex justify-between items-center">
-                  <span className="text-sm text-muted-foreground">Direct</span>
-                  <span className="font-bold">
+                  <span className="text-xs sm:text-sm text-muted-foreground">Direct</span>
+                  <span className="text-xs sm:text-sm font-bold">
                     ${bookingSources.direct.revenue.toLocaleString()} ({
                       (bookingSources.direct.revenue + bookingSources.indirect.revenue) > 0 
                         ? ((bookingSources.direct.revenue / (bookingSources.direct.revenue + bookingSources.indirect.revenue)) * 100).toFixed(1) 
@@ -1121,8 +1121,8 @@ const Analytics = () => {
                   </span>
                 </div>
                 <div className="flex justify-between items-center">
-                  <span className="text-sm text-muted-foreground">Indirect</span>
-                  <span className="font-bold">
+                  <span className="text-xs sm:text-sm text-muted-foreground">Indirect</span>
+                  <span className="text-xs sm:text-sm font-bold">
                     ${bookingSources.indirect.revenue.toLocaleString()} ({
                       (bookingSources.direct.revenue + bookingSources.indirect.revenue) > 0 
                         ? ((bookingSources.indirect.revenue / (bookingSources.direct.revenue + bookingSources.indirect.revenue)) * 100).toFixed(1) 
@@ -1135,14 +1135,14 @@ const Analytics = () => {
           </Card>
         </div>
 
-        <div className="grid gap-4 md:grid-cols-3">
+        <div className="grid gap-3 grid-cols-2 md:grid-cols-3">
           <Card>
-            <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-              <CardTitle className="text-sm font-medium">ADR</CardTitle>
-              <DollarSign className="h-4 w-4 text-blue-600" />
+            <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-1 sm:pb-2 p-3 sm:p-6">
+              <CardTitle className="text-xs sm:text-sm font-medium">ADR</CardTitle>
+              <DollarSign className="h-3 w-3 sm:h-4 sm:w-4 text-blue-600" />
             </CardHeader>
-            <CardContent>
-              <div className="text-2xl font-bold">
+            <CardContent className="p-3 pt-0 sm:p-6 sm:pt-0">
+              <div className="text-xl sm:text-2xl font-bold">
                 ${totalNights > 0 ? formatCurrency(revenueStats.totalRevenue / totalNights) : '0'}
               </div>
               <p className="text-xs text-muted-foreground mt-1">Average Daily Rate</p>
@@ -1150,25 +1150,25 @@ const Analytics = () => {
           </Card>
 
           <Card>
-            <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-              <CardTitle className="text-sm font-medium">RevPAR</CardTitle>
-              <DollarSign className="h-4 w-4 text-purple-600" />
+            <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-1 sm:pb-2 p-3 sm:p-6">
+              <CardTitle className="text-xs sm:text-sm font-medium">RevPAR</CardTitle>
+              <DollarSign className="h-3 w-3 sm:h-4 sm:w-4 text-purple-600" />
             </CardHeader>
-            <CardContent>
-              <div className="text-2xl font-bold">
+            <CardContent className="p-3 pt-0 sm:p-6 sm:pt-0">
+              <div className="text-xl sm:text-2xl font-bold">
                 ${totalAvailableRooms > 0 ? formatCurrency(revenueStats.totalRevenue / totalAvailableRooms) : '0'}
               </div>
               <p className="text-xs text-muted-foreground mt-1">Revenue per Available Room</p>
             </CardContent>
           </Card>
 
-          <Card>
-            <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-              <CardTitle className="text-sm font-medium">Landlord Percentage</CardTitle>
-              <TrendingUp className="h-4 w-4 text-green-600" />
+          <Card className="col-span-2 md:col-span-1">
+            <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-1 sm:pb-2 p-3 sm:p-6">
+              <CardTitle className="text-xs sm:text-sm font-medium">Landlord Percentage</CardTitle>
+              <TrendingUp className="h-3 w-3 sm:h-4 sm:w-4 text-green-600" />
             </CardHeader>
-            <CardContent>
-              <div className="text-2xl font-bold mb-3">
+            <CardContent className="p-3 pt-0 sm:p-6 sm:pt-0">
+              <div className="text-xl sm:text-2xl font-bold mb-2 sm:mb-3">
                 {landlordPercentage}%
               </div>
               <Slider
@@ -1186,18 +1186,18 @@ const Analytics = () => {
           </Card>
         </div>
 
-        <div className="grid gap-4 md:grid-cols-3">
+        <div className="grid gap-3 grid-cols-2 md:grid-cols-3">
           <Card className="cursor-pointer hover:shadow-lg transition-shadow" onClick={handleTotalRevenueClick}>
-            <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-              <CardTitle className="text-sm font-medium">Total Revenue</CardTitle>
-              <DollarSign className="h-4 w-4 text-emerald-600" />
+            <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-1 sm:pb-2 p-3 sm:p-6">
+              <CardTitle className="text-xs sm:text-sm font-medium">Total Revenue</CardTitle>
+              <DollarSign className="h-3 w-3 sm:h-4 sm:w-4 text-emerald-600" />
             </CardHeader>
-            <CardContent>
-              <div className="text-2xl font-bold">
+            <CardContent className="p-3 pt-0 sm:p-6 sm:pt-0">
+              <div className="text-xl sm:text-2xl font-bold">
                 ${formatCurrency(revenueStats.totalRevenue)}
               </div>
               <p className="text-xs text-muted-foreground mt-1">Gross revenue</p>
-              <div className="mt-3 pt-3 border-t space-y-1">
+              <div className="mt-2 sm:mt-3 pt-2 sm:pt-3 border-t space-y-1">
                 <div className="flex justify-between text-xs">
                   <span className="text-muted-foreground">Landlord ({landlordPercentage}%)</span>
                   <span className="font-semibold">${formatCurrency(landlordTotalRevenue)}</span>
@@ -1211,16 +1211,16 @@ const Analytics = () => {
           </Card>
 
           <Card className="cursor-pointer hover:shadow-lg transition-shadow" onClick={handleNetRevenueClick}>
-            <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-              <CardTitle className="text-sm font-medium">Net Revenue</CardTitle>
-              <DollarSign className="h-4 w-4 text-green-600" />
+            <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-1 sm:pb-2 p-3 sm:p-6">
+              <CardTitle className="text-xs sm:text-sm font-medium">Net Revenue</CardTitle>
+              <DollarSign className="h-3 w-3 sm:h-4 sm:w-4 text-green-600" />
             </CardHeader>
-            <CardContent>
-              <div className="text-2xl font-bold">
+            <CardContent className="p-3 pt-0 sm:p-6 sm:pt-0">
+              <div className="text-xl sm:text-2xl font-bold">
                 ${formatCurrency(revenueStats.netRevenue)}
               </div>
               <p className="text-xs text-muted-foreground mt-1">After commission</p>
-              <div className="mt-3 pt-3 border-t space-y-1">
+              <div className="mt-2 sm:mt-3 pt-2 sm:pt-3 border-t space-y-1">
                 <div className="flex justify-between text-xs">
                   <span className="text-muted-foreground">Landlord ({landlordPercentage}%)</span>
                   <span className="font-semibold">${formatCurrency(landlordNetRevenue)}</span>
@@ -1233,17 +1233,17 @@ const Analytics = () => {
             </CardContent>
           </Card>
 
-          <Card className="cursor-pointer hover:shadow-lg transition-shadow" onClick={handleCommissionClick}>
-            <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-              <CardTitle className="text-sm font-medium">Commission Paid</CardTitle>
-              <DollarSign className="h-4 w-4 text-amber-600" />
+          <Card className="cursor-pointer hover:shadow-lg transition-shadow col-span-2 md:col-span-1" onClick={handleCommissionClick}>
+            <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-1 sm:pb-2 p-3 sm:p-6">
+              <CardTitle className="text-xs sm:text-sm font-medium">Commission Paid</CardTitle>
+              <DollarSign className="h-3 w-3 sm:h-4 sm:w-4 text-amber-600" />
             </CardHeader>
-            <CardContent>
-              <div className="text-2xl font-bold">
+            <CardContent className="p-3 pt-0 sm:p-6 sm:pt-0">
+              <div className="text-xl sm:text-2xl font-bold">
                 ${formatCurrency(revenueStats.totalCommission)}
               </div>
               <p className="text-xs text-muted-foreground mt-1">Total commission</p>
-              <div className="mt-3 pt-3 border-t space-y-1">
+              <div className="mt-2 sm:mt-3 pt-2 sm:pt-3 border-t space-y-1">
                 <div className="flex justify-between text-xs group">
                   <button 
                     onClick={(e) => { e.stopPropagation(); handleDirectClick(); }}
