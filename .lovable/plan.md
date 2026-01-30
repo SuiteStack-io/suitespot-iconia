@@ -1,24 +1,27 @@
 
-## Plan: Fix Analytics Occupancy Calculation to Match Calendar Exactly
+## Plan: Fix Analytics Occupancy to Match Calendar Exactly
 
-### Problem Identified
+### Root Cause Identified
 
-Analytics shows **69.6%** occupancy while Calendar shows **68.4%** for January 2026. The 1.2% difference is caused by:
+The 69.6% vs 68.4% discrepancy is caused by **date comparison differences**:
 
-1. **Manual date math with `Math.ceil`** in Analytics (line 337) vs **`differenceInDays`** from date-fns in Calendar (line 621)
-2. `Math.ceil` can round up fractional days caused by timezone differences when parsing date strings
-3. `differenceInDays` correctly computes whole-day differences without timezone issues
+| Component | `endDate` Type | Time Component | Comparison Result |
+|-----------|---------------|----------------|-------------------|
+| **Calendar** | `endOfMonth(currentMonth)` | Jan 31 @ 23:59:59.999 | `checkOut < endDate` → **true** for Jan 31 checkouts |
+| **Analytics** | `new Date('2026-01-31')` | Jan 31 @ 00:00:00.000 | `checkOut < end` → **false** for Jan 31 checkouts |
 
-**Example of the problem:**
-- When dates are parsed from strings like `'2026-01-01'`, they become midnight in local timezone
-- Date arithmetic with `.getTime()` can produce fractional results due to DST or timezone differences
-- `Math.ceil` rounds these up, potentially adding extra "nights" to some reservations
+**The Problem:**
+For a reservation checking out on Jan 31:
+- Calendar: `Jan 31 00:00 < Jan 31 23:59` = **true** → uses checkout date directly → correct
+- Analytics: `Jan 31 00:00 < Jan 31 00:00` = **false** → uses `addDays(end, 1)` = Feb 1 → **counts extra night!**
+
+This causes Analytics to **overcount nights** for reservations ending on the last day of the period.
 
 ---
 
 ### Solution
 
-Replace the manual date calculation in Analytics with the same `differenceInDays` and `addDays` functions used by AvailabilityCalendar.
+Normalize both `start` and `end` dates in Analytics using `startOfDay()` and use `<=` comparison instead of `<` for checkout dates (matching how the Calendar's `endOfMonth` effectively works).
 
 ---
 
@@ -28,67 +31,75 @@ Replace the manual date calculation in Analytics with the same `differenceInDays
 
 **1. Update imports (line 20)**
 
-Add `differenceInDays` and `addDays` from date-fns:
+Add `startOfDay` from date-fns:
 
 ```tsx
 // Before
-import { format, startOfMonth, endOfMonth, addMonths, isSameMonth } from 'date-fns';
-
-// After
 import { format, startOfMonth, endOfMonth, addMonths, isSameMonth, differenceInDays, addDays } from 'date-fns';
+
+// After
+import { format, startOfMonth, endOfMonth, addMonths, isSameMonth, differenceInDays, addDays, startOfDay } from 'date-fns';
 ```
 
-**2. Update days calculation (line 319)**
+**2. Update date parsing and comparison (lines 317-334)**
 
-Use `differenceInDays` instead of manual math:
+Normalize dates with `startOfDay` and fix the comparison logic:
 
 ```tsx
 // Before
-const days = Math.ceil((end.getTime() - start.getTime()) / (1000 * 60 * 60 * 24)) + 1;
-
-// After
+const start = new Date(startDate);
+const end = new Date(endDate);
 const days = differenceInDays(end, start) + 1;
-```
 
-**3. Update overlap calculation (lines 333-337)**
+// Calculate proportional nights within period (matching calendar logic)
+const unitIdSet = new Set(units?.map(u => u.id) || []);
+let totalNights = 0;
 
-Use `addDays` and `differenceInDays` to match Calendar logic exactly:
-
-```tsx
-// Before
-const overlapStart = checkIn > start ? checkIn : start;
-const overlapEnd = checkOut < end ? checkOut : new Date(end.getTime() + 86400000); // add 1 day to end
-
-if (overlapStart < overlapEnd) {
-  const nightsInPeriod = Math.ceil((overlapEnd.getTime() - overlapStart.getTime()) / (1000 * 60 * 60 * 24));
-  totalNights += nightsInPeriod;
-}
+reservations?.forEach(r => {
+  // Only count reservations for ICONIA units
+  if (!r.unit_id || !unitIdSet.has(r.unit_id)) return;
+  
+  const checkIn = new Date(r.check_in_date);
+  const checkOut = new Date(r.check_out_date);
+  
+  // Calculate overlap with current period (using date-fns to match Calendar logic exactly)
+  const overlapStart = checkIn > start ? checkIn : start;
+  const overlapEnd = checkOut < end ? checkOut : addDays(end, 1);
 
 // After
-const overlapStart = checkIn > start ? checkIn : start;
-const overlapEnd = checkOut < end ? checkOut : addDays(end, 1);
+const start = startOfDay(new Date(startDate));
+const end = startOfDay(new Date(endDate));
+const days = differenceInDays(end, start) + 1;
 
-if (overlapStart < overlapEnd) {
-  const nightsInPeriod = differenceInDays(overlapEnd, overlapStart);
-  totalNights += nightsInPeriod;
-}
+// Calculate proportional nights within period (matching calendar logic)
+const unitIdSet = new Set(units?.map(u => u.id) || []);
+let totalNights = 0;
+
+reservations?.forEach(r => {
+  // Only count reservations for ICONIA units
+  if (!r.unit_id || !unitIdSet.has(r.unit_id)) return;
+  
+  const checkIn = startOfDay(new Date(r.check_in_date));
+  const checkOut = startOfDay(new Date(r.check_out_date));
+  
+  // Calculate overlap with current period
+  // Use <= for end comparison since checkout on last day should still be within period
+  const overlapStart = checkIn > start ? checkIn : start;
+  const overlapEnd = checkOut <= end ? checkOut : addDays(end, 1);
 ```
 
 ---
 
 ### Why This Fixes It
 
-| Calculation Method | Issue | Result |
-|-------------------|-------|--------|
-| `Math.ceil` on milliseconds | Rounds up fractional days from timezone differences | **Inflated nights** (69.6%) |
-| `differenceInDays` from date-fns | Compares calendar days correctly | **Accurate nights** (68.4%) |
+By normalizing all dates to midnight with `startOfDay()` and using `<=` comparison:
 
-The Calendar at line 621 uses:
-```tsx
-const nightsInPeriod = differenceInDays(overlapEnd, overlapStart);
-```
+- For a Jan 31 checkout with Jan 31 end date:
+  - `checkOut (Jan 31 00:00) <= end (Jan 31 00:00)` = **true**
+  - Uses `checkOut` directly (not `addDays(end, 1)`)
+  - Correct night count
 
-Analytics needs to match this exactly.
+This matches the Calendar's behavior where `endOfMonth` returns end-of-day timestamp, making all checkout dates on that day satisfy the `< endDate` comparison.
 
 ---
 
@@ -96,7 +107,7 @@ Analytics needs to match this exactly.
 
 | File | Changes |
 |------|---------|
-| `src/pages/Analytics.tsx` | Import `differenceInDays` and `addDays`, replace manual date math |
+| `src/pages/Analytics.tsx` | Import `startOfDay`, normalize date parsing, fix comparison to use `<=` |
 
 ---
 
@@ -104,5 +115,5 @@ Analytics needs to match this exactly.
 
 After this fix:
 - Analytics will show **68.4%** occupancy for January 2026
-- Matches exactly with the Calendar's occupancy calculation
-- Both use identical date arithmetic via date-fns
+- Matches exactly with Calendar's occupancy calculation
+- No more overcounting of nights for reservations ending on period boundaries
