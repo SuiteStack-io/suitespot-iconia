@@ -1,72 +1,127 @@
 
-## Plan: Fix Extension Badge Priority Over Check-In Badge
 
-### Problem
+## Plan: Add Quick Date Filters to Revenue Analytics
 
-In the calendar view, reservations that are extensions (purple EXT badge) are incorrectly showing a green "CHECK IN" badge when the current day matches their `check_in_date`. 
+### Current State
 
-Both badges occupy the same position (`absolute top-0 right-0`), and the CHECK IN badge renders after EXT, causing it to visually override the extension indicator.
+The Revenue Analytics page has:
+1. **Time period tabs**: Week, Month, Quarter, YTD (line 948-955)
+2. **Custom date range picker**: A popover with a calendar for custom date selection (line 957-984)
 
-**Business Logic:** An extension reservation represents a "continued stay" - the guest is already in-house and simply extending their stay. Showing "CHECK IN" is misleading since no new guest arrival is occurring.
+The user wants to add **quick month filters** (like "December", "January", "February") below the existing date range, similar to the pattern used in the Export PDF date selector in AvailabilityCalendar.
 
----
+### Visual Design Reference
 
-### Solution
+From the screenshots, the design should look like:
 
-Modify the badge display logic so that **extension reservations never show the CHECK IN badge**. The EXT badge takes priority.
-
-Change:
-```typescript
-// Show CHECK IN only if it's check-in day AND not an extension
-isCheckIn && !isExtension → show CHECK IN
-isExtension → show EXT
+```text
+┌─────────────────────────────────────────────────────────────────────┐
+│                          [ Week ] [Month] [Quarter] [YTD]           │
+│                                                                     │
+│                      📅  Dec 30, 2025 - Jan 30, 2026               │
+│                                                                     │
+│                  [December] [January] [February]  ← NEW             │
+│                                                                     │
+└─────────────────────────────────────────────────────────────────────┘
 ```
+
+The quick month filters will:
+- Show 3 buttons: Previous Month, Current Month, Next Month
+- Use the same button style as the export PDF selector (outline variant)
+- Highlight the selected month with a different variant (e.g., `default` instead of `outline`)
+- Update the date range when clicked
 
 ---
 
 ### Technical Changes
 
-#### File: `src/components/AvailabilityCalendar.tsx`
+#### File: `src/pages/Analytics.tsx`
 
-**1. DraggableReservationCell component (lines 147-156)**
+**1. Add required imports (line 20)**
 
-Update to prevent showing CHECK IN when extension:
-
-```tsx
-// Before (line 152-156)
-{isCheckIn && (
-  <span className="absolute top-0 right-0 ...">
-    CHECK IN
-  </span>
-)}
-
-// After
-{isCheckIn && !isExtended && (
-  <span className="absolute top-0 right-0 ...">
-    CHECK IN
-  </span>
-)}
-```
-
-**2. Non-draggable reservation cell (lines 2257-2261)**
-
-Apply same fix:
+Add `startOfMonth`, `endOfMonth`, `addMonths`, `isSameMonth` from date-fns:
 
 ```tsx
 // Before
-{isSameDay(new Date(reservation.check_in_date), day) && (
-  <span className="absolute top-0 right-0 ...">
-    CHECK IN
-  </span>
-)}
+import { format } from 'date-fns';
 
 // After
-{isSameDay(new Date(reservation.check_in_date), day) && !isExtensionReservation(reservation) && (
-  <span className="absolute top-0 right-0 ...">
-    CHECK IN
-  </span>
-)}
+import { format, startOfMonth, endOfMonth, addMonths, isSameMonth } from 'date-fns';
 ```
+
+**2. Add a helper function to check if current date range matches a month (after line 213)**
+
+```tsx
+const isMonthSelected = (monthDate: Date): boolean => {
+  if (!customDateRange?.from || !customDateRange?.to) return false;
+  const monthStart = startOfMonth(monthDate);
+  const monthEnd = endOfMonth(monthDate);
+  return isSameMonth(customDateRange.from, monthStart) && 
+         isSameMonth(customDateRange.to, monthEnd) &&
+         customDateRange.from.getDate() === 1 &&
+         customDateRange.to.getDate() === monthEnd.getDate();
+};
+```
+
+**3. Add the quick month filter UI (after line 984, before line 987)**
+
+Insert the quick month filter buttons between the date range display and the dashboard cards:
+
+```tsx
+{/* Quick Month Filters */}
+<div className="flex justify-center gap-2 pt-2">
+  <Button
+    variant={isMonthSelected(addMonths(new Date(), -1)) ? 'default' : 'outline'}
+    size="sm"
+    onClick={() => {
+      const lastMonth = addMonths(new Date(), -1);
+      setCustomDateRange({
+        from: startOfMonth(lastMonth),
+        to: endOfMonth(lastMonth)
+      });
+    }}
+  >
+    {format(addMonths(new Date(), -1), 'MMMM')}
+  </Button>
+  <Button
+    variant={isMonthSelected(new Date()) ? 'default' : 'outline'}
+    size="sm"
+    onClick={() => {
+      setCustomDateRange({
+        from: startOfMonth(new Date()),
+        to: endOfMonth(new Date())
+      });
+    }}
+  >
+    {format(new Date(), 'MMMM')}
+  </Button>
+  <Button
+    variant={isMonthSelected(addMonths(new Date(), 1)) ? 'default' : 'outline'}
+    size="sm"
+    onClick={() => {
+      const nextMonth = addMonths(new Date(), 1);
+      setCustomDateRange({
+        from: startOfMonth(nextMonth),
+        to: endOfMonth(nextMonth)
+      });
+    }}
+  >
+    {format(addMonths(new Date(), 1), 'MMMM')}
+  </Button>
+</div>
+```
+
+---
+
+### How It Works
+
+1. **Button Click**: When user clicks a month button (e.g., "January"), it calls `setCustomDateRange` with:
+   - `from`: First day of that month (e.g., Jan 1, 2026)
+   - `to`: Last day of that month (e.g., Jan 31, 2026)
+
+2. **Visual Feedback**: The `isMonthSelected` helper checks if the current custom date range matches a full month, and applies the `default` variant (filled button) instead of `outline`
+
+3. **Integration**: Since `customDateRange` is already used by `getDateRange()`, changing it automatically updates all analytics data
 
 ---
 
@@ -74,10 +129,16 @@ Apply same fix:
 
 | File | Changes |
 |------|---------|
-| `src/components/AvailabilityCalendar.tsx` | Add `!isExtended` / `!isExtensionReservation()` condition to CHECK IN badge displays |
+| `src/pages/Analytics.tsx` | Add date-fns imports, helper function, and quick month filter buttons |
 
 ---
 
 ### Expected Result
 
-Extension reservations will show the **purple EXT badge** on their start date, NOT the green CHECK IN badge. Regular (non-extension) reservations will continue to show the CHECK IN badge on their arrival day.
+After implementation:
+- Three month buttons appear below the date range display
+- Clicking a month instantly updates the date range to that full month
+- The selected month button appears filled/highlighted
+- All analytics data refreshes for the selected month period
+- Matches the design pattern from the Export PDF date selector
+
