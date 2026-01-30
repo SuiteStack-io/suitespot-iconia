@@ -1,35 +1,36 @@
 
 
-## Plan: Add Quick Date Filters to Revenue Analytics
+## Plan: Fix Analytics Occupancy Rate to Match Calendar Calculation
 
-### Current State
+### Problem Identified
 
-The Revenue Analytics page has:
-1. **Time period tabs**: Week, Month, Quarter, YTD (line 948-955)
-2. **Custom date range picker**: A popover with a calendar for custom date selection (line 957-984)
+The Analytics page shows **43.4%** occupancy while the Unit Availability Calendar shows **68.4%** for January 2026. This is a 25% difference!
 
-The user wants to add **quick month filters** (like "December", "January", "February") below the existing date range, similar to the pattern used in the Export PDF date selector in AvailabilityCalendar.
+**Root Cause Analysis:**
 
-### Visual Design Reference
+| Issue | Analytics Page | Calendar |
+|-------|---------------|----------|
+| **1. Units counted** | ALL units (13 total from `select('id')`) | Only ICONIA units filtered by location (12 units) |
+| **2. Occupancy formula** | `r.nights` (full reservation nights) | Proportional nights in period |
+| **3. Query approach** | Uses `check_in_date >= start AND check_out_date <= end` | Uses overlap query to catch reservations spanning periods |
 
-From the screenshots, the design should look like:
+The key differences:
 
-```text
-┌─────────────────────────────────────────────────────────────────────┐
-│                          [ Week ] [Month] [Quarter] [YTD]           │
-│                                                                     │
-│                      📅  Dec 30, 2025 - Jan 30, 2026               │
-│                                                                     │
-│                  [December] [January] [February]  ← NEW             │
-│                                                                     │
-└─────────────────────────────────────────────────────────────────────┘
-```
+1. **Wrong unit count**: Line 299-301 fetches ALL units (`select('id')`) instead of only ICONIA units (12 units shown on calendar). This inflates the denominator.
 
-The quick month filters will:
-- Show 3 buttons: Previous Month, Current Month, Next Month
-- Use the same button style as the export PDF selector (outline variant)
-- Highlight the selected month with a different variant (e.g., `default` instead of `outline`)
-- Update the date range when clicked
+2. **Using `r.nights` instead of proportional calculation**: Line 313 sums `r.nights` which counts full reservation nights, not just nights within the period. A reservation from Dec 28 to Jan 5 would count ALL nights, not just the 5 January nights.
+
+3. **Query logic mismatch**: The reservation query uses `gte('check_in_date', startDate).lte('check_out_date', endDate)` which only finds reservations that start AND end within the period. It misses:
+   - Reservations starting before Jan 1 but extending into January
+   - Reservations starting in January but extending past Jan 31
+
+### Solution
+
+Update the Analytics occupancy calculation to match the Calendar's approach exactly:
+
+1. Filter units by ICONIA location and available status
+2. Query reservations using overlap logic (catches all relevant bookings)
+3. Calculate proportional nights within the period
 
 ---
 
@@ -37,91 +38,125 @@ The quick month filters will:
 
 #### File: `src/pages/Analytics.tsx`
 
-**1. Add required imports (line 20)**
+**1. Update unit query (lines 299-303)**
 
-Add `startOfMonth`, `endOfMonth`, `addMonths`, `isSameMonth` from date-fns:
+Filter to ICONIA available units only:
 
 ```tsx
 // Before
-import { format } from 'date-fns';
+const { data: units } = await supabase
+  .from('units')
+  .select('id');
+  
+const totalUnits = units?.length || 1;
 
 // After
-import { format, startOfMonth, endOfMonth, addMonths, isSameMonth } from 'date-fns';
+const { data: units } = await supabase
+  .from('units')
+  .select('id')
+  .eq('location', 'ICONIA')
+  .eq('status', 'available');
+  
+const totalUnits = units?.length || 1;
 ```
 
-**2. Add a helper function to check if current date range matches a month (after line 213)**
+**2. Update reservation query (lines 305-311)**
+
+Use overlap logic to catch all reservations that touch the period:
 
 ```tsx
-const isMonthSelected = (monthDate: Date): boolean => {
-  if (!customDateRange?.from || !customDateRange?.to) return false;
-  const monthStart = startOfMonth(monthDate);
-  const monthEnd = endOfMonth(monthDate);
-  return isSameMonth(customDateRange.from, monthStart) && 
-         isSameMonth(customDateRange.to, monthEnd) &&
-         customDateRange.from.getDate() === 1 &&
-         customDateRange.to.getDate() === monthEnd.getDate();
-};
+// Before
+const { data: reservations } = await supabase
+  .from('reservations')
+  .select('check_in_date, check_out_date, nights')
+  .neq('status', 'Cancelled')
+  .is('cancelled_at', null)
+  .gte('check_in_date', startDate)
+  .lte('check_out_date', endDate);
+
+// After
+const { data: reservations } = await supabase
+  .from('reservations')
+  .select('check_in_date, check_out_date, nights, unit_id')
+  .in('status', ['confirmed', 'checked-in', 'checked-out', 'completed'])
+  .is('cancelled_at', null)
+  .lte('check_in_date', endDate)
+  .gte('check_out_date', startDate);
 ```
 
-**3. Add the quick month filter UI (after line 984, before line 987)**
+**3. Update blocked nights query (lines 322-332)**
 
-Insert the quick month filter buttons between the date range display and the dashboard cards:
+Use the already-fetched ICONIA units:
 
 ```tsx
-{/* Quick Month Filters */}
-<div className="flex justify-center gap-2 pt-2">
-  <Button
-    variant={isMonthSelected(addMonths(new Date(), -1)) ? 'default' : 'outline'}
-    size="sm"
-    onClick={() => {
-      const lastMonth = addMonths(new Date(), -1);
-      setCustomDateRange({
-        from: startOfMonth(lastMonth),
-        to: endOfMonth(lastMonth)
-      });
-    }}
-  >
-    {format(addMonths(new Date(), -1), 'MMMM')}
-  </Button>
-  <Button
-    variant={isMonthSelected(new Date()) ? 'default' : 'outline'}
-    size="sm"
-    onClick={() => {
-      setCustomDateRange({
-        from: startOfMonth(new Date()),
-        to: endOfMonth(new Date())
-      });
-    }}
-  >
-    {format(new Date(), 'MMMM')}
-  </Button>
-  <Button
-    variant={isMonthSelected(addMonths(new Date(), 1)) ? 'default' : 'outline'}
-    size="sm"
-    onClick={() => {
-      const nextMonth = addMonths(new Date(), 1);
-      setCustomDateRange({
-        from: startOfMonth(nextMonth),
-        to: endOfMonth(nextMonth)
-      });
-    }}
-  >
-    {format(addMonths(new Date(), 1), 'MMMM')}
-  </Button>
-</div>
+// Before
+const { data: unitIds } = await supabase
+  .from('units')
+  .select('id')
+  .eq('location', 'ICONIA');
+
+const { count: totalBlockedNights } = await supabase
+  .from('blocked_dates')
+  .select('*', { count: 'exact', head: true })
+  .in('unit_id', unitIds?.map(u => u.id) || [])
+  .gte('blocked_date', startDate)
+  .lte('blocked_date', endDate);
+
+// After - use the already-fetched units
+const { count: totalBlockedNights } = await supabase
+  .from('blocked_dates')
+  .select('*', { count: 'exact', head: true })
+  .in('unit_id', units?.map(u => u.id) || [])
+  .gte('blocked_date', startDate)
+  .lte('blocked_date', endDate);
+```
+
+**4. Replace total nights calculation (lines 313-314)**
+
+Calculate proportional nights within period (matching calendar logic):
+
+```tsx
+// Before
+const totalNights = reservations?.reduce((sum, r) => sum + (r.nights || 0), 0) || 0;
+setTotalNights(totalNights);
+
+// After - Calculate proportional nights within period
+const unitIdSet = new Set(units?.map(u => u.id) || []);
+let totalNights = 0;
+
+reservations?.forEach(r => {
+  // Only count reservations for ICONIA units
+  if (!r.unit_id || !unitIdSet.has(r.unit_id)) return;
+  
+  const checkIn = new Date(r.check_in_date);
+  const checkOut = new Date(r.check_out_date);
+  
+  // Calculate overlap with current period
+  const overlapStart = checkIn > start ? checkIn : start;
+  const overlapEnd = checkOut < end ? checkOut : new Date(end.getTime() + 86400000); // add 1 day to end
+  
+  if (overlapStart < overlapEnd) {
+    const nightsInPeriod = Math.ceil((overlapEnd.getTime() - overlapStart.getTime()) / (1000 * 60 * 60 * 24));
+    totalNights += nightsInPeriod;
+  }
+});
+
+setTotalNights(totalNights);
 ```
 
 ---
 
-### How It Works
+### Calculation Comparison
 
-1. **Button Click**: When user clicks a month button (e.g., "January"), it calls `setCustomDateRange` with:
-   - `from`: First day of that month (e.g., Jan 1, 2026)
-   - `to`: Last day of that month (e.g., Jan 31, 2026)
+**January 2026 (31 days):**
 
-2. **Visual Feedback**: The `isMonthSelected` helper checks if the current custom date range matches a full month, and applies the `default` variant (filled button) instead of `outline`
-
-3. **Integration**: Since `customDateRange` is already used by `getDateRange()`, changing it automatically updates all analytics data
+| Metric | Before (Analytics) | After (Fixed) |
+|--------|-------------------|---------------|
+| Total Units | 13 (all) | 12 (ICONIA only) |
+| Days in Period | 31 | 31 |
+| Available Nights | ~400 (13 × 31 - blocked) | ~326 (12 × 31 - blocked) |
+| Booked Nights | Lower (missing overlap reservations) | Higher (includes all overlapping reservations) |
+| Occupancy | 43.4% | ~68.4% |
 
 ---
 
@@ -129,16 +164,17 @@ Insert the quick month filter buttons between the date range display and the das
 
 | File | Changes |
 |------|---------|
-| `src/pages/Analytics.tsx` | Add date-fns imports, helper function, and quick month filter buttons |
+| `src/pages/Analytics.tsx` | Fix occupancy calculation to use ICONIA units, overlap query, and proportional nights |
 
 ---
 
 ### Expected Result
 
-After implementation:
-- Three month buttons appear below the date range display
-- Clicking a month instantly updates the date range to that full month
-- The selected month button appears filled/highlighted
-- All analytics data refreshes for the selected month period
-- Matches the design pattern from the Export PDF date selector
+After this fix:
+- Analytics page and Calendar will show the same occupancy rate for January 2026 (~68.4%)
+- Both components will use identical calculation logic:
+  - Same unit filtering (ICONIA, available status)
+  - Same reservation overlap detection
+  - Same proportional nights calculation
+  - Same blocked dates handling
 
