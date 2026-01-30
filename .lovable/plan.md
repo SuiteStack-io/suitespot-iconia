@@ -1,48 +1,58 @@
 
 
-## Plan: Add Room Nights Subheading to Occupancy Rate Card
+## Plan: Remove Date Pickers from Revenue Tables
 
 ### Summary
 
-Add a subheading to the Occupancy Rate card in Analytics showing the breakdown format "X of Y room nights" (e.g., "223 of 326 room nights").
+Remove the individual date range selector buttons from **Revenue by Room**, **Revenue by Nationality**, and **Revenue by Guests** tables. These tables will use only the main date range specified at the top of the Analytics page.
 
 ---
 
-### Technical Change
+### Changes by Component
 
-#### File: `src/pages/Analytics.tsx`
+#### 1. `src/components/RevenueByRoom.tsx`
 
-**Lines 1064-1070** - Add the room nights subheading below the percentage:
+**Remove the date picker UI** (lines 295-328):
+- Remove the `Popover` with the calendar date picker
+- Keep only the location tabs and Expand/Collapse button
+- The component already syncs with `mainDateRange` via `useEffect`, so data fetching will continue working
 
-```tsx
-// Before
-<CardContent>
-  <div className="text-2xl font-bold">
-    {occupancyRate.toFixed(1)}%
-  </div>
-  <p className="text-xs text-muted-foreground mt-1">
-    Last {timePeriod}
-  </p>
-</CardContent>
+**Remove unused imports**:
+- `Calendar` from '@/components/ui/calendar'
+- `Popover, PopoverContent, PopoverTrigger` from '@/components/ui/popover'
+- `CalendarIcon` from 'lucide-react'
 
-// After
-<CardContent>
-  <div className="text-2xl font-bold">
-    {occupancyRate.toFixed(1)}%
-  </div>
-  <p className="text-xs text-muted-foreground mt-1">
-    {totalNights} of {totalAvailableRooms} room nights
-  </p>
-</CardContent>
-```
+**Simplify state**:
+- Remove `setDateRange` from the `useState` since `dateRange` will only be set via the `useEffect` sync
 
 ---
 
-### State Variables Used
+#### 2. `src/components/RevenueByNationality.tsx`
 
-Both values are already available in state:
-- `totalNights` - Number of booked room nights in the period
-- `totalAvailableRooms` - Total available room nights (units × days - blocked nights)
+**Remove the date picker UI** (lines 180-213):
+- Remove the `Popover` with the calendar in the `CardHeader`
+- Simplify `CardHeader` to just show the title
+
+**Remove unused imports**:
+- `Calendar` from '@/components/ui/calendar'
+- `Popover, PopoverContent, PopoverTrigger` from '@/components/ui/popover'
+- `CalendarIcon` from 'lucide-react'
+- `Button` from '@/components/ui/button'
+- `cn` from '@/lib/utils'
+
+---
+
+#### 3. `src/components/RevenueByGuests.tsx`
+
+**Remove the date picker UI** (lines 162-195):
+- Remove the `Popover` with the calendar
+- Keep only the nationality filter dropdown
+
+**Remove unused imports**:
+- `Calendar` from '@/components/ui/calendar'
+- `Popover, PopoverContent, PopoverTrigger` from '@/components/ui/popover'
+- `CalendarIcon` from 'lucide-react'
+- `cn` from '@/lib/utils'
 
 ---
 
@@ -50,5 +60,13 @@ Both values are already available in state:
 
 | File | Change |
 |------|--------|
-| `src/pages/Analytics.tsx` | Update occupancy card subheading to show room nights breakdown |
+| `src/components/RevenueByRoom.tsx` | Remove date picker Popover and unused imports |
+| `src/components/RevenueByNationality.tsx` | Remove date picker Popover and unused imports |
+| `src/components/RevenueByGuests.tsx` | Remove date picker Popover and unused imports |
+
+---
+
+### Result
+
+All three revenue tables will automatically use the date range selected at the top of the Analytics page (Week/Month/Quarter/YTD or custom date picker). Users will have a single, unified date control for all analytics data.
 
