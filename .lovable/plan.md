@@ -1,105 +1,110 @@
 
 
-## Plan: Mobile 2-Column Grid Layout for Analytics Cards
+## Plan: Add Revenue Percentage Column to Revenue by Nationality Table
 
 ### Summary
 
-Update the Analytics page metric cards to display in a 2-column grid on mobile (like the admin home page), allowing users to scroll through data faster. This applies Dashboard-style responsive design patterns to the Analytics cards.
-
----
-
-### Reference Pattern
-
-The Dashboard uses this pattern at line 790:
-```tsx
-<div className="grid gap-3 grid-cols-2 lg:grid-cols-6">
-```
-
-With compact card styling:
-- `p-3 sm:p-6` for responsive padding
-- `text-xs sm:text-sm` for responsive text sizes
-- `h-3 w-3 sm:h-4 sm:w-4` for responsive icon sizes
+Add a new **"% Revenue"** column after **Total Nights** that displays what percentage of the total revenue each nationality contributes.
 
 ---
 
 ### Technical Changes
 
-#### File: `src/pages/Analytics.tsx`
+#### File: `src/components/RevenueByNationality.tsx`
 
-**Change 1: First card grid (lines 1060)**
+**1. Update the interface** (line 9-16)
 
-Update from:
-```tsx
-<div className="grid gap-4 md:grid-cols-4">
+Add `revenuePercentage` field to `NationalityRevenue`:
+
+```typescript
+interface NationalityRevenue {
+  nationality: string;
+  totalNights: number;
+  revenuePercentage: number;  // NEW
+  avgPricePerNight: number;
+  totalRevenue: number;
+  source: string;
+  payment: string;
+}
 ```
 
-To:
-```tsx
-<div className="grid gap-3 grid-cols-2 md:grid-cols-4">
+**2. Update the SortField type** (line 18)
+
+Add `revenuePercentage` as a sortable field:
+
+```typescript
+type SortField = 'nationality' | 'totalNights' | 'revenuePercentage' | 'avgPricePerNight' | 'totalRevenue' | 'source' | 'payment';
 ```
 
-Also update each card in this section to use compact mobile styling:
-- Reduce `CardHeader` padding on mobile: `p-3 sm:p-6`
-- Reduce `CardContent` padding: `p-3 pt-0 sm:p-6 sm:pt-0`
-- Smaller text on mobile: `text-xl sm:text-2xl font-bold`
+**3. Update the data processing** (lines 120-138)
 
-**Change 2: Second card grid (lines 1138)**
+Calculate total revenue across all nationalities first, then compute each nationality's percentage:
 
-Update from:
-```tsx
-<div className="grid gap-4 md:grid-cols-3">
+```typescript
+// Calculate grand total revenue first
+const grandTotalRevenue = Object.values(nationalityMap).reduce(
+  (sum, data) => sum + data.totalRevenue, 0
+);
+
+// Convert to array with percentage
+const revenues: NationalityRevenue[] = Object.entries(nationalityMap).map(([nationality, data]) => ({
+  nationality,
+  totalNights: data.totalNights,
+  revenuePercentage: grandTotalRevenue > 0 ? (data.totalRevenue / grandTotalRevenue) * 100 : 0,
+  avgPricePerNight: ...,
+  totalRevenue: data.totalRevenue,
+  source: ...,
+  payment: ...,
+}));
 ```
 
-To:
-```tsx
-<div className="grid gap-3 grid-cols-2 md:grid-cols-3">
+**4. Update the sortData function** (lines 141-158)
+
+Add `revenuePercentage` to numeric sorting cases:
+
+```typescript
+case 'totalNights':
+case 'revenuePercentage':  // NEW
+case 'avgPricePerNight':
+case 'totalRevenue':
+  comparison = a[field] - b[field];
+  break;
 ```
 
-Apply same compact card styling pattern.
+**5. Add table header column** (after Total Nights, line 199)
 
-**Change 3: Third card grid (lines 1189)**
-
-Update from:
 ```tsx
-<div className="grid gap-4 md:grid-cols-3">
+<TableHead 
+  className="text-right cursor-pointer hover:bg-muted/50"
+  onClick={() => handleSort('revenuePercentage')}
+>
+  <div className="flex items-center justify-end">
+    % Revenue
+    {getSortIcon('revenuePercentage')}
+  </div>
+</TableHead>
 ```
 
-To:
+**6. Add table body cell** (after Total Nights cell, line 249)
+
 ```tsx
-<div className="grid gap-3 grid-cols-2 md:grid-cols-3">
+<TableCell className="text-right">{item.revenuePercentage.toFixed(1)}%</TableCell>
 ```
 
-Apply same compact card styling pattern. For the revenue cards with detailed breakdowns, ensure the extra content still fits by using smaller text on mobile.
+**7. Update colSpan** (line 241)
+
+Change from `colSpan={6}` to `colSpan={7}` for the empty state message.
 
 ---
 
-### Card Styling Pattern to Apply
+### Result
 
-For each card in all three grids:
+| Nationality | Total Nights | % Revenue | Avg Price/Night | Total Revenue (ex. VAT) | Source | Payment |
+|-------------|--------------|-----------|-----------------|-------------------------|--------|---------|
+| Saudi Arabia | 106 | 48.5% | $126.41 | $11,973.25 | Booking.com | Unknown |
+| United Arab Emirates | 25 | 10.5% | $111.65 | $2,601.76 | Booking.com | Cash |
 
-```tsx
-<Card className="cursor-pointer hover:shadow-lg transition-shadow">
-  <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-1 sm:pb-2 p-3 sm:p-6">
-    <CardTitle className="text-xs sm:text-sm font-medium">Title</CardTitle>
-    <Icon className="h-3 w-3 sm:h-4 sm:w-4 text-color" />
-  </CardHeader>
-  <CardContent className="p-3 pt-0 sm:p-6 sm:pt-0">
-    <div className="text-xl sm:text-2xl font-bold">Value</div>
-    <p className="text-xs text-muted-foreground mt-1">Subtitle</p>
-  </CardContent>
-</Card>
-```
-
----
-
-### Visual Result
-
-| Screen Size | Before | After |
-|-------------|--------|-------|
-| Mobile | 1 card per row (stacked) | 2 cards per row |
-| Desktop | 4 cards first row, 3+3 second rows | Same |
-
-This matches the admin home page layout and reduces vertical scrolling on mobile by ~50% for the metrics section.
+The percentage column will show what proportion of total revenue each nationality contributes, sortable like other columns.
 
 ---
 
@@ -107,5 +112,5 @@ This matches the admin home page layout and reduces vertical scrolling on mobile
 
 | File | Change |
 |------|--------|
-| `src/pages/Analytics.tsx` | Update 3 grid containers and ~10 cards with responsive mobile styling |
+| `src/components/RevenueByNationality.tsx` | Add percentage field, column header, and cell |
 
