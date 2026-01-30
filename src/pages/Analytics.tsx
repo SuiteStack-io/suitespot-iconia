@@ -963,7 +963,7 @@ const Analytics = () => {
                 <FileSpreadsheet className="h-4 w-4 mr-2" />
                 Export Excel
               </Button>
-              <Button variant="outline" size="sm" onClick={handleExportCSV}>
+              <Button variant="outline" size="sm" onClick={handleExportCSV} className="hidden md:flex">
                 <Download className="h-4 w-4 mr-2" />
                 Export CSV
               </Button>
