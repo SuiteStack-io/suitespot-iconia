@@ -969,91 +969,93 @@ const Analytics = () => {
               </Button>
             </div>
           </div>
+          
+          {/* Date range controls - sticky with header */}
+          <div className="space-y-2 pt-4 pb-2">
+            <div className="flex justify-center">
+              <Tabs value={customDateRange ? '' : timePeriod} onValueChange={handleTabChange}>
+                <TabsList className="grid w-full grid-cols-4">
+                  <TabsTrigger value="week">Week</TabsTrigger>
+                  <TabsTrigger value="month">Month</TabsTrigger>
+                  <TabsTrigger value="quarter">Quarter</TabsTrigger>
+                  <TabsTrigger value="ytd">YTD</TabsTrigger>
+                </TabsList>
+              </Tabs>
+            </div>
+            <div className="flex justify-center">
+              <Popover>
+                <PopoverTrigger asChild>
+                  <Button
+                    variant="ghost"
+                    size="sm"
+                    className={cn(
+                      "text-sm text-muted-foreground hover:text-foreground"
+                    )}
+                  >
+                    <CalendarIcon className="mr-2 h-4 w-4" />
+                    {getFormattedDateRange()}
+                  </Button>
+                </PopoverTrigger>
+                <PopoverContent className="w-auto p-0" align="center">
+                  <Calendar
+                    mode="range"
+                    selected={customDateRange || {
+                      from: new Date(getDateRange().startDate),
+                      to: new Date(getDateRange().endDate)
+                    }}
+                    onSelect={setCustomDateRange}
+                    numberOfMonths={2}
+                    className={cn("p-3 pointer-events-auto")}
+                  />
+                </PopoverContent>
+              </Popover>
+            </div>
+            {/* Quick Month Filters */}
+            <div className="flex justify-center gap-2">
+              <Button
+                variant={isMonthSelected(addMonths(new Date(), -1)) ? 'default' : 'outline'}
+                size="sm"
+                onClick={() => {
+                  const lastMonth = addMonths(new Date(), -1);
+                  setCustomDateRange({
+                    from: startOfMonth(lastMonth),
+                    to: endOfMonth(lastMonth)
+                  });
+                }}
+              >
+                {format(addMonths(new Date(), -1), 'MMMM')}
+              </Button>
+              <Button
+                variant={isMonthSelected(new Date()) ? 'default' : 'outline'}
+                size="sm"
+                onClick={() => {
+                  setCustomDateRange({
+                    from: startOfMonth(new Date()),
+                    to: endOfMonth(new Date())
+                  });
+                }}
+              >
+                {format(new Date(), 'MMMM')}
+              </Button>
+              <Button
+                variant={isMonthSelected(addMonths(new Date(), 1)) ? 'default' : 'outline'}
+                size="sm"
+                onClick={() => {
+                  const nextMonth = addMonths(new Date(), 1);
+                  setCustomDateRange({
+                    from: startOfMonth(nextMonth),
+                    to: endOfMonth(nextMonth)
+                  });
+                }}
+              >
+                {format(addMonths(new Date(), 1), 'MMMM')}
+              </Button>
+            </div>
+          </div>
         </div>
       </header>
 
       <main className="container mx-auto px-4 py-8 space-y-8">
-        <div className="space-y-2">
-          <div className="flex justify-center">
-            <Tabs value={customDateRange ? '' : timePeriod} onValueChange={handleTabChange}>
-              <TabsList className="grid w-full grid-cols-4">
-                <TabsTrigger value="week">Week</TabsTrigger>
-                <TabsTrigger value="month">Month</TabsTrigger>
-                <TabsTrigger value="quarter">Quarter</TabsTrigger>
-                <TabsTrigger value="ytd">YTD</TabsTrigger>
-              </TabsList>
-            </Tabs>
-          </div>
-          <div className="flex justify-center">
-            <Popover>
-              <PopoverTrigger asChild>
-                <Button
-                  variant="ghost"
-                  size="sm"
-                  className={cn(
-                    "text-sm text-muted-foreground hover:text-foreground"
-                  )}
-                >
-                  <CalendarIcon className="mr-2 h-4 w-4" />
-                  {getFormattedDateRange()}
-                </Button>
-              </PopoverTrigger>
-              <PopoverContent className="w-auto p-0" align="center">
-                <Calendar
-                  mode="range"
-                  selected={customDateRange || {
-                    from: new Date(getDateRange().startDate),
-                    to: new Date(getDateRange().endDate)
-                  }}
-                  onSelect={setCustomDateRange}
-                  numberOfMonths={2}
-                  className={cn("p-3 pointer-events-auto")}
-                />
-              </PopoverContent>
-            </Popover>
-          </div>
-          {/* Quick Month Filters */}
-          <div className="flex justify-center gap-2 pt-2">
-            <Button
-              variant={isMonthSelected(addMonths(new Date(), -1)) ? 'default' : 'outline'}
-              size="sm"
-              onClick={() => {
-                const lastMonth = addMonths(new Date(), -1);
-                setCustomDateRange({
-                  from: startOfMonth(lastMonth),
-                  to: endOfMonth(lastMonth)
-                });
-              }}
-            >
-              {format(addMonths(new Date(), -1), 'MMMM')}
-            </Button>
-            <Button
-              variant={isMonthSelected(new Date()) ? 'default' : 'outline'}
-              size="sm"
-              onClick={() => {
-                setCustomDateRange({
-                  from: startOfMonth(new Date()),
-                  to: endOfMonth(new Date())
-                });
-              }}
-            >
-              {format(new Date(), 'MMMM')}
-            </Button>
-            <Button
-              variant={isMonthSelected(addMonths(new Date(), 1)) ? 'default' : 'outline'}
-              size="sm"
-              onClick={() => {
-                const nextMonth = addMonths(new Date(), 1);
-                setCustomDateRange({
-                  from: startOfMonth(nextMonth),
-                  to: endOfMonth(nextMonth)
-                });
-              }}
-            >
-              {format(addMonths(new Date(), 1), 'MMMM')}
-            </Button>
-          </div>
-        </div>
 
         <div className="grid gap-4 md:grid-cols-4">
           <Card className="cursor-pointer hover:shadow-lg transition-shadow" onClick={handleOccupancyClick}>
