@@ -1,110 +1,71 @@
 
 
-## Plan: Add Revenue Percentage Column to Revenue by Nationality Table
+## Plan: Update Check-In and Check-Out Email Subject Lines
 
 ### Summary
 
-Add a new **"% Revenue"** column after **Total Nights** that displays what percentage of the total revenue each nationality contributes.
+Change the email subject line format for both check-in and check-out notifications to display the guest name instead of the suite name.
+
+---
+
+### Current vs Target Format
+
+| Email Type | Current Subject | Target Subject |
+|------------|----------------|----------------|
+| Check-in | `New Guest Checked In - ${unitName} - Room #${roomNumber}` | `New Guest Checked In - ${guestName} - Room #${roomNumber}` |
+| Check-out | `Guest Checked Out - ${guestName} - Room #${roomNumber}` | `Guest Checked Out - ${guestName} - Room #${roomNumber}` |
+
+**Example:**
+- Before: `New Guest Checked In - One Bedroom Suite with Balcony - Room #505`
+- After: `New Guest Checked In - Ayedh Albugami - Room #505`
 
 ---
 
 ### Technical Changes
 
-#### File: `src/components/RevenueByNationality.tsx`
+#### File 1: `supabase/functions/send-checkin-notification/index.ts`
 
-**1. Update the interface** (line 9-16)
-
-Add `revenuePercentage` field to `NationalityRevenue`:
+**Line 83** - Update the email subject:
 
 ```typescript
-interface NationalityRevenue {
-  nationality: string;
-  totalNights: number;
-  revenuePercentage: number;  // NEW
-  avgPricePerNight: number;
-  totalRevenue: number;
-  source: string;
-  payment: string;
-}
+// Before
+subject: `New Guest Checked In - ${unitName} - Room #${roomNumber}`,
+
+// After
+subject: `New Guest Checked In - ${guestName} - Room #${roomNumber}`,
 ```
 
-**2. Update the SortField type** (line 18)
+The `guestName` variable is already defined at line 75:
+```typescript
+const guestName = reservation.guest_names[0] || 'Guest';
+```
 
-Add `revenuePercentage` as a sortable field:
+---
+
+#### File 2: `supabase/functions/send-checkout-notification/index.ts`
+
+**Line 116** - Verify/update the email subject:
 
 ```typescript
-type SortField = 'nationality' | 'totalNights' | 'revenuePercentage' | 'avgPricePerNight' | 'totalRevenue' | 'source' | 'payment';
+// Ensure it uses guestName (not unitName)
+subject: `Guest Checked Out - ${guestName} - Room #${roomNumber}`,
 ```
 
-**3. Update the data processing** (lines 120-138)
-
-Calculate total revenue across all nationalities first, then compute each nationality's percentage:
-
+The `guestName` variable is already defined at line 96:
 ```typescript
-// Calculate grand total revenue first
-const grandTotalRevenue = Object.values(nationalityMap).reduce(
-  (sum, data) => sum + data.totalRevenue, 0
-);
-
-// Convert to array with percentage
-const revenues: NationalityRevenue[] = Object.entries(nationalityMap).map(([nationality, data]) => ({
-  nationality,
-  totalNights: data.totalNights,
-  revenuePercentage: grandTotalRevenue > 0 ? (data.totalRevenue / grandTotalRevenue) * 100 : 0,
-  avgPricePerNight: ...,
-  totalRevenue: data.totalRevenue,
-  source: ...,
-  payment: ...,
-}));
+const guestName = reservation.guest_names[0] || 'Guest';
 ```
-
-**4. Update the sortData function** (lines 141-158)
-
-Add `revenuePercentage` to numeric sorting cases:
-
-```typescript
-case 'totalNights':
-case 'revenuePercentage':  // NEW
-case 'avgPricePerNight':
-case 'totalRevenue':
-  comparison = a[field] - b[field];
-  break;
-```
-
-**5. Add table header column** (after Total Nights, line 199)
-
-```tsx
-<TableHead 
-  className="text-right cursor-pointer hover:bg-muted/50"
-  onClick={() => handleSort('revenuePercentage')}
->
-  <div className="flex items-center justify-end">
-    % Revenue
-    {getSortIcon('revenuePercentage')}
-  </div>
-</TableHead>
-```
-
-**6. Add table body cell** (after Total Nights cell, line 249)
-
-```tsx
-<TableCell className="text-right">{item.revenuePercentage.toFixed(1)}%</TableCell>
-```
-
-**7. Update colSpan** (line 241)
-
-Change from `colSpan={6}` to `colSpan={7}` for the empty state message.
 
 ---
 
 ### Result
 
-| Nationality | Total Nights | % Revenue | Avg Price/Night | Total Revenue (ex. VAT) | Source | Payment |
-|-------------|--------------|-----------|-----------------|-------------------------|--------|---------|
-| Saudi Arabia | 106 | 48.5% | $126.41 | $11,973.25 | Booking.com | Unknown |
-| United Arab Emirates | 25 | 10.5% | $111.65 | $2,601.76 | Booking.com | Cash |
+| Email | Subject Line |
+|-------|-------------|
+| Check-in | `New Guest Checked In - Ayedh Albugami - Room #505` |
+| Check-out | `Guest Checked Out - rawan tarabzoni - Room #511` |
 
-The percentage column will show what proportion of total revenue each nationality contributes, sortable like other columns.
+Both emails will now show the guest name in the subject line for quick identification in email inbox, with the room number for reference.
 
 ---
 
@@ -112,5 +73,6 @@ The percentage column will show what proportion of total revenue each nationalit
 
 | File | Change |
 |------|--------|
-| `src/components/RevenueByNationality.tsx` | Add percentage field, column header, and cell |
+| `supabase/functions/send-checkin-notification/index.ts` | Replace `${unitName}` with `${guestName}` in subject line |
+| `supabase/functions/send-checkout-notification/index.ts` | Verify subject uses `${guestName}` |
 
