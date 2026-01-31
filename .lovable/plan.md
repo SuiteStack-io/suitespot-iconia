@@ -1,71 +1,60 @@
 
 
-## Plan: Update Check-In and Check-Out Email Subject Lines
+## Plan: Display Booking.com Name in Checkout Email Room Details
 
 ### Summary
 
-Change the email subject line format for both check-in and check-out notifications to display the guest name instead of the suite name.
+Update the checkout notification email to display the booking.com name (e.g., "Double Room with Terrace") instead of the internal suite name (e.g., "One Bedroom Suite with Balcony") in the Room Details section.
 
 ---
 
-### Current vs Target Format
+### Current vs Target
 
-| Email Type | Current Subject | Target Subject |
-|------------|----------------|----------------|
-| Check-in | `New Guest Checked In - ${unitName} - Room #${roomNumber}` | `New Guest Checked In - ${guestName} - Room #${roomNumber}` |
-| Check-out | `Guest Checked Out - ${guestName} - Room #${roomNumber}` | `Guest Checked Out - ${guestName} - Room #${roomNumber}` |
-
-**Example:**
-- Before: `New Guest Checked In - One Bedroom Suite with Balcony - Room #505`
-- After: `New Guest Checked In - Ayedh Albugami - Room #505`
+| Field | Current | Target |
+|-------|---------|--------|
+| Room: | One Bedroom Suite with Balcony - Room #505 | Double Room with Terrace - Room #505 |
 
 ---
 
 ### Technical Changes
 
-#### File 1: `supabase/functions/send-checkin-notification/index.ts`
+#### File: `supabase/functions/send-checkout-notification/index.ts`
 
-**Line 83** - Update the email subject:
+**Change 1: Update the units select query (line 49)**
+
+Add `booking_com_name` to the fields fetched from the units table:
 
 ```typescript
 // Before
-subject: `New Guest Checked In - ${unitName} - Room #${roomNumber}`,
+.select('*, units(name, unit_number, estimated_cleaning_minutes)')
 
 // After
-subject: `New Guest Checked In - ${guestName} - Room #${roomNumber}`,
+.select('*, units(name, booking_com_name, unit_number, estimated_cleaning_minutes)')
 ```
 
-The `guestName` variable is already defined at line 75:
-```typescript
-const guestName = reservation.guest_names[0] || 'Guest';
-```
+**Change 2: Update unitName variable (line 117)**
 
----
-
-#### File 2: `supabase/functions/send-checkout-notification/index.ts`
-
-**Line 116** - Verify/update the email subject:
+Use `booking_com_name` as primary, falling back to `name`:
 
 ```typescript
-// Ensure it uses guestName (not unitName)
-subject: `Guest Checked Out - ${guestName} - Room #${roomNumber}`,
-```
+// Before
+const unitName = reservation.units?.name || 'Unknown Unit';
 
-The `guestName` variable is already defined at line 96:
-```typescript
-const guestName = reservation.guest_names[0] || 'Guest';
+// After
+const unitName = reservation.units?.booking_com_name || reservation.units?.name || 'Unknown Unit';
 ```
 
 ---
 
 ### Result
 
-| Email | Subject Line |
-|-------|-------------|
-| Check-in | `New Guest Checked In - Ayedh Albugami - Room #505` |
-| Check-out | `Guest Checked Out - rawan tarabzoni - Room #511` |
+The email "Room Details" section will now show:
+- **Room:** Double Room with Terrace - Room #505
 
-Both emails will now show the guest name in the subject line for quick identification in email inbox, with the room number for reference.
+Instead of:
+- **Room:** One Bedroom Suite with Balcony - Room #505
+
+This matches the convention used elsewhere in the system where `booking_com_name` is the guest-facing room name.
 
 ---
 
@@ -73,6 +62,5 @@ Both emails will now show the guest name in the subject line for quick identific
 
 | File | Change |
 |------|--------|
-| `supabase/functions/send-checkin-notification/index.ts` | Replace `${unitName}` with `${guestName}` in subject line |
-| `supabase/functions/send-checkout-notification/index.ts` | Verify subject uses `${guestName}` |
+| `supabase/functions/send-checkout-notification/index.ts` | Add `booking_com_name` to query and use it for display |
 
