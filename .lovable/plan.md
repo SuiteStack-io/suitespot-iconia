@@ -1,66 +1,70 @@
 
 
-## Plan: Display Booking.com Name in Checkout Email Room Details
+## Plan: Fix RLS Policy to Allow Front Desk Check-In/Check-Out
 
-### Summary
+### Problem Identified
 
-Update the checkout notification email to display the booking.com name (e.g., "Double Room with Terrace") instead of the internal suite name (e.g., "One Bedroom Suite with Balcony") in the Room Details section.
+**Root Cause**: The RLS policy for updating reservations **does not include the `front_desk` role**.
+
+The current policy is:
+```sql
+"Admins and managers can update reservations"
+USING (
+  has_role(auth.uid(), 'admin'::app_role) OR 
+  has_role(auth.uid(), 'manager'::app_role)
+)
+```
+
+Dina Mamdouh has the `front_desk` role, so she cannot update the reservation status to `checked-out`.
+
+**Historical Context**: A previous migration (`20251015112617`) replaced the original policy that included `front_desk` with one that only allows `admin` and `manager`. This was likely unintentional.
 
 ---
 
-### Current vs Target
+### Solution
 
-| Field | Current | Target |
-|-------|---------|--------|
-| Room: | One Bedroom Suite with Balcony - Room #505 | Double Room with Terrace - Room #505 |
+Update the RLS policy to include `front_desk` role, restoring their ability to:
+- Check in guests (update status to `checked-in`)
+- Check out guests (update status to `checked-out`)
+- Record access card counts
 
 ---
 
 ### Technical Changes
 
-#### File: `supabase/functions/send-checkout-notification/index.ts`
+#### Database Migration
 
-**Change 1: Update the units select query (line 49)**
+Create a new migration to update the reservations UPDATE policy:
 
-Add `booking_com_name` to the fields fetched from the units table:
+```sql
+-- Restore front desk ability to update reservations for check-in/check-out
+DROP POLICY IF EXISTS "Admins and managers can update reservations" ON reservations;
 
-```typescript
-// Before
-.select('*, units(name, unit_number, estimated_cleaning_minutes)')
-
-// After
-.select('*, units(name, booking_com_name, unit_number, estimated_cleaning_minutes)')
-```
-
-**Change 2: Update unitName variable (line 117)**
-
-Use `booking_com_name` as primary, falling back to `name`:
-
-```typescript
-// Before
-const unitName = reservation.units?.name || 'Unknown Unit';
-
-// After
-const unitName = reservation.units?.booking_com_name || reservation.units?.name || 'Unknown Unit';
+CREATE POLICY "Admins, managers, and front desk can update reservations"
+ON reservations FOR UPDATE TO authenticated
+USING (
+  has_role(auth.uid(), 'admin'::app_role) OR 
+  has_role(auth.uid(), 'manager'::app_role) OR
+  has_role(auth.uid(), 'front_desk'::app_role)
+);
 ```
 
 ---
 
-### Result
+### Verification
 
-The email "Room Details" section will now show:
-- **Room:** Double Room with Terrace - Room #505
+After the fix, the reservation for Room 505 (Ammar Alhindi) should be checkable out by Dina Mamdouh.
 
-Instead of:
-- **Room:** One Bedroom Suite with Balcony - Room #505
-
-This matches the convention used elsewhere in the system where `booking_com_name` is the guest-facing room name.
+| Before | After |
+|--------|-------|
+| Only `admin` and `manager` can update | `admin`, `manager`, and `front_desk` can update |
+| Dina's checkout attempt fails silently | Checkout works correctly |
 
 ---
 
 ### Files to Modify
 
-| File | Change |
-|------|--------|
-| `supabase/functions/send-checkout-notification/index.ts` | Add `booking_com_name` to query and use it for display |
+| Change | Details |
+|--------|---------|
+| New database migration | Update reservations UPDATE policy to include `front_desk` role |
 
