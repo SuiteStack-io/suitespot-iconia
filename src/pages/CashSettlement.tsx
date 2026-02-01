@@ -219,6 +219,16 @@ export default function CashSettlement() {
     return dateToCheck >= fromDate && dateToCheck < new Date(fromDate.getTime() + 24 * 60 * 60 * 1000);
   };
 
+  // Calculate VAT-inclusive total for a reservation
+  const calculateTotalWithVAT = (reservation: Reservation): number => {
+    if (reservation.vat_exempt) {
+      return reservation.total_price || 0;
+    }
+    const subtotal = (reservation.price_per_night || 0) * (reservation.nights || 0);
+    const taxPercentage = reservation.units?.tax_percentage || 14;
+    return subtotal + (subtotal * taxPercentage / 100);
+  };
+
   // Filter reservations for main tables - cash only for settled/unsettled
   const filteredCashReservations = useMemo(() => {
     return reservations.filter(r => {
@@ -268,16 +278,6 @@ export default function CashSettlement() {
 
   const formatCurrency = (amount: number) => {
     return new Intl.NumberFormat('en-US', { style: 'currency', currency: 'USD' }).format(amount);
-  };
-
-  // Calculate VAT-inclusive total for a reservation
-  const calculateTotalWithVAT = (reservation: Reservation): number => {
-    if (reservation.vat_exempt) {
-      return reservation.total_price || 0;
-    }
-    const subtotal = (reservation.price_per_night || 0) * (reservation.nights || 0);
-    const taxPercentage = reservation.units?.tax_percentage || 14;
-    return subtotal + (subtotal * taxPercentage / 100);
   };
 
   const handleSelectAll = (checked: boolean) => {
