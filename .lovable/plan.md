@@ -1,153 +1,90 @@
 
+## Fix False Conflict Warning in Modification Mode
 
-## Send Reservation Modification Email Notification
+### Problem Analysis
+When uploading a "Reservation changes" screenshot, the system correctly detects it as a modification and shows the blue comparison alert. However, a false conflict warning still appears because:
 
-### Summary
-After a reservation is successfully updated via the modification flow, send an email notification to all admin/manager/front_desk users with details showing the before vs after changes (dates and amounts), including the room's booking.com name and number.
+1. The edge function (`parse-reservation-screenshot`) parses the screenshot and detects `isModification: true`
+2. The edge function then checks for conflicts using `check_reservation_overlap` but **without excluding the existing reservation** (it doesn't know the reservation ID at this point)
+3. This sets `blockedUnitWarning: "Unit Family Suite has conflicting reservations"` in the response
+4. The frontend displays this warning even though its own `fetchUnitsWithStatus` correctly excludes the existing reservations
+
+### Solution
+Clear the `blockedUnitWarning` and room warnings when in modification mode, since:
+- The edge function cannot exclude existing reservations (it doesn't have the IDs)
+- The frontend's `fetchUnitsWithStatus` already correctly handles conflict detection with exclusions
+- Users should rely on the dropdown status badges (which are correct) rather than the stale warning from parsing
 
 ---
 
 ### Technical Changes
 
-#### 1. Create New Edge Function: `supabase/functions/send-modification-notification/index.ts`
+#### File: `src/pages/BookingComReservations.tsx`
 
-Create a new edge function similar to `send-room-change-notification` that sends a "Reservation Modification" email.
+**Location: Around line 280-300, after detecting modification mode**
 
-**Request Interface:**
+When setting up modification mode, also clear the `blockedUnitWarning` from the parsed data and reset room assignments to use the original reservation's unit:
+
 ```typescript
-interface ModificationNotificationRequest {
-  booking_reference: string;
-  guest_names: string[];
-  room_name: string;          // booking_com_name with fallback to name
-  room_number: string;
-  old_check_in: string;
-  old_check_out: string;
-  new_check_in: string;
-  new_check_out: string;
-  old_total_price: number;
-  new_total_price: number;
-  currency: string;
-  channel?: string;
-  source?: string;
+// If exists and this is a modification screenshot
+if (existing && existing.length > 0 && data.data.isModification) {
+  setIsModificationMode(true);
+  setExistingReservationsToUpdate(existing);
+  setOriginalReservationData(existing[0]);
+  setExistingReservation(null);
+  
+  // Clear the blockedUnitWarning since the edge function 
+  // couldn't exclude the existing reservation during parsing.
+  // The frontend's fetchUnitsWithStatus will correctly handle this.
+  data.data.blockedUnitWarning = null;
+  
+  // For multi-room modifications, also clear individual room warnings
+  if (data.data.matchedRooms) {
+    data.data.matchedRooms = data.data.matchedRooms.map((room: RoomInfo, index: number) => ({
+      ...room,
+      warning: null,
+      status: 'available', // Reset status since we'll rely on fetchUnitsWithStatus
+      // Pre-assign the existing unit for this room
+      unitId: existing[index]?.unit_id || room.unitId || null
+    }));
+  }
 }
 ```
 
-**Email Template Design:**
-- Header: Orange gradient with "Reservation Modified" title and sync icon
-- Booking Reference: Prominent display
-- Room Info: Shows booking.com name (#room_number)
-- Date Changes: Side-by-side comparison with strikethrough on old dates
-- Amount Changes: Side-by-side comparison with strikethrough on old amount
-- Guest info and booking source
+**Location: Around line 293-301, update room assignments initialization**
 
-**Email Subject Format:**
-`Reservation Modified - [Guest Name] - Room #[Number]`
-
-#### 2. Update `supabase/config.toml`
-
-Add configuration for the new edge function:
-```toml
-[functions.send-modification-notification]
-verify_jwt = false
-```
-
-#### 3. Update Frontend: `src/pages/BookingComReservations.tsx`
-
-**Modify `handleUpdateReservation` function (around line 1410):**
-
-After the reservation updates are successful, fetch unit details and call the new edge function:
+When in modification mode, pre-populate room assignments with the existing reservation's unit IDs:
 
 ```typescript
-// After successful updates, send modification notification
-try {
-  // Get the first reservation's unit details for room info
-  const firstReservation = existingReservationsToUpdate[0];
-  
-  // Fetch unit details including booking_com_name
-  const { data: unitData } = await supabase
-    .from('units')
-    .select('name, unit_number, booking_com_name')
-    .eq('id', firstReservation.unit_id)
-    .single();
-  
-  await supabase.functions.invoke('send-modification-notification', {
-    body: {
-      booking_reference: parsedData.bookingReference,
-      guest_names: parsedData.guestNames || firstReservation.guest_names,
-      room_name: unitData?.booking_com_name || unitData?.name || 'Unknown',
-      room_number: unitData?.unit_number || 'N/A',
-      old_check_in: originalReservationData.check_in_date,
-      old_check_out: originalReservationData.check_out_date,
-      new_check_in: parsedData.checkInDate,
-      new_check_out: parsedData.checkOutDate,
-      old_total_price: originalReservationData.total_price || 0,
-      new_total_price: parsedData.totalPrice || 0,
-      currency: parsedData.currency || 'USD',
-      channel: firstReservation.channel,
-      source: firstReservation.source,
-    }
-  });
-  console.log('Modification notification sent');
-} catch (notifyError) {
-  console.error('Failed to send modification notification:', notifyError);
-  // Don't fail the update if notification fails
+// Initialize room assignments from matched rooms
+if (data.data.matchedRooms && data.data.matchedRooms.length > 0) {
+  const initialAssignments: RoomAssignment[] = data.data.matchedRooms.map((room: RoomInfo, index: number) => ({
+    roomIndex: index,
+    roomName: room.roomName,
+    price: room.price,
+    // In modification mode, use the existing reservation's unit
+    unitId: (data.data.isModification && existing && existing[index]) 
+      ? existing[index].unit_id 
+      : (room.unitId || null)
+  }));
+  setRoomAssignments(initialAssignments);
 }
 ```
 
 ---
 
-### Email Template Visual Design
+### Result
 
-```text
-┌──────────────────────────────────────────────┐
-│      🔄 Reservation Modified                 │
-│      A booking has been modified             │
-├──────────────────────────────────────────────┤
-│                                              │
-│      Booking Reference                       │
-│      ┌─────────────────────┐                 │
-│      │    6083546298       │                 │
-│      └─────────────────────┘                 │
-│                                              │
-│      Room: Double Room (#602)                │
-│                                              │
-├──────────────────────────────────────────────┤
-│  DATES CHANGED                               │
-│  ─────────────────────────────────────────   │
-│  Before:  ̶F̶e̶b̶ ̶7̶ ̶-̶ ̶F̶e̶b̶ ̶1̶0̶,̶ ̶2̶0̶2̶5̶           │
-│  After:   Feb 7 - Feb 12, 2025              │
-│                                              │
-│  AMOUNT CHANGED                              │
-│  ─────────────────────────────────────────   │
-│  Before:  $̶3̶4̶5̶.̶0̶0̶                          │
-│  After:   $460.00                            │
-│                                              │
-├──────────────────────────────────────────────┤
-│  👤 Guest: John Smith                        │
-│  🏷️ Source: Booking.com                     │
-└──────────────────────────────────────────────┘
-```
+| Before | After |
+|--------|-------|
+| Family Suite shows "has conflicting reservations" warning | Warning is cleared in modification mode |
+| Room dropdown has no pre-selected value | Pre-selects the existing reservation's assigned room |
+| User must manually select room again | Room stays assigned, user can change if needed |
 
 ---
 
-### Files to Create/Modify
+### Files to Modify
 
-| File | Action |
-|------|--------|
-| `supabase/functions/send-modification-notification/index.ts` | Create new |
-| `supabase/config.toml` | Add function config |
-| `src/pages/BookingComReservations.tsx` | Add notification call |
-
----
-
-### Edge Cases Handled
-
-| Scenario | Behavior |
-|----------|----------|
-| Only dates changed | Shows date comparison, amount shows same value |
-| Only amount changed | Shows amount comparison, dates show same value |
-| Both changed | Shows both comparisons |
-| Unit not found | Uses "Unknown" for room name |
-| Notification fails | Logs error but doesn't fail the update |
-| Multi-room booking | Uses first reservation's room info |
-
+| File | Changes |
+|------|---------|
+| `src/pages/BookingComReservations.tsx` | Clear `blockedUnitWarning` and pre-assign units when in modification mode |
