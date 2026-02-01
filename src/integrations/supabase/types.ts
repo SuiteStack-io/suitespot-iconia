@@ -1394,6 +1394,48 @@ export type Database = {
         }
         Relationships: []
       }
+      user_permissions: {
+        Row: {
+          can_block_dates: boolean | null
+          can_change_rooms: boolean | null
+          can_check_in: boolean | null
+          can_check_out: boolean | null
+          can_create_booking: boolean | null
+          can_export_calendar: boolean | null
+          can_submit_forms: boolean | null
+          created_at: string | null
+          id: string
+          updated_at: string | null
+          user_id: string
+        }
+        Insert: {
+          can_block_dates?: boolean | null
+          can_change_rooms?: boolean | null
+          can_check_in?: boolean | null
+          can_check_out?: boolean | null
+          can_create_booking?: boolean | null
+          can_export_calendar?: boolean | null
+          can_submit_forms?: boolean | null
+          created_at?: string | null
+          id?: string
+          updated_at?: string | null
+          user_id: string
+        }
+        Update: {
+          can_block_dates?: boolean | null
+          can_change_rooms?: boolean | null
+          can_check_in?: boolean | null
+          can_check_out?: boolean | null
+          can_create_booking?: boolean | null
+          can_export_calendar?: boolean | null
+          can_submit_forms?: boolean | null
+          created_at?: string | null
+          id?: string
+          updated_at?: string | null
+          user_id?: string
+        }
+        Relationships: []
+      }
       user_roles: {
         Row: {
           created_at: string
@@ -1468,6 +1510,10 @@ export type Database = {
           status: string
           unit_number: string
         }[]
+      }
+      has_permission: {
+        Args: { _permission: string; _user_id: string }
+        Returns: boolean
       }
       has_reservation_conflict: {
         Args: {

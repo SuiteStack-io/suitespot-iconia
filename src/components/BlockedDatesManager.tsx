@@ -9,6 +9,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { Checkbox } from "@/components/ui/checkbox";
 import { supabase } from "@/integrations/supabase/client";
+import { useAuth } from "@/lib/auth";
 import { format, parseISO, eachDayOfInterval, differenceInDays, addDays, isAfter, isBefore, startOfDay, endOfMonth, startOfMonth } from "date-fns";
 import { toast } from "sonner";
 import { CalendarX, Plus, Trash2, CalendarIcon, Filter, X, ChevronDown, ChevronRight, Pencil } from "lucide-react";
@@ -48,6 +49,7 @@ interface GroupedBlockedDates {
 }
 
 export const BlockedDatesManager = () => {
+  const { hasPermission } = useAuth();
   const [blockedDates, setBlockedDates] = useState<BlockedDate[]>([]);
   const [units, setUnits] = useState<Unit[]>([]);
   const [dateRange, setDateRange] = useState<DateRange | undefined>();
@@ -484,12 +486,14 @@ export const BlockedDatesManager = () => {
             </CardDescription>
           </div>
           <Dialog open={dialogOpen} onOpenChange={setDialogOpen}>
-            <DialogTrigger asChild>
-              <Button>
-                <Plus className="h-4 w-4 mr-2" />
-                Block Dates
-              </Button>
-            </DialogTrigger>
+            {hasPermission('can_block_dates') && (
+              <DialogTrigger asChild>
+                <Button>
+                  <Plus className="h-4 w-4 mr-2" />
+                  Block Dates
+                </Button>
+              </DialogTrigger>
+            )}
             <DialogContent className="max-w-lg">
               <DialogHeader>
                 <DialogTitle>Block Dates</DialogTitle>

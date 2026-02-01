@@ -1,0 +1,268 @@
+import { useState, useEffect } from 'react';
+import { supabase } from '@/integrations/supabase/client';
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogHeader,
+  DialogTitle,
+  DialogFooter,
+} from '@/components/ui/dialog';
+import { Button } from '@/components/ui/button';
+import { Switch } from '@/components/ui/switch';
+import { Label } from '@/components/ui/label';
+import { Badge } from '@/components/ui/badge';
+import { useToast } from '@/hooks/use-toast';
+import { Loader2, Shield } from 'lucide-react';
+
+interface User {
+  id: string;
+  email: string;
+  full_name: string;
+  role: string;
+}
+
+interface UserPermissions {
+  can_check_in: boolean;
+  can_check_out: boolean;
+  can_submit_forms: boolean;
+  can_create_booking: boolean;
+  can_change_rooms: boolean;
+  can_block_dates: boolean;
+  can_export_calendar: boolean;
+}
+
+const PERMISSION_LABELS: Record<keyof UserPermissions, { label: string; description: string }> = {
+  can_check_in: { 
+    label: 'Check In Guests', 
+    description: 'Ability to check in guests on arrival' 
+  },
+  can_check_out: { 
+    label: 'Check Out Guests', 
+    description: 'Ability to check out guests on departure' 
+  },
+  can_submit_forms: { 
+    label: 'Complete Guest Forms', 
+    description: 'Ability to complete and submit guest check-in forms' 
+  },
+  can_create_booking: { 
+    label: 'Create Manual Booking', 
+    description: 'Ability to create manual reservations' 
+  },
+  can_change_rooms: { 
+    label: 'Change Rooms', 
+    description: 'Ability to swap or transfer rooms for existing bookings' 
+  },
+  can_block_dates: { 
+    label: 'Block Calendar Dates', 
+    description: 'Ability to block dates on the availability calendar' 
+  },
+  can_export_calendar: { 
+    label: 'Export Calendar', 
+    description: 'Ability to export calendar data to PDF or Excel' 
+  },
+};
+
+interface EditPermissionsDialogProps {
+  open: boolean;
+  onOpenChange: (open: boolean) => void;
+  user: User | null;
+  onSuccess?: () => void;
+}
+
+export function EditPermissionsDialog({
+  open,
+  onOpenChange,
+  user,
+  onSuccess,
+}: EditPermissionsDialogProps) {
+  const { toast } = useToast();
+  const [loading, setLoading] = useState(false);
+  const [saving, setSaving] = useState(false);
+  const [permissions, setPermissions] = useState<UserPermissions>({
+    can_check_in: false,
+    can_check_out: false,
+    can_submit_forms: false,
+    can_create_booking: false,
+    can_change_rooms: false,
+    can_block_dates: false,
+    can_export_calendar: false,
+  });
+
+  useEffect(() => {
+    if (open && user) {
+      fetchPermissions();
+    }
+  }, [open, user]);
+
+  const fetchPermissions = async () => {
+    if (!user) return;
+    
+    setLoading(true);
+    try {
+      const { data, error } = await supabase
+        .from('user_permissions')
+        .select('*')
+        .eq('user_id', user.id)
+        .single();
+
+      if (error && error.code !== 'PGRST116') {
+        throw error;
+      }
+
+      if (data) {
+        setPermissions({
+          can_check_in: data.can_check_in ?? false,
+          can_check_out: data.can_check_out ?? false,
+          can_submit_forms: data.can_submit_forms ?? false,
+          can_create_booking: data.can_create_booking ?? false,
+          can_change_rooms: data.can_change_rooms ?? false,
+          can_block_dates: data.can_block_dates ?? false,
+          can_export_calendar: data.can_export_calendar ?? false,
+        });
+      } else {
+        // Reset to defaults if no record exists
+        setPermissions({
+          can_check_in: false,
+          can_check_out: false,
+          can_submit_forms: false,
+          can_create_booking: false,
+          can_change_rooms: false,
+          can_block_dates: false,
+          can_export_calendar: false,
+        });
+      }
+    } catch (error) {
+      console.error('Error fetching permissions:', error);
+      toast({
+        title: 'Error',
+        description: 'Failed to fetch user permissions',
+        variant: 'destructive',
+      });
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const handleSave = async () => {
+    if (!user) return;
+
+    setSaving(true);
+    try {
+      // Upsert permissions (insert or update)
+      const { error } = await supabase
+        .from('user_permissions')
+        .upsert({
+          user_id: user.id,
+          ...permissions,
+          updated_at: new Date().toISOString(),
+        }, {
+          onConflict: 'user_id',
+        });
+
+      if (error) throw error;
+
+      toast({
+        title: 'Success',
+        description: `Permissions updated for ${user.full_name || user.email}`,
+      });
+
+      onOpenChange(false);
+      onSuccess?.();
+    } catch (error) {
+      console.error('Error saving permissions:', error);
+      toast({
+        title: 'Error',
+        description: 'Failed to save permissions',
+        variant: 'destructive',
+      });
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  const handleToggle = (key: keyof UserPermissions) => {
+    setPermissions(prev => ({
+      ...prev,
+      [key]: !prev[key],
+    }));
+  };
+
+  const isAdmin = user?.role === 'admin';
+
+  if (!user) return null;
+
+  return (
+    <Dialog open={open} onOpenChange={onOpenChange}>
+      <DialogContent className="sm:max-w-md">
+        <DialogHeader>
+          <DialogTitle className="flex items-center gap-2">
+            <Shield className="h-5 w-5" />
+            Edit Permissions
+          </DialogTitle>
+          <DialogDescription className="flex items-center gap-2 flex-wrap">
+            <span>{user.full_name || user.email}</span>
+            <Badge variant="secondary" className="capitalize">
+              {user.role}
+            </Badge>
+          </DialogDescription>
+        </DialogHeader>
+
+        {isAdmin ? (
+          <div className="py-6 text-center text-muted-foreground">
+            <Shield className="h-12 w-12 mx-auto mb-3 text-primary/50" />
+            <p className="font-medium">Admin users have all permissions</p>
+            <p className="text-sm mt-1">
+              No individual permission settings needed for admin role.
+            </p>
+          </div>
+        ) : loading ? (
+          <div className="flex items-center justify-center py-8">
+            <Loader2 className="h-6 w-6 animate-spin text-muted-foreground" />
+          </div>
+        ) : (
+          <div className="space-y-4 py-4">
+            {(Object.keys(PERMISSION_LABELS) as Array<keyof UserPermissions>).map((key) => (
+              <div
+                key={key}
+                className="flex items-center justify-between py-2 border-b last:border-0"
+              >
+                <div className="space-y-0.5 pr-4">
+                  <Label htmlFor={key} className="font-medium cursor-pointer">
+                    {PERMISSION_LABELS[key].label}
+                  </Label>
+                  <p className="text-xs text-muted-foreground">
+                    {PERMISSION_LABELS[key].description}
+                  </p>
+                </div>
+                <Switch
+                  id={key}
+                  checked={permissions[key]}
+                  onCheckedChange={() => handleToggle(key)}
+                />
+              </div>
+            ))}
+          </div>
+        )}
+
+        <DialogFooter className="gap-2 sm:gap-0">
+          <Button variant="outline" onClick={() => onOpenChange(false)}>
+            Cancel
+          </Button>
+          {!isAdmin && (
+            <Button onClick={handleSave} disabled={saving || loading}>
+              {saving ? (
+                <>
+                  <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+                  Saving...
+                </>
+              ) : (
+                'Save Changes'
+              )}
+            </Button>
+          )}
+        </DialogFooter>
+      </DialogContent>
+    </Dialog>
+  );
+}

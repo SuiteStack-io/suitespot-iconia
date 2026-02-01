@@ -5,8 +5,9 @@ import { supabase } from '@/integrations/supabase/client';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
-import { UserPlus, Pencil, ArrowLeft } from 'lucide-react';
+import { UserPlus, Pencil, ArrowLeft, Shield } from 'lucide-react';
 import { AddUserDialog } from '@/components/AddUserDialog';
+import { EditPermissionsDialog } from '@/components/EditPermissionsDialog';
 import { SlideMenu } from '@/components/SlideMenu';
 import { AdminBreadcrumb } from '@/components/AdminBreadcrumb';
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle, DialogTrigger } from '@/components/ui/dialog';
@@ -30,6 +31,7 @@ const Users = () => {
   const [editingUser, setEditingUser] = useState<User | null>(null);
   const [editForm, setEditForm] = useState({ full_name: '', email: '', role: '' });
   const [currentUserId, setCurrentUserId] = useState<string | null>(null);
+  const [permissionsDialogUser, setPermissionsDialogUser] = useState<User | null>(null);
   
   // Master account user ID (Youssef Noureldin)
   const MASTER_ACCOUNT_ID = 'd540b87e-f856-4ef1-9193-2fb077366ef9';
@@ -226,7 +228,7 @@ const Users = () => {
           <CardHeader className="flex flex-row items-center justify-between">
             <div>
               <CardTitle>Users</CardTitle>
-              <CardDescription>Manage user accounts and roles</CardDescription>
+              <CardDescription>Manage user accounts, roles, and permissions</CardDescription>
             </div>
             {currentUserId === MASTER_ACCOUNT_ID && <AddUserDialog onUserAdded={fetchUsers} />}
           </CardHeader>
@@ -247,61 +249,76 @@ const Users = () => {
                     <TableCell>{user.email}</TableCell>
                     <TableCell className="capitalize">{user.role}</TableCell>
                     <TableCell className="text-right">
-                      {currentUserId === MASTER_ACCOUNT_ID && (
-                        <Dialog open={editingUser?.id === user.id} onOpenChange={(open) => !open && setEditingUser(null)}>
-                          <DialogTrigger asChild>
-                            <Button variant="ghost" size="sm" onClick={() => handleEdit(user)}>
-                              <Pencil className="h-4 w-4" />
-                            </Button>
-                          </DialogTrigger>
-                        <DialogContent>
-                          <DialogHeader>
-                            <DialogTitle>Edit User</DialogTitle>
-                            <DialogDescription>Update user information</DialogDescription>
-                          </DialogHeader>
-                          <div className="space-y-4">
-                            <div className="space-y-2">
-                              <Label htmlFor="name">Full Name</Label>
-                              <Input
-                                id="name"
-                                value={editForm.full_name}
-                                onChange={(e) => setEditForm({ ...editForm, full_name: e.target.value })}
-                              />
-                            </div>
-                            <div className="space-y-2">
-                              <Label htmlFor="email">Email</Label>
-                              <Input
-                                id="email"
-                                type="email"
-                                value={editForm.email}
-                                onChange={(e) => setEditForm({ ...editForm, email: e.target.value })}
-                              />
-                            </div>
-                            <div className="space-y-2">
-                              <Label htmlFor="role">Role</Label>
-                              <Select value={editForm.role} onValueChange={(value) => setEditForm({ ...editForm, role: value })}>
-                                <SelectTrigger>
-                                  <SelectValue />
-                                </SelectTrigger>
-                                <SelectContent>
-                                  <SelectItem value="admin">Admin</SelectItem>
-                                  <SelectItem value="manager">Manager</SelectItem>
-                                  <SelectItem value="user">User</SelectItem>
-                                </SelectContent>
-                              </Select>
-                            </div>
-                            <div className="flex justify-end gap-2">
-                              <Button variant="outline" onClick={() => setEditingUser(null)}>
-                                Cancel
+                      <div className="flex items-center justify-end gap-2">
+                        {/* Edit Permissions Button - always visible for admins */}
+                        <Button
+                          variant="outline"
+                          size="sm"
+                          onClick={() => setPermissionsDialogUser(user)}
+                          className="gap-1"
+                        >
+                          <Shield className="h-4 w-4" />
+                          <span className="hidden sm:inline">Permissions</span>
+                        </Button>
+                        
+                        {/* Edit User Button - only for master account */}
+                        {currentUserId === MASTER_ACCOUNT_ID && (
+                          <Dialog open={editingUser?.id === user.id} onOpenChange={(open) => !open && setEditingUser(null)}>
+                            <DialogTrigger asChild>
+                              <Button variant="ghost" size="sm" onClick={() => handleEdit(user)}>
+                                <Pencil className="h-4 w-4" />
                               </Button>
-                              <Button onClick={handleSaveEdit}>
-                                Save Changes
-                              </Button>
+                            </DialogTrigger>
+                          <DialogContent>
+                            <DialogHeader>
+                              <DialogTitle>Edit User</DialogTitle>
+                              <DialogDescription>Update user information</DialogDescription>
+                            </DialogHeader>
+                            <div className="space-y-4">
+                              <div className="space-y-2">
+                                <Label htmlFor="name">Full Name</Label>
+                                <Input
+                                  id="name"
+                                  value={editForm.full_name}
+                                  onChange={(e) => setEditForm({ ...editForm, full_name: e.target.value })}
+                                />
+                              </div>
+                              <div className="space-y-2">
+                                <Label htmlFor="email">Email</Label>
+                                <Input
+                                  id="email"
+                                  type="email"
+                                  value={editForm.email}
+                                  onChange={(e) => setEditForm({ ...editForm, email: e.target.value })}
+                                />
+                              </div>
+                              <div className="space-y-2">
+                                <Label htmlFor="role">Role</Label>
+                                <Select value={editForm.role} onValueChange={(value) => setEditForm({ ...editForm, role: value })}>
+                                  <SelectTrigger>
+                                    <SelectValue />
+                                  </SelectTrigger>
+                                  <SelectContent>
+                                    <SelectItem value="admin">Admin</SelectItem>
+                                    <SelectItem value="manager">Manager</SelectItem>
+                                    <SelectItem value="front_desk">Front Desk</SelectItem>
+                                    <SelectItem value="housekeeping">Housekeeping</SelectItem>
+                                  </SelectContent>
+                                </Select>
+                              </div>
+                              <div className="flex justify-end gap-2">
+                                <Button variant="outline" onClick={() => setEditingUser(null)}>
+                                  Cancel
+                                </Button>
+                                <Button onClick={handleSaveEdit}>
+                                  Save Changes
+                                </Button>
+                              </div>
                             </div>
-                          </div>
-                        </DialogContent>
-                        </Dialog>
-                      )}
+                          </DialogContent>
+                          </Dialog>
+                        )}
+                      </div>
                     </TableCell>
                   </TableRow>
                 ))}
@@ -310,6 +327,14 @@ const Users = () => {
           </CardContent>
         </Card>
       </main>
+
+      {/* Edit Permissions Dialog */}
+      <EditPermissionsDialog
+        open={!!permissionsDialogUser}
+        onOpenChange={(open) => !open && setPermissionsDialogUser(null)}
+        user={permissionsDialogUser}
+        onSuccess={fetchUsers}
+      />
     </div>
   );
 };

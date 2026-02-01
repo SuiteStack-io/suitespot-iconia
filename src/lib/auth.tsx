@@ -3,14 +3,37 @@ import { User, Session } from '@supabase/supabase-js';
 import { supabase } from '@/integrations/supabase/client';
 import { useNavigate } from 'react-router-dom';
 
+export interface UserPermissions {
+  can_check_in: boolean;
+  can_check_out: boolean;
+  can_submit_forms: boolean;
+  can_create_booking: boolean;
+  can_change_rooms: boolean;
+  can_block_dates: boolean;
+  can_export_calendar: boolean;
+}
+
+const DEFAULT_PERMISSIONS: UserPermissions = {
+  can_check_in: false,
+  can_check_out: false,
+  can_submit_forms: false,
+  can_create_booking: false,
+  can_change_rooms: false,
+  can_block_dates: false,
+  can_export_calendar: false,
+};
+
 interface AuthContextType {
   user: User | null;
   session: Session | null;
   userRole: string | null;
+  permissions: UserPermissions;
+  hasPermission: (permission: keyof UserPermissions) => boolean;
   signIn: (email: string, password: string) => Promise<{ error: any }>;
   signUp: (email: string, password: string, fullName: string) => Promise<{ error: any }>;
   signOut: () => Promise<void>;
   loading: boolean;
+  refreshPermissions: () => Promise<void>;
 }
 
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
@@ -19,6 +42,7 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
   const [user, setUser] = useState<User | null>(null);
   const [session, setSession] = useState<Session | null>(null);
   const [userRole, setUserRole] = useState<string | null>(null);
+  const [permissions, setPermissions] = useState<UserPermissions>(DEFAULT_PERMISSIONS);
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
@@ -28,13 +52,15 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
         setSession(session);
         setUser(session?.user ?? null);
         
-        // Fetch user role when session changes
+        // Fetch user role and permissions when session changes
         if (session?.user) {
           setTimeout(() => {
             fetchUserRole(session.user.id);
+            fetchUserPermissions(session.user.id);
           }, 0);
         } else {
           setUserRole(null);
+          setPermissions(DEFAULT_PERMISSIONS);
         }
       }
     );
@@ -45,6 +71,7 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
       setUser(session?.user ?? null);
       if (session?.user) {
         fetchUserRole(session.user.id);
+        fetchUserPermissions(session.user.id);
       }
       setLoading(false);
     });
@@ -62,6 +89,40 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
     if (!error && data) {
       setUserRole(data.role);
     }
+  };
+
+  const fetchUserPermissions = async (userId: string) => {
+    const { data, error } = await supabase
+      .from('user_permissions')
+      .select('*')
+      .eq('user_id', userId)
+      .single();
+    
+    if (!error && data) {
+      setPermissions({
+        can_check_in: data.can_check_in ?? false,
+        can_check_out: data.can_check_out ?? false,
+        can_submit_forms: data.can_submit_forms ?? false,
+        can_create_booking: data.can_create_booking ?? false,
+        can_change_rooms: data.can_change_rooms ?? false,
+        can_block_dates: data.can_block_dates ?? false,
+        can_export_calendar: data.can_export_calendar ?? false,
+      });
+    } else {
+      setPermissions(DEFAULT_PERMISSIONS);
+    }
+  };
+
+  const refreshPermissions = async () => {
+    if (user) {
+      await fetchUserPermissions(user.id);
+    }
+  };
+
+  // Admins always have all permissions
+  const hasPermission = (permission: keyof UserPermissions): boolean => {
+    if (userRole === 'admin') return true;
+    return permissions[permission];
   };
 
   const signIn = async (email: string, password: string) => {
@@ -91,10 +152,22 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
   const signOut = async () => {
     await supabase.auth.signOut();
     setUserRole(null);
+    setPermissions(DEFAULT_PERMISSIONS);
   };
 
   return (
-    <AuthContext.Provider value={{ user, session, userRole, signIn, signUp, signOut, loading }}>
+    <AuthContext.Provider value={{ 
+      user, 
+      session, 
+      userRole, 
+      permissions,
+      hasPermission,
+      signIn, 
+      signUp, 
+      signOut, 
+      loading,
+      refreshPermissions
+    }}>
       {children}
     </AuthContext.Provider>
   );
