@@ -1,68 +1,57 @@
 
+## Fix Calendar Week Starting Day Mismatch
 
-## Add Select All Toggle to Edit Permissions Dialog
-
-### Summary
-Add a "Select All" toggle switch at the top of the permissions list in the Edit Permissions dialog. This allows admins to quickly enable or disable all permissions at once.
+### Issue
+The calendar displays day headers starting with Monday (`['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun']`), but the `startOfWeek()` and `endOfWeek()` functions from date-fns default to Sunday as the first day of the week. This causes dates to appear in the wrong column - e.g., April 4th, 2026 (Saturday) appears in the Sunday column.
 
 ---
 
 ### Technical Changes
 
-**File:** `src/components/EditPermissionsDialog.tsx`
+**Files to Update:**
 
-#### 1. Add computed state for "all selected" (after line 77)
-
-```typescript
-const allPermissionsEnabled = Object.values(permissions).every(Boolean);
-```
-
-#### 2. Add toggle all handler (after fetchPermissions function, around line 110)
+#### 1. `src/components/RoomCalendar.tsx` (Lines 418-419)
 
 ```typescript
-const handleToggleAll = () => {
-  const newValue = !allPermissionsEnabled;
-  setPermissions({
-    can_check_in: newValue,
-    can_check_out: newValue,
-    can_submit_forms: newValue,
-    can_create_booking: newValue,
-    can_change_rooms: newValue,
-    can_block_dates: newValue,
-    can_export_calendar: newValue,
-  });
-};
+// Change from:
+const calendarStart = startOfWeek(monthStart);
+const calendarEnd = endOfWeek(monthEnd);
+
+// To:
+const calendarStart = startOfWeek(monthStart, { weekStartsOn: 1 });
+const calendarEnd = endOfWeek(monthEnd, { weekStartsOn: 1 });
 ```
 
-#### 3. Add Select All row above permissions list (Line 159, inside the permissions div)
+#### 2. `src/components/MobileCalendarView.tsx` (Lines 290-291)
 
-```tsx
-{/* Select All toggle row */}
-<div className="flex items-center justify-between py-2 border-b">
-  <div className="space-y-0.5 pr-4">
-    <Label htmlFor="select-all" className="font-medium cursor-pointer">
-      Select All
-    </Label>
-    <p className="text-xs text-muted-foreground">
-      Toggle all permissions at once
-    </p>
-  </div>
-  <Switch
-    id="select-all"
-    checked={allPermissionsEnabled}
-    onCheckedChange={handleToggleAll}
-  />
-</div>
+```typescript
+// Change from:
+const calendarStart = startOfWeek(monthStart);
+const calendarEnd = endOfWeek(monthEnd);
+
+// To:
+const calendarStart = startOfWeek(monthStart, { weekStartsOn: 1 });
+const calendarEnd = endOfWeek(monthEnd, { weekStartsOn: 1 });
 ```
+
+---
+
+### Root Cause
+
+| Function | Default Behavior | Required Behavior |
+|----------|-----------------|-------------------|
+| `startOfWeek()` | Sunday (0) | Monday (1) |
+| `endOfWeek()` | Saturday (6) | Sunday (0) |
+
+The `{ weekStartsOn: 1 }` option tells date-fns to use Monday (ISO 8601 standard) as the first day of the week.
 
 ---
 
 ### Result
 
-| Action | Result |
-|--------|--------|
-| Toggle "Select All" ON | All 7 permissions become enabled |
-| Toggle "Select All" OFF | All 7 permissions become disabled |
-| Any individual permission OFF | "Select All" toggle shows OFF |
-| All individual permissions ON | "Select All" toggle shows ON |
+| Date | Before (Wrong Column) | After (Correct Column) |
+|------|----------------------|------------------------|
+| April 4, 2026 (Saturday) | Sun | Sat |
+| April 5, 2026 (Sunday) | Mon | Sun |
 
+The calendar dates will align correctly with their respective day headers.
