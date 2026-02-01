@@ -37,13 +37,16 @@ type Reservation = {
   check_in_date: string;
   check_out_date: string;
   total_price: number | null;
+  price_per_night: number | null;
+  nights: number | null;
+  vat_exempt: boolean | null;
   payment_method: string | null;
   source: string;
   channel: string;
   settled: string | null;
   status: string;
   unit_id: string | null;
-  units?: { name: string; unit_number: string | null; booking_com_name: string | null } | null;
+  units?: { name: string; unit_number: string | null; booking_com_name: string | null; tax_percentage: number | null } | null;
 };
 
 type ModalType = 'cash' | 'card' | 'settled' | 'pending' | null;
@@ -68,7 +71,7 @@ export default function CashSettlement() {
     queryFn: async () => {
       const { data, error } = await supabase
         .from('reservations')
-        .select('*, units(name, unit_number, booking_com_name)')
+        .select('*, units(name, unit_number, booking_com_name, tax_percentage)')
         .in('payment_method', ['cash', 'credit_card'])
         .neq('source', 'booking.com')
         .not('status', 'ilike', '%cancelled%')
@@ -172,10 +175,17 @@ export default function CashSettlement() {
     const settledReservations = reservations.filter(r => r.settled === 'yes');
     const pendingReservations = reservations.filter(r => r.settled !== 'yes');
 
-    const cashTotal = cashReservations.reduce((sum, r) => sum + (r.total_price || 0), 0);
-    const cardTotal = cardReservations.reduce((sum, r) => sum + (r.total_price || 0), 0);
-    const settledTotal = settledReservations.reduce((sum, r) => sum + (r.total_price || 0), 0);
-    const pendingTotal = pendingReservations.reduce((sum, r) => sum + (r.total_price || 0), 0);
+    const calcTotal = (r: Reservation): number => {
+      if (r.vat_exempt) return r.total_price || 0;
+      const subtotal = (r.price_per_night || 0) * (r.nights || 0);
+      const taxPercentage = r.units?.tax_percentage || 14;
+      return subtotal + (subtotal * taxPercentage / 100);
+    };
+
+    const cashTotal = cashReservations.reduce((sum, r) => sum + calcTotal(r), 0);
+    const cardTotal = cardReservations.reduce((sum, r) => sum + calcTotal(r), 0);
+    const settledTotal = settledReservations.reduce((sum, r) => sum + calcTotal(r), 0);
+    const pendingTotal = pendingReservations.reduce((sum, r) => sum + calcTotal(r), 0);
 
     const total = cashTotal + cardTotal;
     const cashPercent = total > 0 ? (cashTotal / total) * 100 : 0;
@@ -236,7 +246,7 @@ export default function CashSettlement() {
   const selectedTotal = useMemo(() => {
     return unsettledCashReservations
       .filter(r => selectedReservations.has(r.id))
-      .reduce((sum, r) => sum + (r.total_price || 0), 0);
+      .reduce((sum, r) => sum + calculateTotalWithVAT(r), 0);
   }, [unsettledCashReservations, selectedReservations]);
 
   const selectedCount = selectedReservations.size;
@@ -245,7 +255,7 @@ export default function CashSettlement() {
   const selectedSettledTotal = useMemo(() => {
     return settledCashReservations
       .filter(r => selectedSettledReservations.has(r.id))
-      .reduce((sum, r) => sum + (r.total_price || 0), 0);
+      .reduce((sum, r) => sum + calculateTotalWithVAT(r), 0);
   }, [settledCashReservations, selectedSettledReservations]);
 
   const selectedSettledCount = selectedSettledReservations.size;
@@ -258,6 +268,16 @@ export default function CashSettlement() {
 
   const formatCurrency = (amount: number) => {
     return new Intl.NumberFormat('en-US', { style: 'currency', currency: 'USD' }).format(amount);
+  };
+
+  // Calculate VAT-inclusive total for a reservation
+  const calculateTotalWithVAT = (reservation: Reservation): number => {
+    if (reservation.vat_exempt) {
+      return reservation.total_price || 0;
+    }
+    const subtotal = (reservation.price_per_night || 0) * (reservation.nights || 0);
+    const taxPercentage = reservation.units?.tax_percentage || 14;
+    return subtotal + (subtotal * taxPercentage / 100);
   };
 
   const handleSelectAll = (checked: boolean) => {
@@ -304,7 +324,7 @@ export default function CashSettlement() {
       'Room #': r.units?.unit_number || '-',
       'Check-in': format(new Date(r.check_in_date), 'MMM d, yyyy'),
       'Check-out': format(new Date(r.check_out_date), 'MMM d, yyyy'),
-      'Amount': r.total_price || 0,
+      'Amount (incl. VAT)': calculateTotalWithVAT(r),
       'Payment Method': r.payment_method === 'credit_card' ? 'Card' : r.payment_method,
       'Source': r.source,
       'Settled': r.settled === 'yes' ? 'Yes' : 'No',
@@ -314,31 +334,31 @@ export default function CashSettlement() {
 
     // Unsettled Cash sheet
     const unsettledData = unsettledCashReservations.map(formatRow);
-    const unsettledTotal = unsettledCashReservations.reduce((sum, r) => sum + (r.total_price || 0), 0);
-    unsettledData.push({ 'Booking Reference': 'TOTAL', 'Guest Name': '', 'Suite': '', 'Room #': '', 'Check-in': '', 'Check-out': '', 'Amount': unsettledTotal, 'Payment Method': '', 'Source': '', 'Settled': '' });
+    const unsettledTotal = unsettledCashReservations.reduce((sum, r) => sum + calculateTotalWithVAT(r), 0);
+    unsettledData.push({ 'Booking Reference': 'TOTAL (incl. 14% VAT)', 'Guest Name': '', 'Suite': '', 'Room #': '', 'Check-in': '', 'Check-out': '', 'Amount (incl. VAT)': unsettledTotal, 'Payment Method': '', 'Source': '', 'Settled': '' });
     const ws1 = XLSX.utils.json_to_sheet(unsettledData);
     XLSX.utils.book_append_sheet(wb, ws1, 'Unsettled Cash');
 
     // Settled Cash sheet
     const settledData = settledCashReservations.map(formatRow);
-    const settledTotal = settledCashReservations.reduce((sum, r) => sum + (r.total_price || 0), 0);
-    settledData.push({ 'Booking Reference': 'TOTAL', 'Guest Name': '', 'Suite': '', 'Room #': '', 'Check-in': '', 'Check-out': '', 'Amount': settledTotal, 'Payment Method': '', 'Source': '', 'Settled': '' });
+    const settledTotal = settledCashReservations.reduce((sum, r) => sum + calculateTotalWithVAT(r), 0);
+    settledData.push({ 'Booking Reference': 'TOTAL (incl. 14% VAT)', 'Guest Name': '', 'Suite': '', 'Room #': '', 'Check-in': '', 'Check-out': '', 'Amount (incl. VAT)': settledTotal, 'Payment Method': '', 'Source': '', 'Settled': '' });
     const ws2 = XLSX.utils.json_to_sheet(settledData);
     XLSX.utils.book_append_sheet(wb, ws2, 'Settled Cash');
 
     // Card Reservations sheet
     const cardData = filteredCardReservations.map(formatRow);
-    const cardTotal = filteredCardReservations.reduce((sum, r) => sum + (r.total_price || 0), 0);
-    cardData.push({ 'Booking Reference': 'TOTAL', 'Guest Name': '', 'Suite': '', 'Room #': '', 'Check-in': '', 'Check-out': '', 'Amount': cardTotal, 'Payment Method': '', 'Source': '', 'Settled': '' });
+    const cardTotal = filteredCardReservations.reduce((sum, r) => sum + calculateTotalWithVAT(r), 0);
+    cardData.push({ 'Booking Reference': 'TOTAL (incl. 14% VAT)', 'Guest Name': '', 'Suite': '', 'Room #': '', 'Check-in': '', 'Check-out': '', 'Amount (incl. VAT)': cardTotal, 'Payment Method': '', 'Source': '', 'Settled': '' });
     const ws3 = XLSX.utils.json_to_sheet(cardData);
     XLSX.utils.book_append_sheet(wb, ws3, 'Card Reservations');
 
     // Summary sheet
     const summaryData = [
-      { Category: 'Unsettled Cash', Count: unsettledCashReservations.length, Total: unsettledTotal },
-      { Category: 'Settled Cash', Count: settledCashReservations.length, Total: settledTotal },
-      { Category: 'Card Reservations', Count: filteredCardReservations.length, Total: cardTotal },
-      { Category: 'GRAND TOTAL', Count: unsettledCashReservations.length + settledCashReservations.length + filteredCardReservations.length, Total: unsettledTotal + settledTotal + cardTotal },
+      { Category: 'Unsettled Cash', Count: unsettledCashReservations.length, 'Total (incl. VAT)': unsettledTotal },
+      { Category: 'Settled Cash', Count: settledCashReservations.length, 'Total (incl. VAT)': settledTotal },
+      { Category: 'Card Reservations', Count: filteredCardReservations.length, 'Total (incl. VAT)': cardTotal },
+      { Category: 'GRAND TOTAL', Count: unsettledCashReservations.length + settledCashReservations.length + filteredCardReservations.length, 'Total (incl. VAT)': unsettledTotal + settledTotal + cardTotal },
     ];
     const ws4 = XLSX.utils.json_to_sheet(summaryData);
     XLSX.utils.book_append_sheet(wb, ws4, 'Summary');
@@ -369,7 +389,7 @@ export default function CashSettlement() {
     showSettleAction?: boolean;
     showUnsettleAction?: boolean;
   }) => {
-    const tableTotal = data.reduce((sum, r) => sum + (r.total_price || 0), 0);
+    const tableTotal = data.reduce((sum, r) => sum + calculateTotalWithVAT(r), 0);
     const hasCheckbox = showSettleAction || showUnsettleAction;
     
     // Determine selection state based on action type
@@ -415,7 +435,7 @@ export default function CashSettlement() {
             <TableHead>Suite</TableHead>
             <TableHead>Room #</TableHead>
             <TableHead>Dates</TableHead>
-            <TableHead>Total Amount</TableHead>
+            <TableHead>Total (incl. VAT)</TableHead>
             <TableHead>Payment</TableHead>
             <TableHead>Source</TableHead>
             <TableHead>Status</TableHead>
@@ -447,7 +467,7 @@ export default function CashSettlement() {
                 <TableCell className="text-sm">
                   {format(new Date(r.check_in_date), 'MMM d')} - {format(new Date(r.check_out_date), 'MMM d, yyyy')}
                 </TableCell>
-                <TableCell className="font-medium">{formatCurrency(r.total_price || 0)}</TableCell>
+                <TableCell className="font-medium">{formatCurrency(calculateTotalWithVAT(r))}</TableCell>
                 <TableCell>
                   <Badge variant={r.payment_method === 'cash' ? 'default' : 'secondary'} className="capitalize">
                     {r.payment_method === 'credit_card' ? 'Card' : r.payment_method}
@@ -521,7 +541,7 @@ export default function CashSettlement() {
           <TableFooter>
             <TableRow className="bg-muted/50">
               <TableCell colSpan={hasCheckbox ? 6 : 5} className="text-right font-semibold">
-                Total ({data.length} reservations)
+                Total incl. 14% VAT ({data.length} reservations)
               </TableCell>
               <TableCell className="font-bold text-lg">{formatCurrency(tableTotal)}</TableCell>
               <TableCell colSpan={(showSettleAction || showUnsettleAction) ? 4 : 3}></TableCell>
