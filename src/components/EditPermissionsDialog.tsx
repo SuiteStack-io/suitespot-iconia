@@ -189,6 +189,20 @@ export function EditPermissionsDialog({
   };
 
   const isAdmin = user?.role === 'admin';
+  const allPermissionsEnabled = Object.values(permissions).every(Boolean);
+
+  const handleToggleAll = () => {
+    const newValue = !allPermissionsEnabled;
+    setPermissions({
+      can_check_in: newValue,
+      can_check_out: newValue,
+      can_submit_forms: newValue,
+      can_create_booking: newValue,
+      can_change_rooms: newValue,
+      can_block_dates: newValue,
+      can_export_calendar: newValue,
+    });
+  };
 
   if (!user) return null;
 
@@ -222,6 +236,22 @@ export function EditPermissionsDialog({
           </div>
         ) : (
           <div className="space-y-4 py-4">
+            {/* Select All toggle row */}
+            <div className="flex items-center justify-between py-2 border-b">
+              <div className="space-y-0.5 pr-4">
+                <Label htmlFor="select-all" className="font-medium cursor-pointer">
+                  Select All
+                </Label>
+                <p className="text-xs text-muted-foreground">
+                  Toggle all permissions at once
+                </p>
+              </div>
+              <Switch
+                id="select-all"
+                checked={allPermissionsEnabled}
+                onCheckedChange={handleToggleAll}
+              />
+            </div>
             {(Object.keys(PERMISSION_LABELS) as Array<keyof UserPermissions>).map((key) => (
               <div
                 key={key}
