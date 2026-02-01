@@ -1399,11 +1399,11 @@ const BookingComReservations = () => {
         };
         
         // Recalculate derived fields
+        // Note: nights is a generated column - don't include in update payload
         const nights = differenceInCalendarDays(
           parseISO(parsedData.checkOutDate), 
           parseISO(parsedData.checkInDate)
         );
-        updateData.nights = nights;
         updateData.price_per_night = parsedData.totalPrice && nights > 0 
           ? parsedData.totalPrice / nights 
           : null;
