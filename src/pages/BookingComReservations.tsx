@@ -64,6 +64,8 @@ interface ParsedReservation {
   nationality?: string;
   preferredLanguage?: string;
   blockedUnitWarning?: string;
+  isModification?: boolean;
+  changeCount?: number;
 }
 
 interface RoomAssignment {
@@ -137,6 +139,11 @@ const BookingComReservations = () => {
     status: 'available' | 'reserved' | 'blocked';
   }[]>>({});
   const [loadingSegmentAvailability, setLoadingSegmentAvailability] = useState<Record<string, boolean>>({});
+
+  // Modification mode state
+  const [isModificationMode, setIsModificationMode] = useState(false);
+  const [existingReservationsToUpdate, setExistingReservationsToUpdate] = useState<any[]>([]);
+  const [originalReservationData, setOriginalReservationData] = useState<any>(null);
 
   useEffect(() => {
     if (!loading && !user) {
@@ -257,12 +264,22 @@ const BookingComReservations = () => {
             // Check if booking already exists
             const { data: existing } = await supabase
               .from('reservations')
-              .select('id, guest_names, check_in_date, check_out_date')
+              .select('*')
               .eq('booking_reference', data.data.bookingReference)
-              .neq('status', 'cancelled')
-              .maybeSingle();
+              .neq('status', 'cancelled');
 
-            setExistingReservation(existing);
+            // If exists and this is a modification screenshot
+            if (existing && existing.length > 0 && data.data.isModification) {
+              setIsModificationMode(true);
+              setExistingReservationsToUpdate(existing);
+              setOriginalReservationData(existing[0]); // For comparison display
+              setExistingReservation(null); // Don't show the error alert
+            } else {
+              setExistingReservation(existing?.[0] || null);
+              setIsModificationMode(false);
+              setExistingReservationsToUpdate([]);
+              setOriginalReservationData(null);
+            }
             
             // Initialize room assignments from matched rooms
             if (data.data.matchedRooms && data.data.matchedRooms.length > 0) {
@@ -1327,6 +1344,80 @@ const BookingComReservations = () => {
     }
   };
 
+  const handleUpdateReservation = async () => {
+    if (!parsedData || existingReservationsToUpdate.length === 0) return;
+    setCreating(true);
+    
+    try {
+      // Handle multi-room bookings (update all linked reservations)
+      for (const reservation of existingReservationsToUpdate) {
+        const updateData: any = {
+          check_in_date: parsedData.checkInDate,
+          check_out_date: parsedData.checkOutDate,
+          total_price: parsedData.totalPrice,
+          number_of_guests: parsedData.numberOfGuests,
+          adults: parsedData.adults,
+          children: parsedData.children,
+          notes: `Updated from Booking.com modification. ${parsedData.notes || ''}`.trim(),
+          updated_at: new Date().toISOString(),
+        };
+        
+        // Recalculate derived fields
+        const nights = differenceInCalendarDays(
+          parseISO(parsedData.checkOutDate), 
+          parseISO(parsedData.checkInDate)
+        );
+        updateData.nights = nights;
+        updateData.price_per_night = parsedData.totalPrice && nights > 0 
+          ? parsedData.totalPrice / nights 
+          : null;
+        
+        // Update commission if provided
+        if (parsedData.commissionAmount) {
+          updateData.commission_amount = parsedData.commissionAmount;
+          updateData.commission_rate = parsedData.totalPrice 
+            ? (parsedData.commissionAmount / parsedData.totalPrice) * 100 
+            : null;
+        }
+        if (parsedData.commissionableAmount) {
+          updateData.net_revenue = parsedData.commissionableAmount;
+        }
+        
+        const { error } = await supabase
+          .from('reservations')
+          .update(updateData)
+          .eq('id', reservation.id);
+        
+        if (error) throw error;
+      }
+      
+      toast({
+        title: 'Success',
+        description: `Updated ${existingReservationsToUpdate.length} reservation(s)`,
+      });
+      
+      // Reset state
+      setShowPreview(false);
+      setParsedData(null);
+      setIsModificationMode(false);
+      setExistingReservationsToUpdate([]);
+      setOriginalReservationData(null);
+      setScreenshotFile(null);
+      
+      const fileInput = document.getElementById('screenshot-upload') as HTMLInputElement;
+      if (fileInput) fileInput.value = '';
+      
+    } catch (error: any) {
+      toast({
+        title: 'Error',
+        description: error.message || 'Failed to update reservation',
+        variant: 'destructive',
+      });
+    } finally {
+      setCreating(false);
+    }
+  };
+
   const allRoomsAssigned = roomAssignments.length > 0 && roomAssignments.every(r => r.unitId);
   const hasNoDuplicateAssignments = () => {
     const ids = getAssignedUnitIds();
@@ -1577,7 +1668,65 @@ const BookingComReservations = () => {
             </DialogDescription>
           </DialogHeader>
 
-          {existingReservation && (
+          {/* Show modification comparison when updating existing reservation */}
+          {isModificationMode && existingReservationsToUpdate.length > 0 && originalReservationData && (
+            <Alert className="border-blue-200 bg-blue-50">
+              <ArrowLeftRight className="h-4 w-4 text-blue-600" />
+              <AlertTitle className="text-blue-800">Reservation Modification Detected</AlertTitle>
+              <AlertDescription className="text-blue-700">
+                <div className="mt-2 space-y-2">
+                  <p className="font-medium">Changes detected for booking {parsedData?.bookingReference}:</p>
+                  
+                  {/* Date Change Comparison */}
+                  {parsedData && (originalReservationData?.check_in_date !== parsedData?.checkInDate ||
+                    originalReservationData?.check_out_date !== parsedData?.checkOutDate) && (
+                    <div className="flex items-center gap-2 text-sm flex-wrap">
+                      <span className="text-muted-foreground line-through">
+                        {format(parseISO(originalReservationData.check_in_date), 'MMM d')} - {format(parseISO(originalReservationData.check_out_date), 'MMM d, yyyy')}
+                      </span>
+                      <span>→</span>
+                      <span className="font-medium text-blue-800">
+                        {format(parseISO(parsedData.checkInDate), 'MMM d')} - {format(parseISO(parsedData.checkOutDate), 'MMM d, yyyy')}
+                      </span>
+                    </div>
+                  )}
+                  
+                  {/* Price Change Comparison */}
+                  {parsedData && originalReservationData?.total_price !== parsedData?.totalPrice && (
+                    <div className="flex items-center gap-2 text-sm">
+                      <span className="text-muted-foreground line-through">
+                        {parsedData?.currency} {originalReservationData.total_price}
+                      </span>
+                      <span>→</span>
+                      <span className="font-medium text-blue-800">
+                        {parsedData?.currency} {parsedData?.totalPrice}
+                      </span>
+                    </div>
+                  )}
+
+                  {/* Guest Count Change Comparison */}
+                  {parsedData && originalReservationData?.number_of_guests !== parsedData?.numberOfGuests && (
+                    <div className="flex items-center gap-2 text-sm">
+                      <span className="text-muted-foreground line-through">
+                        {originalReservationData.number_of_guests} guests
+                      </span>
+                      <span>→</span>
+                      <span className="font-medium text-blue-800">
+                        {parsedData?.numberOfGuests} guests
+                      </span>
+                    </div>
+                  )}
+                  
+                  <p className="text-xs mt-2">
+                    This will update {existingReservationsToUpdate.length} existing reservation(s).
+                  </p>
+                </div>
+              </AlertDescription>
+            </Alert>
+          )}
+
+          {/* Keep existing error for non-modification duplicates */}
+          {existingReservation && !isModificationMode && (
             <Alert variant="destructive">
               <AlertTriangle className="h-4 w-4" />
               <AlertTitle>Reservation Already Exists</AlertTitle>
@@ -2150,32 +2299,34 @@ const BookingComReservations = () => {
               )}
             </Button>
             <div className="flex gap-2 w-full sm:w-auto">
-              <Button variant="outline" onClick={() => { setShowPreview(false); setExistingReservation(null); setRoomAssignments([]); setSplitSegments([]); setIsSplitStay(false); setSegmentAvailability({}); setLoadingSegmentAvailability({}); }} disabled={creating} className="flex-1 sm:flex-none">
+              <Button variant="outline" onClick={() => { setShowPreview(false); setExistingReservation(null); setRoomAssignments([]); setSplitSegments([]); setIsSplitStay(false); setSegmentAvailability({}); setLoadingSegmentAvailability({}); setIsModificationMode(false); setExistingReservationsToUpdate([]); setOriginalReservationData(null); }} disabled={creating} className="flex-1 sm:flex-none">
                 Cancel
               </Button>
               <Button 
-                onClick={handleConfirmReservation} 
+                onClick={isModificationMode ? handleUpdateReservation : handleConfirmReservation} 
                 disabled={
                   creating || 
-                  existingReservation !== null || 
-                  (isSplitStay 
+                  (existingReservation !== null && !isModificationMode) || 
+                  (!isModificationMode && (isSplitStay 
                     ? !allSegmentsValid()
                     : (!allRoomsAssigned || !hasNoDuplicateAssignments())
-                  )
+                  ))
                 } 
                 className="flex-1 sm:flex-none"
               >
                 {creating ? (
                   <>
                     <Loader2 className="h-4 w-4 mr-2 animate-spin" />
-                    Creating...
+                    {isModificationMode ? 'Updating...' : 'Creating...'}
                   </>
                 ) : (
-                  isSplitStay && splitSegments.length > 1
-                    ? `Create ${splitSegments.length} Reservations`
-                    : parsedData?.isMultiRoom && roomAssignments.length > 1 
-                      ? `Create ${roomAssignments.length} Reservations`
-                      : 'Confirm & Create'
+                  isModificationMode
+                    ? `Update ${existingReservationsToUpdate.length} Reservation(s)`
+                    : isSplitStay && splitSegments.length > 1
+                      ? `Create ${splitSegments.length} Reservations`
+                      : parsedData?.isMultiRoom && roomAssignments.length > 1 
+                        ? `Create ${roomAssignments.length} Reservations`
+                        : 'Confirm & Create'
                 )}
               </Button>
             </div>

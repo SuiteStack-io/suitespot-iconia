@@ -30,6 +30,8 @@ interface ParsedReservation {
   commissionAmount?: number;
   nationality?: string;
   preferredLanguage?: string;
+  isModification?: boolean; // NEW: true if screenshot shows "Reservation changes"
+  changeCount?: number; // NEW: number of changes (e.g., "(4)" from header)
 }
 
 interface MatchedRoom {
@@ -70,7 +72,7 @@ serve(async (req) => {
             content: [
               {
                 type: 'text',
-                text: `Extract booking reservation details from this Booking.com screenshot. This may be a MULTI-ROOM booking with 2 or more rooms.
+                text: `Extract booking reservation details from this Booking.com screenshot. This may be a MULTI-ROOM booking with 2 or more rooms, or a RESERVATION MODIFICATION showing changes to an existing booking.
 
 Return ONLY a valid JSON object with these exact fields (use null for missing values):
 {
@@ -93,8 +95,16 @@ Return ONLY a valid JSON object with these exact fields (use null for missing va
   "commissionableAmount": number or null (look for "Commissionable amount" - this is the net revenue for ALL rooms)",
   "commissionAmount": number or null (look for "Commission and charges" - this is the commission amount for ALL rooms)",
   "nationality": "string or null (extract full country name from country code like 'Kw' = 'Kuwait', 'Us' = 'United States', etc)",
-  "preferredLanguage": "string or null (ONLY extract if explicitly shown as 'Preferred language' or 'Guest language' field - do NOT infer from nationality)"
+  "preferredLanguage": "string or null (ONLY extract if explicitly shown as 'Preferred language' or 'Guest language' field - do NOT infer from nationality)",
+  "isModification": boolean (true if you see "Reservation changes" header, "Modified", "Changed", or any modification indicators at the top of the screenshot),
+  "changeCount": number or null (if you see "Reservation changes (4)" or similar, extract the number in parentheses)
 }
+
+IMPORTANT FOR RESERVATION MODIFICATIONS:
+- Look for "Reservation changes" header text at the top of the screenshot
+- Look for "(X)" number after "Reservation changes" indicating the number of changes
+- If this is a modification, extract the NEW/UPDATED values (dates, prices, guests) shown in the screenshot
+- The modification screenshot will show the updated booking details - extract these new values
 
 IMPORTANT FOR MULTI-ROOM BOOKINGS:
 - Look for multiple room entries in the screenshot (e.g., "2 rooms", "Room 1:", "Room 2:", or multiple room type listings)
