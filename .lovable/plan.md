@@ -1,264 +1,157 @@
 
+## Fix Room Dropdown Display and Modification Conflict Detection
 
-## Support Reservation Changes via Booking.com Screenshot
+### Issues Identified
 
-### Summary
-Enable the system to detect and handle reservation modifications (date changes, price updates, etc.) when uploading Booking.com screenshots that show "Reservation changes" in the header. When a matching booking reference already exists, instead of blocking the import with an error, the system will offer to update the existing reservation(s) with the new details.
+1. **Room dropdown shows internal suite names instead of booking.com names**
+   - The dropdown displays "Deluxe One Bedroom Suite (#506)" using `unit.name`
+   - Should display the guest-facing `booking_com_name` field with fallback to `name`
 
----
-
-### Current Behavior
-1. User uploads a Booking.com screenshot
-2. AI parses reservation details (dates, prices, guests, etc.)
-3. System checks if `booking_reference` already exists in database
-4. If exists: Shows error alert "Reservation Already Exists" and blocks creation
-5. If not exists: Allows creating new reservation
-
-### New Behavior
-1. User uploads a Booking.com screenshot
-2. AI parses reservation details AND detects if it's a modification ("Reservation changes" header)
-3. System checks if `booking_reference` already exists
-4. If exists AND is a modification screenshot:
-   - Show "Update Reservation" dialog instead of error
-   - Compare old vs new values (dates, prices, guests)
-   - Allow updating the existing reservation(s) with new data
-5. If exists AND is NOT a modification: Show existing error behavior
-6. If not exists: Create new reservation (existing flow)
+2. **False conflict detection for Family Suite during reservation modification**
+   - When modifying booking 6083546298, the Family Suite shows as "Reserved" because the system detects a conflict with the original reservation being modified
+   - The RPC function `check_reservation_overlap` already supports a `p_exclude_id` parameter that we're not using
 
 ---
 
 ### Technical Changes
 
-#### 1. Update Edge Function: `supabase/functions/parse-reservation-screenshot/index.ts`
+#### File 1: `src/pages/BookingComReservations.tsx`
 
-Add detection for "Reservation changes" indicator and new fields to the AI prompt:
+**A. Update `fetchUnitsWithStatus` to include `booking_com_name` (line 175-178)**
 
 ```typescript
-interface ParsedReservation {
-  // ... existing fields ...
-  isModification?: boolean;  // NEW: true if screenshot shows "Reservation changes"
-  changeCount?: number;      // NEW: number of changes (e.g., "(4)" from header)
+// Change from:
+const { data: allUnits } = await supabase
+  .from('units')
+  .select('id, name, unit_number, unit_type')
+  .eq('location', 'ICONIA')
+  .order('name');
+
+// To:
+const { data: allUnits } = await supabase
+  .from('units')
+  .select('id, name, unit_number, unit_type, booking_com_name')
+  .eq('location', 'ICONIA')
+  .order('name');
+```
+
+**B. Update `fetchUnitsWithStatus` to accept and use `excludeReservationIds` parameter (lines 172-218)**
+
+```typescript
+// Change function signature from:
+const fetchUnitsWithStatus = async (checkIn: string, checkOut: string, excludeUnitIds: string[] = []) => {
+
+// To:
+const fetchUnitsWithStatus = async (checkIn: string, checkOut: string, excludeReservationIds: string[] = []) => {
+```
+
+Then update the conflict check to exclude the existing reservation IDs:
+
+```typescript
+// For each unit, check conflicts excluding the reservations being modified
+const { data: conflicts } = await supabase.rpc('check_reservation_overlap', {
+  p_unit_id: unit.id,
+  p_check_in_date: checkIn,
+  p_check_out_date: checkOut,
+  p_exclude_id: excludeReservationIds[0] || null  // Exclude first reservation being modified
+});
+```
+
+For multi-room modifications (multiple reservations with same booking reference), we need to handle excluding all of them:
+
+```typescript
+// Filter out conflicts that match any of the excluded reservation IDs
+const filteredConflicts = (conflicts || []).filter(
+  (c: any) => !excludeReservationIds.includes(c.conflict_id)
+);
+
+let status: 'available' | 'reserved' | 'blocked' = 'available';
+if (filteredConflicts.length > 0) status = 'reserved';
+else if (blockedDates && blockedDates.length > 0) status = 'blocked';
+```
+
+**C. Update `unitsWithStatus` type definition (lines 112-118)**
+
+```typescript
+// Add booking_com_name to the type:
+const [unitsWithStatus, setUnitsWithStatus] = useState<{
+  id: string;
+  name: string;
+  unit_number: string;
+  unit_type: string;
+  booking_com_name: string | null;  // ADD THIS
+  status: 'available' | 'reserved' | 'blocked';
+}[]>([]);
+```
+
+**D. Pass existing reservation IDs when calling `fetchUnitsWithStatus` (around line 302)**
+
+```typescript
+// Change from:
+if (data.data?.checkInDate && data.data?.checkOutDate) {
+  fetchUnitsWithStatus(data.data.checkInDate, data.data.checkOutDate);
+}
+
+// To:
+if (data.data?.checkInDate && data.data?.checkOutDate) {
+  // In modification mode, exclude the existing reservations from conflict detection
+  const excludeIds = (existing && existing.length > 0 && data.data.isModification)
+    ? existing.map((r: any) => r.id)
+    : [];
+  fetchUnitsWithStatus(data.data.checkInDate, data.data.checkOutDate, excludeIds);
 }
 ```
 
-Update AI prompt to extract:
-```
-"isModification": boolean (true if you see "Reservation changes" header or modification indicators),
-"changeCount": number or null (if you see "Reservation changes (4)", extract the number 4),
-```
+**E. Update all room dropdown display text (multiple locations)**
 
-#### 2. Update Frontend: `src/pages/BookingComReservations.tsx`
+Replace `unit.name` with `unit.booking_com_name || unit.name` in all SelectItem components:
 
-**A. Add new state for modification mode:**
+**Line 1827:**
 ```typescript
-const [isModificationMode, setIsModificationMode] = useState(false);
-const [existingReservationsToUpdate, setExistingReservationsToUpdate] = useState<any[]>([]);
-const [originalReservationData, setOriginalReservationData] = useState<any>(null);
+// Change from:
+<span>{unit.name} (#{unit.unit_number})</span>
+
+// To:
+<span>{unit.booking_com_name || unit.name} (#{unit.unit_number})</span>
 ```
 
-**B. Update `processFile` function (around line 253-266):**
-When checking for existing reservation, also fetch full reservation data for comparison:
+**Line 1947:**
 ```typescript
-// Check if booking already exists
-const { data: existing } = await supabase
-  .from('reservations')
-  .select('*')  // Fetch all fields for comparison
-  .eq('booking_reference', data.data.bookingReference)
-  .neq('status', 'cancelled');
+// Change from:
+<span>{unit.name} (#{unit.unit_number})</span>
 
-// If exists and this is a modification screenshot
-if (existing && existing.length > 0 && data.data.isModification) {
-  setIsModificationMode(true);
-  setExistingReservationsToUpdate(existing);
-  setOriginalReservationData(existing[0]); // For comparison display
-  setExistingReservation(null); // Don't show the error alert
-} else {
-  setExistingReservation(existing?.[0] || null);
-  setIsModificationMode(false);
-}
+// To:
+<span>{unit.booking_com_name || unit.name} (#{unit.unit_number})</span>
 ```
 
-**C. Add new update handler function:**
+**Line 2125:**
 ```typescript
-const handleUpdateReservation = async () => {
-  if (!parsedData || existingReservationsToUpdate.length === 0) return;
-  setCreating(true);
-  
-  try {
-    // Handle multi-room bookings (update all linked reservations)
-    for (const reservation of existingReservationsToUpdate) {
-      const updateData: any = {
-        check_in_date: parsedData.checkInDate,
-        check_out_date: parsedData.checkOutDate,
-        total_price: parsedData.totalPrice,
-        number_of_guests: parsedData.numberOfGuests,
-        adults: parsedData.adults,
-        children: parsedData.children,
-        notes: `Updated from Booking.com modification. ${parsedData.notes || ''}`,
-        updated_at: new Date().toISOString(),
-      };
-      
-      // Recalculate derived fields
-      const nights = differenceInCalendarDays(
-        parseISO(parsedData.checkOutDate), 
-        parseISO(parsedData.checkInDate)
-      );
-      updateData.nights = nights;
-      updateData.price_per_night = parsedData.totalPrice && nights > 0 
-        ? parsedData.totalPrice / nights 
-        : null;
-      
-      // Update commission if provided
-      if (parsedData.commissionAmount) {
-        updateData.commission_amount = parsedData.commissionAmount;
-        updateData.commission_rate = parsedData.totalPrice 
-          ? (parsedData.commissionAmount / parsedData.totalPrice) * 100 
-          : null;
-      }
-      if (parsedData.commissionableAmount) {
-        updateData.net_revenue = parsedData.commissionableAmount;
-      }
-      
-      const { error } = await supabase
-        .from('reservations')
-        .update(updateData)
-        .eq('id', reservation.id);
-      
-      if (error) throw error;
-    }
-    
-    toast({
-      title: 'Success',
-      description: `Updated ${existingReservationsToUpdate.length} reservation(s)`,
-    });
-    
-    // Reset state
-    setShowPreview(false);
-    setParsedData(null);
-    setIsModificationMode(false);
-    setExistingReservationsToUpdate([]);
-    
-  } catch (error: any) {
-    toast({
-      title: 'Error',
-      description: error.message || 'Failed to update reservation',
-      variant: 'destructive',
-    });
-  } finally {
-    setCreating(false);
-  }
-};
+// Change from:
+<span>{unit.name} (#{unit.unit_number})</span>
+
+// To:
+<span>{unit.booking_com_name || unit.name} (#{unit.unit_number})</span>
 ```
 
-**D. Update Preview Dialog UI (around line 1580-1595):**
-Replace the existing "Reservation Already Exists" error alert with a modification-aware display:
+**F. Also update `fetchAvailabilityForSegment` function (lines 393-443) with same changes:**
 
-```tsx
-{/* Show modification comparison when updating existing reservation */}
-{isModificationMode && existingReservationsToUpdate.length > 0 && (
-  <Alert className="border-blue-200 bg-blue-50">
-    <ArrowLeftRight className="h-4 w-4 text-blue-600" />
-    <AlertTitle className="text-blue-800">Reservation Modification Detected</AlertTitle>
-    <AlertDescription className="text-blue-700">
-      <div className="mt-2 space-y-2">
-        <p className="font-medium">Changes detected for booking {parsedData?.bookingReference}:</p>
-        
-        {/* Date Change Comparison */}
-        {(originalReservationData?.check_in_date !== parsedData?.checkInDate ||
-          originalReservationData?.check_out_date !== parsedData?.checkOutDate) && (
-          <div className="flex items-center gap-2 text-sm">
-            <span className="text-muted-foreground line-through">
-              {format(parseISO(originalReservationData.check_in_date), 'MMM d')} - 
-              {format(parseISO(originalReservationData.check_out_date), 'MMM d, yyyy')}
-            </span>
-            <span>→</span>
-            <span className="font-medium text-blue-800">
-              {format(parseISO(parsedData.checkInDate), 'MMM d')} - 
-              {format(parseISO(parsedData.checkOutDate), 'MMM d, yyyy')}
-            </span>
-          </div>
-        )}
-        
-        {/* Price Change Comparison */}
-        {originalReservationData?.total_price !== parsedData?.totalPrice && (
-          <div className="flex items-center gap-2 text-sm">
-            <span className="text-muted-foreground line-through">
-              {parsedData?.currency} {originalReservationData.total_price}
-            </span>
-            <span>→</span>
-            <span className="font-medium text-blue-800">
-              {parsedData?.currency} {parsedData?.totalPrice}
-            </span>
-          </div>
-        )}
-        
-        <p className="text-xs mt-2">
-          This will update {existingReservationsToUpdate.length} existing reservation(s).
-        </p>
-      </div>
-    </AlertDescription>
-  </Alert>
-)}
-
-{/* Keep existing error for non-modification duplicates */}
-{existingReservation && !isModificationMode && (
-  <Alert variant="destructive">
-    {/* existing error content */}
-  </Alert>
-)}
-```
-
-**E. Update Dialog Footer buttons (around line 2156-2180):**
-```tsx
-<Button 
-  onClick={isModificationMode ? handleUpdateReservation : handleConfirmReservation} 
-  disabled={
-    creating || 
-    (existingReservation !== null && !isModificationMode) || 
-    // ... rest of existing conditions
-  } 
->
-  {creating ? (
-    <>
-      <Loader2 className="h-4 w-4 mr-2 animate-spin" />
-      {isModificationMode ? 'Updating...' : 'Creating...'}
-    </>
-  ) : (
-    isModificationMode
-      ? `Update ${existingReservationsToUpdate.length} Reservation(s)`
-      : // ... existing button text logic
-  )}
-</Button>
-```
+- Include `booking_com_name` in select query
+- Accept and use `excludeReservationIds` parameter
+- Update segment availability type to include `booking_com_name`
 
 ---
 
-### Edge Cases Handled
+### Summary of Changes
 
-| Scenario | Behavior |
-|----------|----------|
-| Modification extends dates | Updates dates, recalculates nights and price per night |
-| Modification shortens stay | Updates dates, recalculates amounts |
-| Multi-room modification | Updates all reservations with same booking reference |
-| New room conflicts with updated dates | Checks availability for new date range, shows warnings |
-| Price change only | Updates total price and commission calculations |
-| Guest count change | Updates number_of_guests, adults, children fields |
+| Issue | Root Cause | Fix |
+|-------|------------|-----|
+| Internal suite names in dropdown | Query doesn't fetch `booking_com_name` | Add `booking_com_name` to select query and display it with fallback |
+| Family Suite shows Reserved | Conflict check doesn't exclude the reservation being modified | Pass existing reservation IDs to `fetchUnitsWithStatus` and filter conflicts |
 
 ---
 
-### Files to Modify
+### Result
 
-1. `supabase/functions/parse-reservation-screenshot/index.ts` - Add modification detection
-2. `src/pages/BookingComReservations.tsx` - Handle update flow in UI
-
----
-
-### Testing Checklist
-
-- Upload a "Reservation changes" screenshot for an existing booking
-- Verify modification is detected (blue info alert instead of red error)
-- Verify old vs new values are displayed for comparison
-- Confirm update saves new dates/prices correctly
-- Test with multi-room bookings (all linked reservations update)
-- Test uploading a duplicate that is NOT a modification (should still show error)
-
+- Room dropdowns will show guest-facing booking.com names (e.g., "Double Room with Terrace") instead of internal names
+- When modifying an existing reservation, the currently assigned room will show as "Available" instead of "Reserved"
+- Other rooms with actual conflicts from different bookings will still correctly show as "Reserved"
