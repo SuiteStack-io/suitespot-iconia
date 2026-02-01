@@ -30,7 +30,7 @@ serve(async (req) => {
     // Get reservation details including check-in timestamp
     const { data: reservation, error: reservationError } = await supabase
       .from('reservations')
-      .select('*, units(name, unit_number)')
+      .select('*, units(name, booking_com_name, unit_number)')
       .eq('id', reservationId)
       .single();
 
@@ -91,7 +91,7 @@ serve(async (req) => {
     }
 
     const guestName = reservation.guest_names[0] || 'Guest';
-    const unitName = reservation.units?.name || 'Unknown Unit';
+    const unitName = reservation.units?.booking_com_name || reservation.units?.name || 'Unknown Unit';
     const roomNumber = reservation.units?.unit_number || 'N/A';
     
     // Format check-in timestamp in Cairo time
