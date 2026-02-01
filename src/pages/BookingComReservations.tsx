@@ -114,6 +114,7 @@ const BookingComReservations = () => {
     name: string;
     unit_number: string;
     unit_type: string;
+    booking_com_name: string | null;
     status: 'available' | 'reserved' | 'blocked';
   }[]>([]);
   const [loadingUnitsStatus, setLoadingUnitsStatus] = useState(false);
@@ -136,6 +137,7 @@ const BookingComReservations = () => {
     id: string;
     name: string;
     unit_number: string;
+    booking_com_name: string | null;
     status: 'available' | 'reserved' | 'blocked';
   }[]>>({});
   const [loadingSegmentAvailability, setLoadingSegmentAvailability] = useState<Record<string, boolean>>({});
@@ -169,23 +171,29 @@ const BookingComReservations = () => {
     }
   };
 
-  const fetchUnitsWithStatus = async (checkIn: string, checkOut: string, excludeUnitIds: string[] = []) => {
+  const fetchUnitsWithStatus = async (checkIn: string, checkOut: string, excludeReservationIds: string[] = []) => {
     setLoadingUnitsStatus(true);
     try {
       const { data: allUnits } = await supabase
         .from('units')
-        .select('id, name, unit_number, unit_type')
+        .select('id, name, unit_number, unit_type, booking_com_name')
         .eq('location', 'ICONIA')
         .order('name');
 
       const unitsChecked = await Promise.all(
         (allUnits || []).map(async (unit) => {
-          // Check for conflicts
+          // Check for conflicts, excluding the reservation(s) being modified
           const { data: conflicts } = await supabase.rpc('check_reservation_overlap', {
             p_unit_id: unit.id,
             p_check_in_date: checkIn,
-            p_check_out_date: checkOut
+            p_check_out_date: checkOut,
+            p_exclude_id: excludeReservationIds[0] || null
           });
+
+          // Filter out any additional excluded reservation IDs (for multi-room modifications)
+          const filteredConflicts = (conflicts || []).filter(
+            (c: any) => !excludeReservationIds.includes(c.conflict_id)
+          );
 
           // Check for blocked dates
           const { data: blockedDates } = await supabase
@@ -196,7 +204,7 @@ const BookingComReservations = () => {
             .lt('blocked_date', checkOut);
 
           let status: 'available' | 'reserved' | 'blocked' = 'available';
-          if (conflicts && conflicts.length > 0) status = 'reserved';
+          if (filteredConflicts.length > 0) status = 'reserved';
           else if (blockedDates && blockedDates.length > 0) status = 'blocked';
 
           return { ...unit, status };
@@ -298,8 +306,12 @@ const BookingComReservations = () => {
               setUploadComplete(false);
               setUploading(false);
               // Fetch units with status for manual room selection
+              // In modification mode, exclude the existing reservations from conflict detection
               if (data.data?.checkInDate && data.data?.checkOutDate) {
-                fetchUnitsWithStatus(data.data.checkInDate, data.data.checkOutDate);
+                const excludeIds = (existing && existing.length > 0 && data.data.isModification)
+                  ? existing.map((r: any) => r.id)
+                  : [];
+                fetchUnitsWithStatus(data.data.checkInDate, data.data.checkOutDate, excludeIds);
               }
             }, 1000);
           } else {
@@ -390,7 +402,7 @@ const BookingComReservations = () => {
   };
 
   // Split-stay helper functions
-  const fetchAvailabilityForSegment = async (segmentId: string, startDate: Date, endDate: Date) => {
+  const fetchAvailabilityForSegment = async (segmentId: string, startDate: Date, endDate: Date, excludeReservationIds: string[] = []) => {
     setLoadingSegmentAvailability(prev => ({ ...prev, [segmentId]: true }));
     
     try {
@@ -399,18 +411,24 @@ const BookingComReservations = () => {
       
       const { data: allUnits } = await supabase
         .from('units')
-        .select('id, name, unit_number, unit_type')
+        .select('id, name, unit_number, unit_type, booking_com_name')
         .eq('location', 'ICONIA')
         .order('name');
 
       const unitsChecked = await Promise.all(
         (allUnits || []).map(async (unit) => {
-          // Check for conflicts in this segment's date range
+          // Check for conflicts in this segment's date range, excluding reservations being modified
           const { data: conflicts } = await supabase.rpc('check_reservation_overlap', {
             p_unit_id: unit.id,
             p_check_in_date: checkIn,
-            p_check_out_date: checkOut
+            p_check_out_date: checkOut,
+            p_exclude_id: excludeReservationIds[0] || null
           });
+
+          // Filter out any additional excluded reservation IDs
+          const filteredConflicts = (conflicts || []).filter(
+            (c: any) => !excludeReservationIds.includes(c.conflict_id)
+          );
 
           // Check for blocked dates in this segment's date range
           const { data: blockedDates } = await supabase
@@ -421,7 +439,7 @@ const BookingComReservations = () => {
             .lt('blocked_date', checkOut);
 
           let status: 'available' | 'reserved' | 'blocked' = 'available';
-          if (conflicts && conflicts.length > 0) status = 'reserved';
+          if (filteredConflicts.length > 0) status = 'reserved';
           else if (blockedDates && blockedDates.length > 0) status = 'blocked';
 
           return { ...unit, status };
@@ -1824,7 +1842,7 @@ const BookingComReservations = () => {
                                           className="flex items-center justify-between"
                                         >
                                           <div className="flex items-center gap-2 w-full">
-                                            <span>{unit.name} (#{unit.unit_number})</span>
+                                            <span>{unit.booking_com_name || unit.name} (#{unit.unit_number})</span>
                                             {isAssignedElsewhere && (
                                               <Badge 
                                                 variant="outline"
@@ -1944,7 +1962,7 @@ const BookingComReservations = () => {
                                 className="flex items-center justify-between"
                               >
                                 <div className="flex items-center gap-2 w-full">
-                                  <span>{unit.name} (#{unit.unit_number})</span>
+                                  <span>{unit.booking_com_name || unit.name} (#{unit.unit_number})</span>
                                   {unit.status !== 'available' && (
                                     <Badge 
                                       variant="outline"
@@ -2122,7 +2140,7 @@ const BookingComReservations = () => {
                                         disabled={unit.status !== 'available' || isAssignedElsewhere}
                                       >
                                         <div className="flex items-center gap-2">
-                                          <span>{unit.name} (#{unit.unit_number})</span>
+                                          <span>{unit.booking_com_name || unit.name} (#{unit.unit_number})</span>
                                           {isAssignedElsewhere && (
                                             <Badge variant="outline" className="text-xs bg-blue-50 text-blue-600">
                                               Used in another segment
