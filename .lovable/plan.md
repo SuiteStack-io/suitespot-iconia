@@ -1,37 +1,51 @@
 
-
-## Fix Check-In Email to Use Booking.com Name
+## Fix Housekeeping Email Room Naming
 
 ### Issue
-The check-in notification email currently displays the internal suite name (e.g., "Large One Bedroom Suite") instead of the guest-facing booking.com name (e.g., "Double Room with Terrace").
+The housekeeping cleaning notification email currently displays:
+- Internal suite name first, then room number: "Deluxe One Bedroom Suite (#506)"
 
-### Solution
-Update the `send-checkin-notification` edge function to:
-1. Include `booking_com_name` in the units query
-2. Use `booking_com_name` as the primary room name with fallback to internal `name`
+### Requested Change
+Display:
+- Room number first, then booking.com name: "Room #506 - Double Room with Terrace"
 
 ---
 
 ### Technical Changes
 
-**File:** `supabase/functions/send-checkin-notification/index.ts`
+**File:** `supabase/functions/send-mid-stay-cleaning-notifications/index.ts`
 
-#### 1. Update the database query to include `booking_com_name`:
+#### 1. Update database query to include `booking_com_name` (Lines 42-45):
 
 ```typescript
-// Line 33: Change from
-.select('*, units(name, unit_number)')
-// To
-.select('*, units(name, booking_com_name, unit_number)')
+// Change from:
+units (
+  name,
+  unit_number
+)
+
+// To:
+units (
+  name,
+  booking_com_name,
+  unit_number
+)
 ```
 
-#### 2. Update the room name variable to prioritize booking.com name:
+#### 2. Update room name formatting in email HTML (Lines 200-209):
 
 ```typescript
-// Line 94: Change from
-const unitName = reservation.units?.name || 'Unknown Unit';
-// To
-const unitName = reservation.units?.booking_com_name || reservation.units?.name || 'Unknown Unit';
+// Change from:
+const unitName = unit?.name || 'Unknown Unit';
+const unitNumber = unit?.unit_number || '';
+// ...
+<strong style="font-size: 16px;">${unitName}${unitNumber ? ` (#${unitNumber})` : ''}</strong>
+
+// To:
+const unitName = unit?.booking_com_name || unit?.name || 'Unknown Unit';
+const unitNumber = unit?.unit_number || '';
+// ...
+<strong style="font-size: 16px;">Room #${unitNumber} - ${unitName}</strong>
 ```
 
 ---
@@ -40,7 +54,7 @@ const unitName = reservation.units?.booking_com_name || reservation.units?.name 
 
 | Before | After |
 |--------|-------|
-| Room: Large One Bedroom Suite - Room #509 | Room: Double Room with Terrace - Room #509 |
+| Deluxe One Bedroom Suite (#506) | Room #506 - Double Room with Terrace |
+| One Bedroom Suite with Balcony (#502) | Room #502 - Double Room with Balcony |
 
-This aligns with the established naming convention used across the calendar, reservations list, and checkout notifications.
-
+This aligns with the check-in/check-out notification format and uses the guest-facing booking.com name.
