@@ -469,14 +469,14 @@ export const RoomCalendar = () => {
                   onClick={() => handleDayClick(dayData)}
                 >
                   {/* Day number */}
-                  <div className="text-sm font-semibold mb-1">{format(date, 'd')}</div>
+                  <div className="text-sm font-semibold mb-1 relative z-10">{format(date, 'd')}</div>
                   
                   {/* Cross-month continuation indicator - from previous month */}
                   {isCurrentMonthDay && isMonthStart && crossMonth.continuesFromPrev && dayData.bookingCount > 0 && (
                     <TooltipProvider>
                       <Tooltip>
                         <TooltipTrigger asChild>
-                          <div className="absolute top-1 left-1 cursor-help">
+                          <div className="absolute top-1 right-1 cursor-help">
                             <div className="flex items-center gap-0.5 bg-amber-500 text-white text-[9px] px-1 py-0.5 rounded">
                               <ArrowLeft className="h-2.5 w-2.5" />
                               <span>cont.</span>
