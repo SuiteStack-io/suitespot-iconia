@@ -125,11 +125,32 @@ const handler = async (req: Request): Promise<Response> => {
     const newCheckInFormatted = formatDate(new_check_in);
     const newCheckOutFormatted = formatDate(new_check_out);
 
+    // Normalize currency code (e.g., "US$" -> "USD", "€" -> "EUR")
+    const normalizeCurrency = (curr: string): string => {
+      if (!curr) return "USD";
+      const currencyMap: Record<string, string> = {
+        "US$": "USD",
+        "$": "USD",
+        "€": "EUR",
+        "£": "GBP",
+        "¥": "JPY",
+        "AED": "AED",
+        "SAR": "SAR",
+        "EGP": "EGP",
+      };
+      // Check if it's already a valid 3-letter code
+      if (/^[A-Z]{3}$/.test(curr.toUpperCase())) {
+        return curr.toUpperCase();
+      }
+      return currencyMap[curr] || "USD";
+    };
+
     // Format currency
     const formatCurrency = (amount: number, curr: string) => {
+      const normalizedCurrency = normalizeCurrency(curr);
       return new Intl.NumberFormat("en-US", {
         style: "currency",
-        currency: curr || "USD",
+        currency: normalizedCurrency,
       }).format(amount);
     };
 
