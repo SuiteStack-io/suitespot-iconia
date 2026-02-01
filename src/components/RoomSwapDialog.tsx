@@ -310,14 +310,14 @@ export const RoomSwapDialog = ({
                     <span>{reservation.guest_names[0]}</span>
                     <ArrowRight className="h-3 w-3" />
                     <span className="text-primary font-medium">
-                      {selectedSwapReservation.units?.booking_com_name || selectedSwapReservation.units?.name}
+                      {selectedSwapReservation.units?.booking_com_name || selectedSwapReservation.units?.name} #{selectedSwapReservation.units?.unit_number}
                     </span>
                   </div>
                   <div className="flex items-center gap-2">
                     <span>{selectedSwapReservation.guest_names[0]}</span>
                     <ArrowRight className="h-3 w-3" />
                     <span className="text-primary font-medium">
-                      {currentUnit?.booking_com_name || currentUnit?.name}
+                      {currentUnit?.booking_com_name || currentUnit?.name} #{currentUnit?.unit_number}
                     </span>
                   </div>
                 </div>
@@ -366,28 +366,30 @@ export const RoomSwapDialog = ({
                   <div className="space-y-3">
                     <div className="p-3 bg-muted rounded-lg">
                       <div className="font-medium">{reservation.guest_names[0]}</div>
-                      <div className="text-xs text-muted-foreground mb-1">
+                      <div className="text-xs text-muted-foreground mb-2">
                         {format(new Date(reservation.check_in_date), "MMM d")} - {format(new Date(reservation.check_out_date), "MMM d, yyyy")}
                       </div>
-                      <div className="text-sm text-muted-foreground flex items-center gap-1">
-                        <span>{currentUnit?.booking_com_name || currentUnit?.name}</span>
-                        <ArrowRight className="h-3 w-3" />
+                      <div className="text-xs font-medium text-muted-foreground uppercase tracking-wider mb-1">Room Swap</div>
+                      <div className="text-sm flex items-center gap-1">
+                        <span className="font-medium">{currentUnit?.booking_com_name || currentUnit?.name} #{currentUnit?.unit_number}</span>
+                        <ArrowRight className="h-3 w-3 text-muted-foreground" />
                         <span className="text-primary font-medium">
-                          {selectedSwapReservation.units?.booking_com_name || selectedSwapReservation.units?.name}
+                          {selectedSwapReservation.units?.booking_com_name || selectedSwapReservation.units?.name} #{selectedSwapReservation.units?.unit_number}
                         </span>
                       </div>
                     </div>
                     
                     <div className="p-3 bg-muted rounded-lg">
                       <div className="font-medium">{selectedSwapReservation.guest_names[0]}</div>
-                      <div className="text-xs text-muted-foreground mb-1">
+                      <div className="text-xs text-muted-foreground mb-2">
                         {format(new Date(selectedSwapReservation.check_in_date), "MMM d")} - {format(new Date(selectedSwapReservation.check_out_date), "MMM d, yyyy")}
                       </div>
-                      <div className="text-sm text-muted-foreground flex items-center gap-1">
-                        <span>{selectedSwapReservation.units?.booking_com_name || selectedSwapReservation.units?.name}</span>
-                        <ArrowRight className="h-3 w-3" />
+                      <div className="text-xs font-medium text-muted-foreground uppercase tracking-wider mb-1">Room Swap</div>
+                      <div className="text-sm flex items-center gap-1">
+                        <span className="font-medium">{selectedSwapReservation.units?.booking_com_name || selectedSwapReservation.units?.name} #{selectedSwapReservation.units?.unit_number}</span>
+                        <ArrowRight className="h-3 w-3 text-muted-foreground" />
                         <span className="text-primary font-medium">
-                          {currentUnit?.booking_com_name || currentUnit?.name}
+                          {currentUnit?.booking_com_name || currentUnit?.name} #{currentUnit?.unit_number}
                         </span>
                       </div>
                     </div>
