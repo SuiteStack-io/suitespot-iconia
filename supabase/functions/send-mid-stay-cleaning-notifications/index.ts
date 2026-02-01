@@ -41,6 +41,7 @@ serve(async (req) => {
         last_cleaning_notification_date,
         units (
           name,
+          booking_com_name,
           unit_number
         )
       `)
@@ -197,7 +198,7 @@ serve(async (req) => {
       <ul style="list-style: none; padding-left: 0;">
         ${reservationsNeedingCleaning.map((r: any) => {
           const unit = Array.isArray(r.units) ? r.units[0] : r.units;
-          const unitName = unit?.name || 'Unknown Unit';
+          const unitName = unit?.booking_com_name || unit?.name || 'Unknown Unit';
           const unitNumber = unit?.unit_number || '';
           const guestName = r.guest_names?.[0] || 'Unknown Guest';
           const checkIn = formatDate(r.check_in_date);
@@ -206,7 +207,7 @@ serve(async (req) => {
           const overdueText = r.isOverdue ? ' <span style="color: #dc2626; font-weight: bold;">[OVERDUE]</span>' : '';
           return `
             <li style="margin-bottom: 20px; padding: 15px; background-color: ${r.isOverdue ? '#fef2f2' : '#f9f9f9'}; border-left: 4px solid ${r.isOverdue ? '#dc2626' : '#4CAF50'};">
-              <strong style="font-size: 16px;">${unitName}${unitNumber ? ` (#${unitNumber})` : ''}</strong>${overdueText} - Guest: ${guestName}
+              <strong style="font-size: 16px;">Room #${unitNumber} - ${unitName}</strong>${overdueText} - Guest: ${guestName}
               <br/>
               <span style="color: #666; font-size: 14px;">
                 <strong>Cleaning #${r.cleaningNumber}</strong> (Day ${r.dayOfStay} of stay)
