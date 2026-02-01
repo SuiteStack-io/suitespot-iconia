@@ -1,118 +1,123 @@
 
 
-## Fix Cash Settlement Page to Show VAT-Inclusive Amounts
+## Enhance Room Swap Dialog with Room Numbers and Visual Summary
 
-### Problem Analysis
+### Current Issues
 
-The Cash Settlement page is currently displaying the raw `total_price` from the database, which stores the **subtotal WITHOUT VAT**. However, you collect VAT as cash, so the amounts should include the 14% VAT.
+Looking at the screenshot, the "Confirm Room Swap" modal shows:
+- "Deluxe Suite → Deluxe Suite" without specific room numbers
 
-| Booking Reference | Price/Night | Nights | Subtotal (DB) | VAT (14%) | Total to Collect |
-|-------------------|-------------|--------|---------------|-----------|------------------|
-| MAN-1767022959781-1 | $110 | 8 | $880.00 | $123.20 | **$1,003.20** |
-
-The Reservation Details page correctly calculates VAT dynamically: `subtotal + (subtotal * 14%)`.
-
-The Cash Settlement page must do the same calculation.
+This makes it unclear which physical rooms are being swapped.
 
 ---
 
 ### Technical Changes
 
-#### File: `src/pages/CashSettlement.tsx`
+#### File: `src/components/RoomSwapDialog.tsx`
 
-**1. Update Reservation type definition** (around line 33-47)
+**1. Update Swap Summary section (lines 309-322)**
 
-Add the missing fields needed for VAT calculation:
+Add room numbers to the swap summary in the main dialog:
 
 ```typescript
-type Reservation = {
-  id: string;
-  booking_reference: string;
-  guest_names: string[];
-  check_in_date: string;
-  check_out_date: string;
-  total_price: number | null;
-  price_per_night: number | null;  // NEW
-  nights: number | null;           // NEW
-  vat_exempt: boolean | null;      // NEW
-  payment_method: string | null;
-  source: string;
-  channel: string;
-  settled: string | null;
-  status: string;
-  unit_id: string | null;
-  units?: { 
-    name: string; 
-    unit_number: string | null; 
-    booking_com_name: string | null;
-    tax_percentage: number | null;  // NEW
-  } | null;
-};
+{/* Current - lines 309-314 */}
+<div className="flex items-center gap-2">
+  <span>{reservation.guest_names[0]}</span>
+  <ArrowRight className="h-3 w-3" />
+  <span className="text-primary font-medium">
+    {selectedSwapReservation.units?.booking_com_name || selectedSwapReservation.units?.name}
+  </span>
+</div>
+
+{/* After - with room number */}
+<div className="flex items-center gap-2">
+  <span>{reservation.guest_names[0]}</span>
+  <ArrowRight className="h-3 w-3" />
+  <span className="text-primary font-medium">
+    {selectedSwapReservation.units?.booking_com_name || selectedSwapReservation.units?.name} #{selectedSwapReservation.units?.unit_number}
+  </span>
+</div>
 ```
 
-**2. Update the query to fetch additional fields** (around line 69-79)
+Apply the same pattern for the second guest (lines 316-322).
 
-Include `tax_percentage` from units:
+**2. Update Confirmation Dialog - First Reservation (lines 372-378)**
+
+Add room numbers with a clearer visual format:
 
 ```typescript
-.select('*, units(name, unit_number, booking_com_name, tax_percentage)')
+{/* Current */}
+<div className="text-sm text-muted-foreground flex items-center gap-1">
+  <span>{currentUnit?.booking_com_name || currentUnit?.name}</span>
+  <ArrowRight className="h-3 w-3" />
+  <span className="text-primary font-medium">
+    {selectedSwapReservation.units?.booking_com_name || selectedSwapReservation.units?.name}
+  </span>
+</div>
+
+{/* After - with room numbers */}
+<div className="text-sm flex items-center gap-1">
+  <span className="font-medium">{currentUnit?.booking_com_name || currentUnit?.name} #{currentUnit?.unit_number}</span>
+  <ArrowRight className="h-3 w-3 text-muted-foreground" />
+  <span className="text-primary font-medium">
+    {selectedSwapReservation.units?.booking_com_name || selectedSwapReservation.units?.name} #{selectedSwapReservation.units?.unit_number}
+  </span>
+</div>
 ```
 
-**3. Add a helper function to calculate VAT-inclusive total** (after line 260)
+**3. Update Confirmation Dialog - Second Reservation (lines 386-392)**
+
+Apply the same format:
 
 ```typescript
-const calculateTotalWithVAT = (reservation: Reservation): number => {
-  if (reservation.vat_exempt) {
-    return reservation.total_price || 0;
-  }
-  const subtotal = (reservation.price_per_night || 0) * (reservation.nights || 0);
-  const taxPercentage = reservation.units?.tax_percentage || 14;
-  return subtotal + (subtotal * taxPercentage / 100);
-};
+<div className="text-sm flex items-center gap-1">
+  <span className="font-medium">{selectedSwapReservation.units?.booking_com_name || selectedSwapReservation.units?.name} #{selectedSwapReservation.units?.unit_number}</span>
+  <ArrowRight className="h-3 w-3 text-muted-foreground" />
+  <span className="text-primary font-medium">
+    {currentUnit?.booking_com_name || currentUnit?.name} #{currentUnit?.unit_number}
+  </span>
+</div>
 ```
 
-**4. Update all places that sum `total_price`** (multiple locations)
+**4. Add "Room Swap" label for clarity in confirmation modal**
 
-Replace `r.total_price || 0` with `calculateTotalWithVAT(r)` in:
-
-- **Stats calculation** (lines 175-178):
-  ```typescript
-  const cashTotal = cashReservations.reduce((sum, r) => sum + calculateTotalWithVAT(r), 0);
-  const cardTotal = cardReservations.reduce((sum, r) => sum + calculateTotalWithVAT(r), 0);
-  const settledTotal = settledReservations.reduce((sum, r) => sum + calculateTotalWithVAT(r), 0);
-  const pendingTotal = pendingReservations.reduce((sum, r) => sum + calculateTotalWithVAT(r), 0);
-  ```
-
-- **Selected totals calculation** (lines 237-239, 245-248)
-- **Table row display** (line 459): Show VAT-inclusive amount
-- **Table footer total** (line 372)
-- **Export to Excel function** (lines 300-341)
-- **Modal data display**
-
-**5. Update column header for clarity** (line 418)
+Update each reservation card in the confirmation dialog to include a visual label:
 
 ```typescript
-<TableHead>Total (incl. VAT)</TableHead>
-```
-
-**6. Update table footer text** (around line 524)
-
-```typescript
-<TableCell colSpan={hasCheckbox ? 6 : 5} className="text-right font-semibold">
-  Total incl. 14% VAT ({data.length} reservations)
-</TableCell>
+<div className="p-3 bg-muted rounded-lg">
+  <div className="font-medium">{reservation.guest_names[0]}</div>
+  <div className="text-xs text-muted-foreground mb-2">
+    {format(new Date(reservation.check_in_date), "MMM d")} - {format(new Date(reservation.check_out_date), "MMM d, yyyy")}
+  </div>
+  <div className="text-xs font-medium text-muted-foreground uppercase tracking-wider mb-1">Room Swap</div>
+  <div className="text-sm flex items-center gap-1">
+    <span className="font-medium">{currentUnit?.booking_com_name || currentUnit?.name} #{currentUnit?.unit_number}</span>
+    <ArrowRight className="h-3 w-3 text-muted-foreground" />
+    <span className="text-primary font-medium">
+      {selectedSwapReservation.units?.booking_com_name || selectedSwapReservation.units?.name} #{selectedSwapReservation.units?.unit_number}
+    </span>
+  </div>
+</div>
 ```
 
 ---
 
-### Summary of Changes
+### Visual Result
 
-| Location | Current | After Fix |
-|----------|---------|-----------|
-| Displayed amount | $880.00 (subtotal) | $1,003.20 (incl. VAT) |
-| Column header | "Total Amount" | "Total (incl. VAT)" |
-| Stats cards | Raw `total_price` | Calculated with VAT |
-| Excel export | Raw `total_price` | Calculated with VAT |
+**Before:**
+```
+Yazeed Almuqrin
+Feb 8 - Feb 11, 2026
+Deluxe Suite → Deluxe Suite
+```
+
+**After:**
+```
+Yazeed Almuqrin
+Feb 8 - Feb 11, 2026
+ROOM SWAP
+Deluxe Suite #505 → Deluxe Suite #509
+```
 
 ---
 
@@ -120,5 +125,5 @@ Replace `r.total_price || 0` with `calculateTotalWithVAT(r)` in:
 
 | File | Changes |
 |------|---------|
-| `src/pages/CashSettlement.tsx` | Add VAT calculation logic, update query, update all displays |
+| `src/components/RoomSwapDialog.tsx` | Add room numbers to swap summary and confirmation dialog |
 
