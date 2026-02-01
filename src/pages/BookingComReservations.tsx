@@ -1413,6 +1413,40 @@ const BookingComReservations = () => {
         title: 'Success',
         description: `Updated ${existingReservationsToUpdate.length} reservation(s)`,
       });
+
+      // Send modification notification email
+      try {
+        const firstReservation = existingReservationsToUpdate[0];
+        
+        // Fetch unit details including booking_com_name
+        const { data: unitData } = await supabase
+          .from('units')
+          .select('name, unit_number, booking_com_name')
+          .eq('id', firstReservation.unit_id)
+          .single();
+        
+        await supabase.functions.invoke('send-modification-notification', {
+          body: {
+            booking_reference: parsedData.bookingReference,
+            guest_names: parsedData.guestNames || firstReservation.guest_names,
+            room_name: unitData?.booking_com_name || unitData?.name || 'Unknown',
+            room_number: unitData?.unit_number || 'N/A',
+            old_check_in: originalReservationData.check_in_date,
+            old_check_out: originalReservationData.check_out_date,
+            new_check_in: parsedData.checkInDate,
+            new_check_out: parsedData.checkOutDate,
+            old_total_price: originalReservationData.total_price || 0,
+            new_total_price: parsedData.totalPrice || 0,
+            currency: parsedData.currency || 'USD',
+            channel: firstReservation.channel,
+            source: firstReservation.source,
+          }
+        });
+        console.log('Modification notification sent');
+      } catch (notifyError) {
+        console.error('Failed to send modification notification:', notifyError);
+        // Don't fail the update if notification fails
+      }
       
       // Reset state
       setShowPreview(false);
