@@ -282,6 +282,21 @@ const BookingComReservations = () => {
               setExistingReservationsToUpdate(existing);
               setOriginalReservationData(existing[0]); // For comparison display
               setExistingReservation(null); // Don't show the error alert
+              
+              // Clear the blockedUnitWarning since the edge function 
+              // couldn't exclude the existing reservation during parsing.
+              // The frontend's fetchUnitsWithStatus will correctly handle this.
+              data.data.blockedUnitWarning = null;
+              
+              // For multi-room modifications, also clear individual room warnings
+              if (data.data.matchedRooms) {
+                data.data.matchedRooms = data.data.matchedRooms.map((room: RoomInfo, index: number) => ({
+                  ...room,
+                  warning: null,
+                  // Pre-assign the existing unit for this room
+                  unitId: existing[index]?.unit_id || room.unitId || null
+                }));
+              }
             } else {
               setExistingReservation(existing?.[0] || null);
               setIsModificationMode(false);
@@ -295,7 +310,10 @@ const BookingComReservations = () => {
                 roomIndex: index,
                 roomName: room.roomName,
                 price: room.price,
-                unitId: room.unitId || null
+                // In modification mode, use the existing reservation's unit
+                unitId: (data.data.isModification && existing && existing[index]) 
+                  ? existing[index].unit_id 
+                  : (room.unitId || null)
               }));
               setRoomAssignments(initialAssignments);
             }
