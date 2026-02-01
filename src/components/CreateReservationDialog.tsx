@@ -169,8 +169,9 @@ interface Unit {
 }
 
 export function CreateReservationDialog() {
-  const { userRole } = useAuth();
+  const { userRole, hasPermission } = useAuth();
   const isMobile = useIsMobile();
+  const canCreateBooking = hasPermission('can_create_booking');
   const [open, setOpen] = useState(false);
   const [loading, setLoading] = useState(false);
   const [datePickerOpen, setDatePickerOpen] = useState(false);
@@ -1207,6 +1208,11 @@ export function CreateReservationDialog() {
       resetForm();
     }
   };
+
+  // Don't render if user doesn't have permission
+  if (!canCreateBooking) {
+    return null;
+  }
 
   return (
     <Dialog open={open} onOpenChange={handleOpenChange}>

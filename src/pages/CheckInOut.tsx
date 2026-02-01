@@ -32,7 +32,7 @@ interface Reservation {
 const CheckInOut = () => {
   const navigate = useNavigate();
   const { toast } = useToast();
-  const { user, loading, userRole } = useAuth();
+  const { user, loading, userRole, hasPermission } = useAuth();
   const [arrivals, setArrivals] = useState<Reservation[]>([]);
   const [departures, setDepartures] = useState<Reservation[]>([]);
   const [filteredArrivals, setFilteredArrivals] = useState<Reservation[]>([]);
@@ -468,21 +468,25 @@ const CheckInOut = () => {
                   Today's Arrivals ({filteredArrivals.length})
                 </div>
                 <div className="flex items-center gap-2">
-                  <Button
-                    variant="outline"
-                    size="sm"
-                    onClick={selectAllArrivals}
-                  >
-                    {selectedArrivals.size === filteredArrivals.length && filteredArrivals.length > 0 ? 'Deselect All' : 'Select All'}
-                  </Button>
-                  {selectedArrivals.size > 0 && (
-                    <Button
-                      size="sm"
-                      onClick={handleBulkCheckIn}
-                      disabled={updating === 'bulk'}
-                    >
-                      Check In ({selectedArrivals.size})
-                    </Button>
+                  {hasPermission('can_check_in') && (
+                    <>
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        onClick={selectAllArrivals}
+                      >
+                        {selectedArrivals.size === filteredArrivals.length && filteredArrivals.length > 0 ? 'Deselect All' : 'Select All'}
+                      </Button>
+                      {selectedArrivals.size > 0 && (
+                        <Button
+                          size="sm"
+                          onClick={handleBulkCheckIn}
+                          disabled={updating === 'bulk'}
+                        >
+                          Check In ({selectedArrivals.size})
+                        </Button>
+                      )}
+                    </>
                   )}
                 </div>
               </CardTitle>
@@ -554,17 +558,19 @@ const CheckInOut = () => {
                               <FileSignature className="h-4 w-4" />
                               Guest Form
                             </Button>
-                            <Button
-                              onClick={() => {
-                                setSelectedReservation(reservation);
-                                setCheckInDialogOpen(true);
-                              }}
-                              disabled={updating === reservation.id}
-                              className="gap-2"
-                            >
-                              <CheckCircle className="h-4 w-4" />
-                              Check In
-                            </Button>
+                            {hasPermission('can_check_in') && (
+                              <Button
+                                onClick={() => {
+                                  setSelectedReservation(reservation);
+                                  setCheckInDialogOpen(true);
+                                }}
+                                disabled={updating === reservation.id}
+                                className="gap-2"
+                              >
+                                <CheckCircle className="h-4 w-4" />
+                                Check In
+                              </Button>
+                            )}
                           </div>
                         </div>
                       </div>
@@ -584,22 +590,26 @@ const CheckInOut = () => {
                   Today's Departures ({filteredDepartures.length})
                 </div>
                 <div className="flex items-center gap-2">
-                  <Button
-                    variant="outline"
-                    size="sm"
-                    onClick={selectAllDepartures}
-                  >
-                    {selectedDepartures.size === filteredDepartures.length && filteredDepartures.length > 0 ? 'Deselect All' : 'Select All'}
-                  </Button>
-                  {selectedDepartures.size > 0 && (
-                    <Button
-                      size="sm"
-                      variant="outline"
-                      onClick={handleBulkCheckOut}
-                      disabled={updating === 'bulk'}
-                    >
-                      Check Out ({selectedDepartures.size})
-                    </Button>
+                  {hasPermission('can_check_out') && (
+                    <>
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        onClick={selectAllDepartures}
+                      >
+                        {selectedDepartures.size === filteredDepartures.length && filteredDepartures.length > 0 ? 'Deselect All' : 'Select All'}
+                      </Button>
+                      {selectedDepartures.size > 0 && (
+                        <Button
+                          size="sm"
+                          variant="outline"
+                          onClick={handleBulkCheckOut}
+                          disabled={updating === 'bulk'}
+                        >
+                          Check Out ({selectedDepartures.size})
+                        </Button>
+                      )}
+                    </>
                   )}
                 </div>
               </CardTitle>
@@ -649,18 +659,20 @@ const CheckInOut = () => {
                               {reservation.number_of_guests} guest{reservation.number_of_guests !== 1 ? 's' : ''}
                             </p>
                           </div>
-                          <Button
-                            onClick={() => {
-                              setSelectedReservation(reservation);
-                              setCheckOutDialogOpen(true);
-                            }}
-                            disabled={updating === reservation.id}
-                            variant="outline"
-                            className="gap-2"
-                          >
-                            <CheckCircle className="h-4 w-4" />
-                            Check Out
-                          </Button>
+                          {hasPermission('can_check_out') && (
+                            <Button
+                              onClick={() => {
+                                setSelectedReservation(reservation);
+                                setCheckOutDialogOpen(true);
+                              }}
+                              disabled={updating === reservation.id}
+                              variant="outline"
+                              className="gap-2"
+                            >
+                              <CheckCircle className="h-4 w-4" />
+                              Check Out
+                            </Button>
+                          )}
                         </div>
                       </div>
                     </CardContent>
