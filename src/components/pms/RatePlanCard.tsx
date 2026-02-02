@@ -68,8 +68,8 @@ export function RatePlanCard({
   const [isExpanded, setIsExpanded] = useState(true);
   const [deleteDialogOpen, setDeleteDialogOpen] = useState(false);
 
-  const getValidityText = (): string => {
-    if (ratePlan.is_default) return 'Always active (default rate)';
+  const getValidityText = (): string | null => {
+    if (ratePlan.is_default) return null;
     if (ratePlan.valid_from && ratePlan.valid_to) {
       return `${format(new Date(ratePlan.valid_from), 'MMM d, yyyy')} - ${format(new Date(ratePlan.valid_to), 'MMM d, yyyy')}`;
     }
@@ -117,11 +117,13 @@ export function RatePlanCard({
                     </Badge>
                   )}
                 </div>
-                {ratePlan.booking_com_id && (
-                  <p className="text-xs text-muted-foreground mt-0.5">
-                    ID {ratePlan.booking_com_id}
-                  </p>
-                )}
+                <p className="text-xs text-muted-foreground mt-0.5">
+                  {ratePlan.is_default 
+                    ? 'Always active (default rate)' 
+                    : ratePlan.booking_com_id 
+                      ? `ID ${ratePlan.booking_com_id}` 
+                      : null}
+                </p>
                 <div className="flex items-center gap-2 mt-1">
                   <Badge 
                     variant={ratePlan.cancellation_policy === 'non_refundable' ? 'destructive' : 'outline'}
@@ -129,9 +131,11 @@ export function RatePlanCard({
                   >
                     {ratePlan.cancellation_policy === 'non_refundable' ? 'Non-refundable' : 'Flexible'}
                   </Badge>
-                  <span className="text-sm text-muted-foreground">
-                    {getValidityText()}
-                  </span>
+                  {getValidityText() && (
+                    <span className="text-sm text-muted-foreground">
+                      {getValidityText()}
+                    </span>
+                  )}
                 </div>
               </div>
               <div className="text-right mr-4">
