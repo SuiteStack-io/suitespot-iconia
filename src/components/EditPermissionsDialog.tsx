@@ -30,6 +30,7 @@ interface UserPermissions {
   can_change_rooms: boolean;
   can_block_dates: boolean;
   can_export_calendar: boolean;
+  can_access_pms: boolean;
 }
 
 const PERMISSION_LABELS: Record<keyof UserPermissions, { label: string; description: string }> = {
@@ -61,6 +62,10 @@ const PERMISSION_LABELS: Record<keyof UserPermissions, { label: string; descript
     label: 'Export Calendar', 
     description: 'Ability to export calendar data to PDF or Excel' 
   },
+  can_access_pms: { 
+    label: 'Access PMS', 
+    description: 'Access to Availability, Prices, and Restrictions pages' 
+  },
 };
 
 interface EditPermissionsDialogProps {
@@ -87,6 +92,7 @@ export function EditPermissionsDialog({
     can_change_rooms: false,
     can_block_dates: false,
     can_export_calendar: false,
+    can_access_pms: false,
   });
 
   useEffect(() => {
@@ -119,6 +125,7 @@ export function EditPermissionsDialog({
           can_change_rooms: data.can_change_rooms ?? false,
           can_block_dates: data.can_block_dates ?? false,
           can_export_calendar: data.can_export_calendar ?? false,
+          can_access_pms: data.can_access_pms ?? false,
         });
       } else {
         // Reset to defaults if no record exists
@@ -130,6 +137,7 @@ export function EditPermissionsDialog({
           can_change_rooms: false,
           can_block_dates: false,
           can_export_calendar: false,
+          can_access_pms: false,
         });
       }
     } catch (error) {
@@ -201,6 +209,7 @@ export function EditPermissionsDialog({
       can_change_rooms: newValue,
       can_block_dates: newValue,
       can_export_calendar: newValue,
+      can_access_pms: newValue,
     });
   };
 

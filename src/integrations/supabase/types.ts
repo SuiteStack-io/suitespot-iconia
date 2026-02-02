@@ -1396,6 +1396,7 @@ export type Database = {
       }
       user_permissions: {
         Row: {
+          can_access_pms: boolean
           can_block_dates: boolean | null
           can_change_rooms: boolean | null
           can_check_in: boolean | null
@@ -1409,6 +1410,7 @@ export type Database = {
           user_id: string
         }
         Insert: {
+          can_access_pms?: boolean
           can_block_dates?: boolean | null
           can_change_rooms?: boolean | null
           can_check_in?: boolean | null
@@ -1422,6 +1424,7 @@ export type Database = {
           user_id: string
         }
         Update: {
+          can_access_pms?: boolean
           can_block_dates?: boolean | null
           can_change_rooms?: boolean | null
           can_check_in?: boolean | null

@@ -36,6 +36,7 @@ import {
   Banknote,
   ChevronDown,
   FileSignature,
+  Lock,
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 
@@ -91,6 +92,15 @@ export function SlideMenu({ userRole }: SlideMenuProps) {
         { title: 'Guest Forms', url: '/guest-forms', icon: FileSignature },
         { title: 'My Commissions', url: '/my-commissions', icon: Wallet, showFor: ['manager', 'admin'] },
       ],
+    },
+    {
+      label: 'PMS',
+      items: [
+        { title: 'Availability', url: '/pms/availability', icon: CalendarDays },
+        { title: 'Prices', url: '/pms/prices', icon: DollarSign },
+        { title: 'Restrictions', url: '/pms/restrictions', icon: Lock },
+      ],
+      showFor: ['admin'],
     },
     {
       label: 'MANAGEMENT',
