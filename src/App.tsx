@@ -60,6 +60,9 @@ import ReservationsListPage from "./pages/ReservationsListPage";
 import CashSettlement from "./pages/CashSettlement";
 import Commissions from "./pages/Commissions";
 import GuestForms from "./pages/GuestForms";
+import PMSAvailability from "./pages/pms/Availability";
+import PMSPrices from "./pages/pms/Prices";
+import PMSRestrictions from "./pages/pms/Restrictions";
 const queryClient = new QueryClient();
 
 const App = () => (
@@ -145,6 +148,11 @@ const App = () => (
         } />
         <Route path="/cash-settlement" element={<ProtectedRoute><CashSettlement /></ProtectedRoute>} />
         <Route path="/commissions" element={<ProtectedRoute><Commissions /></ProtectedRoute>} />
+        
+        {/* PMS Routes */}
+        <Route path="/pms/availability" element={<ProtectedRoute><PMSAvailability /></ProtectedRoute>} />
+        <Route path="/pms/prices" element={<ProtectedRoute><PMSPrices /></ProtectedRoute>} />
+        <Route path="/pms/restrictions" element={<ProtectedRoute><PMSRestrictions /></ProtectedRoute>} />
               
               {/* ADD ALL CUSTOM ROUTES ABOVE THE CATCH-ALL "*" ROUTE */}
               <Route path="*" element={<NotFound />} />
