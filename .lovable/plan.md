@@ -1,48 +1,21 @@
 
 
-## Replace ID with "Always active (default rate)" for Default Rate Plans
+## Fix: Show Booking.com ID for Default Rate Plans
 
 ### Overview
 
-Modify the RatePlanCard component to display "Always active (default rate)" in place of the Booking.com ID for default rate plans. Non-default rate plans will continue to show their Booking.com ID.
+Update the RatePlanCard component to display the Booking.com ID alongside "Always active (default rate)" when both conditions are true.
 
 ---
 
-### Current vs. New Layout
-
-**Current:**
-```text
-Standard Rate                    [Default Badge]
-ID 59882860
-[Flexible]  Always active (default rate)
-```
-
-**New:**
-```text
-Standard Rate                    [Default Badge]
-Always active (default rate)
-[Flexible]  MMM d, yyyy - MMM d, yyyy  (or removed for default)
-```
-
----
-
-### Technical Changes
+### Technical Change
 
 **File: `src/components/pms/RatePlanCard.tsx`**
 
-Update lines 120-124 to conditionally show:
-- For default rate plans: "Always active (default rate)"
-- For non-default rate plans: "ID {booking_com_id}" (only if ID exists)
+Update lines 118-124 to show both status and ID for default plans:
 
 ```typescript
-// Change from:
-{ratePlan.booking_com_id && (
-  <p className="text-xs text-muted-foreground mt-0.5">
-    ID {ratePlan.booking_com_id}
-  </p>
-)}
-
-// To:
+// Current (hides ID for default plans):
 <p className="text-xs text-muted-foreground mt-0.5">
   {ratePlan.is_default 
     ? 'Always active (default rate)' 
@@ -50,9 +23,28 @@ Update lines 120-124 to conditionally show:
       ? `ID ${ratePlan.booking_com_id}` 
       : null}
 </p>
+
+// New (shows both for default plans with ID):
+<p className="text-xs text-muted-foreground mt-0.5">
+  {ratePlan.is_default 
+    ? 'Always active (default rate)' 
+    : ratePlan.booking_com_id 
+      ? `ID ${ratePlan.booking_com_id}` 
+      : null}
+  {ratePlan.is_default && ratePlan.booking_com_id && (
+    <span className="ml-2">• ID {ratePlan.booking_com_id}</span>
+  )}
+</p>
 ```
 
-Also remove the duplicate "Always active (default rate)" from the validity text section (line 132-134) since it will now appear in the ID line.
+---
+
+### After Code Change
+
+1. Click the edit button (pencil icon) on the rate plan card
+2. Enter "59882860" in the Booking.com ID field
+3. Save the changes
+4. The display will show: "Always active (default rate) • ID 59882860"
 
 ---
 
@@ -60,5 +52,5 @@ Also remove the duplicate "Always active (default rate)" from the validity text 
 
 | File | Action | Description |
 |------|--------|-------------|
-| `src/components/pms/RatePlanCard.tsx` | Modify | Show "Always active (default rate)" for default plans, ID for others |
+| `src/components/pms/RatePlanCard.tsx` | Modify | Show Booking.com ID alongside default status |
 
