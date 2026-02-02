@@ -82,7 +82,6 @@ export function SlideMenu({ userRole }: SlideMenuProps) {
         { title: 'Rooms', url: '/rooms', icon: DoorOpen },
         { title: 'Room Rates', url: '/room-rates', icon: DollarSign },
         { title: 'Reservations List', url: '/reservations-list', icon: ClipboardList },
-        { title: 'Calendar', url: '/calendar', icon: CalendarDays },
         { title: 'Check-In/Out', url: '/check-in-out', icon: DoorClosed },
         { title: 'Housekeeping', url: '/housekeeping', icon: Sparkles },
         { title: 'Booking.com', url: '/booking-com-reservations', icon: Upload },

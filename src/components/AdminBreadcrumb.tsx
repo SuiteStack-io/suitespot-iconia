@@ -26,6 +26,8 @@ export function AdminBreadcrumb({ section, currentPage, sectionPath }: AdminBrea
         return "/rooms";
       case "Almaza Bay":
         return "/almaza-bay";
+      case "PMS":
+        return "/pms/availability";
       case "System":
         return "/users";
       default:
