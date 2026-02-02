@@ -1,37 +1,63 @@
+import { useEffect } from 'react';
+import { useNavigate } from 'react-router-dom';
+import { useAuth } from '@/lib/auth';
+import { RoomCalendar } from '@/components/RoomCalendar';
+import { BlockedDatesManager } from '@/components/BlockedDatesManager';
+import { MobileCalendarView } from '@/components/MobileCalendarView';
+import { useIsMobile } from '@/hooks/use-mobile';
+import suitespotLogo from '@/assets/suitespot-logo.png';
 import { SlideMenu } from '@/components/SlideMenu';
 import { AdminBreadcrumb } from '@/components/AdminBreadcrumb';
-import { useAuth } from '@/lib/auth';
-import { CalendarDays } from 'lucide-react';
 
 const PMSAvailability = () => {
-  const { userRole } = useAuth();
+  const { user, loading, userRole } = useAuth();
+  const navigate = useNavigate();
+  const isMobile = useIsMobile();
+
+  useEffect(() => {
+    if (!loading && !user) {
+      navigate('/auth');
+    }
+  }, [user, loading, navigate]);
+
+  if (loading) {
+    return (
+      <div className="flex min-h-screen items-center justify-center">
+        <div className="text-muted-foreground">Loading...</div>
+      </div>
+    );
+  }
+
+  if (!user) {
+    return null;
+  }
 
   return (
     <div className="min-h-screen bg-background">
-      {/* Header */}
-      <header className="border-b bg-card">
-        <div className="flex items-center justify-between px-4 py-3">
-          <div className="flex items-center gap-3">
+      <header className="border-b bg-card sticky top-0 z-10">
+        <div className="container mx-auto px-4 py-4">
+          <AdminBreadcrumb section="PMS" currentPage="Availability" />
+          <div className="flex items-center gap-4">
             <SlideMenu userRole={userRole} />
-            <h1 className="text-lg font-semibold">Availability</h1>
+            <img src={suitespotLogo} alt="SuiteSpot Logo" className="h-10 w-10 object-contain" />
+            <div>
+              <h1 className="text-xl font-bold">Room Calendar</h1>
+              <p className="text-sm text-muted-foreground">View and manage room bookings</p>
+            </div>
           </div>
         </div>
       </header>
 
-      {/* Content */}
-      <div className="p-4 md:p-6">
-        <AdminBreadcrumb section="PMS" currentPage="Availability" />
-        
-        <div className="mt-8 flex flex-col items-center justify-center text-center">
-          <div className="rounded-full bg-muted p-6 mb-4">
-            <CalendarDays className="h-12 w-12 text-muted-foreground" />
-          </div>
-          <h2 className="text-2xl font-semibold mb-2">Availability Management</h2>
-          <p className="text-muted-foreground max-w-md">
-            Manage room availability across all properties. Configure open/close dates and inventory controls.
-          </p>
-        </div>
-      </div>
+      <main className="container mx-auto px-4 py-8 space-y-8">
+        {isMobile ? (
+          <MobileCalendarView />
+        ) : (
+          <>
+            <RoomCalendar />
+            <BlockedDatesManager />
+          </>
+        )}
+      </main>
     </div>
   );
 };
