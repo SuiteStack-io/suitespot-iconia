@@ -7,6 +7,7 @@ interface RatePlanPrice {
   weekday_rate: number;
   weekend_rate: number;
   min_stay: number;
+  unit_id: string | null;
 }
 
 interface RatePlan {
@@ -30,16 +31,17 @@ interface RateResult {
 /**
  * Get the active rate for a room type on a specific date
  * Priorities:
- * 1. Active rate plans with matching date range, sorted by priority (highest first)
- * 2. Default rate plan (always valid)
+ * 1. Unit-specific price in active rate plan for the date
+ * 2. Room type price in active rate plan for the date
+ * 3. Default rate plan room type price
  */
 export const getActiveRate = async (
   roomType: string,
-  checkInDate: Date
+  checkInDate: Date,
+  unitId?: string
 ): Promise<RateResult | null> => {
   try {
     const dateStr = checkInDate.toISOString().split('T')[0];
-
     // Fetch all active rate plans
     const { data: ratePlans, error: plansError } = await supabase
       .from('rate_plans')
@@ -76,22 +78,46 @@ export const getActiveRate = async (
 
     if (!matchingPlan) return null;
 
-    // Get prices for the matching plan and room type
-    const { data: prices, error: pricesError } = await supabase
+    // First, try to get unit-specific price if unitId is provided
+    if (unitId) {
+      const { data: unitPrice, error: unitPriceError } = await supabase
+        .from('rate_plan_prices')
+        .select('*')
+        .eq('rate_plan_id', matchingPlan.id)
+        .eq('room_type', roomType)
+        .eq('unit_id', unitId)
+        .maybeSingle();
+
+      if (unitPriceError) throw unitPriceError;
+      
+      if (unitPrice) {
+        return {
+          weekdayRate: Number(unitPrice.weekday_rate),
+          weekendRate: Number(unitPrice.weekend_rate),
+          minStay: unitPrice.min_stay,
+          ratePlanName: matchingPlan.name,
+          ratePlanId: matchingPlan.id,
+        };
+      }
+    }
+
+    // Fall back to room type price (unit_id is null)
+    const { data: typePrice, error: typePriceError } = await supabase
       .from('rate_plan_prices')
       .select('*')
       .eq('rate_plan_id', matchingPlan.id)
       .eq('room_type', roomType)
-      .single();
+      .is('unit_id', null)
+      .maybeSingle();
 
-    if (pricesError && pricesError.code !== 'PGRST116') throw pricesError;
+    if (typePriceError) throw typePriceError;
     
-    if (!prices) return null;
+    if (!typePrice) return null;
 
     return {
-      weekdayRate: Number(prices.weekday_rate),
-      weekendRate: Number(prices.weekend_rate),
-      minStay: prices.min_stay,
+      weekdayRate: Number(typePrice.weekday_rate),
+      weekendRate: Number(typePrice.weekend_rate),
+      minStay: typePrice.min_stay,
       ratePlanName: matchingPlan.name,
       ratePlanId: matchingPlan.id,
     };

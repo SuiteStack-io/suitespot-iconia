@@ -28,10 +28,17 @@ interface RatePlanPrice {
   weekday_rate: number;
   weekend_rate: number;
   min_stay: number;
+  unit_id?: string | null;
 }
 
 interface RoomType {
   name: string;
+}
+
+interface Unit {
+  id: string;
+  unit_number: string | null;
+  booking_com_name: string | null;
 }
 
 const PMSPrices = () => {
@@ -40,6 +47,7 @@ const PMSPrices = () => {
   const [ratePlans, setRatePlans] = useState<RatePlan[]>([]);
   const [ratePlanPrices, setRatePlanPrices] = useState<Record<string, RatePlanPrice[]>>({});
   const [roomTypes, setRoomTypes] = useState<RoomType[]>([]);
+  const [units, setUnits] = useState<Unit[]>([]);
   const [dialogOpen, setDialogOpen] = useState(false);
   const [editingRatePlan, setEditingRatePlan] = useState<RatePlan | null>(null);
 
@@ -65,17 +73,19 @@ const PMSPrices = () => {
 
       if (pricesError) throw pricesError;
 
-      // Fetch distinct room types from units
-      const { data: units, error: unitsError } = await supabase
+      // Fetch units with id, unit_number, and booking_com_name
+      const { data: unitsData, error: unitsError } = await supabase
         .from('units')
-        .select('booking_com_name')
+        .select('id, unit_number, booking_com_name')
         .eq('location', 'ICONIA')
         .not('booking_com_name', 'is', null);
 
       if (unitsError) throw unitsError;
 
       // Get unique room types
-      const uniqueRoomTypes = [...new Set(units?.map(u => u.booking_com_name).filter(Boolean))] as string[];
+      const uniqueRoomTypes = [...new Set(unitsData?.map(u => u.booking_com_name).filter(Boolean))] as string[];
+      
+      setUnits(unitsData || []);
 
       setRatePlans(plans || []);
 
@@ -161,7 +171,7 @@ const PMSPrices = () => {
 
   const handleSave = async (
     ratePlanData: Omit<RatePlan, 'id' | 'created_at' | 'updated_at'>,
-    prices: Array<{ room_type: string; weekday_rate: number; weekend_rate: number; min_stay: number }>
+    prices: Array<{ room_type: string; weekday_rate: number; weekend_rate: number; min_stay: number; unit_id?: string | null }>
   ) => {
     try {
       if (editingRatePlan) {
@@ -186,7 +196,7 @@ const PMSPrices = () => {
 
         if (deleteError) throw deleteError;
 
-        // Insert new prices
+        // Insert new prices (including room-level overrides)
         if (prices.length > 0) {
           const pricesToInsert = prices.map(p => ({
             rate_plan_id: editingRatePlan.id,
@@ -194,6 +204,7 @@ const PMSPrices = () => {
             weekday_rate: p.weekday_rate,
             weekend_rate: p.weekend_rate,
             min_stay: p.min_stay,
+            unit_id: p.unit_id || null,
           }));
 
           const { error: insertError } = await supabase
@@ -214,7 +225,7 @@ const PMSPrices = () => {
 
         if (createError) throw createError;
 
-        // Insert prices
+        // Insert prices (including room-level overrides)
         if (prices.length > 0 && newPlan) {
           const pricesToInsert = prices.map(p => ({
             rate_plan_id: newPlan.id,
@@ -222,6 +233,7 @@ const PMSPrices = () => {
             weekday_rate: p.weekday_rate,
             weekend_rate: p.weekend_rate,
             min_stay: p.min_stay,
+            unit_id: p.unit_id || null,
           }));
 
           const { error: insertError } = await supabase
@@ -301,6 +313,7 @@ const PMSPrices = () => {
                 key={plan.id}
                 ratePlan={plan}
                 prices={ratePlanPrices[plan.id] || []}
+                units={units}
                 onEdit={handleEdit}
                 onDelete={handleDelete}
                 onToggleActive={handleToggleActive}
@@ -318,6 +331,7 @@ const PMSPrices = () => {
         ratePlan={editingRatePlan}
         existingPrices={editingRatePlan ? ratePlanPrices[editingRatePlan.id] || [] : []}
         roomTypes={roomTypes}
+        units={units}
         onSave={handleSave}
         isEditing={!!editingRatePlan}
       />

@@ -826,6 +826,7 @@ export type Database = {
           min_stay: number
           rate_plan_id: string
           room_type: string
+          unit_id: string | null
           weekday_rate: number
           weekend_rate: number
         }
@@ -835,6 +836,7 @@ export type Database = {
           min_stay?: number
           rate_plan_id: string
           room_type: string
+          unit_id?: string | null
           weekday_rate: number
           weekend_rate: number
         }
@@ -844,6 +846,7 @@ export type Database = {
           min_stay?: number
           rate_plan_id?: string
           room_type?: string
+          unit_id?: string | null
           weekday_rate?: number
           weekend_rate?: number
         }
@@ -853,6 +856,13 @@ export type Database = {
             columns: ["rate_plan_id"]
             isOneToOne: false
             referencedRelation: "rate_plans"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "rate_plan_prices_unit_id_fkey"
+            columns: ["unit_id"]
+            isOneToOne: false
+            referencedRelation: "units"
             referencedColumns: ["id"]
           },
         ]

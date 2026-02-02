@@ -24,6 +24,13 @@ interface RatePlanPrice {
   weekday_rate: number;
   weekend_rate: number;
   min_stay: number;
+  unit_id?: string | null;
+}
+
+interface Unit {
+  id: string;
+  unit_number: string | null;
+  booking_com_name: string | null;
 }
 
 interface RatePlan {
@@ -39,6 +46,7 @@ interface RatePlan {
 interface RatePlanCardProps {
   ratePlan: RatePlan;
   prices: RatePlanPrice[];
+  units: Unit[];
   onEdit: (ratePlan: RatePlan) => void;
   onDelete: (ratePlanId: string) => void;
   onToggleActive: (ratePlanId: string, isActive: boolean) => void;
@@ -48,6 +56,7 @@ interface RatePlanCardProps {
 export function RatePlanCard({
   ratePlan,
   prices,
+  units,
   onEdit,
   onDelete,
   onToggleActive,
@@ -150,7 +159,7 @@ export function RatePlanCard({
         </CardHeader>
         {isExpanded && (
           <CardContent className="pt-0">
-            <RatePlanPricesTable prices={prices} />
+            <RatePlanPricesTable prices={prices} units={units} />
           </CardContent>
         )}
       </Card>

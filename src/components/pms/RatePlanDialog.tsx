@@ -1,6 +1,6 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useMemo } from 'react';
 import { format } from 'date-fns';
-import { CalendarIcon } from 'lucide-react';
+import { CalendarIcon, ChevronDown, ChevronRight, RotateCcw } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
@@ -35,11 +35,18 @@ interface RoomType {
   name: string;
 }
 
+interface Unit {
+  id: string;
+  unit_number: string | null;
+  booking_com_name: string | null;
+}
+
 interface RatePlanPrice {
   room_type: string;
   weekday_rate: number;
   weekend_rate: number;
   min_stay: number;
+  unit_id?: string | null;
 }
 
 interface RatePlan {
@@ -52,12 +59,20 @@ interface RatePlan {
   priority: number;
 }
 
+interface RoomPriceState {
+  weekday_rate: number;
+  weekend_rate: number;
+  min_stay: number;
+  isOverride?: boolean;
+}
+
 interface RatePlanDialogProps {
   open: boolean;
   onOpenChange: (open: boolean) => void;
   ratePlan: RatePlan | null;
   existingPrices: RatePlanPrice[];
   roomTypes: RoomType[];
+  units: Unit[];
   onSave: (ratePlan: Omit<RatePlan, 'id'>, prices: RatePlanPrice[]) => void;
   isEditing: boolean;
 }
@@ -68,6 +83,7 @@ export function RatePlanDialog({
   ratePlan,
   existingPrices,
   roomTypes,
+  units,
   onSave,
   isEditing,
 }: RatePlanDialogProps) {
@@ -76,7 +92,27 @@ export function RatePlanDialog({
   const [validFrom, setValidFrom] = useState<Date | undefined>();
   const [validTo, setValidTo] = useState<Date | undefined>();
   const [autoCalculateWeekend, setAutoCalculateWeekend] = useState(true);
-  const [prices, setPrices] = useState<Record<string, RatePlanPrice>>({});
+  const [typeRates, setTypeRates] = useState<Record<string, RoomPriceState>>({});
+  const [roomRates, setRoomRates] = useState<Record<string, RoomPriceState>>({});
+  const [expandedTypes, setExpandedTypes] = useState<Set<string>>(new Set());
+
+  // Group units by room type
+  const unitsByRoomType = useMemo(() => {
+    const grouped: Record<string, Unit[]> = {};
+    units.forEach(unit => {
+      if (unit.booking_com_name) {
+        if (!grouped[unit.booking_com_name]) {
+          grouped[unit.booking_com_name] = [];
+        }
+        grouped[unit.booking_com_name].push(unit);
+      }
+    });
+    // Sort units by unit_number within each group
+    Object.keys(grouped).forEach(key => {
+      grouped[key].sort((a, b) => (a.unit_number || '').localeCompare(b.unit_number || ''));
+    });
+    return grouped;
+  }, [units]);
 
   // Initialize form when dialog opens or ratePlan changes
   useEffect(() => {
@@ -87,12 +123,29 @@ export function RatePlanDialog({
         setValidFrom(ratePlan.valid_from ? new Date(ratePlan.valid_from) : undefined);
         setValidTo(ratePlan.valid_to ? new Date(ratePlan.valid_to) : undefined);
         
-        // Set existing prices
-        const priceMap: Record<string, RatePlanPrice> = {};
+        // Set existing type-level prices (unit_id is null)
+        const typePriceMap: Record<string, RoomPriceState> = {};
+        const roomPriceMap: Record<string, RoomPriceState> = {};
+        
         existingPrices.forEach(p => {
-          priceMap[p.room_type] = p;
+          if (!p.unit_id) {
+            typePriceMap[p.room_type] = {
+              weekday_rate: p.weekday_rate,
+              weekend_rate: p.weekend_rate,
+              min_stay: p.min_stay,
+            };
+          } else {
+            roomPriceMap[p.unit_id] = {
+              weekday_rate: p.weekday_rate,
+              weekend_rate: p.weekend_rate,
+              min_stay: p.min_stay,
+              isOverride: true,
+            };
+          }
         });
-        setPrices(priceMap);
+        
+        setTypeRates(typePriceMap);
+        setRoomRates(roomPriceMap);
       } else {
         // New rate plan - reset form
         setName('');
@@ -100,24 +153,37 @@ export function RatePlanDialog({
         setValidFrom(undefined);
         setValidTo(undefined);
         
-        // Initialize prices with empty values for all room types
-        const priceMap: Record<string, RatePlanPrice> = {};
+        // Initialize type prices with empty values
+        const typePriceMap: Record<string, RoomPriceState> = {};
         roomTypes.forEach(rt => {
-          priceMap[rt.name] = {
-            room_type: rt.name,
+          typePriceMap[rt.name] = {
             weekday_rate: 0,
             weekend_rate: 0,
             min_stay: 1,
           };
         });
-        setPrices(priceMap);
+        setTypeRates(typePriceMap);
+        setRoomRates({});
       }
       setAutoCalculateWeekend(true);
+      setExpandedTypes(new Set());
     }
   }, [open, ratePlan, existingPrices, roomTypes]);
 
-  const handleWeekdayRateChange = (roomType: string, value: number) => {
-    setPrices(prev => {
+  const toggleExpanded = (roomType: string) => {
+    setExpandedTypes(prev => {
+      const next = new Set(prev);
+      if (next.has(roomType)) {
+        next.delete(roomType);
+      } else {
+        next.add(roomType);
+      }
+      return next;
+    });
+  };
+
+  const handleTypeWeekdayRateChange = (roomType: string, value: number) => {
+    setTypeRates(prev => {
       const updated = { ...prev };
       updated[roomType] = {
         ...updated[roomType],
@@ -128,8 +194,8 @@ export function RatePlanDialog({
     });
   };
 
-  const handleWeekendRateChange = (roomType: string, value: number) => {
-    setPrices(prev => ({
+  const handleTypeWeekendRateChange = (roomType: string, value: number) => {
+    setTypeRates(prev => ({
       ...prev,
       [roomType]: {
         ...prev[roomType],
@@ -138,8 +204,8 @@ export function RatePlanDialog({
     }));
   };
 
-  const handleMinStayChange = (roomType: string, value: number) => {
-    setPrices(prev => ({
+  const handleTypeMinStayChange = (roomType: string, value: number) => {
+    setTypeRates(prev => ({
       ...prev,
       [roomType]: {
         ...prev[roomType],
@@ -148,17 +214,61 @@ export function RatePlanDialog({
     }));
   };
 
+  const handleRoomRateChange = (unitId: string, roomType: string, field: 'weekday_rate' | 'weekend_rate' | 'min_stay', value: number) => {
+    const typeRate = typeRates[roomType] || { weekday_rate: 0, weekend_rate: 0, min_stay: 1 };
+    
+    setRoomRates(prev => {
+      const existing = prev[unitId] || { ...typeRate, isOverride: false };
+      let updated = { ...existing, [field]: value, isOverride: true };
+      
+      // Auto-calculate weekend if enabled
+      if (field === 'weekday_rate' && autoCalculateWeekend) {
+        updated.weekend_rate = calculateWeekendRate(value);
+      }
+      
+      return { ...prev, [unitId]: updated };
+    });
+  };
+
+  const resetRoomRate = (unitId: string) => {
+    setRoomRates(prev => {
+      const updated = { ...prev };
+      delete updated[unitId];
+      return updated;
+    });
+  };
+
+  const getEffectiveRoomRate = (unitId: string, roomType: string): RoomPriceState => {
+    if (roomRates[unitId]?.isOverride) {
+      return roomRates[unitId];
+    }
+    return typeRates[roomType] || { weekday_rate: 0, weekend_rate: 0, min_stay: 1 };
+  };
+
   const handleAutoCalculateChange = (checked: boolean) => {
     setAutoCalculateWeekend(checked);
     if (checked) {
-      // Recalculate all weekend rates
-      setPrices(prev => {
+      // Recalculate all weekend rates for types
+      setTypeRates(prev => {
         const updated = { ...prev };
         Object.keys(updated).forEach(roomType => {
           updated[roomType] = {
             ...updated[roomType],
             weekend_rate: calculateWeekendRate(updated[roomType].weekday_rate),
           };
+        });
+        return updated;
+      });
+      // Recalculate for room overrides
+      setRoomRates(prev => {
+        const updated = { ...prev };
+        Object.keys(updated).forEach(unitId => {
+          if (updated[unitId].isOverride) {
+            updated[unitId] = {
+              ...updated[unitId],
+              weekend_rate: calculateWeekendRate(updated[unitId].weekday_rate),
+            };
+          }
         });
         return updated;
       });
@@ -175,7 +285,33 @@ export function RatePlanDialog({
       priority: ratePlan?.priority || 0,
     };
 
-    const pricesArray = Object.values(prices).filter(p => p.weekday_rate > 0);
+    // Collect type-level prices (unit_id = null)
+    const pricesArray: RatePlanPrice[] = Object.entries(typeRates)
+      .filter(([, p]) => p.weekday_rate > 0)
+      .map(([room_type, p]) => ({
+        room_type,
+        weekday_rate: p.weekday_rate,
+        weekend_rate: p.weekend_rate,
+        min_stay: p.min_stay,
+        unit_id: null,
+      }));
+
+    // Collect room-level overrides (unit_id set)
+    Object.entries(roomRates).forEach(([unitId, p]) => {
+      if (p.isOverride && p.weekday_rate > 0) {
+        const unit = units.find(u => u.id === unitId);
+        if (unit?.booking_com_name) {
+          pricesArray.push({
+            room_type: unit.booking_com_name,
+            weekday_rate: p.weekday_rate,
+            weekend_rate: p.weekend_rate,
+            min_stay: p.min_stay,
+            unit_id: unitId,
+          });
+        }
+      }
+    });
+
     onSave(ratePlanData, pricesArray);
   };
 
@@ -302,46 +438,154 @@ export function RatePlanDialog({
               <Table>
                 <TableHeader>
                   <TableRow className="bg-muted/50">
-                    <TableHead>Room Type</TableHead>
+                    <TableHead className="w-[200px]">Room Type</TableHead>
                     <TableHead className="w-32">Weekday ($)</TableHead>
                     <TableHead className="w-32">Weekend ($)</TableHead>
                     <TableHead className="w-28">Min Stay</TableHead>
+                    <TableHead className="w-10"></TableHead>
                   </TableRow>
                 </TableHeader>
                 <TableBody>
-                  {roomTypes.map((rt) => (
-                    <TableRow key={rt.name}>
-                      <TableCell className="font-medium">{rt.name}</TableCell>
-                      <TableCell>
-                        <Input
-                          type="number"
-                          min="0"
-                          value={prices[rt.name]?.weekday_rate || ''}
-                          onChange={(e) => handleWeekdayRateChange(rt.name, Number(e.target.value))}
-                          className="w-full"
-                        />
-                      </TableCell>
-                      <TableCell>
-                        <Input
-                          type="number"
-                          min="0"
-                          value={prices[rt.name]?.weekend_rate || ''}
-                          onChange={(e) => handleWeekendRateChange(rt.name, Number(e.target.value))}
-                          disabled={autoCalculateWeekend}
-                          className={cn('w-full', autoCalculateWeekend && 'bg-muted')}
-                        />
-                      </TableCell>
-                      <TableCell>
-                        <Input
-                          type="number"
-                          min="1"
-                          value={prices[rt.name]?.min_stay || 1}
-                          onChange={(e) => handleMinStayChange(rt.name, Number(e.target.value))}
-                          className="w-full"
-                        />
-                      </TableCell>
-                    </TableRow>
-                  ))}
+                  {roomTypes.map((rt) => {
+                    const isExpanded = expandedTypes.has(rt.name);
+                    const unitsInType = unitsByRoomType[rt.name] || [];
+                    const hasUnits = unitsInType.length > 0;
+                    
+                    return (
+                      <>
+                        {/* Room Type Row */}
+                        <TableRow 
+                          key={rt.name} 
+                          className={cn(
+                            hasUnits && 'cursor-pointer hover:bg-muted/30',
+                            isExpanded && 'bg-muted/20'
+                          )}
+                        >
+                          <TableCell 
+                            className="font-medium"
+                            onClick={() => hasUnits && toggleExpanded(rt.name)}
+                          >
+                            <div className="flex items-center gap-2">
+                              {hasUnits && (
+                                isExpanded 
+                                  ? <ChevronDown className="h-4 w-4 text-muted-foreground" />
+                                  : <ChevronRight className="h-4 w-4 text-muted-foreground" />
+                              )}
+                              {rt.name}
+                              {hasUnits && (
+                                <span className="text-xs text-muted-foreground">({unitsInType.length})</span>
+                              )}
+                            </div>
+                          </TableCell>
+                          <TableCell>
+                            <Input
+                              type="number"
+                              min="0"
+                              value={typeRates[rt.name]?.weekday_rate || ''}
+                              onChange={(e) => handleTypeWeekdayRateChange(rt.name, Number(e.target.value))}
+                              className="w-full"
+                              onClick={(e) => e.stopPropagation()}
+                            />
+                          </TableCell>
+                          <TableCell>
+                            <Input
+                              type="number"
+                              min="0"
+                              value={typeRates[rt.name]?.weekend_rate || ''}
+                              onChange={(e) => handleTypeWeekendRateChange(rt.name, Number(e.target.value))}
+                              disabled={autoCalculateWeekend}
+                              className={cn('w-full', autoCalculateWeekend && 'bg-muted')}
+                              onClick={(e) => e.stopPropagation()}
+                            />
+                          </TableCell>
+                          <TableCell>
+                            <Input
+                              type="number"
+                              min="1"
+                              value={typeRates[rt.name]?.min_stay || 1}
+                              onChange={(e) => handleTypeMinStayChange(rt.name, Number(e.target.value))}
+                              className="w-full"
+                              onClick={(e) => e.stopPropagation()}
+                            />
+                          </TableCell>
+                          <TableCell></TableCell>
+                        </TableRow>
+
+                        {/* Individual Room Rows (when expanded) */}
+                        {isExpanded && unitsInType.map((unit) => {
+                          const effectiveRate = getEffectiveRoomRate(unit.id, rt.name);
+                          const hasOverride = roomRates[unit.id]?.isOverride;
+                          
+                          return (
+                            <TableRow 
+                              key={unit.id} 
+                              className="bg-muted/5"
+                            >
+                              <TableCell className="pl-10">
+                                <span className={cn(
+                                  'text-sm',
+                                  hasOverride ? 'font-medium' : 'text-muted-foreground'
+                                )}>
+                                  └ Room {unit.unit_number}
+                                </span>
+                              </TableCell>
+                              <TableCell>
+                                <Input
+                                  type="number"
+                                  min="0"
+                                  value={effectiveRate.weekday_rate || ''}
+                                  onChange={(e) => handleRoomRateChange(unit.id, rt.name, 'weekday_rate', Number(e.target.value))}
+                                  className={cn(
+                                    'w-full',
+                                    !hasOverride && 'text-muted-foreground'
+                                  )}
+                                />
+                              </TableCell>
+                              <TableCell>
+                                <Input
+                                  type="number"
+                                  min="0"
+                                  value={effectiveRate.weekend_rate || ''}
+                                  onChange={(e) => handleRoomRateChange(unit.id, rt.name, 'weekend_rate', Number(e.target.value))}
+                                  disabled={autoCalculateWeekend}
+                                  className={cn(
+                                    'w-full',
+                                    autoCalculateWeekend && 'bg-muted',
+                                    !hasOverride && 'text-muted-foreground'
+                                  )}
+                                />
+                              </TableCell>
+                              <TableCell>
+                                <Input
+                                  type="number"
+                                  min="1"
+                                  value={effectiveRate.min_stay || 1}
+                                  onChange={(e) => handleRoomRateChange(unit.id, rt.name, 'min_stay', Number(e.target.value))}
+                                  className={cn(
+                                    'w-full',
+                                    !hasOverride && 'text-muted-foreground'
+                                  )}
+                                />
+                              </TableCell>
+                              <TableCell>
+                                {hasOverride && (
+                                  <Button
+                                    variant="ghost"
+                                    size="icon"
+                                    className="h-7 w-7"
+                                    onClick={() => resetRoomRate(unit.id)}
+                                    title="Reset to room type rate"
+                                  >
+                                    <RotateCcw className="h-3.5 w-3.5" />
+                                  </Button>
+                                )}
+                              </TableCell>
+                            </TableRow>
+                          );
+                        })}
+                      </>
+                    );
+                  })}
                 </TableBody>
               </Table>
             </div>
