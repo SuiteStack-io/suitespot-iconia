@@ -12,57 +12,67 @@ import {
   TableHeader,
   TableRow,
 } from '@/components/ui/table';
-import { Loader2, Building2 } from 'lucide-react';
+import { Button } from '@/components/ui/button';
+import { Loader2, ExternalLink } from 'lucide-react';
+import { Link } from 'react-router-dom';
 
-interface Unit {
+interface RatePlan {
   id: string;
   name: string;
-  unit_number: string | null;
-  booking_com_name: string | null;
-  unit_size: string | null;
-  view: string | null;
-  price_per_night: number | null;
-  weekend_rate: number | null;
+  is_default: boolean;
+  is_active: boolean;
 }
 
-interface GroupedUnits {
-  [roomType: string]: Unit[];
+interface RatePlanPrice {
+  id: string;
+  rate_plan_id: string;
+  room_type: string;
+  weekday_rate: number;
+  weekend_rate: number;
+  min_stay: number;
 }
 
 const RoomRates = () => {
   const navigate = useNavigate();
   const { userRole } = useAuth();
-  const [units, setUnits] = useState<Unit[]>([]);
   const [loading, setLoading] = useState(true);
+  const [defaultPlan, setDefaultPlan] = useState<RatePlan | null>(null);
+  const [prices, setPrices] = useState<RatePlanPrice[]>([]);
 
   useEffect(() => {
-    fetchUnits();
+    fetchRates();
   }, []);
 
-  const fetchUnits = async () => {
+  const fetchRates = async () => {
     try {
-      const { data, error } = await supabase
-        .from('units')
-        .select('id, name, unit_number, booking_com_name, unit_size, view, price_per_night, weekend_rate')
-        .eq('location', 'ICONIA')
-        .order('booking_com_name')
-        .order('unit_number');
+      // Fetch the default rate plan
+      const { data: plans, error: plansError } = await supabase
+        .from('rate_plans')
+        .select('*')
+        .eq('is_default', true)
+        .eq('is_active', true)
+        .single();
 
-      if (error) throw error;
-      setUnits(data || []);
+      if (plansError && plansError.code !== 'PGRST116') throw plansError;
+
+      if (plans) {
+        setDefaultPlan(plans);
+
+        // Fetch prices for the default plan
+        const { data: priceData, error: pricesError } = await supabase
+          .from('rate_plan_prices')
+          .select('*')
+          .eq('rate_plan_id', plans.id)
+          .order('room_type');
+
+        if (pricesError) throw pricesError;
+        setPrices(priceData || []);
+      }
     } catch (error) {
-      console.error('Error fetching units:', error);
+      console.error('Error fetching rates:', error);
     } finally {
       setLoading(false);
     }
-  };
-
-  // Calculate weekend rate if not set (10% higher, rounded to nearest $5)
-  const getWeekendRate = (weekdayRate: number | null, weekendRate: number | null): number | null => {
-    if (weekendRate !== null) return weekendRate;
-    if (weekdayRate === null) return null;
-    const calculated = weekdayRate * 1.1;
-    return Math.ceil(calculated / 5) * 5;
   };
 
   // Format currency
@@ -70,19 +80,6 @@ const RoomRates = () => {
     if (amount === null) return '—';
     return `$${amount.toLocaleString()}`;
   };
-
-  // Group units by booking_com_name (room type)
-  const groupedUnits: GroupedUnits = units.reduce((acc, unit) => {
-    const roomType = unit.booking_com_name || 'Other';
-    if (!acc[roomType]) {
-      acc[roomType] = [];
-    }
-    acc[roomType].push(unit);
-    return acc;
-  }, {} as GroupedUnits);
-
-  // Sort room types alphabetically
-  const sortedRoomTypes = Object.keys(groupedUnits).sort();
 
   if (loading) {
     return (
@@ -101,6 +98,12 @@ const RoomRates = () => {
             <SlideMenu userRole={userRole} />
             <h1 className="text-xl font-semibold text-foreground">Room Rates</h1>
           </div>
+          <Button variant="outline" size="sm" asChild>
+            <Link to="/pms/prices" className="gap-2">
+              <ExternalLink className="h-4 w-4" />
+              Manage in PMS
+            </Link>
+          </Button>
         </div>
         <div className="px-4 pb-3">
           <AdminBreadcrumb section="ICONIA" currentPage="Room Rates" />
@@ -109,78 +112,61 @@ const RoomRates = () => {
 
       {/* Main Content */}
       <main className="p-4 md:p-6 max-w-5xl mx-auto">
-        <div className="bg-card rounded-lg border shadow-sm overflow-hidden">
-          <Table>
-            <TableHeader>
-              <TableRow className="bg-muted/50">
-                <TableHead className="font-semibold">Room Type</TableHead>
-                <TableHead className="font-semibold">Room Size</TableHead>
-                <TableHead className="font-semibold">View</TableHead>
-                <TableHead className="font-semibold text-right">Weekday Rate</TableHead>
-                <TableHead className="font-semibold text-right">Weekend Rate</TableHead>
-              </TableRow>
-            </TableHeader>
-            <TableBody>
-              {sortedRoomTypes.map((roomType) => {
-                const roomUnits = groupedUnits[roomType];
-                return (
-                  <React.Fragment key={roomType}>
-                    {/* Group Header */}
-                    <TableRow className="bg-muted/30 hover:bg-muted/40">
-                      <TableCell colSpan={5} className="py-3">
-                        <div className="flex items-center gap-2">
-                          <Building2 className="h-4 w-4 text-muted-foreground" />
-                          <span className="font-semibold text-foreground">
-                            {roomType}
-                          </span>
-                          <span className="text-muted-foreground text-sm">
-                            ({roomUnits.length})
-                          </span>
-                        </div>
-                      </TableCell>
-                    </TableRow>
-                    
-                    {/* Room Rows */}
-                    {roomUnits.map((unit) => (
-                      <TableRow key={unit.id} className="hover:bg-muted/20">
-                        <TableCell className="pl-10">
-                          <span className="text-foreground">
-                            {unit.name}
-                            {unit.unit_number && (
-                              <span className="text-muted-foreground ml-1">
-                                #{unit.unit_number}
-                              </span>
-                            )}
-                          </span>
-                        </TableCell>
-                        <TableCell className="text-muted-foreground">
-                          {unit.unit_size || '—'}
-                        </TableCell>
-                        <TableCell className="text-muted-foreground">
-                          {unit.view || '—'}
-                        </TableCell>
-                        <TableCell className="text-right font-medium">
-                          {formatCurrency(unit.price_per_night)}
-                        </TableCell>
-                        <TableCell className="text-right font-medium">
-                          {formatCurrency(getWeekendRate(unit.price_per_night, unit.weekend_rate))}
-                        </TableCell>
-                      </TableRow>
-                    ))}
-                  </React.Fragment>
-                );
-              })}
-              
-              {units.length === 0 && (
-                <TableRow>
-                  <TableCell colSpan={5} className="text-center py-8 text-muted-foreground">
-                    No rooms found
-                  </TableCell>
-                </TableRow>
-              )}
-            </TableBody>
-          </Table>
+        <div className="mb-4">
+          <p className="text-sm text-muted-foreground">
+            Rates are managed centrally in{' '}
+            <Link to="/pms/prices" className="text-primary hover:underline">
+              PMS → Prices
+            </Link>
+            . Below shows the current default rate plan.
+          </p>
         </div>
+
+        {defaultPlan ? (
+          <div className="bg-card rounded-lg border shadow-sm overflow-hidden">
+            <div className="px-4 py-3 border-b bg-muted/30">
+              <h2 className="font-semibold">{defaultPlan.name}</h2>
+              <p className="text-sm text-muted-foreground">Default Rate Plan</p>
+            </div>
+            <Table>
+              <TableHeader>
+                <TableRow className="bg-muted/50">
+                  <TableHead className="font-semibold">Room Type</TableHead>
+                  <TableHead className="font-semibold text-right">Weekday Rate</TableHead>
+                  <TableHead className="font-semibold text-right">Weekend Rate</TableHead>
+                  <TableHead className="font-semibold text-right">Min Stay</TableHead>
+                </TableRow>
+              </TableHeader>
+              <TableBody>
+                {prices.map((price) => (
+                  <TableRow key={price.id} className="hover:bg-muted/20">
+                    <TableCell className="font-medium">{price.room_type}</TableCell>
+                    <TableCell className="text-right">{formatCurrency(price.weekday_rate)}</TableCell>
+                    <TableCell className="text-right">{formatCurrency(price.weekend_rate)}</TableCell>
+                    <TableCell className="text-right">{price.min_stay} night{price.min_stay !== 1 ? 's' : ''}</TableCell>
+                  </TableRow>
+                ))}
+
+                {prices.length === 0 && (
+                  <TableRow>
+                    <TableCell colSpan={4} className="text-center py-8 text-muted-foreground">
+                      No room types configured in the default rate plan
+                    </TableCell>
+                  </TableRow>
+                )}
+              </TableBody>
+            </Table>
+          </div>
+        ) : (
+          <div className="bg-card rounded-lg border shadow-sm p-8 text-center">
+            <p className="text-muted-foreground mb-4">
+              No default rate plan found. Create one in PMS → Prices.
+            </p>
+            <Button asChild>
+              <Link to="/pms/prices">Go to Price Management</Link>
+            </Button>
+          </div>
+        )}
       </main>
     </div>
   );
