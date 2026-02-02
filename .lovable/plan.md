@@ -1,170 +1,149 @@
 
-## PMS Prices Page - Rate Plan Management System
+
+## Add Per-Room Pricing with Expandable Room Type Rows
 
 ### Overview
 
-Create a comprehensive rate plan management system in the PMS Prices page that becomes the single source of truth for all pricing across the application. This will replace the scattered pricing inputs currently found in the Rooms page and prevent manual price overrides elsewhere.
+Enhance the Rate Plan Dialog and Prices Table to support per-room pricing. Room types will become clickable rows that expand to show individual rooms underneath, each with their own rate inputs. This allows setting a base rate at the room type level while optionally overriding rates for specific rooms.
 
 ---
 
 ### Visual Summary
 
 ```text
-+------------------------------------------------------------------+
-|  PMS > Prices                                            [+ New] |
-+------------------------------------------------------------------+
-|                                                                  |
-|  +------------------------------------------------------------+  |
-|  |  RATE PLANS                                                |  |
-|  +------------------------------------------------------------+  |
-|  |                                                            |  |
-|  |  +-------------------------------------------------------+ |  |
-|  |  | Standard Rate Plan                         [Default]  | |  |
-|  |  | Valid: Always                              [Edit] [x] | |  |
-|  |  +-------------------------------------------------------+ |  |
-|  |  | Room Type           | Weekday | Weekend | Min Stay    | |  |
-|  |  |---------------------|---------|---------|-------------| |  |
-|  |  | 1-Bedroom Studio    |   $120  |   $135  |     1       | |  |
-|  |  | 1-Bedroom Nile View |   $150  |   $165  |     1       | |  |
-|  |  | 2-Bedroom Suite     |   $200  |   $220  |     2       | |  |
-|  |  | Penthouse           |   $350  |   $385  |     3       | |  |
-|  |  +-------------------------------------------------------+ |  |
-|  |                                                            |  |
-|  |  +-------------------------------------------------------+ |  |
-|  |  | Summer Season 2026                                    | |  |
-|  |  | Valid: Jun 1 - Aug 31, 2026                [Edit] [x] | |  |
-|  |  +-------------------------------------------------------+ |  |
-|  |  | Room Type           | Weekday | Weekend | Min Stay    | |  |
-|  |  |---------------------|---------|---------|-------------| |  |
-|  |  | 1-Bedroom Studio    |   $140  |   $155  |     2       | |  |
-|  |  | 1-Bedroom Nile View |   $180  |   $200  |     2       | |  |
-|  |  | 2-Bedroom Suite     |   $250  |   $275  |     3       | |  |
-|  |  | Penthouse           |   $450  |   $495  |     5       | |  |
-|  |  +-------------------------------------------------------+ |  |
-|  |                                                            |  |
-|  +------------------------------------------------------------+  |
-|                                                                  |
-+------------------------------------------------------------------+
-```
+RATE PLAN DIALOG - Room Type Rates Table
++-------------------------------------------------------------------+
+| Room Type              | Weekday ($) | Weekend ($) | Min Stay    |
+|------------------------|-------------|-------------|-------------|
+| v Deluxe Suite (5)     | [150      ] | [165      ] | [1        ] |
+|   └ Room 506           | [150      ] | [165      ] | [1        ] |
+|   └ Room 509           | [160      ] | [175      ] | [1        ] |
+|   └ Room 511           | [150      ] | [165      ] | [1        ] |
+|   └ Room 512           | [150      ] | [165      ] | [1        ] |
+|   └ Room 518           | [150      ] | [165      ] | [1        ] |
+| > Junior Suite (2)     | [120      ] | [135      ] | [1        ] |
+| > Suite with Terrace   | [180      ] | [200      ] | [2        ] |
++-------------------------------------------------------------------+
 
-```text
-CREATE/EDIT RATE PLAN DIALOG
-+----------------------------------------------------------+
-|  Create Rate Plan                                    [x] |
-+----------------------------------------------------------+
-|                                                          |
-|  Plan Name: [Summer Season 2026              ]           |
-|                                                          |
-|  +-- Validity Period ----------------------------------+ |
-|  |  ( ) Always active (default rate)                   | |
-|  |  (o) Date range:                                    | |
-|  |      From: [Jun 1, 2026]  To: [Aug 31, 2026]       | |
-|  +-----------------------------------------------------+ |
-|                                                          |
-|  +-- Room Type Rates ---------------------------------+  |
-|  | Room Type           | Weekday ($) | Weekend ($)   |  |
-|  |---------------------|-------------|---------------|  |
-|  | 1-Bedroom Studio    | [140      ] | [155        ] |  |
-|  | 1-Bedroom Nile View | [180      ] | [200        ] |  |
-|  | 2-Bedroom Suite     | [250      ] | [275        ] |  |
-|  | Penthouse           | [450      ] | [495        ] |  |
-|  +----------------------------------------------------+  |
-|                                                          |
-|  [ ] Auto-calculate weekend rate (+10%, round to $5)     |
-|                                                          |
-|                          [Cancel]  [Save Rate Plan]      |
-+----------------------------------------------------------+
+Legend:
+  v = Expanded (shows individual rooms)
+  > = Collapsed (click to expand)
+  Room rows inherit from room type unless manually overridden
 ```
 
 ---
 
 ### Database Changes
 
-#### New Table: `rate_plans`
+Add a nullable `unit_id` column to `rate_plan_prices` to support room-level overrides:
 
 | Column | Type | Description |
 |--------|------|-------------|
-| id | uuid | Primary key |
-| name | text | Rate plan name (e.g., "Standard", "Summer 2026") |
-| is_default | boolean | Whether this is the fallback rate plan |
-| valid_from | date | Start date (null for always valid) |
-| valid_to | date | End date (null for always valid) |
-| is_active | boolean | Enable/disable the plan |
-| priority | integer | Higher priority plans override lower ones |
-| created_at | timestamp | Creation timestamp |
-| updated_at | timestamp | Last update timestamp |
+| unit_id | uuid (nullable) | References specific unit for per-room pricing |
 
-#### New Table: `rate_plan_prices`
-
-| Column | Type | Description |
-|--------|------|-------------|
-| id | uuid | Primary key |
-| rate_plan_id | uuid | Foreign key to rate_plans |
-| room_type | text | Room type (maps to booking_com_name) |
-| weekday_rate | numeric | Price for Sun-Wed nights |
-| weekend_rate | numeric | Price for Thu-Sat nights |
-| min_stay | integer | Minimum stay requirement |
-| created_at | timestamp | Creation timestamp |
+- When `unit_id` is NULL: Price applies to entire room type
+- When `unit_id` is set: Price applies to that specific room only
 
 ---
 
 ### Technical Implementation
 
-#### 1. Create Rate Plans Management Page
+#### 1. Database Migration
+
+```sql
+ALTER TABLE public.rate_plan_prices 
+ADD COLUMN unit_id uuid REFERENCES public.units(id) ON DELETE CASCADE;
+
+-- Create index for efficient lookups
+CREATE INDEX idx_rate_plan_prices_unit ON public.rate_plan_prices(unit_id);
+```
+
+#### 2. Update RatePlanDialog Component
+
+**File: `src/components/pms/RatePlanDialog.tsx`**
+
+Changes:
+- Add `units` prop containing all rooms with their room types
+- Track expanded state per room type
+- Display room type rows that are clickable to expand/collapse
+- Show individual room rows underneath when expanded
+- Room rows inherit rates from room type by default
+- Allow overriding rates for specific rooms
+- Track which rooms have overrides vs. inherit from type
+
+New state structure:
+```typescript
+interface RoomPrice {
+  weekday_rate: number;
+  weekend_rate: number;
+  min_stay: number;
+  isOverride: boolean; // true = custom rate, false = inherits from type
+}
+
+// State: prices by room type + individual room prices
+const [typeRates, setTypeRates] = useState<Record<string, RoomPrice>>();
+const [roomRates, setRoomRates] = useState<Record<string, RoomPrice>>(); // keyed by unit_id
+const [expandedTypes, setExpandedTypes] = useState<Set<string>>();
+```
+
+#### 3. Update RatePlanPricesTable Component
+
+**File: `src/components/pms/RatePlanPricesTable.tsx`**
+
+Changes:
+- Accept units data to show room breakdowns
+- Make room type rows clickable with expand/collapse icons
+- Show room count in parentheses: "Deluxe Suite (5)"
+- Display individual room rows with room number when expanded
+- Visual indication for rooms with custom rates vs. inherited
+
+#### 4. Update Prices Page
 
 **File: `src/pages/pms/Prices.tsx`**
 
-- Display all rate plans in expandable cards
-- Show room type pricing table within each plan
-- Add/Edit/Delete rate plans with dialog forms
-- Toggle active/inactive status
-- Set default rate plan
-- Drag-and-drop priority ordering
+Changes:
+- Fetch units data with `id`, `unit_number`, and `booking_com_name`
+- Pass units to dialog and table components
+- Update save logic to handle both type-level and room-level prices
 
-#### 2. Create Rate Plan Components
+#### 5. Update Rate Resolver
 
-**New Files:**
-- `src/components/pms/RatePlanCard.tsx` - Expandable card displaying a rate plan
-- `src/components/pms/RatePlanDialog.tsx` - Create/Edit rate plan dialog
-- `src/components/pms/RatePlanPricesTable.tsx` - Table of room type prices
+**File: `src/lib/rateResolver.ts`**
 
-#### 3. Update Pricing Lookups
-
-**Files to modify:**
-
-| File | Change |
-|------|--------|
-| `src/pages/BookingFlow.tsx` | Fetch active rate plan prices instead of unit.price_per_night |
-| `src/components/CreateReservationDialog.tsx` | Use rate plan pricing, add read-only price display |
-| `src/pages/ReservationDetail.tsx` | Remove price editing or restrict to admin with warning |
-| `src/pages/Rooms.tsx` | Remove price_per_night and weekend_rate columns from editing |
-| `src/pages/RoomRates.tsx` | Redirect to /pms/prices or show rate plan prices |
-
-#### 4. Rate Resolution Logic
-
-Create a utility function to resolve the correct rate:
+Changes:
+- When resolving rates, first check for unit-specific price
+- Fall back to room type price if no unit-specific price exists
+- Update function signature to accept optional `unitId`
 
 ```typescript
-// src/lib/rateResolver.ts
 export const getActiveRate = async (
-  roomType: string, 
-  checkInDate: Date
-): Promise<{ weekdayRate: number; weekendRate: number; minStay: number }> => {
-  // 1. Find all active rate plans valid for the check-in date
-  // 2. Sort by priority (highest first)
-  // 3. Return the first matching rate plan's prices for the room type
-  // 4. Fall back to default rate plan if no date-specific plan matches
-}
+  roomType: string,
+  checkInDate: Date,
+  unitId?: string // Optional: for per-room lookup
+): Promise<RateResult>
 ```
 
 ---
 
-### Enforcement: Preventing Price Overrides
+### UI Behavior
 
-1. **CreateReservationDialog**: Price field becomes read-only, auto-populated from rate plan
-2. **ReservationDetail**: Price editing hidden for non-admins; admins see warning when overriding
-3. **Rooms Page**: Remove price columns entirely - prices managed only in PMS > Prices
-4. **BookingFlow**: Prices calculated automatically from rate plans
+1. **Room Type Row**
+   - Shows chevron icon (> or v) indicating expand state
+   - Displays room count in parentheses
+   - Rate inputs set the base rate for all rooms of that type
+   - Click anywhere on row (except inputs) to toggle expansion
+
+2. **Individual Room Rows (when expanded)**
+   - Indented under parent room type
+   - Displays room number (e.g., "Room 506")
+   - Input fields show inherited value in muted style by default
+   - When user types a different value, it becomes an override
+   - Small "reset" button to clear override and inherit from type
+
+3. **Saving**
+   - Type-level rates saved with `unit_id = NULL`
+   - Room-level overrides saved with specific `unit_id`
+   - Rooms without overrides don't create database rows
 
 ---
 
@@ -172,33 +151,19 @@ export const getActiveRate = async (
 
 | File | Action | Description |
 |------|--------|-------------|
-| Database migration | Create | Add `rate_plans` and `rate_plan_prices` tables with RLS |
-| `src/pages/pms/Prices.tsx` | Modify | Full rate plan management interface |
-| `src/components/pms/RatePlanCard.tsx` | Create | Rate plan display card component |
-| `src/components/pms/RatePlanDialog.tsx` | Create | Create/edit rate plan dialog |
-| `src/components/pms/RatePlanPricesTable.tsx` | Create | Room type prices table |
-| `src/lib/rateResolver.ts` | Create | Utility to resolve active rates for a date |
-| `src/pages/BookingFlow.tsx` | Modify | Use rate resolver for pricing |
-| `src/components/CreateReservationDialog.tsx` | Modify | Read-only prices from rate plans |
-| `src/pages/ReservationDetail.tsx` | Modify | Restrict price editing, add warnings |
-| `src/pages/Rooms.tsx` | Modify | Remove price editing columns |
-| `src/pages/RoomRates.tsx` | Modify | Redirect to PMS Prices or display rate plan data |
+| Database migration | Create | Add `unit_id` column to `rate_plan_prices` |
+| `src/components/pms/RatePlanDialog.tsx` | Modify | Add expandable room type rows with per-room inputs |
+| `src/components/pms/RatePlanPricesTable.tsx` | Modify | Add expandable display with room breakdowns |
+| `src/pages/pms/Prices.tsx` | Modify | Fetch units, pass to components, update save logic |
+| `src/lib/rateResolver.ts` | Modify | Add unit-specific rate lookup |
 
 ---
 
-### Migration Strategy
+### Rate Resolution Priority
 
-1. **Phase 1**: Create tables and import existing prices as "Standard" rate plan
-2. **Phase 2**: Build PMS Prices UI for managing rate plans
-3. **Phase 3**: Update booking flows to use rate plans
-4. **Phase 4**: Remove/disable price editing in other locations
+When looking up a rate for a specific room:
 
----
+1. **Unit-specific price** in active rate plan for the date → Use this rate
+2. **Room type price** in active rate plan for the date → Use this rate
+3. **Default rate plan** room type price → Use this rate
 
-### Benefits
-
-- **Single source of truth**: All pricing managed in one location
-- **Seasonal pricing**: Easily create date-range specific rates
-- **Audit trail**: Track when prices were changed
-- **Consistency**: No more conflicting prices across different screens
-- **Flexibility**: Support for future promotions, special event pricing
