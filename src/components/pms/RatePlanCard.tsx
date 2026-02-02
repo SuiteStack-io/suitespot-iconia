@@ -123,6 +123,9 @@ export function RatePlanCard({
                     : ratePlan.booking_com_id 
                       ? `ID ${ratePlan.booking_com_id}` 
                       : null}
+                  {ratePlan.is_default && ratePlan.booking_com_id && (
+                    <span className="ml-2">• ID {ratePlan.booking_com_id}</span>
+                  )}
                 </p>
                 <div className="flex items-center gap-2 mt-1">
                   <Badge 
