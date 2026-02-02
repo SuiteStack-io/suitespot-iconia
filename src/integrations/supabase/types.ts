@@ -867,12 +867,55 @@ export type Database = {
           },
         ]
       }
+      rate_plan_value_adds: {
+        Row: {
+          created_at: string
+          description: string | null
+          id: string
+          is_per_night: boolean | null
+          name: string
+          price: number | null
+          rate_plan_id: string
+        }
+        Insert: {
+          created_at?: string
+          description?: string | null
+          id?: string
+          is_per_night?: boolean | null
+          name: string
+          price?: number | null
+          rate_plan_id: string
+        }
+        Update: {
+          created_at?: string
+          description?: string | null
+          id?: string
+          is_per_night?: boolean | null
+          name?: string
+          price?: number | null
+          rate_plan_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "rate_plan_value_adds_rate_plan_id_fkey"
+            columns: ["rate_plan_id"]
+            isOneToOne: false
+            referencedRelation: "rate_plans"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       rate_plans: {
         Row: {
+          advance_booking_days: number | null
+          applicable_room_types: string[] | null
+          cancellation_policy: string | null
           created_at: string
           id: string
           is_active: boolean
           is_default: boolean
+          meal_plan: string | null
+          meal_plan_price: number | null
           name: string
           priority: number
           updated_at: string
@@ -880,10 +923,15 @@ export type Database = {
           valid_to: string | null
         }
         Insert: {
+          advance_booking_days?: number | null
+          applicable_room_types?: string[] | null
+          cancellation_policy?: string | null
           created_at?: string
           id?: string
           is_active?: boolean
           is_default?: boolean
+          meal_plan?: string | null
+          meal_plan_price?: number | null
           name: string
           priority?: number
           updated_at?: string
@@ -891,10 +939,15 @@ export type Database = {
           valid_to?: string | null
         }
         Update: {
+          advance_booking_days?: number | null
+          applicable_room_types?: string[] | null
+          cancellation_policy?: string | null
           created_at?: string
           id?: string
           is_active?: boolean
           is_default?: boolean
+          meal_plan?: string | null
+          meal_plan_price?: number | null
           name?: string
           priority?: number
           updated_at?: string
