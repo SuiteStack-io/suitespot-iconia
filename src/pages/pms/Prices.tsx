@@ -19,6 +19,8 @@ interface RatePlan {
   priority: number;
   created_at: string;
   updated_at: string;
+  cancellation_policy?: string | null;
+  booking_com_id?: string | null;
 }
 
 interface RatePlanPrice {
@@ -183,6 +185,7 @@ const PMSPrices = () => {
             valid_from: ratePlanData.valid_from,
             valid_to: ratePlanData.valid_to,
             is_active: ratePlanData.is_active,
+            booking_com_id: ratePlanData.booking_com_id,
           })
           .eq('id', editingRatePlan.id);
 

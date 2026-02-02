@@ -57,6 +57,7 @@ interface RatePlan {
   valid_to: string | null;
   is_active: boolean;
   priority: number;
+  booking_com_id?: string | null;
 }
 
 interface RoomPriceState {
@@ -88,6 +89,7 @@ export function RatePlanDialog({
   isEditing,
 }: RatePlanDialogProps) {
   const [name, setName] = useState('');
+  const [bookingComId, setBookingComId] = useState('');
   const [validityType, setValidityType] = useState<'always' | 'dateRange'>('always');
   const [validFrom, setValidFrom] = useState<Date | undefined>();
   const [validTo, setValidTo] = useState<Date | undefined>();
@@ -119,6 +121,7 @@ export function RatePlanDialog({
     if (open) {
       if (ratePlan) {
         setName(ratePlan.name);
+        setBookingComId(ratePlan.booking_com_id || '');
         setValidityType(ratePlan.is_default || (!ratePlan.valid_from && !ratePlan.valid_to) ? 'always' : 'dateRange');
         setValidFrom(ratePlan.valid_from ? new Date(ratePlan.valid_from) : undefined);
         setValidTo(ratePlan.valid_to ? new Date(ratePlan.valid_to) : undefined);
@@ -149,6 +152,7 @@ export function RatePlanDialog({
       } else {
         // New rate plan - reset form
         setName('');
+        setBookingComId('');
         setValidityType('dateRange');
         setValidFrom(undefined);
         setValidTo(undefined);
@@ -283,6 +287,7 @@ export function RatePlanDialog({
       valid_to: validityType === 'dateRange' && validTo ? format(validTo, 'yyyy-MM-dd') : null,
       is_active: true,
       priority: ratePlan?.priority || 0,
+      booking_com_id: bookingComId || null,
     };
 
     // Collect type-level prices (unit_id = null)
@@ -337,6 +342,20 @@ export function RatePlanDialog({
               onChange={(e) => setName(e.target.value)}
               placeholder="e.g., Summer Season 2026"
             />
+          </div>
+
+          {/* Booking.com ID */}
+          <div className="space-y-2">
+            <Label htmlFor="bookingComId">Booking.com ID</Label>
+            <Input
+              id="bookingComId"
+              value={bookingComId}
+              onChange={(e) => setBookingComId(e.target.value)}
+              placeholder="e.g., 59882860"
+            />
+            <p className="text-xs text-muted-foreground">
+              Unique identifier for Booking.com integration
+            </p>
           </div>
 
           {/* Validity Period */}

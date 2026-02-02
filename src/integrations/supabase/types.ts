@@ -909,6 +909,7 @@ export type Database = {
         Row: {
           advance_booking_days: number | null
           applicable_room_types: string[] | null
+          booking_com_id: string | null
           cancellation_policy: string | null
           created_at: string
           id: string
@@ -925,6 +926,7 @@ export type Database = {
         Insert: {
           advance_booking_days?: number | null
           applicable_room_types?: string[] | null
+          booking_com_id?: string | null
           cancellation_policy?: string | null
           created_at?: string
           id?: string
@@ -941,6 +943,7 @@ export type Database = {
         Update: {
           advance_booking_days?: number | null
           applicable_room_types?: string[] | null
+          booking_com_id?: string | null
           cancellation_policy?: string | null
           created_at?: string
           id?: string

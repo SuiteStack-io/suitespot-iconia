@@ -6,6 +6,7 @@ import { Badge } from '@/components/ui/badge';
 import { Switch } from '@/components/ui/switch';
 import { Card, CardContent, CardHeader } from '@/components/ui/card';
 import { RatePlanPricesTable } from './RatePlanPricesTable';
+import { getCancellationPolicyLabel } from './CancellationPolicyDialog';
 import {
   AlertDialog,
   AlertDialogAction,
@@ -41,6 +42,8 @@ interface RatePlan {
   valid_to: string | null;
   is_active: boolean;
   priority: number;
+  cancellation_policy?: string | null;
+  booking_com_id?: string | null;
 }
 
 interface RatePlanCardProps {
@@ -99,7 +102,7 @@ export function RatePlanCard({
                   <ChevronDown className="h-5 w-5 text-muted-foreground" />
                 )}
               </button>
-              <div>
+              <div className="flex-1">
                 <div className="flex items-center gap-2">
                   <h3 className="font-semibold text-lg">{ratePlan.name}</h3>
                   {ratePlan.is_default && (
@@ -114,8 +117,26 @@ export function RatePlanCard({
                     </Badge>
                   )}
                 </div>
-                <p className="text-sm text-muted-foreground mt-0.5">
-                  {getValidityText()}
+                {ratePlan.booking_com_id && (
+                  <p className="text-xs text-muted-foreground mt-0.5">
+                    ID {ratePlan.booking_com_id}
+                  </p>
+                )}
+                <div className="flex items-center gap-2 mt-1">
+                  <Badge 
+                    variant={ratePlan.cancellation_policy === 'non_refundable' ? 'destructive' : 'outline'}
+                    className="text-xs"
+                  >
+                    {ratePlan.cancellation_policy === 'non_refundable' ? 'Non-refundable' : 'Flexible'}
+                  </Badge>
+                  <span className="text-sm text-muted-foreground">
+                    {getValidityText()}
+                  </span>
+                </div>
+              </div>
+              <div className="text-right mr-4">
+                <p className="text-sm font-medium text-muted-foreground">
+                  {getCancellationPolicyLabel(ratePlan.cancellation_policy || 'flexible_1_day')}
                 </p>
               </div>
             </div>
