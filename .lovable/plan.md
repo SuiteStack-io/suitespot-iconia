@@ -1,149 +1,144 @@
 
 
-## Add Per-Room Pricing with Expandable Room Type Rows
+## PMS Restrictions Page - Rate Plan Configuration System
 
 ### Overview
 
-Enhance the Rate Plan Dialog and Prices Table to support per-room pricing. Room types will become clickable rows that expand to show individual rooms underneath, each with their own rate inputs. This allows setting a base rate at the room type level while optionally overriding rates for specific rooms.
+Transform the Restrictions page into a comprehensive rate plan configuration interface. This page displays all existing rate plans (from PMS > Prices) and allows configuring additional booking rules, policies, and restrictions for each one. The design follows the reference image with an inline editing layout using rows with labels, values, and Edit buttons.
 
 ---
 
-### Visual Summary
+### Visual Design (Based on Reference Image)
 
 ```text
-RATE PLAN DIALOG - Room Type Rates Table
-+-------------------------------------------------------------------+
-| Room Type              | Weekday ($) | Weekend ($) | Min Stay    |
-|------------------------|-------------|-------------|-------------|
-| v Deluxe Suite (5)     | [150      ] | [165      ] | [1        ] |
-|   └ Room 506           | [150      ] | [165      ] | [1        ] |
-|   └ Room 509           | [160      ] | [175      ] | [1        ] |
-|   └ Room 511           | [150      ] | [165      ] | [1        ] |
-|   └ Room 512           | [150      ] | [165      ] | [1        ] |
-|   └ Room 518           | [150      ] | [165      ] | [1        ] |
-| > Junior Suite (2)     | [120      ] | [135      ] | [1        ] |
-| > Suite with Terrace   | [180      ] | [200      ] | [2        ] |
-+-------------------------------------------------------------------+
-
-Legend:
-  v = Expanded (shows individual rooms)
-  > = Collapsed (click to expand)
-  Room rows inherit from room type unless manually overridden
++------------------------------------------------------------------+
+|  PMS > Restrictions                                              |
++------------------------------------------------------------------+
+|                                                                  |
+|  Select Rate Plan: [ Standard Rate                          v ] |
+|                                                                  |
++------------------------------------------------------------------+
+|  RATE PLAN CONFIGURATION                                        |
++------------------------------------------------------------------+
+|                                                                  |
+|  +------------------------------------------------------------+ |
+|  |                                                            | |
+|  |  Rate plan name    Standard Rate                    [Edit] | |
+|  |  --------------------------------------------------------- | |
+|  |  Policy            Flexible - 1 day                 [Edit] | |
+|  |  --------------------------------------------------------- | |
+|  |  Meals             No meals                         [Edit] | |
+|  |  --------------------------------------------------------- | |
+|  |  Value adds        No value adds                    [Edit] | |
+|  |  --------------------------------------------------------- | |
+|  |  Minimum stay      2 night minimum stay             [Edit] | |
+|  |  --------------------------------------------------------- | |
+|  |  Bookable          2 days or more before check-in   [Edit] | |
+|  |  --------------------------------------------------------- | |
+|  |  Price             Managed by PMS > Prices          [View] | |
+|  |  --------------------------------------------------------- | |
+|  |  Rooms             Deluxe Suite, Junior Suite, ...  [Edit] | |
+|  |                                                            | |
+|  +------------------------------------------------------------+ |
+|                                                                  |
+|              [Go back]  [Apply changes]                          |
+|                                                                  |
++------------------------------------------------------------------+
 ```
 
 ---
 
 ### Database Changes
 
-Add a nullable `unit_id` column to `rate_plan_prices` to support room-level overrides:
+#### Extend `rate_plans` Table
+
+Add new columns to the existing `rate_plans` table:
+
+| Column | Type | Default | Description |
+|--------|------|---------|-------------|
+| cancellation_policy | text | 'flexible_1_day' | Options: 'flexible_1_day', 'non_refundable' |
+| meal_plan | text | 'no_meals' | Options: 'no_meals', 'breakfast', 'half_board', 'full_board' |
+| meal_plan_price | numeric | null | Price per person per night if meals included |
+| advance_booking_days | integer | 0 | Minimum days before check-in required to book |
+| applicable_room_types | text[] | null | Array of room type names this plan applies to (null = all) |
+
+#### New Table: `rate_plan_value_adds`
 
 | Column | Type | Description |
 |--------|------|-------------|
-| unit_id | uuid (nullable) | References specific unit for per-room pricing |
-
-- When `unit_id` is NULL: Price applies to entire room type
-- When `unit_id` is set: Price applies to that specific room only
+| id | uuid | Primary key |
+| rate_plan_id | uuid | Foreign key to rate_plans |
+| name | text | Value add name (e.g., "Parking", "Massage") |
+| description | text | Optional description |
+| price | numeric | Price for this value add |
+| is_per_night | boolean | If true, charged per night; otherwise one-time |
+| created_at | timestamp | Creation timestamp |
 
 ---
 
 ### Technical Implementation
 
-#### 1. Database Migration
+#### 1. Update Restrictions Page
 
-```sql
-ALTER TABLE public.rate_plan_prices 
-ADD COLUMN unit_id uuid REFERENCES public.units(id) ON DELETE CASCADE;
+**File: `src/pages/pms/Restrictions.tsx`**
 
--- Create index for efficient lookups
-CREATE INDEX idx_rate_plan_prices_unit ON public.rate_plan_prices(unit_id);
-```
+Transform the placeholder into a full configuration page:
+- Dropdown to select a rate plan
+- Display all settings in the row-based layout from the reference image
+- Each row shows: Label (bold) | Current Value | Edit button
+- Inline edit dialogs for each setting
 
-#### 2. Update RatePlanDialog Component
+#### 2. Create Restriction Components
 
-**File: `src/components/pms/RatePlanDialog.tsx`**
+**New Files:**
 
-Changes:
-- Add `units` prop containing all rooms with their room types
-- Track expanded state per room type
-- Display room type rows that are clickable to expand/collapse
-- Show individual room rows underneath when expanded
-- Room rows inherit rates from room type by default
-- Allow overriding rates for specific rooms
-- Track which rooms have overrides vs. inherit from type
+| File | Description |
+|------|-------------|
+| `src/components/pms/RestrictionRow.tsx` | Reusable row component with label, value, Edit button |
+| `src/components/pms/CancellationPolicyDialog.tsx` | Dialog to edit cancellation policy |
+| `src/components/pms/MealPlanDialog.tsx` | Dialog to edit meal plan settings |
+| `src/components/pms/ValueAddsDialog.tsx` | Dialog to manage value adds |
+| `src/components/pms/BookingRulesDialog.tsx` | Dialog for advance booking window |
+| `src/components/pms/RoomApplicabilityDialog.tsx` | Dialog to select applicable room types |
 
-New state structure:
+#### 3. UI Component Details
+
+**RestrictionRow Component:**
 ```typescript
-interface RoomPrice {
-  weekday_rate: number;
-  weekend_rate: number;
-  min_stay: number;
-  isOverride: boolean; // true = custom rate, false = inherits from type
+interface RestrictionRowProps {
+  label: string;
+  value: string;
+  onEdit?: () => void;
+  editLabel?: string; // "Edit" or "View"
+  disabled?: boolean;
 }
-
-// State: prices by room type + individual room prices
-const [typeRates, setTypeRates] = useState<Record<string, RoomPrice>>();
-const [roomRates, setRoomRates] = useState<Record<string, RoomPrice>>(); // keyed by unit_id
-const [expandedTypes, setExpandedTypes] = useState<Set<string>>();
 ```
 
-#### 3. Update RatePlanPricesTable Component
+**Cancellation Policy Options:**
+- Flexible - 1 day before check-in
+- Non-refundable
 
-**File: `src/components/pms/RatePlanPricesTable.tsx`**
+**Meal Plan Options:**
+- No meals
+- Breakfast included
+- Half board (breakfast + dinner)
+- Full board (all meals)
 
-Changes:
-- Accept units data to show room breakdowns
-- Make room type rows clickable with expand/collapse icons
-- Show room count in parentheses: "Deluxe Suite (5)"
-- Display individual room rows with room number when expanded
-- Visual indication for rooms with custom rates vs. inherited
-
-#### 4. Update Prices Page
-
-**File: `src/pages/pms/Prices.tsx`**
-
-Changes:
-- Fetch units data with `id`, `unit_number`, and `booking_com_name`
-- Pass units to dialog and table components
-- Update save logic to handle both type-level and room-level prices
-
-#### 5. Update Rate Resolver
-
-**File: `src/lib/rateResolver.ts`**
-
-Changes:
-- When resolving rates, first check for unit-specific price
-- Fall back to room type price if no unit-specific price exists
-- Update function signature to accept optional `unitId`
-
-```typescript
-export const getActiveRate = async (
-  roomType: string,
-  checkInDate: Date,
-  unitId?: string // Optional: for per-room lookup
-): Promise<RateResult>
-```
+**Value Adds Examples:**
+- Parking
+- Massage
+- Night credits
+- Airport transfer
+- Late checkout
 
 ---
 
-### UI Behavior
+### Page Flow
 
-1. **Room Type Row**
-   - Shows chevron icon (> or v) indicating expand state
-   - Displays room count in parentheses
-   - Rate inputs set the base rate for all rooms of that type
-   - Click anywhere on row (except inputs) to toggle expansion
-
-2. **Individual Room Rows (when expanded)**
-   - Indented under parent room type
-   - Displays room number (e.g., "Room 506")
-   - Input fields show inherited value in muted style by default
-   - When user types a different value, it becomes an override
-   - Small "reset" button to clear override and inherit from type
-
-3. **Saving**
-   - Type-level rates saved with `unit_id = NULL`
-   - Room-level overrides saved with specific `unit_id`
-   - Rooms without overrides don't create database rows
+1. **Select Rate Plan**: Dropdown populated from existing rate plans
+2. **View/Edit Settings**: Each restriction displayed in a row
+3. **Inline Editing**: Click Edit opens a dialog for that specific setting
+4. **Save Changes**: Apply changes button saves all modifications
 
 ---
 
@@ -151,19 +146,28 @@ export const getActiveRate = async (
 
 | File | Action | Description |
 |------|--------|-------------|
-| Database migration | Create | Add `unit_id` column to `rate_plan_prices` |
-| `src/components/pms/RatePlanDialog.tsx` | Modify | Add expandable room type rows with per-room inputs |
-| `src/components/pms/RatePlanPricesTable.tsx` | Modify | Add expandable display with room breakdowns |
-| `src/pages/pms/Prices.tsx` | Modify | Fetch units, pass to components, update save logic |
-| `src/lib/rateResolver.ts` | Modify | Add unit-specific rate lookup |
+| Database migration | Create | Add columns to rate_plans + create rate_plan_value_adds table |
+| `src/pages/pms/Restrictions.tsx` | Modify | Full restriction configuration interface |
+| `src/components/pms/RestrictionRow.tsx` | Create | Reusable row component matching reference design |
+| `src/components/pms/CancellationPolicyDialog.tsx` | Create | Cancellation policy selector |
+| `src/components/pms/MealPlanDialog.tsx` | Create | Meal plan configuration dialog |
+| `src/components/pms/ValueAddsDialog.tsx` | Create | Value adds management dialog |
+| `src/components/pms/BookingRulesDialog.tsx` | Create | Advance booking window dialog |
+| `src/components/pms/RoomApplicabilityDialog.tsx` | Create | Room type selection with Booking.com names |
 
 ---
 
-### Rate Resolution Priority
+### Integration Points
 
-When looking up a rate for a specific room:
+1. **Rate Plans**: Restrictions page reads rate plans created in PMS > Prices
+2. **Room Types**: Uses `booking_com_name` from units table for room selection
+3. **Pricing**: Price row links to PMS > Prices (view only, managed there)
+4. **Booking Flow**: Future integration will enforce restrictions during reservation creation
 
-1. **Unit-specific price** in active rate plan for the date → Use this rate
-2. **Room type price** in active rate plan for the date → Use this rate
-3. **Default rate plan** room type price → Use this rate
+---
+
+### RLS Policies
+
+- **View**: Authenticated users can view restrictions
+- **Modify**: Only admin/manager roles can edit restrictions
 
