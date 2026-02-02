@@ -1,144 +1,90 @@
 
 
-## PMS Restrictions Page - Rate Plan Configuration System
+## Add Cancellation Policy Display and Booking.com ID to Rate Plans
 
 ### Overview
 
-Transform the Restrictions page into a comprehensive rate plan configuration interface. This page displays all existing rate plans (from PMS > Prices) and allows configuring additional booking rules, policies, and restrictions for each one. The design follows the reference image with an inline editing layout using rows with labels, values, and Edit buttons.
+Enhance the Rate Plan Cards on the Prices page to display the cancellation policy next to the rate plan name, matching the reference image layout. Additionally, add a unique `booking_com_id` field for Booking.com integration.
 
 ---
 
 ### Visual Design (Based on Reference Image)
 
 ```text
-+------------------------------------------------------------------+
-|  PMS > Restrictions                                              |
-+------------------------------------------------------------------+
-|                                                                  |
-|  Select Rate Plan: [ Standard Rate                          v ] |
-|                                                                  |
-+------------------------------------------------------------------+
-|  RATE PLAN CONFIGURATION                                        |
-+------------------------------------------------------------------+
-|                                                                  |
-|  +------------------------------------------------------------+ |
-|  |                                                            | |
-|  |  Rate plan name    Standard Rate                    [Edit] | |
-|  |  --------------------------------------------------------- | |
-|  |  Policy            Flexible - 1 day                 [Edit] | |
-|  |  --------------------------------------------------------- | |
-|  |  Meals             No meals                         [Edit] | |
-|  |  --------------------------------------------------------- | |
-|  |  Value adds        No value adds                    [Edit] | |
-|  |  --------------------------------------------------------- | |
-|  |  Minimum stay      2 night minimum stay             [Edit] | |
-|  |  --------------------------------------------------------- | |
-|  |  Bookable          2 days or more before check-in   [Edit] | |
-|  |  --------------------------------------------------------- | |
-|  |  Price             Managed by PMS > Prices          [View] | |
-|  |  --------------------------------------------------------- | |
-|  |  Rooms             Deluxe Suite, Junior Suite, ...  [Edit] | |
-|  |                                                            | |
-|  +------------------------------------------------------------+ |
-|                                                                  |
-|              [Go back]  [Apply changes]                          |
-|                                                                  |
-+------------------------------------------------------------------+
++-------------------------------------------------------------------+
+| Rate plan name                              | Cancellation policy |
++-------------------------------------------------------------------+
+| v Standard 2 days min stay & 24 hrs in      | Flexible - 1 day    |
+|   advance                                   |                     |
+|   ID 59882860                               |                     |
+|   [Flexible]                                |                     |
++-------------------------------------------------------------------+
+| > Non-refundable Rate-3 days min stay       | Non-refundable      |
+|   ID 59882862                               |                     |
+|   [Non-refundable]                          |                     |
++-------------------------------------------------------------------+
 ```
 
 ---
 
 ### Database Changes
 
-#### Extend `rate_plans` Table
-
-Add new columns to the existing `rate_plans` table:
-
-| Column | Type | Default | Description |
-|--------|------|---------|-------------|
-| cancellation_policy | text | 'flexible_1_day' | Options: 'flexible_1_day', 'non_refundable' |
-| meal_plan | text | 'no_meals' | Options: 'no_meals', 'breakfast', 'half_board', 'full_board' |
-| meal_plan_price | numeric | null | Price per person per night if meals included |
-| advance_booking_days | integer | 0 | Minimum days before check-in required to book |
-| applicable_room_types | text[] | null | Array of room type names this plan applies to (null = all) |
-
-#### New Table: `rate_plan_value_adds`
+Add a new column to `rate_plans` table for Booking.com integration:
 
 | Column | Type | Description |
 |--------|------|-------------|
-| id | uuid | Primary key |
-| rate_plan_id | uuid | Foreign key to rate_plans |
-| name | text | Value add name (e.g., "Parking", "Massage") |
-| description | text | Optional description |
-| price | numeric | Price for this value add |
-| is_per_night | boolean | If true, charged per night; otherwise one-time |
-| created_at | timestamp | Creation timestamp |
+| booking_com_id | text | Unique identifier for Booking.com integration (e.g., "59882860") |
 
 ---
 
 ### Technical Implementation
 
-#### 1. Update Restrictions Page
+#### 1. Database Migration
 
-**File: `src/pages/pms/Restrictions.tsx`**
+Add nullable `booking_com_id` column to rate_plans:
 
-Transform the placeholder into a full configuration page:
-- Dropdown to select a rate plan
-- Display all settings in the row-based layout from the reference image
-- Each row shows: Label (bold) | Current Value | Edit button
-- Inline edit dialogs for each setting
+```sql
+ALTER TABLE public.rate_plans 
+ADD COLUMN booking_com_id text;
 
-#### 2. Create Restriction Components
-
-**New Files:**
-
-| File | Description |
-|------|-------------|
-| `src/components/pms/RestrictionRow.tsx` | Reusable row component with label, value, Edit button |
-| `src/components/pms/CancellationPolicyDialog.tsx` | Dialog to edit cancellation policy |
-| `src/components/pms/MealPlanDialog.tsx` | Dialog to edit meal plan settings |
-| `src/components/pms/ValueAddsDialog.tsx` | Dialog to manage value adds |
-| `src/components/pms/BookingRulesDialog.tsx` | Dialog for advance booking window |
-| `src/components/pms/RoomApplicabilityDialog.tsx` | Dialog to select applicable room types |
-
-#### 3. UI Component Details
-
-**RestrictionRow Component:**
-```typescript
-interface RestrictionRowProps {
-  label: string;
-  value: string;
-  onEdit?: () => void;
-  editLabel?: string; // "Edit" or "View"
-  disabled?: boolean;
-}
+-- Create unique index for Booking.com ID
+CREATE UNIQUE INDEX idx_rate_plans_booking_com_id 
+ON public.rate_plans(booking_com_id) 
+WHERE booking_com_id IS NOT NULL;
 ```
 
-**Cancellation Policy Options:**
-- Flexible - 1 day before check-in
-- Non-refundable
+#### 2. Update RatePlanCard Component
 
-**Meal Plan Options:**
-- No meals
-- Breakfast included
-- Half board (breakfast + dinner)
-- Full board (all meals)
+**File: `src/components/pms/RatePlanCard.tsx`**
 
-**Value Adds Examples:**
-- Parking
-- Massage
-- Night credits
-- Airport transfer
-- Late checkout
+Changes:
+- Add `cancellation_policy` and `booking_com_id` to the RatePlan interface
+- Display cancellation policy in a separate column on the right side
+- Show Booking.com ID under the rate plan name (e.g., "ID 59882860")
+- Add a badge showing the policy type (Flexible/Non-refundable)
 
----
+New layout for card header:
+```text
+[Chevron] [Rate Plan Name]              [Cancellation Policy]
+          ID [booking_com_id]
+          [Policy Badge]
+```
 
-### Page Flow
+#### 3. Update Prices Page Interface
 
-1. **Select Rate Plan**: Dropdown populated from existing rate plans
-2. **View/Edit Settings**: Each restriction displayed in a row
-3. **Inline Editing**: Click Edit opens a dialog for that specific setting
-4. **Save Changes**: Apply changes button saves all modifications
+**File: `src/pages/pms/Prices.tsx`**
+
+Changes:
+- Update RatePlan interface to include `cancellation_policy` and `booking_com_id`
+- Fetch these fields from the database (already fetching `*` so just update interface)
+
+#### 4. Update RatePlanDialog
+
+**File: `src/components/pms/RatePlanDialog.tsx`**
+
+Changes:
+- Add input field for Booking.com ID
+- Pass `booking_com_id` when saving rate plan
 
 ---
 
@@ -146,28 +92,24 @@ interface RestrictionRowProps {
 
 | File | Action | Description |
 |------|--------|-------------|
-| Database migration | Create | Add columns to rate_plans + create rate_plan_value_adds table |
-| `src/pages/pms/Restrictions.tsx` | Modify | Full restriction configuration interface |
-| `src/components/pms/RestrictionRow.tsx` | Create | Reusable row component matching reference design |
-| `src/components/pms/CancellationPolicyDialog.tsx` | Create | Cancellation policy selector |
-| `src/components/pms/MealPlanDialog.tsx` | Create | Meal plan configuration dialog |
-| `src/components/pms/ValueAddsDialog.tsx` | Create | Value adds management dialog |
-| `src/components/pms/BookingRulesDialog.tsx` | Create | Advance booking window dialog |
-| `src/components/pms/RoomApplicabilityDialog.tsx` | Create | Room type selection with Booking.com names |
+| Database migration | Create | Add `booking_com_id` column with unique index |
+| `src/components/pms/RatePlanCard.tsx` | Modify | Display cancellation policy, Booking.com ID, and policy badge |
+| `src/pages/pms/Prices.tsx` | Modify | Update interface to include new fields |
+| `src/components/pms/RatePlanDialog.tsx` | Modify | Add Booking.com ID input field |
 
 ---
 
-### Integration Points
+### UI Details
 
-1. **Rate Plans**: Restrictions page reads rate plans created in PMS > Prices
-2. **Room Types**: Uses `booking_com_name` from units table for room selection
-3. **Pricing**: Price row links to PMS > Prices (view only, managed there)
-4. **Booking Flow**: Future integration will enforce restrictions during reservation creation
+**Card Header Layout:**
+- Left side: Chevron, Rate Plan Name (bold), ID line, Policy Badge
+- Right side: Cancellation Policy text, Active toggle, Action buttons
 
----
+**Policy Badge:**
+- "Flexible" badge for `flexible_1_day` policy
+- "Non-refundable" badge for `non_refundable` policy
 
-### RLS Policies
-
-- **View**: Authenticated users can view restrictions
-- **Modify**: Only admin/manager roles can edit restrictions
+**Cancellation Policy Display:**
+- "Flexible - 1 day" for `flexible_1_day`
+- "Non-refundable" for `non_refundable`
 
