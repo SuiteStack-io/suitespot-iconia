@@ -819,6 +819,80 @@ export type Database = {
           },
         ]
       }
+      rate_plan_prices: {
+        Row: {
+          created_at: string
+          id: string
+          min_stay: number
+          rate_plan_id: string
+          room_type: string
+          weekday_rate: number
+          weekend_rate: number
+        }
+        Insert: {
+          created_at?: string
+          id?: string
+          min_stay?: number
+          rate_plan_id: string
+          room_type: string
+          weekday_rate: number
+          weekend_rate: number
+        }
+        Update: {
+          created_at?: string
+          id?: string
+          min_stay?: number
+          rate_plan_id?: string
+          room_type?: string
+          weekday_rate?: number
+          weekend_rate?: number
+        }
+        Relationships: [
+          {
+            foreignKeyName: "rate_plan_prices_rate_plan_id_fkey"
+            columns: ["rate_plan_id"]
+            isOneToOne: false
+            referencedRelation: "rate_plans"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      rate_plans: {
+        Row: {
+          created_at: string
+          id: string
+          is_active: boolean
+          is_default: boolean
+          name: string
+          priority: number
+          updated_at: string
+          valid_from: string | null
+          valid_to: string | null
+        }
+        Insert: {
+          created_at?: string
+          id?: string
+          is_active?: boolean
+          is_default?: boolean
+          name: string
+          priority?: number
+          updated_at?: string
+          valid_from?: string | null
+          valid_to?: string | null
+        }
+        Update: {
+          created_at?: string
+          id?: string
+          is_active?: boolean
+          is_default?: boolean
+          name?: string
+          priority?: number
+          updated_at?: string
+          valid_from?: string | null
+          valid_to?: string | null
+        }
+        Relationships: []
+      }
       reservation_passports: {
         Row: {
           created_at: string | null
