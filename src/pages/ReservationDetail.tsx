@@ -818,9 +818,9 @@ ${reservation.units?.unit_number ? `🚪 *Unit:* #${reservation.units.unit_numbe
 📅 *Check-out:* ${checkOut}
 🌙 *Duration:* ${reservation.nights} night(s)
 
-💵 *Subtotal:* ${reservation.currency} ${subtotal.toFixed(2)}
-${taxPercentage > 0 ? `🧾 *Taxes (${taxPercentage}%):* ${reservation.currency} ${taxAmount.toFixed(2)}` : ''}
-💰 *Total Price:* ${reservation.currency} ${totalWithTax.toFixed(2)}
+💵 *Subtotal:* USD ${subtotal.toFixed(2)}
+${taxPercentage > 0 ? `🧾 *Taxes (${taxPercentage}%):* USD ${taxAmount.toFixed(2)}` : ''}
+💰 *Total Price:* USD ${totalWithTax.toFixed(2)}
 
 ✅ Status: Confirmed
 
@@ -870,9 +870,9 @@ Duration: ${reservation.nights} night(s)
 
 PRICING SUMMARY
 ━━━━━━━━━━━━━━
-Subtotal: ${reservation.currency} ${subtotal.toFixed(2)}
-${taxPercentage > 0 ? `Taxes & Fees (${taxPercentage}%): ${reservation.currency} ${taxAmount.toFixed(2)}` : ''}
-Total Price: ${reservation.currency} ${totalWithTax.toFixed(2)}
+Subtotal: USD ${subtotal.toFixed(2)}
+${taxPercentage > 0 ? `Taxes & Fees (${taxPercentage}%): USD ${taxAmount.toFixed(2)}` : ''}
+Total Price: USD ${totalWithTax.toFixed(2)}
 
 Status: Confirmed ✓
 
@@ -1518,19 +1518,19 @@ Thank you for choosing SuiteSpot!`;
                         <div>
                           <Label className="text-muted-foreground">Price per Night</Label>
                           <p className="mt-1 font-medium">
-                            {reservation.currency} {Number(pricePerNight).toFixed(2)}
+                            USD {Number(pricePerNight).toFixed(2)}
                           </p>
                         </div>
                         <div>
                           <Label className="text-muted-foreground">Subtotal ({nights} nights)</Label>
                           <p className="mt-1 font-medium">
-                            {reservation.currency} {subtotal.toFixed(2)}
+                            USD {subtotal.toFixed(2)}
                           </p>
                         </div>
                         <div>
                           <Label className="text-muted-foreground font-semibold">Total Price (incl. VAT)</Label>
                           <p className="mt-1 font-bold text-lg">
-                            {reservation.currency} {Number(totalPrice).toFixed(2)}
+                            USD {Number(totalPrice).toFixed(2)}
                           </p>
                         </div>
                       </>
@@ -1548,27 +1548,27 @@ Thank you for choosing SuiteSpot!`;
                       <div>
                         <Label className="text-muted-foreground">Price per Night</Label>
                         <p className="mt-1 font-medium">
-                          {reservation.currency} {Number(pricePerNight).toFixed(2)}
+                          USD {Number(pricePerNight).toFixed(2)}
                         </p>
                       </div>
                       <div>
                         <Label className="text-muted-foreground">Subtotal ({nights} nights)</Label>
                         <p className="mt-1 font-medium">
-                          {reservation.currency} {subtotal.toFixed(2)}
+                          USD {subtotal.toFixed(2)}
                         </p>
                       </div>
                       {!isVatExempt && taxPercentage > 0 && (
                         <div>
                           <Label className="text-muted-foreground">Taxes & Fees ({taxPercentage}%)</Label>
                           <p className="mt-1 font-medium">
-                            {reservation.currency} {taxAmount.toFixed(2)}
+                            USD {taxAmount.toFixed(2)}
                           </p>
                         </div>
                       )}
                       <div>
                         <Label className="text-muted-foreground font-semibold">Total Price (incl. VAT)</Label>
                         <p className="mt-1 font-bold text-lg">
-                          {reservation.currency} {totalWithTax.toFixed(2)}
+                          USD {totalWithTax.toFixed(2)}
                         </p>
                       </div>
                     </>
@@ -2144,27 +2144,27 @@ Thank you for choosing SuiteSpot!`;
                   <div className="flex justify-between">
                     <span className="text-gray-500">Price per Night</span>
                     <span className="font-medium text-gray-900">
-                      {reservation.currency} {reservation.price_per_night?.toFixed(2) || '0.00'}
+                      USD {reservation.price_per_night?.toFixed(2) || '0.00'}
                     </span>
                   </div>
                   <div className="flex justify-between">
                     <span className="text-gray-500">Subtotal ({reservation.nights} nights)</span>
                     <span className="font-medium text-gray-900">
-                      {reservation.currency} {subtotal.toFixed(2)}
+                      USD {subtotal.toFixed(2)}
                     </span>
                   </div>
                   {taxPercentage > 0 && (
                     <div className="flex justify-between">
                       <span className="text-gray-500">Taxes & Fees ({taxPercentage}%)</span>
                       <span className="font-medium text-gray-900">
-                        {reservation.currency} {taxAmount.toFixed(2)}
+                        USD {taxAmount.toFixed(2)}
                       </span>
                     </div>
                   )}
                   <div className="flex justify-between pt-2 border-t mt-2">
                     <span className="font-semibold text-gray-900">Total Price</span>
                     <span className="font-bold text-lg text-gray-900">
-                      {reservation.currency} {totalWithTax.toFixed(2)}
+                      USD {totalWithTax.toFixed(2)}
                     </span>
                   </div>
                 </div>
