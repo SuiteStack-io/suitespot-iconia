@@ -1,56 +1,138 @@
 
 
-## Fix: Show Booking.com ID for Default Rate Plans
+## Fix: Sequential Email Sending with Rate Limiting for Check-In/Check-Out Notifications
 
-### Overview
+### Problem Identified
 
-Update the RatePlanCard component to display the Booking.com ID alongside "Always active (default rate)" when both conditions are true.
+Both `send-checkin-notification` and `send-checkout-notification` edge functions use `Promise.all()` to send emails in parallel. This can cause:
+1. **Rate limiting issues** - Resend may throttle or fail requests when too many are sent simultaneously
+2. **Missing emails** - Some recipients may not receive emails due to rate limits being exceeded
+3. **Insufficient logging** - Current logging doesn't capture the full Resend API response including error details
+
+The `send-room-change-notification` function already implements the correct pattern with sequential sending and 600ms delays.
 
 ---
 
-### Technical Change
+### Solution
 
-**File: `src/components/pms/RatePlanCard.tsx`**
+Update both functions to match the pattern from `send-room-change-notification`:
+- Send emails **sequentially** using a `for...of` loop instead of `Promise.all()`
+- Add **600ms delay** between each email for Resend rate limiting
+- Log **full Resend API response** including `result.data?.id` and `result.error`
+- Track success/failure counts properly
 
-Update lines 118-124 to show both status and ID for default plans:
+---
+
+### Technical Changes
+
+**File: `supabase/functions/send-checkin-notification/index.ts`**
+
+Replace the parallel email sending (lines 110-184) with sequential sending:
 
 ```typescript
-// Current (hides ID for default plans):
-<p className="text-xs text-muted-foreground mt-0.5">
-  {ratePlan.is_default 
-    ? 'Always active (default rate)' 
-    : ratePlan.booking_com_id 
-      ? `ID ${ratePlan.booking_com_id}` 
-      : null}
-</p>
+// Current (parallel - causes rate limiting):
+const emailPromises = admins.map(async (admin: any) => {
+  try {
+    const emailResponse = await resend.emails.send({...});
+    console.log(`Email sent to ${admin.email}:`, emailResponse);
+    return { success: true, email: admin.email };
+  } catch (error) {
+    console.error(`Failed to send email to ${admin.email}:`, error);
+    return { success: false, email: admin.email, error };
+  }
+});
+const results = await Promise.all(emailPromises);
 
-// New (shows both for default plans with ID):
-<p className="text-xs text-muted-foreground mt-0.5">
-  {ratePlan.is_default 
-    ? 'Always active (default rate)' 
-    : ratePlan.booking_com_id 
-      ? `ID ${ratePlan.booking_com_id}` 
-      : null}
-  {ratePlan.is_default && ratePlan.booking_com_id && (
-    <span className="ml-2">• ID {ratePlan.booking_com_id}</span>
-  )}
-</p>
+// New (sequential with delays and detailed logging):
+const results: Array<{success: boolean; email: string; id?: string; error?: any}> = [];
+let successCount = 0;
+let failedCount = 0;
+
+for (const admin of admins) {
+  try {
+    console.log(`Attempting to send check-in email to: ${admin.email}`);
+    
+    const result = await resend.emails.send({...});
+    
+    console.log(`Email result for ${admin.email}:`, JSON.stringify(result));
+    
+    if (result.error) {
+      console.error(`Resend error for ${admin.email}:`, JSON.stringify(result.error));
+      results.push({ success: false, email: admin.email, error: result.error });
+      failedCount++;
+    } else {
+      console.log(`Email sent successfully to ${admin.email}, ID: ${result.data?.id}`);
+      results.push({ success: true, email: admin.email, id: result.data?.id });
+      successCount++;
+    }
+    
+    // Add delay between emails (600ms) for rate limiting
+    await new Promise(resolve => setTimeout(resolve, 600));
+  } catch (error: any) {
+    console.error(`Exception sending email to ${admin.email}:`, error.message || error);
+    results.push({ success: false, email: admin.email, error: error.message });
+    failedCount++;
+  }
+}
 ```
 
 ---
 
-### After Code Change
+**File: `supabase/functions/send-checkout-notification/index.ts`**
 
-1. Click the edit button (pencil icon) on the rate plan card
-2. Enter "59882860" in the Booking.com ID field
-3. Save the changes
-4. The display will show: "Always active (default rate) • ID 59882860"
+Apply the same pattern - replace parallel sending (lines 135-214) with sequential:
+
+```typescript
+// Replace Promise.all pattern with sequential for loop
+const results: Array<{success: boolean; email: string; id?: string; error?: any}> = [];
+let successCount = 0;
+let failedCount = 0;
+
+for (const staff of allRecipients) {
+  try {
+    console.log(`Attempting to send check-out email to: ${staff.email}`);
+    
+    const result = await resend.emails.send({...});
+    
+    console.log(`Email result for ${staff.email}:`, JSON.stringify(result));
+    
+    if (result.error) {
+      console.error(`Resend error for ${staff.email}:`, JSON.stringify(result.error));
+      results.push({ success: false, email: staff.email, error: result.error });
+      failedCount++;
+    } else {
+      console.log(`Email sent successfully to ${staff.email}, ID: ${result.data?.id}`);
+      results.push({ success: true, email: staff.email, id: result.data?.id });
+      successCount++;
+    }
+    
+    // Add delay between emails (600ms) for rate limiting
+    await new Promise(resolve => setTimeout(resolve, 600));
+  } catch (error: any) {
+    console.error(`Exception sending email to ${staff.email}:`, error.message || error);
+    results.push({ success: false, email: staff.email, error: error.message });
+    failedCount++;
+  }
+}
+```
 
 ---
 
-### File Summary
+### Key Changes Summary
 
-| File | Action | Description |
-|------|--------|-------------|
-| `src/components/pms/RatePlanCard.tsx` | Modify | Show Booking.com ID alongside default status |
+| Aspect | Before | After |
+|--------|--------|-------|
+| Email sending | Parallel (`Promise.all`) | Sequential (`for...of` loop) |
+| Rate limiting | None | 600ms delay between emails |
+| Resend response logging | Basic | Full JSON response with ID and error |
+| Error tracking | Combined in results | Separate success/failed counters with detailed logs |
+
+---
+
+### Files to Modify
+
+| File | Action |
+|------|--------|
+| `supabase/functions/send-checkin-notification/index.ts` | Rewrite email sending to be sequential with delays |
+| `supabase/functions/send-checkout-notification/index.ts` | Rewrite email sending to be sequential with delays |
 
