@@ -26,7 +26,7 @@ const IconiaZamalek = () => {
         {/* Hero Section */}
         <section className="py-8 md:py-13 px-[20px] mx-[40px] bg-gradient-to-b from-primary/5 to-background">
           <div className="container mx-auto max-w-4xl text-center">
-            <h1 className="font-playfair font-semibold text-[40px] md:text-[80px] tracking-[-0.02em] leading-[1.1] text-foreground mb-6">ICONIA Zamalek</h1>
+            <h1 className="font-playfair font-semibold text-[40px] md:text-[80px] tracking-[-0.02em] leading-[1.1] text-foreground mb-6">Iconia Zamalek Serviced Apartments</h1>
             <p className="font-playfair font-medium text-[24px] md:text-[36px] text-muted-foreground">From AUC Dorms to Iconia & SuiteSpot | Our Hospitality Story in Cairo</p>
           </div>
         </section>
