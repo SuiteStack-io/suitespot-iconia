@@ -132,12 +132,20 @@ serve(async (req) => {
         })
       : 'Not recorded';
 
-    // Send email to all recipients
-    const emailPromises = allRecipients.map(async (staff: any) => {
+    // Send emails sequentially with rate limiting
+    const results: Array<{success: boolean; email: string | undefined; id?: string; error?: any}> = [];
+    let successCount = 0;
+    let failedCount = 0;
+
+    console.log(`Starting to send check-out notification emails to ${allRecipients.length} recipients (${admins.length} admins, ${housekeepingStaff.length} housekeeping)`);
+
+    for (const staff of allRecipients) {
       try {
-        const emailResponse = await resend.emails.send({
+        console.log(`Attempting to send check-out email to: ${staff.email}`);
+        
+        const result = await resend.emails.send({
           from: "SuiteSpot Housekeeping <housekeeping@bookings.suitespoteg.com>",
-          to: [staff.email],
+          to: [staff.email!],
           subject: `Guest Checked Out - ${guestName} - Room #${roomNumber}`,
           html: `
             <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto;">
@@ -203,18 +211,29 @@ serve(async (req) => {
             </div>
           `,
         });
-        console.log(`Email sent to ${staff.email}:`, emailResponse);
-        return { success: true, email: staff.email };
-      } catch (error) {
-        console.error(`Failed to send email to ${staff.email}:`, error);
-        return { success: false, email: staff.email, error };
+        
+        console.log(`Email result for ${staff.email}:`, JSON.stringify(result));
+        
+        if (result.error) {
+          console.error(`Resend error for ${staff.email}:`, JSON.stringify(result.error));
+          results.push({ success: false, email: staff.email, error: result.error });
+          failedCount++;
+        } else {
+          console.log(`Email sent successfully to ${staff.email}, ID: ${result.data?.id}`);
+          results.push({ success: true, email: staff.email, id: result.data?.id });
+          successCount++;
+        }
+        
+        // Add delay between emails (600ms) for rate limiting
+        await new Promise(resolve => setTimeout(resolve, 600));
+      } catch (error: any) {
+        console.error(`Exception sending email to ${staff.email}:`, error.message || error);
+        results.push({ success: false, email: staff.email, error: error.message });
+        failedCount++;
       }
-    });
+    }
 
-    const results = await Promise.all(emailPromises);
-    const successCount = results.filter(r => r.success).length;
-
-    console.log(`Check-out notification emails sent: ${successCount}/${allRecipients.length}`);
+    console.log(`Check-out notification emails completed: ${successCount} sent, ${failedCount} failed out of ${allRecipients.length}`);
 
     return new Response(
       JSON.stringify({
