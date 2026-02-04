@@ -1,3 +1,4 @@
+import { useEffect, useState } from "react";
 import { Button } from "@/components/ui/button";
 import { Link } from "react-router-dom";
 import zamalekView from "@/assets/zamalek-view.jpeg";
@@ -5,40 +6,59 @@ import { OurStorySlideshow } from "@/components/OurStorySlideshow";
 import { PublicNav } from "@/components/PublicNav";
 import { PublicFooter } from "@/components/PublicFooter";
 import { SEO } from "@/components/SEO";
-
-const localBusinessJsonLd = {
-  "@context": "https://schema.org",
-  "@type": "LocalBusiness",
-  "@id": "https://www.findyoursuitespot.com/iconia-zamalek",
-  "name": "SuiteSpot ICONIA Zamalek",
-  "description": "Luxury serviced apartments at Iconia Zamalek, managed by SuiteSpot Hospitality. Prime location in Cairo's exclusive Zamalek district. Pool, gym, 24/7 concierge.",
-  "url": "https://www.findyoursuitespot.com/iconia-zamalek",
-  "image": "https://www.findyoursuitespot.com/slideshow/iconia-zamalek.jpg",
-  "telephone": "+20-2-2735-0000",
-  "email": "info@findyoursuitespot.com",
-  "address": {
-    "@type": "PostalAddress",
-    "streetAddress": "16 Mohammed Thakeb Street, Iconia Building",
-    "addressLocality": "Zamalek",
-    "addressRegion": "Cairo",
-    "postalCode": "11211",
-    "addressCountry": "EG"
-  },
-  "geo": {
-    "@type": "GeoCoordinates",
-    "latitude": "30.0564",
-    "longitude": "31.2241"
-  },
-  "openingHoursSpecification": {
-    "@type": "OpeningHoursSpecification",
-    "dayOfWeek": ["Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday", "Sunday"],
-    "opens": "00:00",
-    "closes": "23:59"
-  },
-  "priceRange": "$$$"
-};
+import { supabase } from "@/integrations/supabase/client";
 
 const IconiaZamalek = () => {
+  const [slideshowImage, setSlideshowImage] = useState<string | null>(null);
+
+  useEffect(() => {
+    const fetchFirstImage = async () => {
+      const { data } = await supabase
+        .from("slideshow_images")
+        .select("image_url")
+        .order("sequence_order", { ascending: true })
+        .limit(1)
+        .single();
+      
+      if (data?.image_url) {
+        setSlideshowImage(data.image_url);
+      }
+    };
+
+    fetchFirstImage();
+  }, []);
+
+  const lodgingBusinessJsonLd = {
+    "@context": "https://schema.org",
+    "@type": "LodgingBusiness",
+    "@id": "https://www.findyoursuitespot.com/iconia-zamalek",
+    "name": "Iconia Zamalek - SuiteSpot Hospitality",
+    "description": "Luxury serviced apartments in Zamalek, Cairo",
+    "url": "https://www.findyoursuitespot.com/iconia-zamalek",
+    "image": slideshowImage || "https://www.findyoursuitespot.com/slideshow/iconia-zamalek.jpg",
+    "telephone": "+201288444086",
+    "email": "info@findyoursuitespot.com",
+    "address": {
+      "@type": "PostalAddress",
+      "streetAddress": "16 Mohammed Thakeb Street, Iconia Building",
+      "addressLocality": "Zamalek",
+      "addressRegion": "Cairo",
+      "postalCode": "11211",
+      "addressCountry": "EG"
+    },
+    "geo": {
+      "@type": "GeoCoordinates",
+      "latitude": "30.0564",
+      "longitude": "31.2241"
+    },
+    "openingHoursSpecification": {
+      "@type": "OpeningHoursSpecification",
+      "dayOfWeek": ["Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday", "Sunday"],
+      "opens": "00:00",
+      "closes": "23:59"
+    },
+    "priceRange": "$110-$160"
+  };
   return (
     <div className="min-h-screen bg-background">
       <SEO
@@ -50,7 +70,7 @@ const IconiaZamalek = () => {
           { name: "About", path: "/about" },
           { name: "ICONIA Zamalek" }
         ]}
-        additionalJsonLd={localBusinessJsonLd}
+        additionalJsonLd={lodgingBusinessJsonLd}
       />
 
       <PublicNav />
