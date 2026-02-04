@@ -185,6 +185,192 @@ export type Database = {
           },
         ]
       }
+      channex_bookings: {
+        Row: {
+          acknowledged: boolean
+          adults: number
+          arrival_date: string
+          booking_data: Json | null
+          channex_booking_id: string
+          channex_revision_id: string | null
+          children: number
+          created_at: string
+          currency: string
+          departure_date: string
+          guest_country: string | null
+          guest_email: string
+          guest_name: string
+          guest_phone: string | null
+          id: string
+          ota_name: string
+          ota_reservation_code: string | null
+          property_id: string
+          rate_plan_id: string | null
+          room_type_id: string | null
+          status: string
+          total_amount: number
+          updated_at: string
+        }
+        Insert: {
+          acknowledged?: boolean
+          adults?: number
+          arrival_date: string
+          booking_data?: Json | null
+          channex_booking_id: string
+          channex_revision_id?: string | null
+          children?: number
+          created_at?: string
+          currency?: string
+          departure_date: string
+          guest_country?: string | null
+          guest_email: string
+          guest_name: string
+          guest_phone?: string | null
+          id?: string
+          ota_name: string
+          ota_reservation_code?: string | null
+          property_id: string
+          rate_plan_id?: string | null
+          room_type_id?: string | null
+          status?: string
+          total_amount: number
+          updated_at?: string
+        }
+        Update: {
+          acknowledged?: boolean
+          adults?: number
+          arrival_date?: string
+          booking_data?: Json | null
+          channex_booking_id?: string
+          channex_revision_id?: string | null
+          children?: number
+          created_at?: string
+          currency?: string
+          departure_date?: string
+          guest_country?: string | null
+          guest_email?: string
+          guest_name?: string
+          guest_phone?: string | null
+          id?: string
+          ota_name?: string
+          ota_reservation_code?: string | null
+          property_id?: string
+          rate_plan_id?: string | null
+          room_type_id?: string | null
+          status?: string
+          total_amount?: number
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "channex_bookings_property_id_fkey"
+            columns: ["property_id"]
+            isOneToOne: false
+            referencedRelation: "units"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "channex_bookings_rate_plan_id_fkey"
+            columns: ["rate_plan_id"]
+            isOneToOne: false
+            referencedRelation: "rate_plans"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "channex_bookings_room_type_id_fkey"
+            columns: ["room_type_id"]
+            isOneToOne: false
+            referencedRelation: "units"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      channex_mappings: {
+        Row: {
+          channex_data: Json | null
+          channex_id: string
+          created_at: string
+          entity_type: string
+          error_message: string | null
+          id: string
+          last_synced_at: string | null
+          local_id: string
+          sync_status: string
+          updated_at: string
+        }
+        Insert: {
+          channex_data?: Json | null
+          channex_id: string
+          created_at?: string
+          entity_type: string
+          error_message?: string | null
+          id?: string
+          last_synced_at?: string | null
+          local_id: string
+          sync_status?: string
+          updated_at?: string
+        }
+        Update: {
+          channex_data?: Json | null
+          channex_id?: string
+          created_at?: string
+          entity_type?: string
+          error_message?: string | null
+          id?: string
+          last_synced_at?: string | null
+          local_id?: string
+          sync_status?: string
+          updated_at?: string
+        }
+        Relationships: []
+      }
+      channex_sync_logs: {
+        Row: {
+          created_at: string
+          endpoint: string
+          error_message: string | null
+          function_name: string
+          id: string
+          property_id: string | null
+          request_payload: Json | null
+          response_payload: Json | null
+          status_code: number | null
+          success: boolean
+        }
+        Insert: {
+          created_at?: string
+          endpoint: string
+          error_message?: string | null
+          function_name: string
+          id?: string
+          property_id?: string | null
+          request_payload?: Json | null
+          response_payload?: Json | null
+          status_code?: number | null
+          success: boolean
+        }
+        Update: {
+          created_at?: string
+          endpoint?: string
+          error_message?: string | null
+          function_name?: string
+          id?: string
+          property_id?: string | null
+          request_payload?: Json | null
+          response_payload?: Json | null
+          status_code?: number | null
+          success?: boolean
+        }
+        Relationships: [
+          {
+            foreignKeyName: "channex_sync_logs_property_id_fkey"
+            columns: ["property_id"]
+            isOneToOne: false
+            referencedRelation: "units"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       check_in_agreements: {
         Row: {
           created_at: string
