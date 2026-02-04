@@ -11,7 +11,7 @@ const localBusinessJsonLd = {
   "@type": "LocalBusiness",
   "@id": "https://www.findyoursuitespot.com/iconia-zamalek",
   "name": "SuiteSpot ICONIA Zamalek",
-  "description": "Luxury serviced apartments in Zamalek, Cairo. Modern design-driven suites in an architecturally unique building with wellness programs and hotel-level service.",
+  "description": "Luxury serviced apartments at Iconia Zamalek, managed by SuiteSpot Hospitality. Prime location in Cairo's exclusive Zamalek district. Pool, gym, 24/7 concierge.",
   "url": "https://www.findyoursuitespot.com/iconia-zamalek",
   "image": "https://www.findyoursuitespot.com/slideshow/iconia-zamalek.jpg",
   "telephone": "+20-2-2735-0000",
@@ -42,8 +42,8 @@ const IconiaZamalek = () => {
   return (
     <div className="min-h-screen bg-background">
       <SEO
-        title="ICONIA Zamalek | redefining serviced apartment living in Egypt by SuiteSpot Hospitality"
-        description="Luxury serviced apartments at Iconia Zamalek, Cairo. Managed by SuiteSpot Hospitality."
+        title="Iconia Zamalek Serviced Apartments | SuiteSpot Hospitality Cairo"
+        description="Luxury serviced apartments at Iconia Zamalek, managed by SuiteSpot Hospitality. Prime location in Cairo's exclusive Zamalek district. Pool, gym, 24/7 concierge. Book direct for best rates."
         path="/iconia-zamalek"
         breadcrumbs={[
           { name: "Home", path: "/" },
@@ -72,7 +72,7 @@ const IconiaZamalek = () => {
           <div className="container mx-auto max-w-4xl">
           <div className="space-y-12">
               <div>
-                <h2 className="text-3xl font-serif font-bold text-foreground mb-4">In 2018, we opened our first doors in Zamalek</h2>
+                <h2 className="text-3xl font-serif font-bold text-foreground mb-4">Our History</h2>
                 <p className="text-lg text-muted-foreground leading-relaxed mb-6">
                   ICONIA began in 2018 with a simple yet ambitious vision — to breathe new life into one of Zamalek's most iconic buildings. What was once the AUC dormitory was reimagined as Egypt's first-of-its-kind mixed-use development — a vibrant space blending residences, offices, and retail under one roof.
                 </p>
@@ -86,7 +86,7 @@ const IconiaZamalek = () => {
 
               <div>
                 <h2 className="text-3xl font-serif font-bold text-foreground mb-4">
-                  A Vision Born from Experience
+                  About SuiteSpot Hospitality
                 </h2>
                 <p className="text-lg text-muted-foreground leading-relaxed mb-6">
                   SuiteSpot Hospitality was founded on a simple belief: travelers deserve more than just a place to stay.
@@ -123,7 +123,7 @@ const IconiaZamalek = () => {
 
               <div>
                 <h2 className="text-3xl font-serif font-bold text-foreground mb-4">
-                  Looking Forward
+                  Location & Expansion
                 </h2>
                 <p className="text-lg text-muted-foreground leading-relaxed mb-6">
                   Starting with our flagship property, Iconia in Zamalek, we're expanding our vision across Egypt's 
@@ -142,7 +142,7 @@ const IconiaZamalek = () => {
         <section className="py-24 px-6 bg-muted/30">
           <div className="container mx-auto max-w-3xl text-center">
             <h2 className="text-4xl font-serif font-bold text-foreground mb-6">
-              Experience SuiteSpot
+              Book Your Stay
             </h2>
             <p className="text-xl text-muted-foreground mb-8">
               Discover a new way to experience Egypt
