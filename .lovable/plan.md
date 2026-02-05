@@ -1,188 +1,129 @@
 
 
-## Update Unit Type Definitions for Channex Integration
+## Rename "Suite Name" to "Room Name" Across Dashboard
 
 ### Overview
 
-This plan creates a centralized, shared Unit type definition that includes the new Channex-required fields (`count_of_rooms`, `max_children`, `max_infants`). This will standardize the Unit interface across the codebase and ensure consistent typing.
+This plan updates all UI labels from "Suite Name" to "Room Name" for consistency across the application. This is a UI labeling change only - no database schema modifications are required.
 
 ---
 
-### Current Situation
+### Files to Modify
 
-| Aspect | Status |
-|--------|--------|
-| Local interfaces | 20+ files define their own `interface Unit` |
-| Shared types | No `src/types` directory exists |
-| Supabase types | Auto-generated, includes `max_guests` but awaiting migration for new fields |
-
-**Files with local Unit interfaces:**
-- `src/pages/Rooms.tsx` (most comprehensive)
-- `src/pages/BookingFlow.tsx`
-- `src/pages/ReservationDetail.tsx`
-- `src/pages/SelectionLanding.tsx`
-- `src/pages/Suites.tsx`
-- `src/components/InventorySelectionModal.tsx`
-- `src/components/CreateReservationDialog.tsx`
-- `src/components/AvailabilityCalendar.tsx`
-- `src/components/RoomCalendar.tsx`
-- Plus 10+ more components
+| File | Location | Change |
+|------|----------|--------|
+| `src/pages/Rooms.tsx` | Line 872, 1548, 1597 | Table header & dialog labels |
+| `src/pages/ReservationDetail.tsx` | Line 1483 | Label text |
+| `src/pages/Guests.tsx` | Line 569 | Table header |
+| `src/components/AvailabilityCalendar.tsx` | Line 2173 | Popover label |
+| `src/components/RoomCalendar.tsx` | Lines 774, 830, 961 | Header & popover labels |
+| `src/components/MobileCalendarView.tsx` | Line 474 | Popover label |
+| `src/components/WeeklyCalendar.tsx` | Line 219 | Column header |
+| `src/components/ReservationsList.tsx` | Lines 662, 1523 | Export key & table header |
+| `src/components/CreateReservationDialog.tsx` | Line 1352 | Form label |
+| `src/components/RevenueByGuests.tsx` | Line 186 | Table header |
+| `src/components/RevenueByRoom.tsx` | Lines 87, 93, 300, 316 | Comments, function name & table header |
 
 ---
 
-### Implementation Strategy
+### Detailed Changes
 
-**Option A: Create Shared Types File (Recommended)**
+#### 1. Room Management (`src/pages/Rooms.tsx`)
 
-Create a centralized types file that components can import, reducing duplication and ensuring consistency.
+| Line | Before | After |
+|------|--------|-------|
+| 872 | `>Suite Name</th>` | `>Room Name</th>` |
+| 1548 | `<strong>Suite Name:</strong>` | `<strong>Room Name:</strong>` |
+| 1597 | `<strong>Suite Name:</strong>` | `<strong>Room Name:</strong>` |
 
-**Option B: Keep Local Interfaces**
+#### 2. Reservation Detail (`src/pages/ReservationDetail.tsx`)
 
-Each component continues defining only the fields it needs. This is the current pattern.
+| Line | Before | After |
+|------|--------|-------|
+| 1483 | `<Label>Suite Name</Label>` | `<Label>Room Name</Label>` |
 
-I will implement **Option A** for better maintainability.
+#### 3. Guests Page (`src/pages/Guests.tsx`)
 
----
+| Line | Before | After |
+|------|--------|-------|
+| 569 | `<TableHead>Suite Name</TableHead>` | `<TableHead>Room Name</TableHead>` |
 
-### Files to Create/Modify
+#### 4. Availability Calendar (`src/components/AvailabilityCalendar.tsx`)
 
-| File | Action |
-|------|--------|
-| `src/types/unit.ts` | **Create** - New shared Unit type |
-| Components using Unit | **Update** - Import from shared types |
+| Line | Before | After |
+|------|--------|-------|
+| 2173 | `Suite Name: ` | `Room Name: ` |
 
----
+#### 5. Room Calendar (`src/components/RoomCalendar.tsx`)
 
-### Shared Unit Type Definition
+| Line | Before | After |
+|------|--------|-------|
+| 774 | `Suite Name` | `Room Name` |
+| 830 | `Suite Name: ` | `Room Name: ` |
+| 961 | `Suite Name: ` | `Room Name: ` |
 
-The new centralized type file will export:
+#### 6. Mobile Calendar View (`src/components/MobileCalendarView.tsx`)
 
-```typescript
-// Base Unit type with all fields from database
-export interface Unit {
-  id: string;
-  name: string;
-  unit_number: string | null;
-  unit_type: string | null;
-  unit_size: string | null;
-  status: string;
-  booking_com_id: string | null;
-  booking_com_name: string | null;
-  comments: string | null;
-  beds: number | null;
-  baths: number | null;
-  max_guests: number | null;
-  sofa_bed: boolean | null;
-  price_per_night: number | null;
-  weekend_rate: number | null;
-  tax_percentage: number | null;
-  photos: string[] | null;
-  view: string | null;
-  location: string | null;
-  address: string | null;
-  map_description: string | null;
-  latitude: number | null;
-  longitude: number | null;
-  is_private: boolean | null;
-  min_stay: number | null;
-  estimated_cleaning_minutes: number | null;
-  features: string[] | null;
-  payment_terms: string | null;
-  created_at: string;
-  updated_at: string;
-  // New Channex fields
-  count_of_rooms: number;
-  max_children: number;
-  max_infants: number;
-}
+| Line | Before | After |
+|------|--------|-------|
+| 474 | `Suite Name: ` | `Room Name: ` |
 
-// Partial type for components that only need some fields
-export type PartialUnit = Partial<Unit> & Pick<Unit, 'id' | 'name'>;
+#### 7. Weekly Calendar (`src/components/WeeklyCalendar.tsx`)
 
-// Channex-specific subset for sync operations
-export interface ChannexUnit {
-  id: string;
-  name: string;
-  count_of_rooms: number;
-  max_guests: number;
-  max_children: number;
-  max_infants: number;
-}
-```
+| Line | Before | After |
+|------|--------|-------|
+| 219 | `Suite Name` | `Room Name` |
 
----
+#### 8. Reservations List (`src/components/ReservationsList.tsx`)
 
-### Component Updates
+| Line | Before | After |
+|------|--------|-------|
+| 662 | `'Suite Name':` | `'Room Name':` |
+| 1523 | `<TableHead>Suite Name</TableHead>` | `<TableHead>Room Name</TableHead>` |
 
-Each component will be updated to import from the shared types:
+#### 9. Create Reservation Dialog (`src/components/CreateReservationDialog.tsx`)
 
-**Before:**
-```typescript
-interface Unit {
-  id: string;
-  name: string;
-  max_guests: number | null;
-  // ... duplicated fields
-}
-```
+| Line | Before | After |
+|------|--------|-------|
+| 1352 | `Suite Name <span>` | `Room Name <span>` |
 
-**After:**
-```typescript
-import { Unit } from '@/types/unit';
-// OR for components needing fewer fields:
-import { PartialUnit } from '@/types/unit';
-```
+#### 10. Revenue By Guests (`src/components/RevenueByGuests.tsx`)
+
+| Line | Before | After |
+|------|--------|-------|
+| 186 | `Suite Name {getSortIcon}` | `Room Name {getSortIcon}` |
+
+#### 11. Revenue By Room (`src/components/RevenueByRoom.tsx`)
+
+| Line | Before | After |
+|------|--------|-------|
+| 87 | `// Group rooms by suite name` | `// Group rooms by room name` |
+| 93 | `groupRoomsBySuiteName` | `groupRoomsByRoomName` |
+| 300 | `>Suite Name</TableHead>` | `>Room Name</TableHead>` |
+| 316 | `{/* Parent Row - Suite Name */}` | `{/* Parent Row - Room Name */}` |
+
+**Variable/Interface Renames (RevenueByRoom.tsx):**
+- `suiteName` → `roomName` (interface property & variables)
+- `groupRoomsBySuiteName` → `groupRoomsByRoomName` (function name)
+- `suiteRooms` → `groupedRooms` (variable name)
 
 ---
 
-### Priority Components to Update
+### Summary
 
-The following components are most likely to use the new Channex fields and should be updated first:
-
-| Component | Reason |
-|-----------|--------|
-| `src/pages/Rooms.tsx` | Main room management, needs all fields |
-| `src/components/InventorySelectionModal.tsx` | Shows room details |
-| `src/pages/ReservationDetail.tsx` | May show occupancy limits |
-| `src/components/CreateReservationDialog.tsx` | Guest count validation |
+| Category | Count |
+|----------|-------|
+| Files to modify | 11 |
+| Label changes | 18 |
+| Variable/function renames | 6 |
+| Database changes | 0 |
 
 ---
 
-### Benefits
+### Notes
 
-1. **Single source of truth** - One definition to update when schema changes
-2. **Type safety** - Consistent types across all components
-3. **Channex ready** - New fields immediately available everywhere
-4. **Maintainable** - Easier to add/remove fields in the future
-5. **IntelliSense** - Better autocomplete in editors
-
----
-
-### Database Type Sync
-
-After the migration runs, the Supabase types at `src/integrations/supabase/types.ts` will automatically include:
-
-```typescript
-// Auto-generated after migration
-units: {
-  Row: {
-    // ... existing fields ...
-    count_of_rooms: number | null
-    max_children: number | null
-    max_infants: number | null
-  }
-}
-```
-
-The shared type file will align with these auto-generated types while providing explicit documentation and defaults.
-
----
-
-### Implementation Steps
-
-1. Create `src/types/unit.ts` with the shared Unit interface
-2. Update `src/pages/Rooms.tsx` to import and use the shared type
-3. Update `src/components/InventorySelectionModal.tsx`
-4. Update other high-priority components
-5. Leave low-priority components for future refactoring (they can continue using local interfaces until needed)
+- The internal database field remains `name` (no schema change)
+- The guest-facing display name field remains `booking_com_name`
+- This change only affects UI labels for user-facing consistency
+- Variable renames in `RevenueByRoom.tsx` maintain internal code consistency
 
