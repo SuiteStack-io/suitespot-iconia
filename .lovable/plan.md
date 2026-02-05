@@ -1,56 +1,46 @@
 
 
-## Create channex-create-property Edge Function
+## Update Unit Type Definitions for Channex Integration
 
 ### Overview
 
-This function will create a property in Channex by taking your local property ID, looking it up in your database, transforming the data to Channex's format, and sending it to the Channex API.
+This plan creates a centralized, shared Unit type definition that includes the new Channex-required fields (`count_of_rooms`, `max_children`, `max_infants`). This will standardize the Unit interface across the codebase and ensure consistent typing.
 
 ---
 
-### Contact Details (from your input)
+### Current Situation
 
-| Field | Value |
-|-------|-------|
-| Email | youssef@suitespotegypt.com |
-| Phone | +201288444086 |
-| Zip Code | 11211 |
+| Aspect | Status |
+|--------|--------|
+| Local interfaces | 20+ files define their own `interface Unit` |
+| Shared types | No `src/types` directory exists |
+| Supabase types | Auto-generated, includes `max_guests` but awaiting migration for new fields |
+
+**Files with local Unit interfaces:**
+- `src/pages/Rooms.tsx` (most comprehensive)
+- `src/pages/BookingFlow.tsx`
+- `src/pages/ReservationDetail.tsx`
+- `src/pages/SelectionLanding.tsx`
+- `src/pages/Suites.tsx`
+- `src/components/InventorySelectionModal.tsx`
+- `src/components/CreateReservationDialog.tsx`
+- `src/components/AvailabilityCalendar.tsx`
+- `src/components/RoomCalendar.tsx`
+- Plus 10+ more components
 
 ---
 
-### How It Works
+### Implementation Strategy
 
-```text
-1. Receive POST request with property_id
-                │
-                ▼
-2. Authenticate user (admin only)
-                │
-                ▼
-3. Look up property from 'units' table
-                │
-                ▼
-4. Check if already mapped to Channex
-   (prevent duplicate creation)
-                │
-                ▼
-5. Transform data to Channex format
-                │
-                ▼
-6. POST to Channex /api/v1/properties
-                │
-        ┌───────┴───────┐
-        ▼               ▼
-   SUCCESS           FAILURE
-        │               │
-        ▼               ▼
-7a. Save mapping    7b. Log error
-    to channex_         and return
-    mappings           error message
-        │
-        ▼
-8. Log sync and return Channex ID
-```
+**Option A: Create Shared Types File (Recommended)**
+
+Create a centralized types file that components can import, reducing duplication and ensuring consistency.
+
+**Option B: Keep Local Interfaces**
+
+Each component continues defining only the fields it needs. This is the current pattern.
+
+I will implement **Option A** for better maintainability.
 
 ---
 
@@ -58,90 +48,141 @@ This function will create a property in Channex by taking your local property ID
 
 | File | Action |
 |------|--------|
-| `supabase/functions/channex-create-property/index.ts` | Create new edge function |
-| `supabase/config.toml` | Add function configuration |
+| `src/types/unit.ts` | **Create** - New shared Unit type |
+| Components using Unit | **Update** - Import from shared types |
 
 ---
 
-### Request Format
+### Shared Unit Type Definition
 
-```json
-{
-  "property_id": "uuid-of-your-local-property"
+The new centralized type file will export:
+
+```typescript
+// Base Unit type with all fields from database
+export interface Unit {
+  id: string;
+  name: string;
+  unit_number: string | null;
+  unit_type: string | null;
+  unit_size: string | null;
+  status: string;
+  booking_com_id: string | null;
+  booking_com_name: string | null;
+  comments: string | null;
+  beds: number | null;
+  baths: number | null;
+  max_guests: number | null;
+  sofa_bed: boolean | null;
+  price_per_night: number | null;
+  weekend_rate: number | null;
+  tax_percentage: number | null;
+  photos: string[] | null;
+  view: string | null;
+  location: string | null;
+  address: string | null;
+  map_description: string | null;
+  latitude: number | null;
+  longitude: number | null;
+  is_private: boolean | null;
+  min_stay: number | null;
+  estimated_cleaning_minutes: number | null;
+  features: string[] | null;
+  payment_terms: string | null;
+  created_at: string;
+  updated_at: string;
+  // New Channex fields
+  count_of_rooms: number;
+  max_children: number;
+  max_infants: number;
+}
+
+// Partial type for components that only need some fields
+export type PartialUnit = Partial<Unit> & Pick<Unit, 'id' | 'name'>;
+
+// Channex-specific subset for sync operations
+export interface ChannexUnit {
+  id: string;
+  name: string;
+  count_of_rooms: number;
+  max_guests: number;
+  max_children: number;
+  max_infants: number;
 }
 ```
 
 ---
 
-### Response Format
+### Component Updates
 
-**Success:**
-```json
-{
-  "success": true,
-  "channex_property_id": "channex-uuid-here",
-  "message": "Property created successfully in Channex"
+Each component will be updated to import from the shared types:
+
+**Before:**
+```typescript
+interface Unit {
+  id: string;
+  name: string;
+  max_guests: number | null;
+  // ... duplicated fields
 }
 ```
 
-**Error:**
-```json
-{
-  "success": false,
-  "error": "Error description here"
+**After:**
+```typescript
+import { Unit } from '@/types/unit';
+// OR for components needing fewer fields:
+import { PartialUnit } from '@/types/unit';
+```
+
+---
+
+### Priority Components to Update
+
+The following components are most likely to use the new Channex fields and should be updated first:
+
+| Component | Reason |
+|-----------|--------|
+| `src/pages/Rooms.tsx` | Main room management, needs all fields |
+| `src/components/InventorySelectionModal.tsx` | Shows room details |
+| `src/pages/ReservationDetail.tsx` | May show occupancy limits |
+| `src/components/CreateReservationDialog.tsx` | Guest count validation |
+
+---
+
+### Benefits
+
+1. **Single source of truth** - One definition to update when schema changes
+2. **Type safety** - Consistent types across all components
+3. **Channex ready** - New fields immediately available everywhere
+4. **Maintainable** - Easier to add/remove fields in the future
+5. **IntelliSense** - Better autocomplete in editors
+
+---
+
+### Database Type Sync
+
+After the migration runs, the Supabase types at `src/integrations/supabase/types.ts` will automatically include:
+
+```typescript
+// Auto-generated after migration
+units: {
+  Row: {
+    // ... existing fields ...
+    count_of_rooms: number | null
+    max_children: number | null
+    max_infants: number | null
+  }
 }
 ```
 
----
-
-### Data Transformation
-
-| Your Field (units) | Channex Field | Value/Source |
-|-------------------|---------------|--------------|
-| `name` | `title` | From database |
-| `location` | `city` | From database (default: "Cairo") |
-| `address` | `address` | From database |
-| `latitude` | `latitude` | From database |
-| `longitude` | `longitude` | From database |
-| `map_description` | `content.description` | From database |
-| - | `currency` | "EGP" (Egyptian Pound) |
-| - | `country` | "EG" (Egypt) |
-| - | `timezone` | "Africa/Cairo" (handles DST) |
-| - | `email` | youssef@suitespotegypt.com |
-| - | `phone` | +201288444086 |
-| - | `zip_code` | 11211 |
+The shared type file will align with these auto-generated types while providing explicit documentation and defaults.
 
 ---
 
-### Technical Details
+### Implementation Steps
 
-**Authentication:**
-- Validates JWT in code (verify_jwt = false in config for better error messages)
-- Only admins can sync properties to Channex
-- Uses `supabase.auth.getUser()` to verify the caller
-
-**Error Handling:**
-- Returns 401 if no authorization header
-- Returns 401 if invalid/expired token
-- Returns 403 if user is not an admin
-- Returns 400 if no property_id provided
-- Returns 404 if property not found in database
-- Returns 409 if property already mapped to Channex
-- Returns 502 if Channex API fails
-- All errors are logged to `channex_sync_logs`
-
-**Database Operations:**
-- Reads from `units` table to get property data
-- Checks `channex_mappings` for existing mapping (entity_type = 'property')
-- Inserts new mapping on success with sync_status = 'synced'
-- Logs all operations to `channex_sync_logs`
-
----
-
-### Config Addition
-
-```toml
-[functions.channex-create-property]
-verify_jwt = false
-```
+1. Create `src/types/unit.ts` with the shared Unit interface
+2. Update `src/pages/Rooms.tsx` to import and use the shared type
+3. Update `src/components/InventorySelectionModal.tsx`
+4. Update other high-priority components
+5. Leave low-priority components for future refactoring (they can continue using local interfaces until needed)
 
