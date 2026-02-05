@@ -1627,7 +1627,9 @@ export type Database = {
           booking_com_id: string | null
           booking_com_name: string | null
           comments: string | null
+          count_of_rooms: number | null
           created_at: string
+          default_occupancy: number | null
           estimated_cleaning_minutes: number | null
           features: string[] | null
           id: string
@@ -1636,12 +1638,15 @@ export type Database = {
           location: string | null
           longitude: number | null
           map_description: string | null
+          max_children: number | null
           max_guests: number | null
+          max_infants: number | null
           min_stay: number | null
           name: string
           payment_terms: string | null
           photos: string[] | null
           price_per_night: number | null
+          room_kind: string | null
           sofa_bed: boolean | null
           status: string
           tax_percentage: number | null
@@ -1660,7 +1665,9 @@ export type Database = {
           booking_com_id?: string | null
           booking_com_name?: string | null
           comments?: string | null
+          count_of_rooms?: number | null
           created_at?: string
+          default_occupancy?: number | null
           estimated_cleaning_minutes?: number | null
           features?: string[] | null
           id?: string
@@ -1669,12 +1676,15 @@ export type Database = {
           location?: string | null
           longitude?: number | null
           map_description?: string | null
+          max_children?: number | null
           max_guests?: number | null
+          max_infants?: number | null
           min_stay?: number | null
           name: string
           payment_terms?: string | null
           photos?: string[] | null
           price_per_night?: number | null
+          room_kind?: string | null
           sofa_bed?: boolean | null
           status: string
           tax_percentage?: number | null
@@ -1693,7 +1703,9 @@ export type Database = {
           booking_com_id?: string | null
           booking_com_name?: string | null
           comments?: string | null
+          count_of_rooms?: number | null
           created_at?: string
+          default_occupancy?: number | null
           estimated_cleaning_minutes?: number | null
           features?: string[] | null
           id?: string
@@ -1702,12 +1714,15 @@ export type Database = {
           location?: string | null
           longitude?: number | null
           map_description?: string | null
+          max_children?: number | null
           max_guests?: number | null
+          max_infants?: number | null
           min_stay?: number | null
           name?: string
           payment_terms?: string | null
           photos?: string[] | null
           price_per_night?: number | null
+          room_kind?: string | null
           sofa_bed?: boolean | null
           status?: string
           tax_percentage?: number | null

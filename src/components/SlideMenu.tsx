@@ -37,6 +37,7 @@ import {
   ChevronDown,
   FileSignature,
   Lock,
+  Layers,
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 
@@ -80,6 +81,7 @@ export function SlideMenu({ userRole }: SlideMenuProps) {
       label: 'ICONIA',
       items: [
         { title: 'Rooms', url: '/rooms', icon: DoorOpen },
+        { title: 'Room Types', url: '/room-types', icon: Layers },
         { title: 'Room Rates', url: '/room-rates', icon: DollarSign },
         { title: 'Reservations List', url: '/reservations-list', icon: ClipboardList },
         { title: 'Check-In/Out', url: '/check-in-out', icon: DoorClosed },
