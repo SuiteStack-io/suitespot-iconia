@@ -39,10 +39,12 @@ export interface Unit {
   availability_date: string | null;
   created_at: string;
   updated_at: string;
-  // Channex integration fields (nullable until migration runs)
-  count_of_rooms?: number | null;
-  max_children?: number | null;
-  max_infants?: number | null;
+  // Channex integration fields
+  count_of_rooms: number;
+  max_children: number;
+  max_infants: number;
+  default_occupancy: number;
+  room_kind: string;
 }
 
 /**

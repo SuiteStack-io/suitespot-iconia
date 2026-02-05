@@ -63,6 +63,7 @@ import GuestForms from "./pages/GuestForms";
 import PMSAvailability from "./pages/pms/Availability";
 import PMSPrices from "./pages/pms/Prices";
 import PMSRestrictions from "./pages/pms/Restrictions";
+import RoomTypes from "./pages/RoomTypes";
 const queryClient = new QueryClient();
 
 const App = () => (
@@ -129,6 +130,7 @@ const App = () => (
               <Route path="/my-commissions" element={<ProtectedRoute><MyReservations /></ProtectedRoute>} />
               <Route path="/rooms" element={<ProtectedRoute><Rooms /></ProtectedRoute>} />
               <Route path="/room-rates" element={<ProtectedRoute><RoomRates /></ProtectedRoute>} />
+              <Route path="/room-types" element={<ProtectedRoute><RoomTypes /></ProtectedRoute>} />
               <Route path="/homepage-management" element={<ProtectedRoute><HomepageManagement /></ProtectedRoute>} />
               <Route path="/settings" element={<ProtectedRoute><Settings /></ProtectedRoute>} />
         <Route path="/booking-com-reservations" element={<ProtectedRoute><BookingComReservations /></ProtectedRoute>} />
