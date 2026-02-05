@@ -1007,8 +1007,10 @@ export type Database = {
       }
       rate_plan_prices: {
         Row: {
+          base_occupancy: number | null
           created_at: string
           id: string
+          max_occupancy: number | null
           min_stay: number
           rate_plan_id: string
           room_type: string
@@ -1017,8 +1019,10 @@ export type Database = {
           weekend_rate: number
         }
         Insert: {
+          base_occupancy?: number | null
           created_at?: string
           id?: string
+          max_occupancy?: number | null
           min_stay?: number
           rate_plan_id: string
           room_type: string
@@ -1027,8 +1031,10 @@ export type Database = {
           weekend_rate: number
         }
         Update: {
+          base_occupancy?: number | null
           created_at?: string
           id?: string
+          max_occupancy?: number | null
           min_stay?: number
           rate_plan_id?: string
           room_type?: string
@@ -1098,6 +1104,9 @@ export type Database = {
           booking_com_id: string | null
           cancellation_policy: string | null
           created_at: string
+          currency: string | null
+          extra_adult_rate: number | null
+          extra_child_rate: number | null
           id: string
           is_active: boolean
           is_default: boolean
@@ -1105,6 +1114,8 @@ export type Database = {
           meal_plan_price: number | null
           name: string
           priority: number
+          property_id: string | null
+          sell_mode: string | null
           updated_at: string
           valid_from: string | null
           valid_to: string | null
@@ -1115,6 +1126,9 @@ export type Database = {
           booking_com_id?: string | null
           cancellation_policy?: string | null
           created_at?: string
+          currency?: string | null
+          extra_adult_rate?: number | null
+          extra_child_rate?: number | null
           id?: string
           is_active?: boolean
           is_default?: boolean
@@ -1122,6 +1136,8 @@ export type Database = {
           meal_plan_price?: number | null
           name: string
           priority?: number
+          property_id?: string | null
+          sell_mode?: string | null
           updated_at?: string
           valid_from?: string | null
           valid_to?: string | null
@@ -1132,6 +1148,9 @@ export type Database = {
           booking_com_id?: string | null
           cancellation_policy?: string | null
           created_at?: string
+          currency?: string | null
+          extra_adult_rate?: number | null
+          extra_child_rate?: number | null
           id?: string
           is_active?: boolean
           is_default?: boolean
@@ -1139,11 +1158,21 @@ export type Database = {
           meal_plan_price?: number | null
           name?: string
           priority?: number
+          property_id?: string | null
+          sell_mode?: string | null
           updated_at?: string
           valid_from?: string | null
           valid_to?: string | null
         }
-        Relationships: []
+        Relationships: [
+          {
+            foreignKeyName: "rate_plans_property_id_fkey"
+            columns: ["property_id"]
+            isOneToOne: false
+            referencedRelation: "channex_mappings"
+            referencedColumns: ["id"]
+          },
+        ]
       }
       reservation_passports: {
         Row: {
