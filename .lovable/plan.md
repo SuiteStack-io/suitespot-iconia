@@ -1,150 +1,189 @@
 
+## Update Room Rates Page for Channex Rate Plan Mapping
 
-## Group Rooms by Title on Room Types Page
+### Overview
 
-### Problem
-
-Currently each unit row in the `units` table is displayed as a separate row on the Room Types page. For Channex integration, rooms with the same title (e.g., 5 "Deluxe Suite" units) should appear as **one row** with `count_of_rooms = 5`.
-
----
-
-### Solution
-
-Group units by their display name (`booking_com_name || name`) and show aggregated data. When saving, update all units in that group with the same values.
+This plan restructures the Room Rates page from a simple read-only view to a comprehensive Channex-compatible rate plan management interface. The page will capture all fields required for Channex rate plan sync while maintaining the current design aesthetic.
 
 ---
 
-### Implementation Changes
+### Database Changes Required
 
-**File:** `src/pages/RoomTypes.tsx`
+New columns need to be added to the `rate_plans` table to support Channex mapping:
 
-#### 1. Add Grouped Room Type Interface
+| Column | Type | Default | Description |
+|--------|------|---------|-------------|
+| `property_id` | uuid | null | Reference to the property in channex_mappings |
+| `currency` | text | 'USD' | Fixed currency for Channex |
+| `sell_mode` | text | 'per_room' | Either 'per_room' or 'per_person' |
+| `extra_adult_rate` | numeric | 50 | Fixed default for extra adults |
+| `extra_child_rate` | numeric | 0 | Fixed default for extra children |
 
-```typescript
-interface GroupedRoomType {
-  displayName: string;
-  unitIds: string[];  // All unit IDs with this room type
-  count_of_rooms: number;  // Number of units in this group
-  max_guests: number;
-  max_children: number;
-  max_infants: number;
-  default_occupancy: number;
-  room_kind: string;
-}
-```
+The `rate_plan_prices` table also needs new columns for occupancy options:
 
-#### 2. Create Grouping Logic
+| Column | Type | Default | Description |
+|--------|------|---------|-------------|
+| `base_occupancy` | integer | 2 | Base occupancy for the room type |
+| `max_occupancy` | integer | null | Max occupancy (pulls from units.max_guests) |
 
-Add a function to group rooms by display name:
+---
 
-```typescript
-const groupRoomsByType = (rooms: RoomTypeData[]): GroupedRoomType[] => {
-  const groups: Record<string, GroupedRoomType> = {};
-  
-  rooms.forEach(room => {
-    const displayName = room.booking_com_name || room.name;
-    
-    if (!groups[displayName]) {
-      groups[displayName] = {
-        displayName,
-        unitIds: [room.id],
-        count_of_rooms: 1,
-        max_guests: room.max_guests ?? 2,
-        max_children: room.max_children ?? 0,
-        max_infants: room.max_infants ?? 0,
-        default_occupancy: room.default_occupancy ?? 2,
-        room_kind: room.room_kind ?? 'room',
-      };
-    } else {
-      groups[displayName].unitIds.push(room.id);
-      groups[displayName].count_of_rooms += 1;
-    }
-  });
-  
-  return Object.values(groups).sort((a, b) => 
-    a.displayName.localeCompare(b.displayName)
-  );
-};
-```
+### SQL Migration
 
-#### 3. Update State Management
+```sql
+-- Add Channex rate plan fields
+ALTER TABLE rate_plans 
+  ADD COLUMN IF NOT EXISTS property_id uuid REFERENCES channex_mappings(id) ON DELETE SET NULL,
+  ADD COLUMN IF NOT EXISTS currency text DEFAULT 'USD',
+  ADD COLUMN IF NOT EXISTS sell_mode text DEFAULT 'per_room',
+  ADD COLUMN IF NOT EXISTS extra_adult_rate numeric DEFAULT 50,
+  ADD COLUMN IF NOT EXISTS extra_child_rate numeric DEFAULT 0;
 
-Change from tracking by unit ID to tracking by display name:
+-- Add check constraint for sell_mode
+ALTER TABLE rate_plans 
+  ADD CONSTRAINT rate_plans_sell_mode_check 
+  CHECK (sell_mode IN ('per_room', 'per_person'));
 
-| Before | After |
-|--------|-------|
-| `editedData: Record<string, EditedRoomType>` (keyed by unit ID) | `editedData: Record<string, GroupedRoomType>` (keyed by display name) |
-
-#### 4. Update Save Logic
-
-When saving, apply changes to **all units** in the group:
-
-```typescript
-const handleSave = () => {
-  const updates: { id: string; data: EditedRoomType }[] = [];
-  
-  Object.entries(editedData).forEach(([displayName, groupData]) => {
-    // Apply same values to all units in this group
-    groupData.unitIds.forEach(unitId => {
-      updates.push({
-        id: unitId,
-        data: {
-          count_of_rooms: groupData.count_of_rooms,
-          max_guests: groupData.max_guests,
-          max_children: groupData.max_children,
-          max_infants: groupData.max_infants,
-          default_occupancy: groupData.default_occupancy,
-          room_kind: groupData.room_kind,
-        },
-      });
-    });
-  });
-  
-  updateMutation.mutate(updates);
-};
-```
-
-#### 5. Update Table Rendering
-
-Render grouped data instead of individual units:
-
-```typescript
-{groupedRoomTypes.map((group) => (
-  <TableRow key={group.displayName}>
-    <TableCell className="font-medium">{group.displayName}</TableCell>
-    <TableCell>
-      {/* Read-only: shows count of units with this room type */}
-      <span className="text-muted-foreground">{group.count_of_rooms}</span>
-    </TableCell>
-    {/* ... other editable fields ... */}
-  </TableRow>
-))}
+-- Add occupancy columns to rate_plan_prices
+ALTER TABLE rate_plan_prices 
+  ADD COLUMN IF NOT EXISTS base_occupancy integer DEFAULT 2,
+  ADD COLUMN IF NOT EXISTS max_occupancy integer;
 ```
 
 ---
 
-### Important Notes
+### Files to Modify
 
-| Field | Behavior |
-|-------|----------|
-| Room Title | Display name (grouped key) - read-only |
-| Room Count | **Auto-calculated** from number of units with same title - read-only |
-| Max Guests | Editable - applies to all units in group |
-| Max Children | Editable - applies to all units in group |
-| Max Infants | Editable - applies to all units in group |
-| Default Occ | Editable - applies to all units in group |
-| Room Kind | Editable - applies to all units in group |
+| File | Action | Purpose |
+|------|--------|---------|
+| `src/pages/RoomRates.tsx` | Major rewrite | Transform to editable Channex-compatible view |
+| `src/components/pms/RatePlanDialog.tsx` | Modify | Add new Channex fields to dialog |
+| `src/components/pms/RatePlanCard.tsx` | Modify | Display new fields (sell mode, property) |
 
-The `count_of_rooms` field becomes **read-only** because it reflects the actual number of unit records sharing that room type name.
+---
+
+### New Room Rates Page Layout
+
+The restructured page will include:
+
+**Header Section**
+```text
+┌─────────────────────────────────────────────────────────────────────────────────┐
+│ Room Rates                                                    [Save Changes]   │
+├─────────────────────────────────────────────────────────────────────────────────┤
+│ Rate Plan: [Standard Rate Plan      ▼]                                          │
+├─────────────────────────────────────────────────────────────────────────────────┤
+│ Title:        [__________________] (editable)                                   │
+│ Property ID:  abc123-def456...     (read-only, from Channex mapping)            │
+│ Currency:     USD                   (fixed, read-only)                          │
+│ Sell Mode:    [Per Room ▼]          (dropdown: Per Room / Per Person)           │
+└─────────────────────────────────────────────────────────────────────────────────┘
+```
+
+**Rates Table**
+```text
+┌────────────────────────────────────────────────────────────────────────────────────────────────────┐
+│ Room Type     │ Weekday │ Weekend │ Min Stay │ Base Occ │ Max Occ │ Extra Adult │ Extra Child │
+├───────────────┼─────────┼─────────┼──────────┼──────────┼─────────┼─────────────┼─────────────┤
+│ Deluxe Suite  │  $150   │  $165   │    1     │    2     │    4    │    $50      │     $0      │
+│ Standard Room │  $100   │  $110   │    1     │    2     │    2    │    $50      │     $0      │
+│ Family Room   │  $200   │  $220   │    2     │    4     │    6    │    $50      │     $0      │
+└───────────────┴─────────┴─────────┴──────────┴──────────┴─────────┴─────────────┴─────────────┘
+```
+
+---
+
+### Implementation Details
+
+#### 1. Page State Management
+
+The page will manage:
+- Selected rate plan (dropdown to switch between plans)
+- Editable title field
+- Read-only property_id display (from channex_mappings)
+- Currency display (fixed USD)
+- Sell mode toggle/dropdown
+- Editable rates table with occupancy fields
+
+#### 2. Data Flow
+
+```text
+┌─────────────────┐     ┌──────────────────┐     ┌─────────────────┐
+│  rate_plans     │────>│  rate_plan_prices│────>│  units          │
+│  (title, mode)  │     │  (rates, occ)    │     │  (max_guests)   │
+└─────────────────┘     └──────────────────┘     └─────────────────┘
+         │                        │
+         │    ┌──────────────────────────────┐
+         └───>│  channex_mappings            │
+              │  (property_id for display)   │
+              └──────────────────────────────┘
+```
+
+#### 3. Channex Schema Mapping
+
+The data will map to Channex's rate plan schema:
+
+| Channex Field | Source |
+|---------------|--------|
+| `title` | `rate_plans.name` |
+| `property_id` | `channex_mappings.channex_id` (via property lookup) |
+| `room_type_id` | Derived from room type to Channex mapping |
+| `currency` | Fixed `'USD'` |
+| `sell_mode` | `rate_plans.sell_mode` |
+| `options.base_occupancy` | `rate_plan_prices.base_occupancy` |
+| `options.max_occupancy` | `rate_plan_prices.max_occupancy` or `units.max_guests` |
+| `options.extra_adult_rate` | `rate_plans.extra_adult_rate` (default 50) |
+| `options.extra_child_rate` | `rate_plans.extra_child_rate` (default 0) |
+
+#### 4. UI Components
+
+The page will use existing shadcn components:
+- `Select` for rate plan selection and sell mode dropdown
+- `Input` for editable title and rate values
+- `Table` for the rates display (consistent with current design)
+- `Button` with coral/orange accent for save action
+
+#### 5. Validation Rules
+
+| Field | Rule |
+|-------|------|
+| Title | Required, non-empty |
+| Weekday Rate | Numeric >= 0 |
+| Weekend Rate | Numeric >= 0 |
+| Min Stay | Integer >= 1 |
+| Base Occupancy | Integer >= 1 |
+| Max Occupancy | Integer >= Base Occupancy |
+| Sell Mode | Must be 'per_room' or 'per_person' |
+
+---
+
+### Key Features
+
+1. **Rate Plan Selector**: Dropdown to switch between existing rate plans
+2. **Editable Title**: Update rate plan name inline
+3. **Property ID Display**: Read-only, fetched from channex_mappings for the current property
+4. **Fixed Currency**: USD displayed as read-only
+5. **Sell Mode Toggle**: Dropdown with "Per Room" and "Per Person" options
+6. **Occupancy Options**: Base and max occupancy per room type
+7. **Fixed Extra Rates**: Extra adult ($50) and extra child ($0) shown as read-only defaults
+
+---
+
+### Technical Notes
+
+- The property_id will be pulled from `channex_mappings` where `entity_type = 'property'` for the current ICONIA property context
+- Max occupancy can auto-populate from the Room Types page (`units.max_guests`) if not explicitly set
+- Extra adult/child rates are fixed at $50/$0 per the requirements but stored in DB for future flexibility
+- The page maintains the existing coral/orange accent color scheme
 
 ---
 
 ### Summary
 
-| Item | Change |
-|------|--------|
-| Display | Group units by `booking_com_name \|\| name` |
-| Room Count | Auto-calculated, read-only |
-| Editable fields | Shared across all units in group |
-| Save behavior | Updates all units in each group |
-
+| Item | Details |
+|------|---------|
+| Database changes | 5 new columns on rate_plans, 2 on rate_plan_prices |
+| Main page | `src/pages/RoomRates.tsx` - major restructure |
+| New fields | title, property_id, currency, sell_mode, occupancy options |
+| Fixed defaults | currency=USD, extra_adult=50, extra_child=0 |
+| UI style | Consistent with current design, same color scheme |
