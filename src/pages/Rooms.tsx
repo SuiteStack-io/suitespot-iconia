@@ -58,27 +58,7 @@ import { CSS } from '@dnd-kit/utilities';
 import { SlideMenu } from '@/components/SlideMenu';
 import { AdminBreadcrumb } from '@/components/AdminBreadcrumb';
 
-interface Unit {
-  id: string;
-  name: string;
-  unit_number: string | null;
-  unit_type: string | null;
-  unit_size: string | null;
-  status: string;
-  booking_com_id: string | null;
-  booking_com_name: string | null;
-  comments: string | null;
-  beds: number | null;
-  baths: number | null;
-  max_guests: number | null;
-  sofa_bed: boolean | null;
-  price_per_night: number | null;
-  weekend_rate: number | null;
-  tax_percentage: number | null;
-  photos: string[] | null;
-  view: string | null;
-  location: string | null;
-}
+import { Unit } from '@/types/unit';
 
 interface Reservation {
   id: string;

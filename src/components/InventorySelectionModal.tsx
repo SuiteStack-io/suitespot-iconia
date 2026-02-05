@@ -5,16 +5,7 @@ import { Checkbox } from "@/components/ui/checkbox";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
 import { Loader2 } from "lucide-react";
-
-interface Unit {
-  id: string;
-  name: string;
-  booking_com_name: string | null;
-  beds: number | null;
-  baths: number | null;
-  max_guests: number | null;
-  photos: string[] | null;
-}
+import { SelectionUnit } from "@/types/unit";
 
 interface InventorySelectionModalProps {
   open: boolean;
@@ -35,7 +26,7 @@ export const InventorySelectionModal = ({
   guestName,
   onCredentialsGenerated
 }: InventorySelectionModalProps) => {
-  const [units, setUnits] = useState<Unit[]>([]);
+  const [units, setUnits] = useState<SelectionUnit[]>([]);
   const [selectedUnits, setSelectedUnits] = useState<Set<string>>(new Set());
   const [loading, setLoading] = useState(true);
   const [generating, setGenerating] = useState(false);
@@ -51,7 +42,7 @@ export const InventorySelectionModal = ({
     try {
       const { data, error } = await supabase
         .from("units")
-        .select("id, name, booking_com_name, beds, baths, max_guests, photos")
+        .select("id, name, booking_com_name, beds, baths, max_guests, photos, unit_size, view, address, features, min_stay, price_per_night, payment_terms")
         .eq("location", "Almaza Bay")
         .eq("status", "available")
         .order("name");

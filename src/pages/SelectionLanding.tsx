@@ -5,31 +5,16 @@ import { supabase } from "@/integrations/supabase/client";
 import { Loader2, Clock } from "lucide-react";
 import { toast } from "sonner";
 import { PropertyDetailsModal } from "@/components/PropertyDetailsModal";
-
-interface Unit {
-  id: string;
-  name: string;
-  beds: number | null;
-  baths: number | null;
-  max_guests: number | null;
-  photos: string[] | null;
-  unit_size: string | null;
-  view: string | null;
-  address: string | null;
-  features: string[] | null;
-  min_stay: number | null;
-  price_per_night: number | null;
-  payment_terms: string | null;
-}
+import { SelectionUnit } from "@/types/unit";
 
 export default function SelectionLanding() {
   const { token } = useParams();
   const navigate = useNavigate();
   const { account, loading: authLoading, sessionExpired, checkSessionExpiry } = useSelectionAuth();
-  const [units, setUnits] = useState<Unit[]>([]);
+  const [units, setUnits] = useState<SelectionUnit[]>([]);
   const [loading, setLoading] = useState(true);
   const [timeRemaining, setTimeRemaining] = useState<string>("");
-  const [selectedUnit, setSelectedUnit] = useState<Unit | null>(null);
+  const [selectedUnit, setSelectedUnit] = useState<SelectionUnit | null>(null);
 
   useEffect(() => {
     if (!authLoading && !account) {
@@ -97,7 +82,7 @@ export default function SelectionLanding() {
       // Fetch unit details
       const { data: unitsData, error: unitsError } = await supabase
         .from("units")
-        .select("id, name, beds, baths, max_guests, photos, unit_size, view, address, features, min_stay, price_per_night, payment_terms")
+        .select("id, name, booking_com_name, beds, baths, max_guests, photos, unit_size, view, address, features, min_stay, price_per_night, payment_terms")
         .in("id", unitIds);
 
       if (unitsError) throw unitsError;
