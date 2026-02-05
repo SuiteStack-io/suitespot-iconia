@@ -183,7 +183,7 @@ export const RevenueByGuests = ({ mainDateRange }: RevenueByGuestsProps) => {
                   className="cursor-pointer hover:bg-muted/50"
                   onClick={() => handleSort('roomId')}
                 >
-                  Suite Name {getSortIcon('roomId')}
+                  Room Name {getSortIcon('roomId')}
                 </TableHead>
                 <TableHead 
                   className="cursor-pointer hover:bg-muted/50"

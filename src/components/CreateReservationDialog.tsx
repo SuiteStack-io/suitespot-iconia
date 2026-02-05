@@ -1349,7 +1349,7 @@ export function CreateReservationDialog() {
               <div className="grid grid-cols-2 gap-4">
                 <div className="space-y-2">
                   <Label htmlFor={`unitId-${roomIndex}`}>
-                    Suite Name <span className="text-destructive">*</span>
+                    Room Name <span className="text-destructive">*</span>
                   </Label>
                   <Select 
                     value={selectedUnitIds[roomIndex]} 

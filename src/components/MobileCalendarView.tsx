@@ -471,7 +471,7 @@ export const MobileCalendarView = () => {
                       </PopoverTrigger>
                       <PopoverContent side="right" align="start" className="w-auto p-3">
                         <div className="text-sm">
-                          <span className="text-muted-foreground">Suite Name: </span>
+                          <span className="text-muted-foreground">Room Name: </span>
                           <span className="font-medium">{unit.name}</span>
                         </div>
                       </PopoverContent>
