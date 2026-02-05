@@ -869,7 +869,7 @@ const Rooms = () => {
               <thead className="sticky top-0 z-20 bg-background shadow-[0_1px_3px_rgba(0,0,0,0.1)] [&_tr]:border-b">
                 <tr className="border-b transition-colors hover:bg-muted/50">
                   <th className="h-10 px-2 text-left align-middle font-medium text-muted-foreground min-w-[50px] sticky left-0 z-10 bg-background">Nr</th>
-                  <th className="h-10 px-2 text-left align-middle font-medium text-muted-foreground min-w-[200px] sticky left-[50px] z-10 bg-background">Suite Name</th>
+                  <th className="h-10 px-2 text-left align-middle font-medium text-muted-foreground min-w-[200px] sticky left-[50px] z-10 bg-background">Room Name</th>
                   <th className="h-10 px-2 text-left align-middle font-medium text-muted-foreground min-w-[100px] sticky left-[250px] z-10 bg-background border-r cursor-pointer hover:bg-muted/50" onClick={() => handleSort('unit_number')}>
                     <div className="flex items-center gap-1">
                       Room #
@@ -1545,7 +1545,7 @@ const Rooms = () => {
           </DialogHeader>
           <div className="py-4 space-y-4">
             <div className="space-y-2 text-sm bg-muted p-4 rounded-lg">
-              <p><strong>Suite Name:</strong> {roomToClone?.name}</p>
+              <p><strong>Room Name:</strong> {roomToClone?.name}</p>
               <p><strong>Current Room #:</strong> {roomToClone?.unit_number || 'N/A'}</p>
               <p><strong>Type:</strong> {roomToClone?.unit_type || 'N/A'}</p>
               <p><strong>Price:</strong> ${roomToClone?.price_per_night || 'N/A'}/night</p>
@@ -1594,7 +1594,7 @@ const Rooms = () => {
           </DialogHeader>
           <div className="py-4">
             <div className="space-y-2 text-sm">
-              <p><strong>Suite Name:</strong> {roomToDelete?.name}</p>
+              <p><strong>Room Name:</strong> {roomToDelete?.name}</p>
               <p><strong>Room Number:</strong> {roomToDelete?.unit_number || 'N/A'}</p>
               <p><strong>Type:</strong> {roomToDelete?.unit_type || 'N/A'}</p>
             </div>

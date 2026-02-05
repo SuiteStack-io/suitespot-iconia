@@ -84,37 +84,37 @@ export const RevenueByRoom = ({ mainDateRange }: RevenueByRoomProps) => {
     };
   }, [dateRange, selectedLocation]);
 
-  // Group rooms by suite name whenever revenueByRoom changes
+  // Group rooms by room name whenever revenueByRoom changes
   useEffect(() => {
-    const grouped = groupRoomsBySuiteName(revenueByRoom);
+    const grouped = groupRoomsByRoomName(revenueByRoom);
     setGroupedRevenue(grouped);
   }, [revenueByRoom]);
 
-  const groupRoomsBySuiteName = (rooms: RoomRevenue[]): GroupedRoomRevenue[] => {
+  const groupRoomsByRoomName = (rooms: RoomRevenue[]): GroupedRoomRevenue[] => {
     const groupMap: Record<string, RoomRevenue[]> = {};
 
     rooms.forEach((room) => {
-      const suiteName = room.roomName;
-      if (!groupMap[suiteName]) {
-        groupMap[suiteName] = [];
+      const roomDisplayName = room.roomName;
+      if (!groupMap[roomDisplayName]) {
+        groupMap[roomDisplayName] = [];
       }
-      groupMap[suiteName].push(room);
+      groupMap[roomDisplayName].push(room);
     });
 
-    const grouped = Object.entries(groupMap).map(([suiteName, suiteRooms]) => {
-      const totalBookings = suiteRooms.reduce((sum, r) => sum + r.bookings, 0);
-      const totalRevenue = suiteRooms.reduce((sum, r) => sum + r.revenue, 0);
-      const avgOccupancy = suiteRooms.length > 0 
-        ? suiteRooms.reduce((sum, r) => sum + r.occupancy, 0) / suiteRooms.length 
+    const grouped = Object.entries(groupMap).map(([roomDisplayName, groupedRooms]) => {
+      const totalBookings = groupedRooms.reduce((sum, r) => sum + r.bookings, 0);
+      const totalRevenue = groupedRooms.reduce((sum, r) => sum + r.revenue, 0);
+      const avgOccupancy = groupedRooms.length > 0 
+        ? groupedRooms.reduce((sum, r) => sum + r.occupancy, 0) / groupedRooms.length 
         : 0;
 
       // Sort rooms by room number
-      const sortedRooms = [...suiteRooms].sort((a, b) => 
+      const sortedRooms = [...groupedRooms].sort((a, b) => 
         a.roomNumber.localeCompare(b.roomNumber, undefined, { numeric: true })
       );
 
       return {
-        suiteName,
+        suiteName: roomDisplayName,
         rooms: sortedRooms,
         totalBookings,
         totalRevenue,
@@ -297,7 +297,7 @@ export const RevenueByRoom = ({ mainDateRange }: RevenueByRoomProps) => {
           <Table>
             <TableHeader>
               <TableRow>
-                <TableHead className="w-[300px]">Suite Name</TableHead>
+                <TableHead className="w-[300px]">Room Name</TableHead>
                 <TableHead className="text-center">Room #</TableHead>
                 <TableHead className="text-center">Area</TableHead>
                 <TableHead className="text-center">Terrace</TableHead>
@@ -313,7 +313,7 @@ export const RevenueByRoom = ({ mainDateRange }: RevenueByRoomProps) => {
 
                 return (
                   <>
-                    {/* Parent Row - Suite Name */}
+                    {/* Parent Row - Room Name */}
                     <TableRow 
                       key={group.suiteName}
                       className="cursor-pointer hover:bg-muted/50 bg-muted/20"

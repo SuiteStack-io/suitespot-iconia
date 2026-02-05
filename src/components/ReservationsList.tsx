@@ -659,7 +659,7 @@ export const ReservationsList = ({ userRole }: ReservationsListProps) => {
         : null;
       
       return {
-        'Suite Name': r.units?.name || 'N/A',
+        'Room Name': r.units?.name || 'N/A',
         'Room #': r.units?.unit_number || '-',
         'Guest Name(s)': r.guest_names.join(', '),
         'Check-in': format(new Date(r.check_in_date), 'dd MMM yyyy'),
@@ -1520,7 +1520,7 @@ export const ReservationsList = ({ userRole }: ReservationsListProps) => {
                     <TableHeader>
                       <TableRow>
                         <TableHead>Room</TableHead>
-                        <TableHead>Suite Name</TableHead>
+                        <TableHead>Room Name</TableHead>
                         <TableHead>Room #</TableHead>
                         <TableHead className="text-right">Price/Night</TableHead>
                         <TableHead className="text-right">Total</TableHead>

@@ -1480,7 +1480,7 @@ Thank you for choosing SuiteSpot!`;
             ) : (
               <>
                 <div>
-                  <Label className="text-muted-foreground">Suite Name</Label>
+                  <Label className="text-muted-foreground">Room Name</Label>
                   <p className="mt-1 text-2xl font-bold">{reservation.units?.name || 'N/A'}</p>
                 </div>
                 <div>

@@ -216,7 +216,7 @@ export const WeeklyCalendar = () => {
         <div className="overflow-x-auto">
           <div className="min-w-max">
             <div className="grid gap-1 mb-2" style={{ gridTemplateColumns: `160px repeat(${weekDays.length}, 70px)` }}>
-              <div className="font-medium text-sm p-2">Suite Name</div>
+              <div className="font-medium text-sm p-2">Room Name</div>
               {weekDays.map((day, index) => {
                 const isToday = isSameDay(day, new Date());
                 return (

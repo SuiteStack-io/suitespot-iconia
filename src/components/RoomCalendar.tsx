@@ -771,7 +771,7 @@ export const RoomCalendar = () => {
             <div className="overflow-x-auto">
               <div className="min-w-max">
                 <div className="grid gap-1 mb-2" style={{ gridTemplateColumns: `160px repeat(${weekDays.length}, 70px)` }}>
-                  <div className="font-medium text-sm p-2">Suite Name</div>
+                  <div className="font-medium text-sm p-2">Room Name</div>
                   {weekDays.map((day, index) => {
                     const isToday = isSameDay(day, new Date());
                     return (
@@ -827,7 +827,7 @@ export const RoomCalendar = () => {
                       </PopoverTrigger>
                       <PopoverContent side="right" align="start" className="w-auto p-3">
                         <div className="text-sm">
-                          <span className="text-muted-foreground">Suite Name: </span>
+                          <span className="text-muted-foreground">Room Name: </span>
                           <span className="font-medium">{unit.name}</span>
                         </div>
                       </PopoverContent>
@@ -958,7 +958,7 @@ export const RoomCalendar = () => {
                             </PopoverTrigger>
                             <PopoverContent side="right" align="start" className="w-auto p-3">
                               <div className="text-sm">
-                                <span className="text-muted-foreground">Suite Name: </span>
+                                <span className="text-muted-foreground">Room Name: </span>
                                 <span className="font-medium">{unit.name}</span>
                               </div>
                             </PopoverContent>

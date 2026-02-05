@@ -566,7 +566,7 @@ const Guests = () => {
                   <TableHead>Check-in</TableHead>
                   <TableHead>Check-out</TableHead>
                   <TableHead>Nights</TableHead>
-                  <TableHead>Suite Name</TableHead>
+                  <TableHead>Room Name</TableHead>
                   <TableHead>Total Guests</TableHead>
                   <TableHead>Source</TableHead>
                   <TableHead>Booking Ref</TableHead>
