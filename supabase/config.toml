@@ -50,3 +50,6 @@ verify_jwt = false
 
 [functions.channex-create-rate-plan]
 verify_jwt = false
+
+[functions.channex-sync-property]
+verify_jwt = false
