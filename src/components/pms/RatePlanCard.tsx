@@ -44,6 +44,11 @@ interface RatePlan {
   priority: number;
   cancellation_policy?: string | null;
   booking_com_id?: string | null;
+  property_id?: string | null;
+  currency?: string;
+  sell_mode?: string;
+  extra_adult_rate?: number;
+  extra_child_rate?: number;
 }
 
 interface RatePlanCardProps {
@@ -134,6 +139,11 @@ export function RatePlanCard({
                   >
                     {ratePlan.cancellation_policy === 'non_refundable' ? 'Non-refundable' : 'Flexible'}
                   </Badge>
+                  {ratePlan.sell_mode && (
+                    <Badge variant="secondary" className="text-xs">
+                      {ratePlan.sell_mode === 'per_room' ? 'Per Room' : 'Per Person'}
+                    </Badge>
+                  )}
                   {getValidityText() && (
                     <span className="text-sm text-muted-foreground">
                       {getValidityText()}
