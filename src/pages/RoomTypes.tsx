@@ -1,5 +1,4 @@
-import { useState, useEffect } from 'react';
-import { useNavigate } from 'react-router-dom';
+import { useState, useEffect, useMemo } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/lib/auth';
@@ -22,13 +21,12 @@ import {
 } from '@/components/ui/table';
 import { useToast } from '@/hooks/use-toast';
 import { SlideMenu } from '@/components/SlideMenu';
-import { PanelLeft, Save, Loader2 } from 'lucide-react';
+import { Save, Loader2 } from 'lucide-react';
 
 interface RoomTypeData {
   id: string;
   name: string;
   booking_com_name: string | null;
-  count_of_rooms: number;
   max_guests: number | null;
   max_children: number;
   max_infants: number;
@@ -36,7 +34,9 @@ interface RoomTypeData {
   room_kind: string;
 }
 
-interface EditedRoomType {
+interface GroupedRoomType {
+  displayName: string;
+  unitIds: string[];
   count_of_rooms: number;
   max_guests: number;
   max_children: number;
@@ -45,13 +45,48 @@ interface EditedRoomType {
   room_kind: string;
 }
 
+interface EditedGroupData {
+  max_guests: number;
+  max_children: number;
+  max_infants: number;
+  default_occupancy: number;
+  room_kind: string;
+}
+
+const groupRoomsByType = (rooms: RoomTypeData[]): GroupedRoomType[] => {
+  const groups: Record<string, GroupedRoomType> = {};
+
+  rooms.forEach(room => {
+    const displayName = room.booking_com_name || room.name;
+
+    if (!groups[displayName]) {
+      groups[displayName] = {
+        displayName,
+        unitIds: [room.id],
+        count_of_rooms: 1,
+        max_guests: room.max_guests ?? 2,
+        max_children: room.max_children ?? 0,
+        max_infants: room.max_infants ?? 0,
+        default_occupancy: room.default_occupancy ?? 2,
+        room_kind: room.room_kind ?? 'room',
+      };
+    } else {
+      groups[displayName].unitIds.push(room.id);
+      groups[displayName].count_of_rooms += 1;
+    }
+  });
+
+  return Object.values(groups).sort((a, b) =>
+    a.displayName.localeCompare(b.displayName)
+  );
+};
+
 export default function RoomTypes() {
-  const navigate = useNavigate();
   const { userRole } = useAuth();
   const { toast } = useToast();
   const queryClient = useQueryClient();
-  
-  const [editedData, setEditedData] = useState<Record<string, EditedRoomType>>({});
+
+  const [editedData, setEditedData] = useState<Record<string, EditedGroupData>>({});
   const [hasChanges, setHasChanges] = useState(false);
 
   // Fetch ICONIA room types
@@ -60,42 +95,46 @@ export default function RoomTypes() {
     queryFn: async () => {
       const { data, error } = await supabase
         .from('units')
-        .select('id, name, booking_com_name, count_of_rooms, max_guests, max_children, max_infants, default_occupancy, room_kind')
+        .select('id, name, booking_com_name, max_guests, max_children, max_infants, default_occupancy, room_kind')
         .eq('location', 'ICONIA')
         .or('is_private.eq.false,is_private.is.null')
         .order('name');
-      
+
       if (error) throw error;
       return data as RoomTypeData[];
     },
   });
 
-  // Initialize edited data when room types load
+  // Group rooms by display name
+  const groupedRoomTypes = useMemo(() => {
+    if (!roomTypes) return [];
+    return groupRoomsByType(roomTypes);
+  }, [roomTypes]);
+
+  // Initialize edited data when grouped room types are computed
   useEffect(() => {
-    if (roomTypes && Object.keys(editedData).length === 0) {
-      const initial: Record<string, EditedRoomType> = {};
-      roomTypes.forEach(room => {
-        initial[room.id] = {
-          count_of_rooms: room.count_of_rooms ?? 1,
-          max_guests: room.max_guests ?? 2,
-          max_children: room.max_children ?? 0,
-          max_infants: room.max_infants ?? 0,
-          default_occupancy: room.default_occupancy ?? 2,
-          room_kind: room.room_kind ?? 'room',
+    if (groupedRoomTypes.length > 0 && Object.keys(editedData).length === 0) {
+      const initial: Record<string, EditedGroupData> = {};
+      groupedRoomTypes.forEach(group => {
+        initial[group.displayName] = {
+          max_guests: group.max_guests,
+          max_children: group.max_children,
+          max_infants: group.max_infants,
+          default_occupancy: group.default_occupancy,
+          room_kind: group.room_kind,
         };
       });
       setEditedData(initial);
     }
-  }, [roomTypes]);
+  }, [groupedRoomTypes]);
 
   // Update mutation
   const updateMutation = useMutation({
-    mutationFn: async (updates: { id: string; data: EditedRoomType }[]) => {
+    mutationFn: async (updates: { id: string; data: EditedGroupData }[]) => {
       const promises = updates.map(({ id, data }) =>
         supabase
           .from('units')
           .update({
-            count_of_rooms: data.count_of_rooms,
             max_guests: data.max_guests,
             max_children: data.max_children,
             max_infants: data.max_infants,
@@ -104,7 +143,7 @@ export default function RoomTypes() {
           })
           .eq('id', id)
       );
-      
+
       const results = await Promise.all(promises);
       const errors = results.filter(r => r.error);
       if (errors.length > 0) {
@@ -128,11 +167,11 @@ export default function RoomTypes() {
     },
   });
 
-  const handleFieldChange = (id: string, field: keyof EditedRoomType, value: number | string) => {
+  const handleFieldChange = (displayName: string, field: keyof EditedGroupData, value: number | string) => {
     setEditedData(prev => ({
       ...prev,
-      [id]: {
-        ...prev[id],
+      [displayName]: {
+        ...prev[displayName],
         [field]: value,
       },
     }));
@@ -140,16 +179,13 @@ export default function RoomTypes() {
   };
 
   const handleSave = () => {
-    // Validate data before saving
-    const updates: { id: string; data: EditedRoomType }[] = [];
+    const updates: { id: string; data: EditedGroupData }[] = [];
     let hasValidationError = false;
 
-    Object.entries(editedData).forEach(([id, data]) => {
-      if (data.count_of_rooms < 1) {
-        toast({ title: 'Validation Error', description: 'Room Count must be at least 1', variant: 'destructive' });
-        hasValidationError = true;
-        return;
-      }
+    groupedRoomTypes.forEach(group => {
+      const data = editedData[group.displayName];
+      if (!data) return;
+
       if (data.max_guests < 1) {
         toast({ title: 'Validation Error', description: 'Max Guests must be at least 1', variant: 'destructive' });
         hasValidationError = true;
@@ -160,15 +196,17 @@ export default function RoomTypes() {
         hasValidationError = true;
         return;
       }
-      updates.push({ id, data });
+
+      // Apply same values to all units in this group
+      group.unitIds.forEach(unitId => {
+        updates.push({ id: unitId, data });
+      });
     });
 
     if (!hasValidationError) {
       updateMutation.mutate(updates);
     }
   };
-
-  const getDisplayName = (room: RoomTypeData) => room.booking_com_name || room.name;
 
   if (isLoading) {
     return (
@@ -187,8 +225,8 @@ export default function RoomTypes() {
             <SlideMenu userRole={userRole} />
             <h1 className="text-lg font-semibold">Room Types</h1>
           </div>
-          <Button 
-            onClick={handleSave} 
+          <Button
+            onClick={handleSave}
             disabled={!hasChanges || updateMutation.isPending}
             className="gap-2"
           >
@@ -218,26 +256,20 @@ export default function RoomTypes() {
               </TableRow>
             </TableHeader>
             <TableBody>
-              {roomTypes?.map((room) => (
-                <TableRow key={room.id}>
+              {groupedRoomTypes.map((group) => (
+                <TableRow key={group.displayName}>
                   <TableCell className="font-medium">
-                    {getDisplayName(room)}
+                    {group.displayName}
+                  </TableCell>
+                  <TableCell>
+                    <span className="text-muted-foreground px-2">{group.count_of_rooms}</span>
                   </TableCell>
                   <TableCell>
                     <Input
                       type="number"
                       min={1}
-                      value={editedData[room.id]?.count_of_rooms ?? 1}
-                      onChange={(e) => handleFieldChange(room.id, 'count_of_rooms', parseInt(e.target.value) || 1)}
-                      className="w-20 h-8"
-                    />
-                  </TableCell>
-                  <TableCell>
-                    <Input
-                      type="number"
-                      min={1}
-                      value={editedData[room.id]?.max_guests ?? 2}
-                      onChange={(e) => handleFieldChange(room.id, 'max_guests', parseInt(e.target.value) || 1)}
+                      value={editedData[group.displayName]?.max_guests ?? 2}
+                      onChange={(e) => handleFieldChange(group.displayName, 'max_guests', parseInt(e.target.value) || 1)}
                       className="w-20 h-8"
                     />
                   </TableCell>
@@ -245,8 +277,8 @@ export default function RoomTypes() {
                     <Input
                       type="number"
                       min={0}
-                      value={editedData[room.id]?.max_children ?? 0}
-                      onChange={(e) => handleFieldChange(room.id, 'max_children', parseInt(e.target.value) || 0)}
+                      value={editedData[group.displayName]?.max_children ?? 0}
+                      onChange={(e) => handleFieldChange(group.displayName, 'max_children', parseInt(e.target.value) || 0)}
                       className="w-20 h-8"
                     />
                   </TableCell>
@@ -254,8 +286,8 @@ export default function RoomTypes() {
                     <Input
                       type="number"
                       min={0}
-                      value={editedData[room.id]?.max_infants ?? 0}
-                      onChange={(e) => handleFieldChange(room.id, 'max_infants', parseInt(e.target.value) || 0)}
+                      value={editedData[group.displayName]?.max_infants ?? 0}
+                      onChange={(e) => handleFieldChange(group.displayName, 'max_infants', parseInt(e.target.value) || 0)}
                       className="w-20 h-8"
                     />
                   </TableCell>
@@ -263,15 +295,15 @@ export default function RoomTypes() {
                     <Input
                       type="number"
                       min={1}
-                      value={editedData[room.id]?.default_occupancy ?? 2}
-                      onChange={(e) => handleFieldChange(room.id, 'default_occupancy', parseInt(e.target.value) || 1)}
+                      value={editedData[group.displayName]?.default_occupancy ?? 2}
+                      onChange={(e) => handleFieldChange(group.displayName, 'default_occupancy', parseInt(e.target.value) || 1)}
                       className="w-20 h-8"
                     />
                   </TableCell>
                   <TableCell>
                     <Select
-                      value={editedData[room.id]?.room_kind ?? 'room'}
-                      onValueChange={(value) => handleFieldChange(room.id, 'room_kind', value)}
+                      value={editedData[group.displayName]?.room_kind ?? 'room'}
+                      onValueChange={(value) => handleFieldChange(group.displayName, 'room_kind', value)}
                     >
                       <SelectTrigger className="w-24 h-8">
                         <SelectValue />
