@@ -1,58 +1,35 @@
 
 
-## Create Channex Push Rates Edge Function
+## Create Channex Booking Webhook Edge Function
 
 ### Overview
 
-Create a new edge function `channex-push-rates` that pushes rate and restriction updates to Channex via `/api/v1/restrictions`. Follows the exact same pattern as `channex-push-availability` but targets rate plans instead of room types, and converts decimal rates to cents.
+Create a new edge function `channex-booking-webhook` that acts as a webhook endpoint for Channex. When bookings happen on OTAs (Booking.com, Expedia, etc.), Channex sends a POST request to this URL with booking details. The function stores the data and acknowledges the booking revision.
+
+This is a **public webhook** -- no user authentication is needed since Channex calls it, not a browser.
 
 ---
 
-### Request/Response Format
+### Request/Response Flow
 
-**Single Update:**
-```json
-{
-  "property_id": "local-uuid",
-  "rate_plan_id": "local-uuid",
-  "date_from": "2026-03-01",
-  "date_to": "2026-03-10",
-  "rate": 150.00,
-  "min_stay_arrival": 2,
-  "stop_sell": false
-}
-```
-
-**Batch Update:**
-```json
-{
-  "updates": [
-    {
-      "property_id": "local-uuid",
-      "rate_plan_id": "local-uuid",
-      "date_from": "2026-03-01",
-      "date_to": "2026-03-10",
-      "rate": 150.00
-    },
-    {
-      "property_id": "local-uuid",
-      "rate_plan_id": "local-uuid-2",
-      "date_from": "2026-03-01",
-      "date_to": "2026-03-05",
-      "rate": 200.00,
-      "closed_to_arrival": true
-    }
-  ]
-}
-```
-
-**Success Response:**
-```json
-{
-  "success": true,
-  "message": "Rates pushed successfully",
-  "values_count": 2
-}
+```text
+Channex POST -> Parse payload -> Resolve local property ID
+                                       |
+              +------------------------+------------------------+
+              |                        |                        |
+         status: "new"          status: "modified"       status: "cancelled"
+              |                        |                        |
+         INSERT into             UPDATE existing           UPDATE status
+        channex_bookings       channex_bookings            to "cancelled"
+              |                        |                        |
+              +------------------------+------------------------+
+                                       |
+                              ACK booking revision
+                              POST /api/v1/booking_revisions/{id}/ack
+                                       |
+                              Log to channex_sync_logs
+                                       |
+                              Return 200 OK (always)
 ```
 
 ---
@@ -61,85 +38,123 @@ Create a new edge function `channex-push-rates` that pushes rate and restriction
 
 | File | Action |
 |------|--------|
-| `supabase/functions/channex-push-rates/index.ts` | Create new edge function |
-| `supabase/config.toml` | Add `[functions.channex-push-rates]` with `verify_jwt = false` |
+| `supabase/functions/channex-booking-webhook/index.ts` | Create new edge function |
+| `supabase/config.toml` | Add `[functions.channex-booking-webhook]` with `verify_jwt = false` |
 
 ---
 
 ### Technical Details
 
-#### Rate Conversion
+#### No Authentication Required
 
-Channex expects rates in the smallest currency unit (cents). The function multiplies the decimal rate by 100:
+Unlike other Channex functions, this is a webhook called by Channex's servers, not by authenticated users. The function uses the service role key directly to write to the database.
 
-```typescript
-// Convert 150.00 -> 15000
-// Use Math.round to avoid floating-point issues (e.g. 150.10 * 100 = 15009.999...)
-const rateInCents = Math.round(u.rate * 100);
-```
+#### Payload Parsing
 
-#### Payload Construction
-
-Only include optional restriction fields if they are explicitly provided (not undefined):
+Extract fields from the Channex webhook payload:
 
 ```typescript
-const value: Record<string, unknown> = {
-  property_id: channexPropertyId,
-  rate_plan_id: channexRatePlanId,
-  date_from: u.date_from,
-  date_to: u.date_to,
-  rate: Math.round(u.rate * 100),
-};
-
-// Only add optional restrictions if provided
-if (u.min_stay_arrival !== undefined) value.min_stay_arrival = u.min_stay_arrival;
-if (u.min_stay_through !== undefined) value.min_stay_through = u.min_stay_through;
-if (u.closed_to_arrival !== undefined) value.closed_to_arrival = u.closed_to_arrival;
-if (u.closed_to_departure !== undefined) value.closed_to_departure = u.closed_to_departure;
-if (u.stop_sell !== undefined) value.stop_sell = u.stop_sell;
+const { event, property_id: channexPropertyId, payload } = body;
+const {
+  id: revisionId,        // channex_revision_id
+  booking_id,            // channex_booking_id
+  status,                // "new", "modified", or "cancelled"
+  ota_name,
+  ota_reservation_code,
+  arrival_date,
+  departure_date,
+  customer,              // { name, surname, mail, phone }
+  rooms,                 // array of room details
+  amount,                // total as string like "450.00"
+  currency,
+} = payload;
 ```
 
-#### Validation
+#### Guest Name Construction
 
-Each update validated for:
-- `property_id` -- required
-- `rate_plan_id` -- required
-- `date_from` -- required, YYYY-MM-DD format
-- `date_to` -- required, YYYY-MM-DD format
-- `rate` -- required, must be a positive number
+Combine customer name and surname:
 
-Optional restriction fields validated by type only (boolean for closed_to_arrival etc., number for min_stay).
+```typescript
+const guestName = [customer?.name, customer?.surname].filter(Boolean).join(' ') || 'Unknown Guest';
+```
 
-#### ID Resolution
+#### Room/Rate Resolution (Best Effort)
 
-Same caching pattern as `channex-push-availability`, resolving `property` and `rate_plan` entity types from `channex_mappings`.
+Attempt to resolve `room_type_id` and `rate_plan_id` from `channex_mappings` using the Channex IDs in the `rooms` array. These are nullable columns, so it's fine if they can't be resolved.
 
-#### Error Handling
+#### Status Handling
 
-| Condition | Behavior |
-|-----------|----------|
-| Missing mapping for property | Skip update, add to errors array |
-| Missing mapping for rate plan | Skip update, add to errors array |
-| All updates failed mapping | Return 400 with errors |
-| Channex API error | Return 502 with error details |
-| Invalid input fields | Return 400 with validation error |
+| Status | Action |
+|--------|--------|
+| `new` | INSERT new record into `channex_bookings` |
+| `modified` | UPSERT -- find by `channex_booking_id` and update all fields |
+| `cancelled` | UPDATE status to `cancelled` where `channex_booking_id` matches |
+
+Using upsert for both `new` and `modified` simplifies the logic -- if Channex sends a "new" event for a booking we somehow already have, it won't error.
+
+#### Booking Acknowledgment
+
+After saving, acknowledge the revision so Channex knows we received it:
+
+```typescript
+await channexRequest('POST', `/api/v1/booking_revisions/${revisionId}/ack`, {});
+// Then update acknowledged = true in our record
+```
+
+#### Error Handling Strategy
+
+Always return HTTP 200 to Channex to prevent retries. Errors are logged to `channex_sync_logs` and console but don't affect the response status. This is critical -- Channex will keep retrying if they get non-200 responses.
+
+```typescript
+// Even on error, return 200
+return new Response(JSON.stringify({ success: false, error: err.message }), {
+  status: 200,
+  headers: { "Content-Type": "application/json" },
+});
+```
+
+#### Data Mapping to channex_bookings Columns
+
+| channex_bookings column | Source |
+|---|---|
+| `channex_booking_id` | `payload.booking_id` |
+| `channex_revision_id` | `payload.id` |
+| `ota_name` | `payload.ota_name` |
+| `ota_reservation_code` | `payload.ota_reservation_code` |
+| `property_id` | Resolved from `channex_mappings` using Channex property ID |
+| `room_type_id` | Resolved from first room in `payload.rooms` (nullable) |
+| `rate_plan_id` | Resolved from first room's rate plan (nullable) |
+| `status` | `payload.status` ("new", "modified", "cancelled") |
+| `guest_name` | `customer.name + customer.surname` |
+| `guest_email` | `customer.mail` |
+| `guest_phone` | `customer.phone` |
+| `arrival_date` | `payload.arrival_date` |
+| `departure_date` | `payload.departure_date` |
+| `total_amount` | `parseFloat(payload.amount)` |
+| `currency` | `payload.currency` |
+| `booking_data` | Full raw payload (JSONB) for reference |
+| `acknowledged` | Set to `true` after successful ACK |
+
+#### Config Entry
+
+```toml
+[functions.channex-booking-webhook]
+verify_jwt = false
+```
 
 ---
 
 ### Function Structure
 
-Mirrors `channex-push-availability` exactly:
-
 1. **CORS handling** -- Standard preflight response
 2. **Method validation** -- POST only
-3. **Authentication** -- Validate Authorization header
-4. **Admin check** -- Query `user_roles` for admin role
-5. **Input parsing** -- Normalize single/batch format
-6. **Validation** -- Check required fields, validate rate is positive number
-7. **Mapping resolution** -- Resolve Channex IDs (property + rate_plan) with caching
-8. **Rate conversion** -- Multiply rate by 100 using `Math.round()`
-9. **Build payload** -- Combine all valid updates into `values` array with optional restriction fields
-10. **API call** -- Single POST to `/api/v1/restrictions`
-11. **Log sync** -- Use shared `logSync()` utility
-12. **Response** -- Return summary with count and any errors
+3. **Parse webhook body** -- Extract event type, property ID, payload
+4. **Validate event** -- Ensure it's a "booking" event
+5. **Resolve local property ID** -- Look up from `channex_mappings` by Channex property ID
+6. **Resolve room type and rate plan** -- Best-effort from rooms array
+7. **Build booking record** -- Map all fields to `channex_bookings` columns
+8. **Execute database operation** -- Insert, update, or cancel based on status
+9. **Acknowledge revision** -- POST to Channex ACK endpoint
+10. **Log sync** -- Record in `channex_sync_logs`
+11. **Return 200** -- Always, even on error
 
