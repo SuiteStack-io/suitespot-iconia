@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useState, useRef, useCallback } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { supabase } from '@/integrations/supabase/client';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
@@ -18,6 +18,7 @@ import {
   DialogFooter,
 } from '@/components/ui/dialog';
 import { Badge } from '@/components/ui/badge';
+import { Skeleton } from '@/components/ui/skeleton';
 import { Button } from '@/components/ui/button';
 import { useToast } from '@/hooks/use-toast';
 import { Checkbox } from '@/components/ui/checkbox';
@@ -115,6 +116,9 @@ export const Dashboard = () => {
   const [dialogTransfers, setDialogTransfers] = useState<RoomTransfer[]>([]);
   const [updating, setUpdating] = useState<string | null>(null);
   const [selectedReservations, setSelectedReservations] = useState<Set<string>>(new Set());
+  const [dialogLoading, setDialogLoading] = useState(false);
+  const [visibleCount, setVisibleCount] = useState(10);
+  const sentinelRef = useRef<HTMLDivElement>(null);
   
   // Undo confirmation modal state
   const [undoConfirmOpen, setUndoConfirmOpen] = useState(false);
@@ -125,6 +129,22 @@ export const Dashboard = () => {
   const [checkInDialogOpen, setCheckInDialogOpen] = useState(false);
   const [checkOutDialogOpen, setCheckOutDialogOpen] = useState(false);
   const [selectedReservation, setSelectedReservation] = useState<Reservation | null>(null);
+
+  // IntersectionObserver for progressive card loading
+  useEffect(() => {
+    const sentinel = sentinelRef.current;
+    if (!sentinel) return;
+    const observer = new IntersectionObserver(
+      (entries) => {
+        if (entries[0].isIntersecting) {
+          setVisibleCount(prev => prev + 10);
+        }
+      },
+      { threshold: 0.1 }
+    );
+    observer.observe(sentinel);
+    return () => observer.disconnect();
+  }, [dialogReservations, visibleCount]);
 
   useEffect(() => {
     fetchStats();
@@ -308,6 +328,9 @@ export const Dashboard = () => {
     
     // Clear transfers when opening a non-transfer dialog
     setDialogTransfers([]);
+    setDialogLoading(true);
+    setVisibleCount(10);
+    setDialogOpen(true);
     
     if (cardType === 'transfers') {
       setDialogTitle("Today's Room Transfers");
@@ -354,7 +377,7 @@ export const Dashboard = () => {
       
       setDialogTransfers(transfers);
       setDialogReservations([]);
-      setDialogOpen(true);
+      setDialogLoading(false);
       return;
     }
     
@@ -389,7 +412,7 @@ export const Dashboard = () => {
       
       setDialogReservations(filtered as any);
       setSelectedReservations(new Set());
-      setDialogOpen(true);
+      setDialogLoading(false);
       return;
     }
     
@@ -424,7 +447,7 @@ export const Dashboard = () => {
       
       setDialogReservations(filtered as any);
       setSelectedReservations(new Set());
-      setDialogOpen(true);
+      setDialogLoading(false);
       return;
     }
     
@@ -453,7 +476,7 @@ export const Dashboard = () => {
     const { data } = await query.order('check_in_date', { ascending: true });
     setDialogReservations((data as any) || []);
     setSelectedReservations(new Set());
-    setDialogOpen(true);
+    setDialogLoading(false);
   };
 
   const handleStatusChange = async (reservationId: string, newStatus: string, sendNotification: boolean = true) => {
@@ -829,7 +852,7 @@ export const Dashboard = () => {
 
       <Dialog open={dialogOpen} onOpenChange={setDialogOpen}>
         <DialogContent className="max-w-3xl max-h-[80vh] flex flex-col overflow-hidden">
-          <DialogHeader className="sticky top-0 bg-background z-10 pb-4 border-b shrink-0 pr-8">
+          <DialogHeader className="sticky top-0 bg-background z-10 pb-4 border-b shrink-0 pr-14">
             <DialogTitle className="flex items-center justify-between">
               <span>{dialogTitle}</span>
               {dialogTitle.includes('Departures') && dialogReservations.length > 0 && (
@@ -872,7 +895,18 @@ export const Dashboard = () => {
             </DialogTitle>
           </DialogHeader>
           <div className="space-y-2 overflow-y-auto flex-1 pt-4">
-            {dialogTitle.includes('Room Transfers') ? (
+            {dialogLoading ? (
+              // Skeleton loaders while data is fetching
+              Array.from({ length: 3 }).map((_, i) => (
+                <Card key={i}>
+                  <CardContent className="p-4 space-y-3">
+                    <Skeleton className="h-5 w-32" />
+                    <Skeleton className="h-4 w-48" />
+                    <Skeleton className="h-4 w-24" />
+                  </CardContent>
+                </Card>
+              ))
+            ) : dialogTitle.includes('Room Transfers') ? (
               // Transfer-specific view
               dialogTransfers.length === 0 ? (
                 <p className="text-muted-foreground text-center py-8">No room transfers today</p>
@@ -923,7 +957,8 @@ export const Dashboard = () => {
             ) : dialogReservations.length === 0 ? (
               <p className="text-muted-foreground text-center py-8">No reservations found</p>
             ) : (
-              dialogReservations.map((reservation) => (
+              <>
+              {dialogReservations.slice(0, visibleCount).map((reservation) => (
                 <Card 
                   key={reservation.id}
                   className="hover:bg-accent/50 transition-colors"
@@ -1154,7 +1189,22 @@ export const Dashboard = () => {
                     </div>
                   </CardContent>
                 </Card>
-              ))
+              ))}
+              {visibleCount < dialogReservations.length && (
+                <div
+                  ref={sentinelRef}
+                  className="py-4 text-center"
+                >
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    onClick={() => setVisibleCount(prev => prev + 10)}
+                  >
+                    Show more ({dialogReservations.length - visibleCount} remaining)
+                  </Button>
+                </div>
+              )}
+              </>
             )}
           </div>
         </DialogContent>
