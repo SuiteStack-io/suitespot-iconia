@@ -56,3 +56,6 @@ verify_jwt = false
 
 [functions.channex-push-availability]
 verify_jwt = false
+
+[functions.channex-push-rates]
+verify_jwt = false
