@@ -64,6 +64,7 @@ import PMSAvailability from "./pages/pms/Availability";
 import PMSPrices from "./pages/pms/Prices";
 import PMSRestrictions from "./pages/pms/Restrictions";
 import RoomTypes from "./pages/RoomTypes";
+import ChannexIntegration from "./pages/ChannexIntegration";
 const queryClient = new QueryClient();
 
 const App = () => (
@@ -155,6 +156,7 @@ const App = () => (
         <Route path="/pms/availability" element={<ProtectedRoute><PMSAvailability /></ProtectedRoute>} />
         <Route path="/pms/prices" element={<ProtectedRoute><PMSPrices /></ProtectedRoute>} />
         <Route path="/pms/restrictions" element={<ProtectedRoute><PMSRestrictions /></ProtectedRoute>} />
+        <Route path="/channex" element={<ProtectedRoute><ChannexIntegration /></ProtectedRoute>} />
               
               {/* ADD ALL CUSTOM ROUTES ABOVE THE CATCH-ALL "*" ROUTE */}
               <Route path="*" element={<NotFound />} />
