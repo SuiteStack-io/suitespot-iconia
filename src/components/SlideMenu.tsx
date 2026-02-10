@@ -38,6 +38,7 @@ import {
   FileSignature,
   Lock,
   Layers,
+  Radio,
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 
@@ -100,6 +101,7 @@ export function SlideMenu({ userRole }: SlideMenuProps) {
         { title: 'Availability', url: '/pms/availability', icon: CalendarDays },
         { title: 'Prices', url: '/pms/prices', icon: DollarSign },
         { title: 'Restrictions', url: '/pms/restrictions', icon: Lock },
+        { title: 'Channex Integration', url: '/channex', icon: Radio },
       ],
       showFor: ['admin'],
     },
