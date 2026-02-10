@@ -53,3 +53,6 @@ verify_jwt = false
 
 [functions.channex-sync-property]
 verify_jwt = false
+
+[functions.channex-push-availability]
+verify_jwt = false
