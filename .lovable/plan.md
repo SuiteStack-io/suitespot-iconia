@@ -1,10 +1,10 @@
 
 
-## Create Channex Push Availability Edge Function
+## Create Channex Push Rates Edge Function
 
 ### Overview
 
-Create a new edge function `channex-push-availability` that pushes availability updates to Channex. The function supports both single and batch updates in one endpoint, combining all updates into a single Channex API call for efficiency.
+Create a new edge function `channex-push-rates` that pushes rate and restriction updates to Channex via `/api/v1/restrictions`. Follows the exact same pattern as `channex-push-availability` but targets rate plans instead of room types, and converts decimal rates to cents.
 
 ---
 
@@ -14,10 +14,12 @@ Create a new edge function `channex-push-availability` that pushes availability 
 ```json
 {
   "property_id": "local-uuid",
-  "room_type_id": "local-uuid",
+  "rate_plan_id": "local-uuid",
   "date_from": "2026-03-01",
   "date_to": "2026-03-10",
-  "availability": 5
+  "rate": 150.00,
+  "min_stay_arrival": 2,
+  "stop_sell": false
 }
 ```
 
@@ -27,17 +29,18 @@ Create a new edge function `channex-push-availability` that pushes availability 
   "updates": [
     {
       "property_id": "local-uuid",
-      "room_type_id": "local-uuid",
+      "rate_plan_id": "local-uuid",
       "date_from": "2026-03-01",
       "date_to": "2026-03-10",
-      "availability": 5
+      "rate": 150.00
     },
     {
       "property_id": "local-uuid",
-      "room_type_id": "local-uuid-2",
+      "rate_plan_id": "local-uuid-2",
       "date_from": "2026-03-01",
       "date_to": "2026-03-05",
-      "availability": 3
+      "rate": 200.00,
+      "closed_to_arrival": true
     }
   ]
 }
@@ -47,33 +50,9 @@ Create a new edge function `channex-push-availability` that pushes availability 
 ```json
 {
   "success": true,
-  "message": "Availability pushed successfully",
+  "message": "Rates pushed successfully",
   "values_count": 2
 }
-```
-
----
-
-### Implementation Flow
-
-```text
-1. Validate POST method and authenticate admin user
-           |
-           v
-2. Parse body: normalize single update or batch into an array
-           |
-           v
-3. For each update:
-   - Look up Channex property ID from channex_mappings
-   - Look up Channex room type ID from channex_mappings
-   - Build a value entry with Channex IDs
-   - Collect errors for missing mappings (continue with others)
-           |
-           v
-4. Send single POST to /api/v1/availability with all values
-           |
-           v
-5. Log the sync and return summary
 ```
 
 ---
@@ -82,116 +61,85 @@ Create a new edge function `channex-push-availability` that pushes availability 
 
 | File | Action |
 |------|--------|
-| `supabase/functions/channex-push-availability/index.ts` | Create new edge function |
-| `supabase/config.toml` | Add `[functions.channex-push-availability]` with `verify_jwt = false` |
+| `supabase/functions/channex-push-rates/index.ts` | Create new edge function |
+| `supabase/config.toml` | Add `[functions.channex-push-rates]` with `verify_jwt = false` |
 
 ---
 
 ### Technical Details
 
-#### Input Normalization
+#### Rate Conversion
 
-The function accepts both formats and normalizes to an array internally:
+Channex expects rates in the smallest currency unit (cents). The function multiplies the decimal rate by 100:
 
 ```typescript
-// If body has "updates" array, use it; otherwise treat entire body as single update
-const updates = body.updates
-  ? body.updates
-  : [{ property_id: body.property_id, room_type_id: body.room_type_id,
-       date_from: body.date_from, date_to: body.date_to, availability: body.availability }];
+// Convert 150.00 -> 15000
+// Use Math.round to avoid floating-point issues (e.g. 150.10 * 100 = 15009.999...)
+const rateInCents = Math.round(u.rate * 100);
 ```
 
-#### Channex ID Resolution with Caching
+#### Payload Construction
 
-To avoid redundant DB queries when the same property/room type appears multiple times in a batch:
-
-```typescript
-const mappingCache: Record<string, string> = {};
-
-async function resolveChannexId(supabase, localId: string, entityType: string): Promise<string | null> {
-  const cacheKey = `${entityType}:${localId}`;
-  if (mappingCache[cacheKey]) return mappingCache[cacheKey];
-
-  const { data } = await supabase
-    .from('channex_mappings')
-    .select('channex_id')
-    .eq('local_id', localId)
-    .eq('entity_type', entityType)
-    .maybeSingle();
-
-  if (data) mappingCache[cacheKey] = data.channex_id;
-  return data?.channex_id || null;
-}
-```
-
-#### Channex Payload
-
-All resolved updates are combined into a single API call:
+Only include optional restriction fields if they are explicitly provided (not undefined):
 
 ```typescript
-const channexPayload = {
-  values: [
-    {
-      property_id: "channex-property-id",
-      room_type_id: "channex-room-type-id",
-      date_from: "2026-03-01",
-      date_to: "2026-03-10",
-      availability: 5
-    },
-    // ... more values
-  ]
+const value: Record<string, unknown> = {
+  property_id: channexPropertyId,
+  rate_plan_id: channexRatePlanId,
+  date_from: u.date_from,
+  date_to: u.date_to,
+  rate: Math.round(u.rate * 100),
 };
 
-await channexRequest('POST', '/api/v1/availability', channexPayload);
+// Only add optional restrictions if provided
+if (u.min_stay_arrival !== undefined) value.min_stay_arrival = u.min_stay_arrival;
+if (u.min_stay_through !== undefined) value.min_stay_through = u.min_stay_through;
+if (u.closed_to_arrival !== undefined) value.closed_to_arrival = u.closed_to_arrival;
+if (u.closed_to_departure !== undefined) value.closed_to_departure = u.closed_to_departure;
+if (u.stop_sell !== undefined) value.stop_sell = u.stop_sell;
 ```
 
 #### Validation
 
-Each update in the array is validated for:
+Each update validated for:
 - `property_id` -- required
-- `room_type_id` -- required
+- `rate_plan_id` -- required
 - `date_from` -- required, YYYY-MM-DD format
 - `date_to` -- required, YYYY-MM-DD format
-- `availability` -- required, must be a non-negative number
+- `rate` -- required, must be a positive number
+
+Optional restriction fields validated by type only (boolean for closed_to_arrival etc., number for min_stay).
+
+#### ID Resolution
+
+Same caching pattern as `channex-push-availability`, resolving `property` and `rate_plan` entity types from `channex_mappings`.
 
 #### Error Handling
 
 | Condition | Behavior |
 |-----------|----------|
-| Missing mapping for property/room type | Skip that update, add to errors array |
-| All updates failed mapping resolution | Return 400 with errors |
+| Missing mapping for property | Skip update, add to errors array |
+| Missing mapping for rate plan | Skip update, add to errors array |
+| All updates failed mapping | Return 400 with errors |
 | Channex API error | Return 502 with error details |
 | Invalid input fields | Return 400 with validation error |
-
-**Response with partial errors:**
-```json
-{
-  "success": true,
-  "message": "Availability pushed with some errors",
-  "values_count": 3,
-  "errors": [
-    { "index": 1, "error": "Room type not synced to Channex", "room_type_id": "local-uuid" }
-  ]
-}
-```
-
-#### Authentication & Authorization
-
-Same pattern as all other Channex functions: validate Authorization header, verify admin role via `user_roles` table.
 
 ---
 
 ### Function Structure
+
+Mirrors `channex-push-availability` exactly:
 
 1. **CORS handling** -- Standard preflight response
 2. **Method validation** -- POST only
 3. **Authentication** -- Validate Authorization header
 4. **Admin check** -- Query `user_roles` for admin role
 5. **Input parsing** -- Normalize single/batch format
-6. **Validation** -- Check required fields on each update
-7. **Mapping resolution** -- Resolve Channex IDs with caching
-8. **Build payload** -- Combine all valid updates into `values` array
-9. **API call** -- Single POST to `/api/v1/availability`
-10. **Log sync** -- Use shared `logSync()` utility
-11. **Response** -- Return summary with count and any errors
+6. **Validation** -- Check required fields, validate rate is positive number
+7. **Mapping resolution** -- Resolve Channex IDs (property + rate_plan) with caching
+8. **Rate conversion** -- Multiply rate by 100 using `Math.round()`
+9. **Build payload** -- Combine all valid updates into `values` array with optional restriction fields
+10. **API call** -- Single POST to `/api/v1/restrictions`
+11. **Log sync** -- Use shared `logSync()` utility
+12. **Response** -- Return summary with count and any errors
 
