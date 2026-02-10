@@ -1,111 +1,197 @@
 
 
-## Optimize In-House Now Dashboard Cards for Mobile
+## Create Channex Push Availability Edge Function
 
-### Problem Summary
+### Overview
 
-From the screenshot, two main issues need fixing:
-1. The close (X) button on the dialog is small (16x16px), too close to the edge, and hard to tap on mobile
-2. The reservation cards in the dialog render all at once, causing slow loading on mobile
+Create a new edge function `channex-push-availability` that pushes availability updates to Channex. The function supports both single and batch updates in one endpoint, combining all updates into a single Channex API call for efficiency.
 
 ---
 
-### Fix 1: Close Button on Mobile
+### Request/Response Format
 
-**File:** `src/components/ui/dialog.tsx`
-
-The current close button (line 45) uses `right-4 top-4` positioning with a tiny `h-4 w-4` (16px) icon and no visible background. Changes:
-
-- Increase icon size to `h-5 w-5` on mobile
-- Add `min-w-[44px] min-h-[44px]` for Apple's recommended 44x44px tap target
-- Add `flex items-center justify-center` for proper centering
-- Add a visible background: `bg-muted/80 hover:bg-muted` with rounded corners
-- Adjust positioning to `right-3 top-3` to ensure full visibility with adequate padding from screen edge
-
-**Before:**
-```tsx
-<DialogPrimitive.Close className="absolute right-4 top-4 rounded-sm opacity-70 ...">
-  <X className="h-4 w-4" />
-</DialogPrimitive.Close>
+**Single Update:**
+```json
+{
+  "property_id": "local-uuid",
+  "room_type_id": "local-uuid",
+  "date_from": "2026-03-01",
+  "date_to": "2026-03-10",
+  "availability": 5
+}
 ```
 
-**After:**
-```tsx
-<DialogPrimitive.Close className="absolute right-3 top-3 rounded-full opacity-70 ... min-w-[44px] min-h-[44px] flex items-center justify-center bg-muted/80 hover:bg-muted">
-  <X className="h-5 w-5" />
-</DialogPrimitive.Close>
+**Batch Update:**
+```json
+{
+  "updates": [
+    {
+      "property_id": "local-uuid",
+      "room_type_id": "local-uuid",
+      "date_from": "2026-03-01",
+      "date_to": "2026-03-10",
+      "availability": 5
+    },
+    {
+      "property_id": "local-uuid",
+      "room_type_id": "local-uuid-2",
+      "date_from": "2026-03-01",
+      "date_to": "2026-03-05",
+      "availability": 3
+    }
+  ]
+}
 ```
 
----
-
-### Fix 2: Dialog Header Spacing
-
-**File:** `src/components/Dashboard.tsx`
-
-The `DialogHeader` currently has `pr-8` which may not leave enough room for the larger close button. Update to `pr-14` to prevent the title from overlapping the new 44px close button.
-
----
-
-### Fix 3: Card Loading Performance
-
-**File:** `src/components/Dashboard.tsx`
-
-Currently all reservation cards render at once in the dialog. For the In-House panel which can have many cards, this causes jank on mobile.
-
-**Approach: Progressive rendering with a simple virtualization strategy**
-
-- Show only the first 10 cards initially
-- Add a "Show more" button or use IntersectionObserver to load more cards as the user scrolls
-- This avoids adding a heavy virtualization library
-
-**Implementation:**
-1. Add a `visibleCount` state initialized to 10
-2. Slice `dialogReservations` to only render `visibleCount` items
-3. Add a sentinel div at the bottom with IntersectionObserver to auto-load 10 more
-4. Reset `visibleCount` when dialog opens or card type changes
-
----
-
-### Fix 4: Skeleton Loaders for Dialog
-
-**File:** `src/components/Dashboard.tsx`
-
-Add a loading state for when the dialog data is being fetched:
-
-1. Add `dialogLoading` state (boolean)
-2. Set it to `true` at the start of `handleCardClick`, `false` when data arrives
-3. Show 3 skeleton card placeholders while loading
-
-```tsx
-{dialogLoading ? (
-  Array.from({ length: 3 }).map((_, i) => (
-    <Card key={i}>
-      <CardContent className="p-4 space-y-3">
-        <Skeleton className="h-5 w-32" />
-        <Skeleton className="h-4 w-48" />
-        <Skeleton className="h-4 w-24" />
-      </CardContent>
-    </Card>
-  ))
-) : (
-  // existing card rendering
-)}
+**Success Response:**
+```json
+{
+  "success": true,
+  "message": "Availability pushed successfully",
+  "values_count": 2
+}
 ```
 
 ---
 
-### Files to Modify
+### Implementation Flow
 
-| File | Change |
+```text
+1. Validate POST method and authenticate admin user
+           |
+           v
+2. Parse body: normalize single update or batch into an array
+           |
+           v
+3. For each update:
+   - Look up Channex property ID from channex_mappings
+   - Look up Channex room type ID from channex_mappings
+   - Build a value entry with Channex IDs
+   - Collect errors for missing mappings (continue with others)
+           |
+           v
+4. Send single POST to /api/v1/availability with all values
+           |
+           v
+5. Log the sync and return summary
+```
+
+---
+
+### Files to Create/Modify
+
+| File | Action |
 |------|--------|
-| `src/components/ui/dialog.tsx` | Enlarge close button tap target, add visible background, adjust position |
-| `src/components/Dashboard.tsx` | Add skeleton loaders, progressive card rendering, adjust header padding |
+| `supabase/functions/channex-push-availability/index.ts` | Create new edge function |
+| `supabase/config.toml` | Add `[functions.channex-push-availability]` with `verify_jwt = false` |
 
 ---
 
-### Technical Notes
+### Technical Details
 
-- The close button fix is in the shared `dialog.tsx` component, so it will improve all dialogs across the app -- this is intentional since the current button is too small for mobile everywhere
-- Progressive rendering uses a simple state-based approach (no new dependencies) with IntersectionObserver for auto-loading
-- Data fetching is already batched (single query per card click), so no query optimization needed
-- The skeleton loader provides immediate visual feedback while the database query runs
+#### Input Normalization
+
+The function accepts both formats and normalizes to an array internally:
+
+```typescript
+// If body has "updates" array, use it; otherwise treat entire body as single update
+const updates = body.updates
+  ? body.updates
+  : [{ property_id: body.property_id, room_type_id: body.room_type_id,
+       date_from: body.date_from, date_to: body.date_to, availability: body.availability }];
+```
+
+#### Channex ID Resolution with Caching
+
+To avoid redundant DB queries when the same property/room type appears multiple times in a batch:
+
+```typescript
+const mappingCache: Record<string, string> = {};
+
+async function resolveChannexId(supabase, localId: string, entityType: string): Promise<string | null> {
+  const cacheKey = `${entityType}:${localId}`;
+  if (mappingCache[cacheKey]) return mappingCache[cacheKey];
+
+  const { data } = await supabase
+    .from('channex_mappings')
+    .select('channex_id')
+    .eq('local_id', localId)
+    .eq('entity_type', entityType)
+    .maybeSingle();
+
+  if (data) mappingCache[cacheKey] = data.channex_id;
+  return data?.channex_id || null;
+}
+```
+
+#### Channex Payload
+
+All resolved updates are combined into a single API call:
+
+```typescript
+const channexPayload = {
+  values: [
+    {
+      property_id: "channex-property-id",
+      room_type_id: "channex-room-type-id",
+      date_from: "2026-03-01",
+      date_to: "2026-03-10",
+      availability: 5
+    },
+    // ... more values
+  ]
+};
+
+await channexRequest('POST', '/api/v1/availability', channexPayload);
+```
+
+#### Validation
+
+Each update in the array is validated for:
+- `property_id` -- required
+- `room_type_id` -- required
+- `date_from` -- required, YYYY-MM-DD format
+- `date_to` -- required, YYYY-MM-DD format
+- `availability` -- required, must be a non-negative number
+
+#### Error Handling
+
+| Condition | Behavior |
+|-----------|----------|
+| Missing mapping for property/room type | Skip that update, add to errors array |
+| All updates failed mapping resolution | Return 400 with errors |
+| Channex API error | Return 502 with error details |
+| Invalid input fields | Return 400 with validation error |
+
+**Response with partial errors:**
+```json
+{
+  "success": true,
+  "message": "Availability pushed with some errors",
+  "values_count": 3,
+  "errors": [
+    { "index": 1, "error": "Room type not synced to Channex", "room_type_id": "local-uuid" }
+  ]
+}
+```
+
+#### Authentication & Authorization
+
+Same pattern as all other Channex functions: validate Authorization header, verify admin role via `user_roles` table.
+
+---
+
+### Function Structure
+
+1. **CORS handling** -- Standard preflight response
+2. **Method validation** -- POST only
+3. **Authentication** -- Validate Authorization header
+4. **Admin check** -- Query `user_roles` for admin role
+5. **Input parsing** -- Normalize single/batch format
+6. **Validation** -- Check required fields on each update
+7. **Mapping resolution** -- Resolve Channex IDs with caching
+8. **Build payload** -- Combine all valid updates into `values` array
+9. **API call** -- Single POST to `/api/v1/availability`
+10. **Log sync** -- Use shared `logSync()` utility
+11. **Response** -- Return summary with count and any errors
+
