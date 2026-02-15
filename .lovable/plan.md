@@ -1,19 +1,25 @@
 
 
-## Fix: Remove Invalid `arrival_time` References
+## Delete Almaza Bay Unit Only
 
-### Problem
-Two lines in `src/pages/ReservationDetail.tsx` reference `reservation.arrival_time`, which does not exist in the database or TypeScript types, causing build errors.
+### What Will Be Deleted
+| Table | Records | Action |
+|-------|---------|--------|
+| `units` | 1 record ("Residences Chalet with Pool", id: aa68ee27-2f8e-4e6f-9f67-a801254493a3) | DELETE |
 
-### Solution
-Remove `reservation.arrival_time ||` from both lines. The existing regex fallback that extracts arrival time from the `notes` field will continue to work.
+### What Will Be Kept
+- `kyc_links` (9 records) -- kept
+- `selection_accounts` (7 records) -- kept
+- `guest_inventory_access` (7 records) -- kept
+- `audit_logs` (session audit log) -- kept
+- All other tables -- untouched
 
-### Changes
+### SQL Statement
 
-| File | Line | Change |
-|------|------|--------|
-| `src/pages/ReservationDetail.tsx` | 1684 | Remove `reservation.arrival_time ||` from the condition, keep only the regex match |
-| `src/pages/ReservationDetail.tsx` | 1704 | Remove `reservation.arrival_time ||` from the display value, keep only the regex match |
+```text
+DELETE FROM units WHERE id = 'aa68ee27-2f8e-4e6f-9f67-a801254493a3';
+```
 
-No database changes needed. The regex fallback already handles arrival time extraction from notes.
+### Note
+If the `guest_inventory_access` table has a foreign key constraint referencing this unit, the delete may fail. In that case, we will first remove only the `guest_inventory_access` rows that reference this specific unit, then delete the unit.
 
