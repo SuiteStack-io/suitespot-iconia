@@ -1,40 +1,55 @@
 
 
-## Use Booking.com Name in All Channex-Related Views
+## Rename "Suite Name" to "Room Name" Across the Entire Project
 
 ### Problem
-The Channex Properties tab currently shows internal suite names (e.g., "One Bedroom Suite with Balcony") instead of the guest-facing Booking.com names (e.g., "Suite with Terrace"). This is inconsistent with the room naming convention used elsewhere in the system.
+The codebase still has remnants of "Suite" terminology in labels, variable names, export headers, and email templates. The standard should be **"Room Name"** for the internal `name` field and **"Booking.com Name"** for the `booking_com_name` field, used consistently everywhere.
 
-### Changes
+### Changes Summary
 
-#### 1. `src/components/channex/PropertySync.tsx`
-- Add `booking_com_name` to the Unit interface and the database query (`select`)
-- Change the display to use `booking_com_name || name` as the primary label (matching the system-wide convention)
+#### Frontend Components & Pages
 
-#### 2. `supabase/functions/channex-sync-property/index.ts`
-- Already uses `booking_com_name || name` for room type grouping -- no changes needed here
+| File | What Changes |
+|------|-------------|
+| `src/components/RevenueByRoom.tsx` | Rename `suiteName` property in `GroupedRoomRevenue` interface to `roomTypeName` (internal variable cleanup) |
+| `src/pages/ReservationDetail.tsx` | Rename `suiteName` variable to `roomName`; change WhatsApp message from `*Suite:*` to `*Room:*`; change email body from `Suite:` to `Room:` |
+| `src/pages/Commissions.tsx` | Change export column header from `'Suite'` to `'Room Name'` in all Excel export mappings |
+| `src/pages/CashSettlement.tsx` | Change export column header from `'Suite'` to `'Room Name'` in all Excel export mappings |
+| `src/components/AvailabilityCalendar.tsx` | Popover tooltip already says "Room Name" -- but display value uses `unit.name` instead of `booking_com_name || name`. Fix the value to use `unit.booking_com_name || unit.name` |
+| `src/components/RoomCalendar.tsx` | Same fix: popover tooltip value should use `unit.booking_com_name || unit.name` |
+
+#### Edge Functions
+
+| File | What Changes |
+|------|-------------|
+| `supabase/functions/send-reservation-notification/index.ts` | Rename `matchedSuiteName` variable to `matchedRoomName`; change label from `"Suite:"` to `"Room:"` in HTML; fetch `booking_com_name` alongside `name` and prefer it |
+| `supabase/functions/send-cancellation-notification/index.ts` | Change label from `"Suite:"` to `"Room:"` in HTML email |
+
+### What Will NOT Change
+- The `name` database column stays as-is (it is the "Room Name" field)
+- The `booking_com_name` database column stays as-is (it is the "Booking.com Name" field)
+- "SuiteSpot" brand references (company name, not a room label)
+- The public-facing "Suites" navigation page (marketing page, not a field label)
+- UI labels that already say "Room Name" correctly
 
 ### Technical Details
 
-**PropertySync.tsx changes:**
+**ReservationDetail.tsx:**
+- `const suiteName = ...` becomes `const roomName = ...`
+- WhatsApp: `*Suite:* ${suiteName}` becomes `*Room:* ${roomName}`
+- Email: `Suite: ${suiteName}` becomes `Room: ${roomName}`
 
-```text
-// Interface update
-interface Unit {
-  id: string;
-  name: string | null;
-  booking_com_name: string | null;  // ADD
-  unit_number: string | null;
-}
+**Commissions.tsx / CashSettlement.tsx:**
+- All Excel export objects: `'Suite': r.units?.booking_com_name || ...` becomes `'Room Name': r.units?.booking_com_name || ...`
 
-// Query update (line 43)
-supabase.from('units').select('id, name, booking_com_name, unit_number').order('unit_number')
+**send-reservation-notification/index.ts:**
+- Query changed from `.select('name, unit_number')` to `.select('name, booking_com_name, unit_number')`
+- `matchedSuiteName = unitData.name` becomes `matchedRoomName = unitData.booking_com_name || unitData.name`
+- HTML label: `"Suite:"` becomes `"Room:"`
 
-// Display update (line 130)
-<p className="font-medium">
-  {unit.booking_com_name || unit.name || unit.unit_number || 'Unnamed'}
-</p>
-```
+**send-cancellation-notification/index.ts:**
+- HTML label: `"Suite:"` becomes `"Room:"`
 
-This ensures the Properties tab shows "Suite with Terrace" (Unit 501) instead of "One Bedroom Suite with Balcony", matching the Booking.com-facing names that Channex will use for OTA synchronization.
+**AvailabilityCalendar.tsx & RoomCalendar.tsx:**
+- Popover value: `{unit.name}` becomes `{unit.booking_com_name || unit.name}` to show the Booking.com name consistently
 
