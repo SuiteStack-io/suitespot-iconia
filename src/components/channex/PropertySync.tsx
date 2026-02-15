@@ -22,6 +22,7 @@ interface Mapping {
 interface Unit {
   id: string;
   name: string | null;
+  booking_com_name: string | null;
   unit_number: string | null;
 }
 
@@ -40,7 +41,7 @@ export function PropertySync() {
     setLoading(true);
     try {
       const [unitsRes, mappingsRes] = await Promise.all([
-        supabase.from('units').select('id, name, unit_number').order('unit_number'),
+        supabase.from('units').select('id, name, booking_com_name, unit_number').order('unit_number'),
         supabase.from('channex_mappings').select('*'),
       ]);
       if (unitsRes.error) throw unitsRes.error;
@@ -127,7 +128,7 @@ export function PropertySync() {
             <CardContent className="p-4">
               <div className="flex items-center justify-between gap-4 flex-wrap">
                 <div className="space-y-1">
-                  <p className="font-medium">{unit.name || unit.unit_number || 'Unnamed'}</p>
+                  <p className="font-medium">{unit.booking_com_name || unit.name || unit.unit_number || 'Unnamed'}</p>
                   {unit.unit_number && (
                     <p className="text-xs text-muted-foreground">Unit {unit.unit_number}</p>
                   )}
