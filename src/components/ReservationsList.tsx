@@ -217,7 +217,7 @@ export const ReservationsList = ({ userRole }: ReservationsListProps) => {
       .order('check_in_date', { ascending: false });
 
     if (!error && data) {
-      setReservations(data as Reservation[]);
+      setReservations(data as unknown as Reservation[]);
     }
   };
 
@@ -803,7 +803,7 @@ export const ReservationsList = ({ userRole }: ReservationsListProps) => {
 
     const { error } = await supabase
       .from('reservations')
-      .update({ arrival_time: arrivalTime || null })
+      .update({ arrival_time: arrivalTime || null } as any)
       .eq('id', reservationId);
 
     if (error) {
