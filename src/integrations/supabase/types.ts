@@ -1202,6 +1202,7 @@ export type Database = {
         Row: {
           access_cards_given: number | null
           adults: number | null
+          arrival_time: string | null
           booking_reference: string
           booking_screenshot_url: string | null
           cancelled_at: string | null
@@ -1256,6 +1257,7 @@ export type Database = {
         Insert: {
           access_cards_given?: number | null
           adults?: number | null
+          arrival_time?: string | null
           booking_reference: string
           booking_screenshot_url?: string | null
           cancelled_at?: string | null
@@ -1310,6 +1312,7 @@ export type Database = {
         Update: {
           access_cards_given?: number | null
           adults?: number | null
+          arrival_time?: string | null
           booking_reference?: string
           booking_screenshot_url?: string | null
           cancelled_at?: string | null

@@ -282,7 +282,7 @@ const ReservationDetail = () => {
         source: data.source,
         currency: data.currency || 'USD',
         payment_method: data.payment_method || '',
-        arrival_time: data.arrival_time || '',
+        arrival_time: (data as any).arrival_time || '',
       });
     }
   };
@@ -549,11 +549,11 @@ const ReservationDetail = () => {
         notes: formData.notes,
         currency: formData.currency,
         payment_method: formData.payment_method || null,
-        arrival_time: formData.arrival_time || null,
         id_passport_url: idPassportUrl,
         id_passport_url_back: idPassportUrlBack,
         marriage_certificate_url: marriageCertUrl,
-      })
+        arrival_time: formData.arrival_time || null,
+      } as any)
       .eq('id', id);
 
     if (error) {
