@@ -28,6 +28,8 @@ interface Reservation {
   nights?: number;
   commission_rate?: number;
   group_id?: string;
+  arrival_time?: string | null;
+  notes?: string | null;
 }
 
 interface Unit {
@@ -909,6 +911,39 @@ export const ReservationQuickActions = ({
             <div className="text-xs text-muted-foreground">
               Ref: {reservation.booking_reference}
             </div>
+            {(() => {
+              const arrivalTime = reservation.arrival_time || (() => {
+                if (!reservation.notes) return null;
+                const patterns = [
+                  /(?:arriv(?:al|ing|e|es)|eta|check[\s-]?in[\s-]?time|expected[\s-]?(?:at|time))[\s:]*(?:at\s*)?(\d{1,2})[:\.](\d{2})/i,
+                  /(?:arriv(?:al|ing|e|es)|eta|check[\s-]?in[\s-]?time|expected[\s-]?(?:at|time))[\s:]*(?:at\s*)?(\d{1,2})\s*(am|pm)/i,
+                ];
+                for (const pattern of patterns) {
+                  const match = reservation.notes!.match(pattern);
+                  if (match) {
+                    let hours = parseInt(match[1], 10);
+                    const minutesOrAmPm = match[2];
+                    if (minutesOrAmPm && /^(am|pm)$/i.test(minutesOrAmPm)) {
+                      if (minutesOrAmPm.toLowerCase() === 'pm' && hours !== 12) hours += 12;
+                      if (minutesOrAmPm.toLowerCase() === 'am' && hours === 12) hours = 0;
+                      return `${hours.toString().padStart(2, '0')}:00`;
+                    }
+                    return `${hours.toString().padStart(2, '0')}:${minutesOrAmPm}`;
+                  }
+                }
+                return null;
+              })();
+              if (!arrivalTime) return null;
+              return (
+                <Badge
+                  variant="outline"
+                  className="bg-violet-100 text-violet-800 border-violet-300 gap-1 mt-1 w-fit"
+                >
+                  <Clock className="h-3 w-3" />
+                  Guest arrives at {arrivalTime}
+                </Badge>
+              );
+            })()}
           </div>
 
           {isLateCheckout ? (

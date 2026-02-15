@@ -47,6 +47,8 @@ interface Reservation {
   total_price?: number | null;
   commission_amount?: number | null;
   group_id?: string | null;
+  arrival_time?: string | null;
+  notes?: string | null;
 }
 
 interface BlockedDate {
