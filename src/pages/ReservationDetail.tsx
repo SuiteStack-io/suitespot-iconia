@@ -209,6 +209,7 @@ const ReservationDetail = () => {
     channel: '',
     currency: 'USD',
     payment_method: '',
+    arrival_time: '',
   });
 
   const canEdit = userRole === 'admin';
@@ -281,6 +282,7 @@ const ReservationDetail = () => {
         source: data.source,
         currency: data.currency || 'USD',
         payment_method: data.payment_method || '',
+        arrival_time: data.arrival_time || '',
       });
     }
   };
@@ -547,6 +549,7 @@ const ReservationDetail = () => {
         notes: formData.notes,
         currency: formData.currency,
         payment_method: formData.payment_method || null,
+        arrival_time: formData.arrival_time || null,
         id_passport_url: idPassportUrl,
         id_passport_url_back: idPassportUrlBack,
         marriage_certificate_url: marriageCertUrl,
@@ -1644,6 +1647,20 @@ Thank you for choosing SuiteSpot!`;
                   </Select>
                 </div>
                 <div>
+                  <Label className="flex items-center gap-1.5">
+                    <Clock className="h-3.5 w-3.5" />
+                    Arrival Time
+                  </Label>
+                  <Input
+                    type="time"
+                    value={formData.arrival_time}
+                    onChange={(e) => setFormData(prev => ({ ...prev, arrival_time: e.target.value }))}
+                    className="mt-2 w-[180px]"
+                    placeholder="e.g. 14:00"
+                  />
+                  <p className="text-xs text-muted-foreground mt-1">24h format (e.g. 14:00 = 2:00 PM)</p>
+                </div>
+                <div>
                   <Label>Notes</Label>
                   <Textarea
                     value={formData.notes}
@@ -1664,6 +1681,51 @@ Thank you for choosing SuiteSpot!`;
                     </Badge>
                   </div>
                 </div>
+                {(reservation.arrival_time || (() => {
+                  if (!reservation.notes) return null;
+                  const patterns = [
+                    /(?:arriv(?:al|ing|e|es)|eta|check[\s-]?in[\s-]?time|expected[\s-]?(?:at|time))[\s:]*(?:at\s*)?(\d{1,2})[:\.](\d{2})/i,
+                    /(?:arriv(?:al|ing|e|es)|eta|check[\s-]?in[\s-]?time|expected[\s-]?(?:at|time))[\s:]*(?:at\s*)?(\d{1,2})\s*(am|pm)/i,
+                  ];
+                  for (const pattern of patterns) {
+                    const match = reservation.notes.match(pattern);
+                    if (match) return true;
+                  }
+                  return null;
+                })()) && (
+                  <div>
+                    <Label className="flex items-center gap-1.5">
+                      <Clock className="h-3.5 w-3.5" />
+                      Arrival Time
+                    </Label>
+                    <div className="mt-2">
+                      <Badge variant="outline" className="bg-violet-100 text-violet-800 border-violet-300 gap-1">
+                        <Clock className="h-3 w-3" />
+                        Guest arrives at {reservation.arrival_time || (() => {
+                          if (!reservation.notes) return '';
+                          const patterns = [
+                            /(?:arriv(?:al|ing|e|es)|eta|check[\s-]?in[\s-]?time|expected[\s-]?(?:at|time))[\s:]*(?:at\s*)?(\d{1,2})[:\.](\d{2})/i,
+                            /(?:arriv(?:al|ing|e|es)|eta|check[\s-]?in[\s-]?time|expected[\s-]?(?:at|time))[\s:]*(?:at\s*)?(\d{1,2})\s*(am|pm)/i,
+                          ];
+                          for (const pattern of patterns) {
+                            const match = reservation.notes.match(pattern);
+                            if (match) {
+                              let hours = parseInt(match[1], 10);
+                              const mOrAmPm = match[2];
+                              if (/^(am|pm)$/i.test(mOrAmPm)) {
+                                if (mOrAmPm.toLowerCase() === 'pm' && hours !== 12) hours += 12;
+                                if (mOrAmPm.toLowerCase() === 'am' && hours === 12) hours = 0;
+                                return `${hours.toString().padStart(2, '0')}:00`;
+                              }
+                              return `${hours.toString().padStart(2, '0')}:${mOrAmPm}`;
+                            }
+                          }
+                          return '';
+                        })()}
+                      </Badge>
+                    </div>
+                  </div>
+                )}
                 {reservation.notes && (
                   <div>
                     <Label>Notes</Label>
