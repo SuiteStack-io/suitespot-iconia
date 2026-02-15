@@ -1,25 +1,40 @@
 
 
-## Delete Almaza Bay Unit Only
+## Use Booking.com Name in All Channex-Related Views
 
-### What Will Be Deleted
-| Table | Records | Action |
-|-------|---------|--------|
-| `units` | 1 record ("Residences Chalet with Pool", id: aa68ee27-2f8e-4e6f-9f67-a801254493a3) | DELETE |
+### Problem
+The Channex Properties tab currently shows internal suite names (e.g., "One Bedroom Suite with Balcony") instead of the guest-facing Booking.com names (e.g., "Suite with Terrace"). This is inconsistent with the room naming convention used elsewhere in the system.
 
-### What Will Be Kept
-- `kyc_links` (9 records) -- kept
-- `selection_accounts` (7 records) -- kept
-- `guest_inventory_access` (7 records) -- kept
-- `audit_logs` (session audit log) -- kept
-- All other tables -- untouched
+### Changes
 
-### SQL Statement
+#### 1. `src/components/channex/PropertySync.tsx`
+- Add `booking_com_name` to the Unit interface and the database query (`select`)
+- Change the display to use `booking_com_name || name` as the primary label (matching the system-wide convention)
+
+#### 2. `supabase/functions/channex-sync-property/index.ts`
+- Already uses `booking_com_name || name` for room type grouping -- no changes needed here
+
+### Technical Details
+
+**PropertySync.tsx changes:**
 
 ```text
-DELETE FROM units WHERE id = 'aa68ee27-2f8e-4e6f-9f67-a801254493a3';
+// Interface update
+interface Unit {
+  id: string;
+  name: string | null;
+  booking_com_name: string | null;  // ADD
+  unit_number: string | null;
+}
+
+// Query update (line 43)
+supabase.from('units').select('id, name, booking_com_name, unit_number').order('unit_number')
+
+// Display update (line 130)
+<p className="font-medium">
+  {unit.booking_com_name || unit.name || unit.unit_number || 'Unnamed'}
+</p>
 ```
 
-### Note
-If the `guest_inventory_access` table has a foreign key constraint referencing this unit, the delete may fail. In that case, we will first remove only the `guest_inventory_access` rows that reference this specific unit, then delete the unit.
+This ensures the Properties tab shows "Suite with Terrace" (Unit 501) instead of "One Bedroom Suite with Balcony", matching the Booking.com-facing names that Channex will use for OTA synchronization.
 
