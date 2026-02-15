@@ -213,7 +213,7 @@ export const ReservationsList = ({ userRole }: ReservationsListProps) => {
   const fetchReservations = async () => {
     const { data, error } = await supabase
       .from('reservations')
-      .select('id, booking_reference, check_in_date, check_out_date, nights, number_of_guests, guest_names, guest_nationality, status, source, price_per_night, total_price, commission_rate, commission_amount, net_revenue, currency, created_at, group_id, unit_id, contact_email, confirmation_email_status, confirmation_email_sent_at, payment_method, settled, vat_exempt, arrival_time, notes, units(name, unit_number, booking_com_name)')
+      .select('*, units(name, unit_number, booking_com_name)')
       .order('check_in_date', { ascending: false });
 
     if (!error && data) {
