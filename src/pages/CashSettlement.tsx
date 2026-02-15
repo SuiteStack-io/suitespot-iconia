@@ -320,7 +320,7 @@ export default function CashSettlement() {
     const formatRow = (r: Reservation) => ({
       'Booking Reference': r.booking_reference,
       'Guest Name': r.guest_names?.[0] || 'N/A',
-      'Suite': r.units?.booking_com_name || 'Unassigned',
+      'Room Name': r.units?.booking_com_name || 'Unassigned',
       'Room #': r.units?.unit_number || '-',
       'Check-in': format(new Date(r.check_in_date), 'MMM d, yyyy'),
       'Check-out': format(new Date(r.check_out_date), 'MMM d, yyyy'),
@@ -335,21 +335,21 @@ export default function CashSettlement() {
     // Unsettled Cash sheet
     const unsettledData = unsettledCashReservations.map(formatRow);
     const unsettledTotal = unsettledCashReservations.reduce((sum, r) => sum + calculateTotalWithVAT(r), 0);
-    unsettledData.push({ 'Booking Reference': 'TOTAL (incl. 14% VAT)', 'Guest Name': '', 'Suite': '', 'Room #': '', 'Check-in': '', 'Check-out': '', 'Amount (incl. VAT)': unsettledTotal, 'Payment Method': '', 'Source': '', 'Settled': '' });
+    unsettledData.push({ 'Booking Reference': 'TOTAL (incl. 14% VAT)', 'Guest Name': '', 'Room Name': '', 'Room #': '', 'Check-in': '', 'Check-out': '', 'Amount (incl. VAT)': unsettledTotal, 'Payment Method': '', 'Source': '', 'Settled': '' });
     const ws1 = XLSX.utils.json_to_sheet(unsettledData);
     XLSX.utils.book_append_sheet(wb, ws1, 'Unsettled Cash');
 
     // Settled Cash sheet
     const settledData = settledCashReservations.map(formatRow);
     const settledTotal = settledCashReservations.reduce((sum, r) => sum + calculateTotalWithVAT(r), 0);
-    settledData.push({ 'Booking Reference': 'TOTAL (incl. 14% VAT)', 'Guest Name': '', 'Suite': '', 'Room #': '', 'Check-in': '', 'Check-out': '', 'Amount (incl. VAT)': settledTotal, 'Payment Method': '', 'Source': '', 'Settled': '' });
+    settledData.push({ 'Booking Reference': 'TOTAL (incl. 14% VAT)', 'Guest Name': '', 'Room Name': '', 'Room #': '', 'Check-in': '', 'Check-out': '', 'Amount (incl. VAT)': settledTotal, 'Payment Method': '', 'Source': '', 'Settled': '' });
     const ws2 = XLSX.utils.json_to_sheet(settledData);
     XLSX.utils.book_append_sheet(wb, ws2, 'Settled Cash');
 
     // Card Reservations sheet
     const cardData = filteredCardReservations.map(formatRow);
     const cardTotal = filteredCardReservations.reduce((sum, r) => sum + calculateTotalWithVAT(r), 0);
-    cardData.push({ 'Booking Reference': 'TOTAL (incl. 14% VAT)', 'Guest Name': '', 'Suite': '', 'Room #': '', 'Check-in': '', 'Check-out': '', 'Amount (incl. VAT)': cardTotal, 'Payment Method': '', 'Source': '', 'Settled': '' });
+    cardData.push({ 'Booking Reference': 'TOTAL (incl. 14% VAT)', 'Guest Name': '', 'Room Name': '', 'Room #': '', 'Check-in': '', 'Check-out': '', 'Amount (incl. VAT)': cardTotal, 'Payment Method': '', 'Source': '', 'Settled': '' });
     const ws3 = XLSX.utils.json_to_sheet(cardData);
     XLSX.utils.book_append_sheet(wb, ws3, 'Card Reservations');
 

@@ -27,7 +27,7 @@ interface RoomRevenue {
 }
 
 interface GroupedRoomRevenue {
-  suiteName: string;
+  roomTypeName: string;
   rooms: RoomRevenue[];
   totalBookings: number;
   totalRevenue: number;
@@ -114,7 +114,7 @@ export const RevenueByRoom = ({ mainDateRange }: RevenueByRoomProps) => {
       );
 
       return {
-        suiteName: roomDisplayName,
+        roomTypeName: roomDisplayName,
         rooms: sortedRooms,
         totalBookings,
         totalRevenue,
@@ -126,20 +126,20 @@ export const RevenueByRoom = ({ mainDateRange }: RevenueByRoomProps) => {
     return grouped.sort((a, b) => b.totalRevenue - a.totalRevenue);
   };
 
-  const toggleGroup = (suiteName: string) => {
+  const toggleGroup = (roomTypeName: string) => {
     setExpandedGroups((prev) => {
       const newSet = new Set(prev);
-      if (newSet.has(suiteName)) {
-        newSet.delete(suiteName);
+      if (newSet.has(roomTypeName)) {
+        newSet.delete(roomTypeName);
       } else {
-        newSet.add(suiteName);
+        newSet.add(roomTypeName);
       }
       return newSet;
     });
   };
 
   const expandAll = () => {
-    const allGroups = new Set(groupedRevenue.map(g => g.suiteName));
+    const allGroups = new Set(groupedRevenue.map(g => g.roomTypeName));
     setExpandedGroups(allGroups);
   };
 
@@ -308,16 +308,16 @@ export const RevenueByRoom = ({ mainDateRange }: RevenueByRoomProps) => {
             </TableHeader>
             <TableBody>
               {groupedRevenue.map((group) => {
-                const isExpanded = expandedGroups.has(group.suiteName);
+                const isExpanded = expandedGroups.has(group.roomTypeName);
                 const roomNumbers = group.rooms.map(r => r.roomNumber).join(', ');
 
                 return (
                   <>
                     {/* Parent Row - Room Name */}
                     <TableRow 
-                      key={group.suiteName}
+                      key={group.roomTypeName}
                       className="cursor-pointer hover:bg-muted/50 bg-muted/20"
-                      onClick={() => toggleGroup(group.suiteName)}
+                      onClick={() => toggleGroup(group.roomTypeName)}
                     >
                       <TableCell className="font-medium">
                         <div className="flex items-center gap-2">
@@ -326,7 +326,7 @@ export const RevenueByRoom = ({ mainDateRange }: RevenueByRoomProps) => {
                           ) : (
                             <ChevronRight className="h-4 w-4 text-muted-foreground" />
                           )}
-                          {group.suiteName}
+                          {group.roomTypeName}
                         </div>
                       </TableCell>
                       <TableCell className="text-center text-muted-foreground text-sm">

@@ -92,20 +92,20 @@ const handler = async (req: Request): Promise<Response> => {
     console.log("Processing reservation notification:", reservationId);
     
     // Fetch unit details if unitId is provided
-    let matchedSuiteName = null;
+    let matchedRoomName = null;
     let matchedRoomNumber = null;
     
     if (unitId) {
       const { data: unitData, error: unitError } = await supabaseClient
         .from('units')
-        .select('name, unit_number')
+        .select('name, booking_com_name, unit_number')
         .eq('id', unitId)
         .single();
       
       if (!unitError && unitData) {
-        matchedSuiteName = unitData.name;
+        matchedRoomName = unitData.booking_com_name || unitData.name;
         matchedRoomNumber = unitData.unit_number;
-        console.log("Matched unit details:", { name: matchedSuiteName, number: matchedRoomNumber });
+        console.log("Matched unit details:", { name: matchedRoomName, number: matchedRoomNumber });
       }
     }
     
@@ -675,10 +675,10 @@ const handler = async (req: Request): Promise<Response> => {
                   <div class="detail-value"><strong>${unitName}</strong></div>
                 </div>
                 
-                ${matchedSuiteName ? `
+                ${matchedRoomName ? `
                 <div class="detail-row">
-                  <div class="detail-label">Suite:</div>
-                  <div class="detail-value"><strong>${matchedSuiteName}</strong></div>
+                  <div class="detail-label">Room:</div>
+                  <div class="detail-value"><strong>${matchedRoomName}</strong></div>
                 </div>
                 ` : ''}
                 
