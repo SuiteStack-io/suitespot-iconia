@@ -1681,7 +1681,7 @@ Thank you for choosing SuiteSpot!`;
                     </Badge>
                   </div>
                 </div>
-                {(reservation.arrival_time || (() => {
+                {((() => {
                   if (!reservation.notes) return null;
                   const patterns = [
                     /(?:arriv(?:al|ing|e|es)|eta|check[\s-]?in[\s-]?time|expected[\s-]?(?:at|time))[\s:]*(?:at\s*)?(\d{1,2})[:\.](\d{2})/i,
@@ -1701,7 +1701,7 @@ Thank you for choosing SuiteSpot!`;
                     <div className="mt-2">
                       <Badge variant="outline" className="bg-violet-100 text-violet-800 border-violet-300 gap-1">
                         <Clock className="h-3 w-3" />
-                        Guest arrives at {reservation.arrival_time || (() => {
+                        Guest arrives at {(() => {
                           if (!reservation.notes) return '';
                           const patterns = [
                             /(?:arriv(?:al|ing|e|es)|eta|check[\s-]?in[\s-]?time|expected[\s-]?(?:at|time))[\s:]*(?:at\s*)?(\d{1,2})[:\.](\d{2})/i,
