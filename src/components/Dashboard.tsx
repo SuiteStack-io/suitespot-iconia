@@ -2,7 +2,7 @@ import { useEffect, useState, useRef, useCallback } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { supabase } from '@/integrations/supabase/client';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
-import { Calendar, LogIn, LogOut, TrendingUp, DollarSign, CheckCircle, Undo2, XCircle, FileSignature, ArrowRightLeft } from 'lucide-react';
+import { Calendar, LogIn, LogOut, TrendingUp, DollarSign, CheckCircle, Undo2, XCircle, FileSignature, ArrowRightLeft, Clock } from 'lucide-react';
 import { CheckInDialog } from './CheckInDialog';
 import { CheckOutDialog } from './CheckOutDialog';
 import { format } from 'date-fns';
@@ -83,6 +83,8 @@ interface Reservation {
   access_cards_given: number | null;
   units: { name: string; booking_com_name: string | null; unit_number: string | null } | null;
   check_in_agreements?: { id: string }[] | null;
+  arrival_time: string | null;
+  notes: string | null;
 }
 
 const statusColors = {
@@ -324,7 +326,7 @@ export const Dashboard = () => {
     const yesterday = format(new Date(Date.now() - 86400000), 'yyyy-MM-dd');
     const sevenDaysAgo = format(new Date(Date.now() - 7 * 86400000), 'yyyy-MM-dd');
     
-    const baseSelect = 'id, booking_reference, guest_names, guest_types, guest_genders, check_in_date, check_out_date, checked_in_at, checked_out_at, cancelled_at, status, total_price, number_of_guests, children, adults, source, channel, payment_method, group_id, access_cards_given, units(name, booking_com_name, unit_number), check_in_agreements(id)';
+    const baseSelect = 'id, booking_reference, guest_names, guest_types, guest_genders, check_in_date, check_out_date, checked_in_at, checked_out_at, cancelled_at, status, total_price, number_of_guests, children, adults, source, channel, payment_method, group_id, access_cards_given, arrival_time, notes, units(name, booking_com_name, unit_number), check_in_agreements(id)';
     
     // Clear transfers when opening a non-transfer dialog
     setDialogTransfers([]);
@@ -747,6 +749,36 @@ export const Dashboard = () => {
     }
   };
 
+  // Parse arrival time from notes field
+  const parseArrivalTimeFromNotes = (notes: string | null): string | null => {
+    if (!notes) return null;
+    const patterns = [
+      /(?:arriv(?:al|ing|e|es)|eta|check[\s-]?in[\s-]?time|expected[\s-]?(?:at|time))[\s:]*(?:at\s*)?(\d{1,2})[:\.](\d{2})/i,
+      /(?:arriv(?:al|ing|e|es)|eta|check[\s-]?in[\s-]?time|expected[\s-]?(?:at|time))[\s:]*(?:at\s*)?(\d{1,2})\s*(am|pm)/i,
+    ];
+    for (const pattern of patterns) {
+      const match = notes.match(pattern);
+      if (match) {
+        let hours = parseInt(match[1], 10);
+        const minutesOrAmPm = match[2];
+        if (minutesOrAmPm && /^(am|pm)$/i.test(minutesOrAmPm)) {
+          if (minutesOrAmPm.toLowerCase() === 'pm' && hours !== 12) hours += 12;
+          if (minutesOrAmPm.toLowerCase() === 'am' && hours === 12) hours = 0;
+          return `${hours.toString().padStart(2, '0')}:00`;
+        } else {
+          return `${hours.toString().padStart(2, '0')}:${minutesOrAmPm}`;
+        }
+      }
+    }
+    return null;
+  };
+
+  // Get effective arrival time: stored value OR parsed from notes
+  const getEffectiveArrivalTime = (reservation: Reservation): string | null => {
+    if (reservation.arrival_time) return reservation.arrival_time;
+    return parseArrivalTimeFromNotes(reservation.notes);
+  };
+
   const statCards = [
     {
       title: "Today's Arrivals",
@@ -1001,7 +1033,7 @@ export const Dashboard = () => {
                           >
                             {reservation.channel === 'Booking.com' ? 'Booking.com' : reservation.source}
                           </Badge>
-                          <Badge 
+                          <Badge
                             variant="outline"
                             className={
                               (reservation.channel === 'Booking.com' || reservation.payment_method === 'card')
@@ -1011,6 +1043,19 @@ export const Dashboard = () => {
                           >
                             {reservation.channel === 'Booking.com' ? 'card' : (reservation.payment_method || 'card')}
                           </Badge>
+                          {dialogTitle.includes('Arrivals') && (() => {
+                            const arrivalTime = getEffectiveArrivalTime(reservation);
+                            if (!arrivalTime) return null;
+                            return (
+                              <Badge
+                                variant="outline"
+                                className="bg-violet-100 text-violet-800 border-violet-300 gap-1"
+                              >
+                                <Clock className="h-3 w-3" />
+                                Guest arrives at {arrivalTime}
+                              </Badge>
+                            );
+                          })()}
                         </div>
                         <div className="space-y-1">
                           {reservation.guest_names.map((name, idx) => (

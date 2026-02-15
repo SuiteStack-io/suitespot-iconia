@@ -86,6 +86,8 @@ interface Reservation {
   payment_method: string | null;
   settled: string | null;
   vat_exempt: boolean | null;
+  arrival_time: string | null;
+  notes: string | null;
 }
 
 interface GroupedReservation extends Reservation {
@@ -211,7 +213,7 @@ export const ReservationsList = ({ userRole }: ReservationsListProps) => {
   const fetchReservations = async () => {
     const { data, error } = await supabase
       .from('reservations')
-      .select('id, booking_reference, check_in_date, check_out_date, nights, number_of_guests, guest_names, guest_nationality, status, source, price_per_night, total_price, commission_rate, commission_amount, net_revenue, currency, created_at, group_id, unit_id, contact_email, confirmation_email_status, confirmation_email_sent_at, payment_method, settled, vat_exempt, units(name, unit_number, booking_com_name)')
+      .select('id, booking_reference, check_in_date, check_out_date, nights, number_of_guests, guest_names, guest_nationality, status, source, price_per_night, total_price, commission_rate, commission_amount, net_revenue, currency, created_at, group_id, unit_id, contact_email, confirmation_email_status, confirmation_email_sent_at, payment_method, settled, vat_exempt, arrival_time, notes, units(name, unit_number, booking_com_name)')
       .order('check_in_date', { ascending: false });
 
     if (!error && data) {
@@ -663,6 +665,7 @@ export const ReservationsList = ({ userRole }: ReservationsListProps) => {
         'Room #': r.units?.unit_number || '-',
         'Guest Name(s)': r.guest_names.join(', '),
         'Check-in': format(new Date(r.check_in_date), 'dd MMM yyyy'),
+        'Arrival Time': r.arrival_time || parseArrivalTimeFromNotes(r.notes) || '-',
         'Check-out': format(new Date(r.check_out_date), 'dd MMM yyyy'),
         'Nights': r.nights,
         'Guests': r.number_of_guests,
@@ -759,6 +762,63 @@ export const ReservationsList = ({ userRole }: ReservationsListProps) => {
       toast.success('Currency updated');
       fetchReservations();
     }
+  };
+
+  // Parse arrival time from notes field (looks for patterns like "arrival at 14:00", "ETA 15:30", "arriving 13:00", etc.)
+  const parseArrivalTimeFromNotes = (notes: string | null): string | null => {
+    if (!notes) return null;
+    // Match patterns like: "arrival at 14:00", "ETA: 15:30", "arriving at 1pm", "check-in time: 14:00", "arrives at 13:00", "arrival 16:00"
+    const patterns = [
+      /(?:arriv(?:al|ing|e|es)|eta|check[\s-]?in[\s-]?time|expected[\s-]?(?:at|time))[\s:]*(?:at\s*)?(\d{1,2})[:\.](\d{2})/i,
+      /(?:arriv(?:al|ing|e|es)|eta|check[\s-]?in[\s-]?time|expected[\s-]?(?:at|time))[\s:]*(?:at\s*)?(\d{1,2})\s*(am|pm)/i,
+    ];
+
+    for (const pattern of patterns) {
+      const match = notes.match(pattern);
+      if (match) {
+        let hours = parseInt(match[1], 10);
+        const minutesOrAmPm = match[2];
+
+        if (minutesOrAmPm && /^(am|pm)$/i.test(minutesOrAmPm)) {
+          // Handle AM/PM format
+          if (minutesOrAmPm.toLowerCase() === 'pm' && hours !== 12) hours += 12;
+          if (minutesOrAmPm.toLowerCase() === 'am' && hours === 12) hours = 0;
+          return `${hours.toString().padStart(2, '0')}:00`;
+        } else {
+          // Handle 24h format
+          return `${hours.toString().padStart(2, '0')}:${minutesOrAmPm}`;
+        }
+      }
+    }
+    return null;
+  };
+
+  const handleArrivalTimeChange = async (reservationId: string, arrivalTime: string) => {
+    // Validate HH:MM format
+    const timeRegex = /^([01]\d|2[0-3]):([0-5]\d)$/;
+    if (arrivalTime && !timeRegex.test(arrivalTime)) {
+      toast.error('Please enter time in HH:MM format (e.g., 14:00)');
+      return;
+    }
+
+    const { error } = await supabase
+      .from('reservations')
+      .update({ arrival_time: arrivalTime || null })
+      .eq('id', reservationId);
+
+    if (error) {
+      toast.error('Failed to update arrival time');
+      console.error('Arrival time update error:', error);
+    } else {
+      toast.success('Arrival time updated');
+      fetchReservations();
+    }
+  };
+
+  // Get effective arrival time: stored value OR parsed from notes
+  const getEffectiveArrivalTime = (reservation: Reservation): string | null => {
+    if (reservation.arrival_time) return reservation.arrival_time;
+    return parseArrivalTimeFromNotes(reservation.notes);
   };
 
   const getCurrencyLabel = (currency: string | null) => {
@@ -1102,7 +1162,7 @@ export const ReservationsList = ({ userRole }: ReservationsListProps) => {
                   Source {getSortIcon('source')}
                 </div>
               </TableHead>
-              <TableHead 
+              <TableHead
                 className="cursor-pointer hover:bg-muted/50"
                 onClick={() => handleSort('check_in_date')}
               >
@@ -1110,7 +1170,13 @@ export const ReservationsList = ({ userRole }: ReservationsListProps) => {
                   Check-in {getSortIcon('check_in_date')}
                 </div>
               </TableHead>
-              <TableHead 
+              <TableHead className="w-[100px] min-w-[100px]">
+                <div className="flex items-center gap-1">
+                  <Clock className="h-3.5 w-3.5" />
+                  Arrival Time
+                </div>
+              </TableHead>
+              <TableHead
                 className="cursor-pointer hover:bg-muted/50"
                 onClick={() => handleSort('check_out_date')}
               >
@@ -1198,7 +1264,7 @@ export const ReservationsList = ({ userRole }: ReservationsListProps) => {
           <TableBody>
             {filteredReservations.length === 0 ? (
               <TableRow>
-                <TableCell colSpan={21} className="text-center text-muted-foreground">
+                <TableCell colSpan={22} className="text-center text-muted-foreground">
                   No reservations found
                 </TableCell>
               </TableRow>
@@ -1262,7 +1328,42 @@ export const ReservationsList = ({ userRole }: ReservationsListProps) => {
                   >
                     {format(new Date(reservation.check_in_date), 'dd MMM yyyy')}
                   </TableCell>
-                  <TableCell 
+                  <TableCell onClick={(e) => e.stopPropagation()}>
+                    {(() => {
+                      const effectiveTime = getEffectiveArrivalTime(reservation);
+                      const isFromNotes = !reservation.arrival_time && effectiveTime;
+                      return (
+                        <div className="flex items-center gap-1">
+                          <Input
+                            type="time"
+                            defaultValue={effectiveTime || ''}
+                            className={cn(
+                              "w-[90px] h-7 text-xs",
+                              isFromNotes && "border-amber-300 bg-amber-50"
+                            )}
+                            title={isFromNotes ? 'Auto-detected from notes (click to confirm/edit)' : 'Set arrival time'}
+                            onBlur={(e) => {
+                              const newVal = e.target.value;
+                              if (newVal !== (reservation.arrival_time || '')) {
+                                handleArrivalTimeChange(reservation.id, newVal);
+                              }
+                            }}
+                            onKeyDown={(e) => {
+                              if (e.key === 'Enter') {
+                                (e.target as HTMLInputElement).blur();
+                              }
+                            }}
+                          />
+                          {effectiveTime && !reservation.arrival_time && (
+                            <span className="text-amber-500" title="Parsed from notes">
+                              <Clock className="h-3 w-3" />
+                            </span>
+                          )}
+                        </div>
+                      );
+                    })()}
+                  </TableCell>
+                  <TableCell
                     className="cursor-pointer"
                     onClick={() => navigate(`/reservation/${reservation.id}`)}
                   >
