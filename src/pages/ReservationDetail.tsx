@@ -799,7 +799,7 @@ const ReservationDetail = () => {
     
     const checkIn = format(new Date(reservation.check_in_date), 'EEEE, MMMM d, yyyy');
     const checkOut = format(new Date(reservation.check_out_date), 'EEEE, MMMM d, yyyy');
-    const suiteName = reservation.units?.booking_com_name || reservation.units?.name || 'N/A';
+    const roomName = reservation.units?.booking_com_name || reservation.units?.name || 'N/A';
     
     // Calculate tax
     const subtotal = (reservation.price_per_night || 0) * (reservation.nights || 0);
@@ -814,7 +814,7 @@ const ReservationDetail = () => {
 👤 *Guest:* ${reservation.guest_names?.join(', ') || 'N/A'}
 👥 *Number of Guests:* ${reservation.number_of_guests}
 
-🏠 *Suite:* ${suiteName}
+🏠 *Room:* ${roomName}
 ${reservation.units?.unit_number ? `🚪 *Unit:* #${reservation.units.unit_number}` : ''}
 
 📅 *Check-in:* ${checkIn}
@@ -840,7 +840,7 @@ Thank you for choosing SuiteSpot! 🌟`;
     
     const checkIn = format(new Date(reservation.check_in_date), 'EEEE, MMMM d, yyyy');
     const checkOut = format(new Date(reservation.check_out_date), 'EEEE, MMMM d, yyyy');
-    const suiteName = reservation.units?.booking_com_name || reservation.units?.name || 'N/A';
+    const roomName = reservation.units?.booking_com_name || reservation.units?.name || 'N/A';
     
     // Calculate tax
     const subtotal = (reservation.price_per_night || 0) * (reservation.nights || 0);
@@ -862,7 +862,7 @@ ${reservation.guest_nationality ? `Nationality: ${reservation.guest_nationality}
 
 ACCOMMODATION
 ━━━━━━━━━━━━━━
-Suite: ${suiteName}
+Room: ${roomName}
 ${reservation.units?.unit_number ? `Unit Number: #${reservation.units.unit_number}` : ''}
 
 STAY DATES

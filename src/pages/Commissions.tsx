@@ -256,7 +256,7 @@ const Commissions = () => {
       return {
         'Team Member': r.source,
         'Booking Reference': r.booking_reference,
-        'Suite': r.units?.booking_com_name || r.units?.name || 'Unassigned',
+        'Room Name': r.units?.booking_com_name || r.units?.name || 'Unassigned',
         'Room #': r.units?.unit_number || '-',
         'Price/Night': r.price_per_night || 0,
         'Nights': r.nights || 0,
@@ -276,7 +276,7 @@ const Commissions = () => {
       return {
         'Team Member': r.source,
         'Booking Reference': r.booking_reference,
-        'Suite': r.units?.booking_com_name || r.units?.name || 'Unassigned',
+        'Room Name': r.units?.booking_com_name || r.units?.name || 'Unassigned',
         'Room #': r.units?.unit_number || '-',
         'Price/Night': r.price_per_night || 0,
         'Nights': r.nights || 0,
@@ -299,7 +299,7 @@ const Commissions = () => {
       unpaidData.push({ 
         'Team Member': 'TOTAL', 
         'Booking Reference': '', 
-        'Suite': '', 
+        'Room Name': '', 
         'Room #': '', 
         'Price/Night': 0,
         'Nights': 0,
@@ -322,7 +322,7 @@ const Commissions = () => {
       paidData.push({ 
         'Team Member': 'TOTAL', 
         'Booking Reference': '', 
-        'Suite': '', 
+        'Room Name': '', 
         'Room #': '', 
         'Price/Night': 0,
         'Nights': 0,

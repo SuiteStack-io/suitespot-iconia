@@ -225,7 +225,7 @@ const handler = async (req: Request): Promise<Response> => {
           </h3>
           <div style="background-color: #f9fafb; border-radius: 8px; padding: 16px;">
             <p style="margin: 0 0 8px 0; color: #111827; font-size: 16px;">
-              <strong>🏠 Suite:</strong> ${unit_name || "N/A"}
+              <strong>🏠 Room:</strong> ${unit_name || "N/A"}
             </p>
             ${unit_number ? `
             <p style="margin: 0; color: #111827; font-size: 16px;">

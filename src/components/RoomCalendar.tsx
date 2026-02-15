@@ -828,7 +828,7 @@ export const RoomCalendar = () => {
                       <PopoverContent side="right" align="start" className="w-auto p-3">
                         <div className="text-sm">
                           <span className="text-muted-foreground">Room Name: </span>
-                          <span className="font-medium">{unit.name}</span>
+                          <span className="font-medium">{unit.booking_com_name || unit.name}</span>
                         </div>
                       </PopoverContent>
                     </Popover>
@@ -959,7 +959,7 @@ export const RoomCalendar = () => {
                             <PopoverContent side="right" align="start" className="w-auto p-3">
                               <div className="text-sm">
                                 <span className="text-muted-foreground">Room Name: </span>
-                                <span className="font-medium">{unit.name}</span>
+                                <span className="font-medium">{unit.booking_com_name || unit.name}</span>
                               </div>
                             </PopoverContent>
                           </Popover>
