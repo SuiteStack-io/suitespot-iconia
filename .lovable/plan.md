@@ -1,114 +1,181 @@
 
 
-## Daily Full Sync to Channex
+## Channex Error Handling, Alerts, and Health Check
 
-### Purpose
-A scheduled backup function that runs once daily at 3:00 AM Cairo time to push all availability and rates to Channex for the next 365 days. This ensures Channex always has accurate data even if some real-time trigger-based updates failed.
+### Overview
 
-### New Files
+This plan adds four major improvements to the Channex integration: retry logic with exponential backoff in the shared API client, an alerts system with a database table and UI, and a health check edge function.
 
-#### 1. Edge Function: `supabase/functions/channex-daily-sync/index.ts`
+---
 
-No user authentication required (called by cron). Uses service role key.
+### 1. Retry Logic in Shared Client
 
-**Logic flow:**
+**File:** `supabase/functions/_shared/channex-client.ts`
 
-1. Fetch all `channex_mappings` where `entity_type = 'property'` and `sync_status = 'synced'`
-2. For each property:
-   - Fetch all room type mappings (`entity_type = 'room_type'`, `sync_status = 'synced'`)
-   - Fetch all rate plan mappings (`entity_type = 'rate_plan'`, `sync_status = 'synced'`)
-   - **Availability sync**: For each room type, calculate availability day-by-day for the next 365 days. Group into contiguous date ranges with the same availability count to minimize API calls. Push to Channex `/api/v1/availability` in batches of 10 values per request, with a 6-second delay between batches (respecting 10 requests/minute limit).
-   - **Rate sync**: For each rate plan, fetch `rate_plan_prices` rows. Build date ranges from `valid_from`/`valid_to` on the rate plan. Push to Channex `/api/v1/restrictions` in batches of 10 values per request, with 6-second delays.
-3. If any property fails, continue with the next. Collect all errors.
-4. Log a summary to `channex_sync_logs` with function name `channex-daily-sync`.
-5. Return a JSON summary: properties synced, availability values pushed, rate values pushed, errors.
+Update the `channexRequest` function to automatically retry on temporary errors (HTTP 500, 502, 503, 504, and network timeouts). Uses exponential backoff: 1s, 2s, 4s. Permanent errors (400, 401, 403, 404) fail immediately.
 
-**Availability calculation** (reuses the same logic as `channex-process-sync-queue`):
-- For each room type (`booking_com_name`), for each date in the 365-day window:
-  - Total units of that room type (not in maintenance)
-  - Minus confirmed/checked-in reservations overlapping that date
-  - Minus blocked dates on that date
-- Consecutive dates with the same availability are collapsed into a single range to reduce API calls.
+**Changes:**
+- Add a `MAX_RETRIES = 3` constant and backoff delays `[1000, 2000, 4000]`
+- Extract the status code from the response before throwing
+- Wrap the fetch call in a retry loop
+- On retryable errors, wait and retry; on permanent errors, throw immediately
+- Add a new exported function `createAlert()` that inserts into `channex_alerts`
 
-**Rate calculation**:
-- For each mapped rate plan, fetch `rate_plan_prices` rows (which have `weekday_rate`, `weekend_rate`, `room_type`)
-- Use `valid_from`/`valid_to` from the `rate_plans` table, defaulting to today through today+365
-- Convert rates to cents with `Math.round(rate * 100)`
-- Push as restrictions to Channex
-
-**Rate limiting strategy**:
-- Batch size: 10 values per API call
-- Delay between batches: 6 seconds (ensures max 10 calls/minute)
-- Separate counters for availability and rate calls per property
-
-#### 2. Config: Update `supabase/config.toml`
-
-Add:
 ```text
-[functions.channex-daily-sync]
-verify_jwt = false
+channexRequest() {
+  for (attempt = 0; attempt <= MAX_RETRIES; attempt++) {
+    try {
+      response = await fetch(url, options);
+      if (response.ok) return response.json();
+      
+      statusCode = response.status;
+      errorBody = await response.text();
+      
+      if ([500, 502, 503, 504].includes(statusCode) && attempt < MAX_RETRIES) {
+        console.log(`Retrying in ${delays[attempt]}ms (attempt ${attempt + 1}/${MAX_RETRIES})`);
+        await delay(delays[attempt]);
+        continue;
+      }
+      
+      // Permanent error or last retry - throw
+      throw new ChannexApiError(message, statusCode);
+    } catch (networkError) {
+      if (attempt < MAX_RETRIES) {
+        await delay(delays[attempt]);
+        continue;
+      }
+      throw networkError;
+    }
+  }
+}
 ```
 
-### Cron Job Setup
+- Add a custom `ChannexApiError` class that includes `statusCode` for callers to inspect
+- Add `createAlert(alertType, message, propertyId?)` helper that inserts into `channex_alerts`
 
-After the function is deployed, a SQL statement will be provided for you to run to schedule the cron job:
+---
+
+### 2. Database: `channex_alerts` Table
+
+**Migration** to create:
 
 ```text
--- Runs daily at 1:00 AM UTC = 3:00 AM Cairo time (UTC+2)
-SELECT cron.schedule(
-  'channex-daily-sync',
-  '0 1 * * *',
-  $$
-  SELECT net.http_post(
-    url := 'https://phvduifvymozqiqwvajj.supabase.co/functions/v1/channex-daily-sync',
-    headers := '{"Content-Type": "application/json", "Authorization": "Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InBodmR1aWZ2eW1venFpcXd2YWpqIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NjAzOTA5NjksImV4cCI6MjA3NTk2Njk2OX0.dUvKctUckLL2ZErxKjeek1rtRptZPTG8Mrklm4eMPZQ"}'::jsonb,
-    body := '{}'::jsonb
-  ) AS request_id;
-  $$
+CREATE TABLE public.channex_alerts (
+  id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
+  alert_type text NOT NULL,          -- 'webhook_error', 'sync_error', 'rate_limit', 'auth_error'
+  message text NOT NULL,
+  property_id uuid,
+  resolved boolean NOT NULL DEFAULT false,
+  resolved_at timestamptz,
+  resolved_by uuid,
+  created_at timestamptz NOT NULL DEFAULT now()
 );
+
+ALTER TABLE public.channex_alerts ENABLE ROW LEVEL SECURITY;
+
+-- Admins can do everything
+CREATE POLICY "Admins can manage channex alerts"
+  ON public.channex_alerts FOR ALL
+  USING (has_role(auth.uid(), 'admin'::app_role));
+
+-- System (edge functions) can insert
+CREATE POLICY "System can insert channex alerts"
+  ON public.channex_alerts FOR INSERT
+  WITH CHECK (true);
 ```
 
-This requires the `pg_cron` and `pg_net` extensions to be enabled (pg_net is already enabled since triggers use it; pg_cron may need enabling).
+---
 
-### Technical Details
+### 3. Update Edge Functions to Create Alerts
 
-**Edge function structure:**
+**`channex-booking-webhook`**: On DB error saving a booking, call `createAlert('webhook_error', ...)`.
 
-```text
-1. Fetch all property mappings
-2. For each property:
-   a. Fetch room type mappings for this property
-   b. For each room type:
-      - Get all units with this booking_com_name
-      - For each date in next 365 days, calculate availability
-      - Collapse consecutive same-availability dates into ranges
-      - Batch into groups of 10
-      - Push each batch to /api/v1/availability
-      - Wait 6s between batches
-   c. Fetch rate plan mappings for this property
-   d. For each rate plan:
-      - Get rate_plan_prices rows
-      - Build value objects with date ranges and rates in cents
-      - Batch into groups of 10
-      - Push each batch to /api/v1/restrictions
-      - Wait 6s between batches
-3. Log summary to channex_sync_logs
-4. Return JSON summary
-```
+**`channex-sync-property`**: On property creation failure, call `createAlert('sync_error', ...)`.
+
+**`channex-process-sync-queue`**: On availability/rate push failure, call `createAlert('sync_error', ...)`.
+
+**`channex-daily-sync`**: On any errors in summary, create a single alert summarizing failures.
+
+**Shared client (`channexRequest`)**: When a 401 is detected, auto-create an `auth_error` alert. When a 429 (rate limit) is detected, auto-create a `rate_limit` alert.
+
+---
+
+### 4. Alert Display on Channex Admin Page
+
+**New file:** `src/components/channex/AlertsPanel.tsx`
+
+- Fetches unresolved alerts from `channex_alerts` ordered by `created_at DESC`
+- Displays prominently at the top of the Channex Integration page (outside the tabs, always visible)
+- Each alert shows: icon based on `alert_type`, message, timestamp, and a "Resolve" button
+- Resolving updates `resolved = true`, `resolved_at = now()`, `resolved_by = user.id`
+- Shows count badge: "3 unresolved alerts"
+- Uses destructive/warning styling (red/amber card) so it stands out
+- Collapsible section that expands by default when there are unresolved alerts
+
+**Update:** `src/pages/ChannexIntegration.tsx`
+- Import and render `AlertsPanel` above the tabs section
+- Add an "Alerts" tab for viewing all alerts (including resolved history) with filtering
+
+---
+
+### 5. Health Check Edge Function
+
+**New file:** `supabase/functions/channex-health-check/index.ts`
+
+No user auth needed (or optionally admin-only). Returns an overall health status.
+
+**Checks performed:**
+1. **API Connection**: Calls `channexRequest('GET', '/api/v1/properties?limit=1')` -- if it fails, `api_status = 'error'`
+2. **Sync Errors**: Queries `channex_mappings` for any records with `sync_status = 'error'` -- reports count
+3. **Unacknowledged Bookings**: Queries `channex_bookings` where `acknowledged = false` -- reports count
+4. **Recent Failures**: Queries `channex_sync_logs` for failures in last 24 hours -- reports count
+5. **Unresolved Alerts**: Queries `channex_alerts` where `resolved = false` -- reports count
+6. **Queue Backlog**: Queries `channex_sync_queue` for `status = 'pending'` or `status = 'failed'` -- reports counts
 
 **Return format:**
 ```text
 {
-  "success": true,
-  "summary": {
-    "properties_synced": 1,
-    "availability_values_pushed": 365,
-    "rate_values_pushed": 12,
-    "errors": []
+  "status": "healthy" | "degraded" | "error",
+  "checks": {
+    "api_connection": { "status": "ok", "latency_ms": 234 },
+    "sync_errors": { "status": "ok", "count": 0 },
+    "unacked_bookings": { "status": "warning", "count": 3 },
+    "recent_failures": { "status": "ok", "count": 0 },
+    "unresolved_alerts": { "status": "warning", "count": 2 },
+    "queue_backlog": { "status": "ok", "pending": 0, "failed": 0 }
   },
-  "duration_seconds": 45
+  "checked_at": "2026-02-16T..."
 }
 ```
 
-**Error handling**: Each property is wrapped in try/catch. Individual room type or rate plan failures are collected in the errors array but do not stop processing of other items. The overall response is `success: true` if at least one property was processed, with errors included in the summary.
+Overall status: `error` if API is down; `degraded` if any check has warnings; `healthy` otherwise.
+
+**Config:** Add `[functions.channex-health-check] verify_jwt = false` to `supabase/config.toml`.
+
+---
+
+### 6. Update Connection Status UI
+
+**Update:** `src/components/channex/ConnectionStatus.tsx`
+
+Replace or augment the simple "Test Connection" with a call to `channex-health-check`. Display the full health dashboard:
+- Green/yellow/red overall status indicator
+- Individual check statuses with counts
+- Last checked timestamp
+- Keep the manual "Run Health Check" button
+
+---
+
+### Technical Summary
+
+| Change | Type |
+|--------|------|
+| `channex-client.ts` - retry logic + `createAlert()` | Shared utility update |
+| `channex_alerts` table + RLS | Database migration |
+| Update 4 edge functions to create alerts | Edge function updates |
+| `AlertsPanel.tsx` component | New frontend component |
+| `ChannexIntegration.tsx` - add alerts section + tab | Frontend update |
+| `channex-health-check` edge function | New edge function |
+| `ConnectionStatus.tsx` - show health data | Frontend update |
+| `supabase/config.toml` - add health-check config | Config update |
 
