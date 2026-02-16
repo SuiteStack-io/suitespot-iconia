@@ -11,7 +11,7 @@
  */
 
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
-import { channexRequest, logSync } from "../_shared/channex-client.ts";
+import { channexRequest, logSync, createAlert } from "../_shared/channex-client.ts";
 
 // CORS headers for browser requests
 const corsHeaders = {
@@ -251,6 +251,7 @@ Deno.serve(async (req) => {
         const errorMessage = error instanceof Error ? error.message : String(error);
         console.error('[Property] Failed to create in Channex:', errorMessage);
         await logSync('channex-sync-property', '/api/v1/properties', channexPropertyPayload, null, 500, false, errorMessage, property_id);
+        await createAlert('sync_error', `Failed to create property in Channex: ${errorMessage}`, property_id);
         return new Response(
           JSON.stringify({ error: `Failed to create property: ${errorMessage}` }),
           { status: 502, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }

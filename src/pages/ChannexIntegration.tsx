@@ -6,6 +6,7 @@ import { ConnectionStatus } from '@/components/channex/ConnectionStatus';
 import { PropertySync } from '@/components/channex/PropertySync';
 import { SyncLogs } from '@/components/channex/SyncLogs';
 import { RecentBookings } from '@/components/channex/RecentBookings';
+import { AlertsPanel } from '@/components/channex/AlertsPanel';
 
 const ChannexIntegration = () => {
   const { userRole } = useAuth();
@@ -24,13 +25,16 @@ const ChannexIntegration = () => {
         </div>
       </header>
 
-      <div className="p-4 md:p-6 max-w-5xl mx-auto">
+      <div className="p-4 md:p-6 max-w-5xl mx-auto space-y-6">
+        <AlertsPanel />
+
         <Tabs defaultValue="connection" className="space-y-6">
           <TabsList>
             <TabsTrigger value="connection">Connection</TabsTrigger>
             <TabsTrigger value="properties">Properties</TabsTrigger>
             <TabsTrigger value="logs">Sync Logs</TabsTrigger>
             <TabsTrigger value="bookings">Bookings</TabsTrigger>
+            <TabsTrigger value="alerts">Alert History</TabsTrigger>
           </TabsList>
 
           <TabsContent value="connection">
@@ -47,6 +51,10 @@ const ChannexIntegration = () => {
 
           <TabsContent value="bookings">
             <RecentBookings />
+          </TabsContent>
+
+          <TabsContent value="alerts">
+            <AlertsPanel showResolved />
           </TabsContent>
         </Tabs>
       </div>

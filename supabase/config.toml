@@ -71,3 +71,6 @@ verify_jwt = false
 
 [functions.channex-daily-sync]
 verify_jwt = false
+
+[functions.channex-health-check]
+verify_jwt = false
