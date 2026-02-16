@@ -68,3 +68,6 @@ verify_jwt = false
 
 [functions.channex-process-sync-queue]
 verify_jwt = false
+
+[functions.channex-daily-sync]
+verify_jwt = false
