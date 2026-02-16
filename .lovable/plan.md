@@ -1,181 +1,132 @@
 
 
-## Channex Error Handling, Alerts, and Health Check
+## Channex Testing and Debug Page
 
 ### Overview
 
-This plan adds four major improvements to the Channex integration: retry logic with exponential backoff in the shared API client, an alerts system with a database table and UI, and a health check edge function.
+A new admin-only page at `/channex-debug` with six test tools for verifying the Channex integration. Each tool shows the full API request and response in formatted JSON panels.
 
 ---
 
-### 1. Retry Logic in Shared Client
+### 1. New Edge Function: `supabase/functions/channex-fetch-state/index.ts`
 
-**File:** `supabase/functions/_shared/channex-client.ts`
+A new backend function that proxies GET requests to Channex for viewing remote state. This is needed because the Channex API key is server-side only.
 
-Update the `channexRequest` function to automatically retry on temporary errors (HTTP 500, 502, 503, 504, and network timeouts). Uses exponential backoff: 1s, 2s, 4s. Permanent errors (400, 401, 403, 404) fail immediately.
+**Accepts:** `{ property_id: string }` (local property ID)
 
-**Changes:**
-- Add a `MAX_RETRIES = 3` constant and backoff delays `[1000, 2000, 4000]`
-- Extract the status code from the response before throwing
-- Wrap the fetch call in a retry loop
-- On retryable errors, wait and retry; on permanent errors, throw immediately
-- Add a new exported function `createAlert()` that inserts into `channex_alerts`
+**Logic:**
+1. Authenticate caller (admin check via existing session pattern)
+2. Resolve the local property ID to a Channex property ID via `channex_mappings`
+3. Fetch in parallel from Channex:
+   - `GET /api/v1/properties/{channex_id}`
+   - `GET /api/v1/room_types?filter[property_id]={channex_id}`
+   - `GET /api/v1/rate_plans?filter[property_id]={channex_id}`
+   - `GET /api/v1/availability?filter[property_id]={channex_id}&filter[date][gte]={today}`
+4. Return all four responses as a combined JSON object
 
-```text
-channexRequest() {
-  for (attempt = 0; attempt <= MAX_RETRIES; attempt++) {
-    try {
-      response = await fetch(url, options);
-      if (response.ok) return response.json();
-      
-      statusCode = response.status;
-      errorBody = await response.text();
-      
-      if ([500, 502, 503, 504].includes(statusCode) && attempt < MAX_RETRIES) {
-        console.log(`Retrying in ${delays[attempt]}ms (attempt ${attempt + 1}/${MAX_RETRIES})`);
-        await delay(delays[attempt]);
-        continue;
-      }
-      
-      // Permanent error or last retry - throw
-      throw new ChannexApiError(message, statusCode);
-    } catch (networkError) {
-      if (attempt < MAX_RETRIES) {
-        await delay(delays[attempt]);
-        continue;
-      }
-      throw networkError;
-    }
-  }
-}
-```
-
-- Add a custom `ChannexApiError` class that includes `statusCode` for callers to inspect
-- Add `createAlert(alertType, message, propertyId?)` helper that inserts into `channex_alerts`
+**Config:** Add `[functions.channex-fetch-state] verify_jwt = false` to `supabase/config.toml`.
 
 ---
 
-### 2. Database: `channex_alerts` Table
+### 2. New Page: `src/pages/ChannexDebug.tsx`
 
-**Migration** to create:
+An admin-only page with all six test sections, each in its own collapsible card. Uses the existing `SlideMenu`, `AdminBreadcrumb`, and `ProtectedRoute` pattern.
 
-```text
-CREATE TABLE public.channex_alerts (
-  id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
-  alert_type text NOT NULL,          -- 'webhook_error', 'sync_error', 'rate_limit', 'auth_error'
-  message text NOT NULL,
-  property_id uuid,
-  resolved boolean NOT NULL DEFAULT false,
-  resolved_at timestamptz,
-  resolved_by uuid,
-  created_at timestamptz NOT NULL DEFAULT now()
-);
+**Shared UI pattern for all tests:**
+- Each test has a card with inputs/button
+- A "Request" panel showing the JSON sent
+- A "Response" panel showing the JSON received
+- Loading spinner during execution
+- Response time display in milliseconds
+- Color-coded status (green for success, red for error)
 
-ALTER TABLE public.channex_alerts ENABLE ROW LEVEL SECURITY;
+#### Test 1: API Connection
+- Single "Test Connection" button
+- Calls the existing `channex-health-check` edge function
+- Shows response time and full health data
 
--- Admins can do everything
-CREATE POLICY "Admins can manage channex alerts"
-  ON public.channex_alerts FOR ALL
-  USING (has_role(auth.uid(), 'admin'::app_role));
+#### Test 2: Manual Property Sync
+- Dropdown listing all units from the `units` table (shows name + unit_number)
+- "Sync Property" button
+- Calls existing `channex-sync-property` edge function
+- Shows full request body and response
 
--- System (edge functions) can insert
-CREATE POLICY "System can insert channex alerts"
-  ON public.channex_alerts FOR INSERT
-  WITH CHECK (true);
-```
+#### Test 3: Manual Availability Push
+- Dropdown for property (units with channex mappings)
+- Dropdown for room type (channex_mappings where entity_type = 'room_type')
+- Date pickers for date_from and date_to
+- Number input for availability count
+- Calls existing `channex-push-availability` edge function
+- Shows request and response
 
----
+#### Test 4: Manual Rate Push
+- Dropdown for property
+- Dropdown for rate plan (channex_mappings where entity_type = 'rate_plan', joined with rate_plans for name)
+- Date pickers for date_from and date_to
+- Number input for rate amount (in dollars, function converts to cents)
+- Calls existing `channex-push-rates` edge function
+- Shows request and response
 
-### 3. Update Edge Functions to Create Alerts
+#### Test 5: Simulate Incoming Booking
+- "Create Test Booking" button
+- Inserts a test record directly into `channex_bookings` table with:
+  - `channex_booking_id`: "test-" + random UUID
+  - `ota_name`: "Test/Debug"
+  - `guest_name`: "Test Guest"
+  - `status`: "new"
+  - `arrival_date`: tomorrow
+  - `departure_date`: tomorrow + 3 days
+  - `total_amount`: 100
+  - `acknowledged`: false
+  - Uses first available property mapping for `property_id`
+- Shows the inserted record
+- Includes a "Delete Test Bookings" button to clean up (deletes where ota_name = 'Test/Debug')
 
-**`channex-booking-webhook`**: On DB error saving a booking, call `createAlert('webhook_error', ...)`.
-
-**`channex-sync-property`**: On property creation failure, call `createAlert('sync_error', ...)`.
-
-**`channex-process-sync-queue`**: On availability/rate push failure, call `createAlert('sync_error', ...)`.
-
-**`channex-daily-sync`**: On any errors in summary, create a single alert summarizing failures.
-
-**Shared client (`channexRequest`)**: When a 401 is detected, auto-create an `auth_error` alert. When a 429 (rate limit) is detected, auto-create a `rate_limit` alert.
-
----
-
-### 4. Alert Display on Channex Admin Page
-
-**New file:** `src/components/channex/AlertsPanel.tsx`
-
-- Fetches unresolved alerts from `channex_alerts` ordered by `created_at DESC`
-- Displays prominently at the top of the Channex Integration page (outside the tabs, always visible)
-- Each alert shows: icon based on `alert_type`, message, timestamp, and a "Resolve" button
-- Resolving updates `resolved = true`, `resolved_at = now()`, `resolved_by = user.id`
-- Shows count badge: "3 unresolved alerts"
-- Uses destructive/warning styling (red/amber card) so it stands out
-- Collapsible section that expands by default when there are unresolved alerts
-
-**Update:** `src/pages/ChannexIntegration.tsx`
-- Import and render `AlertsPanel` above the tabs section
-- Add an "Alerts" tab for viewing all alerts (including resolved history) with filtering
-
----
-
-### 5. Health Check Edge Function
-
-**New file:** `supabase/functions/channex-health-check/index.ts`
-
-No user auth needed (or optionally admin-only). Returns an overall health status.
-
-**Checks performed:**
-1. **API Connection**: Calls `channexRequest('GET', '/api/v1/properties?limit=1')` -- if it fails, `api_status = 'error'`
-2. **Sync Errors**: Queries `channex_mappings` for any records with `sync_status = 'error'` -- reports count
-3. **Unacknowledged Bookings**: Queries `channex_bookings` where `acknowledged = false` -- reports count
-4. **Recent Failures**: Queries `channex_sync_logs` for failures in last 24 hours -- reports count
-5. **Unresolved Alerts**: Queries `channex_alerts` where `resolved = false` -- reports count
-6. **Queue Backlog**: Queries `channex_sync_queue` for `status = 'pending'` or `status = 'failed'` -- reports counts
-
-**Return format:**
-```text
-{
-  "status": "healthy" | "degraded" | "error",
-  "checks": {
-    "api_connection": { "status": "ok", "latency_ms": 234 },
-    "sync_errors": { "status": "ok", "count": 0 },
-    "unacked_bookings": { "status": "warning", "count": 3 },
-    "recent_failures": { "status": "ok", "count": 0 },
-    "unresolved_alerts": { "status": "warning", "count": 2 },
-    "queue_backlog": { "status": "ok", "pending": 0, "failed": 0 }
-  },
-  "checked_at": "2026-02-16T..."
-}
-```
-
-Overall status: `error` if API is down; `degraded` if any check has warnings; `healthy` otherwise.
-
-**Config:** Add `[functions.channex-health-check] verify_jwt = false` to `supabase/config.toml`.
+#### Test 6: View Channex State
+- Dropdown to select a property (only those with channex mappings)
+- "Fetch State" button
+- Calls new `channex-fetch-state` edge function
+- Shows four collapsible sections:
+  - Property details
+  - Room types
+  - Rate plans
+  - Availability data
 
 ---
 
-### 6. Update Connection Status UI
+### 3. Route and Navigation
 
-**Update:** `src/components/channex/ConnectionStatus.tsx`
+**`src/App.tsx`:** Add route `/channex-debug` wrapped in `ProtectedRoute`, lazy-import `ChannexDebug` page.
 
-Replace or augment the simple "Test Connection" with a call to `channex-health-check`. Display the full health dashboard:
-- Green/yellow/red overall status indicator
-- Individual check statuses with counts
-- Last checked timestamp
-- Keep the manual "Run Health Check" button
+**`src/components/SlideMenu.tsx`:** Add a "Debug" link under the PMS section, visible only to admins, pointing to `/channex-debug`.
 
 ---
 
-### Technical Summary
+### Technical Details
 
-| Change | Type |
-|--------|------|
-| `channex-client.ts` - retry logic + `createAlert()` | Shared utility update |
-| `channex_alerts` table + RLS | Database migration |
-| Update 4 edge functions to create alerts | Edge function updates |
-| `AlertsPanel.tsx` component | New frontend component |
-| `ChannexIntegration.tsx` - add alerts section + tab | Frontend update |
-| `channex-health-check` edge function | New edge function |
-| `ConnectionStatus.tsx` - show health data | Frontend update |
-| `supabase/config.toml` - add health-check config | Config update |
+**Component structure within ChannexDebug.tsx:**
+
+The page will be a single file with internal helper components:
+- `JsonPanel` - Reusable component that renders formatted JSON in a `<pre>` block with a dark background, copy button, and collapsible behavior for large payloads
+- `TestCard` - Wrapper card with title, description, action area, and request/response panels
+- Each test section as a function within the page component
+
+**Data fetching for dropdowns:**
+- Units: `supabase.from('units').select('id, name, unit_number, booking_com_name')`
+- Channex mappings: `supabase.from('channex_mappings').select('*').eq('sync_status', 'synced')`
+- Rate plans: `supabase.from('rate_plans').select('id, name')`
+
+**Admin-only access:**
+- Route wrapped in `ProtectedRoute` (same as all admin routes)
+- Edge function checks admin role server-side
+- Page checks `userRole === 'admin'` and shows access denied if not
+
+**Files to create:**
+- `supabase/functions/channex-fetch-state/index.ts` (new edge function)
+- `src/pages/ChannexDebug.tsx` (new page)
+
+**Files to modify:**
+- `supabase/config.toml` (add channex-fetch-state config)
+- `src/App.tsx` (add route)
+- `src/components/SlideMenu.tsx` (add menu item)
 
