@@ -371,6 +371,48 @@ export type Database = {
           },
         ]
       }
+      channex_sync_queue: {
+        Row: {
+          created_at: string
+          date_from: string | null
+          date_to: string | null
+          entity_id: string | null
+          error_message: string | null
+          id: string
+          payload: Json | null
+          processed_at: string | null
+          property_id: string | null
+          status: string
+          sync_type: string
+        }
+        Insert: {
+          created_at?: string
+          date_from?: string | null
+          date_to?: string | null
+          entity_id?: string | null
+          error_message?: string | null
+          id?: string
+          payload?: Json | null
+          processed_at?: string | null
+          property_id?: string | null
+          status?: string
+          sync_type: string
+        }
+        Update: {
+          created_at?: string
+          date_from?: string | null
+          date_to?: string | null
+          entity_id?: string | null
+          error_message?: string | null
+          id?: string
+          payload?: Json | null
+          processed_at?: string | null
+          property_id?: string | null
+          status?: string
+          sync_type?: string
+        }
+        Relationships: []
+      }
       check_in_agreements: {
         Row: {
           created_at: string
@@ -1245,6 +1287,7 @@ export type Database = {
           preferred_language: string | null
           price_per_night: number | null
           settled: string | null
+          skip_channex_sync: boolean
           source: string
           status: string
           survey_completed_at: string | null
@@ -1300,6 +1343,7 @@ export type Database = {
           preferred_language?: string | null
           price_per_night?: number | null
           settled?: string | null
+          skip_channex_sync?: boolean
           source?: string
           status: string
           survey_completed_at?: string | null
@@ -1355,6 +1399,7 @@ export type Database = {
           preferred_language?: string | null
           price_per_night?: number | null
           settled?: string | null
+          skip_channex_sync?: boolean
           source?: string
           status?: string
           survey_completed_at?: string | null

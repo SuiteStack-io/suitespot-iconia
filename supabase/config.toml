@@ -65,3 +65,6 @@ verify_jwt = false
 
 [functions.channex-test-connection]
 verify_jwt = false
+
+[functions.channex-process-sync-queue]
+verify_jwt = false
