@@ -65,6 +65,7 @@ import PMSPrices from "./pages/pms/Prices";
 import PMSRestrictions from "./pages/pms/Restrictions";
 import RoomTypes from "./pages/RoomTypes";
 import ChannexIntegration from "./pages/ChannexIntegration";
+import ChannexDebug from "./pages/ChannexDebug";
 const queryClient = new QueryClient();
 
 const App = () => (
@@ -157,6 +158,7 @@ const App = () => (
         <Route path="/pms/prices" element={<ProtectedRoute><PMSPrices /></ProtectedRoute>} />
         <Route path="/pms/restrictions" element={<ProtectedRoute><PMSRestrictions /></ProtectedRoute>} />
         <Route path="/channex" element={<ProtectedRoute><ChannexIntegration /></ProtectedRoute>} />
+        <Route path="/channex-debug" element={<ProtectedRoute><ChannexDebug /></ProtectedRoute>} />
               
               {/* ADD ALL CUSTOM ROUTES ABOVE THE CATCH-ALL "*" ROUTE */}
               <Route path="*" element={<NotFound />} />

@@ -74,3 +74,6 @@ verify_jwt = false
 
 [functions.channex-health-check]
 verify_jwt = false
+
+[functions.channex-fetch-state]
+verify_jwt = false
