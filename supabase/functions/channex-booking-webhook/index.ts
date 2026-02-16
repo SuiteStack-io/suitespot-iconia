@@ -129,6 +129,11 @@ serve(async (req: Request) => {
         acknowledged: false,
       };
 
+      // If this webhook also creates a local reservation, set skip_channex_sync
+      // to prevent the trigger from pushing it back to Channex
+      // (The channex_bookings table itself doesn't have this flag —
+      //  it's for the reservations table when a local reservation is created from this booking)
+
       const { error } = await supabase
         .from("channex_bookings")
         .upsert(record, { onConflict: "channex_booking_id" });
