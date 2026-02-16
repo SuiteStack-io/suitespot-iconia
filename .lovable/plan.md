@@ -1,150 +1,114 @@
 
 
-## Automatic Channex Sync: Database Triggers + Edge Function
+## Daily Full Sync to Channex
 
-### How It Works (The Flow)
+### Purpose
+A scheduled backup function that runs once daily at 3:00 AM Cairo time to push all availability and rates to Channex for the next 365 days. This ensures Channex always has accurate data even if some real-time trigger-based updates failed.
 
-When you change data in your PMS, the system will automatically push those changes to Channex without any manual action. Here is the flow:
+### New Files
 
+#### 1. Edge Function: `supabase/functions/channex-daily-sync/index.ts`
+
+No user authentication required (called by cron). Uses service role key.
+
+**Logic flow:**
+
+1. Fetch all `channex_mappings` where `entity_type = 'property'` and `sync_status = 'synced'`
+2. For each property:
+   - Fetch all room type mappings (`entity_type = 'room_type'`, `sync_status = 'synced'`)
+   - Fetch all rate plan mappings (`entity_type = 'rate_plan'`, `sync_status = 'synced'`)
+   - **Availability sync**: For each room type, calculate availability day-by-day for the next 365 days. Group into contiguous date ranges with the same availability count to minimize API calls. Push to Channex `/api/v1/availability` in batches of 10 values per request, with a 6-second delay between batches (respecting 10 requests/minute limit).
+   - **Rate sync**: For each rate plan, fetch `rate_plan_prices` rows. Build date ranges from `valid_from`/`valid_to` on the rate plan. Push to Channex `/api/v1/restrictions` in batches of 10 values per request, with 6-second delays.
+3. If any property fails, continue with the next. Collect all errors.
+4. Log a summary to `channex_sync_logs` with function name `channex-daily-sync`.
+5. Return a JSON summary: properties synced, availability values pushed, rate values pushed, errors.
+
+**Availability calculation** (reuses the same logic as `channex-process-sync-queue`):
+- For each room type (`booking_com_name`), for each date in the 365-day window:
+  - Total units of that room type (not in maintenance)
+  - Minus confirmed/checked-in reservations overlapping that date
+  - Minus blocked dates on that date
+- Consecutive dates with the same availability are collapsed into a single range to reduce API calls.
+
+**Rate calculation**:
+- For each mapped rate plan, fetch `rate_plan_prices` rows (which have `weekday_rate`, `weekend_rate`, `room_type`)
+- Use `valid_from`/`valid_to` from the `rate_plans` table, defaulting to today through today+365
+- Convert rates to cents with `Math.round(rate * 100)`
+- Push as restrictions to Channex
+
+**Rate limiting strategy**:
+- Batch size: 10 values per API call
+- Delay between batches: 6 seconds (ensures max 10 calls/minute)
+- Separate counters for availability and rate calls per property
+
+#### 2. Config: Update `supabase/config.toml`
+
+Add:
 ```text
-+-------------------+       +--------------------+       +---------------------+       +---------+
-| You update data   | ----> | DB trigger fires   | ----> | Queue row created   | ----> | Edge fn |
-| (reservation,     |       | (checks if synced  |       | in channex_sync_    |       | picks   |
-|  rate, blocked     |       |  to Channex, skips |       | queue table         |       | it up & |
-|  date, etc.)       |       |  if from Channex)  |       |                     |       | pushes  |
-+-------------------+       +--------------------+       +---------------------+       +---------+
-                                                                    |
-                                                          pg_net HTTP call
-                                                          (with 2s delay)
+[functions.channex-daily-sync]
+verify_jwt = false
 ```
 
-**Loop prevention**: Each trigger checks if the change originated from Channex (via the `channel` field or a `skip_channex_sync` column). If it did, the trigger does nothing.
+### Cron Job Setup
 
-**Debouncing**: Changes are queued, and the processing function batches them. The `pg_net` call has a built-in delay. Duplicate queue entries for the same room type + date range are deduplicated.
+After the function is deployed, a SQL statement will be provided for you to run to schedule the cron job:
 
-### What Gets Created
+```text
+-- Runs daily at 1:00 AM UTC = 3:00 AM Cairo time (UTC+2)
+SELECT cron.schedule(
+  'channex-daily-sync',
+  '0 1 * * *',
+  $$
+  SELECT net.http_post(
+    url := 'https://phvduifvymozqiqwvajj.supabase.co/functions/v1/channex-daily-sync',
+    headers := '{"Content-Type": "application/json", "Authorization": "Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InBodmR1aWZ2eW1venFpcXd2YWpqIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NjAzOTA5NjksImV4cCI6MjA3NTk2Njk2OX0.dUvKctUckLL2ZErxKjeek1rtRptZPTG8Mrklm4eMPZQ"}'::jsonb,
+    body := '{}'::jsonb
+  ) AS request_id;
+  $$
+);
+```
 
-#### 1. Database: `channex_sync_queue` table
-A buffer table that holds pending sync operations.
-
-| Column | Type | Purpose |
-|--------|------|---------|
-| id | uuid | Primary key |
-| sync_type | text | `availability` or `rate` |
-| property_id | uuid | Which property |
-| entity_id | uuid | Room type ID or rate plan ID |
-| date_from | date | Start of affected date range |
-| date_to | date | End of affected date range |
-| payload | jsonb | Extra data (availability count, rate amount, etc.) |
-| status | text | `pending`, `processing`, `completed`, `failed` |
-| error_message | text | If it failed, why |
-| created_at | timestamptz | When queued |
-| processed_at | timestamptz | When processed |
-
-RLS: Service-role only (system table).
-
-#### 2. Database: Add `skip_channex_sync` column to `reservations`
-A boolean flag (default `false`) that can be set to `true` when a reservation comes from Channex, preventing the trigger from re-syncing it back.
-
-#### 3. Database Trigger: `on_reservation_change`
-Fires on INSERT/UPDATE/DELETE on the `reservations` table.
-
-- **Skips if**: `NEW.skip_channex_sync = true` OR `NEW.channel = 'Channex'`
-- **What it does**: Looks up the unit's room type, checks if it has a `channex_mappings` record. If yes, calculates availability for the affected date range and inserts a queue row.
-- **Availability calculation**: Counts total units of same room type minus confirmed/checked-in reservations for each date.
-
-#### 4. Database Trigger: `on_blocked_dates_change`
-Fires on INSERT/DELETE on `blocked_dates`.
-
-- Same logic as reservation trigger -- blocked dates reduce availability for the room type.
-
-#### 5. Database Trigger: `on_rate_plan_prices_change`
-Fires on INSERT/UPDATE on `rate_plan_prices`.
-
-- Checks if the rate plan has a `channex_mappings` record. If yes, queues a `rate` sync.
-
-#### 6. Edge Function: `channex-process-sync-queue`
-A new serverless function that:
-
-1. Reads all `pending` rows from `channex_sync_queue`
-2. Groups them by sync_type (availability vs. rates)
-3. Resolves Channex IDs from `channex_mappings`
-4. Calls the Channex API directly (reusing `channex-client.ts`)
-5. Marks queue rows as `completed` or `failed`
-6. Logs everything to `channex_sync_logs`
-
-This function uses **service role auth** (no user login needed) since it is triggered by the system.
-
-#### 7. `pg_net` calls from triggers
-Each trigger uses `pg_net.http_post()` to call the `channex-process-sync-queue` edge function after inserting a queue row. The call is fire-and-forget with a small delay built into Postgres's async HTTP.
-
-#### 8. Update `channex-booking-webhook`
-When a booking comes in from Channex and creates a local reservation, set `skip_channex_sync = true` to prevent the loop.
-
-### Important Safeguards
-
-- **Loop prevention**: `skip_channex_sync` flag + `channel = 'Channex'` check in triggers
-- **Rate limiting**: Queue-based approach means rapid changes get batched. The edge function processes all pending items at once rather than one-per-trigger.
-- **Only synced rooms**: Triggers check `channex_mappings` before queuing -- rooms not synced to Channex are ignored.
-- **Failure handling**: Failed pushes are marked in the queue with error messages, visible in the Sync Logs tab.
-- **Channex auto-availability**: For bookings specifically, Channex can handle availability reduction automatically if `allow_availability_autoupdate` is enabled on the property. The reservation trigger is a safety net.
+This requires the `pg_cron` and `pg_net` extensions to be enabled (pg_net is already enabled since triggers use it; pg_cron may need enabling).
 
 ### Technical Details
 
-**Trigger function (reservation example):**
+**Edge function structure:**
+
 ```text
-CREATE OR REPLACE FUNCTION notify_channex_availability_change()
-RETURNS trigger AS $$
-DECLARE
-  v_unit_id uuid;
-  v_room_name text;
-  v_property_id uuid;
-  v_has_mapping boolean;
-BEGIN
-  -- Determine the unit_id from OLD or NEW
-  v_unit_id := COALESCE(NEW.unit_id, OLD.unit_id);
-  IF v_unit_id IS NULL THEN RETURN COALESCE(NEW, OLD); END IF;
-
-  -- Skip if flagged
-  IF TG_OP != 'DELETE' AND NEW.skip_channex_sync = true THEN
-    RETURN NEW;
-  END IF;
-
-  -- Skip if from Channex
-  IF TG_OP != 'DELETE' AND NEW.channel = 'Channex' THEN
-    RETURN NEW;
-  END IF;
-
-  -- Check if this unit's room type is synced to Channex
-  SELECT u.booking_com_name, u.location INTO v_room_name, ...
-  -- Look up channex_mappings for entity_type = 'room_type'
-  -- If no mapping exists, skip
-
-  -- Insert into channex_sync_queue
-  INSERT INTO channex_sync_queue (sync_type, property_id, entity_id, date_from, date_to, payload)
-  VALUES ('availability', v_property_id, v_room_type_mapping_id, ...);
-
-  -- Fire-and-forget HTTP call to process the queue
-  PERFORM net.http_post(
-    url := '<SUPABASE_URL>/functions/v1/channex-process-sync-queue',
-    headers := '{"Authorization": "Bearer <SERVICE_ROLE_KEY>", "Content-Type": "application/json"}'::jsonb,
-    body := '{}'::jsonb
-  );
-
-  RETURN COALESCE(NEW, OLD);
-END;
-$$ LANGUAGE plpgsql SECURITY DEFINER;
+1. Fetch all property mappings
+2. For each property:
+   a. Fetch room type mappings for this property
+   b. For each room type:
+      - Get all units with this booking_com_name
+      - For each date in next 365 days, calculate availability
+      - Collapse consecutive same-availability dates into ranges
+      - Batch into groups of 10
+      - Push each batch to /api/v1/availability
+      - Wait 6s between batches
+   c. Fetch rate plan mappings for this property
+   d. For each rate plan:
+      - Get rate_plan_prices rows
+      - Build value objects with date ranges and rates in cents
+      - Batch into groups of 10
+      - Push each batch to /api/v1/restrictions
+      - Wait 6s between batches
+3. Log summary to channex_sync_logs
+4. Return JSON summary
 ```
 
-**Edge function (`channex-process-sync-queue`):**
-- No user auth required (called by system via service role)
-- Reads pending queue items, batches by type
-- Calls Channex availability/restrictions API
-- Updates queue status
-
-**Config (`supabase/config.toml`):**
+**Return format:**
 ```text
-[functions.channex-process-sync-queue]
-verify_jwt = false
+{
+  "success": true,
+  "summary": {
+    "properties_synced": 1,
+    "availability_values_pushed": 365,
+    "rate_values_pushed": 12,
+    "errors": []
+  },
+  "duration_seconds": 45
+}
 ```
+
+**Error handling**: Each property is wrapped in try/catch. Individual room type or rate plan failures are collected in the errors array but do not stop processing of other items. The overall response is `success: true` if at least one property was processed, with errors included in the summary.
 
