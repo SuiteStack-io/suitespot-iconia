@@ -1,6 +1,6 @@
 import { serve } from "https://deno.land/std@0.190.0/http/server.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
-import { channexRequest, logSync } from "../_shared/channex-client.ts";
+import { channexRequest, logSync, createAlert } from "../_shared/channex-client.ts";
 
 /**
  * channex-process-sync-queue
@@ -159,6 +159,7 @@ serve(async (req: Request) => {
         } catch (err: any) {
           console.error("[process-sync-queue] Availability push failed:", err.message);
           await logSync("channex-process-sync-queue", "/api/v1/availability", null, null, null, false, err.message, null);
+          await createAlert('sync_error', `Availability push failed: ${err.message}`);
         }
       }
     }
@@ -226,6 +227,7 @@ serve(async (req: Request) => {
         } catch (err: any) {
           console.error("[process-sync-queue] Rate push failed:", err.message);
           await logSync("channex-process-sync-queue", "/api/v1/restrictions", null, null, null, false, err.message, null);
+          await createAlert('sync_error', `Rate push failed: ${err.message}`);
         }
       }
     }

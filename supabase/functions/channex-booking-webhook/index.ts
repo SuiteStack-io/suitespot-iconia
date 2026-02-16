@@ -1,6 +1,6 @@
 import { serve } from "https://deno.land/std@0.190.0/http/server.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
-import { channexRequest, logSync } from "../_shared/channex-client.ts";
+import { channexRequest, logSync, createAlert } from "../_shared/channex-client.ts";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
@@ -143,6 +143,7 @@ serve(async (req: Request) => {
     if (dbError) {
       console.error("[channex-booking-webhook] DB error:", dbError);
       await logSync("channex-booking-webhook", "webhook", body, null, null, false, dbError, localPropertyId);
+      await createAlert('webhook_error', `Failed to save booking ${booking_id}: ${dbError}`, localPropertyId);
       return ok({ success: false, error: dbError });
     }
 

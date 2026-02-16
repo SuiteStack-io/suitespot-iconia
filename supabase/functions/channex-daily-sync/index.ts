@@ -1,6 +1,6 @@
 import { serve } from "https://deno.land/std@0.190.0/http/server.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
-import { channexRequest, logSync } from "../_shared/channex-client.ts";
+import { channexRequest, logSync, createAlert } from "../_shared/channex-client.ts";
 
 /**
  * channex-daily-sync
@@ -289,6 +289,15 @@ serve(async (req: Request) => {
       summary.errors.length > 0 ? summary.errors.join("; ") : null,
       propertyMappings[0]?.local_id || null
     );
+
+    // Create alert if there were errors
+    if (summary.errors.length > 0) {
+      await createAlert(
+        'sync_error',
+        `Daily sync completed with ${summary.errors.length} error(s): ${summary.errors.slice(0, 3).join('; ')}`,
+        propertyMappings[0]?.local_id || null
+      );
+    }
 
     return respond(200, { success: true, summary, duration_seconds: elapsed(startTime) });
   } catch (err: any) {
