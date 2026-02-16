@@ -1,132 +1,119 @@
 
 
-## Channex Testing and Debug Page
+## Overwrite Room Names and Verify System-Wide Consistency
 
-### Overview
+### Step 1: Database Update
 
-A new admin-only page at `/channex-debug` with six test tools for verifying the Channex integration. Each tool shows the full API request and response in formatted JSON panels.
+Run the following SQL to copy `booking_com_name` into `name` for every room:
 
----
+```sql
+UPDATE units
+SET name = booking_com_name
+WHERE booking_com_name IS NOT NULL
+  AND name != booking_com_name;
+```
 
-### 1. New Edge Function: `supabase/functions/channex-fetch-state/index.ts`
-
-A new backend function that proxies GET requests to Channex for viewing remote state. This is needed because the Channex API key is server-side only.
-
-**Accepts:** `{ property_id: string }` (local property ID)
-
-**Logic:**
-1. Authenticate caller (admin check via existing session pattern)
-2. Resolve the local property ID to a Channex property ID via `channex_mappings`
-3. Fetch in parallel from Channex:
-   - `GET /api/v1/properties/{channex_id}`
-   - `GET /api/v1/room_types?filter[property_id]={channex_id}`
-   - `GET /api/v1/rate_plans?filter[property_id]={channex_id}`
-   - `GET /api/v1/availability?filter[property_id]={channex_id}&filter[date][gte]={today}`
-4. Return all four responses as a combined JSON object
-
-**Config:** Add `[functions.channex-fetch-state] verify_jwt = false` to `supabase/config.toml`.
+This affects 11 of 12 rooms (Family Suite already matches). After this, both fields will hold identical guest-facing names.
 
 ---
 
-### 2. New Page: `src/pages/ChannexDebug.tsx`
+### Step 2: Verification Query
 
-An admin-only page with all six test sections, each in its own collapsible card. Uses the existing `SlideMenu`, `AdminBreadcrumb`, and `ProtectedRoute` pattern.
+After the update, run a confirmation query to display the updated state:
 
-**Shared UI pattern for all tests:**
-- Each test has a card with inputs/button
-- A "Request" panel showing the JSON sent
-- A "Response" panel showing the JSON received
-- Loading spinner during execution
-- Response time display in milliseconds
-- Color-coded status (green for success, red for error)
+```sql
+SELECT unit_number, name, booking_com_name FROM units ORDER BY unit_number;
+```
 
-#### Test 1: API Connection
-- Single "Test Connection" button
-- Calls the existing `channex-health-check` edge function
-- Shows response time and full health data
+Expected result -- all rows will match:
 
-#### Test 2: Manual Property Sync
-- Dropdown listing all units from the `units` table (shows name + unit_number)
-- "Sync Property" button
-- Calls existing `channex-sync-property` edge function
-- Shows full request body and response
-
-#### Test 3: Manual Availability Push
-- Dropdown for property (units with channex mappings)
-- Dropdown for room type (channex_mappings where entity_type = 'room_type')
-- Date pickers for date_from and date_to
-- Number input for availability count
-- Calls existing `channex-push-availability` edge function
-- Shows request and response
-
-#### Test 4: Manual Rate Push
-- Dropdown for property
-- Dropdown for rate plan (channex_mappings where entity_type = 'rate_plan', joined with rate_plans for name)
-- Date pickers for date_from and date_to
-- Number input for rate amount (in dollars, function converts to cents)
-- Calls existing `channex-push-rates` edge function
-- Shows request and response
-
-#### Test 5: Simulate Incoming Booking
-- "Create Test Booking" button
-- Inserts a test record directly into `channex_bookings` table with:
-  - `channex_booking_id`: "test-" + random UUID
-  - `ota_name`: "Test/Debug"
-  - `guest_name`: "Test Guest"
-  - `status`: "new"
-  - `arrival_date`: tomorrow
-  - `departure_date`: tomorrow + 3 days
-  - `total_amount`: 100
-  - `acknowledged`: false
-  - Uses first available property mapping for `property_id`
-- Shows the inserted record
-- Includes a "Delete Test Bookings" button to clean up (deletes where ota_name = 'Test/Debug')
-
-#### Test 6: View Channex State
-- Dropdown to select a property (only those with channex mappings)
-- "Fetch State" button
-- Calls new `channex-fetch-state` edge function
-- Shows four collapsible sections:
-  - Property details
-  - Room types
-  - Rate plans
-  - Availability data
+| Room # | name | booking_com_name |
+|--------|------|-----------------|
+| 417/418 | Family Suite | Family Suite |
+| 501 | Suite with Terrace | Suite with Terrace |
+| 502 | Suite with Terrace | Suite with Terrace |
+| 503 | Junior Suite | Junior Suite |
+| 504 | Double Room with Terrace | Double Room with Terrace |
+| 505 | Suite with Terrace | Suite with Terrace |
+| 506 | Deluxe Suite | Deluxe Suite |
+| 509 | Deluxe Suite | Deluxe Suite |
+| 511 | Deluxe Suite | Deluxe Suite |
+| 512 | Deluxe Suite | Deluxe Suite |
+| 517 | Junior Suite | Junior Suite |
+| 518 | Deluxe Suite | Deluxe Suite |
 
 ---
 
-### 3. Route and Navigation
+### Step 3: No Code Changes Needed
 
-**`src/App.tsx`:** Add route `/channex-debug` wrapped in `ProtectedRoute`, lazy-import `ChannexDebug` page.
+Because both fields will now contain the same value, every code reference will automatically return the correct name regardless of which field it reads. Here is the full audit:
 
-**`src/components/SlideMenu.tsx`:** Add a "Debug" link under the PMS section, visible only to admins, pointing to `/channex-debug`.
+**Frontend files referencing unit name fields (27 files) -- all safe:**
+
+All use either `booking_com_name || name` (already correct) or just `name` (now correct after update):
+
+- `src/components/Dashboard.tsx` -- uses `booking_com_name || name`
+- `src/components/RoomCalendar.tsx` -- uses `booking_com_name || name`
+- `src/components/WeeklyCalendar.tsx` -- uses `booking_com_name || name`
+- `src/components/MobileCalendarView.tsx` -- uses `booking_com_name || name`
+- `src/components/RoomSwapDialog.tsx` -- uses `booking_com_name || name`
+- `src/components/RoomTransferDialog.tsx` -- uses `booking_com_name || name`
+- `src/components/ReservationsList.tsx` -- uses `booking_com_name || name`
+- `src/components/ReservationQuickActions.tsx` -- uses `name` (now correct)
+- `src/components/AvailabilityCalendar.tsx` -- uses `name` in some places (now correct)
+- `src/components/CreateReservationDialog.tsx` -- uses `name` (now correct)
+- `src/components/CreateGuestAccountDialog.tsx` -- uses `name` (now correct)
+- `src/components/BlockedDatesManager.tsx` -- uses `booking_com_name || name`
+- `src/components/CheckInDialog.tsx` -- uses `booking_com_name || name`
+- `src/components/CheckOutDialog.tsx` -- uses `booking_com_name || name`
+- `src/components/InventorySelectionModal.tsx` -- uses `booking_com_name || name`
+- `src/components/NotificationCenter.tsx` -- uses metadata
+- `src/components/ConflictAlert.tsx` -- uses `booking_com_name || name`
+- `src/pages/ReservationDetail.tsx` -- uses `booking_com_name || name`
+- `src/pages/Guests.tsx` -- uses `name` (now correct)
+- `src/pages/Analytics.tsx` -- uses `name` (now correct)
+- `src/pages/GuestCheckIn.tsx` -- uses `booking_com_name || name`
+- `src/pages/Rooms.tsx` -- uses both fields for display
+- `src/pages/RoomTypes.tsx` -- uses `booking_com_name`
+- `src/pages/Housekeeping.tsx` -- uses `booking_com_name || name`
+- `src/pages/SelectionLanding.tsx` -- uses `booking_com_name || name`
+- `src/pages/BookingFlow.tsx` -- uses `booking_com_name || name`
+- `src/pages/ChannexDebug.tsx` -- uses `booking_com_name || name`
+
+**Edge functions referencing unit name fields (9 functions) -- all safe:**
+
+- `send-reservation-notification` -- uses `booking_com_name || name` (already correct)
+- `send-checkin-notification` -- uses `booking_com_name || name` (already correct)
+- `send-checkout-notification` -- uses `booking_com_name || name` (already correct)
+- `send-mid-stay-cleaning-notifications` -- uses `booking_com_name || name` (already correct)
+- `send-late-checkout-notification` -- uses `units?.name` only (now correct after update)
+- `send-extension-notification` -- uses `units?.name` only (now correct after update)
+- `sync-booking-gmail` -- uses `name` in logging and email data (now correct after update)
+- `channex-sync-property` -- uses `booking_com_name || name` for room types (already correct)
+- `parse-reservation-screenshot` -- uses both fields for matching (still works)
+
+### Step 4: Email Template Verification
+
+All email-sending functions will now display correct room names:
+
+| Email Type | Function | Status |
+|-----------|----------|--------|
+| New Reservation | send-reservation-notification | Uses `booking_com_name \|\| name` -- correct |
+| Check-in | send-checkin-notification | Uses `booking_com_name \|\| name` -- correct |
+| Check-out | send-checkout-notification | Uses `booking_com_name \|\| name` -- correct |
+| Late Check-out | send-late-checkout-notification | Uses `name` -- now correct after update |
+| Extension | send-extension-notification | Uses `name` -- now correct after update |
+| Mid-stay Cleaning | send-mid-stay-cleaning-notifications | Uses `booking_com_name \|\| name` -- correct |
+| Modification | send-modification-notification | Receives name from frontend -- now correct |
+| Cancellation | send-cancellation-notification | Receives name from frontend -- now correct |
+| Room Change | send-room-change-notification | Receives name from frontend -- now correct |
+| Gmail Sync | sync-booking-gmail | Uses `name` -- now correct after update |
 
 ---
 
-### Technical Details
+### Summary
 
-**Component structure within ChannexDebug.tsx:**
-
-The page will be a single file with internal helper components:
-- `JsonPanel` - Reusable component that renders formatted JSON in a `<pre>` block with a dark background, copy button, and collapsible behavior for large payloads
-- `TestCard` - Wrapper card with title, description, action area, and request/response panels
-- Each test section as a function within the page component
-
-**Data fetching for dropdowns:**
-- Units: `supabase.from('units').select('id, name, unit_number, booking_com_name')`
-- Channex mappings: `supabase.from('channex_mappings').select('*').eq('sync_status', 'synced')`
-- Rate plans: `supabase.from('rate_plans').select('id, name')`
-
-**Admin-only access:**
-- Route wrapped in `ProtectedRoute` (same as all admin routes)
-- Edge function checks admin role server-side
-- Page checks `userRole === 'admin'` and shows access denied if not
-
-**Files to create:**
-- `supabase/functions/channex-fetch-state/index.ts` (new edge function)
-- `src/pages/ChannexDebug.tsx` (new page)
-
-**Files to modify:**
-- `supabase/config.toml` (add channex-fetch-state config)
-- `src/App.tsx` (add route)
-- `src/components/SlideMenu.tsx` (add menu item)
+- **Database change**: 1 UPDATE statement affecting 11 rows
+- **Code changes**: Zero. The data fix eliminates all mismatches.
+- **Result**: Old suite type names ("One Bedroom Suite with Balcony", "Large One Bedroom Suite", etc.) will be completely gone from the database and will never appear in emails, notifications, or the UI again.
 
