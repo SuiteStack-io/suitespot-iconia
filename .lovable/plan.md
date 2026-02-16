@@ -1,55 +1,150 @@
 
 
-## Rename "Suite Name" to "Room Name" Across the Entire Project
+## Automatic Channex Sync: Database Triggers + Edge Function
 
-### Problem
-The codebase still has remnants of "Suite" terminology in labels, variable names, export headers, and email templates. The standard should be **"Room Name"** for the internal `name` field and **"Booking.com Name"** for the `booking_com_name` field, used consistently everywhere.
+### How It Works (The Flow)
 
-### Changes Summary
+When you change data in your PMS, the system will automatically push those changes to Channex without any manual action. Here is the flow:
 
-#### Frontend Components & Pages
+```text
++-------------------+       +--------------------+       +---------------------+       +---------+
+| You update data   | ----> | DB trigger fires   | ----> | Queue row created   | ----> | Edge fn |
+| (reservation,     |       | (checks if synced  |       | in channex_sync_    |       | picks   |
+|  rate, blocked     |       |  to Channex, skips |       | queue table         |       | it up & |
+|  date, etc.)       |       |  if from Channex)  |       |                     |       | pushes  |
++-------------------+       +--------------------+       +---------------------+       +---------+
+                                                                    |
+                                                          pg_net HTTP call
+                                                          (with 2s delay)
+```
 
-| File | What Changes |
-|------|-------------|
-| `src/components/RevenueByRoom.tsx` | Rename `suiteName` property in `GroupedRoomRevenue` interface to `roomTypeName` (internal variable cleanup) |
-| `src/pages/ReservationDetail.tsx` | Rename `suiteName` variable to `roomName`; change WhatsApp message from `*Suite:*` to `*Room:*`; change email body from `Suite:` to `Room:` |
-| `src/pages/Commissions.tsx` | Change export column header from `'Suite'` to `'Room Name'` in all Excel export mappings |
-| `src/pages/CashSettlement.tsx` | Change export column header from `'Suite'` to `'Room Name'` in all Excel export mappings |
-| `src/components/AvailabilityCalendar.tsx` | Popover tooltip already says "Room Name" -- but display value uses `unit.name` instead of `booking_com_name || name`. Fix the value to use `unit.booking_com_name || unit.name` |
-| `src/components/RoomCalendar.tsx` | Same fix: popover tooltip value should use `unit.booking_com_name || unit.name` |
+**Loop prevention**: Each trigger checks if the change originated from Channex (via the `channel` field or a `skip_channex_sync` column). If it did, the trigger does nothing.
 
-#### Edge Functions
+**Debouncing**: Changes are queued, and the processing function batches them. The `pg_net` call has a built-in delay. Duplicate queue entries for the same room type + date range are deduplicated.
 
-| File | What Changes |
-|------|-------------|
-| `supabase/functions/send-reservation-notification/index.ts` | Rename `matchedSuiteName` variable to `matchedRoomName`; change label from `"Suite:"` to `"Room:"` in HTML; fetch `booking_com_name` alongside `name` and prefer it |
-| `supabase/functions/send-cancellation-notification/index.ts` | Change label from `"Suite:"` to `"Room:"` in HTML email |
+### What Gets Created
 
-### What Will NOT Change
-- The `name` database column stays as-is (it is the "Room Name" field)
-- The `booking_com_name` database column stays as-is (it is the "Booking.com Name" field)
-- "SuiteSpot" brand references (company name, not a room label)
-- The public-facing "Suites" navigation page (marketing page, not a field label)
-- UI labels that already say "Room Name" correctly
+#### 1. Database: `channex_sync_queue` table
+A buffer table that holds pending sync operations.
+
+| Column | Type | Purpose |
+|--------|------|---------|
+| id | uuid | Primary key |
+| sync_type | text | `availability` or `rate` |
+| property_id | uuid | Which property |
+| entity_id | uuid | Room type ID or rate plan ID |
+| date_from | date | Start of affected date range |
+| date_to | date | End of affected date range |
+| payload | jsonb | Extra data (availability count, rate amount, etc.) |
+| status | text | `pending`, `processing`, `completed`, `failed` |
+| error_message | text | If it failed, why |
+| created_at | timestamptz | When queued |
+| processed_at | timestamptz | When processed |
+
+RLS: Service-role only (system table).
+
+#### 2. Database: Add `skip_channex_sync` column to `reservations`
+A boolean flag (default `false`) that can be set to `true` when a reservation comes from Channex, preventing the trigger from re-syncing it back.
+
+#### 3. Database Trigger: `on_reservation_change`
+Fires on INSERT/UPDATE/DELETE on the `reservations` table.
+
+- **Skips if**: `NEW.skip_channex_sync = true` OR `NEW.channel = 'Channex'`
+- **What it does**: Looks up the unit's room type, checks if it has a `channex_mappings` record. If yes, calculates availability for the affected date range and inserts a queue row.
+- **Availability calculation**: Counts total units of same room type minus confirmed/checked-in reservations for each date.
+
+#### 4. Database Trigger: `on_blocked_dates_change`
+Fires on INSERT/DELETE on `blocked_dates`.
+
+- Same logic as reservation trigger -- blocked dates reduce availability for the room type.
+
+#### 5. Database Trigger: `on_rate_plan_prices_change`
+Fires on INSERT/UPDATE on `rate_plan_prices`.
+
+- Checks if the rate plan has a `channex_mappings` record. If yes, queues a `rate` sync.
+
+#### 6. Edge Function: `channex-process-sync-queue`
+A new serverless function that:
+
+1. Reads all `pending` rows from `channex_sync_queue`
+2. Groups them by sync_type (availability vs. rates)
+3. Resolves Channex IDs from `channex_mappings`
+4. Calls the Channex API directly (reusing `channex-client.ts`)
+5. Marks queue rows as `completed` or `failed`
+6. Logs everything to `channex_sync_logs`
+
+This function uses **service role auth** (no user login needed) since it is triggered by the system.
+
+#### 7. `pg_net` calls from triggers
+Each trigger uses `pg_net.http_post()` to call the `channex-process-sync-queue` edge function after inserting a queue row. The call is fire-and-forget with a small delay built into Postgres's async HTTP.
+
+#### 8. Update `channex-booking-webhook`
+When a booking comes in from Channex and creates a local reservation, set `skip_channex_sync = true` to prevent the loop.
+
+### Important Safeguards
+
+- **Loop prevention**: `skip_channex_sync` flag + `channel = 'Channex'` check in triggers
+- **Rate limiting**: Queue-based approach means rapid changes get batched. The edge function processes all pending items at once rather than one-per-trigger.
+- **Only synced rooms**: Triggers check `channex_mappings` before queuing -- rooms not synced to Channex are ignored.
+- **Failure handling**: Failed pushes are marked in the queue with error messages, visible in the Sync Logs tab.
+- **Channex auto-availability**: For bookings specifically, Channex can handle availability reduction automatically if `allow_availability_autoupdate` is enabled on the property. The reservation trigger is a safety net.
 
 ### Technical Details
 
-**ReservationDetail.tsx:**
-- `const suiteName = ...` becomes `const roomName = ...`
-- WhatsApp: `*Suite:* ${suiteName}` becomes `*Room:* ${roomName}`
-- Email: `Suite: ${suiteName}` becomes `Room: ${roomName}`
+**Trigger function (reservation example):**
+```text
+CREATE OR REPLACE FUNCTION notify_channex_availability_change()
+RETURNS trigger AS $$
+DECLARE
+  v_unit_id uuid;
+  v_room_name text;
+  v_property_id uuid;
+  v_has_mapping boolean;
+BEGIN
+  -- Determine the unit_id from OLD or NEW
+  v_unit_id := COALESCE(NEW.unit_id, OLD.unit_id);
+  IF v_unit_id IS NULL THEN RETURN COALESCE(NEW, OLD); END IF;
 
-**Commissions.tsx / CashSettlement.tsx:**
-- All Excel export objects: `'Suite': r.units?.booking_com_name || ...` becomes `'Room Name': r.units?.booking_com_name || ...`
+  -- Skip if flagged
+  IF TG_OP != 'DELETE' AND NEW.skip_channex_sync = true THEN
+    RETURN NEW;
+  END IF;
 
-**send-reservation-notification/index.ts:**
-- Query changed from `.select('name, unit_number')` to `.select('name, booking_com_name, unit_number')`
-- `matchedSuiteName = unitData.name` becomes `matchedRoomName = unitData.booking_com_name || unitData.name`
-- HTML label: `"Suite:"` becomes `"Room:"`
+  -- Skip if from Channex
+  IF TG_OP != 'DELETE' AND NEW.channel = 'Channex' THEN
+    RETURN NEW;
+  END IF;
 
-**send-cancellation-notification/index.ts:**
-- HTML label: `"Suite:"` becomes `"Room:"`
+  -- Check if this unit's room type is synced to Channex
+  SELECT u.booking_com_name, u.location INTO v_room_name, ...
+  -- Look up channex_mappings for entity_type = 'room_type'
+  -- If no mapping exists, skip
 
-**AvailabilityCalendar.tsx & RoomCalendar.tsx:**
-- Popover value: `{unit.name}` becomes `{unit.booking_com_name || unit.name}` to show the Booking.com name consistently
+  -- Insert into channex_sync_queue
+  INSERT INTO channex_sync_queue (sync_type, property_id, entity_id, date_from, date_to, payload)
+  VALUES ('availability', v_property_id, v_room_type_mapping_id, ...);
+
+  -- Fire-and-forget HTTP call to process the queue
+  PERFORM net.http_post(
+    url := '<SUPABASE_URL>/functions/v1/channex-process-sync-queue',
+    headers := '{"Authorization": "Bearer <SERVICE_ROLE_KEY>", "Content-Type": "application/json"}'::jsonb,
+    body := '{}'::jsonb
+  );
+
+  RETURN COALESCE(NEW, OLD);
+END;
+$$ LANGUAGE plpgsql SECURITY DEFINER;
+```
+
+**Edge function (`channex-process-sync-queue`):**
+- No user auth required (called by system via service role)
+- Reads pending queue items, batches by type
+- Calls Channex availability/restrictions API
+- Updates queue status
+
+**Config (`supabase/config.toml`):**
+```text
+[functions.channex-process-sync-queue]
+verify_jwt = false
+```
 
