@@ -229,7 +229,7 @@ const handler = async (req: Request): Promise<Response> => {
             </p>
             ${unit_number ? `
             <p style="margin: 0; color: #111827; font-size: 16px;">
-              <strong>🚪 Unit:</strong> #${unit_number}
+              <strong>🚪 Room #:</strong> ${unit_number}
             </p>
             ` : ""}
           </div>
