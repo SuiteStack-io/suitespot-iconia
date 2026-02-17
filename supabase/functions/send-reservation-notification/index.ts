@@ -671,16 +671,9 @@ const handler = async (req: Request): Promise<Response> => {
                 ${isSplitStay && splitStaySegments && splitStaySegments.length > 1 ? splitStayHtml : 
                   (isMultiRoom && rooms && rooms.length > 1 ? multiRoomHtml : `
                 <div class="detail-row">
-                  <div class="detail-label">Unit:</div>
-                  <div class="detail-value"><strong>${unitName}</strong></div>
-                </div>
-                
-                ${matchedRoomName ? `
-                <div class="detail-row">
                   <div class="detail-label">Room:</div>
-                  <div class="detail-value"><strong>${matchedRoomName}</strong></div>
+                  <div class="detail-value"><strong>${matchedRoomName || unitName}</strong></div>
                 </div>
-                ` : ''}
                 
                 ${matchedRoomNumber ? `
                 <div class="detail-row">
