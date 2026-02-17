@@ -1,119 +1,41 @@
 
 
-## Overwrite Room Names and Verify System-Wide Consistency
+## Remove Duplicate "Unit" Field from Reservation Email
 
-### Step 1: Database Update
+### Problem
 
-Run the following SQL to copy `booking_com_name` into `name` for every room:
+In the new reservation notification email (`send-reservation-notification/index.ts`), two fields display the same room name:
+- **Unit:** Family Suite
+- **Room:** Family Suite
 
-```sql
-UPDATE units
-SET name = booking_com_name
-WHERE booking_com_name IS NOT NULL
-  AND name != booking_com_name;
-```
+This happens because `unitName` (passed from the frontend) and `matchedRoomName` (fetched from the database) now contain the same value after the recent database sync.
 
-This affects 11 of 12 rooms (Family Suite already matches). After this, both fields will hold identical guest-facing names.
+### Audit Results
 
----
+| Email Template | Has "Unit" field? | Has "Room" field? | Duplicate? |
+|---|---|---|---|
+| send-reservation-notification | Yes (line 674) | Yes (line 680) | **Yes -- needs fix** |
+| send-cancellation-notification | "Unit: #number" (line 232) | "Room: name" (line 228) | No -- different data |
+| send-checkin-notification | No | No | N/A |
+| send-checkout-notification | No | No | N/A |
+| send-modification-notification | No | No | N/A |
+| send-extension-notification | No | No | N/A |
+| send-late-checkout-notification | No | No | N/A |
 
-### Step 2: Verification Query
+Only `send-reservation-notification` has the duplication.
 
-After the update, run a confirmation query to display the updated state:
+Note: The cancellation email shows "Room: [name]" and "Unit: #[number]" -- these are different pieces of information (name vs number), so no change is needed there. However, the label "Unit" is misleading since it shows a room number. This will be updated to "Room #:" for consistency.
 
-```sql
-SELECT unit_number, name, booking_com_name FROM units ORDER BY unit_number;
-```
+### Changes
 
-Expected result -- all rows will match:
+**File: `supabase/functions/send-reservation-notification/index.ts`**
 
-| Room # | name | booking_com_name |
-|--------|------|-----------------|
-| 417/418 | Family Suite | Family Suite |
-| 501 | Suite with Terrace | Suite with Terrace |
-| 502 | Suite with Terrace | Suite with Terrace |
-| 503 | Junior Suite | Junior Suite |
-| 504 | Double Room with Terrace | Double Room with Terrace |
-| 505 | Suite with Terrace | Suite with Terrace |
-| 506 | Deluxe Suite | Deluxe Suite |
-| 509 | Deluxe Suite | Deluxe Suite |
-| 511 | Deluxe Suite | Deluxe Suite |
-| 512 | Deluxe Suite | Deluxe Suite |
-| 517 | Junior Suite | Junior Suite |
-| 518 | Deluxe Suite | Deluxe Suite |
+1. **Remove the "Unit:" row** (lines 673-676) that displays `unitName`
+2. **Make the "Room:" row always show** using `matchedRoomName || unitName` as a fallback, removing the conditional wrapper
 
----
+The result will be a single "Room:" field followed by "Room #:" -- no more duplication.
 
-### Step 3: No Code Changes Needed
+**File: `supabase/functions/send-cancellation-notification/index.ts`**
 
-Because both fields will now contain the same value, every code reference will automatically return the correct name regardless of which field it reads. Here is the full audit:
-
-**Frontend files referencing unit name fields (27 files) -- all safe:**
-
-All use either `booking_com_name || name` (already correct) or just `name` (now correct after update):
-
-- `src/components/Dashboard.tsx` -- uses `booking_com_name || name`
-- `src/components/RoomCalendar.tsx` -- uses `booking_com_name || name`
-- `src/components/WeeklyCalendar.tsx` -- uses `booking_com_name || name`
-- `src/components/MobileCalendarView.tsx` -- uses `booking_com_name || name`
-- `src/components/RoomSwapDialog.tsx` -- uses `booking_com_name || name`
-- `src/components/RoomTransferDialog.tsx` -- uses `booking_com_name || name`
-- `src/components/ReservationsList.tsx` -- uses `booking_com_name || name`
-- `src/components/ReservationQuickActions.tsx` -- uses `name` (now correct)
-- `src/components/AvailabilityCalendar.tsx` -- uses `name` in some places (now correct)
-- `src/components/CreateReservationDialog.tsx` -- uses `name` (now correct)
-- `src/components/CreateGuestAccountDialog.tsx` -- uses `name` (now correct)
-- `src/components/BlockedDatesManager.tsx` -- uses `booking_com_name || name`
-- `src/components/CheckInDialog.tsx` -- uses `booking_com_name || name`
-- `src/components/CheckOutDialog.tsx` -- uses `booking_com_name || name`
-- `src/components/InventorySelectionModal.tsx` -- uses `booking_com_name || name`
-- `src/components/NotificationCenter.tsx` -- uses metadata
-- `src/components/ConflictAlert.tsx` -- uses `booking_com_name || name`
-- `src/pages/ReservationDetail.tsx` -- uses `booking_com_name || name`
-- `src/pages/Guests.tsx` -- uses `name` (now correct)
-- `src/pages/Analytics.tsx` -- uses `name` (now correct)
-- `src/pages/GuestCheckIn.tsx` -- uses `booking_com_name || name`
-- `src/pages/Rooms.tsx` -- uses both fields for display
-- `src/pages/RoomTypes.tsx` -- uses `booking_com_name`
-- `src/pages/Housekeeping.tsx` -- uses `booking_com_name || name`
-- `src/pages/SelectionLanding.tsx` -- uses `booking_com_name || name`
-- `src/pages/BookingFlow.tsx` -- uses `booking_com_name || name`
-- `src/pages/ChannexDebug.tsx` -- uses `booking_com_name || name`
-
-**Edge functions referencing unit name fields (9 functions) -- all safe:**
-
-- `send-reservation-notification` -- uses `booking_com_name || name` (already correct)
-- `send-checkin-notification` -- uses `booking_com_name || name` (already correct)
-- `send-checkout-notification` -- uses `booking_com_name || name` (already correct)
-- `send-mid-stay-cleaning-notifications` -- uses `booking_com_name || name` (already correct)
-- `send-late-checkout-notification` -- uses `units?.name` only (now correct after update)
-- `send-extension-notification` -- uses `units?.name` only (now correct after update)
-- `sync-booking-gmail` -- uses `name` in logging and email data (now correct after update)
-- `channex-sync-property` -- uses `booking_com_name || name` for room types (already correct)
-- `parse-reservation-screenshot` -- uses both fields for matching (still works)
-
-### Step 4: Email Template Verification
-
-All email-sending functions will now display correct room names:
-
-| Email Type | Function | Status |
-|-----------|----------|--------|
-| New Reservation | send-reservation-notification | Uses `booking_com_name \|\| name` -- correct |
-| Check-in | send-checkin-notification | Uses `booking_com_name \|\| name` -- correct |
-| Check-out | send-checkout-notification | Uses `booking_com_name \|\| name` -- correct |
-| Late Check-out | send-late-checkout-notification | Uses `name` -- now correct after update |
-| Extension | send-extension-notification | Uses `name` -- now correct after update |
-| Mid-stay Cleaning | send-mid-stay-cleaning-notifications | Uses `booking_com_name \|\| name` -- correct |
-| Modification | send-modification-notification | Receives name from frontend -- now correct |
-| Cancellation | send-cancellation-notification | Receives name from frontend -- now correct |
-| Room Change | send-room-change-notification | Receives name from frontend -- now correct |
-| Gmail Sync | sync-booking-gmail | Uses `name` -- now correct after update |
-
----
-
-### Summary
-
-- **Database change**: 1 UPDATE statement affecting 11 rows
-- **Code changes**: Zero. The data fix eliminates all mismatches.
-- **Result**: Old suite type names ("One Bedroom Suite with Balcony", "Large One Bedroom Suite", etc.) will be completely gone from the database and will never appear in emails, notifications, or the UI again.
+3. **Rename "Unit:" label to "Room #:"** (line 232) since it displays a room number, not a name. This aligns terminology across all emails.
 
