@@ -100,7 +100,7 @@ export function SlideMenu({ userRole }: SlideMenuProps) {
       label: 'PMS',
       items: [
         { title: 'Availability', url: '/pms/availability', icon: CalendarDays },
-        { title: 'Prices', url: '/pms/prices', icon: DollarSign },
+        { title: 'Rate Plans', url: '/pms/prices', icon: DollarSign },
         { title: 'Restrictions', url: '/pms/restrictions', icon: Lock },
         { title: 'Channex Integration', url: '/channex', icon: Radio },
         { title: 'Channex Debug', url: '/channex-debug', icon: Zap },

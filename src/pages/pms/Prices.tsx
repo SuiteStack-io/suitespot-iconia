@@ -272,7 +272,7 @@ const PMSPrices = () => {
         <div className="flex items-center justify-between px-4 py-3">
           <div className="flex items-center gap-3">
             <SlideMenu userRole={userRole} />
-            <h1 className="text-lg font-semibold">Prices</h1>
+            <h1 className="text-lg font-semibold">Rate Plans</h1>
           </div>
           <Button onClick={handleCreateNew} className="gap-2">
             <Plus className="h-4 w-4" />
@@ -280,7 +280,7 @@ const PMSPrices = () => {
           </Button>
         </div>
         <div className="px-4 pb-3">
-          <AdminBreadcrumb section="PMS" currentPage="Prices" />
+          <AdminBreadcrumb section="PMS" currentPage="Rate Plans" />
         </div>
       </header>
 
