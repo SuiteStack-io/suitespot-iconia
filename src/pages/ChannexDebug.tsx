@@ -111,7 +111,7 @@ const ChannexDebug = () => {
 
       <div className="p-4 md:p-6 max-w-5xl mx-auto space-y-6">
         <Test1ApiConnection />
-        <Test2PropertySync units={units} />
+        <Test2PropertySync />
         <Test3AvailabilityPush units={units} roomTypeMappings={roomTypeMappings} />
         <Test4RatePush units={units} ratePlanMappings={ratePlanMappings} ratePlans={ratePlans} />
         <Test5SimulateBooking propertyMappings={propertyMappings} />
@@ -173,22 +173,17 @@ function Test1ApiConnection() {
 // Test 2: Property Sync
 // ============================================================================
 
-function Test2PropertySync({ units }: { units: any[] }) {
-  const [unitId, setUnitId] = useState('');
+function Test2PropertySync() {
   const [loading, setLoading] = useState(false);
-  const [request, setRequest] = useState<any>(null);
   const [result, setResult] = useState<any>(null);
   const [success, setSuccess] = useState<boolean | null>(null);
   const [duration, setDuration] = useState<number | undefined>();
 
   const run = async () => {
-    if (!unitId) return;
     setLoading(true); setResult(null); setSuccess(null);
-    const body = { property_id: unitId };
-    setRequest(body);
     const start = Date.now();
     try {
-      const { data, error } = await supabase.functions.invoke('channex-sync-property', { body });
+      const { data, error } = await supabase.functions.invoke('channex-sync-property');
       setDuration(Date.now() - start);
       if (error) throw error;
       setResult(data);
@@ -209,27 +204,13 @@ function Test2PropertySync({ units }: { units: any[] }) {
           <CardTitle className="text-base">Test 2: Manual Property Sync</CardTitle>
           <StatusBadge success={success} />
         </div>
-        <CardDescription>Sync a property to Channex</CardDescription>
+        <CardDescription>Sync the property (from channex_property_config) to Channex with all room types and rate plans</CardDescription>
       </CardHeader>
       <CardContent className="space-y-4">
-        <div className="flex gap-3 items-end flex-wrap">
-          <div className="flex-1 min-w-[200px]">
-            <Label>Property</Label>
-            <Select value={unitId} onValueChange={setUnitId}>
-              <SelectTrigger><SelectValue placeholder="Select a property" /></SelectTrigger>
-              <SelectContent>
-                {units.map(u => (
-                  <SelectItem key={u.id} value={u.id}>{u.name} ({u.unit_number})</SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
-          </div>
-          <Button onClick={run} disabled={loading || !unitId}>
-            {loading ? <Loader2 className="h-4 w-4 mr-2 animate-spin" /> : <RefreshCw className="h-4 w-4 mr-2" />}
-            Sync Property
-          </Button>
-        </div>
-        {request && <JsonPanel label="Request" data={request} />}
+        <Button onClick={run} disabled={loading}>
+          {loading ? <Loader2 className="h-4 w-4 mr-2 animate-spin" /> : <RefreshCw className="h-4 w-4 mr-2" />}
+          Sync Property
+        </Button>
         {result && <JsonPanel label="Response" data={result} duration={duration} />}
       </CardContent>
     </Card>
