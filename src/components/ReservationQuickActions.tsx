@@ -1,4 +1,4 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
@@ -10,7 +10,8 @@ import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover
 import { useToast } from "@/hooks/use-toast";
 import { useNavigate } from "react-router-dom";
 import { format, differenceInCalendarDays, addDays } from "date-fns";
-import { AlertTriangle, ArrowRight, Eye, Loader2, LogIn, LogOut, CalendarIcon, Plus, X, User, Clock, Pencil, Trash2, ArrowLeftRight } from "lucide-react";
+import { AlertTriangle, ArrowRight, Eye, Loader2, LogIn, LogOut, CalendarIcon, Plus, X, User, Clock, Pencil, Trash2, ArrowLeftRight, Download } from "lucide-react";
+import { toPng } from 'html-to-image';
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from "@/components/ui/alert-dialog";
 import { cn } from "@/lib/utils";
 import { useAuth } from "@/lib/auth";
@@ -103,6 +104,10 @@ export const ReservationQuickActions = ({
   const [showDeleteExtensionConfirm, setShowDeleteExtensionConfirm] = useState(false);
   const [deletingExtension, setDeletingExtension] = useState(false);
   const [savingExtensionEdit, setSavingExtensionEdit] = useState(false);
+  const [downloadingExtensionConfirmation, setDownloadingExtensionConfirmation] = useState(false);
+  const [extensionUnitDetails, setExtensionUnitDetails] = useState<{ name: string; unit_number: string | null; booking_com_name: string | null; tax_percentage: number | null } | null>(null);
+  
+  const extensionConfirmationRef = useRef<HTMLDivElement>(null);
   
   // Swap room state
   const [swapDialogOpen, setSwapDialogOpen] = useState(false);
@@ -824,6 +829,55 @@ export const ReservationQuickActions = ({
     }
   };
 
+  // Fetch extension unit details when this is an extension reservation
+  useEffect(() => {
+    const fetchExtensionUnitDetails = async () => {
+      if (!reservation || !reservation.unit_id) return;
+      const isExt = reservation.booking_reference?.endsWith("-EXT");
+      if (!isExt) return;
+      
+      const { data } = await supabase
+        .from("units")
+        .select("name, unit_number, booking_com_name, tax_percentage")
+        .eq("id", reservation.unit_id)
+        .single();
+      
+      if (data) {
+        setExtensionUnitDetails(data);
+      }
+    };
+    if (open && reservation) {
+      fetchExtensionUnitDetails();
+    }
+  }, [open, reservation]);
+
+  const handleDownloadExtensionConfirmation = async () => {
+    if (!extensionConfirmationRef.current || !fullReservation) return;
+    
+    setDownloadingExtensionConfirmation(true);
+    try {
+      const dataUrl = await toPng(extensionConfirmationRef.current, {
+        cacheBust: true,
+        backgroundColor: '#ffffff',
+        pixelRatio: 2,
+      });
+      
+      const link = document.createElement('a');
+      const guestName = fullReservation.guest_names?.[0]?.split(' ')[0] || 'guest';
+      const checkIn = format(new Date(fullReservation.check_in_date), 'yyyy-MM-dd');
+      link.download = `suitespot-extension-confirmation-${guestName}-${checkIn}.png`;
+      link.href = dataUrl;
+      link.click();
+      
+      toast({ title: "Downloaded", description: "Extension confirmation downloaded successfully" });
+    } catch (error) {
+      console.error('Error downloading extension confirmation:', error);
+      toast({ title: "Download Failed", description: "Failed to download confirmation", variant: "destructive" });
+    } finally {
+      setDownloadingExtensionConfirmation(false);
+    }
+  };
+
   if (!reservation) return null;
 
   const nights = Math.ceil(
@@ -869,6 +923,7 @@ export const ReservationQuickActions = ({
   const extensionCurrentTotal = reservation.total_price || 0;
 
   return (
+    <>
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent className="sm:max-w-md max-h-[90vh] overflow-y-auto">
         <DialogHeader>
@@ -1078,6 +1133,19 @@ export const ReservationQuickActions = ({
                   </div>
 
                   <div className="flex gap-2 pt-2">
+                    <Button 
+                      variant="outline" 
+                      className="flex-1"
+                      onClick={handleDownloadExtensionConfirmation}
+                      disabled={downloadingExtensionConfirmation}
+                    >
+                      {downloadingExtensionConfirmation ? (
+                        <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+                      ) : (
+                        <Download className="h-4 w-4 mr-2" />
+                      )}
+                      Confirmation
+                    </Button>
                     <Button 
                       variant="outline" 
                       className="flex-1"
@@ -1655,5 +1723,170 @@ export const ReservationQuickActions = ({
         onSuccess={onMoveComplete}
       />
     </Dialog>
+
+    {/* Hidden Extension Confirmation Card for Download */}
+    {isExtension && fullReservation && (
+      <div style={{ position: 'absolute', left: '-9999px', top: 0 }}>
+        <div
+          ref={extensionConfirmationRef}
+          className="bg-white p-8"
+          style={{ width: '600px', fontFamily: 'system-ui, -apple-system, sans-serif' }}
+        >
+          {/* Header */}
+          <div className="text-center mb-8">
+            <h1 className="text-2xl font-bold text-gray-900" style={{ fontFamily: "'Playfair Display', serif" }}>
+              SuiteSpot
+            </h1>
+            <p className="text-lg font-medium text-gray-900 mb-1" style={{ fontFamily: "'Playfair Display', serif" }}>
+              ICONIA Zamalek
+            </p>
+            <p className="text-gray-500 text-sm">Reservation Confirmation</p>
+          </div>
+
+          {/* Booking Reference */}
+          <div className="bg-gray-50 rounded-lg p-4 mb-6 text-center">
+            <p className="text-gray-500 text-sm mb-1">Booking Reference</p>
+            <p className="text-xl font-bold text-gray-900">{fullReservation.booking_reference}</p>
+          </div>
+
+          {/* Guest Details */}
+          <div className="mb-6">
+            <h2 className="text-lg font-semibold text-gray-900 mb-3 border-b pb-2">Guest Details</h2>
+            <div className="space-y-2">
+              <div className="flex justify-between">
+                <span className="text-gray-500">Guest Name(s)</span>
+                <span className="font-medium text-gray-900">{fullReservation.guest_names?.join(', ') || 'N/A'}</span>
+              </div>
+              <div className="flex justify-between">
+                <span className="text-gray-500">Number of Guests</span>
+                <span className="font-medium text-gray-900">{fullReservation.number_of_guests}</span>
+              </div>
+              {fullReservation.guest_nationality && (
+                <div className="flex justify-between">
+                  <span className="text-gray-500">Nationality</span>
+                  <span className="font-medium text-gray-900">{fullReservation.guest_nationality}</span>
+                </div>
+              )}
+            </div>
+          </div>
+
+          {/* Accommodation */}
+          <div className="mb-6">
+            <h2 className="text-lg font-semibold text-gray-900 mb-3 border-b pb-2">Accommodation</h2>
+            <div className="space-y-2">
+              <div className="flex justify-between">
+                <span className="text-gray-500">Suite</span>
+                <span className="font-medium text-gray-900">
+                  {extensionUnitDetails?.booking_com_name || extensionUnitDetails?.name || 'N/A'}
+                </span>
+              </div>
+              {extensionUnitDetails?.unit_number && (
+                <div className="flex justify-between">
+                  <span className="text-gray-500">Unit Number</span>
+                  <span className="font-medium text-gray-900">#{extensionUnitDetails.unit_number}</span>
+                </div>
+              )}
+            </div>
+          </div>
+
+          {/* Stay Dates */}
+          <div className="mb-6">
+            <h2 className="text-lg font-semibold text-gray-900 mb-3 border-b pb-2">Stay Dates</h2>
+            <div className="space-y-2">
+              <div className="flex justify-between">
+                <span className="text-gray-500">Check-in</span>
+                <span className="font-medium text-gray-900">
+                  {format(new Date(fullReservation.check_in_date), 'EEEE, MMMM d, yyyy')}
+                </span>
+              </div>
+              <div className="flex justify-between">
+                <span className="text-gray-500">Check-out</span>
+                <span className="font-medium text-gray-900">
+                  {format(new Date(fullReservation.check_out_date), 'EEEE, MMMM d, yyyy')}
+                </span>
+              </div>
+              <div className="flex justify-between">
+                <span className="text-gray-500">Duration</span>
+                <span className="font-medium text-gray-900">{fullReservation.nights || nights} night(s)</span>
+              </div>
+            </div>
+          </div>
+
+          {/* Pricing Summary */}
+          <div className="mb-6">
+            <h2 className="text-lg font-semibold text-gray-900 mb-3 border-b pb-2">Pricing Summary</h2>
+            {(() => {
+              const extNights = fullReservation.nights || nights;
+              const pricePerNight = fullReservation.price_per_night || 0;
+              const subtotal = pricePerNight * extNights;
+              const taxPercentage = extensionUnitDetails?.tax_percentage || 14;
+              const taxAmount = subtotal * (taxPercentage / 100);
+              const totalWithTax = subtotal + taxAmount;
+
+              return (
+                <div className="space-y-2">
+                  <div className="flex justify-between">
+                    <span className="text-gray-500">Price per Night</span>
+                    <span className="font-medium text-gray-900">USD {pricePerNight.toFixed(2)}</span>
+                  </div>
+                  <div className="flex justify-between">
+                    <span className="text-gray-500">Subtotal ({extNights} nights)</span>
+                    <span className="font-medium text-gray-900">USD {subtotal.toFixed(2)}</span>
+                  </div>
+                  {taxPercentage > 0 && (
+                    <div className="flex justify-between">
+                      <span className="text-gray-500">Taxes & Fees ({taxPercentage}%)</span>
+                      <span className="font-medium text-gray-900">USD {taxAmount.toFixed(2)}</span>
+                    </div>
+                  )}
+                  <div className="flex justify-between pt-2 border-t mt-2">
+                    <span className="font-semibold text-gray-900">Total Price</span>
+                    <span className="font-bold text-lg text-gray-900">USD {totalWithTax.toFixed(2)}</span>
+                  </div>
+                </div>
+              );
+            })()}
+          </div>
+
+          {/* Contact Information */}
+          {(fullReservation.contact_email || fullReservation.contact_phone) && (
+            <div className="mb-6">
+              <h2 className="text-lg font-semibold text-gray-900 mb-3 border-b pb-2">Contact Information</h2>
+              <div className="space-y-2">
+                {fullReservation.contact_email && (
+                  <div className="flex justify-between">
+                    <span className="text-gray-500">Email</span>
+                    <span className="font-medium text-gray-900">{fullReservation.contact_email}</span>
+                  </div>
+                )}
+                {fullReservation.contact_phone && (
+                  <div className="flex justify-between">
+                    <span className="text-gray-500">Phone</span>
+                    <span className="font-medium text-gray-900">{fullReservation.contact_phone}</span>
+                  </div>
+                )}
+              </div>
+            </div>
+          )}
+
+          {/* Status */}
+          <div className="bg-green-50 rounded-lg p-4 text-center">
+            <p className="text-green-700 font-semibold">
+              ✓ Reservation {fullReservation.status === 'confirmed' ? 'Confirmed' : 
+                fullReservation.status === 'checked-in' ? 'Checked-In' :
+                fullReservation.status === 'checked-out' ? 'Checked-Out' :
+                fullReservation.status === 'completed' ? 'Completed' : fullReservation.status}
+            </p>
+          </div>
+
+          {/* Footer */}
+          <div className="mt-8 pt-4 border-t text-center text-gray-400 text-xs">
+            <p>Thank you for choosing SuiteSpot</p>
+            <p className="mt-1">Generated on {format(new Date(), 'MMMM d, yyyy')}</p>
+          </div>
+        </div>
+      </div>
+    )}
+    </>
   );
 };
