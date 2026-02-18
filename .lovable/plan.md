@@ -1,58 +1,115 @@
 
 
-## Enhanced Reset Channex Sync Feature
+## Fix Channex Rate Plan Sync: One Rate Plan Per Room Type
 
-### Overview
-Expand the existing basic reset section in PropertySettings into a comprehensive reset tool with multiple reset levels, a detailed mappings table with individual deletion, and cleanup guidance.
+### Problem
+One PMS rate plan ("Standard 2 days min stay & 24 hrs in advance") has prices for 5 room types, but currently only creates ONE Channex rate plan (linked to Deluxe Suite). Channex requires a separate rate plan per room type.
 
-### Current State
-- A basic "Reset Channex Sync" card already exists at the bottom of the Settings tab
-- An edge function `channex-reset-sync` already handles Channex API deletion and clearing mappings
-- Current data: 2 properties, 5 room types, 1 rate plan mapped; 8 sync logs; 0 bookings
-- `channex_sync_logs` table is missing a DELETE RLS policy for admins
+### Root Cause
+In `channex-sync-property` Step 3 (lines 251-306), the code maps one PMS rate plan to one Channex rate plan using `local_id = rp.id`. It picks the first matching room type and stops. It needs to loop through ALL room types and create a Channex rate plan for each.
 
-### Changes
+### Current Data
+- 1 PMS rate plan: `403a15cf...` ("Standard 2 days min stay & 24 hrs in advance")
+- 5 `rate_plan_prices` rows (one per room type): Deluxe Suite ($108/$123), Double Room with Terrace ($110/$125), Family Suite ($120/$135), Junior Suite ($100/$115), Suite with Terrace ($110/$125)
+- 5 synced room types in `channex_mappings`
+- Only 1 rate plan mapping exists (linked to Deluxe Suite)
 
-**1. Database Migration**
-- Add a DELETE RLS policy on `channex_sync_logs` so admins can clear logs from the client side
+### Solution
 
-**2. Update Edge Function: `channex-reset-sync/index.ts`**
-- Accept a `mode` parameter in the request body:
-  - `"full"` (default) -- delete from Channex API, clear mappings, clear logs, clear bookings, reset config
-  - `"mappings_only"` -- clear mappings only (no Channex API calls, keep logs/bookings)
-  - `"logs_only"` -- clear sync logs only
-  - `"single"` -- delete a single mapping by ID (accepts `mapping_id` parameter), also deletes from Channex API if it's a property
-- Accept optional `include_logs` and `include_bookings` booleans for the `"full"` mode
+#### Mapping Strategy
+Since `channex_mappings.local_id` is uuid, we will use the `rate_plan_prices.id` as the `local_id` for rate plan mappings. Each `rate_plan_prices` row uniquely represents a rate plan + room type combination, which is exactly the 1:1 mapping Channex needs. The `channex_data` jsonb field will store the PMS rate plan ID and room type name for reference.
 
-**3. Expand PropertySettings Reset Section**
-Replace the current simple reset card with a comprehensive section containing:
+#### 1. Rewrite Step 3 of `channex-sync-property/index.ts`
 
-**Part A: Warning Banner**
-- Yellow/amber alert at the top with warning icon explaining what reset does
+Replace the current rate plan logic with:
 
-**Part B: Current Sync Status Summary**
-- Counts: X properties, X room types, X rate plans, X total
-- Sync logs count and bookings count
+```
+For each active rate plan:
+  Fetch all rate_plan_prices rows (where unit_id IS NULL) for this plan
+  For each price row:
+    Find the matching synced room type by display name
+    Check if a mapping already exists for this price row ID
+    If not:
+      Create a Channex rate plan with:
+        - title: rate plan name
+        - property_id: channex property ID
+        - room_type_id: channex room type ID for THIS room type
+        - currency, sell_mode, rate_mode, options (as before)
+      Save mapping: local_id = price_row.id, channex_data = { rate_plan_id, room_type }
+      
+      Push initial rates for next 365 days:
+        - Monday-Thursday: weekday_rate (converted to cents)
+        - Friday-Sunday: weekend_rate (converted to cents)
+        - min_stay_arrival: from price row
+```
 
-**Part C: Mappings Table**
-- Fetch full `channex_mappings` data (entity_type, local_id, channex_id, last_synced_at, sync_status)
-- Display in a table with columns: Entity Type | Local ID (truncated) | Channex ID (truncated) | Status | Last Synced | Actions
-- Each row has a trash icon button for individual deletion with confirmation dialog
+#### 2. Add "Sync Rate Plans" button to `PropertySync.tsx`
 
-**Part D: Three Reset Buttons**
-1. **"Clear All Sync Data"** (red/destructive) -- calls edge function with mode `"full"`, confirmation dialog with checkboxes for "Also clear sync logs" and "Also clear bookings"
-2. **"Clear Property Mappings Only"** (orange/warning via `outline` variant with warning styling) -- calls edge function with mode `"mappings_only"`
-3. **"Clear Sync Logs"** (secondary/gray) -- deletes from `channex_sync_logs` directly via client SDK (admin RLS allows it after migration)
+Add a new button "Sync Missing Rate Plans" that:
+- Calls a modified version of the sync that only does Step 3 (rate plans)
+- Allows fixing missing rate plans without re-syncing property and room types
 
-**Part E: Channex Cleanup Reminder**
-- Info card at the bottom with step-by-step instructions for cleaning up Channex directly
-- "Open Channex Dashboard" button linking to `https://staging.channex.io` in a new tab
+This will be implemented by adding a `mode` parameter to `channex-sync-property`:
+- No mode / `"full"`: Current behavior (property + room types + rate plans)
+- `"rate_plans_only"`: Skip property and room type creation, only sync rate plans
 
-### Files to Modify/Create
+#### 3. Update `channex-create-rate-plan/index.ts`
+
+Update the standalone function to also use `rate_plan_prices.id` as `local_id` instead of `rate_plan.id`, for consistency.
+
+#### 4. Update `PropertySync.tsx` UI
+
+- Add a "Sync Rate Plans" button next to the existing "Sync to Channex" button
+- Show rate plan mappings with room type names (resolved from channex_data)
+- Show which room types are missing rate plans
+
+#### 5. Push Rates After Creation
+
+After creating each rate plan in Channex, immediately push rates for the next 365 days using the Channex restrictions API (same endpoint as `channex-push-rates`). This happens inline in the sync function to avoid requiring a separate manual step.
+
+---
+
+### Files to Modify
 
 | File | Action |
 |------|--------|
-| Migration SQL | Add DELETE policy on `channex_sync_logs` for admins |
-| `supabase/functions/channex-reset-sync/index.ts` | Add `mode` parameter support (`full`, `mappings_only`, `logs_only`, `single`) |
-| `src/components/channex/PropertySettings.tsx` | Expand the reset section with mappings table, multiple buttons, individual delete, and cleanup guide |
+| `supabase/functions/channex-sync-property/index.ts` | Rewrite Step 3 to create one rate plan per room type per PMS rate plan, push rates inline |
+| `src/components/channex/PropertySync.tsx` | Add "Sync Rate Plans" button, show rate plan details with room type names |
 
+No database migration needed -- we reuse existing `channex_mappings` table with `rate_plan_prices.id` as `local_id` and metadata in `channex_data`.
+
+---
+
+### Technical Details
+
+**Rate push payload per room type** (sent to Channex `/api/v1/restrictions`):
+```json
+{
+  "values": [
+    {
+      "property_id": "<channex_property_id>",
+      "rate_plan_id": "<channex_rate_plan_id>",
+      "date_from": "2026-02-18",
+      "date_to": "2027-02-18",
+      "days": { "mon": true, "tue": true, "wed": true, "thu": true },
+      "rate": 10800,
+      "min_stay_arrival": 2
+    },
+    {
+      "property_id": "<channex_property_id>",
+      "rate_plan_id": "<channex_rate_plan_id>",
+      "date_from": "2026-02-18",
+      "date_to": "2027-02-18",
+      "days": { "fri": true, "sat": true, "sun": true },
+      "rate": 12300,
+      "min_stay_arrival": 2
+    }
+  ]
+}
+```
+
+**Mapping storage example:**
+- `local_id`: `<rate_plan_prices.id>` (the specific price row for "Standard" + "Junior Suite")
+- `entity_type`: `"rate_plan"`
+- `channex_id`: `<channex_rate_plan_uuid>`
+- `channex_data`: `{ "rate_plan_id": "403a15cf...", "rate_plan_name": "Standard...", "room_type": "Junior Suite" }`
