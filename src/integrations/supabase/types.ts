@@ -1247,6 +1247,7 @@ export type Database = {
           name: string
           priority: number
           property_id: string | null
+          room_type: string | null
           sell_mode: string | null
           updated_at: string
           valid_from: string | null
@@ -1269,6 +1270,7 @@ export type Database = {
           name: string
           priority?: number
           property_id?: string | null
+          room_type?: string | null
           sell_mode?: string | null
           updated_at?: string
           valid_from?: string | null
@@ -1291,6 +1293,7 @@ export type Database = {
           name?: string
           priority?: number
           property_id?: string | null
+          room_type?: string | null
           sell_mode?: string | null
           updated_at?: string
           valid_from?: string | null

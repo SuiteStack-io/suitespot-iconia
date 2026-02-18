@@ -1,11 +1,8 @@
 /**
- * Channex Sync Property Edge Function (v2)
+ * Channex Sync Property Edge Function (v3)
  * 
- * Reads property config from channex_property_config table,
- * creates ONE property in Channex, groups units by room type,
- * and creates rate plans for each room type.
- * 
- * POST /channex-sync-property (no body required)
+ * Now each rate plan is linked to ONE room type via rate_plans.room_type,
+ * making Channex sync a simple 1-to-1 mapping.
  */
 
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
@@ -27,7 +24,7 @@ interface SyncError {
 }
 
 interface RoomTypeGroup {
-  unitId: string; // first unit's ID, used as local_id for mapping
+  unitId: string;
   displayName: string;
   max_guests: number;
   max_children: number;
@@ -47,9 +44,7 @@ Deno.serve(async (req) => {
   }
 
   try {
-    // =========================================================================
     // AUTH
-    // =========================================================================
     const authHeader = req.headers.get('Authorization');
     if (!authHeader) {
       return new Response(JSON.stringify({ error: 'Missing Authorization header' }), { status: 401, headers: { ...corsHeaders, 'Content-Type': 'application/json' } });
@@ -71,9 +66,7 @@ Deno.serve(async (req) => {
       return new Response(JSON.stringify({ error: 'Admin access required' }), { status: 403, headers: { ...corsHeaders, 'Content-Type': 'application/json' } });
     }
 
-    // =========================================================================
     // STEP 0: READ PROPERTY CONFIG
-    // =========================================================================
     const { data: propertyConfig, error: configError } = await supabaseAdmin
       .from('channex_property_config')
       .select('*')
@@ -92,9 +85,7 @@ Deno.serve(async (req) => {
     let channexPropertyId: string;
     let propertyStatus: string;
 
-    // =========================================================================
     // STEP 1: PROPERTY SYNC
-    // =========================================================================
     const { data: existingPropertyMapping } = await supabaseAdmin
       .from('channex_mappings')
       .select('channex_id')
@@ -131,7 +122,6 @@ Deno.serve(async (req) => {
         channexPropertyId = res.data.id;
         console.log(`[Property] Created -> ${channexPropertyId}`);
 
-        // Save mapping with config ID as local_id
         await supabaseAdmin.from('channex_mappings').insert({
           local_id: propertyConfig.id,
           channex_id: channexPropertyId,
@@ -141,7 +131,6 @@ Deno.serve(async (req) => {
           channex_data: res.data,
         });
 
-        // Save channex_property_id back to config
         await supabaseAdmin.from('channex_property_config').update({ channex_property_id: channexPropertyId }).eq('id', propertyConfig.id);
 
         propertyStatus = 'created';
@@ -155,9 +144,7 @@ Deno.serve(async (req) => {
       }
     }
 
-    // =========================================================================
     // STEP 2: ROOM TYPES (grouped by booking_com_name)
-    // =========================================================================
     const { data: units, error: unitsError } = await supabaseAdmin
       .from('units')
       .select('id, name, booking_com_name, max_guests, max_children, max_infants, default_occupancy, room_kind')
@@ -167,7 +154,6 @@ Deno.serve(async (req) => {
     if (unitsError) {
       errors.push({ entity: 'room_type', local_id: 'all', name: 'All', error: unitsError.message });
     } else if (units && units.length > 0) {
-      // Group by display name
       const groups: Record<string, RoomTypeGroup> = {};
       for (const u of units) {
         const name = u.booking_com_name || u.name;
@@ -232,19 +218,31 @@ Deno.serve(async (req) => {
       }
     }
 
-    // =========================================================================
-    // STEP 3: RATE PLANS
-    // =========================================================================
-    const { data: ratePlans } = await supabaseAdmin.from('rate_plans').select('id, name, currency, sell_mode, applicable_room_types, is_active');
+    // STEP 3: RATE PLANS (1-to-1 mapping via rate_plans.room_type)
+    const { data: ratePlans } = await supabaseAdmin
+      .from('rate_plans')
+      .select('id, name, currency, sell_mode, room_type, is_active')
+      .eq('is_active', true)
+      .not('room_type', 'is', null);
 
     if (ratePlans && ratePlans.length > 0) {
       // Build lookup: room type display name -> channex room type ID
-      const rtLookup: Record<string, { channexId: string; localId: string }> = {};
+      const rtLookup: Record<string, string> = {};
       for (const result of roomTypeResults) {
-        const unit = units?.find(u => u.id === result.local_id);
-        if (unit) {
-          const name = unit.booking_com_name || unit.name;
-          rtLookup[name] = { channexId: result.channex_id, localId: result.local_id };
+        rtLookup[result.name] = result.channex_id;
+      }
+      // Also check existing mappings for room types not just created
+      if (units) {
+        const groups: Record<string, string> = {};
+        for (const u of units) {
+          const name = u.booking_com_name || u.name;
+          if (!groups[name]) groups[name] = u.id;
+        }
+        for (const [name, unitId] of Object.entries(groups)) {
+          if (!rtLookup[name]) {
+            const { data: mapping } = await supabaseAdmin.from('channex_mappings').select('channex_id').eq('local_id', unitId).eq('entity_type', 'room_type').maybeSingle();
+            if (mapping) rtLookup[name] = mapping.channex_id;
+          }
         }
       }
 
@@ -257,17 +255,10 @@ Deno.serve(async (req) => {
             continue;
           }
 
-          // Find matching room type
-          let channexRtId: string | null = null;
-          const applicable = rp.applicable_room_types || [];
-          for (const rtName of applicable) {
-            if (rtLookup[rtName]) { channexRtId = rtLookup[rtName].channexId; break; }
-          }
-          if (!channexRtId && roomTypeResults.length > 0) {
-            channexRtId = roomTypeResults[0].channex_id;
-          }
+          // Direct 1-to-1: use rate_plan.room_type to find Channex room type ID
+          const channexRtId = rp.room_type ? rtLookup[rp.room_type] : null;
           if (!channexRtId) {
-            errors.push({ entity: 'rate_plan', local_id: rp.id, name: rp.name, error: 'No synced room type found' });
+            errors.push({ entity: 'rate_plan', local_id: rp.id, name: rp.name, error: `No synced room type found for "${rp.room_type}"` });
             continue;
           }
 
@@ -286,7 +277,7 @@ Deno.serve(async (req) => {
           };
 
           const res = await channexRequest<{ data: { id: string } }>('POST', '/api/v1/rate_plans', payload);
-          console.log(`[RatePlans] Created: ${rp.name} -> ${res.data.id}`);
+          console.log(`[RatePlans] Created: ${rp.name} -> ${res.data.id} (room_type: ${rp.room_type})`);
 
           await supabaseAdmin.from('channex_mappings').insert({
             local_id: rp.id,
@@ -306,9 +297,7 @@ Deno.serve(async (req) => {
       }
     }
 
-    // =========================================================================
     // SUMMARY
-    // =========================================================================
     console.log(`[Sync] Done. RT: ${roomTypeResults.length}, RP: ${ratePlanResults.length}, Errors: ${errors.length}`);
 
     return new Response(JSON.stringify({
