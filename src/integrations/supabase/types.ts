@@ -357,6 +357,63 @@ export type Database = {
         }
         Relationships: []
       }
+      channex_property_config: {
+        Row: {
+          address: string
+          channex_property_id: string | null
+          city: string
+          country: string
+          created_at: string
+          currency: string
+          description: string | null
+          email: string
+          id: string
+          latitude: number | null
+          longitude: number | null
+          phone: string
+          property_name: string
+          timezone: string
+          updated_at: string
+          zip_code: string
+        }
+        Insert: {
+          address?: string
+          channex_property_id?: string | null
+          city?: string
+          country?: string
+          created_at?: string
+          currency?: string
+          description?: string | null
+          email?: string
+          id?: string
+          latitude?: number | null
+          longitude?: number | null
+          phone?: string
+          property_name: string
+          timezone?: string
+          updated_at?: string
+          zip_code?: string
+        }
+        Update: {
+          address?: string
+          channex_property_id?: string | null
+          city?: string
+          country?: string
+          created_at?: string
+          currency?: string
+          description?: string | null
+          email?: string
+          id?: string
+          latitude?: number | null
+          longitude?: number | null
+          phone?: string
+          property_name?: string
+          timezone?: string
+          updated_at?: string
+          zip_code?: string
+        }
+        Relationships: []
+      }
       channex_sync_logs: {
         Row: {
           created_at: string

@@ -1,15 +1,18 @@
+import { useState } from 'react';
 import { SlideMenu } from '@/components/SlideMenu';
 import { AdminBreadcrumb } from '@/components/AdminBreadcrumb';
 import { useAuth } from '@/lib/auth';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { ConnectionStatus } from '@/components/channex/ConnectionStatus';
 import { PropertySync } from '@/components/channex/PropertySync';
+import { PropertySettings } from '@/components/channex/PropertySettings';
 import { SyncLogs } from '@/components/channex/SyncLogs';
 import { RecentBookings } from '@/components/channex/RecentBookings';
 import { AlertsPanel } from '@/components/channex/AlertsPanel';
 
 const ChannexIntegration = () => {
   const { userRole } = useAuth();
+  const [activeTab, setActiveTab] = useState('connection');
 
   return (
     <div className="min-h-screen bg-background">
@@ -28,10 +31,11 @@ const ChannexIntegration = () => {
       <div className="p-4 md:p-6 max-w-5xl mx-auto space-y-6">
         <AlertsPanel />
 
-        <Tabs defaultValue="connection" className="space-y-6">
+        <Tabs value={activeTab} onValueChange={setActiveTab} className="space-y-6">
           <TabsList>
             <TabsTrigger value="connection">Connection</TabsTrigger>
             <TabsTrigger value="properties">Properties</TabsTrigger>
+            <TabsTrigger value="settings">Settings</TabsTrigger>
             <TabsTrigger value="logs">Sync Logs</TabsTrigger>
             <TabsTrigger value="bookings">Bookings</TabsTrigger>
             <TabsTrigger value="alerts">Alert History</TabsTrigger>
@@ -42,7 +46,11 @@ const ChannexIntegration = () => {
           </TabsContent>
 
           <TabsContent value="properties">
-            <PropertySync />
+            <PropertySync onSwitchToSettings={() => setActiveTab('settings')} />
+          </TabsContent>
+
+          <TabsContent value="settings">
+            <PropertySettings />
           </TabsContent>
 
           <TabsContent value="logs">
