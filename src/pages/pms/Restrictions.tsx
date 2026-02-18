@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useMemo } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { SlideMenu } from '@/components/SlideMenu';
 import { AdminBreadcrumb } from '@/components/AdminBreadcrumb';
@@ -6,6 +6,7 @@ import { useAuth } from '@/lib/auth';
 import { supabase } from '@/integrations/supabase/client';
 import { useToast } from '@/hooks/use-toast';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
+import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import {
   Select,
@@ -33,10 +34,6 @@ import {
   BookingRulesDialog,
   getBookingRulesLabel,
 } from '@/components/pms/BookingRulesDialog';
-import {
-  RoomApplicabilityDialog,
-  getRoomApplicabilityLabel,
-} from '@/components/pms/RoomApplicabilityDialog';
 import { Loader2 } from 'lucide-react';
 
 interface RatePlan {
@@ -46,7 +43,7 @@ interface RatePlan {
   meal_plan: string;
   meal_plan_price: number | null;
   advance_booking_days: number;
-  applicable_room_types: string[] | null;
+  room_type: string | null;
 }
 
 const PMSRestrictions = () => {
@@ -58,7 +55,6 @@ const PMSRestrictions = () => {
   const [selectedPlanId, setSelectedPlanId] = useState<string>('');
   const [selectedPlan, setSelectedPlan] = useState<RatePlan | null>(null);
   const [valueAdds, setValueAdds] = useState<ValueAdd[]>([]);
-  const [roomTypes, setRoomTypes] = useState<string[]>([]);
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [hasChanges, setHasChanges] = useState(false);
@@ -69,45 +65,27 @@ const PMSRestrictions = () => {
   const [mealDialogOpen, setMealDialogOpen] = useState(false);
   const [valueAddsDialogOpen, setValueAddsDialogOpen] = useState(false);
   const [bookingRulesDialogOpen, setBookingRulesDialogOpen] = useState(false);
-  const [roomsDialogOpen, setRoomsDialogOpen] = useState(false);
 
-  // Fetch rate plans
   useEffect(() => {
     const fetchData = async () => {
       try {
-        // Fetch rate plans
         const { data: plans, error: plansError } = await supabase
           .from('rate_plans')
-          .select('id, name, cancellation_policy, meal_plan, meal_plan_price, advance_booking_days, applicable_room_types')
+          .select('id, name, cancellation_policy, meal_plan, meal_plan_price, advance_booking_days, room_type')
+          .eq('is_active', true)
+          .order('room_type')
           .order('name');
 
         if (plansError) throw plansError;
 
-        // Fetch unique room types from units
-        const { data: units, error: unitsError } = await supabase
-          .from('units')
-          .select('booking_com_name')
-          .not('booking_com_name', 'is', null);
-
-        if (unitsError) throw unitsError;
-
-        const uniqueRoomTypes = Array.from(
-          new Set(units?.map((u) => u.booking_com_name).filter(Boolean) as string[])
-        );
-
         setRatePlans(plans || []);
-        setRoomTypes(uniqueRoomTypes);
 
         if (plans && plans.length > 0) {
           setSelectedPlanId(plans[0].id);
         }
       } catch (error) {
         console.error('Error fetching data:', error);
-        toast({
-          title: 'Error',
-          description: 'Failed to load rate plans',
-          variant: 'destructive',
-        });
+        toast({ title: 'Error', description: 'Failed to load rate plans', variant: 'destructive' });
       } finally {
         setLoading(false);
       }
@@ -116,7 +94,6 @@ const PMSRestrictions = () => {
     fetchData();
   }, [toast]);
 
-  // Fetch selected plan details and value adds
   useEffect(() => {
     if (!selectedPlanId) {
       setSelectedPlan(null);
@@ -134,11 +111,8 @@ const PMSRestrictions = () => {
         .eq('rate_plan_id', selectedPlanId)
         .order('created_at');
 
-      if (error) {
-        console.error('Error fetching value adds:', error);
-      } else {
-        setValueAdds(data || []);
-      }
+      if (error) console.error('Error fetching value adds:', error);
+      else setValueAdds(data || []);
     };
 
     fetchValueAdds();
@@ -150,7 +124,6 @@ const PMSRestrictions = () => {
 
     setSaving(true);
     try {
-      // Update rate plan
       const { error: planError } = await supabase
         .from('rate_plans')
         .update({
@@ -159,55 +132,40 @@ const PMSRestrictions = () => {
           meal_plan: selectedPlan.meal_plan,
           meal_plan_price: selectedPlan.meal_plan_price,
           advance_booking_days: selectedPlan.advance_booking_days,
-          applicable_room_types: selectedPlan.applicable_room_types,
         })
         .eq('id', selectedPlan.id);
 
       if (planError) throw planError;
 
-      // Delete existing value adds
-      await supabase
-        .from('rate_plan_value_adds')
-        .delete()
-        .eq('rate_plan_id', selectedPlan.id);
+      await supabase.from('rate_plan_value_adds').delete().eq('rate_plan_id', selectedPlan.id);
 
-      // Insert new value adds
       if (valueAdds.length > 0) {
         const { error: valueAddsError } = await supabase
           .from('rate_plan_value_adds')
-          .insert(
-            valueAdds.map((va) => ({
-              rate_plan_id: selectedPlan.id,
-              name: va.name,
-              description: va.description || null,
-              price: va.price,
-              is_per_night: va.is_per_night,
-            }))
-          );
-
+          .insert(valueAdds.map((va) => ({
+            rate_plan_id: selectedPlan.id,
+            name: va.name,
+            description: va.description || null,
+            price: va.price,
+            is_per_night: va.is_per_night,
+          })));
         if (valueAddsError) throw valueAddsError;
       }
 
-      // Refresh rate plans
       const { data: updatedPlans } = await supabase
         .from('rate_plans')
-        .select('id, name, cancellation_policy, meal_plan, meal_plan_price, advance_booking_days, applicable_room_types')
+        .select('id, name, cancellation_policy, meal_plan, meal_plan_price, advance_booking_days, room_type')
+        .eq('is_active', true)
+        .order('room_type')
         .order('name');
 
       setRatePlans(updatedPlans || []);
       setHasChanges(false);
 
-      toast({
-        title: 'Success',
-        description: 'Rate plan restrictions saved successfully',
-      });
+      toast({ title: 'Success', description: 'Rate plan restrictions saved successfully' });
     } catch (error) {
       console.error('Error saving changes:', error);
-      toast({
-        title: 'Error',
-        description: 'Failed to save changes',
-        variant: 'destructive',
-      });
+      toast({ title: 'Error', description: 'Failed to save changes', variant: 'destructive' });
     } finally {
       setSaving(false);
     }
@@ -230,7 +188,6 @@ const PMSRestrictions = () => {
 
   return (
     <div className="min-h-screen bg-background">
-      {/* Header */}
       <header className="border-b bg-card">
         <div className="flex items-center justify-between px-4 py-3">
           <div className="flex items-center gap-3">
@@ -240,32 +197,35 @@ const PMSRestrictions = () => {
         </div>
       </header>
 
-      {/* Content */}
       <div className="p-4 md:p-6 max-w-4xl mx-auto">
         <AdminBreadcrumb section="PMS" currentPage="Restrictions" />
 
-        {/* Rate Plan Selector */}
         <div className="mt-6 mb-6">
           <label className="block text-sm font-medium mb-2">Select Rate Plan</label>
           <Select value={selectedPlanId} onValueChange={setSelectedPlanId}>
-            <SelectTrigger className="w-full md:w-80">
+            <SelectTrigger className="w-full md:w-96">
               <SelectValue placeholder="Select a rate plan" />
             </SelectTrigger>
             <SelectContent>
               {ratePlans.map((plan) => (
                 <SelectItem key={plan.id} value={plan.id}>
                   {plan.name}
+                  {plan.room_type && <span className="text-muted-foreground ml-1">({plan.room_type})</span>}
                 </SelectItem>
               ))}
             </SelectContent>
           </Select>
         </div>
 
-        {/* Configuration Card */}
         {selectedPlan && (
           <Card>
             <CardHeader>
-              <CardTitle className="text-lg">Rate Plan Configuration</CardTitle>
+              <div className="flex items-center gap-2">
+                <CardTitle className="text-lg">Rate Plan Configuration</CardTitle>
+                {selectedPlan.room_type && (
+                  <Badge variant="secondary">{selectedPlan.room_type}</Badge>
+                )}
+              </div>
             </CardHeader>
             <CardContent className="space-y-0">
               <RestrictionRow
@@ -274,16 +234,17 @@ const PMSRestrictions = () => {
                 onEdit={() => setNameDialogOpen(true)}
               />
               <RestrictionRow
+                label="Room type"
+                value={selectedPlan.room_type || 'Not assigned'}
+              />
+              <RestrictionRow
                 label="Policy"
                 value={getCancellationPolicyLabel(selectedPlan.cancellation_policy || 'flexible_1_day')}
                 onEdit={() => setPolicyDialogOpen(true)}
               />
               <RestrictionRow
                 label="Meals"
-                value={getMealPlanLabel(
-                  selectedPlan.meal_plan || 'no_meals',
-                  selectedPlan.meal_plan_price
-                )}
+                value={getMealPlanLabel(selectedPlan.meal_plan || 'no_meals', selectedPlan.meal_plan_price)}
                 onEdit={() => setMealDialogOpen(true)}
               />
               <RestrictionRow
@@ -302,24 +263,13 @@ const PMSRestrictions = () => {
                 editLabel="View"
                 onEdit={() => navigate('/pms/prices')}
               />
-              <RestrictionRow
-                label="Rooms"
-                value={getRoomApplicabilityLabel(
-                  selectedPlan.applicable_room_types,
-                  roomTypes.length
-                )}
-                onEdit={() => setRoomsDialogOpen(true)}
-              />
             </CardContent>
           </Card>
         )}
 
-        {/* Action Buttons */}
         {selectedPlan && (
           <div className="flex justify-center gap-4 mt-6">
-            <Button variant="outline" onClick={() => navigate('/pms/prices')}>
-              Go back
-            </Button>
+            <Button variant="outline" onClick={() => navigate('/pms/prices')}>Go back</Button>
             <Button onClick={handleSaveChanges} disabled={!hasChanges || saving}>
               {saving && <Loader2 className="h-4 w-4 mr-2 animate-spin" />}
               Apply changes
@@ -329,15 +279,12 @@ const PMSRestrictions = () => {
 
         {!selectedPlan && ratePlans.length === 0 && (
           <div className="text-center py-12">
-            <p className="text-muted-foreground mb-4">
-              No rate plans found. Create a rate plan first in PMS &gt; Prices.
-            </p>
+            <p className="text-muted-foreground mb-4">No rate plans found. Create a rate plan first in PMS &gt; Prices.</p>
             <Button onClick={() => navigate('/pms/prices')}>Go to Prices</Button>
           </div>
         )}
       </div>
 
-      {/* Dialogs */}
       {selectedPlan && (
         <>
           <RatePlanNameDialog
@@ -357,9 +304,7 @@ const PMSRestrictions = () => {
             onOpenChange={setMealDialogOpen}
             mealPlan={selectedPlan.meal_plan || 'no_meals'}
             mealPlanPrice={selectedPlan.meal_plan_price}
-            onChange={(meal_plan, meal_plan_price) =>
-              updateSelectedPlan({ meal_plan, meal_plan_price })
-            }
+            onChange={(meal_plan, meal_plan_price) => updateSelectedPlan({ meal_plan, meal_plan_price })}
           />
           <ValueAddsDialog
             open={valueAddsDialogOpen}
@@ -374,18 +319,7 @@ const PMSRestrictions = () => {
             open={bookingRulesDialogOpen}
             onOpenChange={setBookingRulesDialogOpen}
             advanceBookingDays={selectedPlan.advance_booking_days || 0}
-            onChange={(advance_booking_days) =>
-              updateSelectedPlan({ advance_booking_days })
-            }
-          />
-          <RoomApplicabilityDialog
-            open={roomsDialogOpen}
-            onOpenChange={setRoomsDialogOpen}
-            selectedRoomTypes={selectedPlan.applicable_room_types}
-            availableRoomTypes={roomTypes}
-            onChange={(applicable_room_types) =>
-              updateSelectedPlan({ applicable_room_types })
-            }
+            onChange={(advance_booking_days) => updateSelectedPlan({ advance_booking_days })}
           />
         </>
       )}

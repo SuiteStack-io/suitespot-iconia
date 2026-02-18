@@ -31,10 +31,6 @@ import {
 import { cn } from '@/lib/utils';
 import { calculateWeekendRate } from '@/lib/rateResolver';
 
-interface RoomType {
-  name: string;
-}
-
 interface Unit {
   id: string;
   unit_number: string | null;
@@ -58,6 +54,7 @@ interface RatePlan {
   is_active: boolean;
   priority: number;
   booking_com_id?: string | null;
+  room_type?: string | null;
 }
 
 interface RoomPriceState {
@@ -72,7 +69,7 @@ interface RatePlanDialogProps {
   onOpenChange: (open: boolean) => void;
   ratePlan: RatePlan | null;
   existingPrices: RatePlanPrice[];
-  roomTypes: RoomType[];
+  roomType: string;
   units: Unit[];
   onSave: (ratePlan: Omit<RatePlan, 'id'>, prices: RatePlanPrice[]) => void;
   isEditing: boolean;
@@ -83,7 +80,7 @@ export function RatePlanDialog({
   onOpenChange,
   ratePlan,
   existingPrices,
-  roomTypes,
+  roomType,
   units,
   onSave,
   isEditing,
@@ -94,29 +91,16 @@ export function RatePlanDialog({
   const [validFrom, setValidFrom] = useState<Date | undefined>();
   const [validTo, setValidTo] = useState<Date | undefined>();
   const [autoCalculateWeekend, setAutoCalculateWeekend] = useState(true);
-  const [typeRates, setTypeRates] = useState<Record<string, RoomPriceState>>({});
+  
+  // Single rate for this room type
+  const [weekdayRate, setWeekdayRate] = useState(0);
+  const [weekendRate, setWeekendRate] = useState(0);
+  const [minStay, setMinStay] = useState(1);
+  
+  // Unit-level overrides
   const [roomRates, setRoomRates] = useState<Record<string, RoomPriceState>>({});
-  const [expandedTypes, setExpandedTypes] = useState<Set<string>>(new Set());
+  const [showUnitOverrides, setShowUnitOverrides] = useState(false);
 
-  // Group units by room type
-  const unitsByRoomType = useMemo(() => {
-    const grouped: Record<string, Unit[]> = {};
-    units.forEach(unit => {
-      if (unit.booking_com_name) {
-        if (!grouped[unit.booking_com_name]) {
-          grouped[unit.booking_com_name] = [];
-        }
-        grouped[unit.booking_com_name].push(unit);
-      }
-    });
-    // Sort units by unit_number within each group
-    Object.keys(grouped).forEach(key => {
-      grouped[key].sort((a, b) => (a.unit_number || '').localeCompare(b.unit_number || ''));
-    });
-    return grouped;
-  }, [units]);
-
-  // Initialize form when dialog opens or ratePlan changes
   useEffect(() => {
     if (open) {
       if (ratePlan) {
@@ -126,110 +110,72 @@ export function RatePlanDialog({
         setValidFrom(ratePlan.valid_from ? new Date(ratePlan.valid_from) : undefined);
         setValidTo(ratePlan.valid_to ? new Date(ratePlan.valid_to) : undefined);
         
-        // Set existing type-level prices (unit_id is null)
-        const typePriceMap: Record<string, RoomPriceState> = {};
+        // Set the room-type-level price
+        const typePrice = existingPrices.find(p => !p.unit_id);
+        if (typePrice) {
+          setWeekdayRate(typePrice.weekday_rate);
+          setWeekendRate(typePrice.weekend_rate);
+          setMinStay(typePrice.min_stay);
+        }
+        
+        // Set unit overrides
         const roomPriceMap: Record<string, RoomPriceState> = {};
-        
-        existingPrices.forEach(p => {
-          if (!p.unit_id) {
-            typePriceMap[p.room_type] = {
-              weekday_rate: p.weekday_rate,
-              weekend_rate: p.weekend_rate,
-              min_stay: p.min_stay,
-            };
-          } else {
-            roomPriceMap[p.unit_id] = {
-              weekday_rate: p.weekday_rate,
-              weekend_rate: p.weekend_rate,
-              min_stay: p.min_stay,
-              isOverride: true,
-            };
-          }
+        existingPrices.filter(p => p.unit_id).forEach(p => {
+          roomPriceMap[p.unit_id!] = {
+            weekday_rate: p.weekday_rate,
+            weekend_rate: p.weekend_rate,
+            min_stay: p.min_stay,
+            isOverride: true,
+          };
         });
-        
-        setTypeRates(typePriceMap);
         setRoomRates(roomPriceMap);
+        setShowUnitOverrides(Object.keys(roomPriceMap).length > 0);
       } else {
-        // New rate plan - reset form
         setName('');
         setBookingComId('');
         setValidityType('dateRange');
         setValidFrom(undefined);
         setValidTo(undefined);
-        
-        // Initialize type prices with empty values
-        const typePriceMap: Record<string, RoomPriceState> = {};
-        roomTypes.forEach(rt => {
-          typePriceMap[rt.name] = {
-            weekday_rate: 0,
-            weekend_rate: 0,
-            min_stay: 1,
-          };
-        });
-        setTypeRates(typePriceMap);
+        setWeekdayRate(0);
+        setWeekendRate(0);
+        setMinStay(1);
         setRoomRates({});
+        setShowUnitOverrides(false);
       }
       setAutoCalculateWeekend(true);
-      setExpandedTypes(new Set());
     }
-  }, [open, ratePlan, existingPrices, roomTypes]);
+  }, [open, ratePlan, existingPrices]);
 
-  const toggleExpanded = (roomType: string) => {
-    setExpandedTypes(prev => {
-      const next = new Set(prev);
-      if (next.has(roomType)) {
-        next.delete(roomType);
-      } else {
-        next.add(roomType);
-      }
-      return next;
-    });
+  const handleWeekdayChange = (value: number) => {
+    setWeekdayRate(value);
+    if (autoCalculateWeekend) {
+      setWeekendRate(calculateWeekendRate(value));
+    }
   };
 
-  const handleTypeWeekdayRateChange = (roomType: string, value: number) => {
-    setTypeRates(prev => {
-      const updated = { ...prev };
-      updated[roomType] = {
-        ...updated[roomType],
-        weekday_rate: value,
-        weekend_rate: autoCalculateWeekend ? calculateWeekendRate(value) : updated[roomType].weekend_rate,
-      };
-      return updated;
-    });
+  const handleAutoCalculateChange = (checked: boolean) => {
+    setAutoCalculateWeekend(checked);
+    if (checked) {
+      setWeekendRate(calculateWeekendRate(weekdayRate));
+      setRoomRates(prev => {
+        const updated = { ...prev };
+        Object.keys(updated).forEach(unitId => {
+          if (updated[unitId].isOverride) {
+            updated[unitId] = { ...updated[unitId], weekend_rate: calculateWeekendRate(updated[unitId].weekday_rate) };
+          }
+        });
+        return updated;
+      });
+    }
   };
 
-  const handleTypeWeekendRateChange = (roomType: string, value: number) => {
-    setTypeRates(prev => ({
-      ...prev,
-      [roomType]: {
-        ...prev[roomType],
-        weekend_rate: value,
-      },
-    }));
-  };
-
-  const handleTypeMinStayChange = (roomType: string, value: number) => {
-    setTypeRates(prev => ({
-      ...prev,
-      [roomType]: {
-        ...prev[roomType],
-        min_stay: value,
-      },
-    }));
-  };
-
-  const handleRoomRateChange = (unitId: string, roomType: string, field: 'weekday_rate' | 'weekend_rate' | 'min_stay', value: number) => {
-    const typeRate = typeRates[roomType] || { weekday_rate: 0, weekend_rate: 0, min_stay: 1 };
-    
+  const handleRoomRateChange = (unitId: string, field: 'weekday_rate' | 'weekend_rate' | 'min_stay', value: number) => {
     setRoomRates(prev => {
-      const existing = prev[unitId] || { ...typeRate, isOverride: false };
+      const existing = prev[unitId] || { weekday_rate: weekdayRate, weekend_rate: weekendRate, min_stay: minStay, isOverride: false };
       let updated = { ...existing, [field]: value, isOverride: true };
-      
-      // Auto-calculate weekend if enabled
       if (field === 'weekday_rate' && autoCalculateWeekend) {
         updated.weekend_rate = calculateWeekendRate(value);
       }
-      
       return { ...prev, [unitId]: updated };
     });
   };
@@ -242,43 +188,6 @@ export function RatePlanDialog({
     });
   };
 
-  const getEffectiveRoomRate = (unitId: string, roomType: string): RoomPriceState => {
-    if (roomRates[unitId]?.isOverride) {
-      return roomRates[unitId];
-    }
-    return typeRates[roomType] || { weekday_rate: 0, weekend_rate: 0, min_stay: 1 };
-  };
-
-  const handleAutoCalculateChange = (checked: boolean) => {
-    setAutoCalculateWeekend(checked);
-    if (checked) {
-      // Recalculate all weekend rates for types
-      setTypeRates(prev => {
-        const updated = { ...prev };
-        Object.keys(updated).forEach(roomType => {
-          updated[roomType] = {
-            ...updated[roomType],
-            weekend_rate: calculateWeekendRate(updated[roomType].weekday_rate),
-          };
-        });
-        return updated;
-      });
-      // Recalculate for room overrides
-      setRoomRates(prev => {
-        const updated = { ...prev };
-        Object.keys(updated).forEach(unitId => {
-          if (updated[unitId].isOverride) {
-            updated[unitId] = {
-              ...updated[unitId],
-              weekend_rate: calculateWeekendRate(updated[unitId].weekday_rate),
-            };
-          }
-        });
-        return updated;
-      });
-    }
-  };
-
   const handleSave = () => {
     const ratePlanData: Omit<RatePlan, 'id'> = {
       name,
@@ -288,32 +197,32 @@ export function RatePlanDialog({
       is_active: true,
       priority: ratePlan?.priority || 0,
       booking_com_id: bookingComId || null,
+      room_type: roomType,
     };
 
-    // Collect type-level prices (unit_id = null)
-    const pricesArray: RatePlanPrice[] = Object.entries(typeRates)
-      .filter(([, p]) => p.weekday_rate > 0)
-      .map(([room_type, p]) => ({
-        room_type,
-        weekday_rate: p.weekday_rate,
-        weekend_rate: p.weekend_rate,
-        min_stay: p.min_stay,
-        unit_id: null,
-      }));
+    const pricesArray: RatePlanPrice[] = [];
 
-    // Collect room-level overrides (unit_id set)
+    // Room-type-level price
+    if (weekdayRate > 0) {
+      pricesArray.push({
+        room_type: roomType,
+        weekday_rate: weekdayRate,
+        weekend_rate: weekendRate,
+        min_stay: minStay,
+        unit_id: null,
+      });
+    }
+
+    // Unit overrides
     Object.entries(roomRates).forEach(([unitId, p]) => {
       if (p.isOverride && p.weekday_rate > 0) {
-        const unit = units.find(u => u.id === unitId);
-        if (unit?.booking_com_name) {
-          pricesArray.push({
-            room_type: unit.booking_com_name,
-            weekday_rate: p.weekday_rate,
-            weekend_rate: p.weekend_rate,
-            min_stay: p.min_stay,
-            unit_id: unitId,
-          });
-        }
+        pricesArray.push({
+          room_type: roomType,
+          weekday_rate: p.weekday_rate,
+          weekend_rate: p.weekend_rate,
+          min_stay: p.min_stay,
+          unit_id: unitId,
+        });
       }
     });
 
@@ -322,61 +231,36 @@ export function RatePlanDialog({
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="max-w-3xl max-h-[90vh] overflow-y-auto">
+      <DialogContent className="max-w-xl max-h-[90vh] overflow-y-auto">
         <DialogHeader>
           <DialogTitle>{isEditing ? 'Edit Rate Plan' : 'Create Rate Plan'}</DialogTitle>
           <DialogDescription>
-            {isEditing
-              ? 'Update the rate plan settings and room prices.'
-              : 'Create a new rate plan with pricing for each room type.'}
+            {roomType ? `Rate plan for ${roomType}` : 'Configure rate plan details.'}
           </DialogDescription>
         </DialogHeader>
 
         <div className="space-y-6 py-4">
-          {/* Plan Name */}
           <div className="space-y-2">
             <Label htmlFor="name">Plan Name</Label>
-            <Input
-              id="name"
-              value={name}
-              onChange={(e) => setName(e.target.value)}
-              placeholder="e.g., Summer Season 2026"
-            />
+            <Input id="name" value={name} onChange={(e) => setName(e.target.value)} placeholder="e.g., Standard Rate" />
           </div>
 
-          {/* Booking.com ID */}
           <div className="space-y-2">
             <Label htmlFor="bookingComId">Booking.com ID</Label>
-            <Input
-              id="bookingComId"
-              value={bookingComId}
-              onChange={(e) => setBookingComId(e.target.value)}
-              placeholder="e.g., 59882860"
-            />
-            <p className="text-xs text-muted-foreground">
-              Unique identifier for Booking.com integration
-            </p>
+            <Input id="bookingComId" value={bookingComId} onChange={(e) => setBookingComId(e.target.value)} placeholder="e.g., 59882860" />
+            <p className="text-xs text-muted-foreground">Optional identifier for Booking.com integration</p>
           </div>
 
-          {/* Validity Period */}
           <div className="space-y-3">
             <Label>Validity Period</Label>
-            <RadioGroup
-              value={validityType}
-              onValueChange={(value: 'always' | 'dateRange') => setValidityType(value)}
-              className="space-y-2"
-            >
+            <RadioGroup value={validityType} onValueChange={(v: 'always' | 'dateRange') => setValidityType(v)} className="space-y-2">
               <div className="flex items-center space-x-2">
                 <RadioGroupItem value="always" id="always" disabled={isEditing && !ratePlan?.is_default} />
-                <Label htmlFor="always" className="font-normal cursor-pointer">
-                  Always active (default rate)
-                </Label>
+                <Label htmlFor="always" className="font-normal cursor-pointer">Always active (default rate)</Label>
               </div>
               <div className="flex items-center space-x-2">
                 <RadioGroupItem value="dateRange" id="dateRange" />
-                <Label htmlFor="dateRange" className="font-normal cursor-pointer">
-                  Date range
-                </Label>
+                <Label htmlFor="dateRange" className="font-normal cursor-pointer">Date range</Label>
               </div>
             </RadioGroup>
 
@@ -386,24 +270,13 @@ export function RatePlanDialog({
                   <Label>From</Label>
                   <Popover>
                     <PopoverTrigger asChild>
-                      <Button
-                        variant="outline"
-                        className={cn(
-                          'w-full justify-start text-left font-normal',
-                          !validFrom && 'text-muted-foreground'
-                        )}
-                      >
+                      <Button variant="outline" className={cn('w-full justify-start text-left font-normal', !validFrom && 'text-muted-foreground')}>
                         <CalendarIcon className="mr-2 h-4 w-4" />
                         {validFrom ? format(validFrom, 'MMM d, yyyy') : 'Select date'}
                       </Button>
                     </PopoverTrigger>
                     <PopoverContent className="w-auto p-0" align="start">
-                      <Calendar
-                        mode="single"
-                        selected={validFrom}
-                        onSelect={setValidFrom}
-                        initialFocus
-                      />
+                      <Calendar mode="single" selected={validFrom} onSelect={setValidFrom} initialFocus />
                     </PopoverContent>
                   </Popover>
                 </div>
@@ -411,25 +284,13 @@ export function RatePlanDialog({
                   <Label>To</Label>
                   <Popover>
                     <PopoverTrigger asChild>
-                      <Button
-                        variant="outline"
-                        className={cn(
-                          'w-full justify-start text-left font-normal',
-                          !validTo && 'text-muted-foreground'
-                        )}
-                      >
+                      <Button variant="outline" className={cn('w-full justify-start text-left font-normal', !validTo && 'text-muted-foreground')}>
                         <CalendarIcon className="mr-2 h-4 w-4" />
                         {validTo ? format(validTo, 'MMM d, yyyy') : 'Select date'}
                       </Button>
                     </PopoverTrigger>
                     <PopoverContent className="w-auto p-0" align="start">
-                      <Calendar
-                        mode="single"
-                        selected={validTo}
-                        onSelect={setValidTo}
-                        disabled={(date) => validFrom ? date < validFrom : false}
-                        initialFocus
-                      />
+                      <Calendar mode="single" selected={validTo} onSelect={setValidTo} disabled={(date) => validFrom ? date < validFrom : false} initialFocus />
                     </PopoverContent>
                   </Popover>
                 </div>
@@ -437,187 +298,94 @@ export function RatePlanDialog({
             )}
           </div>
 
-          {/* Room Type Rates */}
+          {/* Rates */}
           <div className="space-y-3">
             <div className="flex items-center justify-between">
-              <Label>Room Type Rates</Label>
+              <Label>Pricing</Label>
               <div className="flex items-center space-x-2">
-                <Checkbox
-                  id="autoCalculate"
-                  checked={autoCalculateWeekend}
-                  onCheckedChange={handleAutoCalculateChange}
-                />
-                <Label htmlFor="autoCalculate" className="text-sm font-normal cursor-pointer">
-                  Auto-calculate weekend rate (+10%, round to $5)
-                </Label>
+                <Checkbox id="autoCalc" checked={autoCalculateWeekend} onCheckedChange={handleAutoCalculateChange} />
+                <Label htmlFor="autoCalc" className="text-sm font-normal cursor-pointer">Auto weekend (+10%)</Label>
               </div>
             </div>
 
-            <div className="border rounded-lg overflow-hidden">
-              <Table>
-                <TableHeader>
-                  <TableRow className="bg-muted/50">
-                    <TableHead className="w-[200px]">Room Type</TableHead>
-                    <TableHead className="w-32">Weekday ($)</TableHead>
-                    <TableHead className="w-32">Weekend ($)</TableHead>
-                    <TableHead className="w-28">Min Stay</TableHead>
-                    <TableHead className="w-10"></TableHead>
-                  </TableRow>
-                </TableHeader>
-                <TableBody>
-                  {roomTypes.map((rt) => {
-                    const isExpanded = expandedTypes.has(rt.name);
-                    const unitsInType = unitsByRoomType[rt.name] || [];
-                    const hasUnits = unitsInType.length > 0;
-                    
-                    return (
-                      <>
-                        {/* Room Type Row */}
-                        <TableRow 
-                          key={rt.name} 
-                          className={cn(
-                            hasUnits && 'cursor-pointer hover:bg-muted/30',
-                            isExpanded && 'bg-muted/20'
-                          )}
-                        >
-                          <TableCell 
-                            className="font-medium"
-                            onClick={() => hasUnits && toggleExpanded(rt.name)}
-                          >
-                            <div className="flex items-center gap-2">
-                              {hasUnits && (
-                                isExpanded 
-                                  ? <ChevronDown className="h-4 w-4 text-muted-foreground" />
-                                  : <ChevronRight className="h-4 w-4 text-muted-foreground" />
-                              )}
-                              {rt.name}
-                              {hasUnits && (
-                                <span className="text-xs text-muted-foreground">({unitsInType.length})</span>
-                              )}
-                            </div>
-                          </TableCell>
-                          <TableCell>
-                            <Input
-                              type="number"
-                              min="0"
-                              value={typeRates[rt.name]?.weekday_rate || ''}
-                              onChange={(e) => handleTypeWeekdayRateChange(rt.name, Number(e.target.value))}
-                              className="w-full"
-                              onClick={(e) => e.stopPropagation()}
-                            />
-                          </TableCell>
-                          <TableCell>
-                            <Input
-                              type="number"
-                              min="0"
-                              value={typeRates[rt.name]?.weekend_rate || ''}
-                              onChange={(e) => handleTypeWeekendRateChange(rt.name, Number(e.target.value))}
-                              disabled={autoCalculateWeekend}
-                              className={cn('w-full', autoCalculateWeekend && 'bg-muted')}
-                              onClick={(e) => e.stopPropagation()}
-                            />
-                          </TableCell>
-                          <TableCell>
-                            <Input
-                              type="number"
-                              min="1"
-                              value={typeRates[rt.name]?.min_stay || 1}
-                              onChange={(e) => handleTypeMinStayChange(rt.name, Number(e.target.value))}
-                              className="w-full"
-                              onClick={(e) => e.stopPropagation()}
-                            />
-                          </TableCell>
-                          <TableCell></TableCell>
-                        </TableRow>
-
-                        {/* Individual Room Rows (when expanded) */}
-                        {isExpanded && unitsInType.map((unit) => {
-                          const effectiveRate = getEffectiveRoomRate(unit.id, rt.name);
-                          const hasOverride = roomRates[unit.id]?.isOverride;
-                          
-                          return (
-                            <TableRow 
-                              key={unit.id} 
-                              className="bg-muted/5"
-                            >
-                              <TableCell className="pl-10">
-                                <span className={cn(
-                                  'text-sm',
-                                  hasOverride ? 'font-medium' : 'text-muted-foreground'
-                                )}>
-                                  └ Room {unit.unit_number}
-                                </span>
-                              </TableCell>
-                              <TableCell>
-                                <Input
-                                  type="number"
-                                  min="0"
-                                  value={effectiveRate.weekday_rate || ''}
-                                  onChange={(e) => handleRoomRateChange(unit.id, rt.name, 'weekday_rate', Number(e.target.value))}
-                                  className={cn(
-                                    'w-full',
-                                    !hasOverride && 'text-muted-foreground'
-                                  )}
-                                />
-                              </TableCell>
-                              <TableCell>
-                                <Input
-                                  type="number"
-                                  min="0"
-                                  value={effectiveRate.weekend_rate || ''}
-                                  onChange={(e) => handleRoomRateChange(unit.id, rt.name, 'weekend_rate', Number(e.target.value))}
-                                  disabled={autoCalculateWeekend}
-                                  className={cn(
-                                    'w-full',
-                                    autoCalculateWeekend && 'bg-muted',
-                                    !hasOverride && 'text-muted-foreground'
-                                  )}
-                                />
-                              </TableCell>
-                              <TableCell>
-                                <Input
-                                  type="number"
-                                  min="1"
-                                  value={effectiveRate.min_stay || 1}
-                                  onChange={(e) => handleRoomRateChange(unit.id, rt.name, 'min_stay', Number(e.target.value))}
-                                  className={cn(
-                                    'w-full',
-                                    !hasOverride && 'text-muted-foreground'
-                                  )}
-                                />
-                              </TableCell>
-                              <TableCell>
-                                {hasOverride && (
-                                  <Button
-                                    variant="ghost"
-                                    size="icon"
-                                    className="h-7 w-7"
-                                    onClick={() => resetRoomRate(unit.id)}
-                                    title="Reset to room type rate"
-                                  >
-                                    <RotateCcw className="h-3.5 w-3.5" />
-                                  </Button>
-                                )}
-                              </TableCell>
-                            </TableRow>
-                          );
-                        })}
-                      </>
-                    );
-                  })}
-                </TableBody>
-              </Table>
+            <div className="grid grid-cols-3 gap-3">
+              <div className="space-y-1">
+                <Label className="text-xs text-muted-foreground">Weekday ($)</Label>
+                <Input type="number" min="0" value={weekdayRate || ''} onChange={(e) => handleWeekdayChange(Number(e.target.value))} />
+              </div>
+              <div className="space-y-1">
+                <Label className="text-xs text-muted-foreground">Weekend ($)</Label>
+                <Input type="number" min="0" value={weekendRate || ''} onChange={(e) => setWeekendRate(Number(e.target.value))} disabled={autoCalculateWeekend} className={cn(autoCalculateWeekend && 'bg-muted')} />
+              </div>
+              <div className="space-y-1">
+                <Label className="text-xs text-muted-foreground">Min Stay</Label>
+                <Input type="number" min="1" value={minStay} onChange={(e) => setMinStay(Number(e.target.value))} />
+              </div>
             </div>
           </div>
+
+          {/* Unit Overrides */}
+          {units.length > 1 && (
+            <div className="space-y-3">
+              <div className="flex items-center space-x-2">
+                <Checkbox id="showOverrides" checked={showUnitOverrides} onCheckedChange={(c) => setShowUnitOverrides(!!c)} />
+                <Label htmlFor="showOverrides" className="text-sm font-normal cursor-pointer">Set different prices per room</Label>
+              </div>
+
+              {showUnitOverrides && (
+                <div className="border rounded-lg overflow-hidden">
+                  <Table>
+                    <TableHeader>
+                      <TableRow className="bg-muted/50">
+                        <TableHead>Room</TableHead>
+                        <TableHead className="w-28">Weekday ($)</TableHead>
+                        <TableHead className="w-28">Weekend ($)</TableHead>
+                        <TableHead className="w-24">Min Stay</TableHead>
+                        <TableHead className="w-10"></TableHead>
+                      </TableRow>
+                    </TableHeader>
+                    <TableBody>
+                      {units.sort((a, b) => (a.unit_number || '').localeCompare(b.unit_number || '')).map(unit => {
+                        const override = roomRates[unit.id];
+                        const hasOverride = override?.isOverride;
+                        const effective = hasOverride ? override : { weekday_rate: weekdayRate, weekend_rate: weekendRate, min_stay: minStay };
+
+                        return (
+                          <TableRow key={unit.id} className={cn(hasOverride && 'bg-muted/10')}>
+                            <TableCell className="font-medium text-sm">
+                              Room {unit.unit_number}
+                              {hasOverride && <span className="ml-1 text-xs text-primary">(custom)</span>}
+                            </TableCell>
+                            <TableCell>
+                              <Input type="number" min="0" value={effective.weekday_rate || ''} onChange={(e) => handleRoomRateChange(unit.id, 'weekday_rate', Number(e.target.value))} className="w-full" />
+                            </TableCell>
+                            <TableCell>
+                              <Input type="number" min="0" value={effective.weekend_rate || ''} onChange={(e) => handleRoomRateChange(unit.id, 'weekend_rate', Number(e.target.value))} disabled={autoCalculateWeekend} className={cn('w-full', autoCalculateWeekend && 'bg-muted')} />
+                            </TableCell>
+                            <TableCell>
+                              <Input type="number" min="1" value={effective.min_stay} onChange={(e) => handleRoomRateChange(unit.id, 'min_stay', Number(e.target.value))} className="w-full" />
+                            </TableCell>
+                            <TableCell>
+                              {hasOverride && (
+                                <Button variant="ghost" size="icon" className="h-7 w-7" onClick={() => resetRoomRate(unit.id)} title="Reset">
+                                  <RotateCcw className="h-3.5 w-3.5" />
+                                </Button>
+                              )}
+                            </TableCell>
+                          </TableRow>
+                        );
+                      })}
+                    </TableBody>
+                  </Table>
+                </div>
+              )}
+            </div>
+          )}
         </div>
 
         <DialogFooter>
-          <Button variant="outline" onClick={() => onOpenChange(false)}>
-            Cancel
-          </Button>
-          <Button onClick={handleSave} disabled={!name.trim()}>
-            {isEditing ? 'Save Changes' : 'Create Rate Plan'}
-          </Button>
+          <Button variant="outline" onClick={() => onOpenChange(false)}>Cancel</Button>
+          <Button onClick={handleSave} disabled={!name.trim() || weekdayRate <= 0}>{isEditing ? 'Save Changes' : 'Create Rate Plan'}</Button>
         </DialogFooter>
       </DialogContent>
     </Dialog>

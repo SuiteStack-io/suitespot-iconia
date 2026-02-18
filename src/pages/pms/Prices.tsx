@@ -1,13 +1,31 @@
-import { useState, useEffect } from 'react';
-import { Plus, DollarSign, Loader2 } from 'lucide-react';
+import { useState, useEffect, useMemo } from 'react';
+import { Plus, DollarSign, Loader2, ChevronDown, ChevronRight, Pencil, Trash2, Layers } from 'lucide-react';
 import { SlideMenu } from '@/components/SlideMenu';
 import { AdminBreadcrumb } from '@/components/AdminBreadcrumb';
 import { useAuth } from '@/lib/auth';
 import { Button } from '@/components/ui/button';
+import { Badge } from '@/components/ui/badge';
+import { Card, CardContent, CardHeader } from '@/components/ui/card';
 import { supabase } from '@/integrations/supabase/client';
 import { toast } from 'sonner';
-import { RatePlanCard } from '@/components/pms/RatePlanCard';
 import { RatePlanDialog } from '@/components/pms/RatePlanDialog';
+import { BulkRatePlanDialog } from '@/components/pms/BulkRatePlanDialog';
+import { getCancellationPolicyLabel } from '@/components/pms/CancellationPolicyDialog';
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from '@/components/ui/alert-dialog';
+import {
+  Collapsible,
+  CollapsibleContent,
+  CollapsibleTrigger,
+} from '@/components/ui/collapsible';
 
 interface RatePlan {
   id: string;
@@ -21,6 +39,11 @@ interface RatePlan {
   updated_at: string;
   cancellation_policy?: string | null;
   booking_com_id?: string | null;
+  room_type?: string | null;
+  currency?: string;
+  sell_mode?: string;
+  extra_adult_rate?: number;
+  extra_child_rate?: number;
 }
 
 interface RatePlanPrice {
@@ -31,10 +54,6 @@ interface RatePlanPrice {
   weekend_rate: number;
   min_stay: number;
   unit_id?: string | null;
-}
-
-interface RoomType {
-  name: string;
 }
 
 interface Unit {
@@ -48,10 +67,14 @@ const PMSPrices = () => {
   const [loading, setLoading] = useState(true);
   const [ratePlans, setRatePlans] = useState<RatePlan[]>([]);
   const [ratePlanPrices, setRatePlanPrices] = useState<Record<string, RatePlanPrice[]>>({});
-  const [roomTypes, setRoomTypes] = useState<RoomType[]>([]);
   const [units, setUnits] = useState<Unit[]>([]);
   const [dialogOpen, setDialogOpen] = useState(false);
+  const [bulkDialogOpen, setBulkDialogOpen] = useState(false);
   const [editingRatePlan, setEditingRatePlan] = useState<RatePlan | null>(null);
+  const [addingForRoomType, setAddingForRoomType] = useState<string | null>(null);
+  const [deleteDialogOpen, setDeleteDialogOpen] = useState(false);
+  const [deletingPlanId, setDeletingPlanId] = useState<string | null>(null);
+  const [expandedRoomTypes, setExpandedRoomTypes] = useState<Set<string>>(new Set());
 
   useEffect(() => {
     fetchData();
@@ -60,48 +83,29 @@ const PMSPrices = () => {
   const fetchData = async () => {
     setLoading(true);
     try {
-      // Fetch rate plans
-      const { data: plans, error: plansError } = await supabase
-        .from('rate_plans')
-        .select('*')
-        .order('priority', { ascending: false });
+      const [plansRes, pricesRes, unitsRes] = await Promise.all([
+        supabase.from('rate_plans').select('*').eq('is_active', true).order('room_type').order('priority', { ascending: false }),
+        supabase.from('rate_plan_prices').select('*'),
+        supabase.from('units').select('id, unit_number, booking_com_name').eq('location', 'ICONIA').not('booking_com_name', 'is', null),
+      ]);
 
-      if (plansError) throw plansError;
+      if (plansRes.error) throw plansRes.error;
+      if (pricesRes.error) throw pricesRes.error;
+      if (unitsRes.error) throw unitsRes.error;
 
-      // Fetch all rate plan prices
-      const { data: prices, error: pricesError } = await supabase
-        .from('rate_plan_prices')
-        .select('*');
+      setUnits(unitsRes.data || []);
+      setRatePlans(plansRes.data || []);
 
-      if (pricesError) throw pricesError;
-
-      // Fetch units with id, unit_number, and booking_com_name
-      const { data: unitsData, error: unitsError } = await supabase
-        .from('units')
-        .select('id, unit_number, booking_com_name')
-        .eq('location', 'ICONIA')
-        .not('booking_com_name', 'is', null);
-
-      if (unitsError) throw unitsError;
-
-      // Get unique room types
-      const uniqueRoomTypes = [...new Set(unitsData?.map(u => u.booking_com_name).filter(Boolean))] as string[];
-      
-      setUnits(unitsData || []);
-
-      setRatePlans(plans || []);
-
-      // Group prices by rate plan ID
       const pricesByPlan: Record<string, RatePlanPrice[]> = {};
-      (prices || []).forEach(price => {
-        if (!pricesByPlan[price.rate_plan_id]) {
-          pricesByPlan[price.rate_plan_id] = [];
-        }
+      (pricesRes.data || []).forEach(price => {
+        if (!pricesByPlan[price.rate_plan_id]) pricesByPlan[price.rate_plan_id] = [];
         pricesByPlan[price.rate_plan_id].push(price);
       });
       setRatePlanPrices(pricesByPlan);
 
-      setRoomTypes(uniqueRoomTypes.map(name => ({ name })));
+      // Expand all room types by default
+      const roomTypes = new Set((plansRes.data || []).map(p => p.room_type).filter(Boolean) as string[]);
+      setExpandedRoomTypes(roomTypes);
     } catch (error) {
       console.error('Error fetching data:', error);
       toast.error('Failed to load rate plans');
@@ -110,74 +114,77 @@ const PMSPrices = () => {
     }
   };
 
-  const handleCreateNew = () => {
+  // Group rate plans by room type
+  const roomTypeGroups = useMemo(() => {
+    const groups: Record<string, { plans: RatePlan[]; unitCount: number }> = {};
+    
+    // Get unique room types from units
+    const roomTypeCounts: Record<string, number> = {};
+    units.forEach(u => {
+      if (u.booking_com_name) {
+        roomTypeCounts[u.booking_com_name] = (roomTypeCounts[u.booking_com_name] || 0) + 1;
+      }
+    });
+
+    // Initialize groups for all room types
+    Object.keys(roomTypeCounts).sort().forEach(rt => {
+      groups[rt] = { plans: [], unitCount: roomTypeCounts[rt] };
+    });
+
+    // Assign plans to groups
+    ratePlans.forEach(plan => {
+      if (plan.room_type && groups[plan.room_type]) {
+        groups[plan.room_type].plans.push(plan);
+      }
+    });
+
+    return groups;
+  }, [ratePlans, units]);
+
+  const roomTypes = useMemo(() => {
+    const unique = [...new Set(units.map(u => u.booking_com_name).filter(Boolean))] as string[];
+    return unique.map(name => ({ name }));
+  }, [units]);
+
+  const handleAddForRoomType = (roomType: string) => {
+    setAddingForRoomType(roomType);
     setEditingRatePlan(null);
     setDialogOpen(true);
   };
 
   const handleEdit = (ratePlan: RatePlan) => {
+    setAddingForRoomType(ratePlan.room_type || null);
     setEditingRatePlan(ratePlan);
     setDialogOpen(true);
   };
 
-  const handleDelete = async (ratePlanId: string) => {
+  const handleDeleteClick = (planId: string) => {
+    setDeletingPlanId(planId);
+    setDeleteDialogOpen(true);
+  };
+
+  const confirmDelete = async () => {
+    if (!deletingPlanId) return;
     try {
-      const { error } = await supabase
-        .from('rate_plans')
-        .delete()
-        .eq('id', ratePlanId);
-
+      const { error } = await supabase.from('rate_plans').delete().eq('id', deletingPlanId);
       if (error) throw error;
-
       toast.success('Rate plan deleted');
       fetchData();
     } catch (error) {
       console.error('Error deleting rate plan:', error);
       toast.error('Failed to delete rate plan');
-    }
-  };
-
-  const handleToggleActive = async (ratePlanId: string, isActive: boolean) => {
-    try {
-      const { error } = await supabase
-        .from('rate_plans')
-        .update({ is_active: isActive })
-        .eq('id', ratePlanId);
-
-      if (error) throw error;
-
-      toast.success(isActive ? 'Rate plan activated' : 'Rate plan deactivated');
-      fetchData();
-    } catch (error) {
-      console.error('Error toggling rate plan:', error);
-      toast.error('Failed to update rate plan');
-    }
-  };
-
-  const handleSetDefault = async (ratePlanId: string) => {
-    try {
-      const { error } = await supabase
-        .from('rate_plans')
-        .update({ is_default: true })
-        .eq('id', ratePlanId);
-
-      if (error) throw error;
-
-      toast.success('Default rate plan updated');
-      fetchData();
-    } catch (error) {
-      console.error('Error setting default rate plan:', error);
-      toast.error('Failed to set default rate plan');
+    } finally {
+      setDeleteDialogOpen(false);
+      setDeletingPlanId(null);
     }
   };
 
   const handleSave = async (
-    ratePlanData: Omit<RatePlan, 'id' | 'created_at' | 'updated_at'>,
+    ratePlanData: any,
     prices: Array<{ room_type: string; weekday_rate: number; weekend_rate: number; min_stay: number; unit_id?: string | null }>
   ) => {
     try {
       if (editingRatePlan) {
-        // Update existing rate plan
         const { error: updateError } = await supabase
           .from('rate_plans')
           .update({
@@ -186,63 +193,33 @@ const PMSPrices = () => {
             valid_to: ratePlanData.valid_to,
             is_active: ratePlanData.is_active,
             booking_com_id: ratePlanData.booking_com_id,
+            room_type: ratePlanData.room_type,
           })
           .eq('id', editingRatePlan.id);
-
         if (updateError) throw updateError;
 
-        // Delete existing prices
-        const { error: deleteError } = await supabase
-          .from('rate_plan_prices')
-          .delete()
-          .eq('rate_plan_id', editingRatePlan.id);
+        await supabase.from('rate_plan_prices').delete().eq('rate_plan_id', editingRatePlan.id);
 
-        if (deleteError) throw deleteError;
-
-        // Insert new prices (including room-level overrides)
         if (prices.length > 0) {
-          const pricesToInsert = prices.map(p => ({
-            rate_plan_id: editingRatePlan.id,
-            room_type: p.room_type,
-            weekday_rate: p.weekday_rate,
-            weekend_rate: p.weekend_rate,
-            min_stay: p.min_stay,
-            unit_id: p.unit_id || null,
-          }));
-
-          const { error: insertError } = await supabase
-            .from('rate_plan_prices')
-            .insert(pricesToInsert);
-
+          const { error: insertError } = await supabase.from('rate_plan_prices').insert(
+            prices.map(p => ({ rate_plan_id: editingRatePlan.id, ...p, unit_id: p.unit_id || null }))
+          );
           if (insertError) throw insertError;
         }
 
         toast.success('Rate plan updated');
       } else {
-        // Create new rate plan
         const { data: newPlan, error: createError } = await supabase
           .from('rate_plans')
-          .insert([ratePlanData])
+          .insert([{ ...ratePlanData, room_type: addingForRoomType || ratePlanData.room_type }])
           .select()
           .single();
-
         if (createError) throw createError;
 
-        // Insert prices (including room-level overrides)
         if (prices.length > 0 && newPlan) {
-          const pricesToInsert = prices.map(p => ({
-            rate_plan_id: newPlan.id,
-            room_type: p.room_type,
-            weekday_rate: p.weekday_rate,
-            weekend_rate: p.weekend_rate,
-            min_stay: p.min_stay,
-            unit_id: p.unit_id || null,
-          }));
-
-          const { error: insertError } = await supabase
-            .from('rate_plan_prices')
-            .insert(pricesToInsert);
-
+          const { error: insertError } = await supabase.from('rate_plan_prices').insert(
+            prices.map(p => ({ rate_plan_id: newPlan.id, ...p, unit_id: p.unit_id || null }))
+          );
           if (insertError) throw insertError;
         }
 
@@ -257,6 +234,22 @@ const PMSPrices = () => {
     }
   };
 
+  const toggleRoomType = (roomType: string) => {
+    setExpandedRoomTypes(prev => {
+      const next = new Set(prev);
+      if (next.has(roomType)) next.delete(roomType);
+      else next.add(roomType);
+      return next;
+    });
+  };
+
+  const formatCurrency = (amount: number): string => `$${amount.toLocaleString()}`;
+
+  const getPlanPrice = (planId: string): RatePlanPrice | null => {
+    const prices = ratePlanPrices[planId] || [];
+    return prices.find(p => !p.unit_id) || null;
+  };
+
   if (loading) {
     return (
       <div className="min-h-screen bg-background flex items-center justify-center">
@@ -267,16 +260,15 @@ const PMSPrices = () => {
 
   return (
     <div className="min-h-screen bg-background">
-      {/* Header */}
       <header className="border-b bg-card sticky top-0 z-10">
         <div className="flex items-center justify-between px-4 py-3">
           <div className="flex items-center gap-3">
             <SlideMenu userRole={userRole} />
             <h1 className="text-lg font-semibold">Prices</h1>
           </div>
-          <Button onClick={handleCreateNew} className="gap-2">
-            <Plus className="h-4 w-4" />
-            New Rate Plan
+          <Button onClick={() => setBulkDialogOpen(true)} variant="outline" className="gap-2">
+            <Layers className="h-4 w-4" />
+            Bulk Create
           </Button>
         </div>
         <div className="px-4 pb-3">
@@ -284,60 +276,150 @@ const PMSPrices = () => {
         </div>
       </header>
 
-      {/* Content */}
       <div className="p-4 md:p-6 max-w-5xl mx-auto">
-        {ratePlans.length === 0 ? (
+        {Object.keys(roomTypeGroups).length === 0 ? (
           <div className="flex flex-col items-center justify-center text-center py-16">
             <div className="rounded-full bg-muted p-6 mb-4">
               <DollarSign className="h-12 w-12 text-muted-foreground" />
             </div>
-            <h2 className="text-2xl font-semibold mb-2">No Rate Plans</h2>
-            <p className="text-muted-foreground max-w-md mb-6">
-              Create your first rate plan to set pricing for room types. Rate plans are the single source of truth for all pricing.
+            <h2 className="text-2xl font-semibold mb-2">No Room Types</h2>
+            <p className="text-muted-foreground max-w-md">
+              No room types found. Make sure units have a room type name assigned.
             </p>
-            <Button onClick={handleCreateNew} className="gap-2">
-              <Plus className="h-4 w-4" />
-              Create Rate Plan
-            </Button>
           </div>
         ) : (
           <div className="space-y-4">
-            <div className="flex items-center justify-between mb-6">
-              <div>
-                <h2 className="text-xl font-semibold">Rate Plans</h2>
-                <p className="text-sm text-muted-foreground">
-                  Manage pricing for all room types. Higher priority plans override lower ones for overlapping dates.
-                </p>
-              </div>
+            <div className="mb-6">
+              <h2 className="text-xl font-semibold">Rate Plans by Room Type</h2>
+              <p className="text-sm text-muted-foreground">
+                Each rate plan applies to one room type. Add multiple rate plans per room type for seasonal pricing.
+              </p>
             </div>
 
-            {ratePlans.map((plan) => (
-              <RatePlanCard
-                key={plan.id}
-                ratePlan={plan}
-                prices={ratePlanPrices[plan.id] || []}
-                units={units}
-                onEdit={handleEdit}
-                onDelete={handleDelete}
-                onToggleActive={handleToggleActive}
-                onSetDefault={handleSetDefault}
-              />
+            {Object.entries(roomTypeGroups).map(([roomType, { plans, unitCount }]) => (
+              <Card key={roomType}>
+                <Collapsible open={expandedRoomTypes.has(roomType)} onOpenChange={() => toggleRoomType(roomType)}>
+                  <CollapsibleTrigger asChild>
+                    <CardHeader className="cursor-pointer hover:bg-muted/30 transition-colors pb-3">
+                      <div className="flex items-center justify-between">
+                        <div className="flex items-center gap-3">
+                          {expandedRoomTypes.has(roomType) ? (
+                            <ChevronDown className="h-5 w-5 text-muted-foreground" />
+                          ) : (
+                            <ChevronRight className="h-5 w-5 text-muted-foreground" />
+                          )}
+                          <div>
+                            <h3 className="font-semibold text-lg">{roomType}</h3>
+                            <p className="text-sm text-muted-foreground">
+                              {unitCount} room{unitCount !== 1 ? 's' : ''} · {plans.length} rate plan{plans.length !== 1 ? 's' : ''}
+                            </p>
+                          </div>
+                        </div>
+                      </div>
+                    </CardHeader>
+                  </CollapsibleTrigger>
+                  <CollapsibleContent>
+                    <CardContent className="pt-0 space-y-3">
+                      {plans.length === 0 ? (
+                        <p className="text-sm text-muted-foreground py-4 text-center">
+                          No rate plans configured for this room type.
+                        </p>
+                      ) : (
+                        plans.map(plan => {
+                          const price = getPlanPrice(plan.id);
+                          return (
+                            <div
+                              key={plan.id}
+                              className="flex items-center justify-between p-3 rounded-lg border bg-card hover:bg-muted/20 transition-colors"
+                            >
+                              <div className="flex-1">
+                                <div className="flex items-center gap-2 mb-1">
+                                  <span className="font-medium">{plan.name}</span>
+                                  {plan.is_default && (
+                                    <Badge variant="secondary" className="text-xs">Default</Badge>
+                                  )}
+                                  <Badge
+                                    variant={plan.cancellation_policy === 'non_refundable' ? 'destructive' : 'outline'}
+                                    className="text-xs"
+                                  >
+                                    {getCancellationPolicyLabel(plan.cancellation_policy || 'flexible_1_day')}
+                                  </Badge>
+                                </div>
+                                {price && (
+                                  <p className="text-sm text-muted-foreground">
+                                    {formatCurrency(price.weekday_rate)} weekday / {formatCurrency(price.weekend_rate)} weekend · {price.min_stay} night min
+                                  </p>
+                                )}
+                              </div>
+                              <div className="flex items-center gap-1">
+                                <Button variant="ghost" size="icon" onClick={() => handleEdit(plan)}>
+                                  <Pencil className="h-4 w-4" />
+                                </Button>
+                                <Button
+                                  variant="ghost"
+                                  size="icon"
+                                  onClick={() => handleDeleteClick(plan.id)}
+                                  className="text-destructive hover:text-destructive"
+                                >
+                                  <Trash2 className="h-4 w-4" />
+                                </Button>
+                              </div>
+                            </div>
+                          );
+                        })
+                      )}
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        className="w-full gap-2"
+                        onClick={() => handleAddForRoomType(roomType)}
+                      >
+                        <Plus className="h-4 w-4" />
+                        Add Rate Plan
+                      </Button>
+                    </CardContent>
+                  </CollapsibleContent>
+                </Collapsible>
+              </Card>
             ))}
           </div>
         )}
       </div>
 
-      {/* Rate Plan Dialog */}
       <RatePlanDialog
         open={dialogOpen}
         onOpenChange={setDialogOpen}
         ratePlan={editingRatePlan}
         existingPrices={editingRatePlan ? ratePlanPrices[editingRatePlan.id] || [] : []}
-        roomTypes={roomTypes}
-        units={units}
+        roomType={addingForRoomType || ''}
+        units={units.filter(u => u.booking_com_name === (addingForRoomType || editingRatePlan?.room_type))}
         onSave={handleSave}
         isEditing={!!editingRatePlan}
       />
+
+      <BulkRatePlanDialog
+        open={bulkDialogOpen}
+        onOpenChange={setBulkDialogOpen}
+        roomTypes={roomTypes}
+        onSave={fetchData}
+      />
+
+      <AlertDialog open={deleteDialogOpen} onOpenChange={setDeleteDialogOpen}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Delete Rate Plan</AlertDialogTitle>
+            <AlertDialogDescription>
+              Are you sure you want to delete this rate plan? This action cannot be undone.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>Cancel</AlertDialogCancel>
+            <AlertDialogAction onClick={confirmDelete} className="bg-destructive text-destructive-foreground hover:bg-destructive/90">
+              Delete
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </div>
   );
 };

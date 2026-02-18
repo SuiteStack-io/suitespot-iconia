@@ -1,16 +1,20 @@
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useState, useMemo } from 'react';
 import { supabase } from '@/integrations/supabase/client';
 import { SlideMenu } from '@/components/SlideMenu';
 import { AdminBreadcrumb } from '@/components/AdminBreadcrumb';
 import { useAuth } from '@/lib/auth';
+import { Button } from '@/components/ui/button';
+import { Input } from '@/components/ui/input';
+import { Label } from '@/components/ui/label';
+import { Card, CardContent, CardHeader } from '@/components/ui/card';
+import { Badge } from '@/components/ui/badge';
+import { Loader2, Save, ChevronDown, ChevronRight } from 'lucide-react';
+import { toast } from 'sonner';
 import {
-  Table,
-  TableBody,
-  TableCell,
-  TableHead,
-  TableHeader,
-  TableRow,
-} from '@/components/ui/table';
+  Collapsible,
+  CollapsibleContent,
+  CollapsibleTrigger,
+} from '@/components/ui/collapsible';
 import {
   Select,
   SelectContent,
@@ -18,18 +22,13 @@ import {
   SelectTrigger,
   SelectValue,
 } from '@/components/ui/select';
-import { Button } from '@/components/ui/button';
-import { Input } from '@/components/ui/input';
-import { Label } from '@/components/ui/label';
-import { Loader2, Save } from 'lucide-react';
-import { toast } from 'sonner';
 
 interface RatePlan {
   id: string;
   name: string;
   is_default: boolean;
   is_active: boolean;
-  property_id: string | null;
+  room_type: string | null;
   currency: string;
   sell_mode: string;
   extra_adult_rate: number;
@@ -56,8 +55,9 @@ interface EditedPrice {
   max_occupancy: number | null;
 }
 
-interface ChannexMapping {
-  channex_id: string;
+interface EditedPlan {
+  name: string;
+  sell_mode: string;
 }
 
 const RoomRates = () => {
@@ -65,177 +65,138 @@ const RoomRates = () => {
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [ratePlans, setRatePlans] = useState<RatePlan[]>([]);
-  const [selectedPlanId, setSelectedPlanId] = useState<string>('');
-  const [selectedPlan, setSelectedPlan] = useState<RatePlan | null>(null);
-  const [prices, setPrices] = useState<RatePlanPrice[]>([]);
-  const [propertyChannexId, setPropertyChannexId] = useState<string | null>(null);
-  
-  // Editable state
-  const [editedTitle, setEditedTitle] = useState('');
-  const [editedSellMode, setEditedSellMode] = useState<'per_room' | 'per_person'>('per_room');
+  const [prices, setPrices] = useState<Record<string, RatePlanPrice>>({});
   const [editedPrices, setEditedPrices] = useState<Record<string, EditedPrice>>({});
+  const [editedPlans, setEditedPlans] = useState<Record<string, EditedPlan>>({});
   const [hasChanges, setHasChanges] = useState(false);
+  const [expandedRoomTypes, setExpandedRoomTypes] = useState<Set<string>>(new Set());
 
   useEffect(() => {
-    fetchRatePlans();
-    fetchPropertyChannexId();
+    fetchData();
   }, []);
 
-  useEffect(() => {
-    if (selectedPlanId) {
-      const plan = ratePlans.find(p => p.id === selectedPlanId);
-      setSelectedPlan(plan || null);
-      if (plan) {
-        setEditedTitle(plan.name);
-        setEditedSellMode(plan.sell_mode as 'per_room' | 'per_person');
-        fetchPrices(plan.id);
-      }
-    }
-  }, [selectedPlanId, ratePlans]);
-
-  const fetchRatePlans = async () => {
+  const fetchData = async () => {
     try {
-      const { data, error } = await supabase
+      const { data: plans, error: plansError } = await supabase
         .from('rate_plans')
-        .select('id, name, is_default, is_active, property_id, currency, sell_mode, extra_adult_rate, extra_child_rate')
+        .select('id, name, is_default, is_active, room_type, currency, sell_mode, extra_adult_rate, extra_child_rate')
         .eq('is_active', true)
-        .order('is_default', { ascending: false })
+        .order('room_type')
         .order('name');
 
-      if (error) throw error;
+      if (plansError) throw plansError;
 
-      setRatePlans(data || []);
+      // Fetch type-level prices for all plans
+      const planIds = (plans || []).map(p => p.id);
+      const { data: allPrices, error: pricesError } = await supabase
+        .from('rate_plan_prices')
+        .select('*')
+        .in('rate_plan_id', planIds)
+        .is('unit_id', null);
+
+      if (pricesError) throw pricesError;
+
+      setRatePlans(plans || []);
+
+      // Map prices by plan ID
+      const priceMap: Record<string, RatePlanPrice> = {};
+      const editMap: Record<string, EditedPrice> = {};
+      const planEditMap: Record<string, EditedPlan> = {};
       
-      // Select default plan or first plan
-      if (data && data.length > 0) {
-        const defaultPlan = data.find(p => p.is_default) || data[0];
-        setSelectedPlanId(defaultPlan.id);
-      }
+      (allPrices || []).forEach(p => {
+        priceMap[p.rate_plan_id] = p;
+        editMap[p.rate_plan_id] = {
+          weekday_rate: p.weekday_rate,
+          weekend_rate: p.weekend_rate,
+          min_stay: p.min_stay,
+          base_occupancy: p.base_occupancy ?? 2,
+          max_occupancy: p.max_occupancy,
+        };
+      });
+
+      (plans || []).forEach(p => {
+        planEditMap[p.id] = { name: p.name, sell_mode: p.sell_mode };
+      });
+
+      setPrices(priceMap);
+      setEditedPrices(editMap);
+      setEditedPlans(planEditMap);
+      setHasChanges(false);
+
+      // Expand all by default
+      const roomTypes = new Set((plans || []).map(p => p.room_type).filter(Boolean) as string[]);
+      setExpandedRoomTypes(roomTypes);
     } catch (error) {
-      console.error('Error fetching rate plans:', error);
+      console.error('Error fetching data:', error);
       toast.error('Failed to load rate plans');
     } finally {
       setLoading(false);
     }
   };
 
-  const fetchPropertyChannexId = async () => {
-    try {
-      const { data, error } = await supabase
-        .from('channex_mappings')
-        .select('channex_id')
-        .eq('entity_type', 'property')
-        .limit(1)
-        .maybeSingle();
+  // Group plans by room type
+  const roomTypeGroups = useMemo(() => {
+    const groups: Record<string, RatePlan[]> = {};
+    ratePlans.forEach(plan => {
+      const rt = plan.room_type || 'Unassigned';
+      if (!groups[rt]) groups[rt] = [];
+      groups[rt].push(plan);
+    });
+    return groups;
+  }, [ratePlans]);
 
-      if (error) throw error;
-      setPropertyChannexId(data?.channex_id || null);
-    } catch (error) {
-      console.error('Error fetching property Channex ID:', error);
-    }
-  };
-
-  const fetchPrices = async (ratePlanId: string) => {
-    try {
-      const { data, error } = await supabase
-        .from('rate_plan_prices')
-        .select('*')
-        .eq('rate_plan_id', ratePlanId)
-        .is('unit_id', null) // Only get room-type level prices, not unit overrides
-        .order('room_type');
-
-      if (error) throw error;
-      
-      setPrices(data || []);
-      
-      // Initialize edited prices
-      const editedMap: Record<string, EditedPrice> = {};
-      (data || []).forEach(price => {
-        editedMap[price.id] = {
-          weekday_rate: price.weekday_rate,
-          weekend_rate: price.weekend_rate,
-          min_stay: price.min_stay,
-          base_occupancy: price.base_occupancy ?? 2,
-          max_occupancy: price.max_occupancy,
-        };
-      });
-      setEditedPrices(editedMap);
-      setHasChanges(false);
-    } catch (error) {
-      console.error('Error fetching prices:', error);
-      toast.error('Failed to load prices');
-    }
-  };
-
-  const handlePriceChange = (priceId: string, field: keyof EditedPrice, value: number | null) => {
+  const handlePriceChange = (planId: string, field: keyof EditedPrice, value: number | null) => {
     setEditedPrices(prev => ({
       ...prev,
-      [priceId]: {
-        ...prev[priceId],
-        [field]: value,
-      },
+      [planId]: { ...prev[planId], [field]: value },
     }));
     setHasChanges(true);
   };
 
-  const handleTitleChange = (value: string) => {
-    setEditedTitle(value);
-    setHasChanges(true);
-  };
-
-  const handleSellModeChange = (value: 'per_room' | 'per_person') => {
-    setEditedSellMode(value);
+  const handlePlanChange = (planId: string, field: keyof EditedPlan, value: string) => {
+    setEditedPlans(prev => ({
+      ...prev,
+      [planId]: { ...prev[planId], [field]: value },
+    }));
     setHasChanges(true);
   };
 
   const handleSave = async () => {
-    if (!selectedPlan) return;
-
     setSaving(true);
     try {
-      // Update rate plan
-      const { error: planError } = await supabase
-        .from('rate_plans')
-        .update({
-          name: editedTitle,
-          sell_mode: editedSellMode,
-        })
-        .eq('id', selectedPlan.id);
-
-      if (planError) throw planError;
-
-      // Update prices
-      for (const [priceId, editedPrice] of Object.entries(editedPrices)) {
-        const { error: priceError } = await supabase
-          .from('rate_plan_prices')
-          .update({
-            weekday_rate: editedPrice.weekday_rate,
-            weekend_rate: editedPrice.weekend_rate,
-            min_stay: editedPrice.min_stay,
-            base_occupancy: editedPrice.base_occupancy,
-            max_occupancy: editedPrice.max_occupancy,
-          })
-          .eq('id', priceId);
-
-        if (priceError) throw priceError;
+      for (const [planId, edited] of Object.entries(editedPlans)) {
+        await supabase.from('rate_plans').update({ name: edited.name, sell_mode: edited.sell_mode }).eq('id', planId);
       }
 
-      toast.success('Rate plan saved successfully');
+      for (const [planId, edited] of Object.entries(editedPrices)) {
+        const price = prices[planId];
+        if (!price) continue;
+        await supabase.from('rate_plan_prices').update({
+          weekday_rate: edited.weekday_rate,
+          weekend_rate: edited.weekend_rate,
+          min_stay: edited.min_stay,
+          base_occupancy: edited.base_occupancy,
+          max_occupancy: edited.max_occupancy,
+        }).eq('id', price.id);
+      }
+
+      toast.success('All changes saved');
       setHasChanges(false);
-      
-      // Refresh data
-      await fetchRatePlans();
+      await fetchData();
     } catch (error) {
-      console.error('Error saving rate plan:', error);
-      toast.error('Failed to save rate plan');
+      console.error('Error saving:', error);
+      toast.error('Failed to save changes');
     } finally {
       setSaving(false);
     }
   };
 
-  const formatCurrency = (amount: number | null): string => {
-    if (amount === null) return '—';
-    return `$${amount.toLocaleString()}`;
+  const toggleRoomType = (rt: string) => {
+    setExpandedRoomTypes(prev => {
+      const next = new Set(prev);
+      if (next.has(rt)) next.delete(rt); else next.add(rt);
+      return next;
+    });
   };
 
   if (loading) {
@@ -248,18 +209,13 @@ const RoomRates = () => {
 
   return (
     <div className="min-h-screen bg-background">
-      {/* Header */}
       <header className="bg-card border-b sticky top-0 z-50">
         <div className="flex items-center justify-between px-4 py-3">
           <div className="flex items-center gap-3">
             <SlideMenu userRole={userRole} />
             <h1 className="text-xl font-semibold text-foreground">Room Rates</h1>
           </div>
-          <Button 
-            onClick={handleSave} 
-            disabled={!hasChanges || saving}
-            className="gap-2"
-          >
+          <Button onClick={handleSave} disabled={!hasChanges || saving} className="gap-2">
             {saving ? <Loader2 className="h-4 w-4 animate-spin" /> : <Save className="h-4 w-4" />}
             Save Changes
           </Button>
@@ -269,200 +225,88 @@ const RoomRates = () => {
         </div>
       </header>
 
-      {/* Main Content */}
       <main className="p-4 md:p-6 max-w-6xl mx-auto">
         {ratePlans.length === 0 ? (
           <div className="bg-card rounded-lg border shadow-sm p-8 text-center">
-            <p className="text-muted-foreground mb-4">
-              No rate plans found. Create one in PMS → Prices.
-            </p>
+            <p className="text-muted-foreground">No rate plans found. Create one in PMS → Prices.</p>
           </div>
         ) : (
-          <div className="space-y-6">
-            {/* Rate Plan Selector */}
-            <div className="bg-card rounded-lg border shadow-sm p-4">
-              <Label className="text-sm font-medium mb-2 block">Rate Plan</Label>
-              <Select value={selectedPlanId} onValueChange={setSelectedPlanId}>
-                <SelectTrigger className="w-full md:w-80">
-                  <SelectValue placeholder="Select a rate plan" />
-                </SelectTrigger>
-                <SelectContent>
-                  {ratePlans.map(plan => (
-                    <SelectItem key={plan.id} value={plan.id}>
-                      {plan.name} {plan.is_default && '(Default)'}
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-            </div>
+          <div className="space-y-4">
+            {Object.entries(roomTypeGroups).sort(([a], [b]) => a.localeCompare(b)).map(([roomType, plans]) => (
+              <Card key={roomType}>
+                <Collapsible open={expandedRoomTypes.has(roomType)} onOpenChange={() => toggleRoomType(roomType)}>
+                  <CollapsibleTrigger asChild>
+                    <CardHeader className="cursor-pointer hover:bg-muted/30 transition-colors pb-3">
+                      <div className="flex items-center gap-3">
+                        {expandedRoomTypes.has(roomType) ? <ChevronDown className="h-5 w-5 text-muted-foreground" /> : <ChevronRight className="h-5 w-5 text-muted-foreground" />}
+                        <h3 className="font-semibold text-lg">{roomType}</h3>
+                        <Badge variant="secondary">{plans.length} plan{plans.length !== 1 ? 's' : ''}</Badge>
+                      </div>
+                    </CardHeader>
+                  </CollapsibleTrigger>
+                  <CollapsibleContent>
+                    <CardContent className="pt-0 space-y-4">
+                      {plans.map(plan => {
+                        const edited = editedPrices[plan.id];
+                        const editedPlan = editedPlans[plan.id];
+                        if (!edited || !editedPlan) return null;
 
-            {selectedPlan && (
-              <>
-                {/* Rate Plan Settings */}
-                <div className="bg-card rounded-lg border shadow-sm overflow-hidden">
-                  <div className="px-4 py-3 border-b bg-muted/30">
-                    <h2 className="font-semibold">Rate Plan Settings</h2>
-                  </div>
-                  <div className="p-4 grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
-                    {/* Title */}
-                    <div className="space-y-2">
-                      <Label htmlFor="title">Title</Label>
-                      <Input
-                        id="title"
-                        value={editedTitle}
-                        onChange={(e) => handleTitleChange(e.target.value)}
-                        placeholder="Rate plan name"
-                      />
-                    </div>
-
-                    {/* Property ID */}
-                    <div className="space-y-2">
-                      <Label>Property ID</Label>
-                      <Input
-                        value={propertyChannexId || 'Not configured'}
-                        disabled
-                        className="bg-muted text-muted-foreground"
-                      />
-                      <p className="text-xs text-muted-foreground">From Channex mapping</p>
-                    </div>
-
-                    {/* Currency */}
-                    <div className="space-y-2">
-                      <Label>Currency</Label>
-                      <Input
-                        value="USD"
-                        disabled
-                        className="bg-muted text-muted-foreground"
-                      />
-                      <p className="text-xs text-muted-foreground">Fixed</p>
-                    </div>
-
-                    {/* Sell Mode */}
-                    <div className="space-y-2">
-                      <Label>Sell Mode</Label>
-                      <Select value={editedSellMode} onValueChange={handleSellModeChange}>
-                        <SelectTrigger>
-                          <SelectValue />
-                        </SelectTrigger>
-                        <SelectContent>
-                          <SelectItem value="per_room">Per Room</SelectItem>
-                          <SelectItem value="per_person">Per Person</SelectItem>
-                        </SelectContent>
-                      </Select>
-                    </div>
-                  </div>
-                </div>
-
-                {/* Rates Table */}
-                <div className="bg-card rounded-lg border shadow-sm overflow-hidden">
-                  <div className="px-4 py-3 border-b bg-muted/30">
-                    <h2 className="font-semibold">Room Type Rates</h2>
-                  </div>
-                  <div className="overflow-x-auto">
-                    <Table>
-                      <TableHeader>
-                        <TableRow className="bg-muted/50">
-                          <TableHead className="font-semibold">Room Type</TableHead>
-                          <TableHead className="font-semibold text-right">Weekday Rate</TableHead>
-                          <TableHead className="font-semibold text-right">Weekend Rate</TableHead>
-                          <TableHead className="font-semibold text-right">Min Stay</TableHead>
-                          <TableHead className="font-semibold text-right">Base Occ</TableHead>
-                          <TableHead className="font-semibold text-right">Max Occ</TableHead>
-                          <TableHead className="font-semibold text-right">Extra Adult</TableHead>
-                          <TableHead className="font-semibold text-right">Extra Child</TableHead>
-                        </TableRow>
-                      </TableHeader>
-                      <TableBody>
-                        {prices.map((price) => {
-                          const edited = editedPrices[price.id];
-                          if (!edited) return null;
-
-                          return (
-                            <TableRow key={price.id} className="hover:bg-muted/20">
-                              <TableCell className="font-medium">{price.room_type}</TableCell>
-                              <TableCell className="text-right">
-                                <Input
-                                  type="number"
-                                  value={edited.weekday_rate}
-                                  onChange={(e) => handlePriceChange(price.id, 'weekday_rate', parseFloat(e.target.value) || 0)}
-                                  className="w-24 text-right ml-auto"
-                                  min={0}
-                                />
-                              </TableCell>
-                              <TableCell className="text-right">
-                                <Input
-                                  type="number"
-                                  value={edited.weekend_rate}
-                                  onChange={(e) => handlePriceChange(price.id, 'weekend_rate', parseFloat(e.target.value) || 0)}
-                                  className="w-24 text-right ml-auto"
-                                  min={0}
-                                />
-                              </TableCell>
-                              <TableCell className="text-right">
-                                <Input
-                                  type="number"
-                                  value={edited.min_stay}
-                                  onChange={(e) => handlePriceChange(price.id, 'min_stay', parseInt(e.target.value) || 1)}
-                                  className="w-20 text-right ml-auto"
-                                  min={1}
-                                />
-                              </TableCell>
-                              <TableCell className="text-right">
-                                <Input
-                                  type="number"
-                                  value={edited.base_occupancy}
-                                  onChange={(e) => handlePriceChange(price.id, 'base_occupancy', parseInt(e.target.value) || 1)}
-                                  className="w-20 text-right ml-auto"
-                                  min={1}
-                                />
-                              </TableCell>
-                              <TableCell className="text-right">
-                                <Input
-                                  type="number"
-                                  value={edited.max_occupancy ?? ''}
-                                  onChange={(e) => handlePriceChange(price.id, 'max_occupancy', e.target.value ? parseInt(e.target.value) : null)}
-                                  className="w-20 text-right ml-auto"
-                                  min={1}
-                                  placeholder="—"
-                                />
-                              </TableCell>
-                              <TableCell className="text-right">
-                                <span className="text-muted-foreground">
-                                  {formatCurrency(selectedPlan.extra_adult_rate)}
-                                </span>
-                              </TableCell>
-                              <TableCell className="text-right">
-                                <span className="text-muted-foreground">
-                                  {formatCurrency(selectedPlan.extra_child_rate)}
-                                </span>
-                              </TableCell>
-                            </TableRow>
-                          );
-                        })}
-
-                        {prices.length === 0 && (
-                          <TableRow>
-                            <TableCell colSpan={8} className="text-center py-8 text-muted-foreground">
-                              No room types configured for this rate plan
-                            </TableCell>
-                          </TableRow>
-                        )}
-                      </TableBody>
-                    </Table>
-                  </div>
-                </div>
-
-                {/* Channex Schema Info */}
-                <div className="bg-muted/30 rounded-lg border p-4">
-                  <h3 className="font-medium text-sm mb-2">Channex Schema Mapping</h3>
-                  <p className="text-xs text-muted-foreground">
-                    This data will map to Channex's rate plan schema: title → name, property_id → Channex property, 
-                    currency → USD (fixed), sell_mode → per_room/per_person, options.base_occupancy, options.max_occupancy, 
-                    options.extra_adult_rate ($50 default), options.extra_child_rate ($0 default).
-                  </p>
-                </div>
-              </>
-            )}
+                        return (
+                          <div key={plan.id} className="border rounded-lg p-4 space-y-3">
+                            <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
+                              <div className="space-y-1">
+                                <Label className="text-xs text-muted-foreground">Plan Name</Label>
+                                <Input value={editedPlan.name} onChange={(e) => handlePlanChange(plan.id, 'name', e.target.value)} />
+                              </div>
+                              <div className="space-y-1">
+                                <Label className="text-xs text-muted-foreground">Sell Mode</Label>
+                                <Select value={editedPlan.sell_mode} onValueChange={(v) => handlePlanChange(plan.id, 'sell_mode', v)}>
+                                  <SelectTrigger><SelectValue /></SelectTrigger>
+                                  <SelectContent>
+                                    <SelectItem value="per_room">Per Room</SelectItem>
+                                    <SelectItem value="per_person">Per Person</SelectItem>
+                                  </SelectContent>
+                                </Select>
+                              </div>
+                              <div className="space-y-1">
+                                <Label className="text-xs text-muted-foreground">Currency</Label>
+                                <Input value="USD" disabled className="bg-muted" />
+                              </div>
+                            </div>
+                            <div className="grid grid-cols-2 md:grid-cols-5 gap-3">
+                              <div className="space-y-1">
+                                <Label className="text-xs text-muted-foreground">Weekday Rate</Label>
+                                <Input type="number" value={edited.weekday_rate} onChange={(e) => handlePriceChange(plan.id, 'weekday_rate', parseFloat(e.target.value) || 0)} min={0} />
+                              </div>
+                              <div className="space-y-1">
+                                <Label className="text-xs text-muted-foreground">Weekend Rate</Label>
+                                <Input type="number" value={edited.weekend_rate} onChange={(e) => handlePriceChange(plan.id, 'weekend_rate', parseFloat(e.target.value) || 0)} min={0} />
+                              </div>
+                              <div className="space-y-1">
+                                <Label className="text-xs text-muted-foreground">Min Stay</Label>
+                                <Input type="number" value={edited.min_stay} onChange={(e) => handlePriceChange(plan.id, 'min_stay', parseInt(e.target.value) || 1)} min={1} />
+                              </div>
+                              <div className="space-y-1">
+                                <Label className="text-xs text-muted-foreground">Base Occ</Label>
+                                <Input type="number" value={edited.base_occupancy} onChange={(e) => handlePriceChange(plan.id, 'base_occupancy', parseInt(e.target.value) || 1)} min={1} />
+                              </div>
+                              <div className="space-y-1">
+                                <Label className="text-xs text-muted-foreground">Max Occ</Label>
+                                <Input type="number" value={edited.max_occupancy ?? ''} onChange={(e) => handlePriceChange(plan.id, 'max_occupancy', e.target.value ? parseInt(e.target.value) : null)} min={1} placeholder="—" />
+                              </div>
+                            </div>
+                            <div className="flex items-center gap-4 text-xs text-muted-foreground">
+                              <span>Extra Adult: ${plan.extra_adult_rate}</span>
+                              <span>Extra Child: ${plan.extra_child_rate}</span>
+                            </div>
+                          </div>
+                        );
+                      })}
+                    </CardContent>
+                  </CollapsibleContent>
+                </Collapsible>
+              </Card>
+            ))}
           </div>
         )}
       </main>

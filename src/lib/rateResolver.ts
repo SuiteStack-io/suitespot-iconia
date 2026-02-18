@@ -18,6 +18,7 @@ interface RatePlan {
   valid_to: string | null;
   is_active: boolean;
   priority: number;
+  room_type: string | null;
 }
 
 interface RateResult {
@@ -30,10 +31,11 @@ interface RateResult {
 
 /**
  * Get the active rate for a room type on a specific date
+ * Now each rate plan is linked to ONE room type via rate_plans.room_type
  * Priorities:
- * 1. Unit-specific price in active rate plan for the date
- * 2. Room type price in active rate plan for the date
- * 3. Default rate plan room type price
+ * 1. Date-specific rate plan for this room type (highest priority first)
+ * 2. Default rate plan for this room type
+ * 3. Unit-specific override within the matched plan
  */
 export const getActiveRate = async (
   roomType: string,
@@ -42,11 +44,13 @@ export const getActiveRate = async (
 ): Promise<RateResult | null> => {
   try {
     const dateStr = checkInDate.toISOString().split('T')[0];
-    // Fetch all active rate plans
+    
+    // Fetch all active rate plans for this room type
     const { data: ratePlans, error: plansError } = await supabase
       .from('rate_plans')
       .select('*')
       .eq('is_active', true)
+      .eq('room_type', roomType)
       .order('priority', { ascending: false });
 
     if (plansError) throw plansError;
@@ -57,28 +61,23 @@ export const getActiveRate = async (
     
     // First, look for date-specific plans
     for (const plan of ratePlans) {
-      if (plan.is_default) continue; // Skip default plan in first pass
-      
+      if (plan.is_default) continue;
       const validFrom = plan.valid_from;
       const validTo = plan.valid_to;
-      
-      // Check if date falls within the plan's validity period
-      if (validFrom && validTo) {
-        if (dateStr >= validFrom && dateStr <= validTo) {
-          matchingPlan = plan;
-          break; // Highest priority match found
-        }
+      if (validFrom && validTo && dateStr >= validFrom && dateStr <= validTo) {
+        matchingPlan = plan;
+        break;
       }
     }
 
     // If no date-specific plan found, use default plan
     if (!matchingPlan) {
-      matchingPlan = ratePlans.find(p => p.is_default) || null;
+      matchingPlan = ratePlans.find(p => p.is_default) || ratePlans[0] || null;
     }
 
     if (!matchingPlan) return null;
 
-    // First, try to get unit-specific price if unitId is provided
+    // Try unit-specific price first
     if (unitId) {
       const { data: unitPrice, error: unitPriceError } = await supabase
         .from('rate_plan_prices')
@@ -111,7 +110,6 @@ export const getActiveRate = async (
       .maybeSingle();
 
     if (typePriceError) throw typePriceError;
-    
     if (!typePrice) return null;
 
     return {
