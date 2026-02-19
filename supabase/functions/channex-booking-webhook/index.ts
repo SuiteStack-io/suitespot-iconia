@@ -26,25 +26,31 @@ serve(async (req: Request) => {
     }
 
     const body = await req.json();
-    const { event, property_id: channexPropertyId, payload } = body;
+    console.log("[channex-booking-webhook] Received:", JSON.stringify(body));
+
+    const event = body.event;
 
     if (event !== "booking") {
       return ok({ success: true, message: `Ignored event: ${event}` });
     }
 
-    const {
-      id: revisionId,
-      booking_id,
-      status,
-      ota_name,
-      ota_reservation_code,
-      arrival_date,
-      departure_date,
-      customer,
-      rooms,
-      amount,
-      currency,
-    } = payload;
+    // Handle both nested (payload.booking) and flat (payload directly) formats
+    const rawPayload = body.payload || {};
+    const bookingData = rawPayload.booking || rawPayload;
+    const channexPropertyId = rawPayload.property_id || body.property_id;
+
+    // Extract fields from booking data
+    const revisionId = bookingData.revision_id || bookingData.id;
+    const booking_id = bookingData.booking_id || bookingData.id;
+    const status = bookingData.status;
+    const ota_name = bookingData.ota_name;
+    const ota_reservation_code = bookingData.ota_reservation_code;
+    const arrival_date = bookingData.arrival_date;
+    const departure_date = bookingData.departure_date;
+    const customer = bookingData.customer;
+    const rooms = bookingData.rooms;
+    const amount = bookingData.amount || bookingData.total_amount;
+    const currency = bookingData.currency;
 
     const supabase = createClient(
       Deno.env.get("SUPABASE_URL")!,
@@ -95,7 +101,7 @@ serve(async (req: Request) => {
 
     // --- Guest info ---
     const guestName = [customer?.name, customer?.surname].filter(Boolean).join(" ") || "Unknown Guest";
-    const guestEmail = customer?.mail || "unknown@unknown.com";
+    const guestEmail = customer?.email || customer?.mail || "unknown@unknown.com";
     const guestPhone = customer?.phone || null;
 
     // --- Execute DB operation ---
