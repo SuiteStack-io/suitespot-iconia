@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { Loader2, CheckCircle2, XCircle, Wifi, AlertTriangle, Clock, Copy, Check } from 'lucide-react';
+import { Loader2, CheckCircle2, XCircle, Wifi, AlertTriangle, Clock, Copy, Check, FlaskConical } from 'lucide-react';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
@@ -42,6 +42,7 @@ export function ConnectionStatus() {
   const [loading, setLoading] = useState(false);
   const [health, setHealth] = useState<HealthData | null>(null);
   const [copied, setCopied] = useState(false);
+  const [testing, setTesting] = useState(false);
 
   const copyWebhookUrl = async () => {
     await navigator.clipboard.writeText(WEBHOOK_URL);
@@ -67,6 +68,68 @@ export function ConnectionStatus() {
       toast.error('Failed to run health check');
     } finally {
       setLoading(false);
+    }
+  };
+
+  const testWebhook = async () => {
+    setTesting(true);
+    const testId = `test-booking-${Date.now()}`;
+    const testOtaCode = `TEST-${Date.now()}`;
+    try {
+      const res = await fetch(WEBHOOK_URL, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          event: 'booking',
+          payload: {
+            property_id: 'test-property-id',
+            booking: {
+              id: testId,
+              booking_id: testId,
+              revision_id: `test-rev-${Date.now()}`,
+              status: 'new',
+              ota_name: 'Test',
+              ota_reservation_code: testOtaCode,
+              arrival_date: new Date().toISOString().split('T')[0],
+              departure_date: new Date(Date.now() + 86400000 * 3).toISOString().split('T')[0],
+              currency: 'USD',
+              amount: '100.00',
+              customer: { name: 'Test', surname: 'Webhook', email: 'test@test.com', phone: '+0000000000' },
+              rooms: [],
+            },
+          },
+        }),
+      });
+
+      const result = await res.json();
+
+      if (!result.success) {
+        toast.error(`Webhook returned error: ${result.error || 'Unknown'}`);
+        setTesting(false);
+        return;
+      }
+
+      // Wait then check DB
+      await new Promise(r => setTimeout(r, 2000));
+
+      const { data, error } = await supabase
+        .from('channex_bookings')
+        .select('id')
+        .eq('channex_booking_id', testId)
+        .maybeSingle();
+
+      if (data) {
+        toast.success('Webhook pipeline works! Test booking saved and cleaned up.');
+        await supabase.from('channex_bookings').delete().eq('channex_booking_id', testId);
+      } else if (error) {
+        toast.error(`DB check failed: ${error.message}`);
+      } else {
+        toast.warning('Webhook responded OK but booking not found in DB. Check property mapping — the test used a fake property ID.');
+      }
+    } catch (err: any) {
+      toast.error(`Test failed: ${err.message}`);
+    } finally {
+      setTesting(false);
     }
   };
 
@@ -140,10 +203,16 @@ export function ConnectionStatus() {
           </div>
         )}
 
-        <Button onClick={runHealthCheck} disabled={loading} className="gap-2">
-          {loading ? <Loader2 className="h-4 w-4 animate-spin" /> : <Wifi className="h-4 w-4" />}
-          Run Health Check
-        </Button>
+        <div className="flex gap-2">
+          <Button onClick={runHealthCheck} disabled={loading} className="gap-2">
+            {loading ? <Loader2 className="h-4 w-4 animate-spin" /> : <Wifi className="h-4 w-4" />}
+            Run Health Check
+          </Button>
+          <Button variant="outline" onClick={testWebhook} disabled={testing} className="gap-2">
+            {testing ? <Loader2 className="h-4 w-4 animate-spin" /> : <FlaskConical className="h-4 w-4" />}
+            Test Webhook
+          </Button>
+        </div>
       </CardContent>
     </Card>
   );
