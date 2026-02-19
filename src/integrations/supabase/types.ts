@@ -237,7 +237,7 @@ export type Database = {
           id: string
           ota_name: string
           ota_reservation_code: string | null
-          property_id: string
+          property_id: string | null
           rate_plan_id: string | null
           room_type_id: string | null
           status: string
@@ -262,7 +262,7 @@ export type Database = {
           id?: string
           ota_name: string
           ota_reservation_code?: string | null
-          property_id: string
+          property_id?: string | null
           rate_plan_id?: string | null
           room_type_id?: string | null
           status?: string
@@ -287,7 +287,7 @@ export type Database = {
           id?: string
           ota_name?: string
           ota_reservation_code?: string | null
-          property_id?: string
+          property_id?: string | null
           rate_plan_id?: string | null
           room_type_id?: string | null
           status?: string

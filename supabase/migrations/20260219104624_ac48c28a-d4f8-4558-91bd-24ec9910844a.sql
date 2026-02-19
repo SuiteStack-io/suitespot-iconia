@@ -1,0 +1,1 @@
+ALTER TABLE channex_bookings ALTER COLUMN property_id DROP NOT NULL;
