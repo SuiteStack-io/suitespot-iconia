@@ -1,38 +1,59 @@
 
 
-## Add "Test Webhook" Button to Channex Connection Page
+## Make Webhook Resilient to Missing Property Mappings
 
-### What This Does
-
-Adds a button on the Channex Integration connection tab that sends a fake booking to your webhook endpoint, then checks if it appeared in the database. This lets you verify the entire pipeline works without waiting for a real Channex booking.
-
-### How It Works
-
-1. You click "Test Webhook"
-2. The app sends a simulated Channex booking payload (with a unique test reference like `TEST-1234567890`) directly to the webhook URL
-3. It waits 2 seconds for processing
-4. It queries the `channex_bookings` table for the test booking ID
-5. Shows a success toast if found, or an error toast with details if not
+### Problem
+The webhook hard-fails with "Unknown property: test-property-id" because:
+1. It returns early when `channex_mappings` has no match for the property ID
+2. The `property_id` column in `channex_bookings` is NOT NULL, so even if we skip the lookup, the insert would fail
+3. There's also a bug on line 113: `booking_data: payload` references an undefined variable (should be `body`)
 
 ### Changes
 
-**File: `src/components/channex/ConnectionStatus.tsx`**
+**1. Database Migration**
+Make `channex_bookings.property_id` nullable so test/unmapped bookings can be saved with `property_id = null`.
 
-Add a "Test Webhook" button and handler:
+```sql
+ALTER TABLE channex_bookings ALTER COLUMN property_id DROP NOT NULL;
+```
 
-- New state: `testing` (boolean for loading spinner)
-- New function `testWebhook()` that:
-  - Generates a unique test booking ID (`test-booking-{timestamp}`)
-  - Sends a POST to the webhook URL with a realistic fake payload including event type, nested booking data, property ID, customer info, dates, and amount
-  - Waits briefly, then queries `channex_bookings` for the test record
-  - Shows success/error feedback via toast
-  - Cleans up the test record from the database after verification
-- New button placed next to the "Run Health Check" button with a `FlaskConical` icon
-- The test payload uses a clearly identifiable `ota_name: "Test"` and `ota_reservation_code: "TEST-..."` so test records are easy to spot
+**2. Edge Function: `supabase/functions/channex-booking-webhook/index.ts`**
 
-### Important Notes
+Replace the hard-fail property lookup (lines 60-74) with graceful handling:
 
-- The test sends the request directly to the webhook URL (not through `supabase.functions.invoke`) since the webhook is designed to receive unauthenticated POST requests from Channex
-- The test booking is automatically deleted after verification so it doesn't pollute your bookings list
-- If property mapping lookup fails inside the webhook, the test will report that specific error rather than a generic failure
+```text
+// --- Resolve local property ID ---
+const isTestProperty = !channexPropertyId || channexPropertyId.startsWith('test-') || channexPropertyId === 'test-property-id';
+let localPropertyId: string | null = null;
 
+if (!isTestProperty) {
+  const { data: propMapping } = await supabase
+    .from("channex_mappings")
+    .select("local_id")
+    .eq("channex_id", channexPropertyId)
+    .eq("entity_type", "property")
+    .maybeSingle();
+
+  if (propMapping) {
+    localPropertyId = propMapping.local_id;
+  } else {
+    console.warn(`[channex-booking-webhook] No local property for Channex ID ${channexPropertyId} - saving with null property_id`);
+    await logSync("channex-booking-webhook", "webhook", body, null, null, true, `Warning: unknown property ${channexPropertyId}`, null);
+  }
+} else {
+  console.log("[channex-booking-webhook] Test property detected, skipping property lookup");
+}
+```
+
+Key behavior changes:
+- Test property IDs (starting with "test-" or equal to "test-property-id") skip the lookup entirely
+- Real property IDs that aren't found log a warning but **still save the booking** with `property_id = null`
+- The booking is never discarded due to a missing mapping
+
+Also fix the bug on line 113 where `booking_data: payload` should be `booking_data: body`.
+
+Also skip the Channex ACK call for test bookings (revision IDs starting with "test-") since those would fail against the real Channex API.
+
+### Summary of files changed
+- **Database migration**: Make `channex_bookings.property_id` nullable
+- **`supabase/functions/channex-booking-webhook/index.ts`**: Graceful property resolution, fix `payload` reference bug, skip ACK for test revisions
