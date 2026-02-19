@@ -222,14 +222,14 @@ export type Database = {
         Row: {
           acknowledged: boolean
           adults: number
-          arrival_date: string
+          arrival_date: string | null
           booking_data: Json | null
           channex_booking_id: string
           channex_revision_id: string | null
           children: number
           created_at: string
           currency: string
-          departure_date: string
+          departure_date: string | null
           guest_country: string | null
           guest_email: string
           guest_name: string
@@ -247,14 +247,14 @@ export type Database = {
         Insert: {
           acknowledged?: boolean
           adults?: number
-          arrival_date: string
+          arrival_date?: string | null
           booking_data?: Json | null
           channex_booking_id: string
           channex_revision_id?: string | null
           children?: number
           created_at?: string
           currency?: string
-          departure_date: string
+          departure_date?: string | null
           guest_country?: string | null
           guest_email: string
           guest_name: string
@@ -272,14 +272,14 @@ export type Database = {
         Update: {
           acknowledged?: boolean
           adults?: number
-          arrival_date?: string
+          arrival_date?: string | null
           booking_data?: Json | null
           channex_booking_id?: string
           channex_revision_id?: string | null
           children?: number
           created_at?: string
           currency?: string
-          departure_date?: string
+          departure_date?: string | null
           guest_country?: string | null
           guest_email?: string
           guest_name?: string

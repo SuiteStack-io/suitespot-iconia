@@ -13,7 +13,6 @@ serve(async (req: Request) => {
     return new Response(null, { headers: corsHeaders });
   }
 
-  // Always return 200 to Channex
   const ok = (body: object) =>
     new Response(JSON.stringify(body), {
       status: 200,
@@ -26,7 +25,7 @@ serve(async (req: Request) => {
     }
 
     const body = await req.json();
-    console.log("[channex-booking-webhook] Received:", JSON.stringify(body));
+    console.log("[channex-booking-webhook] Full payload:", JSON.stringify(body, null, 2));
 
     const event = body.event;
 
@@ -34,23 +33,70 @@ serve(async (req: Request) => {
       return ok({ success: true, message: `Ignored event: ${event}` });
     }
 
-    // Handle both nested (payload.booking) and flat (payload directly) formats
+    // --- Parse initial booking data from multiple possible structures ---
     const rawPayload = body.payload || {};
-    const bookingData = rawPayload.booking || rawPayload;
-    const channexPropertyId = rawPayload.property_id || body.property_id;
+    const bookingData =
+      rawPayload.booking ||
+      body.booking ||
+      body.data?.booking ||
+      body.data ||
+      rawPayload;
 
-    // Extract fields from booking data
-    const revisionId = bookingData.revision_id || bookingData.id;
-    const booking_id = bookingData.booking_id || bookingData.id;
-    const status = bookingData.status;
-    const ota_name = bookingData.ota_name;
-    const ota_reservation_code = bookingData.ota_reservation_code;
-    const arrival_date = bookingData.arrival_date;
-    const departure_date = bookingData.departure_date;
-    const customer = bookingData.customer;
-    const rooms = bookingData.rooms;
-    const amount = bookingData.amount || bookingData.total_amount;
-    const currency = bookingData.currency;
+    const channexPropertyId = rawPayload.property_id || body.property_id;
+    const booking_id = bookingData.booking_id || bookingData.id || rawPayload.booking_id;
+    const revisionId = bookingData.revision_id || rawPayload.revision_id || bookingData.id;
+
+    console.log("[channex-booking-webhook] Raw payload keys:", Object.keys(rawPayload));
+    console.log("[channex-booking-webhook] BookingData keys:", Object.keys(bookingData));
+    console.log("[channex-booking-webhook] booking_id:", booking_id, "revisionId:", revisionId);
+
+    // --- Detect test payloads ---
+    const isTestProperty = !channexPropertyId || channexPropertyId.startsWith('test-') || channexPropertyId === 'test-property-id';
+    const isTestBooking = !booking_id || String(booking_id).startsWith('test-');
+
+    // --- Enrich thin payloads by fetching full booking from Channex API ---
+    let enrichedData = bookingData;
+    if (!bookingData.arrival_date && !bookingData.check_in && booking_id && !isTestBooking) {
+      console.log("[channex-booking-webhook] Thin payload detected, fetching full booking from API...");
+      try {
+        const fullBooking: any = await channexRequest("GET", `/api/v1/bookings/${booking_id}`);
+        const fetchedData = fullBooking?.data?.attributes || fullBooking?.data || fullBooking;
+        enrichedData = { ...bookingData, ...fetchedData };
+        console.log("[channex-booking-webhook] Enriched from API, keys:", Object.keys(enrichedData));
+      } catch (fetchErr: any) {
+        console.warn("[channex-booking-webhook] Could not fetch full booking:", fetchErr.message);
+      }
+    }
+
+    // --- Flexible field extraction ---
+    const status = enrichedData.status || bookingData.status;
+    const ota_name = enrichedData.ota_name || enrichedData.source || bookingData.ota_name;
+    const ota_reservation_code = enrichedData.ota_reservation_code || bookingData.ota_reservation_code;
+
+    const arrival_date =
+      enrichedData.arrival_date ||
+      enrichedData.arrivalDate ||
+      enrichedData.check_in ||
+      enrichedData.checkin ||
+      enrichedData.checkin_date ||
+      rawPayload.arrival_date ||
+      null;
+
+    const departure_date =
+      enrichedData.departure_date ||
+      enrichedData.departureDate ||
+      enrichedData.check_out ||
+      enrichedData.checkout ||
+      enrichedData.checkout_date ||
+      rawPayload.departure_date ||
+      null;
+
+    const customer = enrichedData.customer || bookingData.customer;
+    const rooms = enrichedData.rooms || bookingData.rooms;
+    const amount = enrichedData.amount || enrichedData.total_amount || bookingData.amount || bookingData.total_amount;
+    const currency = enrichedData.currency || bookingData.currency;
+
+    console.log("[channex-booking-webhook] Extracted dates:", { arrival_date, departure_date });
 
     const supabase = createClient(
       Deno.env.get("SUPABASE_URL")!,
@@ -58,7 +104,6 @@ serve(async (req: Request) => {
     );
 
     // --- Resolve local property ID ---
-    const isTestProperty = !channexPropertyId || channexPropertyId.startsWith('test-') || channexPropertyId === 'test-property-id';
     let localPropertyId: string | null = null;
 
     if (!isTestProperty) {
@@ -72,14 +117,12 @@ serve(async (req: Request) => {
       if (propMapping) {
         localPropertyId = propMapping.local_id;
       } else {
-        console.warn(`[channex-booking-webhook] No local property for Channex ID ${channexPropertyId} - saving with null property_id`);
+        console.warn(`[channex-booking-webhook] No local property for Channex ID ${channexPropertyId}`);
         await logSync("channex-booking-webhook", "webhook", body, null, null, true, `Warning: unknown property ${channexPropertyId}`, null);
       }
-    } else {
-      console.log("[channex-booking-webhook] Test property detected, skipping property lookup");
     }
 
-    // --- Resolve room type & rate plan (best effort) ---
+    // --- Resolve room type & rate plan ---
     let roomTypeId: string | null = null;
     let ratePlanId: string | null = null;
 
@@ -120,7 +163,6 @@ serve(async (req: Request) => {
         .eq("channex_booking_id", booking_id);
       if (error) dbError = error.message;
     } else {
-      // Upsert for both "new" and "modified"
       const record = {
         channex_booking_id: booking_id,
         channex_revision_id: revisionId,
@@ -141,11 +183,6 @@ serve(async (req: Request) => {
         acknowledged: false,
       };
 
-      // If this webhook also creates a local reservation, set skip_channex_sync
-      // to prevent the trigger from pushing it back to Channex
-      // (The channex_bookings table itself doesn't have this flag —
-      //  it's for the reservations table when a local reservation is created from this booking)
-
       const { error } = await supabase
         .from("channex_bookings")
         .upsert(record, { onConflict: "channex_booking_id" });
@@ -163,7 +200,6 @@ serve(async (req: Request) => {
     let ackSuccess = false;
     const isTestRevision = !revisionId || String(revisionId).startsWith('test-');
     if (isTestRevision) {
-      console.log("[channex-booking-webhook] Test revision detected, skipping ACK");
       ackSuccess = true;
     } else {
       try {
