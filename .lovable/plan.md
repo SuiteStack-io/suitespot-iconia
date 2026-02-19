@@ -1,98 +1,38 @@
 
 
-## Fix Channex Booking Webhook
+## Add "Test Webhook" Button to Channex Connection Page
 
-### Problem Summary
+### What This Does
 
-The webhook function exists and is deployed, but has two issues:
-1. Channex is not sending webhooks to it (no calls recorded at all)
-2. The payload parsing assumes a flat structure, but Channex sends a nested one
+Adds a button on the Channex Integration connection tab that sends a fake booking to your webhook endpoint, then checks if it appeared in the database. This lets you verify the entire pipeline works without waiting for a real Channex booking.
 
-### What You Need to Do (in Channex Dashboard)
+### How It Works
 
-Register this webhook URL in your Channex account settings:
+1. You click "Test Webhook"
+2. The app sends a simulated Channex booking payload (with a unique test reference like `TEST-1234567890`) directly to the webhook URL
+3. It waits 2 seconds for processing
+4. It queries the `channex_bookings` table for the test booking ID
+5. Shows a success toast if found, or an error toast with details if not
 
-```
-https://phvduifvymozqiqwvajj.supabase.co/functions/v1/channex-booking-webhook
-```
-
-Subscribe to the `booking` event type. This is done in the Channex dashboard under Webhooks/Subscriptions for your property.
-
-### Code Fix: Update Payload Parsing
-
-The current code destructures `payload` directly:
-```
-const { event, property_id, payload } = body;
-const { id, booking_id, status, ... } = payload;  // WRONG - booking data is nested deeper
-```
-
-Channex actually sends:
-```json
-{
-  "event": "booking",
-  "payload": {
-    "booking": { "id": "...", "booking_id": "...", "customer": {...}, ... },
-    "property_id": "channex-property-id"
-  }
-}
-```
-
-The fix makes the parser handle BOTH the nested format (payload.booking) and the flat format (payload directly), so it works regardless of which format Channex sends.
-
-### Changes to `supabase/functions/channex-booking-webhook/index.ts`
-
-Replace the payload extraction section (lines 28-47) with flexible parsing that:
-- Reads `property_id` from `payload.property_id` OR top-level `body.property_id`
-- Reads booking data from `payload.booking` (nested) OR `payload` directly (flat)
-- Extracts guest email from both `customer.email` and `customer.mail` (Channex uses both)
-- Handles `total_amount` as either a string or number field (Channex sends it as `amount` sometimes)
-
-### Display Webhook URL on Connection Page
-
-Add a clearly visible webhook URL section to the `ConnectionStatus.tsx` component so you always have it handy. It will show:
-- The full webhook URL with a copy button
-- A note reminding you to register it in Channex
-
-### Technical Details
-
-**File: `supabase/functions/channex-booking-webhook/index.ts`**
-
-Updated parsing logic:
-
-```text
-const body = await req.json();
-console.log("[channex-booking-webhook] Received:", JSON.stringify(body));
-
-const event = body.event;
-
-// Handle both nested and flat payload formats
-const rawPayload = body.payload || {};
-const bookingData = rawPayload.booking || rawPayload;
-const channexPropertyId = rawPayload.property_id || body.property_id;
-
-// Extract fields from booking data
-const revisionId = bookingData.revision_id || bookingData.id;
-const booking_id = bookingData.booking_id || bookingData.id;
-const status = bookingData.status;
-const ota_name = bookingData.ota_name;
-const ota_reservation_code = bookingData.ota_reservation_code;
-const arrival_date = bookingData.arrival_date;
-const departure_date = bookingData.departure_date;
-const customer = bookingData.customer;
-const rooms = bookingData.rooms;
-const amount = bookingData.amount || bookingData.total_amount;
-const currency = bookingData.currency;
-```
-
-Guest email extraction also updated:
-```text
-const guestEmail = customer?.email || customer?.mail || "unknown@unknown.com";
-```
+### Changes
 
 **File: `src/components/channex/ConnectionStatus.tsx`**
 
-Add a webhook URL info card above the health check button showing:
-- The webhook endpoint URL
-- A copy-to-clipboard button
-- Instructions to register it in Channex
+Add a "Test Webhook" button and handler:
+
+- New state: `testing` (boolean for loading spinner)
+- New function `testWebhook()` that:
+  - Generates a unique test booking ID (`test-booking-{timestamp}`)
+  - Sends a POST to the webhook URL with a realistic fake payload including event type, nested booking data, property ID, customer info, dates, and amount
+  - Waits briefly, then queries `channex_bookings` for the test record
+  - Shows success/error feedback via toast
+  - Cleans up the test record from the database after verification
+- New button placed next to the "Run Health Check" button with a `FlaskConical` icon
+- The test payload uses a clearly identifiable `ota_name: "Test"` and `ota_reservation_code: "TEST-..."` so test records are easy to spot
+
+### Important Notes
+
+- The test sends the request directly to the webhook URL (not through `supabase.functions.invoke`) since the webhook is designed to receive unauthenticated POST requests from Channex
+- The test booking is automatically deleted after verification so it doesn't pollute your bookings list
+- If property mapping lookup fails inside the webhook, the test will report that specific error rather than a generic failure
 
