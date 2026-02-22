@@ -1,49 +1,37 @@
 
 
-## Fix: Channex Webhook Not Logging to Sync Logs
+## Fix: channex_bookings Foreign Key Violation on property_id
 
-### Root Cause (Two Issues Found)
+### Root Cause
 
-**Issue 1: Foreign key mismatch on `channex_sync_logs.property_id`**
+The `channex_bookings.property_id` column has a foreign key constraint referencing `units(id)`. But the webhook stores a **property mapping** `local_id` from `channex_mappings`, which is a property-level concept -- not a unit. The property `local_id` (`e30ad118-...`) doesn't exist in the `units` table, so the insert fails.
 
-The `channex_sync_logs` table has a foreign key: `property_id -> units(id)`. But the webhook passes a **property mapping local_id** (from `channex_mappings`), which references a property concept -- not a unit. This causes every `logSync()` insert to silently fail with a foreign key violation. This is confirmed by the edge function logs from the property sync, which show the exact error:
-
-```
-Key (property_id)=(e30ad118-...) is not present in table "units"
-```
-
-This means **every single webhook call has been failing to log**, which is why `channex_sync_logs` has zero rows for `channex-booking-webhook`.
-
-**Issue 2: Non-booking events are not logged**
-
-When Channex sends a "test" event (which is what the "Test Webhook" button sends), the function returns early at line 32 without writing anything to `channex_sync_logs`. So even if the FK issue were fixed, test events would still produce no log.
+This is the exact same issue we just fixed on `channex_sync_logs`.
 
 ### Fix
 
-**1. Database Migration: Drop the broken foreign key**
-
-The `property_id` column in `channex_sync_logs` should be a plain UUID without a foreign key, since it stores property-level IDs (not unit IDs):
+**Database migration**: Drop the broken FK constraint.
 
 ```sql
-ALTER TABLE channex_sync_logs DROP CONSTRAINT channex_sync_logs_property_id_fkey;
+ALTER TABLE channex_bookings DROP CONSTRAINT channex_bookings_property_id_fkey;
 ```
 
-**2. Edge Function: Log non-booking events before returning**
+The `property_id` column is already nullable (confirmed from schema query), so no other schema change is needed. The webhook code itself is already correct -- it looks up the local property ID from `channex_mappings` and passes it. The only problem is the FK constraint rejecting that ID because it doesn't exist in `units`.
 
-Add an immediate log entry for ALL incoming requests (including "test" events) so you always have visibility:
+### No Edge Function Changes Needed
 
-```text
-// Right after parsing the body and before the event check:
-// 1. Create supabase client early
-// 2. Log the incoming request immediately
-// 3. Then check event type and proceed
-```
+The webhook code at lines 125-142 already:
+- Extracts the Channex property ID from the payload
+- Looks it up in `channex_mappings` to get the `local_id`
+- Falls back to `null` if not found
+- Passes the resolved `localPropertyId` to the booking record
 
-Specific changes to `channex-booking-webhook/index.ts`:
-- Move the `supabase` client creation to right after parsing the JSON body (before the event check on line 32)
-- Before the `if (event !== "booking")` check, insert a log entry recording the raw payload
-- For non-booking events, still log them before returning the "ignored" response
+This is all correct. The only blocker is the FK constraint.
 
-### Files Modified
-- **Database migration**: Drop FK constraint on `channex_sync_logs.property_id`
-- **`supabase/functions/channex-booking-webhook/index.ts`**: Move supabase init earlier, add immediate logging for all events
+### Summary
+
+| Change | Detail |
+|--------|--------|
+| Drop FK constraint | `channex_bookings_property_id_fkey` (references `units(id)`) |
+| Code changes | None needed |
+
