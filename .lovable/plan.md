@@ -1,79 +1,49 @@
 
 
-## Fix: Channex Rate Push 500 Internal Server Error
+## Fix: Channex Webhook Not Logging to Sync Logs
 
-### Status of Both Issues
+### Root Cause (Two Issues Found)
 
-| Issue | Status |
-|-------|--------|
-| ERROR 2: arrival_date null | Already fixed -- columns are nullable, alert resolved |
-| ERROR 1: Rate push 500 | Active -- needs fix (this plan) |
+**Issue 1: Foreign key mismatch on `channex_sync_logs.property_id`**
 
-### Root Cause
+The `channex_sync_logs` table has a foreign key: `property_id -> units(id)`. But the webhook passes a **property mapping local_id** (from `channex_mappings`), which references a property concept -- not a unit. This causes every `logSync()` insert to silently fail with a foreign key violation. This is confirmed by the edge function logs from the property sync, which show the exact error:
 
-The `channex-daily-sync` function pushes rate restrictions covering **365 days in a single value** (because `valid_from`/`valid_to` are null on all rate plans). Channex's server returns a 500 Internal Server Error, likely because it cannot process such a large date span in one restriction entry.
-
-From the alert details:
 ```
-{"errors":{"code":"internal_server_error","title":"Internal Server Error"}}
+Key (property_id)=(e30ad118-...) is not present in table "units"
 ```
 
-All 5 rate plans have `valid_from = null` and `valid_to = null`, so the code falls back to a full 365-day window.
+This means **every single webhook call has been failing to log**, which is why `channex_sync_logs` has zero rows for `channex-booking-webhook`.
 
-### Fix: Chunk Date Ranges + Add Logging
+**Issue 2: Non-booking events are not logged**
 
-**File: `supabase/functions/channex-daily-sync/index.ts`**
+When Channex sends a "test" event (which is what the "Test Webhook" button sends), the function returns early at line 32 without writing anything to `channex_sync_logs`. So even if the FK issue were fixed, test events would still produce no log.
 
-In the rates section (around line 248), instead of sending one value covering 365 days, break it into **30-day chunks**:
+### Fix
+
+**1. Database Migration: Drop the broken foreign key**
+
+The `property_id` column in `channex_sync_logs` should be a plain UUID without a foreign key, since it stores property-level IDs (not unit IDs):
+
+```sql
+ALTER TABLE channex_sync_logs DROP CONSTRAINT channex_sync_logs_property_id_fkey;
+```
+
+**2. Edge Function: Log non-booking events before returning**
+
+Add an immediate log entry for ALL incoming requests (including "test" events) so you always have visibility:
 
 ```text
-Before (current):
-  rateValues = [{ ..., date_from: "2026-02-22", date_to: "2027-02-22", rate: 10800 }]
-  // Single API call with 365-day range -> Channex 500
-
-After (fixed):
-  rateValues = [
-    { ..., date_from: "2026-02-22", date_to: "2026-03-24", rate: 10800 },
-    { ..., date_from: "2026-03-24", date_to: "2026-04-23", rate: 10800 },
-    // ... 12 chunks total
-    { ..., date_from: "2027-01-23", date_to: "2027-02-22", rate: 10800 },
-  ]
-  // Multiple API calls with 30-day ranges -> Channex 200
+// Right after parsing the body and before the event check:
+// 1. Create supabase client early
+// 2. Log the incoming request immediately
+// 3. Then check event type and proceed
 ```
 
-Also add:
-- Detailed logging of the exact payload before each API call
-- Log the rate conversion (original value -> cents)
-- Skip any chunk where `date_from` is in the past
+Specific changes to `channex-booking-webhook/index.ts`:
+- Move the `supabase` client creation to right after parsing the JSON body (before the event check on line 32)
+- Before the `if (event !== "booking")` check, insert a log entry recording the raw payload
+- For non-booking events, still log them before returning the "ignored" response
 
-**File: `supabase/functions/channex-push-rates/index.ts`**
-
-Add similar payload logging before the `channexRequest` call so manual rate pushes also show what's being sent.
-
-**File: `supabase/functions/channex-process-sync-queue/index.ts`**
-
-Apply the same 30-day chunking logic to the queue processor's rate handling (lines 192-212), which has the same 365-day fallback pattern.
-
-### Technical Details
-
-Changes to `channex-daily-sync/index.ts`:
-- Replace lines 248-254 (single value generation) with a loop that splits the date range into 30-day windows
-- Each chunk generates a separate value entry
-- All chunks for a rate plan are collected, then pushed in batches of 10 (existing batch logic)
-
-Changes to `channex-process-sync-queue/index.ts`:
-- Apply the same chunking at lines 202-212 where `dateFrom`/`dateTo` are calculated
-
-Changes to `channex-push-rates/index.ts`:
-- Add `console.log` of the full payload before the `channexRequest` call (line 184-186)
-- No chunking needed here since the caller provides specific date ranges
-
-### Summary
-
-| Change | File | Purpose |
-|--------|------|---------|
-| 30-day date chunking | daily-sync | Avoid 365-day range that causes Channex 500 |
-| 30-day date chunking | process-sync-queue | Same fix for trigger-based rate pushes |
-| Payload logging | push-rates | Debug manual rate pushes |
-| Payload logging | daily-sync | See exact values being sent |
-
+### Files Modified
+- **Database migration**: Drop FK constraint on `channex_sync_logs.property_id`
+- **`supabase/functions/channex-booking-webhook/index.ts`**: Move supabase init earlier, add immediate logging for all events
