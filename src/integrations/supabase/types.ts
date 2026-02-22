@@ -296,13 +296,6 @@ export type Database = {
         }
         Relationships: [
           {
-            foreignKeyName: "channex_bookings_property_id_fkey"
-            columns: ["property_id"]
-            isOneToOne: false
-            referencedRelation: "units"
-            referencedColumns: ["id"]
-          },
-          {
             foreignKeyName: "channex_bookings_rate_plan_id_fkey"
             columns: ["rate_plan_id"]
             isOneToOne: false

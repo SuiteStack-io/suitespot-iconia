@@ -1,0 +1,1 @@
+ALTER TABLE channex_bookings DROP CONSTRAINT channex_bookings_property_id_fkey;
