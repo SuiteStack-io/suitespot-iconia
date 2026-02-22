@@ -1,102 +1,79 @@
 
 
-## Fix: Null arrival_date in Channex Booking Webhook
+## Fix: Channex Rate Push 500 Internal Server Error
+
+### Status of Both Issues
+
+| Issue | Status |
+|-------|--------|
+| ERROR 2: arrival_date null | Already fixed -- columns are nullable, alert resolved |
+| ERROR 1: Rate push 500 | Active -- needs fix (this plan) |
 
 ### Root Cause
 
-From the edge function logs, the real Channex webhook payload looks like this:
+The `channex-daily-sync` function pushes rate restrictions covering **365 days in a single value** (because `valid_from`/`valid_to` are null on all rate plans). Channex's server returns a 500 Internal Server Error, likely because it cannot process such a large date span in one restriction entry.
 
-```json
-{
-  "event": "booking",
-  "payload": {
-    "property_id": "cafd8d63-...",
-    "booking_id": "a8b090f4-...",
-    "revision_id": "fe059d87-..."
-  },
-  "property_id": "cafd8d63-..."
-}
+From the alert details:
+```
+{"errors":{"code":"internal_server_error","title":"Internal Server Error"}}
 ```
 
-Channex sends **only IDs** in the webhook -- no `arrival_date`, no `customer`, no `rooms`. The current code tries to extract `bookingData.arrival_date` from this flat payload, which is `undefined`, causing the NOT NULL constraint violation.
+All 5 rate plans have `valid_from = null` and `valid_to = null`, so the code falls back to a full 365-day window.
 
-The proper fix is two-fold:
-1. When the payload lacks booking details, **fetch the full booking from the Channex API** using the `booking_id`
-2. Make `arrival_date` and `departure_date` nullable as a safety net
+### Fix: Chunk Date Ranges + Add Logging
 
-### Changes
+**File: `supabase/functions/channex-daily-sync/index.ts`**
 
-**1. Database Migration**
-
-Make dates nullable so bookings are never lost even if the API fetch fails:
-
-```sql
-ALTER TABLE channex_bookings ALTER COLUMN arrival_date DROP NOT NULL;
-ALTER TABLE channex_bookings ALTER COLUMN departure_date DROP NOT NULL;
-```
-
-**2. Edge Function: `supabase/functions/channex-booking-webhook/index.ts`**
-
-After extracting the initial `bookingData`, add logic to detect a "thin" payload (missing dates) and fetch the full booking from Channex:
-
-- Log the full raw payload and available keys for debugging
-- If `arrival_date` is missing from the parsed data, call `channexRequest("GET", "/api/v1/bookings/{booking_id}")` to fetch the complete booking record
-- Merge the fetched data into `bookingData`
-- Search for dates across multiple field name variants (`arrival_date`, `arrivalDate`, `check_in`, `checkin`, `checkin_date`)
-- Same for departure dates
-- If dates are still missing after the API fetch (e.g. test payloads), use `null` instead of crashing
-- Wrap the API fetch in a try/catch so it degrades gracefully
-
-Here is the updated extraction logic outline:
+In the rates section (around line 248), instead of sending one value covering 365 days, break it into **30-day chunks**:
 
 ```text
-// Log full payload for debugging
-console.log("[channex-booking-webhook] Raw payload keys:", Object.keys(rawPayload));
-console.log("[channex-booking-webhook] BookingData keys:", Object.keys(bookingData));
+Before (current):
+  rateValues = [{ ..., date_from: "2026-02-22", date_to: "2027-02-22", rate: 10800 }]
+  // Single API call with 365-day range -> Channex 500
 
-// If this is a "thin" webhook (just IDs, no dates), fetch full booking from Channex API
-let enrichedBookingData = bookingData;
-if (!bookingData.arrival_date && !bookingData.check_in && booking_id && !isTestBooking) {
-  try {
-    const fullBooking = await channexRequest("GET", `/api/v1/bookings/${booking_id}`);
-    const fetchedData = fullBooking?.data?.attributes || fullBooking?.data || fullBooking;
-    enrichedBookingData = { ...bookingData, ...fetchedData };
-    console.log("[channex-booking-webhook] Enriched from API, keys:", Object.keys(enrichedBookingData));
-  } catch (fetchErr) {
-    console.warn("[channex-booking-webhook] Could not fetch full booking:", fetchErr.message);
-  }
-}
-
-// Flexible date extraction
-const arrival_date =
-  enrichedBookingData.arrival_date ||
-  enrichedBookingData.arrivalDate ||
-  enrichedBookingData.check_in ||
-  enrichedBookingData.checkin ||
-  enrichedBookingData.checkin_date ||
-  null;
-
-const departure_date =
-  enrichedBookingData.departure_date ||
-  enrichedBookingData.departureDate ||
-  enrichedBookingData.check_out ||
-  enrichedBookingData.checkout ||
-  enrichedBookingData.checkout_date ||
-  null;
+After (fixed):
+  rateValues = [
+    { ..., date_from: "2026-02-22", date_to: "2026-03-24", rate: 10800 },
+    { ..., date_from: "2026-03-24", date_to: "2026-04-23", rate: 10800 },
+    // ... 12 chunks total
+    { ..., date_from: "2027-01-23", date_to: "2027-02-22", rate: 10800 },
+  ]
+  // Multiple API calls with 30-day ranges -> Channex 200
 ```
 
-Similarly, customer, rooms, amount, currency, ota_name, and status will all be re-extracted from the enriched data so they benefit from the API fetch too.
+Also add:
+- Detailed logging of the exact payload before each API call
+- Log the rate conversion (original value -> cents)
+- Skip any chunk where `date_from` is in the past
+
+**File: `supabase/functions/channex-push-rates/index.ts`**
+
+Add similar payload logging before the `channexRequest` call so manual rate pushes also show what's being sent.
+
+**File: `supabase/functions/channex-process-sync-queue/index.ts`**
+
+Apply the same 30-day chunking logic to the queue processor's rate handling (lines 192-212), which has the same 365-day fallback pattern.
+
+### Technical Details
+
+Changes to `channex-daily-sync/index.ts`:
+- Replace lines 248-254 (single value generation) with a loop that splits the date range into 30-day windows
+- Each chunk generates a separate value entry
+- All chunks for a rate plan are collected, then pushed in batches of 10 (existing batch logic)
+
+Changes to `channex-process-sync-queue/index.ts`:
+- Apply the same chunking at lines 202-212 where `dateFrom`/`dateTo` are calculated
+
+Changes to `channex-push-rates/index.ts`:
+- Add `console.log` of the full payload before the `channexRequest` call (line 184-186)
+- No chunking needed here since the caller provides specific date ranges
 
 ### Summary
 
-| Change | Purpose |
-|--------|---------|
-| Make `arrival_date` / `departure_date` nullable | Safety net so bookings are never lost |
-| Fetch full booking from Channex API when payload is thin | Get actual dates, guest info, amounts |
-| Flexible field name matching | Handle different Channex payload formats |
-| Debug logging of payload keys | Easier troubleshooting of future format changes |
-| Graceful fallback on fetch failure | Test payloads and API errors don't crash the webhook |
+| Change | File | Purpose |
+|--------|------|---------|
+| 30-day date chunking | daily-sync | Avoid 365-day range that causes Channex 500 |
+| 30-day date chunking | process-sync-queue | Same fix for trigger-based rate pushes |
+| Payload logging | push-rates | Debug manual rate pushes |
+| Payload logging | daily-sync | See exact values being sent |
 
-### Files Modified
-- **Database migration**: `ALTER TABLE channex_bookings` (nullable dates)
-- **`supabase/functions/channex-booking-webhook/index.ts`**: API fetch enrichment + flexible extraction + logging
