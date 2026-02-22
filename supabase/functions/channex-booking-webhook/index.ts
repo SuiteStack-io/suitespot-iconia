@@ -29,8 +29,32 @@ serve(async (req: Request) => {
 
     const event = body.event;
 
+    // --- Create supabase client early so we can log immediately ---
+    const supabase = createClient(
+      Deno.env.get("SUPABASE_URL")!,
+      Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!
+    );
+
+    // --- Log EVERY incoming request immediately ---
+    const { error: immediateLogError } = await supabase
+      .from("channex_sync_logs")
+      .insert({
+        function_name: "channex-booking-webhook",
+        endpoint: "webhook",
+        request_payload: body,
+        response_payload: { event: event || "unknown" },
+        status_code: 200,
+        success: true,
+        error_message: null,
+        property_id: (body.property_id && /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(body.property_id)) ? body.property_id : null,
+      });
+    if (immediateLogError) {
+      console.error("[channex-booking-webhook] Failed to write immediate log:", immediateLogError);
+    }
+
     if (event !== "booking") {
-      return ok({ success: true, message: `Ignored event: ${event}` });
+      console.log(`[channex-booking-webhook] Non-booking event: ${event}, logged and returning`);
+      return ok({ success: true, message: `Logged and ignored event: ${event}` });
     }
 
     // --- Parse initial booking data from multiple possible structures ---
@@ -97,11 +121,6 @@ serve(async (req: Request) => {
     const currency = enrichedData.currency || bookingData.currency;
 
     console.log("[channex-booking-webhook] Extracted dates:", { arrival_date, departure_date });
-
-    const supabase = createClient(
-      Deno.env.get("SUPABASE_URL")!,
-      Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!
-    );
 
     // --- Resolve local property ID ---
     let localPropertyId: string | null = null;

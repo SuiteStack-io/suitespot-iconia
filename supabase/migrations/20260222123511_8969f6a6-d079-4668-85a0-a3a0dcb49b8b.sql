@@ -1,0 +1,1 @@
+ALTER TABLE channex_sync_logs DROP CONSTRAINT channex_sync_logs_property_id_fkey;
