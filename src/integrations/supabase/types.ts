@@ -451,15 +451,7 @@ export type Database = {
           status_code?: number | null
           success?: boolean
         }
-        Relationships: [
-          {
-            foreignKeyName: "channex_sync_logs_property_id_fkey"
-            columns: ["property_id"]
-            isOneToOne: false
-            referencedRelation: "units"
-            referencedColumns: ["id"]
-          },
-        ]
+        Relationships: []
       }
       channex_sync_queue: {
         Row: {
