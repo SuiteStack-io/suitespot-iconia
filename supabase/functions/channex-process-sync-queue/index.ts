@@ -202,14 +202,39 @@ serve(async (req: Request) => {
             const today = new Date().toISOString().split("T")[0];
             const dateFrom = ratePlan?.valid_from || today;
             const dateTo = ratePlan?.valid_to || new Date(Date.now() + 365 * 86400000).toISOString().split("T")[0];
+            const rateInCents = Math.round(weekdayRate * 100);
 
-            values.push({
-              property_id: propMapping.channex_id,
-              rate_plan_id: channexRatePlanId,
-              date_from: dateFrom,
-              date_to: dateTo,
-              rate: Math.round(weekdayRate * 100), // Convert to cents
-            });
+            // Chunk into 30-day windows to avoid Channex 500 errors
+            const CHUNK_DAYS = 30;
+            let chunkStart = new Date(dateFrom);
+            const rangeEnd = new Date(dateTo);
+
+            while (chunkStart < rangeEnd) {
+              const chunkEnd = new Date(Math.min(
+                new Date(chunkStart.getTime() + CHUNK_DAYS * 86400000).getTime(),
+                rangeEnd.getTime()
+              ));
+              const chunkFromStr = chunkStart.toISOString().split("T")[0];
+              const chunkToStr = chunkEnd.toISOString().split("T")[0];
+
+              // Skip chunks entirely in the past
+              if (chunkToStr <= today) {
+                chunkStart = chunkEnd;
+                continue;
+              }
+
+              values.push({
+                property_id: propMapping.channex_id,
+                rate_plan_id: channexRatePlanId,
+                date_from: chunkFromStr < today ? today : chunkFromStr,
+                date_to: chunkToStr,
+                rate: rateInCents,
+              });
+
+              chunkStart = chunkEnd;
+            }
+
+            console.log(`[process-sync-queue] Chunked rate plan ${item.entity_id}: ${values.length} chunks, rate=${rateInCents} cents`);
           }
 
           await markCompleted(supabase, item.id);

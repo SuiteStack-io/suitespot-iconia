@@ -245,17 +245,47 @@ serve(async (req: Request) => {
               const dateFrom = ratePlan.valid_from || formatDate(today);
               const dateTo = ratePlan.valid_to || formatDate(endDate);
 
-              const rateValues = prices.map((p: any) => ({
-                property_id: propMapping.channex_id,
-                rate_plan_id: rpMapping.channex_id,
-                date_from: dateFrom,
-                date_to: dateTo,
-                rate: Math.round(p.weekday_rate * 100),
-              }));
+              // Build rate values with 30-day chunking to avoid Channex 500 errors
+              const rateValues: object[] = [];
+              const CHUNK_DAYS = 30;
+              const todayStr = formatDate(today);
+
+              for (const p of prices) {
+                const rateInCents = Math.round(p.weekday_rate * 100);
+                console.log(`[daily-sync] Rate plan ${ratePlan.name}: weekday_rate=${p.weekday_rate} -> cents=${rateInCents}`);
+
+                let chunkStart = new Date(dateFrom);
+                const rangeEnd = new Date(dateTo);
+
+                while (chunkStart < rangeEnd) {
+                  const chunkEnd = new Date(Math.min(addDays(chunkStart, CHUNK_DAYS).getTime(), rangeEnd.getTime()));
+                  const chunkFromStr = formatDate(chunkStart);
+                  const chunkToStr = formatDate(chunkEnd);
+
+                  // Skip chunks entirely in the past
+                  if (chunkToStr <= todayStr) {
+                    chunkStart = chunkEnd;
+                    continue;
+                  }
+
+                  rateValues.push({
+                    property_id: propMapping.channex_id,
+                    rate_plan_id: rpMapping.channex_id,
+                    date_from: chunkFromStr < todayStr ? todayStr : chunkFromStr,
+                    date_to: chunkToStr,
+                    rate: rateInCents,
+                  });
+
+                  chunkStart = chunkEnd;
+                }
+              }
+
+              console.log(`[daily-sync] Plan ${ratePlan.name}: ${rateValues.length} chunked rate values (${dateFrom} to ${dateTo})`);
 
               // Push in batches of 10
               for (let i = 0; i < rateValues.length; i += BATCH_SIZE) {
                 const batch = rateValues.slice(i, i + BATCH_SIZE);
+                console.log(`[daily-sync] Pushing rate batch ${i / BATCH_SIZE} for ${ratePlan.name}:`, JSON.stringify(batch));
                 try {
                   await channexRequest("POST", "/api/v1/restrictions", { values: batch });
                   summary.rate_values_pushed += batch.length;
