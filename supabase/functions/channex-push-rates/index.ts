@@ -182,6 +182,7 @@ serve(async (req: Request) => {
     // --- Push to Channex ---
     const channexPayload = { values };
     console.log(`[channex-push-rates] Pushing ${values.length} values to Channex`);
+    console.log(`[channex-push-rates] Full payload:`, JSON.stringify(channexPayload, null, 2));
 
     const response = await channexRequest<object>("POST", "/api/v1/restrictions", channexPayload);
 
