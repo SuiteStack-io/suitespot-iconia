@@ -867,7 +867,6 @@ const Commissions = () => {
                     <TableRow>
                       <TableCell colSpan={5} className="font-semibold">Total</TableCell>
                       <TableCell></TableCell>
-                      <TableCell></TableCell>
                       <TableCell className="hidden md:table-cell"></TableCell>
                       <TableCell className="hidden md:table-cell"></TableCell>
                       <TableCell className="hidden lg:table-cell"></TableCell>
