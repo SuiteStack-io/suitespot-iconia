@@ -104,16 +104,21 @@ const ChannelMarkupPage = () => {
     if (!newChannelName.trim() || !newMarkupPct) return;
     setAddingChannel(true);
     try {
-      const { error } = await supabase.from('channel_markup_settings').insert({
+      const { data: inserted, error } = await supabase.from('channel_markup_settings').insert({
         channel_name: newChannelName.trim(),
         markup_percentage: parseFloat(newMarkupPct),
         is_active: true,
-      });
+      }).select().single();
       if (error) throw error;
-      toast.success(`${newChannelName} channel added`);
+      toast.success(`${newChannelName} channel added — creating derived plans...`);
       setNewChannelName('');
       setNewMarkupPct('18');
-      fetchData();
+      // Refresh data first so createDerivedPlansForChannel has latest state
+      await fetchData();
+      // Auto-create derived plans for all synced base rate plans
+      if (inserted) {
+        await createDerivedPlansForChannel(inserted.id);
+      }
     } catch (err: any) {
       toast.error(err.message || 'Failed to add channel');
     } finally {
@@ -128,8 +133,11 @@ const ChannelMarkupPage = () => {
         .update({ markup_percentage: newPct })
         .eq('id', channelId);
       if (error) throw error;
-      toast.success('Markup updated');
-      fetchData();
+      toast.success('Markup updated — recreating derived plans...');
+      // Delete existing derived plans and recreate with new percentage
+      await deleteAllDerivedForChannel(channelId);
+      await fetchData();
+      await createDerivedPlansForChannel(channelId);
     } catch {
       toast.error('Failed to update markup');
     }
