@@ -31,7 +31,7 @@ serve(async (req) => {
     // Fetch the extension reservation with unit details
     const { data: extensionRes, error: resError } = await supabase
       .from('reservations')
-      .select('*, units(name, unit_number)')
+      .select('*, units!reservations_unit_id_fkey(name, unit_number)')
       .eq('id', extensionReservationId)
       .single();
 
