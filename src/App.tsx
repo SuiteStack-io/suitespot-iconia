@@ -68,6 +68,7 @@ import RoomTypes from "./pages/RoomTypes";
 import ChannexIntegration from "./pages/ChannexIntegration";
 import ChannexDebug from "./pages/ChannexDebug";
 import ShuffleHistory from "./pages/ShuffleHistory";
+import FrontDeskRoomRates from "./pages/front-desk/RoomRates";
 const queryClient = new QueryClient();
 
 const App = () => (
@@ -162,6 +163,7 @@ const App = () => (
         <Route path="/channex" element={<ProtectedRoute><ChannexIntegration /></ProtectedRoute>} />
         <Route path="/channex-debug" element={<ProtectedRoute><ChannexDebug /></ProtectedRoute>} />
         <Route path="/shuffle-history" element={<ProtectedRoute><ShuffleHistory /></ProtectedRoute>} />
+        <Route path="/front-desk/room-rates" element={<ProtectedRoute><FrontDeskRoomRates /></ProtectedRoute>} />
               
               {/* ADD ALL CUSTOM ROUTES ABOVE THE CATCH-ALL "*" ROUTE */}
               <Route path="*" element={<NotFound />} />

@@ -41,6 +41,7 @@ import {
   Layers,
   Radio,
   ArrowLeftRight,
+  Tag,
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 
@@ -95,6 +96,12 @@ export function SlideMenu({ userRole }: SlideMenuProps) {
         { title: 'Guests', url: '/guests', icon: Users },
         { title: 'Guest Forms', url: '/guest-forms', icon: FileSignature },
         { title: 'My Commissions', url: '/my-commissions', icon: Wallet, showFor: ['manager', 'admin'] },
+      ],
+    },
+    {
+      label: 'FRONT DESK',
+      items: [
+        { title: 'Room Rates', url: '/front-desk/room-rates', icon: Tag },
       ],
     },
     {
