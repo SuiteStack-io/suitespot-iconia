@@ -1393,7 +1393,9 @@ export const ReservationQuickActions = ({
                 // Calculate price floor from first extension
                 const firstExt = siblingExtensions.length > 0 ? siblingExtensions[0] : fullReservation;
                 const firstExtNights = firstExt ? differenceInCalendarDays(new Date(firstExt.check_out_date), new Date(firstExt.check_in_date)) : 0;
-                const priceFloor = firstExt && firstExtNights > 0 ? (firstExt.total_price / 1.14) / firstExtNights : 0;
+                const priceFloor = firstExt && firstExtNights > 0 
+                  ? Math.floor(((firstExt.total_price / 1.14) / firstExtNights) * 100) / 100 
+                  : 0;
                 const currentPrice = parseFloat(extensionPricePerNight) || 0;
                 const isBelowFloor = currentPrice > 0 && currentPrice < priceFloor;
                 
