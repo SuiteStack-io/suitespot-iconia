@@ -4,7 +4,7 @@ import { useAuth } from '@/lib/auth';
 import { Dashboard } from '@/components/Dashboard';
 import { CreateReservationDialog } from '@/components/CreateReservationDialog';
 import { Button } from '@/components/ui/button';
-import { LogOut, RefreshCw, Bell, ArrowUp } from 'lucide-react';
+import { LogOut, Bell, ArrowUp } from 'lucide-react';
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -25,7 +25,7 @@ const Index = () => {
   const navigate = useNavigate();
   const isMobile = useIsMobile();
   const { toast } = useToast();
-  const [syncing, setSyncing] = useState(false);
+  
   const { permission, requestPermission } = useNotifications();
   const [showScrollTop, setShowScrollTop] = useState(false);
   const [userName, setUserName] = useState<string>("");
@@ -76,19 +76,6 @@ const Index = () => {
     return () => window.removeEventListener('scroll', handleScroll);
   }, []);
 
-  const handleSync = async () => {
-    setSyncing(true);
-    try {
-      const { data, error } = await supabase.functions.invoke('sync-booking-gmail', { body: { trigger_type: 'manual' } });
-      if (error) throw error;
-      toast({ title: "Sync Complete", description: "Bookings synced successfully" });
-      window.location.reload();
-    } catch (error: any) {
-      toast({ title: "Sync Failed", description: error.message, variant: "destructive" });
-    } finally {
-      setSyncing(false);
-    }
-  };
 
   const scrollToTop = () => {
     window.scrollTo({ top: 0, behavior: 'smooth' });
@@ -153,16 +140,6 @@ const Index = () => {
             </div>
 
             <NotificationBell />
-            <Button 
-              variant="outline" 
-              size="sm" 
-              onClick={handleSync} 
-              disabled={syncing} 
-              className="hidden md:flex"
-            >
-              <RefreshCw className={`h-4 w-4 mr-2 ${syncing ? 'animate-spin' : ''}`} />
-              Sync
-            </Button>
             <Button 
               variant="outline" 
               size="sm" 
