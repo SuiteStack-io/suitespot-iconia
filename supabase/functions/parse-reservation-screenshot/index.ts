@@ -268,9 +268,48 @@ Other important notes:
           }
         }
         
-        // If no available unit found but matches exist
+        // If no available unit found but matches exist, try auto-shuffle
         if (!matchedRoom.unitId && matchingUnits.length > 0) {
-          console.log(`No available matching unit found for room: ${room.roomName}, will require manual assignment`);
+          console.log(`No available unit for room: ${room.roomName}, attempting auto-shuffle...`);
+          
+          const roomType = matchingUnits[0].booking_com_name || room.roomName;
+          
+          try {
+            const shuffleResponse = await fetch(
+              `${supabaseUrl}/functions/v1/auto-shuffle-rooms`,
+              {
+                method: 'POST',
+                headers: {
+                  'Content-Type': 'application/json',
+                  'Authorization': `Bearer ${supabaseKey}`,
+                },
+                body: JSON.stringify({
+                  roomType,
+                  checkInDate: parsedData.checkInDate,
+                  checkOutDate: parsedData.checkOutDate,
+                  bookingReference: parsedData.bookingReference,
+                  guestNames: parsedData.guestNames,
+                  triggerSource: 'allocate-unit',
+                }),
+              }
+            );
+            
+            const shuffleData = await shuffleResponse.json();
+            console.log('Auto-shuffle response:', JSON.stringify(shuffleData));
+            
+            if (shuffleData.success && shuffleData.freedUnitId) {
+              matchedRoom.unitId = shuffleData.freedUnitId;
+              matchedRoom.matchedUnitName = shuffleData.freedUnitNumber || roomType;
+              matchedRoom.status = 'available';
+              usedUnitIds.push(shuffleData.freedUnitId);
+              console.log(`Auto-shuffle freed unit ${shuffleData.freedUnitNumber} (${shuffleData.freedUnitId}) for room: ${room.roomName}`);
+            } else {
+              console.log(`Auto-shuffle could not free a unit for room: ${room.roomName}, will require manual assignment`);
+            }
+          } catch (shuffleError) {
+            console.error('Auto-shuffle error:', shuffleError);
+            console.log(`Auto-shuffle failed for room: ${room.roomName}, will require manual assignment`);
+          }
         }
       }
 
