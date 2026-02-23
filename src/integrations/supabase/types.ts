@@ -185,6 +185,36 @@ export type Database = {
           },
         ]
       }
+      channel_markup_settings: {
+        Row: {
+          channel_id: string | null
+          channel_name: string
+          created_at: string
+          id: string
+          is_active: boolean
+          markup_percentage: number
+          updated_at: string
+        }
+        Insert: {
+          channel_id?: string | null
+          channel_name: string
+          created_at?: string
+          id?: string
+          is_active?: boolean
+          markup_percentage?: number
+          updated_at?: string
+        }
+        Update: {
+          channel_id?: string | null
+          channel_name?: string
+          created_at?: string
+          id?: string
+          is_active?: boolean
+          markup_percentage?: number
+          updated_at?: string
+        }
+        Relationships: []
+      }
       channex_alerts: {
         Row: {
           alert_type: string
@@ -534,6 +564,57 @@ export type Database = {
             columns: ["reservation_id"]
             isOneToOne: false
             referencedRelation: "reservations"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      derived_rate_plan_mappings: {
+        Row: {
+          base_rate_plan_id: string
+          channel_markup_id: string
+          channel_name: string
+          channex_base_rate_plan_id: string
+          channex_derived_rate_plan_id: string
+          created_at: string
+          id: string
+          markup_percentage: number
+          updated_at: string
+        }
+        Insert: {
+          base_rate_plan_id: string
+          channel_markup_id: string
+          channel_name: string
+          channex_base_rate_plan_id: string
+          channex_derived_rate_plan_id: string
+          created_at?: string
+          id?: string
+          markup_percentage: number
+          updated_at?: string
+        }
+        Update: {
+          base_rate_plan_id?: string
+          channel_markup_id?: string
+          channel_name?: string
+          channex_base_rate_plan_id?: string
+          channex_derived_rate_plan_id?: string
+          created_at?: string
+          id?: string
+          markup_percentage?: number
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "derived_rate_plan_mappings_base_rate_plan_id_fkey"
+            columns: ["base_rate_plan_id"]
+            isOneToOne: false
+            referencedRelation: "rate_plans"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "derived_rate_plan_mappings_channel_markup_id_fkey"
+            columns: ["channel_markup_id"]
+            isOneToOne: false
+            referencedRelation: "channel_markup_settings"
             referencedColumns: ["id"]
           },
         ]

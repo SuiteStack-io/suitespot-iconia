@@ -94,6 +94,7 @@ export function PropertySync({ onSwitchToSettings }: PropertySyncProps) {
   const propertyMapping = mappings.find(m => m.entity_type === 'property');
   const roomTypeMappings = mappings.filter(m => m.entity_type === 'room_type');
   const ratePlanMappings = mappings.filter(m => m.entity_type === 'rate_plan');
+  const derivedRatePlanMappings = mappings.filter(m => m.entity_type === 'derived_rate_plan');
 
   if (loading) {
     return <div className="flex justify-center py-12"><Loader2 className="h-8 w-8 animate-spin text-muted-foreground" /></div>;
@@ -211,6 +212,42 @@ export function PropertySync({ onSwitchToSettings }: PropertySyncProps) {
               </TableHeader>
               <TableBody>
                 {ratePlanMappings.map(m => (
+                  <TableRow key={m.id}>
+                    <TableCell className="text-xs font-mono">{m.local_id.slice(0, 8)}...</TableCell>
+                    <TableCell className="text-xs font-mono">{m.channex_id.slice(0, 8)}...</TableCell>
+                    <TableCell>
+                      {m.sync_status === 'error' ? (
+                        <Badge variant="destructive">Error</Badge>
+                      ) : (
+                        <Badge className="bg-green-600 hover:bg-green-700">Synced</Badge>
+                      )}
+                    </TableCell>
+                  </TableRow>
+                ))}
+              </TableBody>
+            </Table>
+          </CardContent>
+        </Card>
+      )}
+
+      {/* Derived Rate Plans */}
+      {derivedRatePlanMappings.length > 0 && (
+        <Card>
+          <CardHeader>
+            <CardTitle className="text-base">Derived Rate Plans (Channel Markup)</CardTitle>
+            <CardDescription>{derivedRatePlanMappings.length} derived plans synced</CardDescription>
+          </CardHeader>
+          <CardContent>
+            <Table>
+              <TableHeader>
+                <TableRow>
+                  <TableHead className="text-xs">Base Plan ID</TableHead>
+                  <TableHead className="text-xs">Channex ID</TableHead>
+                  <TableHead className="text-xs">Status</TableHead>
+                </TableRow>
+              </TableHeader>
+              <TableBody>
+                {derivedRatePlanMappings.map(m => (
                   <TableRow key={m.id}>
                     <TableCell className="text-xs font-mono">{m.local_id.slice(0, 8)}...</TableCell>
                     <TableCell className="text-xs font-mono">{m.channex_id.slice(0, 8)}...</TableCell>

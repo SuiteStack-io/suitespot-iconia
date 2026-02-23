@@ -18,6 +18,7 @@ interface RoomTypeData {
   weekendRate: number | null;
   currency: string;
   ratePlanName: string | null;
+  channelRates: Array<{ channel: string; weekday: number; weekend: number; markup: number }>;
 }
 
 export default function FrontDeskRoomRates() {
@@ -26,23 +27,31 @@ export default function FrontDeskRoomRates() {
   const { data: roomTypes, isLoading } = useQuery({
     queryKey: ['front-desk-room-rates'],
     queryFn: async () => {
-      // Fetch units grouped by booking_com_name
-      const { data: units, error: unitsError } = await supabase
-        .from('units')
-        .select('booking_com_name, unit_size, max_guests, features, photos')
-        .eq('location', 'ICONIA')
-        .not('booking_com_name', 'is', null);
+      // Fetch units, rate plans, and channel markups
+      const [unitsRes, rpRes, markupsRes] = await Promise.all([
+        supabase
+          .from('units')
+          .select('booking_com_name, unit_size, max_guests, features, photos')
+          .eq('location', 'ICONIA')
+          .not('booking_com_name', 'is', null),
+        supabase
+          .from('rate_plans')
+          .select('id, name, is_default, currency, room_type, rate_plan_prices(room_type, weekday_rate, weekend_rate, unit_id)')
+          .eq('is_active', true)
+          .order('priority', { ascending: false }),
+        supabase
+          .from('channel_markup_settings')
+          .select('channel_name, markup_percentage')
+          .eq('is_active', true),
+      ]);
 
+      const { data: units, error: unitsError } = unitsRes;
       if (unitsError) throw unitsError;
 
-      // Fetch active rate plans with prices (type-level only, no unit_id)
-      const { data: ratePlans, error: rpError } = await supabase
-        .from('rate_plans')
-        .select('id, name, is_default, currency, room_type, rate_plan_prices(room_type, weekday_rate, weekend_rate, unit_id)')
-        .eq('is_active', true)
-        .order('priority', { ascending: false });
-
+      const { data: ratePlans, error: rpError } = rpRes;
       if (rpError) throw rpError;
+
+      const channelMarkups = (markupsRes.data as any[]) || [];
 
       // Group units by booking_com_name
       const grouped = new Map<string, { area: string | null; maxGuests: number | null; features: string[]; photos: string[] }>();
@@ -97,6 +106,16 @@ export default function FrontDeskRoomRates() {
           }
         }
 
+        // Build channel rates from markups
+        const channelRates = weekdayRate != null
+          ? channelMarkups.map((cm: any) => ({
+              channel: cm.channel_name,
+              weekday: Math.round(weekdayRate! * (1 + cm.markup_percentage / 100)),
+              weekend: Math.round((weekendRate || weekdayRate!) * (1 + cm.markup_percentage / 100)),
+              markup: cm.markup_percentage,
+            }))
+          : [];
+
         result.push({
           name,
           area: data.area,
@@ -107,6 +126,7 @@ export default function FrontDeskRoomRates() {
           weekendRate,
           currency,
           ratePlanName,
+          channelRates,
         });
       }
 
@@ -197,6 +217,22 @@ export default function FrontDeskRoomRates() {
                       <span className="text-sm text-muted-foreground">No rate configured</span>
                     )}
                   </div>
+
+                  {/* Channel sell rates */}
+                  {room.channelRates.length > 0 && (
+                    <div className="space-y-0.5">
+                      {room.channelRates.map(cr => (
+                        <div key={cr.channel} className="flex items-center gap-2 text-xs text-muted-foreground">
+                          <span>→ {cr.channel}:</span>
+                          <span className="font-medium">
+                            {formatCurrency(cr.weekday, room.currency)}
+                            {cr.weekend !== cr.weekday && ` / ${formatCurrency(cr.weekend, room.currency)}`}
+                          </span>
+                          <Badge variant="outline" className="text-[10px] px-1 py-0">+{cr.markup}%</Badge>
+                        </div>
+                      ))}
+                    </div>
+                  )}
 
                   {/* Area & Occupancy */}
                   <div className="flex flex-wrap gap-4 text-sm">
