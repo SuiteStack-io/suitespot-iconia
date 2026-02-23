@@ -1,4 +1,5 @@
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2.75.0';
+import { Resend } from 'https://esm.sh/resend@4.0.0';
 
 const corsHeaders = {
   'Access-Control-Allow-Origin': '*',
@@ -302,27 +303,248 @@ Deno.serve(async (req) => {
         .in('id', moveIds);
     }
 
-    // 9. Send admin email notification
+    // 9. Send styled admin email notification via Resend
     try {
-      const movesDescription = solution.moves
-        .map(m => `• ${m.guest_name} moved from Room #${m.from_room_number} to Room #${m.to_room_number} (${m.check_in} — ${m.check_out})`)
-        .join('\n');
+      const resendApiKey = Deno.env.get('RESEND_API_KEY')!;
+      const resend = new Resend(resendApiKey);
 
-      await supabase.functions.invoke('send-admin-notification', {
-        body: {
-          type: 'info',
-          title: `Room Shuffle Alert — ICONIA Zamalek`,
-          message: `Auto-shuffle completed to accommodate new booking ${bookingReference} (${guestNames[0] || 'Unknown'}, ${checkInDate} to ${checkOutDate}, ${roomType}).\n\n${solution.moves.length} move(s) made:\n${movesDescription}\n\nAll moves were within the same room type (${roomType}).`,
-          metadata: {
-            shuffle_type: 'auto',
-            booking_reference: bookingReference,
-            room_type: roomType,
-            move_count: solution.moves.length,
-            moves: solution.moves,
-            freed_unit: freedUnitNumber,
-          },
-        },
-      });
+      // Fetch admin/front_desk emails
+      const { data: adminRoles } = await supabase
+        .from('user_roles')
+        .select('user_id')
+        .in('role', ['admin', 'front_desk']);
+
+      const adminUserIds = (adminRoles || []).map((r: any) => r.user_id);
+
+      if (adminUserIds.length > 0) {
+        const { data: profiles } = await supabase
+          .from('profiles')
+          .select('id, full_name')
+          .in('id', adminUserIds);
+
+        const { data: authUsers } = await supabase.auth.admin.listUsers();
+
+        const adminEmails = adminUserIds
+          .map((uid: string) => {
+            const authUser = authUsers?.users?.find((u: any) => u.id === uid);
+            return authUser?.email;
+          })
+          .filter(Boolean) as string[];
+
+        if (adminEmails.length > 0) {
+          // Format dates
+          const fmtDate = (d: string) => new Date(d).toLocaleDateString('en-US', { weekday: 'short', year: 'numeric', month: 'short', day: 'numeric' });
+          const checkInFmt = fmtDate(checkInDate);
+          const checkOutFmt = fmtDate(checkOutDate);
+          const nightCount = Math.ceil((new Date(checkOutDate).getTime() - new Date(checkInDate).getTime()) / (1000 * 60 * 60 * 24));
+
+          // Build move cards HTML
+          const moveCardsHtml = solution.moves.map((m, i) => {
+            const mCheckIn = fmtDate(m.check_in);
+            const mCheckOut = fmtDate(m.check_out);
+            const mNights = Math.ceil((new Date(m.check_out).getTime() - new Date(m.check_in).getTime()) / (1000 * 60 * 60 * 24));
+            return `
+              <div style="background-color: #fef3c7; border-radius: 12px; padding: 20px; margin-bottom: 16px;">
+                <p style="margin: 0 0 12px 0; color: #92400e; font-size: 12px; text-transform: uppercase; letter-spacing: 1px; font-weight: 600;">Move ${i + 1} of ${solution.moves.length}</p>
+                <table role="presentation" style="width: 100%; border-collapse: collapse;">
+                  <tr>
+                    <td style="width: 45%; text-align: center; padding: 12px;">
+                      <p style="margin: 0 0 4px 0; color: #92400e; font-size: 11px; text-transform: uppercase; letter-spacing: 0.5px;">Previous Room</p>
+                      <p style="margin: 0; color: #78350f; font-size: 18px; font-weight: 600;">Room</p>
+                      <p style="margin: 4px 0 0 0; color: #92400e; font-size: 24px; font-weight: 700;">#${m.from_room_number}</p>
+                    </td>
+                    <td style="width: 10%; text-align: center; vertical-align: middle;">
+                      <div style="font-size: 32px; color: #d97706;">→</div>
+                    </td>
+                    <td style="width: 45%; text-align: center; padding: 12px;">
+                      <p style="margin: 0 0 4px 0; color: #15803d; font-size: 11px; text-transform: uppercase; letter-spacing: 0.5px;">New Room</p>
+                      <p style="margin: 0; color: #166534; font-size: 18px; font-weight: 600;">Room</p>
+                      <p style="margin: 4px 0 0 0; color: #15803d; font-size: 24px; font-weight: 700;">#${m.to_room_number}</p>
+                    </td>
+                  </tr>
+                </table>
+                <table role="presentation" style="width: 100%; border-collapse: collapse; margin-top: 12px;">
+                  <tr>
+                    <td style="padding: 8px 0; border-top: 1px solid #fbbf24;">
+                      <table role="presentation" style="width: 100%;">
+                        <tr>
+                          <td style="width: 40px;"><div style="font-size: 16px;">👤</div></td>
+                          <td><p style="margin: 0; color: #78350f; font-size: 14px; font-weight: 600;">${m.guest_name}</p></td>
+                        </tr>
+                      </table>
+                    </td>
+                  </tr>
+                  <tr>
+                    <td style="padding: 4px 0;">
+                      <table role="presentation" style="width: 100%;">
+                        <tr>
+                          <td style="width: 40px;"><div style="font-size: 16px;">📅</div></td>
+                          <td><p style="margin: 0; color: #92400e; font-size: 13px;">${mCheckIn} → ${mCheckOut} (${mNights} night${mNights !== 1 ? 's' : ''})</p></td>
+                        </tr>
+                      </table>
+                    </td>
+                  </tr>
+                </table>
+              </div>`;
+          }).join('');
+
+          const emailHtml = `
+<!DOCTYPE html>
+<html>
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Room Shuffle Notification</title>
+</head>
+<body style="margin: 0; padding: 0; font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; background-color: #f8fafc;">
+  <table role="presentation" style="width: 100%; border-collapse: collapse;">
+    <tr>
+      <td align="center" style="padding: 40px 20px;">
+        <table role="presentation" style="width: 100%; max-width: 600px; border-collapse: collapse; background-color: #ffffff; border-radius: 16px; overflow: hidden; box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);">
+          
+          <!-- Header -->
+          <tr>
+            <td style="background: linear-gradient(135deg, #f59e0b 0%, #d97706 100%); padding: 32px 40px; text-align: center;">
+              <div style="font-size: 48px; margin-bottom: 12px;">🔀</div>
+              <h1 style="margin: 0; color: #ffffff; font-size: 28px; font-weight: 700; letter-spacing: -0.5px;">Room Shuffle</h1>
+              <p style="margin: 8px 0 0 0; color: rgba(255, 255, 255, 0.9); font-size: 16px;">Rooms were automatically rearranged to accommodate a new booking</p>
+            </td>
+          </tr>
+
+          <!-- Booking Reference -->
+          <tr>
+            <td style="padding: 24px 40px 0 40px;">
+              <div style="background-color: #fffbeb; border: 1px solid #fbbf24; border-radius: 12px; padding: 16px; text-align: center;">
+                <p style="margin: 0 0 4px 0; color: #92400e; font-size: 12px; text-transform: uppercase; letter-spacing: 1px;">New Booking Reference</p>
+                <p style="margin: 0; color: #78350f; font-size: 24px; font-weight: 700; font-family: 'Courier New', monospace;">${bookingReference}</p>
+              </div>
+            </td>
+          </tr>
+
+          <!-- Triggering Booking Info -->
+          <tr>
+            <td style="padding: 24px 40px;">
+              <table role="presentation" style="width: 100%; border-collapse: collapse;">
+                <tr>
+                  <td style="padding: 12px 0; border-bottom: 1px solid #e2e8f0;">
+                    <table role="presentation" style="width: 100%;"><tr>
+                      <td style="width: 40px;"><div style="font-size: 20px;">👤</div></td>
+                      <td>
+                        <p style="margin: 0 0 2px 0; color: #64748b; font-size: 12px; text-transform: uppercase; letter-spacing: 0.5px;">Guest</p>
+                        <p style="margin: 0; color: #1e293b; font-size: 16px; font-weight: 600;">${guestNames[0] || 'Unknown'}</p>
+                      </td>
+                    </tr></table>
+                  </td>
+                </tr>
+                <tr>
+                  <td style="padding: 12px 0; border-bottom: 1px solid #e2e8f0;">
+                    <table role="presentation" style="width: 100%;"><tr>
+                      <td style="width: 40px;"><div style="font-size: 20px;">📅</div></td>
+                      <td>
+                        <p style="margin: 0 0 2px 0; color: #64748b; font-size: 12px; text-transform: uppercase;">Check-in</p>
+                        <p style="margin: 0; color: #1e293b; font-size: 16px; font-weight: 600;">${checkInFmt}</p>
+                      </td>
+                    </tr></table>
+                  </td>
+                </tr>
+                <tr>
+                  <td style="padding: 12px 0; border-bottom: 1px solid #e2e8f0;">
+                    <table role="presentation" style="width: 100%;"><tr>
+                      <td style="width: 40px;"><div style="font-size: 20px;">📅</div></td>
+                      <td>
+                        <p style="margin: 0 0 2px 0; color: #64748b; font-size: 12px; text-transform: uppercase;">Check-out</p>
+                        <p style="margin: 0; color: #1e293b; font-size: 16px; font-weight: 600;">${checkOutFmt}</p>
+                      </td>
+                    </tr></table>
+                  </td>
+                </tr>
+                <tr>
+                  <td style="padding: 12px 0; border-bottom: 1px solid #e2e8f0;">
+                    <table role="presentation" style="width: 100%;"><tr>
+                      <td style="width: 40px;"><div style="font-size: 20px;">🌙</div></td>
+                      <td>
+                        <p style="margin: 0 0 2px 0; color: #64748b; font-size: 12px; text-transform: uppercase;">Duration</p>
+                        <p style="margin: 0; color: #1e293b; font-size: 16px; font-weight: 600;">${nightCount} night${nightCount !== 1 ? 's' : ''}</p>
+                      </td>
+                    </tr></table>
+                  </td>
+                </tr>
+                <tr>
+                  <td style="padding: 12px 0;">
+                    <table role="presentation" style="width: 100%;"><tr>
+                      <td style="width: 40px;"><div style="font-size: 20px;">🏷️</div></td>
+                      <td>
+                        <p style="margin: 0 0 2px 0; color: #64748b; font-size: 12px; text-transform: uppercase;">Room Type</p>
+                        <p style="margin: 0; color: #1e293b; font-size: 16px; font-weight: 600;">${roomType}</p>
+                      </td>
+                    </tr></table>
+                  </td>
+                </tr>
+              </table>
+            </td>
+          </tr>
+
+          <!-- Moves Section -->
+          <tr>
+            <td style="padding: 0 40px 24px 40px;">
+              <h2 style="margin: 0 0 16px 0; color: #1e293b; font-size: 18px; font-weight: 700;">🔀 ${solution.moves.length} Move${solution.moves.length !== 1 ? 's' : ''} Made</h2>
+              ${moveCardsHtml}
+            </td>
+          </tr>
+
+          <!-- Room Type Notice -->
+          <tr>
+            <td style="padding: 0 40px 32px 40px;">
+              <div style="background-color: #f0fdf4; border: 1px solid #86efac; border-radius: 12px; padding: 16px; text-align: center;">
+                <p style="margin: 0; color: #166534; font-size: 14px; font-weight: 600;">
+                  ✅ All moves were within the same room type (${roomType})
+                </p>
+              </div>
+            </td>
+          </tr>
+
+          <!-- Freed Unit -->
+          <tr>
+            <td style="padding: 0 40px 32px 40px;">
+              <div style="background-color: #eff6ff; border: 1px solid #93c5fd; border-radius: 12px; padding: 16px; text-align: center;">
+                <p style="margin: 0 0 4px 0; color: #1e40af; font-size: 12px; text-transform: uppercase; letter-spacing: 1px;">Unit Freed for New Booking</p>
+                <p style="margin: 0; color: #1e3a8a; font-size: 24px; font-weight: 700;">#${freedUnitNumber}</p>
+              </div>
+            </td>
+          </tr>
+
+          <!-- Footer -->
+          <tr>
+            <td style="background-color: #f8fafc; padding: 24px 40px; text-align: center; border-top: 1px solid #e2e8f0;">
+              <p style="margin: 0 0 8px 0; color: #64748b; font-size: 14px;">SuiteSpot Reservation System</p>
+              <p style="margin: 0; color: #94a3b8; font-size: 12px;">This is an automated notification</p>
+            </td>
+          </tr>
+
+        </table>
+      </td>
+    </tr>
+  </table>
+</body>
+</html>`;
+
+          // Send sequentially with 600ms delay
+          for (const email of adminEmails) {
+            try {
+              const result = await resend.emails.send({
+                from: 'SuiteSpot Reservations <reservations@bookings.suitespoteg.com>',
+                to: [email],
+                subject: `Room Shuffle Alert - ${guestNames[0] || 'Guest'} (${bookingReference})`,
+                html: emailHtml,
+              });
+              console.log(`Shuffle email sent to ${email}:`, JSON.stringify(result));
+              await new Promise(resolve => setTimeout(resolve, 600));
+            } catch (emailErr) {
+              console.error(`Failed to send shuffle email to ${email}:`, emailErr);
+            }
+          }
+        }
+      }
     } catch (notifError) {
       console.error('Failed to send shuffle notification:', notifError);
     }
