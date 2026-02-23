@@ -1,60 +1,43 @@
 
 
-## Add "FRONT DESK" Sidebar Section with Read-Only Room Rates Page
+## Auto-Fill Price from Rate Plan System
 
-### Overview
+### Current Behavior
 
-Create a new sidebar section visible to all user roles, containing a read-only Room Rates page that displays room type information in a card-based layout. The page reads directly from the existing `units`, `rate_plans`, and `rate_plan_prices` tables -- no data duplication.
+The form already auto-fills price and enforces a minimum floor from `units.price_per_night`. However, this is outdated -- the rate plan system (`rate_plans` + `rate_plan_prices` tables) is the single source of truth for pricing, as used by the Admin Room Rates page and Channex integration.
 
-### Data Available Per Room Type
+### What Changes
 
-From the existing database:
-- **Room type names**: Deluxe Suite, Double Room with Terrace, Family Suite, Junior Suite, Suite with Terrace
-- **Prices**: weekday and weekend rates from `rate_plan_prices` (e.g., Junior Suite: $100/$115)
-- **Max occupancy**: from `units.max_guests` (e.g., 3-5 guests)
-- **Room area**: from `units.unit_size` (e.g., "52", "75 m2", "55m2+25m2")
-- **Photos**: Currently empty arrays in `units.photos` -- the page will handle this gracefully with placeholder images
-- **Amenities/features**: Currently empty arrays in `units.features` -- cards will show "No amenities listed" when empty
-- **Property amenities table**: Also empty for ICONIA units, so the page will fall back to the `features` array on `units`
+**File: `src/components/CreateReservationDialog.tsx`**
 
-### Changes
+1. **Fetch rate plan prices on mount** -- add a new query to load active rate plans with their prices (same pattern used in `src/pages/front-desk/RoomRates.tsx`). Build a lookup map: `booking_com_name -> weekday_rate`.
 
-**1. Sidebar -- `src/components/SlideMenu.tsx`**
+2. **Update `updateRoomSelection`** (line 626) -- when a room is selected, look up its `booking_com_name` from the unit, then find the matching weekday rate from the rate plan lookup. Auto-fill the price field with that rate instead of `unit.price_per_night`.
 
-Add a new "FRONT DESK" section between ICONIA and PMS with one item:
-- "Room Rates" linking to `/front-desk/room-rates`, using the `Tag` icon (to differentiate from the DollarSign icon used in ICONIA's Room Rates)
-- No `showFor` restriction -- visible to all roles
+3. **Update `getMinPriceForRoom`** (line 647) -- use the rate plan weekday rate as the floor price instead of `unit.price_per_night`. Falls back to `unit.price_per_night` if no rate plan price exists.
 
-**2. New Page -- `src/pages/front-desk/RoomRates.tsx`**
+4. **Update helper text** (line 1425-1428) -- change "Min: $XX.XX" to "Standard rate: $XX.XX/night" for all users (not just non-admins). This gives everyone visibility into the base rate.
 
-A read-only page at `/front-desk/room-rates` that:
-- Fetches `units` grouped by `booking_com_name` to get room type names, area, max_guests, photos, features
-- Fetches `rate_plans` + `rate_plan_prices` (active, type-level only) for current pricing
-- Displays a responsive card grid (3 columns on desktop, 1 on mobile)
+5. **Update validation error message** (line 1430-1433) -- change to "Rate cannot be lower than the standard rate of $XX.XX/night" per the request.
 
-Each card shows:
-- Room type name as the card title
-- Photo gallery/thumbnails (or a placeholder if no photos exist)
-- Area in sqm
-- Weekday and weekend rates from the default/standard rate plan
-- Max occupancy with a users icon
-- Amenities list (from `units.features`)
+### Admin Override
 
-Header: "Room Rates" with subtitle "Current rates and room information -- updated automatically"
+Per existing business rules, admin users bypass minimum price validation entirely. The standard rate helper text will still display for admins (informational only), but no validation error will appear and they can enter any price from $0.
 
-No edit buttons, forms, or save actions.
+### No Database Changes
 
-**3. Route -- `src/App.tsx`**
-
-Add route: `/front-desk/room-rates` wrapped in `ProtectedRoute` (any authenticated user can access)
+All data already exists in `rate_plans` and `rate_plan_prices` tables with appropriate RLS policies allowing authenticated users to SELECT.
 
 ### Technical Details
 
-| File | Action |
-|------|--------|
-| `src/components/SlideMenu.tsx` | Add FRONT DESK section with Room Rates item between ICONIA and PMS |
-| `src/pages/front-desk/RoomRates.tsx` | New read-only page with card grid layout |
-| `src/App.tsx` | Add route for `/front-desk/room-rates` inside `ProtectedRoute` |
+**Rate plan lookup logic:**
+- Fetch all active rate plans ordered by priority (descending)
+- For each room type (`booking_com_name`), find the type-level price (where `unit_id` is null)
+- Prefer the default rate plan; otherwise use the highest-priority match
+- Store as a `Map<string, number>` mapping room type name to weekday rate
 
-No database changes needed -- reads existing tables with existing RLS policies (all authenticated users can already SELECT from `units`, `rate_plans`, and `rate_plan_prices`).
+**Modified functions:**
+- `updateRoomSelection`: look up rate by `unit.booking_com_name` from the rate plan map
+- `getMinPriceForRoom`: same lookup, falling back to `unit.price_per_night`
+- `Unit` interface (line 161): add `booking_com_name: string | null` and update the `fetchUnits` query to include it
 
