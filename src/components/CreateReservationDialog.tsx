@@ -1409,7 +1409,7 @@ export function CreateReservationDialog() {
                           .filter(unit => !selectedUnitIds.includes(unit.id) || unit.id === selectedUnitIds[roomIndex])
                           .map((unit) => (
                             <SelectItem key={unit.id} value={unit.id}>
-                              {unit.name}{unit.unit_type ? ` - ${unit.unit_type}` : ''} {unit.unit_number ? `(#${unit.unit_number})` : ''}
+                              {unit.name} {unit.unit_number ? `(#${unit.unit_number})` : ''}
                             </SelectItem>
                           ))}
                         
