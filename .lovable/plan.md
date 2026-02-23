@@ -1,16 +1,19 @@
 
-## Align Front and Back ID Upload Buttons Side by Side
+## Remove Room Type Description from Room Selector Dropdown
 
 ### Overview
 
-Currently the "Front" and "Back" upload sections for ID documents are stacked vertically. This change places them side-by-side in a 2-column grid layout.
+Simplify the room selection dropdown to show only the room name and unit number, removing the description/type suffix (e.g., "1bd Large", "1bd + Balcony").
 
-### Changes -- File: `src/components/CreateReservationDialog.tsx`
+### Change -- File: `src/components/CreateReservationDialog.tsx`
 
-**1. Wrap Front and Back sections in a grid container (lines 1729-1853)**
+**Line 1412**: Change the SelectItem display text from:
+```
+{unit.name}{unit.unit_type ? ` - ${unit.unit_type}` : ''} {unit.unit_number ? `(#${unit.unit_number})` : ''}
+```
+To:
+```
+{unit.name} {unit.unit_number ? `(#${unit.unit_number})` : ''}
+```
 
-When `idPassportType === 'id'`, wrap both the Front and Back upload sections in a `grid grid-cols-2 gap-4` container so they appear side-by-side.
-
-When `idPassportType === 'passport'`, keep the single "Image" upload at full width (no grid needed since there's no Back image).
-
-The existing content of each section stays the same -- only the outer layout wrapper changes.
+This removes the `unit.unit_type` portion, so items like "Deluxe Suite - 1bd Large (#512)" become "Deluxe Suite (#512)".
