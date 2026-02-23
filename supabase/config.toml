@@ -75,3 +75,9 @@ verify_jwt = false
 
 [functions.auto-shuffle-rooms]
 verify_jwt = false
+
+[functions.channex-create-derived-rate-plan]
+verify_jwt = false
+
+[functions.channex-delete-derived-rate-plan]
+verify_jwt = false

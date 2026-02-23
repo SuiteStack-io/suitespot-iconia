@@ -69,6 +69,7 @@ import ChannexIntegration from "./pages/ChannexIntegration";
 import ChannexDebug from "./pages/ChannexDebug";
 import ShuffleHistory from "./pages/ShuffleHistory";
 import FrontDeskRoomRates from "./pages/front-desk/RoomRates";
+import ChannelMarkup from "./pages/pms/ChannelMarkup";
 const queryClient = new QueryClient();
 
 const App = () => (
@@ -160,6 +161,7 @@ const App = () => (
         <Route path="/pms/availability" element={<ProtectedRoute><PMSAvailability /></ProtectedRoute>} />
         <Route path="/pms/prices" element={<ProtectedRoute><PMSPrices /></ProtectedRoute>} />
         <Route path="/pms/restrictions" element={<ProtectedRoute><PMSRestrictions /></ProtectedRoute>} />
+        <Route path="/pms/channel-markup" element={<ProtectedRoute><AdminRoute><ChannelMarkup /></AdminRoute></ProtectedRoute>} />
         <Route path="/channex" element={<ProtectedRoute><ChannexIntegration /></ProtectedRoute>} />
         <Route path="/channex-debug" element={<ProtectedRoute><ChannexDebug /></ProtectedRoute>} />
         <Route path="/shuffle-history" element={<ProtectedRoute><ShuffleHistory /></ProtectedRoute>} />

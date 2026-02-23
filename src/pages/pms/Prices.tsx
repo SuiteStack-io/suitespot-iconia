@@ -75,6 +75,7 @@ const PMSPrices = () => {
   const [deleteDialogOpen, setDeleteDialogOpen] = useState(false);
   const [deletingPlanId, setDeletingPlanId] = useState<string | null>(null);
   const [expandedRoomTypes, setExpandedRoomTypes] = useState<Set<string>>(new Set());
+  const [channelMarkups, setChannelMarkups] = useState<Array<{ id: string; channel_name: string; markup_percentage: number }>>([]);
 
   useEffect(() => {
     fetchData();
@@ -83,10 +84,11 @@ const PMSPrices = () => {
   const fetchData = async () => {
     setLoading(true);
     try {
-      const [plansRes, pricesRes, unitsRes] = await Promise.all([
+      const [plansRes, pricesRes, unitsRes, markupsRes] = await Promise.all([
         supabase.from('rate_plans').select('*').eq('is_active', true).order('room_type').order('priority', { ascending: false }),
         supabase.from('rate_plan_prices').select('*'),
         supabase.from('units').select('id, unit_number, booking_com_name').eq('location', 'ICONIA').not('booking_com_name', 'is', null),
+        supabase.from('channel_markup_settings').select('id, channel_name, markup_percentage').eq('is_active', true),
       ]);
 
       if (plansRes.error) throw plansRes.error;
@@ -95,6 +97,7 @@ const PMSPrices = () => {
 
       setUnits(unitsRes.data || []);
       setRatePlans(plansRes.data || []);
+      setChannelMarkups((markupsRes.data as any[]) || []);
 
       const pricesByPlan: Record<string, RatePlanPrice[]> = {};
       (pricesRes.data || []).forEach(price => {
@@ -345,10 +348,21 @@ const PMSPrices = () => {
                                     {getCancellationPolicyLabel(plan.cancellation_policy || 'flexible_1_day')}
                                   </Badge>
                                 </div>
-                                {price && (
-                                  <p className="text-sm text-muted-foreground">
-                                    {formatCurrency(price.weekday_rate)} weekday / {formatCurrency(price.weekend_rate)} weekend · {price.min_stay} night min
-                                  </p>
+                {price && (
+                                  <div className="space-y-0.5">
+                                    <p className="text-sm text-muted-foreground">
+                                      Base: {formatCurrency(price.weekday_rate)} wkday / {formatCurrency(price.weekend_rate)} wknd · {price.min_stay} night min
+                                    </p>
+                                    {channelMarkups.map(ch => {
+                                      const sellWkday = Math.round(price.weekday_rate * (1 + ch.markup_percentage / 100));
+                                      const sellWknd = Math.round(price.weekend_rate * (1 + ch.markup_percentage / 100));
+                                      return (
+                                        <p key={ch.id} className="text-xs text-muted-foreground">
+                                          → {ch.channel_name}: {formatCurrency(sellWkday)} / {formatCurrency(sellWknd)} (+{ch.markup_percentage}%)
+                                        </p>
+                                      );
+                                    })}
+                                  </div>
                                 )}
                               </div>
                               <div className="flex items-center gap-1">

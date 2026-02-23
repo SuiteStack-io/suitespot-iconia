@@ -110,6 +110,7 @@ export function SlideMenu({ userRole }: SlideMenuProps) {
         { title: 'Availability', url: '/pms/availability', icon: CalendarDays },
         { title: 'Prices', url: '/pms/prices', icon: DollarSign },
         { title: 'Restrictions', url: '/pms/restrictions', icon: Lock },
+        { title: 'Channel Markup', url: '/pms/channel-markup', icon: Tag },
         { title: 'Channex Integration', url: '/channex', icon: Radio },
         { title: 'Channex Debug', url: '/channex-debug', icon: Zap },
         { title: 'Shuffle History', url: '/shuffle-history', icon: ArrowLeftRight },
