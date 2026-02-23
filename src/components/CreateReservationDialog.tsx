@@ -163,6 +163,7 @@ interface Unit {
   name: string;
   unit_number: string | null;
   unit_type: string | null;
+  booking_com_name: string | null;
   price_per_night: number | null;
   weekend_rate: number | null;
   tax_percentage: number | null;
@@ -226,6 +227,8 @@ export function CreateReservationDialog() {
   const [availableUnits, setAvailableUnits] = useState<Unit[]>([]);
   const [reservedUnitIds, setReservedUnitIds] = useState<string[]>([]);
   const [blockedUnitIds, setBlockedUnitIds] = useState<string[]>([]);
+  // Rate plan price lookup: booking_com_name -> weekday_rate
+  const [ratePriceMap, setRatePriceMap] = useState<Map<string, number>>(new Map());
   const [checkingAvailability, setCheckingAvailability] = useState(false);
   const [bookedDates, setBookedDates] = useState<Date[]>([]);
   
@@ -461,10 +464,11 @@ export function CreateReservationDialog() {
     }
   };
 
-  // Fetch all units and users on mount, and subscribe to real-time updates
+  // Fetch all units, users, and rate plan prices on mount
   useEffect(() => {
     fetchUnits();
     fetchUsers();
+    fetchRatePlanPrices();
 
     // Subscribe to profile changes
     const profilesChannel = supabase
@@ -517,7 +521,7 @@ export function CreateReservationDialog() {
   const fetchUnits = async () => {
     const { data, error } = await supabase
       .from("units")
-      .select("id, name, unit_number, unit_type, price_per_night, weekend_rate, tax_percentage, location")
+      .select("id, name, unit_number, unit_type, booking_com_name, price_per_night, weekend_rate, tax_percentage, location")
       .eq("location", "ICONIA")
       .order("name");
 
@@ -529,6 +533,34 @@ export function CreateReservationDialog() {
 
     setAllUnits(data || []);
     setAvailableUnits(data || []);
+  };
+
+  const fetchRatePlanPrices = async () => {
+    const { data: ratePlans, error } = await supabase
+      .from('rate_plans')
+      .select('id, name, is_default, room_type, rate_plan_prices(room_type, weekday_rate, unit_id)')
+      .eq('is_active', true)
+      .order('priority', { ascending: false });
+
+    if (error) {
+      console.error('Error fetching rate plan prices:', error);
+      return;
+    }
+
+    const priceMap = new Map<string, number>();
+    for (const rp of ratePlans || []) {
+      const prices = (rp as any).rate_plan_prices || [];
+      for (const p of prices) {
+        if (p.unit_id) continue;
+        const roomType = p.room_type as string;
+        if (!priceMap.has(roomType)) {
+          priceMap.set(roomType, Number(p.weekday_rate));
+        } else if (rp.is_default) {
+          priceMap.set(roomType, Number(p.weekday_rate));
+        }
+      }
+    }
+    setRatePriceMap(priceMap);
   };
 
   const checkUnitAvailability = async () => {
@@ -628,12 +660,16 @@ export function CreateReservationDialog() {
     newSelectedUnitIds[roomIndex] = unitId;
     setSelectedUnitIds(newSelectedUnitIds);
     
-    // Auto-fill price from unit data
+    // Auto-fill price from rate plan (preferred) or unit data (fallback)
     const unit = allUnits.find(u => u.id === unitId);
-    if (unit && unit.price_per_night) {
-      const newRoomPrices = [...roomPrices];
-      newRoomPrices[roomIndex] = unit.price_per_night;
-      setRoomPrices(newRoomPrices);
+    if (unit) {
+      const ratePlanPrice = unit.booking_com_name ? ratePriceMap.get(unit.booking_com_name) : null;
+      const price = ratePlanPrice ?? unit.price_per_night;
+      if (price) {
+        const newRoomPrices = [...roomPrices];
+        newRoomPrices[roomIndex] = price;
+        setRoomPrices(newRoomPrices);
+      }
     }
   };
 
@@ -648,7 +684,9 @@ export function CreateReservationDialog() {
     const unitId = selectedUnitIds[roomIndex];
     if (!unitId) return null;
     const unit = allUnits.find(u => u.id === unitId);
-    return unit?.price_per_night ?? null;
+    if (!unit) return null;
+    const ratePlanPrice = unit.booking_com_name ? ratePriceMap.get(unit.booking_com_name) : null;
+    return ratePlanPrice ?? unit.price_per_night ?? null;
   };
 
   // Check if room price is valid (>= minimum, unless admin)
@@ -1422,14 +1460,14 @@ export function CreateReservationDialog() {
                     step="1"
                     className={cn(!isRoomPriceValid(roomIndex) && userRole !== 'admin' && "border-destructive focus-visible:ring-destructive")}
                   />
-                  {getMinPriceForRoom(roomIndex) !== null && userRole !== 'admin' && (
+                  {getMinPriceForRoom(roomIndex) !== null && (
                     <p className="text-xs text-muted-foreground">
-                      Min: ${getMinPriceForRoom(roomIndex)?.toFixed(2)}
+                      Standard rate: ${getMinPriceForRoom(roomIndex)?.toFixed(2)}/night
                     </p>
                   )}
                   {!isRoomPriceValid(roomIndex) && userRole !== 'admin' && (
                     <p className="text-xs text-destructive">
-                      Price must be at least ${getMinPriceForRoom(roomIndex)?.toFixed(2)} for this room
+                      Rate cannot be lower than the standard rate of ${getMinPriceForRoom(roomIndex)?.toFixed(2)}/night
                     </p>
                   )}
                 </div>
