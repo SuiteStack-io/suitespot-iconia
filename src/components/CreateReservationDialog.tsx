@@ -167,6 +167,8 @@ interface Unit {
   price_per_night: number | null;
   weekend_rate: number | null;
   tax_percentage: number | null;
+  default_occupancy: number | null;
+  max_guests: number | null;
 }
 
 export function CreateReservationDialog() {
@@ -186,9 +188,10 @@ export function CreateReservationDialog() {
   const [roomPrices, setRoomPrices] = useState<(number | "")[]>([""]);
   const [unitId, setUnitId] = useState("");
   const [roomNumber, setRoomNumber] = useState<string>("");
-  const [adults, setAdults] = useState<number>(1);
-  const [children, setChildren] = useState<number>(0);
-  const [numberOfGuests, setNumberOfGuests] = useState<number>(1);
+  // Per-room guest counts
+  const [roomAdults, setRoomAdults] = useState<number[]>([1]);
+  const [roomChildren, setRoomChildren] = useState<number[]>([0]);
+  // Main guest only
   const [guestFirstNames, setGuestFirstNames] = useState<string[]>([""]);
   const [guestLastNames, setGuestLastNames] = useState<string[]>([""]);
   const [guestTypes, setGuestTypes] = useState<('adult' | 'child')[]>(["adult"]);
@@ -208,7 +211,7 @@ export function CreateReservationDialog() {
   const [marriageUploadProgress, setMarriageUploadProgress] = useState<number>(0);
   const [isMarriageUploading, setIsMarriageUploading] = useState<boolean>(false);
   const [contactEmail, setContactEmail] = useState("");
-  const [countryCode, setCountryCode] = useState("+20"); // Default to Egypt
+  const [countryCode, setCountryCode] = useState("+20");
   const [contactPhone, setContactPhone] = useState("");
   const [source, setSource] = useState("");
   const [sourceSpecification, setSourceSpecification] = useState("");
@@ -229,11 +232,18 @@ export function CreateReservationDialog() {
   const [blockedUnitIds, setBlockedUnitIds] = useState<string[]>([]);
   // Rate plan price lookup: booking_com_name -> weekday_rate
   const [ratePriceMap, setRatePriceMap] = useState<Map<string, number>>(new Map());
+  // Extra adult rate lookup: booking_com_name -> extra_adult_rate
+  const [extraAdultRateMap, setExtraAdultRateMap] = useState<Map<string, number>>(new Map());
   const [checkingAvailability, setCheckingAvailability] = useState(false);
   const [bookedDates, setBookedDates] = useState<Date[]>([]);
   
   // Users for source selection
   const [userSources, setUserSources] = useState<string[]>([]);
+
+  // Computed totals from per-room arrays
+  const totalAdults = roomAdults.reduce((sum, a) => sum + a, 0);
+  const totalChildren = roomChildren.reduce((sum, c) => sum + c, 0);
+  const numberOfGuests = totalAdults + totalChildren;
 
   // Extract dates from range
   const checkInDate = dateRange?.from;
@@ -244,10 +254,12 @@ export function CreateReservationDialog() {
     ? differenceInDays(checkOutDate, checkInDate) 
     : 0;
 
-  // Sync selectedUnitIds array size with numberOfRooms
+  // Sync selectedUnitIds, roomAdults, roomChildren array sizes with numberOfRooms
   useEffect(() => {
     setSelectedUnitIds(Array(numberOfRooms).fill("").map((_, i) => selectedUnitIds[i] || ""));
     setRoomPrices(Array(numberOfRooms).fill("").map((_, i) => roomPrices[i] || ""));
+    setRoomAdults(Array(numberOfRooms).fill(1).map((_, i) => roomAdults[i] ?? 1));
+    setRoomChildren(Array(numberOfRooms).fill(0).map((_, i) => roomChildren[i] ?? 0));
   }, [numberOfRooms]);
 
   // Get selected unit for tax calculation (use first room for tax percentage)
@@ -320,7 +332,7 @@ export function CreateReservationDialog() {
     }
   };
 
-  // Arab nationalities that require marriage certificate (using country names to match dropdown)
+  // Arab nationalities that require marriage certificate
   const ARAB_NATIONALITIES = [
     "Egypt", "Saudi Arabia", "United Arab Emirates", "Kuwait", "Qatar", "Bahrain", "Oman", 
     "Yemen", "Jordan", "Lebanon", "Syria", "Iraq", "Palestine", 
@@ -328,58 +340,10 @@ export function CreateReservationDialog() {
     "Djibouti", "Mauritania", "Comoros"
   ];
 
-  // Check if marriage certificate is required
+  // Marriage certificate auto-detection disabled — with only 1 guest form we can't detect male+female pairs
   const isMarriageCertificateRequired = () => {
-    // Count adults from guestTypes array (not the adults counter)
-    const adultCount = guestTypes.filter(type => type === 'adult').length;
-    
-    // Must have exactly 2 adults
-    if (adultCount !== 2) return false;
-    
-    // Must be Arab nationality
-    if (!ARAB_NATIONALITIES.includes(nationality)) return false;
-    
-    // Get genders of adult guests
-    const adultGenders = guestTypes
-      .map((type, index) => type === 'adult' ? guestGenders[index] : null)
-      .filter(gender => gender !== null && gender !== '');
-    
-    // Must have male and female
-    const hasMale = adultGenders.includes('male');
-    const hasFemale = adultGenders.includes('female');
-    
-    return hasMale && hasFemale;
+    return false;
   };
-
-  // Auto-sync guest names array when adults/children selectors change
-  useEffect(() => {
-    const totalGuests = adults + children;
-    setNumberOfGuests(totalGuests);
-    
-    // Create arrays for guest names and types based on adults/children counts
-    const newGuestFirstNames = Array(totalGuests).fill('').map((_, i) => guestFirstNames[i] || '');
-    const newGuestLastNames = Array(totalGuests).fill('').map((_, i) => guestLastNames[i] || '');
-    const newGuestTypes = Array(totalGuests).fill('adult' as 'adult' | 'child').map((_, i) => {
-      // If we already have a type for this index, keep it
-      if (guestTypes[i]) return guestTypes[i];
-      // Otherwise, assign based on position: first X are adults, rest are children
-      return i < adults ? 'adult' : 'child';
-    });
-    const newGuestGenders = Array(totalGuests).fill('').map((_, i) => guestGenders[i] || '');
-    
-    setGuestFirstNames(newGuestFirstNames);
-    setGuestLastNames(newGuestLastNames);
-    setGuestTypes(newGuestTypes);
-    setGuestGenders(newGuestGenders);
-  }, [adults, children]);
-
-  // Auto-sync number of guests with guest names count
-  useEffect(() => {
-    const validGuestCount = guestFirstNames.filter((fn, i) => fn.trim() !== '' && guestLastNames[i]?.trim() !== '').length;
-    if (validGuestCount > 0) {
-      setNumberOfGuests(validGuestCount);
-    }
-  }, [guestFirstNames, guestLastNames]);
 
   // Fetch booked dates for calendar display
   useEffect(() => {
@@ -392,7 +356,6 @@ export function CreateReservationDialog() {
 
         if (error) throw error;
 
-        // Get all dates that are fully booked (all units booked)
         const { data: allUnitsData } = await supabase
           .from("units")
           .select("id")
@@ -401,7 +364,6 @@ export function CreateReservationDialog() {
         const totalUnits = allUnitsData?.length || 0;
         if (totalUnits === 0) return;
 
-        // Group reservations by date
         const dateBookings = new Map<string, Set<string>>();
         
         reservations?.forEach(res => {
@@ -417,7 +379,6 @@ export function CreateReservationDialog() {
           }
         });
 
-        // Find dates where all units are booked
         const fullyBookedDates: Date[] = [];
         dateBookings.forEach((unitIds, dateStr) => {
           if (unitIds.size >= totalUnits) {
@@ -441,7 +402,6 @@ export function CreateReservationDialog() {
     const start = new Date(range.from);
     const end = new Date(range.to);
     
-    // Check each date in the range (excluding checkout date)
     for (let d = new Date(start); d < end; d.setDate(d.getDate() + 1)) {
       const isBlocked = bookedDates.some(bookedDate => 
         format(bookedDate, 'yyyy-MM-dd') === format(d, 'yyyy-MM-dd')
@@ -452,10 +412,8 @@ export function CreateReservationDialog() {
   };
 
   const handleDateSelect = (range: DateRange | undefined) => {
-    // Only set the range if it's valid (doesn't contain blocked dates)
     if (isRangeValid(range)) {
       setDateRange(range);
-      // Auto-close on mobile after selecting both dates
       if (isMobile && range?.from && range?.to) {
         setDatePickerOpen(false);
       }
@@ -470,7 +428,6 @@ export function CreateReservationDialog() {
     fetchUsers();
     fetchRatePlanPrices();
 
-    // Subscribe to profile changes
     const profilesChannel = supabase
       .channel('profiles-changes')
       .on(
@@ -481,13 +438,11 @@ export function CreateReservationDialog() {
           table: 'profiles'
         },
         () => {
-          // Refetch users when profiles table changes
           fetchUsers();
         }
       )
       .subscribe();
 
-    // Cleanup subscription on unmount
     return () => {
       supabase.removeChannel(profilesChannel);
     };
@@ -521,7 +476,7 @@ export function CreateReservationDialog() {
   const fetchUnits = async () => {
     const { data, error } = await supabase
       .from("units")
-      .select("id, name, unit_number, unit_type, booking_com_name, price_per_night, weekend_rate, tax_percentage, location")
+      .select("id, name, unit_number, unit_type, booking_com_name, price_per_night, weekend_rate, tax_percentage, location, default_occupancy, max_guests")
       .eq("location", "ICONIA")
       .order("name");
 
@@ -538,7 +493,7 @@ export function CreateReservationDialog() {
   const fetchRatePlanPrices = async () => {
     const { data: ratePlans, error } = await supabase
       .from('rate_plans')
-      .select('id, name, is_default, room_type, rate_plan_prices(room_type, weekday_rate, unit_id)')
+      .select('id, name, is_default, room_type, extra_adult_rate, rate_plan_prices(room_type, weekday_rate, unit_id)')
       .eq('is_active', true)
       .order('priority', { ascending: false });
 
@@ -548,19 +503,30 @@ export function CreateReservationDialog() {
     }
 
     const priceMap = new Map<string, number>();
+    const extraRateMap = new Map<string, number>();
     for (const rp of ratePlans || []) {
       const prices = (rp as any).rate_plan_prices || [];
+      const roomType = rp.room_type as string | null;
+      
+      // Build extra adult rate map from rate plan
+      if (roomType && rp.extra_adult_rate != null) {
+        if (!extraRateMap.has(roomType) || rp.is_default) {
+          extraRateMap.set(roomType, Number(rp.extra_adult_rate));
+        }
+      }
+      
       for (const p of prices) {
         if (p.unit_id) continue;
-        const roomType = p.room_type as string;
-        if (!priceMap.has(roomType)) {
-          priceMap.set(roomType, Number(p.weekday_rate));
+        const rt = p.room_type as string;
+        if (!priceMap.has(rt)) {
+          priceMap.set(rt, Number(p.weekday_rate));
         } else if (rp.is_default) {
-          priceMap.set(roomType, Number(p.weekday_rate));
+          priceMap.set(rt, Number(p.weekday_rate));
         }
       }
     }
     setRatePriceMap(priceMap);
+    setExtraAdultRateMap(extraRateMap);
   };
 
   const checkUnitAvailability = async () => {
@@ -570,7 +536,6 @@ export function CreateReservationDialog() {
     const checkIn = format(checkInDate, "yyyy-MM-dd");
     const checkOut = format(checkOutDate, "yyyy-MM-dd");
 
-    // Check for conflicting reservations
     const { data: conflictingReservations, error: reservationsError } = await supabase
       .from("reservations")
       .select("unit_id")
@@ -584,7 +549,6 @@ export function CreateReservationDialog() {
       return;
     }
 
-    // Check for blocked dates within the range
     const { data: blockedUnitsData, error: blockedError } = await supabase
       .from("blocked_dates")
       .select("unit_id")
@@ -598,22 +562,17 @@ export function CreateReservationDialog() {
       return;
     }
 
-    // Store reserved and blocked IDs separately for badges
     const reserved = [...new Set(conflictingReservations?.map((r) => r.unit_id).filter(Boolean) || [])] as string[];
     const blocked = [...new Set(blockedUnitsData?.map((b) => b.unit_id).filter(Boolean) || [])] as string[];
     
     setReservedUnitIds(reserved);
     setBlockedUnitIds(blocked);
 
-    // Combine unavailable unit IDs
     const unavailableUnitIds = [...new Set([...reserved, ...blocked])];
-
-    // Filter to only available units
     const available = allUnits.filter((unit) => !unavailableUnitIds.includes(unit.id));
     
     setAvailableUnits(available);
     
-    // Reset unit selections if any selected unit is no longer available
     const newSelectedUnitIds = selectedUnitIds.map(id => 
       unavailableUnitIds.includes(id) ? "" : id
     );
@@ -624,7 +583,6 @@ export function CreateReservationDialog() {
     setCheckingAvailability(false);
   };
 
-  // Helper to get unavailability reason for a unit
   const getUnitUnavailabilityReason = (unitId: string): 'reserved' | 'blocked' | null => {
     if (reservedUnitIds.includes(unitId)) return 'reserved';
     if (blockedUnitIds.includes(unitId)) return 'blocked';
@@ -655,16 +613,55 @@ export function CreateReservationDialog() {
     setGuestGenders(newGuestGenders);
   };
 
+  // Helper: get base rate for a room (from rate plan or unit fallback)
+  const getBaseRateForUnit = (unit: Unit): number | null => {
+    const ratePlanPrice = unit.booking_com_name ? ratePriceMap.get(unit.booking_com_name) : null;
+    return ratePlanPrice ?? unit.price_per_night ?? null;
+  };
+
+  // Helper: get extra adult rate for a unit
+  const getExtraAdultRateForUnit = (unit: Unit): number => {
+    if (!unit.booking_com_name) return 0;
+    return extraAdultRateMap.get(unit.booking_com_name) ?? 0;
+  };
+
+  // Helper: calculate occupancy surcharge for a room
+  const getOccupancySurcharge = (roomIndex: number): number => {
+    const unitId = selectedUnitIds[roomIndex];
+    if (!unitId) return 0;
+    const unit = allUnits.find(u => u.id === unitId);
+    if (!unit) return 0;
+    const defaultOcc = unit.default_occupancy ?? 2;
+    const adults = roomAdults[roomIndex] ?? 1;
+    const extraAdults = Math.max(0, adults - defaultOcc);
+    if (extraAdults <= 0) return 0;
+    return extraAdults * getExtraAdultRateForUnit(unit);
+  };
+
+  // Helper: get the number of extra adults for a room
+  const getExtraAdultsCount = (roomIndex: number): number => {
+    const unitId = selectedUnitIds[roomIndex];
+    if (!unitId) return 0;
+    const unit = allUnits.find(u => u.id === unitId);
+    if (!unit) return 0;
+    const defaultOcc = unit.default_occupancy ?? 2;
+    return Math.max(0, (roomAdults[roomIndex] ?? 1) - defaultOcc);
+  };
+
   const updateRoomSelection = (roomIndex: number, unitId: string) => {
     const newSelectedUnitIds = [...selectedUnitIds];
     newSelectedUnitIds[roomIndex] = unitId;
     setSelectedUnitIds(newSelectedUnitIds);
     
-    // Auto-fill price from rate plan (preferred) or unit data (fallback)
+    // Auto-fill price from rate plan (preferred) or unit data (fallback), plus occupancy surcharge
     const unit = allUnits.find(u => u.id === unitId);
     if (unit) {
-      const ratePlanPrice = unit.booking_com_name ? ratePriceMap.get(unit.booking_com_name) : null;
-      const price = ratePlanPrice ?? unit.price_per_night;
+      const baseRate = getBaseRateForUnit(unit);
+      const defaultOcc = unit.default_occupancy ?? 2;
+      const adults = roomAdults[roomIndex] ?? 1;
+      const extraAdults = Math.max(0, adults - defaultOcc);
+      const surcharge = extraAdults * getExtraAdultRateForUnit(unit);
+      const price = baseRate ? baseRate + surcharge : null;
       if (price) {
         const newRoomPrices = [...roomPrices];
         newRoomPrices[roomIndex] = price;
@@ -673,25 +670,55 @@ export function CreateReservationDialog() {
     }
   };
 
+  const updateRoomAdults = (roomIndex: number, adults: number) => {
+    const newRoomAdults = [...roomAdults];
+    newRoomAdults[roomIndex] = adults;
+    setRoomAdults(newRoomAdults);
+    
+    // Recalculate price when adults change
+    const unitId = selectedUnitIds[roomIndex];
+    if (!unitId) return;
+    const unit = allUnits.find(u => u.id === unitId);
+    if (!unit) return;
+    
+    const baseRate = getBaseRateForUnit(unit);
+    if (baseRate == null) return;
+    
+    const defaultOcc = unit.default_occupancy ?? 2;
+    const extraAdults = Math.max(0, adults - defaultOcc);
+    const surcharge = extraAdults * getExtraAdultRateForUnit(unit);
+    const newPrice = baseRate + surcharge;
+    
+    const newRoomPrices = [...roomPrices];
+    newRoomPrices[roomIndex] = newPrice;
+    setRoomPrices(newRoomPrices);
+  };
+
+  const updateRoomChildrenCount = (roomIndex: number, childCount: number) => {
+    const newRoomChildren = [...roomChildren];
+    newRoomChildren[roomIndex] = childCount;
+    setRoomChildren(newRoomChildren);
+  };
+
   const updateRoomPrice = (roomIndex: number, price: number | "") => {
     const newRoomPrices = [...roomPrices];
     newRoomPrices[roomIndex] = price;
     setRoomPrices(newRoomPrices);
   };
 
-  // Helper to get minimum price for a room based on selected unit
+  // Helper to get minimum price for a room (base rate + occupancy surcharge)
   const getMinPriceForRoom = (roomIndex: number): number | null => {
     const unitId = selectedUnitIds[roomIndex];
     if (!unitId) return null;
     const unit = allUnits.find(u => u.id === unitId);
     if (!unit) return null;
-    const ratePlanPrice = unit.booking_com_name ? ratePriceMap.get(unit.booking_com_name) : null;
-    return ratePlanPrice ?? unit.price_per_night ?? null;
+    const baseRate = getBaseRateForUnit(unit);
+    if (baseRate == null) return null;
+    return baseRate + getOccupancySurcharge(roomIndex);
   };
 
   // Check if room price is valid (>= minimum, unless admin)
   const isRoomPriceValid = (roomIndex: number): boolean => {
-    // Admin users can set any price
     if (userRole === 'admin') return true;
     
     const price = roomPrices[roomIndex];
@@ -711,7 +738,6 @@ export function CreateReservationDialog() {
       setIdUploadProgress(0);
     }
     
-    // Simulate upload progress
     const progressInterval = setInterval(() => {
       if (isBack) {
         setIdUploadProgressBack(prev => {
@@ -773,7 +799,6 @@ export function CreateReservationDialog() {
         setIdPassportUrl(publicUrl);
       }
       
-      // Keep progress bar at 100% for a moment before hiding
       await new Promise(resolve => setTimeout(resolve, 500));
       if (isBack) {
         setIsIdUploadingBack(false);
@@ -822,7 +847,6 @@ export function CreateReservationDialog() {
     setIsMarriageUploading(true);
     setMarriageUploadProgress(0);
     
-    // Simulate upload progress
     const progressInterval = setInterval(() => {
       setMarriageUploadProgress(prev => {
         if (prev >= 90) {
@@ -860,7 +884,6 @@ export function CreateReservationDialog() {
       
       setMarriageCertificateUrl(publicUrl);
       
-      // Keep progress bar at 100% for a moment before hiding
       await new Promise(resolve => setTimeout(resolve, 500));
       setIsMarriageUploading(false);
       setMarriageUploadProgress(0);
@@ -887,7 +910,6 @@ export function CreateReservationDialog() {
   const validateForm = () => {
     const missingFields: string[] = [];
     
-    // Date validations
     if (!checkInDate) {
       missingFields.push("Check-in date");
     }
@@ -903,26 +925,24 @@ export function CreateReservationDialog() {
       return false;
     }
     
-    // Room selection - check all rooms are selected
+    // Room selection
     const emptyRoomSelections = selectedUnitIds.filter(id => !id).length;
     if (emptyRoomSelections > 0) {
       missingFields.push(`Room selection (${emptyRoomSelections} room${emptyRoomSelections > 1 ? 's' : ''} not selected)`);
     }
     
-    // Check for duplicate room selections
     const uniqueRooms = new Set(selectedUnitIds.filter(id => id));
     if (uniqueRooms.size < selectedUnitIds.filter(id => id).length) {
       toast.error("You cannot select the same room multiple times");
       return false;
     }
     
-    // Price validation for each room
+    // Price validation
     const emptyPrices = roomPrices.filter((price, index) => selectedUnitIds[index] && (!price || Number(price) <= 0)).length;
     if (emptyPrices > 0) {
       missingFields.push(`Price per night for all rooms (${emptyPrices} room${emptyPrices > 1 ? 's' : ''} missing price)`);
     }
     
-    // Validate prices are integers
     const hasNonIntegerPrice = roomPrices.some((price, index) => {
       return selectedUnitIds[index] && price && !Number.isInteger(Number(price));
     });
@@ -931,20 +951,14 @@ export function CreateReservationDialog() {
       return false;
     }
     
-    // Guest validations
-    if (numberOfGuests < 1) {
-      missingFields.push("Number of guests");
-    }
+    // Main guest validation
     if (!guestFirstNames[0]?.trim() || !guestLastNames[0]?.trim()) {
-      missingFields.push("At least one guest's first and last name");
+      missingFields.push("Main guest's first and last name");
     }
     
-    // Validate that all guests have a type selected
-    const hasEmptyTypes = guestTypes.some((type, index) => {
-      return (guestFirstNames[index]?.trim() !== "" || guestLastNames[index]?.trim() !== "") && !type;
-    });
-    if (hasEmptyTypes) {
-      missingFields.push("Guest type (Adult/Child) for all guests");
+    // Main guest gender validation (if adult)
+    if (guestTypes[0] === 'adult' && !guestGenders[0]) {
+      missingFields.push("Gender selection for main guest");
     }
     
     // Nationality
@@ -958,21 +972,6 @@ export function CreateReservationDialog() {
     }
     if (idPassportType === 'id' && !idPassportFileBack) {
       missingFields.push("ID back image");
-    }
-    
-    // Gender validation for adults
-    const adultIndices = guestTypes
-      .map((type, index) => type === 'adult' ? index : -1)
-      .filter(index => index !== -1);
-    
-    const hasEmptyGenders = adultIndices.some(index => !guestGenders[index]);
-    if (hasEmptyGenders) {
-      missingFields.push("Gender selection for all adult guests");
-    }
-    
-    // Marriage certificate if required
-    if (isMarriageCertificateRequired() && !marriageCertificateFile) {
-      missingFields.push("Marriage certificate (required for Arab couples)");
     }
     
     // Contact information
@@ -992,22 +991,19 @@ export function CreateReservationDialog() {
       missingFields.push("Booking source");
     }
     
-    // Source specification for "Others"
     if (source === "Others" && !sourceSpecification.trim()) {
       missingFields.push("Source specification (when selecting Others)");
     }
     
-    // Payment method validation
+    // Payment method
     if (!paymentMethod) {
       missingFields.push("Payment method");
     }
     
-    // Currency required for cash payments
     if (paymentMethod === 'cash' && !cashCurrency) {
       missingFields.push("Currency (for cash payment)");
     }
     
-    // Show all missing fields if any
     if (missingFields.length > 0) {
       const fieldsList = missingFields.join(", ");
       toast.error(
@@ -1023,7 +1019,6 @@ export function CreateReservationDialog() {
   };
 
   const handleSubmit = async () => {
-    // Check permissions first
     if (!userRole || (userRole !== 'admin' && userRole !== 'manager')) {
       toast.error('You do not have permission to create reservations. Admin or Manager role required.');
       return;
@@ -1034,20 +1029,15 @@ export function CreateReservationDialog() {
     setLoading(true);
 
     try {
-      // Combine first and last names for submission
-      const combinedNames = guestFirstNames.map((firstName, i) => 
-        `${firstName.trim()} ${guestLastNames[i]?.trim() || ''}`.trim()
-      ).filter(n => n);
+      // Only main guest
+      const combinedNames = [`${guestFirstNames[0].trim()} ${guestLastNames[0]?.trim() || ''}`.trim()].filter(n => n);
 
-      // Prepare source value: if "Others", append specification
       const finalSource = source === "Others" && sourceSpecification.trim()
         ? `Others - ${sourceSpecification.trim()}`
         : source;
 
-      // Generate a group_id for multi-room bookings
       const groupId = numberOfRooms > 1 ? crypto.randomUUID() : null;
       
-      // Create reservations for each room
       const reservationPromises = selectedUnitIds.map(async (unitIdValue, roomIndex) => {
         if (!unitIdValue) return null;
 
@@ -1055,21 +1045,22 @@ export function CreateReservationDialog() {
         const subtotalForRoom = priceForRoom * nights;
         const taxAmountForRoom = subtotalForRoom * (taxPercentage / 100);
         const totalForRoomWithTax = subtotalForRoom + taxAmountForRoom;
-        // Commission calculated on Net Revenue (total / 1.14 for non-VAT exempt) - effective Jan 2026
         const netRevenue = totalForRoomWithTax / (1 + taxPercentage / 100);
         const commissionAmount = (netRevenue * commissionRate) / 100;
+
+        const roomGuestCount = (roomAdults[roomIndex] ?? 1) + (roomChildren[roomIndex] ?? 0);
 
         const reservationData = {
           booking_reference: `MAN-${Date.now()}-${roomIndex + 1}`,
           check_in_date: format(checkInDate!, "yyyy-MM-dd"),
           check_out_date: format(checkOutDate!, "yyyy-MM-dd"),
           unit_id: unitIdValue,
-          number_of_guests: numberOfGuests,
-          adults: adults,
-          children: children,
+          number_of_guests: roomGuestCount,
+          adults: roomAdults[roomIndex] ?? 1,
+          children: roomChildren[roomIndex] ?? 0,
           guest_names: combinedNames,
-          guest_types: guestTypes.filter((_, i) => combinedNames[i]),
-          guest_genders: guestGenders.filter((_, i) => combinedNames[i]),
+          guest_types: [guestTypes[0]].filter(Boolean),
+          guest_genders: [guestGenders[0]].filter(Boolean),
           guest_nationality: nationality,
           marriage_certificate_url: marriageCertificateUrl || null,
           id_passport_url: idPassportUrl || null,
@@ -1113,8 +1104,8 @@ export function CreateReservationDialog() {
         const unitName = selectedUnit ? `${selectedUnit.name} ${selectedUnit.unit_number || ''}`.trim() : 'Unit';
         const unitType = selectedUnit?.unit_type || '';
 
-        // Calculate subtotal and tax for email
-        const priceForRoom = Number(roomPrices[insertedReservations.indexOf(reservation)]);
+        const resIndex = insertedReservations.indexOf(reservation);
+        const priceForRoom = Number(roomPrices[resIndex]);
         const subtotalForRoom = priceForRoom * nights;
         const taxAmountForRoom = subtotalForRoom * (taxPercentage / 100);
 
@@ -1132,16 +1123,16 @@ export function CreateReservationDialog() {
               subtotal: subtotalForRoom,
               taxAmount: taxAmountForRoom,
               taxPercentage: taxPercentage,
-              numberOfGuests,
-              adults,
-              children,
+              numberOfGuests: (roomAdults[resIndex] ?? 1) + (roomChildren[resIndex] ?? 0),
+              adults: roomAdults[resIndex] ?? 1,
+              children: roomChildren[resIndex] ?? 0,
               source,
               notes: notes || null,
               guestNationality: nationality || null,
               customerEmail: contactEmail || null,
               customerPhone: contactPhone ? `${countryCode}${contactPhone}` : null,
               isMultiRoom: numberOfRooms > 1,
-              roomNumber: insertedReservations.indexOf(reservation) + 1,
+              roomNumber: resIndex + 1,
               totalRooms: numberOfRooms,
             },
           });
@@ -1162,9 +1153,8 @@ export function CreateReservationDialog() {
       setSelectedUnitIds([""]);
       setRoomPrices([""]);
       setUnitId("");
-      setAdults(1);
-      setChildren(0);
-      setNumberOfGuests(1);
+      setRoomAdults([1]);
+      setRoomChildren([0]);
       setGuestFirstNames([""]);
       setGuestLastNames([""]);
       setGuestTypes(["adult"]);
@@ -1188,7 +1178,6 @@ export function CreateReservationDialog() {
     } catch (error: any) {
       console.error("Error creating reservation:", error);
       
-      // Provide specific error messages
       if (error.code === '42501') {
         toast.error('You do not have permission to create reservations. Please contact an administrator.');
       } else if (error.code === '23505') {
@@ -1225,10 +1214,12 @@ export function CreateReservationDialog() {
   const resetForm = () => {
     setDateRange(undefined);
     setUnitId("");
-    setNumberOfGuests(1);
+    setRoomAdults([1]);
+    setRoomChildren([0]);
     setGuestFirstNames([""]);
     setGuestLastNames([""]);
     setGuestTypes(["adult"]);
+    setGuestGenders([""]);
     setNationality("");
     setContactEmail("");
     setCountryCode("+20");
@@ -1377,103 +1368,160 @@ export function CreateReservationDialog() {
             </Select>
           </div>
 
-          {/* Room Selections */}
-          {Array.from({ length: numberOfRooms }).map((_, roomIndex) => (
-            <div key={roomIndex} className="space-y-4 p-4 border rounded-lg bg-muted/30">
-              <h3 className="font-semibold text-sm">
-                Room {roomIndex + 1} {numberOfRooms > 1 && `of ${numberOfRooms}`}
-              </h3>
-              
-              <div className="grid grid-cols-2 gap-4">
-                <div className="space-y-2">
-                  <Label htmlFor={`unitId-${roomIndex}`}>
-                    Room Name <span className="text-destructive">*</span>
-                  </Label>
-                  <Select 
-                    value={selectedUnitIds[roomIndex]} 
-                    onValueChange={(value) => updateRoomSelection(roomIndex, value)} 
-                    disabled={checkingAvailability}
-                  >
-                    <SelectTrigger>
-                      <SelectValue placeholder={
-                        checkingAvailability 
-                          ? "Checking availability..." 
-                          : !checkInDate || !checkOutDate
-                          ? "Select dates first"
-                          : availableUnits.length === 0
-                          ? "No units available"
-                          : "Select a room"
-                      } />
-                    </SelectTrigger>
-                    <SelectContent>
-                      {/* Available units first */}
-                      {availableUnits
-                        .filter(unit => !selectedUnitIds.includes(unit.id) || unit.id === selectedUnitIds[roomIndex])
-                        .map((unit) => (
-                          <SelectItem key={unit.id} value={unit.id}>
-                            {unit.name}{unit.unit_type ? ` - ${unit.unit_type}` : ''} {unit.unit_number ? `(#${unit.unit_number})` : ''}
+          {/* Room Selections - 2x2 grid: Room Name, Price, Adults, Children */}
+          {Array.from({ length: numberOfRooms }).map((_, roomIndex) => {
+            const selectedUnit = allUnits.find(u => u.id === selectedUnitIds[roomIndex]);
+            const maxGuestsForRoom = selectedUnit?.max_guests ?? 4;
+            const extraAdultsCount = getExtraAdultsCount(roomIndex);
+            const surcharge = getOccupancySurcharge(roomIndex);
+            const extraRate = selectedUnit ? getExtraAdultRateForUnit(selectedUnit) : 0;
+            
+            return (
+              <div key={roomIndex} className="space-y-4 p-4 border rounded-lg bg-muted/30">
+                <h3 className="font-semibold text-sm">
+                  Room {roomIndex + 1} {numberOfRooms > 1 && `of ${numberOfRooms}`}
+                </h3>
+                
+                <div className="grid grid-cols-2 gap-4">
+                  {/* Row 1: Room Name */}
+                  <div className="space-y-2">
+                    <Label htmlFor={`unitId-${roomIndex}`}>
+                      Room Name <span className="text-destructive">*</span>
+                    </Label>
+                    <Select 
+                      value={selectedUnitIds[roomIndex]} 
+                      onValueChange={(value) => updateRoomSelection(roomIndex, value)} 
+                      disabled={checkingAvailability}
+                    >
+                      <SelectTrigger>
+                        <SelectValue placeholder={
+                          checkingAvailability 
+                            ? "Checking availability..." 
+                            : !checkInDate || !checkOutDate
+                            ? "Select dates first"
+                            : availableUnits.length === 0
+                            ? "No units available"
+                            : "Select a room"
+                        } />
+                      </SelectTrigger>
+                      <SelectContent>
+                        {availableUnits
+                          .filter(unit => !selectedUnitIds.includes(unit.id) || unit.id === selectedUnitIds[roomIndex])
+                          .map((unit) => (
+                            <SelectItem key={unit.id} value={unit.id}>
+                              {unit.name}{unit.unit_type ? ` - ${unit.unit_type}` : ''} {unit.unit_number ? `(#${unit.unit_number})` : ''}
+                            </SelectItem>
+                          ))}
+                        
+                        {checkInDate && checkOutDate && allUnits
+                          .filter(unit => !availableUnits.some(au => au.id === unit.id))
+                          .map((unit) => {
+                            const reason = getUnitUnavailabilityReason(unit.id);
+                            return (
+                              <SelectItem 
+                                key={unit.id} 
+                                value={unit.id} 
+                                disabled
+                                className="opacity-60"
+                              >
+                                <div className="flex items-center justify-between w-full gap-2">
+                                  <span>
+                                    {unit.name}{unit.unit_type ? ` - ${unit.unit_type}` : ''} {unit.unit_number ? `(#${unit.unit_number})` : ''}
+                                  </span>
+                                  <span className={cn(
+                                    "text-xs px-1.5 py-0.5 rounded-full font-medium ml-2",
+                                    reason === 'reserved' && "bg-amber-100 text-amber-700 dark:bg-amber-900/30 dark:text-amber-400",
+                                    reason === 'blocked' && "bg-red-100 text-red-700 dark:bg-red-900/30 dark:text-red-400"
+                                  )}>
+                                    {reason === 'reserved' ? 'Reserved' : 'Blocked'}
+                                  </span>
+                                </div>
+                              </SelectItem>
+                            );
+                          })}
+                      </SelectContent>
+                    </Select>
+                  </div>
+
+                  {/* Row 1: Price/Night */}
+                  <div className="space-y-2">
+                    <Label htmlFor={`roomPrice-${roomIndex}`}>
+                      Price/Night (USD) <span className="text-destructive">*</span>
+                    </Label>
+                    <Input 
+                      id={`roomPrice-${roomIndex}`}
+                      type="number"
+                      value={roomPrices[roomIndex]}
+                      onChange={(e) => updateRoomPrice(roomIndex, e.target.value ? Number(e.target.value) : "")}
+                      placeholder="Enter price"
+                      min={userRole === 'admin' ? 0 : (getMinPriceForRoom(roomIndex) || 0)}
+                      step="1"
+                      className={cn(!isRoomPriceValid(roomIndex) && userRole !== 'admin' && "border-destructive focus-visible:ring-destructive")}
+                    />
+                    {getMinPriceForRoom(roomIndex) !== null && (
+                      <p className="text-xs text-muted-foreground">
+                        Standard rate: ${getMinPriceForRoom(roomIndex)?.toFixed(2)}/night
+                      </p>
+                    )}
+                    {surcharge > 0 && selectedUnit && (
+                      <p className="text-xs text-muted-foreground">
+                        Includes ${extraRate}/night extra guest fee ({extraAdultsCount} additional adult{extraAdultsCount > 1 ? 's' : ''})
+                      </p>
+                    )}
+                    {!isRoomPriceValid(roomIndex) && userRole !== 'admin' && (
+                      <p className="text-xs text-destructive">
+                        Rate cannot be lower than the standard rate of ${getMinPriceForRoom(roomIndex)?.toFixed(2)}/night
+                      </p>
+                    )}
+                  </div>
+
+                  {/* Row 2: Adults */}
+                  <div className="space-y-2">
+                    <Label htmlFor={`roomAdults-${roomIndex}`} className="text-sm">
+                      Adults
+                    </Label>
+                    <Select 
+                      value={(roomAdults[roomIndex] ?? 1).toString()} 
+                      onValueChange={(value) => updateRoomAdults(roomIndex, parseInt(value))}
+                    >
+                      <SelectTrigger id={`roomAdults-${roomIndex}`}>
+                        <SelectValue />
+                      </SelectTrigger>
+                      <SelectContent>
+                        {Array.from({ length: maxGuestsForRoom }, (_, i) => i + 1).map((num) => (
+                          <SelectItem key={num} value={num.toString()}>
+                            {num} {num === 1 ? 'Adult' : 'Adults'}
                           </SelectItem>
                         ))}
-                      
-                      {/* Unavailable units with badges */}
-                      {checkInDate && checkOutDate && allUnits
-                        .filter(unit => !availableUnits.some(au => au.id === unit.id))
-                        .map((unit) => {
-                          const reason = getUnitUnavailabilityReason(unit.id);
-                          return (
-                            <SelectItem 
-                              key={unit.id} 
-                              value={unit.id} 
-                              disabled
-                              className="opacity-60"
-                            >
-                              <div className="flex items-center justify-between w-full gap-2">
-                                <span>
-                                  {unit.name}{unit.unit_type ? ` - ${unit.unit_type}` : ''} {unit.unit_number ? `(#${unit.unit_number})` : ''}
-                                </span>
-                                <span className={cn(
-                                  "text-xs px-1.5 py-0.5 rounded-full font-medium ml-2",
-                                  reason === 'reserved' && "bg-amber-100 text-amber-700 dark:bg-amber-900/30 dark:text-amber-400",
-                                  reason === 'blocked' && "bg-red-100 text-red-700 dark:bg-red-900/30 dark:text-red-400"
-                                )}>
-                                  {reason === 'reserved' ? 'Reserved' : 'Blocked'}
-                                </span>
-                              </div>
-                            </SelectItem>
-                          );
-                        })}
-                    </SelectContent>
-                  </Select>
-                </div>
+                      </SelectContent>
+                    </Select>
+                  </div>
 
-                <div className="space-y-2">
-                  <Label htmlFor={`roomPrice-${roomIndex}`}>
-                    Price/Night (USD) <span className="text-destructive">*</span>
-                  </Label>
-                  <Input 
-                    id={`roomPrice-${roomIndex}`}
-                    type="number"
-                    value={roomPrices[roomIndex]}
-                    onChange={(e) => updateRoomPrice(roomIndex, e.target.value ? Number(e.target.value) : "")}
-                    placeholder="Enter price"
-                    min={userRole === 'admin' ? 0 : (getMinPriceForRoom(roomIndex) || 0)}
-                    step="1"
-                    className={cn(!isRoomPriceValid(roomIndex) && userRole !== 'admin' && "border-destructive focus-visible:ring-destructive")}
-                  />
-                  {getMinPriceForRoom(roomIndex) !== null && (
-                    <p className="text-xs text-muted-foreground">
-                      Standard rate: ${getMinPriceForRoom(roomIndex)?.toFixed(2)}/night
-                    </p>
-                  )}
-                  {!isRoomPriceValid(roomIndex) && userRole !== 'admin' && (
-                    <p className="text-xs text-destructive">
-                      Rate cannot be lower than the standard rate of ${getMinPriceForRoom(roomIndex)?.toFixed(2)}/night
-                    </p>
-                  )}
+                  {/* Row 2: Children */}
+                  <div className="space-y-2">
+                    <Label htmlFor={`roomChildren-${roomIndex}`} className="text-sm">
+                      Children
+                    </Label>
+                    <Select 
+                      value={(roomChildren[roomIndex] ?? 0).toString()} 
+                      onValueChange={(value) => updateRoomChildrenCount(roomIndex, parseInt(value))}
+                    >
+                      <SelectTrigger id={`roomChildren-${roomIndex}`}>
+                        <SelectValue />
+                      </SelectTrigger>
+                      <SelectContent>
+                        {[0, 1, 2, 3].map((num) => (
+                          <SelectItem key={num} value={num.toString()}>
+                            {num} {num === 1 ? 'Child' : 'Children'}
+                          </SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                  </div>
                 </div>
               </div>
-            </div>
-          ))}
+            );
+          })}
 
           {/* Total Pricing Summary - Downloadable */}
           {subtotal > 0 && (
@@ -1494,10 +1542,15 @@ export function CreateReservationDialog() {
                     if (!unit) return null;
                     return (
                       <p key={index} className="text-sm">
-                        {numberOfRooms > 1 ? `Room ${index + 1}: ` : ''}{unit.name}{unit.unit_number ? ` (#${unit.unit_number})` : ''} — ${roomPrices[index]}/night
+                        {numberOfRooms > 1 ? `Room ${index + 1}: ` : ''}{unit.name}{unit.unit_number ? ` (#${unit.unit_number})` : ''} — ${roomPrices[index]}/night · {roomAdults[index] ?? 1}A {roomChildren[index] ?? 0}C
                       </p>
                     );
                   })}
+                </div>
+                
+                {/* Total guests */}
+                <div className="text-xs text-muted-foreground border-t pt-2">
+                  Total guests: {totalAdults} {totalAdults === 1 ? 'adult' : 'adults'}, {totalChildren} {totalChildren === 1 ? 'child' : 'children'}
                 </div>
                 
                 {/* Pricing Breakdown */}
@@ -1540,134 +1593,83 @@ export function CreateReservationDialog() {
             </div>
           )}
 
-          {/* Number of Guests */}
-          <div className="space-y-4">
-            <Label>
-              Number of Guests <span className="text-destructive">*</span>
-            </Label>
-            
-            <div className="grid grid-cols-2 gap-4">
-              {/* Adults */}
-              <div className="space-y-2">
-                <Label htmlFor="adults" className="text-sm text-muted-foreground">
-                  Adults
-                </Label>
-                <Select value={adults.toString()} onValueChange={(value) => setAdults(parseInt(value))}>
-                  <SelectTrigger id="adults">
-                    <SelectValue />
-                  </SelectTrigger>
-                  <SelectContent>
-                    {[1, 2, 3, 4, 5, 6, 7, 8, 9, 10].map((num) => (
-                      <SelectItem key={num} value={num.toString()}>
-                        {num} {num === 1 ? 'Adult' : 'Adults'}
-                      </SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
-              </div>
-
-              {/* Children */}
-              <div className="space-y-2">
-                <Label htmlFor="children" className="text-sm text-muted-foreground">
-                  Children
-                </Label>
-                <Select value={children.toString()} onValueChange={(value) => setChildren(parseInt(value))}>
-                  <SelectTrigger id="children">
-                    <SelectValue />
-                  </SelectTrigger>
-                  <SelectContent>
-                    {[0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10].map((num) => (
-                      <SelectItem key={num} value={num.toString()}>
-                        {num} {num === 1 ? 'Child' : 'Children'}
-                      </SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
-              </div>
-            </div>
-
-            <p className="text-sm text-muted-foreground">
-              Total guests: <span className="font-semibold">{numberOfGuests}</span>
-            </p>
-          </div>
-
-          {/* Guest Names */}
+          {/* Main Guest Details — always 1 guest form */}
           <div className="space-y-2">
             <Label>
-              Guest Names <span className="text-destructive">*</span>
+              Main Guest Details <span className="text-destructive">*</span>
             </Label>
-            {guestFirstNames.map((firstName, index) => (
-              <div key={index} className="space-y-2 p-3 border rounded-lg">
-                <div className="grid grid-cols-2 gap-2">
-                  <div>
-                    <Label className="text-sm">First Name</Label>
-                    <Input
-                      placeholder="First name"
-                      value={firstName}
-                      onChange={(e) => updateGuestFirstName(index, e.target.value)}
-                    />
-                  </div>
-                  <div>
-                    <Label className="text-sm">Last Name</Label>
-                    <Input
-                      placeholder="Last name"
-                      value={guestLastNames[index] || ''}
-                      onChange={(e) => updateGuestLastName(index, e.target.value)}
-                    />
-                  </div>
+            <div className="space-y-2 p-3 border rounded-lg">
+              <div className="grid grid-cols-2 gap-2">
+                <div>
+                  <Label className="text-sm">First Name</Label>
+                  <Input
+                    placeholder="First name"
+                    value={guestFirstNames[0]}
+                    onChange={(e) => updateGuestFirstName(0, e.target.value)}
+                  />
                 </div>
+                <div>
+                  <Label className="text-sm">Last Name</Label>
+                  <Input
+                    placeholder="Last name"
+                    value={guestLastNames[0] || ''}
+                    onChange={(e) => updateGuestLastName(0, e.target.value)}
+                  />
+                </div>
+              </div>
+              <div className="space-y-2">
+                <Label className="text-sm text-muted-foreground">
+                  Guest Type <span className="text-destructive">*</span>
+                </Label>
+                <RadioGroup
+                  value={guestTypes[0]}
+                  onValueChange={(value) => updateGuestType(0, value as 'adult' | 'child')}
+                  className="flex gap-4"
+                >
+                  <div className="flex items-center space-x-2">
+                    <RadioGroupItem value="adult" id="adult-0" />
+                    <Label htmlFor="adult-0" className="font-normal cursor-pointer">
+                      Adult
+                    </Label>
+                  </div>
+                  <div className="flex items-center space-x-2">
+                    <RadioGroupItem value="child" id="child-0" />
+                    <Label htmlFor="child-0" className="font-normal cursor-pointer">
+                      Child
+                    </Label>
+                  </div>
+                </RadioGroup>
+              </div>
+              
+              {guestTypes[0] === 'adult' && (
                 <div className="space-y-2">
                   <Label className="text-sm text-muted-foreground">
-                    Guest Type <span className="text-destructive">*</span>
+                    Gender <span className="text-destructive">*</span>
                   </Label>
                   <RadioGroup
-                    value={guestTypes[index]}
-                    onValueChange={(value) => updateGuestType(index, value as 'adult' | 'child')}
+                    value={guestGenders[0] || ""}
+                    onValueChange={(value) => updateGuestGender(0, value as 'male' | 'female')}
                     className="flex gap-4"
                   >
                     <div className="flex items-center space-x-2">
-                      <RadioGroupItem value="adult" id={`adult-${index}`} />
-                      <Label htmlFor={`adult-${index}`} className="font-normal cursor-pointer">
-                        Adult
+                      <RadioGroupItem value="male" id="male-0" />
+                      <Label htmlFor="male-0" className="font-normal cursor-pointer">
+                        Male
                       </Label>
                     </div>
                     <div className="flex items-center space-x-2">
-                      <RadioGroupItem value="child" id={`child-${index}`} />
-                      <Label htmlFor={`child-${index}`} className="font-normal cursor-pointer">
-                        Child
+                      <RadioGroupItem value="female" id="female-0" />
+                      <Label htmlFor="female-0" className="font-normal cursor-pointer">
+                        Female
                       </Label>
                     </div>
                   </RadioGroup>
                 </div>
-                
-                {/* Gender selection for adults */}
-                {guestTypes[index] === 'adult' && (
-                  <div className="space-y-2">
-                    <Label className="text-sm text-muted-foreground">
-                      Gender <span className="text-destructive">*</span>
-                    </Label>
-                    <RadioGroup
-                      value={guestGenders[index] || ""}
-                      onValueChange={(value) => updateGuestGender(index, value as 'male' | 'female')}
-                      className="flex gap-4"
-                    >
-                      <div className="flex items-center space-x-2">
-                        <RadioGroupItem value="male" id={`male-${index}`} />
-                        <Label htmlFor={`male-${index}`} className="font-normal cursor-pointer">
-                          Male
-                        </Label>
-                      </div>
-                      <div className="flex items-center space-x-2">
-                        <RadioGroupItem value="female" id={`female-${index}`} />
-                        <Label htmlFor={`female-${index}`} className="font-normal cursor-pointer">
-                          Female
-                        </Label>
-                      </div>
-                    </RadioGroup>
-                  </div>
-                )}
-              </div>
-            ))}
+              )}
+            </div>
+            <p className="text-xs text-muted-foreground">
+              Additional guests will provide their details at check-in
+            </p>
           </div>
 
           {/* Nationality */}
@@ -1727,7 +1729,6 @@ export function CreateReservationDialog() {
               value={idPassportType}
               onValueChange={(value: 'id' | 'passport') => {
                 setIdPassportType(value);
-                // Reset back image when switching to passport
                 if (value === 'passport') {
                   setIdPassportFileBack(null);
                   setIdPassportUrlBack(null);
@@ -1792,7 +1793,6 @@ export function CreateReservationDialog() {
                           e.target.value = '';
                           return;
                         }
-                        // Validate file size (10MB max)
                         if (file.size > 10 * 1024 * 1024) {
                           toast.error('File size must be less than 10MB');
                           e.target.value = '';
@@ -1856,7 +1856,6 @@ export function CreateReservationDialog() {
                             e.target.value = '';
                             return;
                           }
-                          // Validate file size (10MB max)
                           if (file.size > 10 * 1024 * 1024) {
                             toast.error('File size must be less than 10MB');
                             e.target.value = '';
@@ -1880,7 +1879,7 @@ export function CreateReservationDialog() {
             )}
           </div>
 
-          {/* Marriage Certificate Upload - Conditional */}
+          {/* Marriage Certificate Upload - Conditional (disabled since auto-detection no longer possible) */}
           {isMarriageCertificateRequired() && (
             <div className="space-y-2 p-4 border-2 border-amber-500 rounded-lg bg-amber-50 dark:bg-amber-950/20">
               <div className="flex items-start gap-2">
@@ -1925,14 +1924,12 @@ export function CreateReservationDialog() {
                     onChange={(e) => {
                       const file = e.target.files?.[0];
                       if (file) {
-                        // Validate file type
                         const validTypes = ['image/jpeg', 'image/jpg', 'image/png', 'image/gif', 'image/webp', 'application/pdf'];
                         if (!validTypes.includes(file.type)) {
                           toast.error('Please upload a valid image (JPG, PNG, GIF, WEBP) or PDF file');
                           e.target.value = '';
                           return;
                         }
-                        // Validate file size (10MB max)
                         if (file.size > 10 * 1024 * 1024) {
                           toast.error('File size must be less than 10MB');
                           e.target.value = '';
