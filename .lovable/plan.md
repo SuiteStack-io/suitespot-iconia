@@ -1,26 +1,16 @@
 
-
-## Remove Guest Type from Main Guest Details
+## Align Front and Back ID Upload Buttons Side by Side
 
 ### Overview
 
-Since the main guest is always an adult, the Guest Type radio button (Adult/Child) is unnecessary and should be removed. The gender field should always show (no longer conditional on guest type being "adult").
+Currently the "Front" and "Back" upload sections for ID documents are stacked vertically. This change places them side-by-side in a 2-column grid layout.
 
 ### Changes -- File: `src/components/CreateReservationDialog.tsx`
 
-**1. Remove the Guest Type radio group (lines 1620-1642)**
+**1. Wrap Front and Back sections in a grid container (lines 1729-1853)**
 
-Delete the entire "Guest Type" section containing the Adult/Child radio buttons.
+When `idPassportType === 'id'`, wrap both the Front and Back upload sections in a `grid grid-cols-2 gap-4` container so they appear side-by-side.
 
-**2. Make Gender field always visible (line 1644)**
+When `idPassportType === 'passport'`, keep the single "Image" upload at full width (no grid needed since there's no Back image).
 
-Remove the `{guestTypes[0] === 'adult' && (` conditional wrapper around the Gender section. Gender should always display since the main guest is always an adult.
-
-**3. Hardcode guest type to "adult" in submission**
-
-Ensure that `guestTypes[0]` is always set to `'adult'` -- either by setting it on initialization/reset and never changing it, or by hardcoding `'adult'` in the submission logic where `guest_types` is built.
-
-**4. Remove guest type validation**
-
-If there is any validation checking that guest type is selected, remove it since it will always be "adult".
-
+The existing content of each section stays the same -- only the outer layout wrapper changes.
