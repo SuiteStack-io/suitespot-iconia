@@ -8,6 +8,7 @@ import { GuestAuthProvider } from "@/lib/guestAuth";
 import { SelectionAuthProvider } from "@/lib/selectionAuth";
 import { RealtimeProvider } from "@/components/RealtimeProvider";
 import { ProtectedRoute } from "@/components/ProtectedRoute";
+import { AdminRoute } from "@/components/AdminRoute";
 import { GuestProtectedRoute } from "@/components/GuestProtectedRoute";
 import Index from "./pages/Index";
 import Auth from "./pages/Auth";
@@ -131,9 +132,9 @@ const App = () => (
               <Route path="/guests" element={<ProtectedRoute><Guests /></ProtectedRoute>} />
               <Route path="/guest-forms" element={<ProtectedRoute><GuestForms /></ProtectedRoute>} />
               <Route path="/my-commissions" element={<ProtectedRoute><MyReservations /></ProtectedRoute>} />
-              <Route path="/rooms" element={<ProtectedRoute><Rooms /></ProtectedRoute>} />
-              <Route path="/room-rates" element={<ProtectedRoute><RoomRates /></ProtectedRoute>} />
-              <Route path="/room-types" element={<ProtectedRoute><RoomTypes /></ProtectedRoute>} />
+              <Route path="/rooms" element={<ProtectedRoute><AdminRoute><Rooms /></AdminRoute></ProtectedRoute>} />
+              <Route path="/room-rates" element={<ProtectedRoute><AdminRoute><RoomRates /></AdminRoute></ProtectedRoute>} />
+              <Route path="/room-types" element={<ProtectedRoute><AdminRoute><RoomTypes /></AdminRoute></ProtectedRoute>} />
               <Route path="/homepage-management" element={<ProtectedRoute><HomepageManagement /></ProtectedRoute>} />
               <Route path="/settings" element={<ProtectedRoute><Settings /></ProtectedRoute>} />
         <Route path="/booking-com-reservations" element={<ProtectedRoute><BookingComReservations /></ProtectedRoute>} />
