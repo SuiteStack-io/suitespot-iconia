@@ -176,7 +176,7 @@ export default function FrontDeskRoomRates() {
               <Card key={room.name} className="overflow-hidden">
                 {/* Photo */}
                 <AspectRatio ratio={16 / 10}>
-                  {room.photos.length > 0 ? (
+                  {room.photos?.length > 0 ? (
                     <img
                       src={room.photos[0]}
                       alt={room.name}
@@ -219,7 +219,7 @@ export default function FrontDeskRoomRates() {
                   </div>
 
                   {/* Channel sell rates */}
-                  {room.channelRates.length > 0 && (
+                  {room.channelRates?.length > 0 && (
                     <div className="space-y-0.5">
                       {room.channelRates.map(cr => (
                         <div key={cr.channel} className="flex items-center gap-2 text-xs text-muted-foreground">
@@ -251,7 +251,7 @@ export default function FrontDeskRoomRates() {
                   </div>
 
                   {/* Amenities */}
-                  {room.features.length > 0 ? (
+                  {room.features?.length > 0 ? (
                     <div className="flex flex-wrap gap-1.5">
                       {room.features.map((f) => (
                         <Badge key={f} variant="secondary" className="text-xs font-normal">
