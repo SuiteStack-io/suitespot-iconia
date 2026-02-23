@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react';
-import { Loader2, Plus, Trash2, RefreshCw, Calculator, Percent } from 'lucide-react';
+import { Loader2, Plus, Trash2, RefreshCw, Calculator, Percent, Check, ChevronsUpDown } from 'lucide-react';
 import { SlideMenu } from '@/components/SlideMenu';
 import { AdminBreadcrumb } from '@/components/AdminBreadcrumb';
 import { useAuth } from '@/lib/auth';
@@ -9,6 +9,9 @@ import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/com
 import { Badge } from '@/components/ui/badge';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { Label } from '@/components/ui/label';
+import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
+import { Command, CommandEmpty, CommandGroup, CommandInput, CommandItem, CommandList } from '@/components/ui/command';
+import { cn } from '@/lib/utils';
 import { supabase } from '@/integrations/supabase/client';
 import { toast } from 'sonner';
 import {
@@ -54,6 +57,29 @@ interface ChannexMapping {
   sync_status: string;
 }
 
+const OTA_CHANNELS = [
+  { label: 'Booking.com', value: 'booking_com' },
+  { label: 'Expedia', value: 'expedia' },
+  { label: 'Airbnb', value: 'airbnb' },
+  { label: 'Agoda', value: 'agoda' },
+  { label: 'Hotels.com', value: 'hotels_com' },
+  { label: 'TripAdvisor', value: 'tripadvisor' },
+  { label: 'Vrbo', value: 'vrbo' },
+  { label: 'Hostelworld', value: 'hostelworld' },
+  { label: 'Trip.com', value: 'trip_com' },
+  { label: 'Hotelbeds', value: 'hotelbeds' },
+  { label: 'HRS', value: 'hrs' },
+  { label: 'Despegar', value: 'despegar' },
+  { label: 'Rakuten Travel', value: 'rakuten_travel' },
+  { label: 'MakeMyTrip', value: 'makemytrip' },
+  { label: 'Traveloka', value: 'traveloka' },
+  { label: 'Webjet', value: 'webjet' },
+  { label: 'Lastminute.com', value: 'lastminute_com' },
+  { label: 'Laterooms', value: 'laterooms' },
+  { label: 'CTrip', value: 'ctrip' },
+  { label: 'Wotif', value: 'wotif' },
+];
+
 const ChannelMarkupPage = () => {
   const { userRole } = useAuth();
   const [loading, setLoading] = useState(true);
@@ -63,7 +89,8 @@ const ChannelMarkupPage = () => {
   const [channexMappings, setChannexMappings] = useState<ChannexMapping[]>([]);
   
   // Add channel form
-  const [newChannelName, setNewChannelName] = useState('Booking.com');
+  const [selectedChannel, setSelectedChannel] = useState<{ label: string; value: string } | null>(null);
+  const [channelPopoverOpen, setChannelPopoverOpen] = useState(false);
   const [newMarkupPct, setNewMarkupPct] = useState('18');
   const [addingChannel, setAddingChannel] = useState(false);
   
@@ -101,17 +128,18 @@ const ChannelMarkupPage = () => {
   };
 
   const addChannel = async () => {
-    if (!newChannelName.trim() || !newMarkupPct) return;
+    if (!selectedChannel || !newMarkupPct) return;
     setAddingChannel(true);
     try {
       const { data: inserted, error } = await supabase.from('channel_markup_settings').insert({
-        channel_name: newChannelName.trim(),
+        channel_name: selectedChannel.label,
+        channel_id: selectedChannel.value,
         markup_percentage: parseFloat(newMarkupPct),
         is_active: true,
       }).select().single();
       if (error) throw error;
-      toast.success(`${newChannelName} channel added — creating derived plans...`);
-      setNewChannelName('');
+      toast.success(`${selectedChannel.label} channel added — creating derived plans...`);
+      setSelectedChannel(null);
       setNewMarkupPct('18');
       // Refresh data first so createDerivedPlansForChannel has latest state
       await fetchData();
@@ -290,13 +318,46 @@ const ChannelMarkupPage = () => {
           </CardHeader>
           <CardContent className="space-y-4">
             <div className="flex flex-wrap gap-3 items-end">
-              <div className="flex-1 min-w-[150px]">
+              <div className="flex-1 min-w-[200px]">
                 <Label className="text-xs">Channel Name</Label>
-                <Input
-                  value={newChannelName}
-                  onChange={e => setNewChannelName(e.target.value)}
-                  placeholder="e.g. Booking.com"
-                />
+                <Popover open={channelPopoverOpen} onOpenChange={setChannelPopoverOpen}>
+                  <PopoverTrigger asChild>
+                    <Button
+                      variant="outline"
+                      role="combobox"
+                      aria-expanded={channelPopoverOpen}
+                      className="w-full justify-between font-normal"
+                    >
+                      {selectedChannel ? selectedChannel.label : "Select channel..."}
+                      <ChevronsUpDown className="ml-2 h-4 w-4 shrink-0 opacity-50" />
+                    </Button>
+                  </PopoverTrigger>
+                  <PopoverContent className="w-[250px] p-0">
+                    <Command>
+                      <CommandInput placeholder="Search channel..." />
+                      <CommandList>
+                        <CommandEmpty>No channel found.</CommandEmpty>
+                        <CommandGroup>
+                          {OTA_CHANNELS
+                            .filter(ota => !channels.some(ch => ch.channel_id === ota.value || ch.channel_name === ota.label))
+                            .map(ota => (
+                              <CommandItem
+                                key={ota.value}
+                                value={ota.label}
+                                onSelect={() => {
+                                  setSelectedChannel(ota);
+                                  setChannelPopoverOpen(false);
+                                }}
+                              >
+                                <Check className={cn("mr-2 h-4 w-4", selectedChannel?.value === ota.value ? "opacity-100" : "opacity-0")} />
+                                {ota.label}
+                              </CommandItem>
+                            ))}
+                        </CommandGroup>
+                      </CommandList>
+                    </Command>
+                  </PopoverContent>
+                </Popover>
               </div>
               <div className="w-28">
                 <Label className="text-xs">Markup %</Label>
@@ -306,7 +367,7 @@ const ChannelMarkupPage = () => {
                   onChange={e => setNewMarkupPct(e.target.value)}
                 />
               </div>
-              <Button onClick={addChannel} disabled={addingChannel} className="gap-2">
+              <Button onClick={addChannel} disabled={addingChannel || !selectedChannel} className="gap-2">
                 {addingChannel ? <Loader2 className="h-4 w-4 animate-spin" /> : <Plus className="h-4 w-4" />}
                 Add Channel
               </Button>
