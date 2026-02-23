@@ -213,14 +213,12 @@ export const RoomCalendar = () => {
     });
 
     // Check if checkingOut and checkingIn are part of the same extension
-    // (one has -EXT suffix of the other's booking reference)
+    // (one has -EXT, -EXT2, -EXT3, etc. suffix sharing the same base reference)
+    const getBaseRef = (ref: string) => ref.replace(/-EXT\d*$/, '');
     const isExtension = checkingOut && checkingIn && 
       checkingOut.unit_id === checkingIn.unit_id &&
-      (
-        checkingIn.booking_reference === `${checkingOut.booking_reference}-EXT` ||
-        (checkingIn.booking_reference.includes('-EXT') && 
-          checkingIn.booking_reference.replace('-EXT', '') === checkingOut.booking_reference)
-      );
+      /-EXT\d*$/.test(checkingIn.booking_reference) &&
+      getBaseRef(checkingIn.booking_reference) === getBaseRef(checkingOut.booking_reference);
 
     return { checkingOut, checkingIn, staying, isExtension };
   };
