@@ -76,6 +76,7 @@ const PMSPrices = () => {
   const [deletingPlanId, setDeletingPlanId] = useState<string | null>(null);
   const [expandedRoomTypes, setExpandedRoomTypes] = useState<Set<string>>(new Set());
   const [channelMarkups, setChannelMarkups] = useState<Array<{ id: string; channel_name: string; markup_percentage: number }>>([]);
+  const [derivedMappings, setDerivedMappings] = useState<Array<{ id: string; base_rate_plan_id: string; channel_markup_id: string; channel_name: string; markup_percentage: number; channex_derived_rate_plan_id: string }>>([]);
 
   useEffect(() => {
     fetchData();
@@ -84,11 +85,12 @@ const PMSPrices = () => {
   const fetchData = async () => {
     setLoading(true);
     try {
-      const [plansRes, pricesRes, unitsRes, markupsRes] = await Promise.all([
+      const [plansRes, pricesRes, unitsRes, markupsRes, derivedRes] = await Promise.all([
         supabase.from('rate_plans').select('*').eq('is_active', true).order('room_type').order('priority', { ascending: false }),
         supabase.from('rate_plan_prices').select('*'),
         supabase.from('units').select('id, unit_number, booking_com_name').eq('location', 'ICONIA').not('booking_com_name', 'is', null),
         supabase.from('channel_markup_settings').select('id, channel_name, markup_percentage').eq('is_active', true),
+        supabase.from('derived_rate_plan_mappings').select('id, base_rate_plan_id, channel_markup_id, channel_name, markup_percentage, channex_derived_rate_plan_id'),
       ]);
 
       if (plansRes.error) throw plansRes.error;
@@ -98,6 +100,7 @@ const PMSPrices = () => {
       setUnits(unitsRes.data || []);
       setRatePlans(plansRes.data || []);
       setChannelMarkups((markupsRes.data as any[]) || []);
+      setDerivedMappings((derivedRes.data as any[]) || []);
 
       const pricesByPlan: Record<string, RatePlanPrice[]> = {};
       (pricesRes.data || []).forEach(price => {
@@ -169,6 +172,18 @@ const PMSPrices = () => {
   const confirmDelete = async () => {
     if (!deletingPlanId) return;
     try {
+      // Delete any derived rate plans first
+      const planDerived = derivedMappings.filter(dm => dm.base_rate_plan_id === deletingPlanId);
+      for (const dm of planDerived) {
+        try {
+          await supabase.functions.invoke('channex-delete-derived-rate-plan', {
+            body: { derived_mapping_id: dm.id },
+          });
+        } catch (err) {
+          console.error('Failed to delete derived plan', dm.id, err);
+        }
+      }
+
       const { error } = await supabase.from('rate_plans').delete().eq('id', deletingPlanId);
       if (error) throw error;
       toast.success('Rate plan deleted');
@@ -227,6 +242,20 @@ const PMSPrices = () => {
         }
 
         toast.success('Rate plan created');
+
+        // Auto-create derived plans for all active channel markups
+        if (newPlan && channelMarkups.length > 0) {
+          toast.info('Creating derived rate plans for channels...');
+          for (const ch of channelMarkups) {
+            try {
+              await supabase.functions.invoke('channex-create-derived-rate-plan', {
+                body: { base_rate_plan_id: newPlan.id, channel_markup_id: ch.id },
+              });
+            } catch (err) {
+              console.error('Failed to create derived plan for channel', ch.channel_name, err);
+            }
+          }
+        }
       }
 
       setDialogOpen(false);
@@ -330,54 +359,72 @@ const PMSPrices = () => {
                       ) : (
                         plans.map(plan => {
                           const price = getPlanPrice(plan.id);
+                          const planDerived = derivedMappings.filter(dm => dm.base_rate_plan_id === plan.id);
                           return (
-                            <div
-                              key={plan.id}
-                              className="flex items-center justify-between p-3 rounded-lg border bg-card hover:bg-muted/20 transition-colors"
-                            >
-                              <div className="flex-1">
-                                <div className="flex items-center gap-2 mb-1">
-                                  <span className="font-medium">{plan.name}</span>
-                                  {plan.is_default && (
-                                    <Badge variant="secondary" className="text-xs">Default</Badge>
-                                  )}
-                                  <Badge
-                                    variant={plan.cancellation_policy === 'non_refundable' ? 'destructive' : 'outline'}
-                                    className="text-xs"
-                                  >
-                                    {getCancellationPolicyLabel(plan.cancellation_policy || 'flexible_1_day')}
-                                  </Badge>
-                                </div>
-                {price && (
-                                  <div className="space-y-0.5">
+                            <div key={plan.id} className="space-y-1">
+                              <div
+                                className="flex items-center justify-between p-3 rounded-lg border bg-card hover:bg-muted/20 transition-colors"
+                              >
+                                <div className="flex-1">
+                                  <div className="flex items-center gap-2 mb-1">
+                                    <span className="font-medium">{plan.name}</span>
+                                    {plan.is_default && (
+                                      <Badge variant="secondary" className="text-xs">Default</Badge>
+                                    )}
+                                    <Badge
+                                      variant={plan.cancellation_policy === 'non_refundable' ? 'destructive' : 'outline'}
+                                      className="text-xs"
+                                    >
+                                      {getCancellationPolicyLabel(plan.cancellation_policy || 'flexible_1_day')}
+                                    </Badge>
+                                  </div>
+                                  {price && (
                                     <p className="text-sm text-muted-foreground">
                                       Base: {formatCurrency(price.weekday_rate)} wkday / {formatCurrency(price.weekend_rate)} wknd · {price.min_stay} night min
                                     </p>
-                                    {channelMarkups.map(ch => {
-                                      const sellWkday = Math.round(price.weekday_rate * (1 + ch.markup_percentage / 100));
-                                      const sellWknd = Math.round(price.weekend_rate * (1 + ch.markup_percentage / 100));
-                                      return (
-                                        <p key={ch.id} className="text-xs text-muted-foreground">
-                                          → {ch.channel_name}: {formatCurrency(sellWkday)} / {formatCurrency(sellWknd)} (+{ch.markup_percentage}%)
+                                  )}
+                                </div>
+                                <div className="flex items-center gap-1">
+                                  <Button variant="ghost" size="icon" onClick={() => handleEdit(plan)}>
+                                    <Pencil className="h-4 w-4" />
+                                  </Button>
+                                  <Button
+                                    variant="ghost"
+                                    size="icon"
+                                    onClick={() => handleDeleteClick(plan.id)}
+                                    className="text-destructive hover:text-destructive"
+                                  >
+                                    <Trash2 className="h-4 w-4" />
+                                  </Button>
+                                </div>
+                              </div>
+                              {/* Derived rate plans */}
+                              {planDerived.map(dm => {
+                                const sellWkday = price ? Math.round(price.weekday_rate * (1 + dm.markup_percentage / 100) * 100) / 100 : 0;
+                                const sellWknd = price ? Math.round(price.weekend_rate * (1 + dm.markup_percentage / 100) * 100) / 100 : 0;
+                                return (
+                                  <div
+                                    key={dm.id}
+                                    className="ml-6 flex items-center gap-3 p-2.5 rounded-lg border border-blue-200 bg-blue-50/50 dark:border-blue-900 dark:bg-blue-950/30"
+                                  >
+                                    <div className="flex-1">
+                                      <div className="flex items-center gap-2 mb-0.5">
+                                        <Badge className="bg-blue-100 text-blue-700 border-blue-300 dark:bg-blue-900 dark:text-blue-300 dark:border-blue-700 text-xs">
+                                          📢 {dm.channel_name} (+{dm.markup_percentage}%)
+                                        </Badge>
+                                      </div>
+                                      {price && (
+                                        <p className="text-xs text-muted-foreground">
+                                          Sell: {formatCurrency(sellWkday)} wkday / {formatCurrency(sellWknd)} wknd
                                         </p>
-                                      );
-                                    })}
+                                      )}
+                                      <p className="text-[10px] text-muted-foreground/70 italic">
+                                        Auto-calculated from base rate + {dm.markup_percentage}% channel markup
+                                      </p>
+                                    </div>
                                   </div>
-                                )}
-                              </div>
-                              <div className="flex items-center gap-1">
-                                <Button variant="ghost" size="icon" onClick={() => handleEdit(plan)}>
-                                  <Pencil className="h-4 w-4" />
-                                </Button>
-                                <Button
-                                  variant="ghost"
-                                  size="icon"
-                                  onClick={() => handleDeleteClick(plan.id)}
-                                  className="text-destructive hover:text-destructive"
-                                >
-                                  <Trash2 className="h-4 w-4" />
-                                </Button>
-                              </div>
+                                );
+                              })}
                             </div>
                           );
                         })
