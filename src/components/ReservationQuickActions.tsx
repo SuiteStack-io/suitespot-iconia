@@ -71,12 +71,14 @@ export const ReservationQuickActions = ({
   
   // Extend stay state
   const [extendMode, setExtendMode] = useState(false);
+  const [extendAgainMode, setExtendAgainMode] = useState(false);
   const [newCheckoutDate, setNewCheckoutDate] = useState<Date | undefined>(undefined);
   const [extensionPricePerNight, setExtensionPricePerNight] = useState<string>("");
   const [extendConflict, setExtendConflict] = useState(false);
   const [extending, setExtending] = useState(false);
   const [fullReservation, setFullReservation] = useState<any>(null);
   const [currentUserName, setCurrentUserName] = useState<string>("");
+  const [siblingExtensions, setSiblingExtensions] = useState<any[]>([]);
   
   // Extension room and source selection state
   const [extensionUnitId, setExtensionUnitId] = useState<string>("");
@@ -140,6 +142,7 @@ export const ReservationQuickActions = ({
       fetchUserSources();
       // Reset modes when opening
       setExtendMode(false);
+      setExtendAgainMode(false);
       setLateCheckoutMode(false);
       setEditLateCheckoutMode(false);
       setEditLateCheckoutFee("");
@@ -150,6 +153,7 @@ export const ReservationQuickActions = ({
       setNewCheckoutDate(undefined);
       setExtensionPricePerNight("");
       setExtendConflict(false);
+      setSiblingExtensions([]);
       // Reset extension-specific state
       setExtensionUnitId(reservation.unit_id);
       setExtensionSource("");
@@ -177,6 +181,19 @@ export const ReservationQuickActions = ({
       .single();
     if (data) {
       setFullReservation(data);
+      
+      // If this is an extension, fetch all sibling extensions
+      if (data.group_id && /-EXT\d*$/.test(data.booking_reference)) {
+        const { data: siblings } = await supabase
+          .from("reservations")
+          .select("*")
+          .eq("group_id", data.group_id)
+          .is("cancelled_at", null)
+          .order("check_in_date", { ascending: true });
+        
+        const extSiblings = (siblings || []).filter(s => /-EXT\d*$/.test(s.booking_reference));
+        setSiblingExtensions(extSiblings);
+      }
     }
   };
 
@@ -470,8 +487,11 @@ export const ReservationQuickActions = ({
       return;
     }
     
-    const currentCheckout = new Date(reservation.check_out_date + 'T00:00:00');
-    const additionalNights = differenceInCalendarDays(newCheckoutDate, currentCheckout);
+    // For "Extend Again", use the last extension's checkout as the base
+    const extendFromDate = extendAgainMode && siblingExtensions.length > 0
+      ? new Date(siblingExtensions[siblingExtensions.length - 1].check_out_date + 'T00:00:00')
+      : new Date(reservation.check_out_date + 'T00:00:00');
+    const additionalNights = differenceInCalendarDays(newCheckoutDate, extendFromDate);
     
     if (additionalNights <= 0) {
       toast({
@@ -505,16 +525,33 @@ export const ReservationQuickActions = ({
       // Generate or use existing group_id to link reservations
       const groupId = fullReservation.group_id || crypto.randomUUID();
 
+      // Determine the booking reference suffix
+      let newBookingRef: string;
+      if (extendAgainMode && siblingExtensions.length > 0) {
+        // "Extend Again" mode: count existing extensions to determine suffix
+        const baseRef = getBaseBookingRef(reservation.booking_reference);
+        const extCount = siblingExtensions.length;
+        newBookingRef = extCount === 1 ? `${baseRef}-EXT2` : `${baseRef}-EXT${extCount + 1}`;
+      } else {
+        // First extension from original booking
+        newBookingRef = `${reservation.booking_reference}-EXT`;
+      }
+
+      // Determine check-in date for the extension
+      const extensionCheckInDate = extendAgainMode 
+        ? siblingExtensions[siblingExtensions.length - 1].check_out_date 
+        : reservation.check_out_date;
+
       // Create a new reservation for the extension
       const extensionReservation = {
         unit_id: extensionUnitId || reservation.unit_id, // Use selected unit
-        check_in_date: reservation.check_out_date, // Extension starts where original ends
+        check_in_date: extensionCheckInDate, // Extension starts where previous ends
         check_out_date: format(newCheckoutDate, "yyyy-MM-dd"),
         
         guest_names: fullReservation.guest_names,
         contact_email: fullReservation.contact_email,
         contact_phone: fullReservation.contact_phone,
-        booking_reference: `${reservation.booking_reference}-EXT`,
+        booking_reference: newBookingRef,
         source: extensionSource, // Use selected source
         channel: "Direct",
         status: fullReservation.status,
@@ -530,7 +567,7 @@ export const ReservationQuickActions = ({
         group_id: groupId,
         currency: extensionCurrency,
         payment_method: extensionPaymentMethod,
-        notes: `Extension of original booking ${reservation.booking_reference}`,
+        notes: `Extension of original booking ${getBaseBookingRef(reservation.booking_reference)}`,
       };
 
       // Insert the extension reservation and get the ID
@@ -833,7 +870,7 @@ export const ReservationQuickActions = ({
   useEffect(() => {
     const fetchExtensionUnitDetails = async () => {
       if (!reservation || !reservation.unit_id) return;
-      const isExt = reservation.booking_reference?.endsWith("-EXT");
+      const isExt = /-EXT\d*$/.test(reservation.booking_reference || '');
       if (!isExt) return;
       
       const { data } = await supabase
@@ -918,9 +955,10 @@ export const ReservationQuickActions = ({
   const isLateCheckout = reservation.booking_reference?.endsWith("-LC") && nights === 0;
   const lateCheckoutCurrentFee = reservation.total_price || 50;
   
-  // Check if this is an extension (ends with -EXT)
-  const isExtension = reservation.booking_reference?.endsWith("-EXT") && !isLateCheckout;
+  // Check if this is an extension (ends with -EXT, -EXT2, -EXT3, etc.)
+  const isExtension = /-EXT\d*$/.test(reservation.booking_reference || '') && !isLateCheckout;
   const extensionCurrentTotal = reservation.total_price || 0;
+  const getBaseBookingRef = (ref: string) => ref.replace(/-EXT\d*$/, '');
 
   return (
     <>
@@ -1107,7 +1145,7 @@ export const ReservationQuickActions = ({
                 </>
               )}
             </div>
-          ) : isExtension ? (
+          ) : isExtension && !extendAgainMode ? (
             /* Extension Management Mode */
             <div className="space-y-4">
               <div className="p-4 bg-blue-500/10 border border-blue-500/30 rounded-lg">
@@ -1116,21 +1154,78 @@ export const ReservationQuickActions = ({
                   <span className="font-semibold text-blue-800">Stay Extension</span>
                 </div>
                 <div className="text-sm text-muted-foreground">
-                  Linked to: {reservation.booking_reference.replace("-EXT", "")}
+                  Linked to: {getBaseBookingRef(reservation.booking_reference)}
                 </div>
               </div>
 
               {!editExtensionMode ? (
                 <>
-                  <div className="p-4 bg-muted/50 rounded-lg">
-                    <div className="text-center">
-                      <div className="text-sm text-muted-foreground mb-1">Extension Total</div>
-                      <div className="text-3xl font-bold text-primary">${extensionCurrentTotal.toFixed(2)}</div>
-                      <div className="text-xs text-muted-foreground mt-1">
-                        {nights} night{nights !== 1 ? 's' : ''} • Attributed to: {reservation.source || "Admin"}
+                  {/* Multi-extension list */}
+                  {siblingExtensions.length > 1 ? (
+                    <div className="space-y-2">
+                      {siblingExtensions.map((ext, idx) => {
+                        const extNights = differenceInCalendarDays(
+                          new Date(ext.check_out_date),
+                          new Date(ext.check_in_date)
+                        );
+                        return (
+                          <div key={ext.id} className={`p-3 rounded-lg ${ext.id === reservation.id ? 'bg-blue-500/10 border border-blue-500/30' : 'bg-muted/50'}`}>
+                            <div className="flex justify-between items-center">
+                              <span className="text-sm font-medium">Extension {idx + 1}</span>
+                              <span className="text-sm font-semibold">${(ext.total_price || 0).toFixed(2)}</span>
+                            </div>
+                            <div className="text-xs text-muted-foreground mt-1">
+                              {format(new Date(ext.check_in_date), "MMM d")} → {format(new Date(ext.check_out_date), "MMM d")} ({extNights} night{extNights !== 1 ? 's' : ''})
+                            </div>
+                          </div>
+                        );
+                      })}
+                      <div className="p-3 bg-muted/50 rounded-lg border-t-2 border-primary/20">
+                        <div className="flex justify-between items-center font-semibold">
+                          <span>Combined Extension Total</span>
+                          <span className="text-primary text-lg">${siblingExtensions.reduce((sum, e) => sum + (e.total_price || 0), 0).toFixed(2)}</span>
+                        </div>
                       </div>
                     </div>
-                  </div>
+                  ) : (
+                    <div className="p-4 bg-muted/50 rounded-lg">
+                      <div className="text-center">
+                        <div className="text-sm text-muted-foreground mb-1">Extension Total</div>
+                        <div className="text-3xl font-bold text-primary">${extensionCurrentTotal.toFixed(2)}</div>
+                        <div className="text-xs text-muted-foreground mt-1">
+                          {nights} night{nights !== 1 ? 's' : ''} • Attributed to: {reservation.source || "Admin"}
+                        </div>
+                      </div>
+                    </div>
+                  )}
+
+                  {/* Extend Again Button */}
+                  <Button
+                    variant="outline"
+                    className="w-full border-blue-500/30 text-blue-700 hover:bg-blue-500/10"
+                    onClick={() => {
+                      setExtendAgainMode(true);
+                      // Pre-fill price from first extension's nightly rate
+                      const firstExt = siblingExtensions.length > 0 ? siblingExtensions[0] : fullReservation;
+                      const firstExtNights = differenceInCalendarDays(
+                        new Date(firstExt.check_out_date),
+                        new Date(firstExt.check_in_date)
+                      );
+                      if (firstExtNights > 0 && firstExt.total_price) {
+                        const netRate = (firstExt.total_price / 1.14) / firstExtNights;
+                        setExtensionPricePerNight(netRate.toFixed(2));
+                      }
+                      // Set check-in to last extension's checkout
+                      const lastExt = siblingExtensions.length > 0 ? siblingExtensions[siblingExtensions.length - 1] : fullReservation;
+                      setExtensionUnitId(reservation.unit_id);
+                      setExtensionSource("");
+                      setExtensionPaymentMethod("");
+                      setNewCheckoutDate(undefined);
+                    }}
+                  >
+                    <Plus className="h-4 w-4 mr-2" />
+                    Extend Again
+                  </Button>
 
                   <div className="flex gap-2 pt-2">
                     <Button 
@@ -1221,6 +1316,226 @@ export const ReservationQuickActions = ({
                   </div>
                 </>
               )}
+            </div>
+          ) : extendAgainMode ? (
+            /* Extend Again Mode - reuses extend form with pre-fills */
+            <div className="space-y-4">
+              <div className="p-3 bg-blue-500/10 border border-blue-500/30 rounded-lg">
+                <div className="text-sm font-medium mb-2">Extending from</div>
+                <div className="text-lg font-semibold">
+                  {format(new Date(siblingExtensions.length > 0 ? siblingExtensions[siblingExtensions.length - 1].check_out_date + 'T00:00:00' : reservation.check_out_date + 'T00:00:00'), "EEEE, MMM d, yyyy")}
+                </div>
+              </div>
+
+              <div className="space-y-2">
+                <label className="text-sm font-medium">New Checkout Date</label>
+                <Popover>
+                  <PopoverTrigger asChild>
+                    <Button
+                      variant="outline"
+                      className={cn(
+                        "w-full justify-start text-left font-normal",
+                        !newCheckoutDate && "text-muted-foreground"
+                      )}
+                    >
+                      <CalendarIcon className="mr-2 h-4 w-4" />
+                      {newCheckoutDate ? format(newCheckoutDate, "PPP") : "Select new checkout date"}
+                    </Button>
+                  </PopoverTrigger>
+                  <PopoverContent className="w-auto p-0" align="start">
+                    <Calendar
+                      mode="single"
+                      selected={newCheckoutDate}
+                      onSelect={setNewCheckoutDate}
+                      disabled={(date) => {
+                        const extendFrom = new Date(siblingExtensions.length > 0 ? siblingExtensions[siblingExtensions.length - 1].check_out_date + 'T00:00:00' : reservation.check_out_date + 'T00:00:00');
+                        return date <= extendFrom;
+                      }}
+                      initialFocus
+                      className="p-3 pointer-events-auto"
+                    />
+                  </PopoverContent>
+                </Popover>
+              </div>
+
+              {/* Room Selection */}
+              {newCheckoutDate && (
+                <div className="space-y-2">
+                  <label className="text-sm font-medium">Room for Extension</label>
+                  <Select value={extensionUnitId} onValueChange={setExtensionUnitId}>
+                    <SelectTrigger>
+                      <SelectValue placeholder="Select room for extension" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      {extensionUnits.map((unit) => {
+                        const hasConflict = extensionUnitConflicts.get(unit.id);
+                        const isCurrentRoom = unit.id === reservation?.unit_id;
+                        return (
+                          <SelectItem key={unit.id} value={unit.id} disabled={hasConflict}>
+                            <div className="flex items-center gap-2">
+                              {hasConflict && <AlertTriangle className="h-3 w-3 text-destructive" />}
+                              <span>{unit.name} #{unit.unit_number}</span>
+                              {isCurrentRoom && <span className="text-xs text-muted-foreground">(Current)</span>}
+                              {hasConflict && <span className="text-xs text-destructive">(Conflict)</span>}
+                            </div>
+                          </SelectItem>
+                        );
+                      })}
+                    </SelectContent>
+                  </Select>
+                </div>
+              )}
+
+              {(() => {
+                const extendFromDate = new Date(siblingExtensions.length > 0 ? siblingExtensions[siblingExtensions.length - 1].check_out_date + 'T00:00:00' : reservation.check_out_date + 'T00:00:00');
+                const extAgainNights = newCheckoutDate ? differenceInCalendarDays(newCheckoutDate, extendFromDate) : 0;
+                
+                // Calculate price floor from first extension
+                const firstExt = siblingExtensions.length > 0 ? siblingExtensions[0] : fullReservation;
+                const firstExtNights = firstExt ? differenceInCalendarDays(new Date(firstExt.check_out_date), new Date(firstExt.check_in_date)) : 0;
+                const priceFloor = firstExt && firstExtNights > 0 ? (firstExt.total_price / 1.14) / firstExtNights : 0;
+                const currentPrice = parseFloat(extensionPricePerNight) || 0;
+                const isBelowFloor = currentPrice > 0 && currentPrice < priceFloor;
+                
+                const extSubtotal = extAgainNights > 0 && currentPrice > 0 ? extAgainNights * currentPrice : 0;
+                const extVAT = extSubtotal * 0.14;
+                const extTotal = extSubtotal + extVAT;
+
+                return (
+                  <>
+                    {extAgainNights > 0 && (
+                      <div className="p-3 bg-muted/50 rounded-lg">
+                        <div className="text-sm text-muted-foreground">Additional Nights</div>
+                        <div className="text-2xl font-bold">{extAgainNights}</div>
+                      </div>
+                    )}
+
+                    <div className="space-y-2">
+                      <label className="text-sm font-medium">Price/Night (Net)</label>
+                      <Input
+                        type="number"
+                        placeholder="Enter net price per night"
+                        value={extensionPricePerNight}
+                        onChange={(e) => setExtensionPricePerNight(e.target.value)}
+                        min="0"
+                        step="0.01"
+                        className={isBelowFloor ? "border-destructive" : ""}
+                      />
+                      {isBelowFloor ? (
+                        <p className="text-xs text-destructive">
+                          Rate cannot be lower than the previous extension rate of ${priceFloor.toFixed(2)}/night
+                        </p>
+                      ) : (
+                        <p className="text-xs text-muted-foreground">
+                          Minimum rate: ${priceFloor.toFixed(2)}/night (based on first extension)
+                        </p>
+                      )}
+                    </div>
+
+                    {extSubtotal > 0 && !isBelowFloor && (
+                      <div className="p-3 bg-muted/50 rounded-lg space-y-2">
+                        <div className="flex justify-between text-sm">
+                          <span className="text-muted-foreground">
+                            Subtotal ({extAgainNights} × ${currentPrice.toFixed(2)})
+                          </span>
+                          <span>${extSubtotal.toFixed(2)}</span>
+                        </div>
+                        <div className="flex justify-between text-sm">
+                          <span className="text-muted-foreground">VAT (14%)</span>
+                          <span>+${extVAT.toFixed(2)}</span>
+                        </div>
+                        <div className="border-t pt-2 flex justify-between font-semibold">
+                          <span>Extension Total</span>
+                          <span className="text-primary">${extTotal.toFixed(2)}</span>
+                        </div>
+                      </div>
+                    )}
+
+                    {/* Currency and Payment Method */}
+                    <div className="grid grid-cols-2 gap-4">
+                      <div className="space-y-2">
+                        <label className="text-sm font-medium">Currency <span className="text-destructive">*</span></label>
+                        <Select value={extensionCurrency} onValueChange={setExtensionCurrency}>
+                          <SelectTrigger><SelectValue placeholder="Select currency" /></SelectTrigger>
+                          <SelectContent>
+                            <SelectItem value="USD">USD</SelectItem>
+                            <SelectItem value="EGP">EGP</SelectItem>
+                          </SelectContent>
+                        </Select>
+                      </div>
+                      <div className="space-y-2">
+                        <label className="text-sm font-medium">Payment Method <span className="text-destructive">*</span></label>
+                        <Select value={extensionPaymentMethod} onValueChange={setExtensionPaymentMethod}>
+                          <SelectTrigger><SelectValue placeholder="Select payment" /></SelectTrigger>
+                          <SelectContent>
+                            <SelectItem value="cash">Cash</SelectItem>
+                            <SelectItem value="credit_card">Credit Card</SelectItem>
+                          </SelectContent>
+                        </Select>
+                      </div>
+                    </div>
+
+                    {/* Source Selection */}
+                    <div className="space-y-2">
+                      <label className="text-sm font-medium">Source <span className="text-destructive">*</span></label>
+                      <Select value={extensionSource} onValueChange={setExtensionSource}>
+                        <SelectTrigger><SelectValue placeholder="Select source" /></SelectTrigger>
+                        <SelectContent>
+                          {userSources.map((userName) => (
+                            <SelectItem key={userName} value={userName}>{userName}</SelectItem>
+                          ))}
+                          <SelectItem value="KSS">KSS</SelectItem>
+                          <SelectItem value="booking.com">booking.com</SelectItem>
+                          <SelectItem value="Others">Others</SelectItem>
+                        </SelectContent>
+                      </Select>
+                    </div>
+
+                    {extendConflict && (
+                      <div className="p-3 bg-destructive/10 border border-destructive/30 rounded-lg text-sm">
+                        <div className="flex items-center gap-2 text-destructive font-medium mb-1">
+                          <AlertTriangle className="h-4 w-4" />
+                          Conflict Detected
+                        </div>
+                        <p className="text-muted-foreground">
+                          There are existing reservations or blocked dates in the extended period.
+                        </p>
+                      </div>
+                    )}
+
+                    <div className="flex gap-2 pt-2 relative z-50">
+                      <Button 
+                        variant="outline" 
+                        className="flex-1 pointer-events-auto"
+                        onClick={() => {
+                          setExtendAgainMode(false);
+                          setNewCheckoutDate(undefined);
+                          setExtensionPricePerNight("");
+                        }}
+                      >
+                        <X className="h-4 w-4 mr-2" />
+                        Cancel
+                      </Button>
+                      <Button
+                        className="flex-1 pointer-events-auto"
+                        onClick={handleExtendStay}
+                        disabled={
+                          !newCheckoutDate || extAgainNights <= 0 || !currentPrice || currentPrice <= 0 || 
+                          isBelowFloor || extending || !extensionSource || !extensionPaymentMethod || 
+                          extendConflict || extensionUnitConflicts.get(extensionUnitId)
+                        }
+                      >
+                        {extending ? (
+                          <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+                        ) : (
+                          <Plus className="h-4 w-4 mr-2" />
+                        )}
+                        Confirm Extension
+                      </Button>
+                    </div>
+                  </>
+                );
+              })()}
             </div>
           ) : !extendMode && !lateCheckoutMode ? (
             <>
