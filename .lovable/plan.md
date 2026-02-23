@@ -1,48 +1,129 @@
 
 
-## Upgrade Auto-Shuffle Email to Match Room Change Email Design
+## Update Stay Extension Feature: "Extend Again" with Multiple Extensions
 
-### Problem
+This update transforms the extension management from single-extension to multi-extension support, allowing guests to extend their stay repeatedly with proper tracking and display.
 
-The auto-shuffle notification currently goes through the generic `send-admin-notification` edge function, which renders the shuffle metadata as raw JSON in a `<pre>` block (second screenshot). It should instead use a polished HTML email template matching the Room Change email design (first screenshot).
+---
 
-### Approach
+### Overview of Changes
 
-Instead of using the generic `send-admin-notification`, the `auto-shuffle-rooms` edge function will send its own styled email directly via Resend — the same pattern used by `send-room-change-notification`.
+**5 areas of work:**
 
-### Design
+1. Add "Extend Again" button to the extension card
+2. Fetch and display all sibling extensions in the modal
+3. Update the extension creation logic for sequential numbering and price floor
+4. Update calendar rendering to handle EXT2, EXT3, etc.
+5. Update extension detection logic throughout the component
 
-The email will follow the Room Change email template structure with these sections:
+---
 
-1. **Header**: Amber/orange gradient with shuffle icon, title "Room Shuffle", subtitle "Rooms were automatically rearranged to accommodate a new booking"
-2. **Booking Reference**: The new booking reference that triggered the shuffle in a highlighted box
-3. **Triggering Booking Info**: Guest name, check-in, check-out, duration, room type, booking source
-4. **Moves Section**: For each move in the chain, a card showing:
-   - Previous Room (name + number) with arrow to New Room (name + number)
-   - Guest name and dates for that move
-5. **Footer**: "All moves were within the same room type (Deluxe Suite)" notice, then standard SuiteSpot footer
+### 1. Extension Detection Update
 
-Subject: `Room Shuffle Alert - [Guest Name] ([Booking Reference])`
-Sender: `reservations@bookings.suitespoteg.com`
+Currently, the code checks `booking_reference?.endsWith("-EXT")` to detect extensions. This needs to change to also match `-EXT2`, `-EXT3`, etc.
 
-### Files to Modify
+**File: `src/components/ReservationQuickActions.tsx`**
 
-| File | Change |
-|------|--------|
-| `supabase/functions/auto-shuffle-rooms/index.ts` | Replace the `send-admin-notification` call (lines 306-328) with direct Resend email sending using a styled HTML template matching the Room Change email design. Import Resend, fetch admin emails (same pattern as `send-room-change-notification`), and send the polished email. |
+- Change `isExtension` check from `endsWith("-EXT")` to a regex: `/\-EXT\d*$/` (matches `-EXT`, `-EXT2`, `-EXT3`, etc.)
+- Similarly update `fetchExtensionUnitDetails` which checks `endsWith("-EXT")`
+- Extract the base booking reference by stripping the `-EXT`, `-EXT2`, etc. suffix
+
+---
+
+### 2. Fetch All Sibling Extensions
+
+When the modal opens for an extension reservation, fetch all extensions linked to the same `group_id`.
+
+**File: `src/components/ReservationQuickActions.tsx`**
+
+- Add new state: `siblingExtensions` (array of extension reservations sorted by check-in date)
+- In `fetchFullReservation` (or a new effect), when `isExtension` is true, query all reservations with the same `group_id` whose `booking_reference` matches the `-EXT` pattern
+- This gives us Extension 1, Extension 2, etc. to display in the card
+
+---
+
+### 3. Multi-Extension Display in the Blue Card
+
+Replace the single extension total display with a list of all extensions.
+
+**File: `src/components/ReservationQuickActions.tsx`** (lines 1110-1224)
+
+The blue extension card will show:
+- Each extension listed as: "Extension 1: Feb 18 - Feb 22 (4 nights) -- $373.92"
+- "Extension 2: Feb 22 - Feb 26 (4 nights) -- $XXX.XX"
+- Combined "Extension Total" at the bottom summing all extensions
+- "Extend Again" button below the last extension
+
+---
+
+### 4. "Extend Again" Button and Form
+
+**File: `src/components/ReservationQuickActions.tsx`**
+
+- Add new state: `extendAgainMode` (boolean)
+- When "Extend Again" is clicked, show the same extension form (reuse the existing extend mode UI) with these pre-fills:
+  - Check-in date: automatically set to the LAST extension's check-out date (not editable, displayed as "Current Checkout")
+  - Price/Night: pre-filled with the FIRST extension's nightly rate (`first_ext.total_price / first_ext.nights`)
+  - Minimum price validation: the entered price cannot be lower than the first extension's nightly rate
+  - Room, guest name, etc.: carried over from the current extension
+- The form submit logic (`handleExtendStay`) needs updating:
+  - Count existing extensions to determine the suffix number
+  - First extension: `-EXT`, second: `-EXT2`, third: `-EXT3`
+  - The base booking reference is extracted by stripping all `-EXT*` suffixes
+  - Use the same `group_id` as the existing extensions
+
+---
+
+### 5. Reference Numbering Logic
+
+**File: `src/components/ReservationQuickActions.tsx`**
+
+When creating a new extension from "Extend Again":
+- Count how many `-EXT*` reservations exist in the group
+- If 0 existing extensions: suffix is `-EXT` (first extension, unchanged)
+- If 1 existing: suffix is `-EXT2`
+- If N existing: suffix is `-EXT{N+1}`
+- Base reference is derived from the original booking (strip any existing `-EXT*` suffix)
+
+---
+
+### 6. Calendar Display Updates
+
+**File: `src/components/RoomCalendar.tsx`**
+
+- Update the extension detection logic (lines 215-223) to handle `-EXT2`, `-EXT3`, etc. using regex instead of exact string matching
+- The current logic checks if one booking reference equals the other plus `-EXT`. Update to check the general pattern where both share the same base reference and one has any `-EXT*` suffix
+- Add a small label overlay on extension cells showing "EXT", "EXT2", "EXT3" to differentiate them visually
+
+**File: `src/components/WeeklyCalendar.tsx`**
+
+- Apply the same extension detection regex update if it has similar logic
+
+---
+
+### 7. Price Floor Validation
+
+**File: `src/components/ReservationQuickActions.tsx`**
+
+In the "Extend Again" form:
+- Calculate the first extension's nightly rate: `firstExtension.total_price / firstExtensionNights` (where nights = differenceInCalendarDays between check-out and check-in)
+- Divide by 1.14 first to get the net rate (since total_price includes VAT)
+- Add validation on the price input: if entered value is less than the first extension's net nightly rate, show error "Rate cannot be lower than the previous extension rate of $XX.XX/night"
+- Disable the "Confirm Extension" button when the price is below the floor
+
+---
 
 ### Technical Details
 
-The notification section (lines 305-328) in `auto-shuffle-rooms/index.ts` will be replaced with:
+**Files to modify:**
 
-1. Add `Resend` import at the top (already imported in `send-room-change-notification`)
-2. Fetch admin/front_desk user emails using the same pattern as `send-room-change-notification` (query `user_roles`, `profiles`, `auth.admin.listUsers()`)
-3. Build a styled HTML email with:
-   - Same CSS structure as the Room Change email (inline styles, table-based layout)
-   - Amber gradient header with shuffle icon
-   - Booking reference card
-   - Each move rendered as a "Previous Room -> New Room" visual card (same style as the room change card)
-   - Guest details, dates, room type info
-   - "All moves within same room type" notice
-4. Send via Resend with 600ms delay between emails for rate limiting
+| File | Changes |
+|------|---------|
+| `src/components/ReservationQuickActions.tsx` | Extension detection regex, sibling extensions fetch, multi-extension display, "Extend Again" form with price floor validation, sequential reference numbering |
+| `src/components/RoomCalendar.tsx` | Update extension detection regex, add EXT2/EXT3 labels on calendar cells |
+| `src/components/WeeklyCalendar.tsx` | Update extension detection if applicable |
+
+**No database changes required** -- the existing schema supports multiple extensions via `group_id` linking and flexible `booking_reference` text field.
+
+**No edge function changes** -- the existing `send-extension-notification` function works with any booking reference format.
 
