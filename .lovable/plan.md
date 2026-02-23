@@ -1,43 +1,87 @@
 
+## Multi-Room Guest Counts and Simplified Guest Details
 
-## Auto-Fill Price from Rate Plan System
+### Overview
 
-### Current Behavior
+Add per-room Adults/Children dropdowns to each room card, auto-adjust pricing for extra guests using existing database fields, remove the separate "Number of Guests" section, and simplify guest names to main guest only.
 
-The form already auto-fills price and enforces a minimum floor from `units.price_per_night`. However, this is outdated -- the rate plan system (`rate_plans` + `rate_plan_prices` tables) is the single source of truth for pricing, as used by the Admin Room Rates page and Channex integration.
+### Data Sources (no database changes needed)
 
-### What Changes
+- `rate_plans.extra_adult_rate`: currently $50 for all room types
+- `units.default_occupancy`: currently 2 for all room types
+- `units.max_guests`: 3-5 depending on room type
 
-**File: `src/components/CreateReservationDialog.tsx`**
+### Changes -- File: `src/components/CreateReservationDialog.tsx`
 
-1. **Fetch rate plan prices on mount** -- add a new query to load active rate plans with their prices (same pattern used in `src/pages/front-desk/RoomRates.tsx`). Build a lookup map: `booking_com_name -> weekday_rate`.
+**1. New per-room state arrays**
 
-2. **Update `updateRoomSelection`** (line 626) -- when a room is selected, look up its `booking_com_name` from the unit, then find the matching weekday rate from the rate plan lookup. Auto-fill the price field with that rate instead of `unit.price_per_night`.
+Replace single `adults`/`children` state variables with per-room arrays:
+- `roomAdults: number[]` -- defaults to `[1]`, synced with `numberOfRooms`
+- `roomChildren: number[]` -- defaults to `[0]`, synced with `numberOfRooms`
 
-3. **Update `getMinPriceForRoom`** (line 647) -- use the rate plan weekday rate as the floor price instead of `unit.price_per_night`. Falls back to `unit.price_per_night` if no rate plan price exists.
+Update the `useEffect` that syncs with `numberOfRooms` (line 248) to also sync these arrays.
 
-4. **Update helper text** (line 1425-1428) -- change "Min: $XX.XX" to "Standard rate: $XX.XX/night" for all users (not just non-admins). This gives everyone visibility into the base rate.
+**2. Extend data fetching**
 
-5. **Update validation error message** (line 1430-1433) -- change to "Rate cannot be lower than the standard rate of $XX.XX/night" per the request.
+- Add `default_occupancy` and `max_guests` to the `Unit` interface and `fetchUnits` query (line 521)
+- Extend `fetchRatePlanPrices` to also build an `extraAdultRateMap: Map<string, number>` (room type to extra adult rate)
 
-### Admin Override
+**3. Update room card layout (lines 1381-1476)**
 
-Per existing business rules, admin users bypass minimum price validation entirely. The standard rate helper text will still display for admins (informational only), but no validation error will appear and they can enter any price from $0.
+Change each room card from a 2-column grid to a 2x2 grid with 4 fields:
+- Row 1: Room Name | Price/Night (existing)
+- Row 2: Adults dropdown (1 to max_guests, default 1) | Children dropdown (0 to 3, default 0)
 
-### No Database Changes
+**4. Auto-adjust price for extra guests**
 
-All data already exists in `rate_plans` and `rate_plan_prices` tables with appropriate RLS policies allowing authenticated users to SELECT.
+When adults count changes for a room:
+- Extra adults = `roomAdults[i] - unit.default_occupancy` (minimum 0)
+- Extra charge = extra adults x extra_adult_rate from rate plan
+- Auto-fill price = base rate + extra charge
+- Show helper: "Includes $XX/night extra guest fee (N additional adult(s))" when extra charge applies
+- Floor price becomes base rate + extra charge (not just base rate)
+
+Update `getMinPriceForRoom` and `updateRoomSelection` accordingly. Create a new `updateRoomAdults` handler that recalculates price.
+
+**5. Remove "Number of Guests" section (lines 1543-1592)**
+
+Delete the entire section. Total guests computed by summing `roomAdults` and `roomChildren` across all rooms.
+
+**6. Simplify Guest Names to Main Guest Only (lines 1594-1671)**
+
+- Change label to "Main Guest Details"
+- Always show exactly 1 guest form (first name, last name, guest type, gender)
+- Add note: "Additional guests will provide their details at check-in"
+- Remove the `useEffect` that syncs guest arrays with adults/children (lines 354-382)
+
+**7. Update form submission (line 1025)**
+
+- Compute `totalAdults`/`totalChildren` by summing across rooms
+- Each reservation gets its room-specific adults/children counts
+- `number_of_guests` = that room's adults + children
+- Guest names always contains just the main guest
+
+**8. Update validation (line 887)**
+
+- Remove validation for guest types array (only 1 guest)
+- Remove gender validation for "all adult guests" (only main guest)
+- Keep main guest first/last name and gender validation
+
+**9. Update form reset (lines 1159-1187)**
+
+Reset `roomAdults` and `roomChildren` arrays to `[1]` and `[0]`.
+
+**10. Marriage certificate logic**
+
+With only 1 guest form, auto-detection of male+female pair is no longer possible. Disable the auto-detection -- marriage certificate can be requested at check-in instead.
 
 ### Technical Details
 
-**Rate plan lookup logic:**
-- Fetch all active rate plans ordered by priority (descending)
-- For each room type (`booking_com_name`), find the type-level price (where `unit_id` is null)
-- Prefer the default rate plan; otherwise use the highest-priority match
-- Store as a `Map<string, number>` mapping room type name to weekday rate
-
-**Modified functions:**
-- `updateRoomSelection`: look up rate by `unit.booking_com_name` from the rate plan map
-- `getMinPriceForRoom`: same lookup, falling back to `unit.price_per_night`
-- `Unit` interface (line 161): add `booking_com_name: string | null` and update the `fetchUnits` query to include it
-
+| Area | Current | New |
+|------|---------|-----|
+| Adults/Children state | Single `adults`, `children` numbers | Per-room arrays `roomAdults[]`, `roomChildren[]` |
+| Guest forms | N forms (1 per guest) | Always 1 form (main guest only) |
+| Extra guest pricing | Not implemented | Auto-calculated from `rate_plans.extra_adult_rate` |
+| Floor price | Base rate only | Base rate + extra guest fee |
+| Number of Guests section | Separate section below rooms | Removed (computed from room cards) |
+| Unit interface | Missing `default_occupancy`, `max_guests` | Added both fields |
