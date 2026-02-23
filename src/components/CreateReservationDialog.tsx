@@ -956,8 +956,8 @@ export function CreateReservationDialog() {
       missingFields.push("Main guest's first and last name");
     }
     
-    // Main guest gender validation (if adult)
-    if (guestTypes[0] === 'adult' && !guestGenders[0]) {
+    // Main guest gender validation
+    if (!guestGenders[0]) {
       missingFields.push("Gender selection for main guest");
     }
     
@@ -1059,7 +1059,7 @@ export function CreateReservationDialog() {
           adults: roomAdults[roomIndex] ?? 1,
           children: roomChildren[roomIndex] ?? 0,
           guest_names: combinedNames,
-          guest_types: [guestTypes[0]].filter(Boolean),
+          guest_types: ['adult'],
           guest_genders: [guestGenders[0]].filter(Boolean),
           guest_nationality: nationality,
           marriage_certificate_url: marriageCertificateUrl || null,
@@ -1619,53 +1619,27 @@ export function CreateReservationDialog() {
               </div>
               <div className="space-y-2">
                 <Label className="text-sm text-muted-foreground">
-                  Guest Type <span className="text-destructive">*</span>
+                  Gender <span className="text-destructive">*</span>
                 </Label>
                 <RadioGroup
-                  value={guestTypes[0]}
-                  onValueChange={(value) => updateGuestType(0, value as 'adult' | 'child')}
+                  value={guestGenders[0] || ""}
+                  onValueChange={(value) => updateGuestGender(0, value as 'male' | 'female')}
                   className="flex gap-4"
                 >
                   <div className="flex items-center space-x-2">
-                    <RadioGroupItem value="adult" id="adult-0" />
-                    <Label htmlFor="adult-0" className="font-normal cursor-pointer">
-                      Adult
+                    <RadioGroupItem value="male" id="male-0" />
+                    <Label htmlFor="male-0" className="font-normal cursor-pointer">
+                      Male
                     </Label>
                   </div>
                   <div className="flex items-center space-x-2">
-                    <RadioGroupItem value="child" id="child-0" />
-                    <Label htmlFor="child-0" className="font-normal cursor-pointer">
-                      Child
+                    <RadioGroupItem value="female" id="female-0" />
+                    <Label htmlFor="female-0" className="font-normal cursor-pointer">
+                      Female
                     </Label>
                   </div>
                 </RadioGroup>
               </div>
-              
-              {guestTypes[0] === 'adult' && (
-                <div className="space-y-2">
-                  <Label className="text-sm text-muted-foreground">
-                    Gender <span className="text-destructive">*</span>
-                  </Label>
-                  <RadioGroup
-                    value={guestGenders[0] || ""}
-                    onValueChange={(value) => updateGuestGender(0, value as 'male' | 'female')}
-                    className="flex gap-4"
-                  >
-                    <div className="flex items-center space-x-2">
-                      <RadioGroupItem value="male" id="male-0" />
-                      <Label htmlFor="male-0" className="font-normal cursor-pointer">
-                        Male
-                      </Label>
-                    </div>
-                    <div className="flex items-center space-x-2">
-                      <RadioGroupItem value="female" id="female-0" />
-                      <Label htmlFor="female-0" className="font-normal cursor-pointer">
-                        Female
-                      </Label>
-                    </div>
-                  </RadioGroup>
-                </div>
-              )}
             </div>
             <p className="text-xs text-muted-foreground">
               Additional guests will provide their details at check-in
