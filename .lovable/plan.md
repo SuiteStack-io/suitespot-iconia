@@ -1,37 +1,39 @@
 
 
-## Fix: channex_bookings Foreign Key Violation on property_id
+## SEO Pre-rendering Support
 
-### Root Cause
+### What will be done
 
-The `channex_bookings.property_id` column has a foreign key constraint referencing `units(id)`. But the webhook stores a **property mapping** `local_id` from `channex_mappings`, which is a property-level concept -- not a unit. The property `local_id` (`e30ad118-...`) doesn't exist in the `units` table, so the insert fails.
+**1. Add `<noscript>` fallback content to `index.html`**
 
-This is the exact same issue we just fixed on `channex_sync_logs`.
+Add a `<noscript>` block inside `<body>` with structured HTML content about your property, suites, amenities, and location. This gives search engines readable content even if JavaScript fails to execute.
 
-### Fix
+**2. Skip `react-snap` (not compatible with this environment)**
 
-**Database migration**: Drop the broken FK constraint.
+`react-snap` requires a headless browser (Puppeteer/Chrome) to run during the build step. Lovable's build environment does not support running a headless browser, so `react-snap` would fail at build time. This is not something we can work around in this platform.
 
-```sql
-ALTER TABLE channex_bookings DROP CONSTRAINT channex_bookings_property_id_fkey;
-```
+**3. No changes needed for `react-helmet-async` (already fully set up)**
 
-The `property_id` column is already nullable (confirmed from schema query), so no other schema change is needed. The webhook code itself is already correct -- it looks up the local property ID from `channex_mappings` and passes it. The only problem is the FK constraint rejecting that ID because it doesn't exist in `units`.
+Your project already has the fallback approach fully implemented:
+- `react-helmet-async` is installed and `<HelmetProvider>` wraps the app in `main.tsx`
+- A reusable `<SEO>` component (`src/components/SEO.tsx`) already provides per-page `<title>`, `<meta description>`, Open Graph tags, Twitter cards, canonical URLs, and JSON-LD structured data
+- Public pages like PublicHome, About, Suites, etc. already use this component
 
-### No Edge Function Changes Needed
+### Summary of changes
 
-The webhook code at lines 125-142 already:
-- Extracts the Channex property ID from the payload
-- Looks it up in `channex_mappings` to get the `local_id`
-- Falls back to `null` if not found
-- Passes the resolved `localPropertyId` to the booking record
+| File | Change |
+|------|--------|
+| `index.html` | Add `<noscript>` block with structured content about SuiteSpot |
 
-This is all correct. The only blocker is the FK constraint.
+### Technical details
 
-### Summary
+The `<noscript>` block will be placed inside `<body>`, after the `<div id="root">`. It will contain:
+- H1 with business name and tagline
+- Description paragraph
+- Suite listings with links to `/suites`
+- Amenities summary
+- Location description
+- Navigation links to `/book`, `/suites`, `/about`
 
-| Change | Detail |
-|--------|--------|
-| Drop FK constraint | `channex_bookings_property_id_fkey` (references `units(id)`) |
-| Code changes | None needed |
+Note: The links in noscript will point to `/suites` instead of `/rooms` (which is an admin route), matching your public-facing URL structure.
 
