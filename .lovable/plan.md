@@ -1,19 +1,29 @@
 
-## Remove Room Type Description from Room Selector Dropdown
+## Remove Gmail Sync Integration
 
 ### Overview
+Delete the broken Gmail/Booking.com email sync integration entirely -- all edge functions, UI components, and related references.
 
-Simplify the room selection dropdown to show only the room name and unit number, removing the description/type suffix (e.g., "1bd Large", "1bd + Balcony").
+### What Gets Removed
 
-### Change -- File: `src/components/CreateReservationDialog.tsx`
+**1. Edge Functions (4 functions)**
+- `supabase/functions/gmail-auth-start/index.ts` -- OAuth flow start
+- `supabase/functions/gmail-auth-callback/index.ts` -- OAuth callback
+- `supabase/functions/sync-booking-gmail/index.ts` -- The main sync logic
+- `supabase/functions/test-gmail-connection/index.ts` -- Connection test
 
-**Line 1412**: Change the SelectItem display text from:
-```
-{unit.name}{unit.unit_type ? ` - ${unit.unit_type}` : ''} {unit.unit_number ? `(#${unit.unit_number})` : ''}
-```
-To:
-```
-{unit.name} {unit.unit_number ? `(#${unit.unit_number})` : ''}
-```
+**2. Frontend Components (2 files)**
+- `src/components/SyncButton.tsx` -- Standalone sync button component
+- `src/components/GmailSyncStatus.tsx` -- Gmail connection status card
 
-This removes the `unit.unit_type` portion, so items like "Deluxe Suite - 1bd Large (#512)" become "Deluxe Suite (#512)".
+**3. UI References**
+- `src/pages/Settings.tsx` -- Remove the `<GmailSyncStatus />` card and its import
+- `src/pages/Index.tsx` -- Remove the inline "Sync" button in the admin header bar, the `handleSync` function, and the `syncing` state
+
+**4. Config Cleanup**
+- `supabase/config.toml` -- Remove the `[functions.gmail-auth-start]`, `[functions.gmail-auth-callback]`, and `[functions.sync-booking-gmail]` entries
+
+### What Gets Kept
+- The `sync_status`, `sync_logs` tables and existing data stay untouched (no data deletion)
+- The Sync History card on Settings page stays (it shows general sync activity)
+- Secrets (`GMAIL_CLIENT_ID`, `GMAIL_CLIENT_SECRET`, `GMAIL_REFRESH_TOKEN`) remain in Lovable Cloud but will simply be unused
