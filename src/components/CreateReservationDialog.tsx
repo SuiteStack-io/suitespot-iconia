@@ -1726,100 +1726,164 @@ export function CreateReservationDialog() {
               </div>
             </RadioGroup>
             
-            {/* Front Image */}
-            <div className="space-y-2">
-              <Label className="text-sm text-muted-foreground">
-                {idPassportType === 'id' ? 'Front' : 'Image'}
-              </Label>
-              {idPassportFile ? (
+            {idPassportType === 'id' ? (
+              <div className="grid grid-cols-2 gap-4">
+                {/* Front Image */}
                 <div className="space-y-2">
-                  <div className="flex items-center gap-2 p-2 bg-background rounded border">
-                    <span className="text-sm flex-1 truncate">{idPassportFile.name}</span>
-                    <Button
-                      type="button"
-                      variant="ghost"
-                      size="sm"
-                      onClick={() => handleIdPassportDelete(false)}
-                      className="hover:text-destructive"
-                      disabled={isIdUploading}
-                    >
-                      <X className="h-4 w-4" />
-                    </Button>
-                  </div>
-                  {isIdUploading && (
-                    <div className="space-y-1">
-                      <Progress value={idUploadProgress} className="h-2 [&>div]:bg-blue-500" />
-                      <p className="text-xs text-muted-foreground text-center">{idUploadProgress}%</p>
+                  <Label className="text-sm text-muted-foreground">
+                    Front
+                  </Label>
+                  {idPassportFile ? (
+                    <div className="space-y-2">
+                      <div className="flex items-center gap-2 p-2 bg-background rounded border">
+                        <span className="text-sm flex-1 truncate">{idPassportFile.name}</span>
+                        <Button
+                          type="button"
+                          variant="ghost"
+                          size="sm"
+                          onClick={() => handleIdPassportDelete(false)}
+                          className="hover:text-destructive"
+                          disabled={isIdUploading}
+                        >
+                          <X className="h-4 w-4" />
+                        </Button>
+                      </div>
+                      {isIdUploading && (
+                        <div className="space-y-1">
+                          <Progress value={idUploadProgress} className="h-2 [&>div]:bg-blue-500" />
+                          <p className="text-xs text-muted-foreground text-center">{idUploadProgress}%</p>
+                        </div>
+                      )}
+                    </div>
+                  ) : (
+                    <div className="flex items-center gap-2">
+                      <Input
+                        id="idPassport"
+                        type="file"
+                        accept="image/*"
+                        onChange={(e) => {
+                          const file = e.target.files?.[0];
+                          if (file) {
+                            if (!file.type.startsWith('image/')) {
+                              toast.error("Only image files are supported");
+                              e.target.value = '';
+                              return;
+                            }
+                            if (file.size > 10 * 1024 * 1024) {
+                              toast.error('File size must be less than 10MB');
+                              e.target.value = '';
+                              return;
+                            }
+                            handleIdPassportUpload(file, false);
+                          }
+                        }}
+                        className="hidden"
+                      />
+                      <Label
+                        htmlFor="idPassport"
+                        className="flex items-center gap-2 px-4 py-2 border rounded-md cursor-pointer hover:bg-accent transition-colors"
+                      >
+                        <Upload className="h-4 w-4" />
+                        Upload
+                      </Label>
                     </div>
                   )}
                 </div>
-              ) : (
-                <div className="flex items-center gap-2">
-                  <Input
-                    id="idPassport"
-                    type="file"
-                    accept="image/*"
-                    onChange={(e) => {
-                      const file = e.target.files?.[0];
-                      if (file) {
-                        if (!file.type.startsWith('image/')) {
-                          toast.error("Only image files are supported");
-                          e.target.value = '';
-                          return;
-                        }
-                        if (file.size > 10 * 1024 * 1024) {
-                          toast.error('File size must be less than 10MB');
-                          e.target.value = '';
-                          return;
-                        }
-                        handleIdPassportUpload(file, false);
-                      }
-                    }}
-                    className="hidden"
-                  />
-                  <Label
-                    htmlFor="idPassport"
-                    className="flex items-center gap-2 px-4 py-2 border rounded-md cursor-pointer hover:bg-accent transition-colors"
-                  >
-                    <Upload className="h-4 w-4" />
-                    Upload
-                  </Label>
-                </div>
-              )}
-            </div>
 
-            {/* Back Image (only for ID) */}
-            {idPassportType === 'id' && (
+                {/* Back Image */}
+                <div className="space-y-2">
+                  <Label className="text-sm text-muted-foreground">
+                    Back <span className="text-destructive">*</span>
+                  </Label>
+                  {idPassportFileBack ? (
+                    <div className="space-y-2">
+                      <div className="flex items-center gap-2 p-2 bg-background rounded border">
+                        <span className="text-sm flex-1 truncate">{idPassportFileBack.name}</span>
+                        <Button
+                          type="button"
+                          variant="ghost"
+                          size="sm"
+                          onClick={() => handleIdPassportDelete(true)}
+                          className="hover:text-destructive"
+                          disabled={isIdUploadingBack}
+                        >
+                          <X className="h-4 w-4" />
+                        </Button>
+                      </div>
+                      {isIdUploadingBack && (
+                        <div className="space-y-1">
+                          <Progress value={idUploadProgressBack} className="h-2 [&>div]:bg-blue-500" />
+                          <p className="text-xs text-muted-foreground text-center">{idUploadProgressBack}%</p>
+                        </div>
+                      )}
+                    </div>
+                  ) : (
+                    <div className="flex items-center gap-2">
+                      <Input
+                        id="idPassportBack"
+                        type="file"
+                        accept="image/*"
+                        onChange={(e) => {
+                          const file = e.target.files?.[0];
+                          if (file) {
+                            if (!file.type.startsWith('image/')) {
+                              toast.error("Only image files are supported");
+                              e.target.value = '';
+                              return;
+                            }
+                            if (file.size > 10 * 1024 * 1024) {
+                              toast.error('File size must be less than 10MB');
+                              e.target.value = '';
+                              return;
+                            }
+                            handleIdPassportUpload(file, true);
+                          }
+                        }}
+                        className="hidden"
+                      />
+                      <Label
+                        htmlFor="idPassportBack"
+                        className="flex items-center gap-2 px-4 py-2 border rounded-md cursor-pointer hover:bg-accent transition-colors"
+                      >
+                        <Upload className="h-4 w-4" />
+                        Upload
+                      </Label>
+                    </div>
+                  )}
+                </div>
+              </div>
+            ) : (
+              /* Passport - single Image upload */
               <div className="space-y-2">
                 <Label className="text-sm text-muted-foreground">
-                  Back <span className="text-destructive">*</span>
+                  Image
                 </Label>
-                {idPassportFileBack ? (
+                {idPassportFile ? (
                   <div className="space-y-2">
                     <div className="flex items-center gap-2 p-2 bg-background rounded border">
-                      <span className="text-sm flex-1 truncate">{idPassportFileBack.name}</span>
+                      <span className="text-sm flex-1 truncate">{idPassportFile.name}</span>
                       <Button
                         type="button"
                         variant="ghost"
                         size="sm"
-                        onClick={() => handleIdPassportDelete(true)}
+                        onClick={() => handleIdPassportDelete(false)}
                         className="hover:text-destructive"
-                        disabled={isIdUploadingBack}
+                        disabled={isIdUploading}
                       >
                         <X className="h-4 w-4" />
                       </Button>
                     </div>
-                    {isIdUploadingBack && (
+                    {isIdUploading && (
                       <div className="space-y-1">
-                        <Progress value={idUploadProgressBack} className="h-2 [&>div]:bg-blue-500" />
-                        <p className="text-xs text-muted-foreground text-center">{idUploadProgressBack}%</p>
+                        <Progress value={idUploadProgress} className="h-2 [&>div]:bg-blue-500" />
+                        <p className="text-xs text-muted-foreground text-center">{idUploadProgress}%</p>
                       </div>
                     )}
                   </div>
                 ) : (
                   <div className="flex items-center gap-2">
                     <Input
-                      id="idPassportBack"
+                      id="idPassport"
                       type="file"
                       accept="image/*"
                       onChange={(e) => {
@@ -1835,13 +1899,13 @@ export function CreateReservationDialog() {
                             e.target.value = '';
                             return;
                           }
-                          handleIdPassportUpload(file, true);
+                          handleIdPassportUpload(file, false);
                         }
                       }}
                       className="hidden"
                     />
                     <Label
-                      htmlFor="idPassportBack"
+                      htmlFor="idPassport"
                       className="flex items-center gap-2 px-4 py-2 border rounded-md cursor-pointer hover:bg-accent transition-colors"
                     >
                       <Upload className="h-4 w-4" />
