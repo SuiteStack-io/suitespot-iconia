@@ -213,7 +213,7 @@ export const ReservationsList = ({ userRole }: ReservationsListProps) => {
   const fetchReservations = async () => {
     const { data, error } = await supabase
       .from('reservations')
-      .select('*, units(name, unit_number, booking_com_name)')
+      .select('*, units!unit_id(name, unit_number, booking_com_name)')
       .order('check_in_date', { ascending: false });
 
     if (!error && data) {
@@ -473,7 +473,7 @@ export const ReservationsList = ({ userRole }: ReservationsListProps) => {
           // Get full reservation details for notifications
           const { data: cancelledReservations } = await supabase
             .from('reservations')
-            .select('*, units(name, unit_number, booking_com_name)')
+            .select('*, units!unit_id(name, unit_number, booking_com_name)')
             .in('id', selectedIds);
           
           // Send cancellation notifications
@@ -582,7 +582,7 @@ export const ReservationsList = ({ userRole }: ReservationsListProps) => {
           currency,
           source,
           channel,
-          units (name, unit_number, booking_com_name)
+          units!unit_id (name, unit_number, booking_com_name)
         `)
         .in('id', Array.from(selectedReservations));
 

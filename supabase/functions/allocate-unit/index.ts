@@ -117,10 +117,61 @@ Deno.serve(async (req) => {
       }
     }
 
+    // No directly available units — attempt auto-shuffle before creating pending assignment
+    console.log('No direct availability — attempting auto-shuffle...');
+
+    // Get room type name from the first unit
+    const { data: unitDetail } = await supabase
+      .from('units')
+      .select('booking_com_name')
+      .eq('booking_com_id', bookingComRoomId)
+      .limit(1)
+      .single();
+
+    const roomTypeName = unitDetail?.booking_com_name;
+
+    if (roomTypeName) {
+      try {
+        const shuffleResponse = await supabase.functions.invoke('auto-shuffle-rooms', {
+          body: {
+            roomType: roomTypeName,
+            checkInDate,
+            checkOutDate,
+            bookingReference,
+            guestNames,
+            triggerSource: 'allocate-unit',
+          },
+        });
+
+        const shuffleResult = shuffleResponse.data;
+        console.log('Shuffle result:', shuffleResult);
+
+        if (shuffleResult?.success && shuffleResult.freedUnitId) {
+          console.log(`Auto-shuffle freed unit #${shuffleResult.freedUnitNumber} — allocating`);
+          return new Response(
+            JSON.stringify({
+              success: true,
+              allocatedUnit: {
+                id: shuffleResult.freedUnitId,
+                unit_number: shuffleResult.freedUnitNumber,
+                name: roomTypeName,
+              },
+              strategy: 'auto_shuffle',
+              moves: shuffleResult.moves,
+              shuffleLogId: shuffleResult.shuffleLogId,
+            }),
+            { headers: { ...corsHeaders, 'Content-Type': 'application/json' }, status: 200 }
+          );
+        }
+
+        console.log('Auto-shuffle could not free a unit:', shuffleResult?.reason);
+      } catch (shuffleError) {
+        console.error('Auto-shuffle invocation failed:', shuffleError);
+      }
+    }
+
     // No available units found - create pending assignment reservation
-    console.warn('All units are booked - creating pending assignment reservation');
-    
-    // Create reservation with pending_assignment status and no unit assigned
+    console.warn('All units are booked and shuffle failed - creating pending assignment reservation');
     const { data: pendingReservation, error: reservationError } = await supabase
       .from('reservations')
       .insert({

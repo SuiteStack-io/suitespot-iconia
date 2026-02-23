@@ -80,7 +80,7 @@ export const RevenueByGuests = ({ mainDateRange }: RevenueByGuestsProps) => {
 
     const { data: reservations } = await supabase
       .from('reservations')
-      .select('id, guest_names, unit_id, price_per_night, total_price, guest_nationality, nights, payment_method, currency, units(unit_number)')
+      .select('id, guest_names, unit_id, price_per_night, total_price, guest_nationality, nights, payment_method, currency, units!unit_id(unit_number)')
       .neq('status', 'Cancelled')
       .is('cancelled_at', null)
       .gte('check_in_date', startDate)

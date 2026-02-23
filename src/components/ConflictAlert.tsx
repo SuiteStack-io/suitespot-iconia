@@ -30,7 +30,7 @@ export const ConflictAlert = () => {
       // Query for overlapping bookings manually
       const { data: reservations } = await supabase
         .from('reservations')
-        .select('*, units(name, booking_com_name, unit_number)')
+        .select('*, units!unit_id(name, booking_com_name, unit_number)')
         .eq('status', 'confirmed')
         .is('cancelled_at', null)
         .order('check_in_date');

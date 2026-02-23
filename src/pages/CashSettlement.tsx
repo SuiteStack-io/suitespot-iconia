@@ -71,7 +71,7 @@ export default function CashSettlement() {
     queryFn: async () => {
       const { data, error } = await supabase
         .from('reservations')
-        .select('*, units(name, unit_number, booking_com_name, tax_percentage)')
+        .select('*, units!unit_id(name, unit_number, booking_com_name, tax_percentage)')
         .in('payment_method', ['cash', 'credit_card'])
         .neq('source', 'booking.com')
         .not('status', 'ilike', '%cancelled%')

@@ -340,7 +340,7 @@ export const Dashboard = () => {
       // Get reservations ending today with full data
       const { data: endingTodayFull } = await supabase
         .from('reservations')
-        .select('id, group_id, unit_id, guest_names, units(name, booking_com_name, unit_number)')
+        .select('id, group_id, unit_id, guest_names, units!unit_id(name, booking_com_name, unit_number)')
         .eq('check_out_date', today)
         .neq('status', 'cancelled')
         .is('cancelled_at', null);
@@ -348,7 +348,7 @@ export const Dashboard = () => {
       // Get reservations starting today with full data
       const { data: startingTodayFull } = await supabase
         .from('reservations')
-        .select('id, group_id, unit_id, guest_names, units(name, booking_com_name, unit_number)')
+        .select('id, group_id, unit_id, guest_names, units!unit_id(name, booking_com_name, unit_number)')
         .eq('check_in_date', today)
         .neq('status', 'cancelled')
         .is('cancelled_at', null);

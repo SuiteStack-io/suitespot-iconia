@@ -1365,6 +1365,9 @@ export type Database = {
           preferred_language: string | null
           price_per_night: number | null
           settled: string | null
+          shuffle_log_id: string | null
+          shuffled_at: string | null
+          shuffled_from_unit_id: string | null
           skip_channex_sync: boolean
           source: string
           status: string
@@ -1421,6 +1424,9 @@ export type Database = {
           preferred_language?: string | null
           price_per_night?: number | null
           settled?: string | null
+          shuffle_log_id?: string | null
+          shuffled_at?: string | null
+          shuffled_from_unit_id?: string | null
           skip_channex_sync?: boolean
           source?: string
           status: string
@@ -1477,6 +1483,9 @@ export type Database = {
           preferred_language?: string | null
           price_per_night?: number | null
           settled?: string | null
+          shuffle_log_id?: string | null
+          shuffled_at?: string | null
+          shuffled_from_unit_id?: string | null
           skip_channex_sync?: boolean
           source?: string
           status?: string
@@ -1489,10 +1498,68 @@ export type Database = {
         }
         Relationships: [
           {
+            foreignKeyName: "reservations_shuffle_log_id_fkey"
+            columns: ["shuffle_log_id"]
+            isOneToOne: false
+            referencedRelation: "room_shuffle_log"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "reservations_shuffled_from_unit_id_fkey"
+            columns: ["shuffled_from_unit_id"]
+            isOneToOne: false
+            referencedRelation: "units"
+            referencedColumns: ["id"]
+          },
+          {
             foreignKeyName: "reservations_unit_id_fkey"
             columns: ["unit_id"]
             isOneToOne: false
             referencedRelation: "units"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      room_shuffle_log: {
+        Row: {
+          created_at: string
+          id: string
+          move_count: number
+          moves: Json
+          reason: string | null
+          room_type: string
+          shuffle_date: string
+          triggered_by_booking_id: string | null
+          triggered_by_reference: string
+        }
+        Insert: {
+          created_at?: string
+          id?: string
+          move_count?: number
+          moves?: Json
+          reason?: string | null
+          room_type: string
+          shuffle_date?: string
+          triggered_by_booking_id?: string | null
+          triggered_by_reference: string
+        }
+        Update: {
+          created_at?: string
+          id?: string
+          move_count?: number
+          moves?: Json
+          reason?: string | null
+          room_type?: string
+          shuffle_date?: string
+          triggered_by_booking_id?: string | null
+          triggered_by_reference?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "room_shuffle_log_triggered_by_booking_id_fkey"
+            columns: ["triggered_by_booking_id"]
+            isOneToOne: false
+            referencedRelation: "reservations"
             referencedColumns: ["id"]
           },
         ]

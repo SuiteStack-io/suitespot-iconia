@@ -40,7 +40,7 @@ export default function GuestDashboard() {
           check_in_date,
           check_out_date,
           guest_names,
-          units (
+          units!unit_id (
             id,
             name,
             address

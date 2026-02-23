@@ -49,7 +49,7 @@ export function CreateGuestAccountDialog({ reservationId, guestName }: CreateGue
       try {
         const { data: reservationData } = await supabase
           .from("reservations")
-          .select("check_in_date, check_out_date, contact_email, units(name)")
+          .select("check_in_date, check_out_date, contact_email, units!unit_id(name)")
           .eq("id", reservationId)
           .single();
 

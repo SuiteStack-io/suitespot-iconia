@@ -109,7 +109,7 @@ const Guests = () => {
         .from("reservations")
         .select(`
           *,
-          units (name)
+          units!unit_id (name)
         `)
         .order("check_in_date", { ascending: false });
 

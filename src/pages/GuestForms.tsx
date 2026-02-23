@@ -137,7 +137,7 @@ export default function GuestForms() {
           check_out_date,
           status,
           checked_in_at,
-          units (name, unit_number)
+          units!unit_id (name, unit_number)
         `)
         .in('status', ['checked-in', 'checked-out', 'confirmed'])
         .lte('check_in_date', today)

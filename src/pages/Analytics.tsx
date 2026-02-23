@@ -485,7 +485,7 @@ const Analytics = () => {
     
     const { data } = await supabase
       .from('reservations')
-      .select('guest_names, check_in_date, check_out_date, nights, number_of_guests, source, payment_method, currency, units(name)')
+      .select('guest_names, check_in_date, check_out_date, nights, number_of_guests, source, payment_method, currency, units!unit_id(name)')
       .neq('status', 'Cancelled')
       .is('cancelled_at', null)
       .gte('check_in_date', startDate)
@@ -512,7 +512,7 @@ const Analytics = () => {
     
     const { data } = await supabase
       .from('reservations')
-      .select('guest_names, number_of_guests, check_in_date, check_out_date, payment_method, currency, units(name)')
+      .select('guest_names, number_of_guests, check_in_date, check_out_date, payment_method, currency, units!unit_id(name)')
       .neq('status', 'Cancelled')
       .is('cancelled_at', null)
       .gte('check_in_date', startDate)
@@ -847,7 +847,7 @@ const Analytics = () => {
     
     const { data } = await supabase
       .from('reservations')
-      .select('guest_names, check_in_date, check_out_date, nights, number_of_guests, source, total_price, commission_amount, net_revenue, payment_method, currency, units(name, unit_number)')
+      .select('guest_names, check_in_date, check_out_date, nights, number_of_guests, source, total_price, commission_amount, net_revenue, payment_method, currency, units!unit_id(name, unit_number)')
       .neq('status', 'Cancelled')
       .gte('check_in_date', startDate)
       .lte('check_in_date', endDate)

@@ -248,7 +248,7 @@ const ReservationDetail = () => {
   const fetchReservation = async () => {
     const { data, error } = await supabase
       .from('reservations')
-      .select('*, units(name, unit_number, booking_com_name, tax_percentage)')
+      .select('*, units!unit_id(name, unit_number, booking_com_name, tax_percentage)')
       .eq('id', id)
       .single();
 
