@@ -1,26 +1,28 @@
 
 
-## Fix: Allow Equal Rate in "Extend Again" Price Floor Validation
+## Fix: Ambiguous Foreign Key in Extension Notification
 
 ### Problem
 
-The price floor validation shows an error when the entered rate equals the previous extension's rate. This is a floating-point precision issue: the calculated floor (e.g., `total_price / 1.14 / nights`) produces a value like `82.000000001` due to IEEE 754 floating-point arithmetic, so entering exactly `82.0` fails the `currentPrice < priceFloor` check.
+The `send-extension-notification` edge function query on line 34 uses `units(name, unit_number)` which is ambiguous because the `reservations` table has two foreign keys pointing to `units`:
+- `unit_id` (the assigned room)
+- `shuffled_from_unit_id` (the room before a shuffle)
+
+PostgREST cannot determine which relationship to use and returns error `PGRST201`.
 
 ### Solution
 
-**File: `src/components/ReservationQuickActions.tsx`** (line 1396-1398)
+**File: `supabase/functions/send-extension-notification/index.ts`** (line 34)
 
-Round the `priceFloor` value to 2 decimal places when calculating it, so the comparison is clean:
+Disambiguate the join by specifying the foreign key:
 
 ```typescript
 // Before
-const priceFloor = firstExt && firstExtNights > 0 ? (firstExt.total_price / 1.14) / firstExtNights : 0;
+.select('*, units(name, unit_number)')
 
 // After
-const priceFloor = firstExt && firstExtNights > 0 
-  ? Math.floor(((firstExt.total_price / 1.14) / firstExtNights) * 100) / 100 
-  : 0;
+.select('*, units!reservations_unit_id_fkey(name, unit_number)')
 ```
 
-Using `Math.floor` with 2 decimal places ensures the floor is rounded down, so entering the same displayed rate will always pass validation. This is a single-line change.
+This tells PostgREST to use the `unit_id` foreign key, which is the correct one for getting the assigned room details. Single-line fix.
 
