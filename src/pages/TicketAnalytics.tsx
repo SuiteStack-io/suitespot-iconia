@@ -121,7 +121,7 @@ const TicketAnalytics = () => {
       // Fetch all data for export
       const { data: staySurveyData } = await supabase
         .from("stay_surveys")
-        .select("*, reservations(booking_reference, units(name))")
+        .select("*, reservations!inner(booking_reference, units!unit_id(name))")
         .gte('submitted_at', startDate)
         .lte('submitted_at', endDate + 'T23:59:59');
       

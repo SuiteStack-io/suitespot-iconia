@@ -137,7 +137,7 @@ const Housekeeping = () => {
     // Fetch rooms that were checked out today or yesterday
     const { data } = await supabase
       .from('reservations')
-      .select('id, check_out_date, guest_names, units(id, name, unit_number, estimated_cleaning_minutes)')
+      .select('id, check_out_date, guest_names, units!unit_id(id, name, unit_number, estimated_cleaning_minutes)')
       .eq('status', 'checked-out')
       .gte('check_out_date', yesterday)
       .order('check_out_date', { ascending: false });

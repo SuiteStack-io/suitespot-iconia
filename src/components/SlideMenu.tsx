@@ -40,6 +40,7 @@ import {
   Lock,
   Layers,
   Radio,
+  ArrowLeftRight,
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 
@@ -104,6 +105,7 @@ export function SlideMenu({ userRole }: SlideMenuProps) {
         { title: 'Restrictions', url: '/pms/restrictions', icon: Lock },
         { title: 'Channex Integration', url: '/channex', icon: Radio },
         { title: 'Channex Debug', url: '/channex-debug', icon: Zap },
+        { title: 'Shuffle History', url: '/shuffle-history', icon: ArrowLeftRight },
       ],
       showFor: ['admin'],
     },

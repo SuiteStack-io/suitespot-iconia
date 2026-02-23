@@ -84,7 +84,7 @@ const CheckInOut = () => {
     // Fetch arrivals (check-in today, status = confirmed) with group_id for split-stay filtering
     const { data: arrivalsData } = await supabase
       .from('reservations')
-      .select('id, booking_reference, guest_names, guest_types, check_in_date, check_out_date, status, number_of_guests, group_id, access_cards_given, units(name, booking_com_name, unit_number)')
+      .select('id, booking_reference, guest_names, guest_types, check_in_date, check_out_date, status, number_of_guests, group_id, access_cards_given, units!unit_id(name, booking_com_name, unit_number)')
       .eq('check_in_date', today)
       .eq('status', 'confirmed')
       .order('created_at', { ascending: false });
@@ -108,7 +108,7 @@ const CheckInOut = () => {
     // Fetch departures (check-out today, all relevant statuses including already processed)
     const { data: departuresData } = await supabase
       .from('reservations')
-      .select('id, booking_reference, guest_names, guest_types, check_in_date, check_out_date, status, number_of_guests, group_id, access_cards_given, units(name, booking_com_name, unit_number)')
+      .select('id, booking_reference, guest_names, guest_types, check_in_date, check_out_date, status, number_of_guests, group_id, access_cards_given, units!unit_id(name, booking_com_name, unit_number)')
       .eq('check_out_date', today)
       .in('status', ['checked-in', 'confirmed', 'checked-out', 'completed'])
       .order('created_at', { ascending: false });

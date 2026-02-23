@@ -80,3 +80,6 @@ verify_jwt = false
 
 [functions.channex-reset-sync]
 verify_jwt = false
+
+[functions.auto-shuffle-rooms]
+verify_jwt = false

@@ -66,7 +66,7 @@ export const RoomSwapDialog = ({
       // Fetch reservations that overlap with the selected one
       const { data, error } = await supabase
         .from("reservations")
-        .select("id, unit_id, check_in_date, check_out_date, booking_reference, guest_names, status, source, group_id, units(name, unit_number, booking_com_name)")
+        .select("id, unit_id, check_in_date, check_out_date, booking_reference, guest_names, status, source, group_id, units!unit_id(name, unit_number, booking_com_name)")
         .neq("id", reservation.id)
         .neq("unit_id", reservation.unit_id)
         .in("status", ["confirmed", "checked-in"])

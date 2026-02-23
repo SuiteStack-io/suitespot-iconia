@@ -146,7 +146,7 @@ const MyReservations = () => {
       // Fetch reservations where source matches user's name
       const { data, error } = await supabase
         .from('reservations')
-        .select('id, booking_reference, guest_names, check_in_date, check_out_date, status, total_price, commission_rate, commission_amount, commission_paid, net_revenue, source, payment_method, settled, vat_exempt, units(name, unit_number)')
+        .select('id, booking_reference, guest_names, check_in_date, check_out_date, status, total_price, commission_rate, commission_amount, commission_paid, net_revenue, source, payment_method, settled, vat_exempt, units!unit_id(name, unit_number)')
         .eq('source', fullName)
         .order('check_in_date', { ascending: false });
 

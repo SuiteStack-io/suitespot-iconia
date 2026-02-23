@@ -3,7 +3,7 @@ import { format, addDays, isSameDay, startOfDay, startOfMonth, endOfMonth, eachD
 import { supabase } from '@/integrations/supabase/client';
 import { Button } from '@/components/ui/button';
 import { CheckCircle } from 'lucide-react';
-import { ChevronLeft, ChevronRight, AlertTriangle, Building2, Hash, ArrowRight, ArrowLeft } from 'lucide-react';
+import { ChevronLeft, ChevronRight, AlertTriangle, Building2, Hash, ArrowRight, ArrowLeft, Shuffle } from 'lucide-react';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Sheet, SheetContent, SheetHeader, SheetTitle } from '@/components/ui/sheet';
@@ -33,6 +33,8 @@ interface Reservation {
   status: string;
   booking_reference: string;
   source: string;
+  shuffled_at?: string | null;
+  shuffled_from_unit_id?: string | null;
 }
 
 interface BlockedDate {

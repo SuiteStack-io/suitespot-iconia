@@ -218,7 +218,7 @@ const GuestCheckIn = () => {
           check_in_date,
           check_out_date,
           unit_id,
-          units (
+          units!unit_id (
             name,
             booking_com_name,
             unit_number

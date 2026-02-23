@@ -33,7 +33,7 @@ const StaySurvey = () => {
     try {
       const { data, error } = await supabase
         .from("reservations")
-        .select("*, units(name)")
+        .select("*, units!unit_id(name)")
         .eq("id", reservationId)
         .single();
 
