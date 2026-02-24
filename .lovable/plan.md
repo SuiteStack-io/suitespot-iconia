@@ -1,42 +1,37 @@
 
 
-## Fix: Dashboard Card Detail Modals Not Fetching Reservations
+## Fix Mobile Dialog Close Button
+
+### Problem
+
+On mobile, the close (X) button on dashboard modals appears as empty brackets instead of a proper styled button matching the desktop version. The desktop version shows a rounded button with a visible background and clear X icon.
 
 ### Root Cause
 
-The `reservations` table has two foreign keys pointing to the `units` table:
-- `unit_id` (the current room)
-- `shuffled_from_unit_id` (the previous room after a shuffle)
-
-On **line 329** of `src/components/Dashboard.tsx`, the `baseSelect` query string uses an implicit join:
-
-```
-units(name, booking_com_name, unit_number)
-```
-
-PostgREST cannot resolve which foreign key to use, so the query fails silently and returns `null`. This is why:
-- **Card counts work** -- they use simple `select('id')` without the ambiguous join
-- **Modal detail lists show "No reservations found"** -- they use `baseSelect` with the broken join
+The `DialogContent` component in `src/components/ui/dialog.tsx` has a close button with minimal styling (`rounded-sm p-1`) that doesn't render well on mobile -- the icon appears too small and lacks a visible background, making it look like broken brackets.
 
 ### Fix
 
-**File: `src/components/Dashboard.tsx`, line 329**
+**File: `src/components/ui/dialog.tsx` (line 43-46)**
+
+Update the `DialogPrimitive.Close` button styling to:
+- Add a visible background (`bg-muted`) so it's always visible, not just on hover
+- Increase padding and use `rounded-full` for a circular button matching desktop
+- Ensure a minimum 44x44px tap target for mobile accessibility
+- Keep the same position (`absolute right-4 top-4`)
 
 Change:
-```typescript
-const baseSelect = '*, units(name, booking_com_name, unit_number), check_in_agreements(id)';
+```
+className="absolute right-4 top-4 z-10 rounded-sm p-1 text-muted-foreground/60 ..."
 ```
 
 To:
-```typescript
-const baseSelect = '*, units!unit_id(name, booking_com_name, unit_number), check_in_agreements(id)';
 ```
-
-Adding `!unit_id` explicitly tells PostgREST which foreign key to use for the join, resolving the ambiguity.
+className="absolute right-4 top-4 z-10 rounded-full p-2 bg-muted text-muted-foreground ..."
+```
 
 ### Scope
 
-- Single line change in one file
-- No database changes needed
-- All six modal views (Arrivals, Departures, In-House, New Bookings, Cancellations, Transfers) will be fixed since they all use `baseSelect`
-
+- Single styling change in `src/components/ui/dialog.tsx`
+- Affects all dialogs consistently (mobile and desktop)
+- No behavioral changes, only visual fix
