@@ -1,24 +1,35 @@
 
 
-## Hide Extension Bookings from Guests Page
-
-Extension bookings (with booking references like `-EXT`, `-EXT2`, `-EXT3`) are duplicates of the original booking and should be excluded from the Guests page by default.
+## Add Guest Stats Cards (Total Guests + Email Coverage)
 
 ### Change
 
 **File: `src/pages/Guests.tsx`**
 
-In the `fetchGuests` function (around line 123), when iterating over reservations to build guest records, skip any reservation whose `booking_reference` contains `-EXT` (case-insensitive). This filters them out before they ever enter the guest list, so they won't appear in the table, CSV exports, or counts.
+Add two summary cards between the header and the filters section (after line 470, before the `bg-card` div). These cards will use the already-filtered `filteredGuests` data so they automatically reflect the active week/month filter.
 
-**Single line addition** inside the `reservations?.forEach` loop, before pushing records:
+### Card 1: Total Guests
+- Shows the count of `filteredGuests`
+- Label: "Total Guests"
 
-```typescript
-reservations?.forEach((reservation) => {
-  // Skip extension bookings (duplicates of original)
-  if (reservation.booking_reference?.includes('-EXT')) return;
-  
-  reservation.guest_names?.forEach(...);
-});
-```
+### Card 2: Email Coverage
+- Count guests that have an email via `checkInAgreements.get(guest.reservationId)?.guest_email`
+- Show count and percentage: e.g. "45 / 60 (75%)"
+- Label: "Emails Collected"
 
-This is a simple, clean approach -- extensions are never created as guest records, so they're excluded from all views, filters, and exports automatically.
+### Layout
+- Two cards in a responsive grid (`grid grid-cols-2 gap-4 mb-6`)
+- Uses the existing `Card`, `CardHeader`, `CardTitle`, `CardContent` components
+
+### Technical Details
+
+| What | How |
+|------|-----|
+| Total guests | `filteredGuests.length` |
+| Emails count | `filteredGuests.filter(g => checkInAgreements.get(g.reservationId)?.guest_email).length` |
+| Percentage | `Math.round((emailCount / totalCount) * 100)` or 0 if no guests |
+| Placement | After header (line 470), before the filters card |
+| Components | Import `Card, CardContent, CardHeader, CardTitle` from `@/components/ui/card` |
+
+Since `filteredGuests` already reflects week/month filters and status filters, the cards will update automatically when any filter changes.
+
