@@ -57,6 +57,7 @@ serve(async (req: Request) => {
     // ── 2. Split by type ───────────────────────────────────────
     const availabilityItems = pending.filter((r: any) => r.sync_type === "availability");
     const rateItems = pending.filter((r: any) => r.sync_type === "rate");
+    const restrictionItems = pending.filter((r: any) => r.sync_type === "restriction");
 
     // ── Helper: resolve Channex ID ─────────────────────────────
     const mappingCache: Record<string, string | null> = {};
@@ -254,7 +255,73 @@ serve(async (req: Request) => {
           await logSync("channex-process-sync-queue", "/api/v1/restrictions", null, null, null, false, err.message, null);
           await createAlert('sync_error', `Rate push failed: ${err.message}`);
         }
+    }
+
+    // ── 5. Process RESTRICTION items ───────────────────────────────
+    if (restrictionItems.length > 0) {
+      const values: object[] = [];
+
+      for (const item of restrictionItems) {
+        try {
+          const channexRatePlanId = await resolve(item.entity_id, "rate_plan");
+          if (!channexRatePlanId) {
+            await markFailed(supabase, item.id, "Rate plan not mapped to Channex");
+            continue;
+          }
+
+          const { data: propMapping } = await supabase
+            .from("channex_mappings")
+            .select("channex_id")
+            .eq("entity_type", "property")
+            .maybeSingle();
+
+          if (!propMapping) {
+            await markFailed(supabase, item.id, "No property mapped to Channex");
+            continue;
+          }
+
+          const payload = item.payload || {};
+          const dateFrom = item.date_from || payload.date_from;
+          const dateTo = item.date_to || payload.date_to;
+
+          if (!dateFrom || !dateTo) {
+            await markFailed(supabase, item.id, "Missing date_from or date_to");
+            continue;
+          }
+
+          const value: Record<string, any> = {
+            property_id: propMapping.channex_id,
+            rate_plan_id: channexRatePlanId,
+            date_from: dateFrom,
+            date_to: dateTo,
+          };
+
+          if (payload.min_stay != null) value.min_stay_arrival = payload.min_stay;
+          if (payload.max_stay != null) value.max_stay = payload.max_stay;
+          if (payload.stop_sell != null) value.stop_sell = payload.stop_sell;
+          if (payload.closed_to_arrival != null) value.closed_to_arrival = payload.closed_to_arrival;
+          if (payload.closed_to_departure != null) value.closed_to_departure = payload.closed_to_departure;
+
+          values.push(value);
+          await markCompleted(supabase, item.id);
+        } catch (err: any) {
+          await markFailed(supabase, item.id, err.message);
+        }
       }
+
+      if (values.length > 0) {
+        try {
+          const channexPayload = { values };
+          console.log(`[process-sync-queue] Pushing ${values.length} restriction values`);
+          const response = await channexRequest<object>("POST", "/api/v1/restrictions", channexPayload);
+          await logSync("channex-process-sync-queue", "/api/v1/restrictions", channexPayload, response, 200, true, null, null);
+        } catch (err: any) {
+          console.error("[process-sync-queue] Restriction push failed:", err.message);
+          await logSync("channex-process-sync-queue", "/api/v1/restrictions", null, null, null, false, err.message, null);
+          await createAlert('sync_error', `Restriction push failed: ${err.message}`);
+        }
+      }
+    }
     }
 
     return new Response(

@@ -69,7 +69,7 @@ serve(async (req: Request) => {
 
     const today = new Date();
     today.setHours(0, 0, 0, 0);
-    const endDate = addDays(today, 365);
+    const endDate = addDays(today, 500);
 
     // ── 2. Process each property ─────────────────────────────────
     for (const propMapping of propertyMappings) {
