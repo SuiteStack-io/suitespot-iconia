@@ -48,6 +48,7 @@ serve(async (req: Request) => {
     properties_synced: 0,
     availability_values_pushed: 0,
     rate_values_pushed: 0,
+    restriction_values_pushed: 0,
     errors: [] as string[],
   };
 
@@ -212,7 +213,7 @@ serve(async (req: Request) => {
           }
         }
 
-        // ── 2b. RATES ─────────────────────────────────────────────
+        // ── 2b. RATES + RESTRICTIONS ──────────────────────────────
         const { data: ratePlanMappings } = await supabase
           .from("channex_mappings")
           .select("*")
@@ -222,10 +223,10 @@ serve(async (req: Request) => {
         if (ratePlanMappings && ratePlanMappings.length > 0) {
           for (const rpMapping of ratePlanMappings) {
             try {
-              // Get rate plan details
+              // Get rate plan details (including default restrictions)
               const { data: ratePlan } = await supabase
                 .from("rate_plans")
-                .select("*")
+                .select("*, default_min_stay, default_max_stay, default_stop_sell, default_closed_to_arrival, default_closed_to_departure")
                 .eq("id", rpMapping.local_id)
                 .maybeSingle();
 
@@ -241,6 +242,14 @@ serve(async (req: Request) => {
                 .eq("rate_plan_id", rpMapping.local_id);
 
               if (!prices || prices.length === 0) continue;
+
+              // Get date-specific restrictions for this rate plan
+              const { data: dateRestrictions } = await supabase
+                .from("rate_plan_restrictions")
+                .select("*")
+                .eq("rate_plan_id", rpMapping.local_id)
+                .lt("date_from", formatDate(endDate))
+                .gt("date_to", formatDate(today));
 
               const dateFrom = ratePlan.valid_from || formatDate(today);
               const dateTo = ratePlan.valid_to || formatDate(endDate);
@@ -268,34 +277,65 @@ serve(async (req: Request) => {
                     continue;
                   }
 
-                  rateValues.push({
+                  const effectiveFrom = chunkFromStr < todayStr ? todayStr : chunkFromStr;
+
+                  // Find date-specific restriction overlapping this chunk
+                  const chunkRestriction = dateRestrictions?.find(
+                    (r: any) => r.date_from <= effectiveFrom && r.date_to >= chunkToStr
+                  );
+
+                  // Use date-specific override if available, otherwise defaults
+                  const minStay = chunkRestriction?.min_stay ?? ratePlan.default_min_stay ?? 1;
+                  const maxStay = chunkRestriction?.max_stay ?? ratePlan.default_max_stay ?? null;
+                  const stopSellVal = chunkRestriction?.stop_sell ?? ratePlan.default_stop_sell ?? false;
+                  const ctaVal = chunkRestriction?.closed_to_arrival ?? ratePlan.default_closed_to_arrival ?? false;
+                  const ctdVal = chunkRestriction?.closed_to_departure ?? ratePlan.default_closed_to_departure ?? false;
+
+                  const value: Record<string, any> = {
                     property_id: propMapping.channex_id,
                     rate_plan_id: rpMapping.channex_id,
-                    date_from: chunkFromStr < todayStr ? todayStr : chunkFromStr,
+                    date_from: effectiveFrom,
                     date_to: chunkToStr,
                     rate: rateInCents,
-                  });
+                    min_stay_arrival: minStay,
+                    stop_sell: stopSellVal,
+                    closed_to_arrival: ctaVal,
+                    closed_to_departure: ctdVal,
+                  };
 
+                  if (maxStay) value.max_stay = maxStay;
+
+                  rateValues.push(value);
                   chunkStart = chunkEnd;
                 }
               }
 
-              console.log(`[daily-sync] Plan ${ratePlan.name}: ${rateValues.length} chunked rate values (${dateFrom} to ${dateTo})`);
+              console.log(`[daily-sync] Plan ${ratePlan.name}: ${rateValues.length} chunked rate+restriction values (${dateFrom} to ${dateTo})`);
 
               // Push in batches of 10
               for (let i = 0; i < rateValues.length; i += BATCH_SIZE) {
                 const batch = rateValues.slice(i, i + BATCH_SIZE);
-                console.log(`[daily-sync] Pushing rate batch ${i / BATCH_SIZE} for ${ratePlan.name}:`, JSON.stringify(batch));
+                console.log(`[daily-sync] Pushing rate+restriction batch ${i / BATCH_SIZE} for ${ratePlan.name}:`, JSON.stringify(batch));
                 try {
                   await channexRequest("POST", "/api/v1/restrictions", { values: batch });
                   summary.rate_values_pushed += batch.length;
+                  summary.restriction_values_pushed += batch.length;
                 } catch (err: any) {
                   summary.errors.push(`Rate push failed for plan ${ratePlan.name} batch ${i / BATCH_SIZE}: ${err.message}`);
                 }
                 if (i + BATCH_SIZE < rateValues.length) await delay(BATCH_DELAY_MS);
               }
 
-              console.log(`[daily-sync] Pushed ${rateValues.length} rate values for plan ${ratePlan.name}`);
+              // Mark date-specific restrictions as synced
+              if (dateRestrictions && dateRestrictions.length > 0) {
+                const restrictionIds = dateRestrictions.map((r: any) => r.id);
+                await supabase
+                  .from("rate_plan_restrictions")
+                  .update({ synced_to_channex: true })
+                  .in("id", restrictionIds);
+              }
+
+              console.log(`[daily-sync] Pushed ${rateValues.length} rate+restriction values for plan ${ratePlan.name}`);
             } catch (err: any) {
               summary.errors.push(`Rate plan ${rpMapping.local_id}: ${err.message}`);
             }

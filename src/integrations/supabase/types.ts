@@ -1257,6 +1257,62 @@ export type Database = {
           },
         ]
       }
+      rate_plan_restrictions: {
+        Row: {
+          channex_task_id: string | null
+          closed_to_arrival: boolean | null
+          closed_to_departure: boolean | null
+          created_at: string | null
+          date_from: string
+          date_to: string
+          id: string
+          max_stay: number | null
+          min_stay: number | null
+          rate_plan_id: string
+          stop_sell: boolean | null
+          synced_to_channex: boolean | null
+          updated_at: string | null
+        }
+        Insert: {
+          channex_task_id?: string | null
+          closed_to_arrival?: boolean | null
+          closed_to_departure?: boolean | null
+          created_at?: string | null
+          date_from: string
+          date_to: string
+          id?: string
+          max_stay?: number | null
+          min_stay?: number | null
+          rate_plan_id: string
+          stop_sell?: boolean | null
+          synced_to_channex?: boolean | null
+          updated_at?: string | null
+        }
+        Update: {
+          channex_task_id?: string | null
+          closed_to_arrival?: boolean | null
+          closed_to_departure?: boolean | null
+          created_at?: string | null
+          date_from?: string
+          date_to?: string
+          id?: string
+          max_stay?: number | null
+          min_stay?: number | null
+          rate_plan_id?: string
+          stop_sell?: boolean | null
+          synced_to_channex?: boolean | null
+          updated_at?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "rate_plan_restrictions_rate_plan_id_fkey"
+            columns: ["rate_plan_id"]
+            isOneToOne: false
+            referencedRelation: "rate_plans"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       rate_plan_value_adds: {
         Row: {
           created_at: string
@@ -1303,6 +1359,11 @@ export type Database = {
           cancellation_policy: string | null
           created_at: string
           currency: string | null
+          default_closed_to_arrival: boolean | null
+          default_closed_to_departure: boolean | null
+          default_max_stay: number | null
+          default_min_stay: number | null
+          default_stop_sell: boolean | null
           extra_adult_rate: number | null
           extra_child_rate: number | null
           id: string
@@ -1326,6 +1387,11 @@ export type Database = {
           cancellation_policy?: string | null
           created_at?: string
           currency?: string | null
+          default_closed_to_arrival?: boolean | null
+          default_closed_to_departure?: boolean | null
+          default_max_stay?: number | null
+          default_min_stay?: number | null
+          default_stop_sell?: boolean | null
           extra_adult_rate?: number | null
           extra_child_rate?: number | null
           id?: string
@@ -1349,6 +1415,11 @@ export type Database = {
           cancellation_policy?: string | null
           created_at?: string
           currency?: string | null
+          default_closed_to_arrival?: boolean | null
+          default_closed_to_departure?: boolean | null
+          default_max_stay?: number | null
+          default_min_stay?: number | null
+          default_stop_sell?: boolean | null
           extra_adult_rate?: number | null
           extra_child_rate?: number | null
           id?: string
