@@ -1,66 +1,53 @@
 
 
-## Clickable Stats Cards with Modal Breakdowns
+## Add "Access Front Desk" Permission
 
-### Changes to `src/pages/Guests.tsx`
+Add a new granular permission `can_access_front_desk` that controls access to the Front Desk section pages: Room Rates, Guests, and Guest Forms.
 
-**1. Add state for modals**
-- `showGuestsModal` and `showEmailsModal` boolean states
+### 1. Database Migration
 
-**2. Make cards clickable**
-- Add `cursor-pointer hover:shadow-md transition-shadow` and `onClick` handlers
+Add a new column to the `user_permissions` table:
 
-**3. Total Guests Modal** -- breakdown by:
-- **Status distribution**: Colored progress bars showing counts per status (confirmed, pending, checked-in, checked-out, cancelled)
-- **Source distribution**: Breakdown by booking source with counts and progress bars
-- **Top nationalities**: Nationality counts with badges
-
-**4. Emails Collected Modal** -- breakdown by:
-- **Large progress bar**: Visual percentage of email coverage
-- **Summary text**: "X of Y guests"
-- **Missing Emails list**: Scrollable list of guest names + booking references who are missing emails (actionable for follow-up)
-- **With Emails list**: Collapsible/scrollable list of guests who do have emails
-
-No "Collection by Source" section -- since all email collection happens via check-in / guest forms, that breakdown is not meaningful.
-
-### Modal Layouts
-
-```text
-Total Guests Modal:
-+----------------------------------+
-| Total Guests Breakdown     [X]   |
-|----------------------------------|
-| By Status                        |
-| Confirmed  ████████░░  12 (40%) |
-| Checked-in ██████░░░░   9 (30%) |
-| Checked-out ████░░░░░░  6 (20%) |
-| Pending     ██░░░░░░░░  3 (10%) |
-|                                  |
-| By Source                        |
-| Booking.com ██████████  18 (60%)|
-| Direct      ████░░░░░░   8 (27%)|
-| Airbnb      ██░░░░░░░░   4 (13%)|
-|                                  |
-| Top Nationalities                |
-| Egyptian 8 | British 5 | ...     |
-+----------------------------------+
-
-Emails Collected Modal:
-+----------------------------------+
-| Email Coverage             [X]   |
-|----------------------------------|
-| ██████████████░░░░░░  75%       |
-| 45 of 60 guests                  |
-|                                  |
-| Missing Emails (15)              |
-| - John Smith (BK-1234)          |
-| - Jane Doe (BK-5678)            |
-| ...scrollable list...            |
-+----------------------------------+
+```sql
+ALTER TABLE public.user_permissions
+ADD COLUMN can_access_front_desk boolean NOT NULL DEFAULT false;
 ```
 
-### Technical Details
-- Components: `Dialog`, `DialogContent`, `DialogHeader`, `DialogTitle` + `Progress` (all existing)
-- Data: Computed from `filteredGuests` and `checkInAgreements` already in scope
-- Only file changed: `src/pages/Guests.tsx`
+### 2. Auth Context (`src/lib/auth.tsx`)
+
+- Add `can_access_front_desk` to the `UserPermissions` interface and `DEFAULT_PERMISSIONS`
+- Include it in `fetchUserPermissions` mapping
+
+### 3. Permissions Dialog (`src/components/EditPermissionsDialog.tsx`)
+
+- Add `can_access_front_desk` to the `UserPermissions` interface
+- Add label entry: **"Access Front Desk"** with description **"Access to Room Rates, Guests, and Guest Forms pages"**
+- Include it in `PERMISSION_LABELS`, default state, fetch mapping, toggle-all, and save logic
+
+### 4. Route Protection
+
+Wrap the three Front Desk routes in `src/App.tsx` with permission checks (or add guards inside each page component) so that users without `can_access_front_desk` (and who are not admins) get redirected.
+
+**Pages affected:**
+- `/front-desk/room-rates` -- `src/pages/front-desk/RoomRates.tsx`
+- `/guests` -- `src/pages/Guests.tsx`
+- `/guest-forms` -- `src/pages/GuestForms.tsx`
+
+Each page will check `hasPermission('can_access_front_desk')` early and redirect to `/admin` if denied.
+
+### 5. Sidebar Visibility (`src/components/SlideMenu.tsx`)
+
+Add `can_access_front_desk` permission check to the FRONT DESK section items so they are hidden from users who lack the permission. Admins always see everything.
+
+### Summary of Files Changed
+
+| File | Change |
+|------|--------|
+| Database migration | Add `can_access_front_desk` column |
+| `src/lib/auth.tsx` | Add to interface + defaults + fetch |
+| `src/components/EditPermissionsDialog.tsx` | Add to interface, labels, state, save |
+| `src/components/SlideMenu.tsx` | Conditionally show Front Desk items |
+| `src/pages/Guests.tsx` | Permission guard |
+| `src/pages/GuestForms.tsx` | Permission guard |
+| `src/pages/front-desk/RoomRates.tsx` | Permission guard |
 
