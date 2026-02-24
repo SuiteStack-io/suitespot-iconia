@@ -21,6 +21,7 @@ import { useIsMobile } from "@/hooks/use-mobile";
 import { SlideMenu } from "@/components/SlideMenu";
 import { downloadCheckInPDF } from "@/lib/generateCheckInPDF";
 import { toast } from "sonner";
+import SurveyTrigger from "@/components/SurveyTrigger";
 
 interface CheckInAgreement {
   reservation_id: string;
@@ -666,6 +667,10 @@ const Guests = () => {
           <div className="mt-4 text-sm text-muted-foreground">
             Showing {filteredGuests.length} of {guests.length} guests
           </div>
+        </div>
+
+        <div className="mt-6">
+          <SurveyTrigger />
         </div>
       </div>
     </div>
