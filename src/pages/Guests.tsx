@@ -121,6 +121,9 @@ const Guests = () => {
       const guestRecords: GuestRecord[] = [];
       
       reservations?.forEach((reservation) => {
+        // Skip extension bookings (duplicates of original)
+        if (reservation.booking_reference?.includes('-EXT')) return;
+
         reservation.guest_names?.forEach((guestName: string, index: number) => {
           guestRecords.push({
             reservationId: reservation.id,
