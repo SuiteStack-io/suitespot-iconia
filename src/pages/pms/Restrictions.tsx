@@ -188,8 +188,9 @@ const PMSRestrictions = () => {
 
   return (
     <div className="min-h-screen bg-background">
-      <header className="border-b bg-card">
-        <div className="flex items-center justify-between px-4 py-3">
+      <header className="border-b bg-card sticky top-0 z-10">
+        <div className="container mx-auto px-4 py-4">
+          <AdminBreadcrumb section="PMS" currentPage="Restrictions" />
           <div className="flex items-center gap-3">
             <SlideMenu userRole={userRole} />
             <h1 className="text-lg font-semibold">Restrictions</h1>
@@ -198,7 +199,6 @@ const PMSRestrictions = () => {
       </header>
 
       <div className="p-4 md:p-6 max-w-4xl mx-auto">
-        <AdminBreadcrumb section="PMS" currentPage="Restrictions" />
 
         <div className="mt-6 mb-6">
           <label className="block text-sm font-medium mb-2">Select Rate Plan</label>
