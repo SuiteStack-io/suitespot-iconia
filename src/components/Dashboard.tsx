@@ -326,7 +326,7 @@ export const Dashboard = () => {
     const yesterday = format(new Date(Date.now() - 86400000), 'yyyy-MM-dd');
     const sevenDaysAgo = format(new Date(Date.now() - 7 * 86400000), 'yyyy-MM-dd');
     
-    const baseSelect = '*, units(name, booking_com_name, unit_number), check_in_agreements(id)';
+    const baseSelect = '*, units!unit_id(name, booking_com_name, unit_number), check_in_agreements(id)';
     
     // Clear transfers when opening a non-transfer dialog
     setDialogTransfers([]);
