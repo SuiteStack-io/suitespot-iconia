@@ -22,6 +22,7 @@ import { SlideMenu } from "@/components/SlideMenu";
 import { downloadCheckInPDF } from "@/lib/generateCheckInPDF";
 import { toast } from "sonner";
 import { Checkbox } from "@/components/ui/checkbox";
+import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 
 interface CheckInAgreement {
   reservation_id: string;
@@ -467,6 +468,35 @@ const Guests = () => {
               )}
             </Button>
           </div>
+        </div>
+
+        <div className="grid grid-cols-2 gap-4 mb-6">
+          <Card>
+            <CardHeader className="pb-2">
+              <CardDescription>Total Guests</CardDescription>
+            </CardHeader>
+            <CardContent>
+              <CardTitle className="text-3xl">{filteredGuests.length}</CardTitle>
+            </CardContent>
+          </Card>
+          <Card>
+            <CardHeader className="pb-2">
+              <CardDescription>Emails Collected</CardDescription>
+            </CardHeader>
+            <CardContent>
+              {(() => {
+                const emailCount = filteredGuests.filter(g => checkInAgreements.get(g.reservationId)?.guest_email).length;
+                const total = filteredGuests.length;
+                const pct = total > 0 ? Math.round((emailCount / total) * 100) : 0;
+                return (
+                  <div className="flex items-baseline gap-2">
+                    <CardTitle className="text-3xl">{emailCount}</CardTitle>
+                    <span className="text-sm text-muted-foreground">/ {total} ({pct}%)</span>
+                  </div>
+                );
+              })()}
+            </CardContent>
+          </Card>
         </div>
 
         <div className="bg-card rounded-lg border p-6">
