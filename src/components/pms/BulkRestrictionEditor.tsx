@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { format } from 'date-fns';
+import { format, addDays } from 'date-fns';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -86,7 +86,7 @@ export function BulkRestrictionEditor({ ratePlans, onSaved }: BulkRestrictionEdi
       const rows = planIds.map((rpId) => ({
         rate_plan_id: rpId,
         date_from: format(dateFrom!, 'yyyy-MM-dd'),
-        date_to: format(dateTo!, 'yyyy-MM-dd'),
+        date_to: format(addDays(dateTo!, 1), 'yyyy-MM-dd'),
         min_stay: enableMinStay ? minStay : 1,
         max_stay: enableMaxStay ? maxStay : null,
         stop_sell: enableStopSell ? stopSell : false,
@@ -222,19 +222,19 @@ export function BulkRestrictionEditor({ ratePlans, onSaved }: BulkRestrictionEdi
           </div>
 
           <div className="flex items-center gap-3">
-            <Checkbox checked={enableStopSell} onCheckedChange={(v) => setEnableStopSell(!!v)} />
+            <Checkbox checked={enableStopSell} onCheckedChange={(v) => { setEnableStopSell(!!v); setStopSell(!!v); }} />
             <Label className="text-sm flex-1">Stop Sell</Label>
             {enableStopSell && <Switch checked={stopSell} onCheckedChange={setStopSell} />}
           </div>
 
           <div className="flex items-center gap-3">
-            <Checkbox checked={enableCTA} onCheckedChange={(v) => setEnableCTA(!!v)} />
+            <Checkbox checked={enableCTA} onCheckedChange={(v) => { setEnableCTA(!!v); setClosedToArrival(!!v); }} />
             <Label className="text-sm flex-1">Closed to Arrival</Label>
             {enableCTA && <Switch checked={closedToArrival} onCheckedChange={setClosedToArrival} />}
           </div>
 
           <div className="flex items-center gap-3">
-            <Checkbox checked={enableCTD} onCheckedChange={(v) => setEnableCTD(!!v)} />
+            <Checkbox checked={enableCTD} onCheckedChange={(v) => { setEnableCTD(!!v); setClosedToDeparture(!!v); }} />
             <Label className="text-sm flex-1">Closed to Departure</Label>
             {enableCTD && <Switch checked={closedToDeparture} onCheckedChange={setClosedToDeparture} />}
           </div>
