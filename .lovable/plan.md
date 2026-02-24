@@ -1,42 +1,42 @@
 
 
-## Replace Channel Name Text Input with Searchable Dropdown
+## Fix: Dashboard Card Detail Modals Not Fetching Reservations
 
-### Overview
+### Root Cause
 
-Since the Channex Channel API is restricted to Whitelabel accounts, we cannot fetch OTA lists dynamically. Instead, we will use a searchable dropdown with the 20 most common OTAs as a hardcoded list, and store a normalized channel code alongside the display name.
+The `reservations` table has two foreign keys pointing to the `units` table:
+- `unit_id` (the current room)
+- `shuffled_from_unit_id` (the previous room after a shuffle)
 
-### Changes
+On **line 329** of `src/components/Dashboard.tsx`, the `baseSelect` query string uses an implicit join:
 
-**File: `src/pages/pms/ChannelMarkup.tsx`**
+```
+units(name, booking_com_name, unit_number)
+```
 
-1. **Add OTA channel list constant** at the top of the file with 20 entries, each having a `label` (display name) and `value` (normalized code):
-   ```
-   Booking.com, Expedia, Airbnb, Agoda, Hotels.com, TripAdvisor,
-   Vrbo, Hostelworld, Trip.com, Hotelbeds, HRS, Despegar,
-   Rakuten Travel, MakeMyTrip, Traveloka, Webjet, Lastminute.com,
-   Laterooms, CTrip, Wotif
-   ```
+PostgREST cannot resolve which foreign key to use, so the query fails silently and returns `null`. This is why:
+- **Card counts work** -- they use simple `select('id')` without the ambiguous join
+- **Modal detail lists show "No reservations found"** -- they use `baseSelect` with the broken join
 
-2. **Replace the free text `Input`** (lines 293-299) with a `Popover` + `Command` searchable dropdown (using existing `cmdk`-based components already in the project)
+### Fix
 
-3. **Filter out already-added channels** from the dropdown options by checking `channels` state against existing entries
+**File: `src/components/Dashboard.tsx`, line 329**
 
-4. **Store channel_id** in the database insert: when a channel is selected, store the normalized code in the `channel_id` column (already exists in `channel_markup_settings` table)
+Change:
+```typescript
+const baseSelect = '*, units(name, booking_com_name, unit_number), check_in_agreements(id)';
+```
 
-5. **Update state**: Replace `newChannelName` string state with a selected channel object containing both `label` and `value`
+To:
+```typescript
+const baseSelect = '*, units!unit_id(name, booking_com_name, unit_number), check_in_agreements(id)';
+```
 
-### UI Behavior
+Adding `!unit_id` explicitly tells PostgREST which foreign key to use for the join, resolving the ambiguity.
 
-- Clicking the dropdown opens a popover with a search input and filtered list
-- Typing filters the list (e.g., "book" shows "Booking.com")
-- Already-added channels are excluded from the list
-- Selected channel name displays in the trigger button
-- Markup percentage input and Add Channel button remain unchanged
+### Scope
 
-### Technical Details
+- Single line change in one file
+- No database changes needed
+- All six modal views (Arrivals, Departures, In-House, New Bookings, Cancellations, Transfers) will be fixed since they all use `baseSelect`
 
-- Uses existing `Command`, `CommandInput`, `CommandItem`, `CommandEmpty`, `CommandGroup`, `CommandList` from `src/components/ui/command.tsx`
-- Uses existing `Popover`, `PopoverTrigger`, `PopoverContent` from `src/components/ui/popover.tsx`
-- No new dependencies, no database changes, no new edge functions
-- Single file modified: `src/pages/pms/ChannelMarkup.tsx`
