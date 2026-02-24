@@ -81,3 +81,6 @@ verify_jwt = false
 
 [functions.channex-delete-derived-rate-plan]
 verify_jwt = false
+
+[functions.channex-push-restrictions]
+verify_jwt = false

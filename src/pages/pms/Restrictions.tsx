@@ -1,4 +1,4 @@
-import { useState, useEffect, useMemo } from 'react';
+import { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { SlideMenu } from '@/components/SlideMenu';
 import { AdminBreadcrumb } from '@/components/AdminBreadcrumb';
@@ -8,6 +8,7 @@ import { useToast } from '@/hooks/use-toast';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
+import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import {
   Select,
   SelectContent,
@@ -34,6 +35,9 @@ import {
   BookingRulesDialog,
   getBookingRulesLabel,
 } from '@/components/pms/BookingRulesDialog';
+import { DefaultRestrictionsCard } from '@/components/pms/DefaultRestrictionsCard';
+import { RestrictionCalendarView } from '@/components/pms/RestrictionCalendarView';
+import { BulkRestrictionEditor } from '@/components/pms/BulkRestrictionEditor';
 import { Loader2 } from 'lucide-react';
 
 interface RatePlan {
@@ -44,6 +48,11 @@ interface RatePlan {
   meal_plan_price: number | null;
   advance_booking_days: number;
   room_type: string | null;
+  default_min_stay?: number;
+  default_max_stay?: number | null;
+  default_stop_sell?: boolean;
+  default_closed_to_arrival?: boolean;
+  default_closed_to_departure?: boolean;
 }
 
 const PMSRestrictions = () => {
@@ -58,6 +67,8 @@ const PMSRestrictions = () => {
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [hasChanges, setHasChanges] = useState(false);
+  const [activeTab, setActiveTab] = useState('settings');
+  const [calendarKey, setCalendarKey] = useState(0);
 
   // Dialog states
   const [nameDialogOpen, setNameDialogOpen] = useState(false);
@@ -66,32 +77,32 @@ const PMSRestrictions = () => {
   const [valueAddsDialogOpen, setValueAddsDialogOpen] = useState(false);
   const [bookingRulesDialogOpen, setBookingRulesDialogOpen] = useState(false);
 
-  useEffect(() => {
-    const fetchData = async () => {
-      try {
-        const { data: plans, error: plansError } = await supabase
-          .from('rate_plans')
-          .select('id, name, cancellation_policy, meal_plan, meal_plan_price, advance_booking_days, room_type')
-          .eq('is_active', true)
-          .order('room_type')
-          .order('name');
+  const fetchPlans = async () => {
+    try {
+      const { data: plans, error: plansError } = await supabase
+        .from('rate_plans')
+        .select('id, name, cancellation_policy, meal_plan, meal_plan_price, advance_booking_days, room_type, default_min_stay, default_max_stay, default_stop_sell, default_closed_to_arrival, default_closed_to_departure')
+        .eq('is_active', true)
+        .order('room_type')
+        .order('name');
 
-        if (plansError) throw plansError;
+      if (plansError) throw plansError;
 
-        setRatePlans(plans || []);
+      setRatePlans(plans || []);
 
-        if (plans && plans.length > 0) {
-          setSelectedPlanId(plans[0].id);
-        }
-      } catch (error) {
-        console.error('Error fetching data:', error);
-        toast({ title: 'Error', description: 'Failed to load rate plans', variant: 'destructive' });
-      } finally {
-        setLoading(false);
+      if (plans && plans.length > 0 && !selectedPlanId) {
+        setSelectedPlanId(plans[0].id);
       }
-    };
+    } catch (error) {
+      console.error('Error fetching data:', error);
+      toast({ title: 'Error', description: 'Failed to load rate plans', variant: 'destructive' });
+    } finally {
+      setLoading(false);
+    }
+  };
 
-    fetchData();
+  useEffect(() => {
+    fetchPlans();
   }, [toast]);
 
   useEffect(() => {
@@ -152,14 +163,7 @@ const PMSRestrictions = () => {
         if (valueAddsError) throw valueAddsError;
       }
 
-      const { data: updatedPlans } = await supabase
-        .from('rate_plans')
-        .select('id, name, cancellation_policy, meal_plan, meal_plan_price, advance_booking_days, room_type')
-        .eq('is_active', true)
-        .order('room_type')
-        .order('name');
-
-      setRatePlans(updatedPlans || []);
+      await fetchPlans();
       setHasChanges(false);
 
       toast({ title: 'Success', description: 'Rate plan restrictions saved successfully' });
@@ -198,9 +202,9 @@ const PMSRestrictions = () => {
         </div>
       </header>
 
-      <div className="p-4 md:p-6 max-w-4xl mx-auto">
-
-        <div className="mt-6 mb-6">
+      <div className="p-4 md:p-6 max-w-6xl mx-auto">
+        {/* Rate Plan Selector - above tabs */}
+        <div className="mt-4 mb-4">
           <label className="block text-sm font-medium mb-2">Select Rate Plan</label>
           <Select value={selectedPlanId} onValueChange={setSelectedPlanId}>
             <SelectTrigger className="w-full md:w-96">
@@ -217,72 +221,101 @@ const PMSRestrictions = () => {
           </Select>
         </div>
 
-        {selectedPlan && (
-          <Card>
-            <CardHeader>
-              <div className="flex items-center gap-2">
-                <CardTitle className="text-lg">Rate Plan Configuration</CardTitle>
-                {selectedPlan.room_type && (
-                  <Badge variant="secondary">{selectedPlan.room_type}</Badge>
-                )}
+        <Tabs value={activeTab} onValueChange={setActiveTab}>
+          <TabsList className="mb-4">
+            <TabsTrigger value="settings">Rate Plan Settings</TabsTrigger>
+            <TabsTrigger value="calendar">Restrictions Calendar</TabsTrigger>
+            <TabsTrigger value="bulk">Bulk Editor</TabsTrigger>
+          </TabsList>
+
+          {/* Tab 1: Rate Plan Settings (existing + defaults) */}
+          <TabsContent value="settings">
+            {selectedPlan && (
+              <>
+                <Card>
+                  <CardHeader>
+                    <div className="flex items-center gap-2">
+                      <CardTitle className="text-lg">Rate Plan Configuration</CardTitle>
+                      {selectedPlan.room_type && (
+                        <Badge variant="secondary">{selectedPlan.room_type}</Badge>
+                      )}
+                    </div>
+                  </CardHeader>
+                  <CardContent className="space-y-0">
+                    <RestrictionRow
+                      label="Rate plan name"
+                      value={selectedPlan.name}
+                      onEdit={() => setNameDialogOpen(true)}
+                    />
+                    <RestrictionRow
+                      label="Room type"
+                      value={selectedPlan.room_type || 'Not assigned'}
+                    />
+                    <RestrictionRow
+                      label="Policy"
+                      value={getCancellationPolicyLabel(selectedPlan.cancellation_policy || 'flexible_1_day')}
+                      onEdit={() => setPolicyDialogOpen(true)}
+                    />
+                    <RestrictionRow
+                      label="Meals"
+                      value={getMealPlanLabel(selectedPlan.meal_plan || 'no_meals', selectedPlan.meal_plan_price)}
+                      onEdit={() => setMealDialogOpen(true)}
+                    />
+                    <RestrictionRow
+                      label="Value adds"
+                      value={getValueAddsLabel(valueAdds)}
+                      onEdit={() => setValueAddsDialogOpen(true)}
+                    />
+                    <RestrictionRow
+                      label="Bookable"
+                      value={getBookingRulesLabel(selectedPlan.advance_booking_days || 0)}
+                      onEdit={() => setBookingRulesDialogOpen(true)}
+                    />
+                    <RestrictionRow
+                      label="Price"
+                      value="Managed by PMS > Prices"
+                      editLabel="View"
+                      onEdit={() => navigate('/pms/prices')}
+                    />
+                  </CardContent>
+                </Card>
+
+                <DefaultRestrictionsCard
+                  ratePlanId={selectedPlan.id}
+                  ratePlanName={selectedPlan.name}
+                />
+
+                <div className="flex justify-center gap-4 mt-6">
+                  <Button variant="outline" onClick={() => navigate('/pms/prices')}>Go back</Button>
+                  <Button onClick={handleSaveChanges} disabled={!hasChanges || saving}>
+                    {saving && <Loader2 className="h-4 w-4 mr-2 animate-spin" />}
+                    Apply changes
+                  </Button>
+                </div>
+              </>
+            )}
+
+            {!selectedPlan && ratePlans.length === 0 && (
+              <div className="text-center py-12">
+                <p className="text-muted-foreground mb-4">No rate plans found. Create a rate plan first in PMS &gt; Prices.</p>
+                <Button onClick={() => navigate('/pms/prices')}>Go to Prices</Button>
               </div>
-            </CardHeader>
-            <CardContent className="space-y-0">
-              <RestrictionRow
-                label="Rate plan name"
-                value={selectedPlan.name}
-                onEdit={() => setNameDialogOpen(true)}
-              />
-              <RestrictionRow
-                label="Room type"
-                value={selectedPlan.room_type || 'Not assigned'}
-              />
-              <RestrictionRow
-                label="Policy"
-                value={getCancellationPolicyLabel(selectedPlan.cancellation_policy || 'flexible_1_day')}
-                onEdit={() => setPolicyDialogOpen(true)}
-              />
-              <RestrictionRow
-                label="Meals"
-                value={getMealPlanLabel(selectedPlan.meal_plan || 'no_meals', selectedPlan.meal_plan_price)}
-                onEdit={() => setMealDialogOpen(true)}
-              />
-              <RestrictionRow
-                label="Value adds"
-                value={getValueAddsLabel(valueAdds)}
-                onEdit={() => setValueAddsDialogOpen(true)}
-              />
-              <RestrictionRow
-                label="Bookable"
-                value={getBookingRulesLabel(selectedPlan.advance_booking_days || 0)}
-                onEdit={() => setBookingRulesDialogOpen(true)}
-              />
-              <RestrictionRow
-                label="Price"
-                value="Managed by PMS > Prices"
-                editLabel="View"
-                onEdit={() => navigate('/pms/prices')}
-              />
-            </CardContent>
-          </Card>
-        )}
+            )}
+          </TabsContent>
 
-        {selectedPlan && (
-          <div className="flex justify-center gap-4 mt-6">
-            <Button variant="outline" onClick={() => navigate('/pms/prices')}>Go back</Button>
-            <Button onClick={handleSaveChanges} disabled={!hasChanges || saving}>
-              {saving && <Loader2 className="h-4 w-4 mr-2 animate-spin" />}
-              Apply changes
-            </Button>
-          </div>
-        )}
+          {/* Tab 2: Restrictions Calendar */}
+          <TabsContent value="calendar">
+            <RestrictionCalendarView key={calendarKey} ratePlans={ratePlans} />
+          </TabsContent>
 
-        {!selectedPlan && ratePlans.length === 0 && (
-          <div className="text-center py-12">
-            <p className="text-muted-foreground mb-4">No rate plans found. Create a rate plan first in PMS &gt; Prices.</p>
-            <Button onClick={() => navigate('/pms/prices')}>Go to Prices</Button>
-          </div>
-        )}
+          {/* Tab 3: Bulk Editor */}
+          <TabsContent value="bulk">
+            <BulkRestrictionEditor
+              ratePlans={ratePlans}
+              onSaved={() => setCalendarKey((k) => k + 1)}
+            />
+          </TabsContent>
+        </Tabs>
       </div>
 
       {selectedPlan && (
