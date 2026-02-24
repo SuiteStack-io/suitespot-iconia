@@ -93,8 +93,6 @@ export function SlideMenu({ userRole }: SlideMenuProps) {
         { title: 'Booking.com', url: '/booking-com-reservations', icon: Upload },
         { title: 'Tickets', url: '/guest-tickets', icon: Ticket },
         { title: 'App Accounts', url: '/guest-accounts', icon: Shield },
-        { title: 'Guests', url: '/guests', icon: Users },
-        { title: 'Guest Forms', url: '/guest-forms', icon: FileSignature },
         { title: 'My Commissions', url: '/my-commissions', icon: Wallet, showFor: ['manager', 'admin'] },
       ],
     },
@@ -102,6 +100,8 @@ export function SlideMenu({ userRole }: SlideMenuProps) {
       label: 'FRONT DESK',
       items: [
         { title: 'Room Rates', url: '/front-desk/room-rates', icon: Tag },
+        { title: 'Guests', url: '/guests', icon: Users },
+        { title: 'Guest Forms', url: '/guest-forms', icon: FileSignature },
       ],
     },
     {
