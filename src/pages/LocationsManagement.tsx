@@ -10,38 +10,65 @@ import { SlideMenu } from "@/components/SlideMenu";
 import { useAuth } from "@/lib/auth";
 import { AdminBreadcrumb } from "@/components/AdminBreadcrumb";
 
+const LOCATION_DISPLAY_NAMES: Record<string, string> = {
+  ICONIA: "ICONIA Zamalek - Boutique Stay & Wellness Residences",
+};
+
+interface PropertyEntry {
+  location: string;
+  displayName: string;
+  representativeUnitId: string;
+}
+
 const LocationsManagement = () => {
   const navigate = useNavigate();
-  const [units, setUnits] = useState<any[]>([]);
-  const [selectedUnitId, setSelectedUnitId] = useState<string>("");
+  const [properties, setProperties] = useState<PropertyEntry[]>([]);
+  const [selectedLocation, setSelectedLocation] = useState<string>("");
   const [loading, setLoading] = useState(true);
   const { userRole } = useAuth();
 
   useEffect(() => {
-    fetchUnits();
+    fetchProperties();
   }, []);
 
-  const fetchUnits = async () => {
+  const fetchProperties = async () => {
     try {
       const { data, error } = await supabase
         .from("units")
-        .select("id, name, booking_com_name, unit_number, address")
-        .order("name");
+        .select("id, location")
+        .not("location", "is", null)
+        .order("location");
 
       if (error) throw error;
-      
-      setUnits(data || []);
-      if (data && data.length > 0) {
-        setSelectedUnitId(data[0].id);
+
+      // Group by location, pick first unit ID as representative
+      const seen: Record<string, string> = {};
+      for (const unit of data || []) {
+        if (unit.location && !seen[unit.location]) {
+          seen[unit.location] = unit.id;
+        }
+      }
+
+      const entries: PropertyEntry[] = Object.entries(seen).map(
+        ([location, id]) => ({
+          location,
+          displayName: LOCATION_DISPLAY_NAMES[location] || location,
+          representativeUnitId: id,
+        })
+      );
+
+      setProperties(entries);
+      if (entries.length > 0) {
+        setSelectedLocation(entries[0].location);
       }
     } catch (error) {
-      console.error("Error fetching units:", error);
+      console.error("Error fetching properties:", error);
     } finally {
       setLoading(false);
     }
   };
 
-  const selectedUnit = units.find(u => u.id === selectedUnitId);
+  const selectedProperty = properties.find(p => p.location === selectedLocation);
 
   if (loading) {
     return (
@@ -88,35 +115,40 @@ const LocationsManagement = () => {
           </div>
         </div>
 
-        {units.length === 0 ? (
+        {properties.length === 0 ? (
           <div className="text-center py-12 text-muted-foreground">
             No properties found. Please add properties first.
           </div>
         ) : (
           <>
-            <div className="mb-6">
-              <label className="text-sm font-medium mb-2 block">Select Property</label>
-              <Select value={selectedUnitId} onValueChange={setSelectedUnitId}>
-                <SelectTrigger className="w-full max-w-md">
-                  <SelectValue />
-                </SelectTrigger>
-                <SelectContent>
-                  {units.map((unit) => (
-                    <SelectItem key={unit.id} value={unit.id}>
-                      {unit.booking_com_name || unit.name} {unit.unit_number && `(${unit.unit_number})`}
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-            </div>
+            {properties.length > 1 && (
+              <div className="mb-6">
+                <label className="text-sm font-medium mb-2 block">Select Property</label>
+                <Select value={selectedLocation} onValueChange={setSelectedLocation}>
+                  <SelectTrigger className="w-full max-w-md">
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {properties.map((p) => (
+                      <SelectItem key={p.location} value={p.location}>
+                        {p.displayName}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
+            )}
 
-            {selectedUnit && (
+            {selectedProperty && (
               <div className="space-y-6">
+                {properties.length === 1 && (
+                  <p className="text-lg font-medium">{selectedProperty.displayName}</p>
+                )}
                 <LocationManager
-                  unitId={selectedUnit.id}
-                  unitName={selectedUnit.name}
+                  unitId={selectedProperty.representativeUnitId}
+                  unitName={selectedProperty.displayName}
                 />
-                <AmenitiesManager unitId={selectedUnit.id} />
+                <AmenitiesManager unitId={selectedProperty.representativeUnitId} />
               </div>
             )}
           </>
