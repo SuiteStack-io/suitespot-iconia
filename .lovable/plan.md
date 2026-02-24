@@ -1,38 +1,40 @@
 
 
-## Fix Restrictions End-to-End Flow
+## Fix Property Selector on Location & Maps Management
 
-Two bugs prevent the Bulk Editor -> Calendar flow from working correctly.
+### Problem
 
-### Bug 1: Stop Sell / CTA / CTD default to OFF even when enabled
+The "Select Property" dropdown on the Location & Maps Management page lists every individual room (e.g., "Deluxe Suite (512)", "Junior Suite (503)") instead of the actual property name ("ICONIA Zamalek - Boutique Stay & Wellness Residences"). Since all rooms share the same physical location, the dropdown should show the property -- not each room.
 
-**Problem**: The Bulk Editor has a two-step UX for boolean restrictions: first check a checkbox to enable the field, then toggle a Switch to set the value. But the Switch defaults to `false`, so checking "Stop Sell" and clicking "Apply" saves `stop_sell: false`.
+### Solution
 
-**Fix in `src/components/pms/BulkRestrictionEditor.tsx`**:
-- When the user checks the "Stop Sell" checkbox, automatically set `stopSell` to `true` (same for CTA and CTD).
-- Change the `onCheckedChange` handlers:
-  ```
-  setEnableStopSell(true); setStopSell(true);
-  ```
-  When unchecked, reset to false:
-  ```
-  setEnableStopSell(false); setStopSell(false);
-  ```
-- Same pattern for `closedToArrival` and `closedToDeparture`.
+Change the page to group units by their `location` field and display a single property entry per location. Since all units currently have `location = "ICONIA"`, the dropdown will show one entry: the property name. The location/amenities management will then apply to ALL units at that location.
 
-### Bug 2: Date range off-by-one
+Since the `units` table doesn't have a dedicated "property name" field, we'll use a simple mapping: `ICONIA` -> `"ICONIA Zamalek - Boutique Stay & Wellness Residences"`. When a property/location is selected, we pass the first unit's ID to the `LocationManager` and `AmenitiesManager` components (they just need any unit at that location to read/write coordinates).
 
-**Problem**: The Bulk Editor saves `date_to` as the exact selected date (e.g., "2026-03-05"). The calendar uses `r.date_to > dateStr` (exclusive), so the last day never shows. The calendar cell edit dialog correctly uses exclusive end dates (saves `date_to` as the next day), but the Bulk Editor does not.
+### Changes
 
-**Fix in `src/components/pms/BulkRestrictionEditor.tsx`**:
-- When building the insert rows, compute `date_to` as one day after the selected end date to match the exclusive convention:
-  ```typescript
-  date_to: format(addDays(dateTo!, 1), 'yyyy-MM-dd'),
-  ```
-- Import `addDays` from `date-fns` (already available).
+**File: `src/pages/LocationsManagement.tsx`**
 
-### Files Changed
+1. Change the query to fetch distinct locations: `SELECT DISTINCT location, MIN(id) as id FROM units WHERE location IS NOT NULL GROUP BY location`
+2. Replace the unit-level dropdown with a location-level dropdown
+3. Display property names using a mapping (e.g., "ICONIA" -> "ICONIA Zamalek - Boutique Stay & Wellness Residences")
+4. Pass the representative unit ID to child components
+
+### Technical Details
+
+```text
+Current query:
+  SELECT id, name, booking_com_name, unit_number, address FROM units ORDER BY name
+
+New approach:
+  - Query distinct locations with a representative unit ID
+  - Map location codes to display names
+  - Show: "ICONIA Zamalek - Boutique Stay & Wellness Residences"
+  - Instead of: "Deluxe Suite (512)", "Junior Suite (503)", etc.
+```
 
 | File | Change |
 |------|--------|
-| `src/components/pms/BulkRestrictionEditor.tsx` | Auto-set boolean values to `true` on checkbox enable; fix `date_to` to be exclusive (day after selected end) |
+| `src/pages/LocationsManagement.tsx` | Replace unit-level dropdown with location/property-level dropdown |
+
