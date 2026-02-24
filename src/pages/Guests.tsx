@@ -38,7 +38,7 @@ interface GuestRecord {
   reservationId: string;
   guestName: string;
   nationality: string | null;
-  contactEmail: string | null;
+  
   contactPhone: string | null;
   numberOfGuests: number;
   adults: number;
@@ -126,7 +126,7 @@ const Guests = () => {
             reservationId: reservation.id,
             guestName,
             nationality: reservation.guest_nationality,
-            contactEmail: reservation.contact_email,
+            
             contactPhone: reservation.contact_phone,
             numberOfGuests: reservation.number_of_guests,
             adults: reservation.adults || 1,
@@ -351,7 +351,7 @@ const Guests = () => {
         guest.guestName,
         isAdult ? "Adult" : "Child",
         guest.nationality || "-",
-        guest.contactEmail || "-",
+        checkInAgreements.get(guest.reservationId)?.guest_email || "-",
         guest.contactPhone || "-",
         format(new Date(guest.checkInDate), "MMM dd, yyyy"),
         format(new Date(guest.checkOutDate), "MMM dd, yyyy"),
@@ -609,7 +609,7 @@ const Guests = () => {
                   <TableHead>Guest Name</TableHead>
                   <TableHead>Type</TableHead>
                   <TableHead>Nationality</TableHead>
-                  <TableHead>Email</TableHead>
+                  <TableHead>Form Email</TableHead>
                   <TableHead>Phone</TableHead>
                   <TableHead>Check-in</TableHead>
                   <TableHead>Check-out</TableHead>
@@ -668,7 +668,7 @@ const Guests = () => {
                             : "-"
                           }
                         </TableCell>
-                        <TableCell>{guest.contactEmail || "-"}</TableCell>
+                        <TableCell>{checkInAgreements.get(guest.reservationId)?.guest_email || "-"}</TableCell>
                         <TableCell>{guest.contactPhone || "-"}</TableCell>
                         <TableCell>{format(new Date(guest.checkInDate), "MMM dd, yyyy")}</TableCell>
                         <TableCell>{format(new Date(guest.checkOutDate), "MMM dd, yyyy")}</TableCell>
