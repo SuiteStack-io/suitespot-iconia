@@ -1,29 +1,23 @@
 
 
-## Replace Email Column with Guest Form Email
+## Hide Cancelled Guests by Default (Keep Accessible via Filter)
 
-The email column in the Guests table currently shows `reservation.contact_email`. This change will make the check-in agreement (guest form) email the source of truth instead.
-
-### Changes
+### Change
 
 **File: `src/pages/Guests.tsx`**
 
-1. **Update `contactEmail` population** (line ~129): Instead of using `reservation.contact_email`, look up the check-in agreement email from the `checkInAgreements` map. Since agreements are fetched asynchronously, also re-derive the guest records when agreements load.
+1. **Default filter excludes cancelled**: Change the initial `statusFilter` state from `"all"` to a new value `"active"` (line 66)
+2. **Add "Active" filter option**: Add an "Active (excl. Cancelled)" option to the status dropdown and keep the "All Statuses" option to include cancelled guests for retargeting
+3. **Update filter logic** (line 211): When `statusFilter` is `"active"`, filter out guests where `status === "cancelled"`; when `"all"`, show everything including cancelled
 
-2. **Approach**: Rather than changing the data flow, use the already-fetched `checkInAgreements` map at render time:
-   - In the table cell (line ~671): Replace `guest.contactEmail` with the agreement email: `checkInAgreements.get(guest.reservationId)?.guest_email || "-"`
-   - In the CSV export (line ~354): Same replacement -- use agreement email instead of `guest.contactEmail`
-   - Update the table header label from "Email" to "Form Email" to clarify the source
+This way the default view hides cancelled guests, but you can switch to "All Statuses" or specifically "Cancelled" to see them for retargeting.
 
-3. **Remove `contactEmail` from `GuestRecord`**: Since it's no longer used, remove it from the interface and the record construction to keep things clean.
-
-### Technical Details
-
-| Location | Current | New |
-|----------|---------|-----|
-| Line ~41 | `contactEmail: string \| null;` | Remove field |
-| Line ~129 | `contactEmail: reservation.contact_email,` | Remove line |
-| Line ~354 (CSV) | `guest.contactEmail \|\| "-"` | `checkInAgreements.get(guest.reservationId)?.guest_email \|\| "-"` |
-| Line ~671 (table) | `guest.contactEmail \|\| "-"` | `checkInAgreements.get(guest.reservationId)?.guest_email \|\| "-"` |
-| Table header | "Email" | "Form Email" |
+### Dropdown Options (new order)
+- **Active (default)** -- everything except cancelled
+- All Statuses -- includes cancelled
+- Confirmed
+- Pending
+- Cancelled
+- Checked-in
+- Checked-out
 
