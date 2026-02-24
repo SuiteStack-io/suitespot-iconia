@@ -63,7 +63,7 @@ const Guests = () => {
   const [currentWeekStart, setCurrentWeekStart] = useState(() => startOfWeek(new Date(), { weekStartsOn: 0 }));
   const [viewMode, setViewMode] = useState<"week" | "month">("week");
   const [selectedMonth, setSelectedMonth] = useState<Date>(new Date());
-  const [statusFilter, setStatusFilter] = useState<string>("all");
+  const [statusFilter, setStatusFilter] = useState<string>("active");
   const [searchField, setSearchField] = useState<string>("all");
   const [checkInAgreements, setCheckInAgreements] = useState<Map<string, CheckInAgreement>>(new Map());
   const [guestFormFilter, setGuestFormFilter] = useState<string>("all");
@@ -208,7 +208,9 @@ const Guests = () => {
       }
     }
 
-    if (statusFilter !== "all") {
+    if (statusFilter === "active") {
+      filtered = filtered.filter((guest) => guest.status !== "cancelled");
+    } else if (statusFilter !== "all") {
       filtered = filtered.filter((guest) => guest.status === statusFilter);
     }
 
@@ -568,6 +570,7 @@ const Guests = () => {
                   <SelectValue placeholder="All Statuses" />
                 </SelectTrigger>
                 <SelectContent>
+                  <SelectItem value="active">Active</SelectItem>
                   <SelectItem value="all">All Statuses</SelectItem>
                   <SelectItem value="confirmed">Confirmed</SelectItem>
                   <SelectItem value="pending">Pending</SelectItem>
