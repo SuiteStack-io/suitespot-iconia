@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useEffect, useState, useMemo } from "react";
 import { useNavigate } from "react-router-dom";
 import { useAuth } from "@/lib/auth";
 import { supabase } from "@/integrations/supabase/client";
@@ -12,7 +12,7 @@ import {
 } from "@/components/ui/table";
 import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
-import { Search, ChevronLeft, ChevronRight, Download, ArrowLeft, FileText, Loader2, Mail } from "lucide-react";
+import { Search, ChevronLeft, ChevronRight, Download, ArrowLeft, FileText, Loader2, Mail, Users, AtSign } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { format, startOfWeek, addDays, addWeeks, subWeeks, isSameDay, isWithinInterval, startOfMonth, endOfMonth, addMonths, subMonths, isSameMonth } from "date-fns";
@@ -23,6 +23,9 @@ import { downloadCheckInPDF } from "@/lib/generateCheckInPDF";
 import { toast } from "sonner";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
+import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
+import { Progress } from "@/components/ui/progress";
+import { ScrollArea } from "@/components/ui/scroll-area";
 
 interface CheckInAgreement {
   reservation_id: string;
@@ -71,6 +74,39 @@ const Guests = () => {
   const [downloadingForm, setDownloadingForm] = useState<string | null>(null);
   const [selectedGuests, setSelectedGuests] = useState<Set<number>>(new Set());
   const [surveyLoading, setSurveyLoading] = useState(false);
+  const [showGuestsModal, setShowGuestsModal] = useState(false);
+  const [showEmailsModal, setShowEmailsModal] = useState(false);
+
+  const statusDistribution = useMemo(() => {
+    const counts: Record<string, number> = {};
+    filteredGuests.forEach(g => { counts[g.status] = (counts[g.status] || 0) + 1; });
+    return Object.entries(counts).sort((a, b) => b[1] - a[1]);
+  }, [filteredGuests]);
+
+  const sourceDistribution = useMemo(() => {
+    const counts: Record<string, number> = {};
+    filteredGuests.forEach(g => { counts[g.source] = (counts[g.source] || 0) + 1; });
+    return Object.entries(counts).sort((a, b) => b[1] - a[1]);
+  }, [filteredGuests]);
+
+  const nationalityDistribution = useMemo(() => {
+    const counts: Record<string, number> = {};
+    filteredGuests.forEach(g => {
+      const nat = g.nationality || "Unknown";
+      counts[nat] = (counts[nat] || 0) + 1;
+    });
+    return Object.entries(counts).sort((a, b) => b[1] - a[1]);
+  }, [filteredGuests]);
+
+  const emailBreakdown = useMemo(() => {
+    const withEmail: { name: string; ref: string }[] = [];
+    const withoutEmail: { name: string; ref: string }[] = [];
+    filteredGuests.forEach(g => {
+      const hasEmail = !!checkInAgreements.get(g.reservationId)?.guest_email;
+      (hasEmail ? withEmail : withoutEmail).push({ name: g.guestName, ref: g.bookingReference });
+    });
+    return { withEmail, withoutEmail, total: filteredGuests.length, collected: withEmail.length };
+  }, [filteredGuests, checkInAgreements]);
 
   useEffect(() => {
     if (!authLoading && userRole !== "admin") {
@@ -471,33 +507,126 @@ const Guests = () => {
         </div>
 
         <div className="grid grid-cols-2 gap-4 mb-6">
-          <Card>
+          <Card className="cursor-pointer hover:shadow-md transition-shadow" onClick={() => setShowGuestsModal(true)}>
             <CardHeader className="pb-2">
-              <CardDescription>Total Guests</CardDescription>
+              <CardDescription className="flex items-center gap-1.5"><Users className="h-3.5 w-3.5" /> Total Guests</CardDescription>
             </CardHeader>
             <CardContent>
               <CardTitle className="text-3xl">{filteredGuests.length}</CardTitle>
             </CardContent>
           </Card>
-          <Card>
+          <Card className="cursor-pointer hover:shadow-md transition-shadow" onClick={() => setShowEmailsModal(true)}>
             <CardHeader className="pb-2">
-              <CardDescription>Emails Collected</CardDescription>
+              <CardDescription className="flex items-center gap-1.5"><AtSign className="h-3.5 w-3.5" /> Emails Collected</CardDescription>
             </CardHeader>
             <CardContent>
-              {(() => {
-                const emailCount = filteredGuests.filter(g => checkInAgreements.get(g.reservationId)?.guest_email).length;
-                const total = filteredGuests.length;
-                const pct = total > 0 ? Math.round((emailCount / total) * 100) : 0;
-                return (
-                  <div className="flex items-baseline gap-2">
-                    <CardTitle className="text-3xl">{emailCount}</CardTitle>
-                    <span className="text-sm text-muted-foreground">/ {total} ({pct}%)</span>
-                  </div>
-                );
-              })()}
+              <div className="flex items-baseline gap-2">
+                <CardTitle className="text-3xl">{emailBreakdown.collected}</CardTitle>
+                <span className="text-sm text-muted-foreground">/ {emailBreakdown.total} ({emailBreakdown.total > 0 ? Math.round((emailBreakdown.collected / emailBreakdown.total) * 100) : 0}%)</span>
+              </div>
             </CardContent>
           </Card>
         </div>
+
+        {/* Total Guests Modal */}
+        <Dialog open={showGuestsModal} onOpenChange={setShowGuestsModal}>
+          <DialogContent className="max-w-md">
+            <DialogHeader>
+              <DialogTitle>Total Guests Breakdown</DialogTitle>
+            </DialogHeader>
+            <div className="space-y-6">
+              <div>
+                <h4 className="text-sm font-medium text-muted-foreground mb-3">By Status</h4>
+                <div className="space-y-2.5">
+                  {statusDistribution.map(([status, count]) => {
+                    const pct = Math.round((count / filteredGuests.length) * 100);
+                    return (
+                      <div key={status} className="space-y-1">
+                        <div className="flex justify-between text-sm">
+                          <span className="capitalize">{status}</span>
+                          <span className="text-muted-foreground">{count} ({pct}%)</span>
+                        </div>
+                        <Progress value={pct} className="h-2" />
+                      </div>
+                    );
+                  })}
+                </div>
+              </div>
+              <div>
+                <h4 className="text-sm font-medium text-muted-foreground mb-3">By Source</h4>
+                <div className="space-y-2.5">
+                  {sourceDistribution.map(([source, count]) => {
+                    const pct = Math.round((count / filteredGuests.length) * 100);
+                    return (
+                      <div key={source} className="space-y-1">
+                        <div className="flex justify-between text-sm">
+                          <span>{source}</span>
+                          <span className="text-muted-foreground">{count} ({pct}%)</span>
+                        </div>
+                        <Progress value={pct} className="h-2" />
+                      </div>
+                    );
+                  })}
+                </div>
+              </div>
+              <div>
+                <h4 className="text-sm font-medium text-muted-foreground mb-3">Top Nationalities</h4>
+                <div className="flex flex-wrap gap-2">
+                  {nationalityDistribution.slice(0, 8).map(([nat, count]) => (
+                    <Badge key={nat} variant="secondary">{nat} {count}</Badge>
+                  ))}
+                </div>
+              </div>
+            </div>
+          </DialogContent>
+        </Dialog>
+
+        {/* Emails Collected Modal */}
+        <Dialog open={showEmailsModal} onOpenChange={setShowEmailsModal}>
+          <DialogContent className="max-w-md">
+            <DialogHeader>
+              <DialogTitle>Email Coverage</DialogTitle>
+            </DialogHeader>
+            <div className="space-y-6">
+              <div className="space-y-2">
+                <Progress value={emailBreakdown.total > 0 ? Math.round((emailBreakdown.collected / emailBreakdown.total) * 100) : 0} className="h-4" />
+                <p className="text-sm text-muted-foreground">
+                  {emailBreakdown.collected} of {emailBreakdown.total} guests ({emailBreakdown.total > 0 ? Math.round((emailBreakdown.collected / emailBreakdown.total) * 100) : 0}%)
+                </p>
+              </div>
+              {emailBreakdown.withoutEmail.length > 0 && (
+                <div>
+                  <h4 className="text-sm font-medium text-muted-foreground mb-2">Missing Emails ({emailBreakdown.withoutEmail.length})</h4>
+                  <ScrollArea className="h-48 rounded-md border p-3">
+                    <div className="space-y-2">
+                      {emailBreakdown.withoutEmail.map((g, i) => (
+                        <div key={i} className="flex justify-between text-sm">
+                          <span>{g.name}</span>
+                          <span className="text-muted-foreground">{g.ref}</span>
+                        </div>
+                      ))}
+                    </div>
+                  </ScrollArea>
+                </div>
+              )}
+              {emailBreakdown.withEmail.length > 0 && (
+                <div>
+                  <h4 className="text-sm font-medium text-muted-foreground mb-2">With Emails ({emailBreakdown.withEmail.length})</h4>
+                  <ScrollArea className="h-32 rounded-md border p-3">
+                    <div className="space-y-2">
+                      {emailBreakdown.withEmail.map((g, i) => (
+                        <div key={i} className="flex justify-between text-sm">
+                          <span>{g.name}</span>
+                          <span className="text-muted-foreground">{g.ref}</span>
+                        </div>
+                      ))}
+                    </div>
+                  </ScrollArea>
+                </div>
+              )}
+            </div>
+          </DialogContent>
+        </Dialog>
 
         <div className="bg-card rounded-lg border p-6">
           <div className="mb-6 space-y-4">
