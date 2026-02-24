@@ -1,35 +1,66 @@
 
 
-## Add Guest Stats Cards (Total Guests + Email Coverage)
+## Clickable Stats Cards with Modal Breakdowns
 
-### Change
+### Changes to `src/pages/Guests.tsx`
 
-**File: `src/pages/Guests.tsx`**
+**1. Add state for modals**
+- `showGuestsModal` and `showEmailsModal` boolean states
 
-Add two summary cards between the header and the filters section (after line 470, before the `bg-card` div). These cards will use the already-filtered `filteredGuests` data so they automatically reflect the active week/month filter.
+**2. Make cards clickable**
+- Add `cursor-pointer hover:shadow-md transition-shadow` and `onClick` handlers
 
-### Card 1: Total Guests
-- Shows the count of `filteredGuests`
-- Label: "Total Guests"
+**3. Total Guests Modal** -- breakdown by:
+- **Status distribution**: Colored progress bars showing counts per status (confirmed, pending, checked-in, checked-out, cancelled)
+- **Source distribution**: Breakdown by booking source with counts and progress bars
+- **Top nationalities**: Nationality counts with badges
 
-### Card 2: Email Coverage
-- Count guests that have an email via `checkInAgreements.get(guest.reservationId)?.guest_email`
-- Show count and percentage: e.g. "45 / 60 (75%)"
-- Label: "Emails Collected"
+**4. Emails Collected Modal** -- breakdown by:
+- **Large progress bar**: Visual percentage of email coverage
+- **Summary text**: "X of Y guests"
+- **Missing Emails list**: Scrollable list of guest names + booking references who are missing emails (actionable for follow-up)
+- **With Emails list**: Collapsible/scrollable list of guests who do have emails
 
-### Layout
-- Two cards in a responsive grid (`grid grid-cols-2 gap-4 mb-6`)
-- Uses the existing `Card`, `CardHeader`, `CardTitle`, `CardContent` components
+No "Collection by Source" section -- since all email collection happens via check-in / guest forms, that breakdown is not meaningful.
+
+### Modal Layouts
+
+```text
+Total Guests Modal:
++----------------------------------+
+| Total Guests Breakdown     [X]   |
+|----------------------------------|
+| By Status                        |
+| Confirmed  ████████░░  12 (40%) |
+| Checked-in ██████░░░░   9 (30%) |
+| Checked-out ████░░░░░░  6 (20%) |
+| Pending     ██░░░░░░░░  3 (10%) |
+|                                  |
+| By Source                        |
+| Booking.com ██████████  18 (60%)|
+| Direct      ████░░░░░░   8 (27%)|
+| Airbnb      ██░░░░░░░░   4 (13%)|
+|                                  |
+| Top Nationalities                |
+| Egyptian 8 | British 5 | ...     |
++----------------------------------+
+
+Emails Collected Modal:
++----------------------------------+
+| Email Coverage             [X]   |
+|----------------------------------|
+| ██████████████░░░░░░  75%       |
+| 45 of 60 guests                  |
+|                                  |
+| Missing Emails (15)              |
+| - John Smith (BK-1234)          |
+| - Jane Doe (BK-5678)            |
+| ...scrollable list...            |
++----------------------------------+
+```
 
 ### Technical Details
-
-| What | How |
-|------|-----|
-| Total guests | `filteredGuests.length` |
-| Emails count | `filteredGuests.filter(g => checkInAgreements.get(g.reservationId)?.guest_email).length` |
-| Percentage | `Math.round((emailCount / totalCount) * 100)` or 0 if no guests |
-| Placement | After header (line 470), before the filters card |
-| Components | Import `Card, CardContent, CardHeader, CardTitle` from `@/components/ui/card` |
-
-Since `filteredGuests` already reflects week/month filters and status filters, the cards will update automatically when any filter changes.
+- Components: `Dialog`, `DialogContent`, `DialogHeader`, `DialogTitle` + `Progress` (all existing)
+- Data: Computed from `filteredGuests` and `checkInAgreements` already in scope
+- Only file changed: `src/pages/Guests.tsx`
 
