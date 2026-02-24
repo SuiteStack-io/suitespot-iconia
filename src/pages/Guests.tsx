@@ -57,9 +57,15 @@ interface GuestRecord {
 }
 
 const Guests = () => {
-  const { userRole, loading: authLoading } = useAuth();
+  const { userRole, loading: authLoading, hasPermission } = useAuth();
   const navigate = useNavigate();
   const isMobile = useIsMobile();
+
+  useEffect(() => {
+    if (!authLoading && userRole && userRole !== 'admin' && !hasPermission('can_access_front_desk')) {
+      navigate('/admin');
+    }
+  }, [userRole, authLoading, hasPermission, navigate]);
   const [guests, setGuests] = useState<GuestRecord[]>([]);
   const [filteredGuests, setFilteredGuests] = useState<GuestRecord[]>([]);
   const [searchQuery, setSearchQuery] = useState("");

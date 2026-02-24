@@ -94,7 +94,13 @@ type SortOrder = 'asc' | 'desc';
 
 export default function GuestForms() {
   const navigate = useNavigate();
-  const { user, userRole, loading: authLoading } = useAuth();
+  const { user, userRole, loading: authLoading, hasPermission } = useAuth();
+
+  useEffect(() => {
+    if (!authLoading && userRole && userRole !== 'admin' && !hasPermission('can_access_front_desk')) {
+      navigate('/admin');
+    }
+  }, [userRole, authLoading, hasPermission, navigate]);
   const [reservations, setReservations] = useState<Reservation[]>([]);
   const [agreements, setAgreements] = useState<CheckInAgreement[]>([]);
   const [loading, setLoading] = useState(true);

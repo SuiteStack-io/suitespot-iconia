@@ -31,6 +31,7 @@ interface UserPermissions {
   can_block_dates: boolean;
   can_export_calendar: boolean;
   can_access_pms: boolean;
+  can_access_front_desk: boolean;
 }
 
 const PERMISSION_LABELS: Record<keyof UserPermissions, { label: string; description: string }> = {
@@ -66,6 +67,10 @@ const PERMISSION_LABELS: Record<keyof UserPermissions, { label: string; descript
     label: 'Access PMS', 
     description: 'Access to Availability, Prices, and Restrictions pages' 
   },
+  can_access_front_desk: { 
+    label: 'Access Front Desk', 
+    description: 'Access to Room Rates, Guests, and Guest Forms pages' 
+  },
 };
 
 interface EditPermissionsDialogProps {
@@ -93,6 +98,7 @@ export function EditPermissionsDialog({
     can_block_dates: false,
     can_export_calendar: false,
     can_access_pms: false,
+    can_access_front_desk: false,
   });
 
   useEffect(() => {
@@ -126,9 +132,9 @@ export function EditPermissionsDialog({
           can_block_dates: data.can_block_dates ?? false,
           can_export_calendar: data.can_export_calendar ?? false,
           can_access_pms: data.can_access_pms ?? false,
+          can_access_front_desk: data.can_access_front_desk ?? false,
         });
       } else {
-        // Reset to defaults if no record exists
         setPermissions({
           can_check_in: false,
           can_check_out: false,
@@ -138,6 +144,7 @@ export function EditPermissionsDialog({
           can_block_dates: false,
           can_export_calendar: false,
           can_access_pms: false,
+          can_access_front_desk: false,
         });
       }
     } catch (error) {
@@ -210,6 +217,7 @@ export function EditPermissionsDialog({
       can_block_dates: newValue,
       can_export_calendar: newValue,
       can_access_pms: newValue,
+      can_access_front_desk: newValue,
     });
   };
 
