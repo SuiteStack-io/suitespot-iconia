@@ -1,0 +1,1 @@
+ALTER TABLE public.user_permissions ADD COLUMN can_access_front_desk boolean NOT NULL DEFAULT false;

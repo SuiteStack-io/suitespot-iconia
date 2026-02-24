@@ -44,6 +44,7 @@ import {
   Tag,
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
+import { useAuth } from '@/lib/auth';
 
 interface SlideMenuProps {
   userRole: string | null;
@@ -67,6 +68,7 @@ export function SlideMenu({ userRole }: SlideMenuProps) {
   const navigate = useNavigate();
   const location = useLocation();
   const [almazaBayOpen, setAlmazaBayOpen] = useState(false);
+  const { hasPermission } = useAuth();
 
   const menuSections: MenuSection[] = [
     {
@@ -103,6 +105,7 @@ export function SlideMenu({ userRole }: SlideMenuProps) {
         { title: 'Guests', url: '/guests', icon: Users },
         { title: 'Guest Forms', url: '/guest-forms', icon: FileSignature },
       ],
+      showFor: userRole === 'admin' || hasPermission('can_access_front_desk') ? undefined : [],
     },
     {
       label: 'PMS',

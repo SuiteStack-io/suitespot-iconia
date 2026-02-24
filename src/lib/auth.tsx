@@ -12,6 +12,7 @@ export interface UserPermissions {
   can_block_dates: boolean;
   can_export_calendar: boolean;
   can_access_pms: boolean;
+  can_access_front_desk: boolean;
 }
 
 const DEFAULT_PERMISSIONS: UserPermissions = {
@@ -23,6 +24,7 @@ const DEFAULT_PERMISSIONS: UserPermissions = {
   can_block_dates: false,
   can_export_calendar: false,
   can_access_pms: false,
+  can_access_front_desk: false,
 };
 
 interface AuthContextType {
@@ -110,6 +112,7 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
         can_block_dates: data.can_block_dates ?? false,
         can_export_calendar: data.can_export_calendar ?? false,
         can_access_pms: data.can_access_pms ?? false,
+        can_access_front_desk: data.can_access_front_desk ?? false,
       });
     } else {
       setPermissions(DEFAULT_PERMISSIONS);

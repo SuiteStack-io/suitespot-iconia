@@ -1,3 +1,5 @@
+import { useEffect } from 'react';
+import { useNavigate } from 'react-router-dom';
 import { useQuery } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
 import { SlideMenu } from '@/components/SlideMenu';
@@ -22,7 +24,14 @@ interface RoomTypeData {
 }
 
 export default function FrontDeskRoomRates() {
-  const { userRole } = useAuth();
+  const { userRole, hasPermission } = useAuth();
+  const navigate = useNavigate();
+
+  useEffect(() => {
+    if (userRole && userRole !== 'admin' && !hasPermission('can_access_front_desk')) {
+      navigate('/admin');
+    }
+  }, [userRole, hasPermission, navigate]);
 
   const { data: roomTypes, isLoading } = useQuery({
     queryKey: ['front-desk-room-rates'],
