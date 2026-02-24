@@ -12,7 +12,7 @@ import {
 } from "@/components/ui/table";
 import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
-import { Search, ChevronLeft, ChevronRight, Download, ArrowLeft, FileText, Loader2 } from "lucide-react";
+import { Search, ChevronLeft, ChevronRight, Download, ArrowLeft, FileText, Loader2, Mail } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { format, startOfWeek, addDays, addWeeks, subWeeks, isSameDay, isWithinInterval, startOfMonth, endOfMonth, addMonths, subMonths, isSameMonth } from "date-fns";
@@ -21,7 +21,7 @@ import { useIsMobile } from "@/hooks/use-mobile";
 import { SlideMenu } from "@/components/SlideMenu";
 import { downloadCheckInPDF } from "@/lib/generateCheckInPDF";
 import { toast } from "sonner";
-import SurveyTrigger from "@/components/SurveyTrigger";
+import { Checkbox } from "@/components/ui/checkbox";
 
 interface CheckInAgreement {
   reservation_id: string;
@@ -68,6 +68,8 @@ const Guests = () => {
   const [checkInAgreements, setCheckInAgreements] = useState<Map<string, CheckInAgreement>>(new Map());
   const [guestFormFilter, setGuestFormFilter] = useState<string>("all");
   const [downloadingForm, setDownloadingForm] = useState<string | null>(null);
+  const [selectedGuests, setSelectedGuests] = useState<Set<number>>(new Set());
+  const [surveyLoading, setSurveyLoading] = useState(false);
 
   useEffect(() => {
     if (!authLoading && userRole !== "admin") {
@@ -335,7 +337,11 @@ const Guests = () => {
     ];
 
     // Prepare CSV rows
-    const rows = filteredGuests.map(guest => {
+    const guestsToExport = selectedGuests.size > 0
+      ? filteredGuests.filter((_, i) => selectedGuests.has(i))
+      : filteredGuests;
+
+    const rows = guestsToExport.map(guest => {
       const isAdult = guest.guestIndex < guest.adults;
       const checkIn = new Date(guest.checkInDate);
       const checkOut = new Date(guest.checkOutDate);
@@ -423,10 +429,39 @@ const Guests = () => {
               </div>
             </div>
           
-          <Button onClick={exportToCSV} variant="outline">
-            <Download className="h-4 w-4 mr-2" />
-            Export CSV
-          </Button>
+          <div className="flex items-center gap-2">
+            <Button
+              onClick={async () => {
+                setSurveyLoading(true);
+                try {
+                  const { data, error } = await supabase.functions.invoke("send-checkout-surveys");
+                  if (error) throw error;
+                  toast.success(`Survey emails queued for ${data.reservationsFound} recent checkouts`);
+                } catch (error: any) {
+                  console.error("Error triggering surveys:", error);
+                  toast.error(error.message || "Failed to trigger survey emails");
+                } finally {
+                  setSurveyLoading(false);
+                }
+              }}
+              variant="outline"
+              disabled={surveyLoading}
+            >
+              {surveyLoading ? (
+                <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+              ) : (
+                <Mail className="h-4 w-4 mr-2" />
+              )}
+              Send Surveys
+            </Button>
+            <Button onClick={exportToCSV} variant="outline">
+              <Download className="h-4 w-4 mr-2" />
+              Export CSV
+              {selectedGuests.size > 0 && (
+                <Badge variant="secondary" className="ml-2">{selectedGuests.size}</Badge>
+              )}
+            </Button>
+          </div>
         </div>
 
         <div className="bg-card rounded-lg border p-6">
@@ -559,6 +594,18 @@ const Guests = () => {
             <Table>
               <TableHeader>
                 <TableRow>
+                  <TableHead className="w-10">
+                    <Checkbox
+                      checked={filteredGuests.length > 0 && selectedGuests.size === filteredGuests.length}
+                      onCheckedChange={(checked) => {
+                        if (checked) {
+                          setSelectedGuests(new Set(filteredGuests.map((_, i) => i)));
+                        } else {
+                          setSelectedGuests(new Set());
+                        }
+                      }}
+                    />
+                  </TableHead>
                   <TableHead>Guest Name</TableHead>
                   <TableHead>Type</TableHead>
                   <TableHead>Nationality</TableHead>
@@ -578,7 +625,7 @@ const Guests = () => {
               <TableBody>
                 {filteredGuests.length === 0 ? (
                   <TableRow>
-                    <TableCell colSpan={14} className="text-center text-muted-foreground">
+                    <TableCell colSpan={15} className="text-center text-muted-foreground">
                       No guests found for this {viewMode}
                     </TableCell>
                   </TableRow>
@@ -592,6 +639,16 @@ const Guests = () => {
                     
                     return (
                       <TableRow key={`${guest.bookingReference}-${index}`}>
+                        <TableCell>
+                          <Checkbox
+                            checked={selectedGuests.has(index)}
+                            onCheckedChange={(checked) => {
+                              const next = new Set(selectedGuests);
+                              if (checked) { next.add(index); } else { next.delete(index); }
+                              setSelectedGuests(next);
+                            }}
+                          />
+                        </TableCell>
                         <TableCell className="font-medium">
                           {shouldHighlight("name") 
                             ? highlightText(guest.guestName, searchQuery)
@@ -669,9 +726,6 @@ const Guests = () => {
           </div>
         </div>
 
-        <div className="mt-6">
-          <SurveyTrigger />
-        </div>
       </div>
     </div>
   );
