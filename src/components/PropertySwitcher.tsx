@@ -1,4 +1,4 @@
-import { useProperty } from '@/lib/propertyContext';
+import { usePropertySafe } from '@/lib/propertyContext';
 import {
   Select,
   SelectContent,
@@ -9,14 +9,17 @@ import {
 import { Building2, Star } from 'lucide-react';
 
 export function PropertySwitcher() {
-  const { properties, activeProperty, setActiveProperty, isLoading } = useProperty();
+  const propertyContext = usePropertySafe();
+
+  if (!propertyContext) return null;
+
+  const { properties, activeProperty, setActiveProperty, isLoading } = propertyContext;
 
   if (isLoading || properties.length === 0) return null;
 
-  // Don't show switcher if only one property
   if (properties.length === 1) {
     return (
-      <div className="flex items-center gap-2 px-3 py-2 text-xs text-[hsl(30,15%,70%)]">
+      <div className="flex items-center gap-2 px-3 py-2 text-xs text-muted-foreground">
         <Building2 className="h-3.5 w-3.5" />
         <span className="truncate">{properties[0].name}</span>
       </div>
@@ -31,7 +34,7 @@ export function PropertySwitcher() {
         if (prop) setActiveProperty(prop);
       }}
     >
-      <SelectTrigger className="h-8 border-[hsl(30,8%,30%)] bg-[hsl(30,5%,22%)] text-[hsl(30,15%,80%)] text-xs">
+      <SelectTrigger className="h-8 border-border bg-muted text-muted-foreground text-xs">
         <div className="flex items-center gap-2">
           <Building2 className="h-3.5 w-3.5" />
           <SelectValue placeholder="Select property" />

@@ -164,3 +164,7 @@ export const useProperty = () => {
   }
   return context;
 };
+
+export const usePropertySafe = () => {
+  return useContext(PropertyContext);
+};
