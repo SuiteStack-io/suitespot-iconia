@@ -114,11 +114,6 @@ const Guests = () => {
     return { withEmail, withoutEmail, total: filteredGuests.length, collected: withEmail.length };
   }, [filteredGuests, checkInAgreements]);
 
-  useEffect(() => {
-    if (!authLoading && userRole !== "admin") {
-      navigate("/");
-    }
-  }, [userRole, authLoading, navigate]);
 
   useEffect(() => {
     fetchGuests();
