@@ -1,73 +1,59 @@
 
 
-## Test Results: Critical Blocker Found
+## Problem Analysis
 
-### What Was Discovered
+The "Add Property" button is missing because of two restrictions working together:
 
-Testing the property switcher revealed a **critical database issue**: the `property_id` column was never actually added to the `units` and `reservations` tables. The migration file (`20260225130853`) assumes these columns "were already created by the partial migration," but they were not.
+1. **Frontend**: `PropertyList.tsx` only renders the "Add Property" button when `isSystemAdmin` is `true` (line 47). This flag comes from `profiles.is_system_admin`, which is a special super-admin flag -- not the same as having the `admin` app_role.
 
-**Current database state:**
-- `properties` table: exists, 1 row (ICONIA Zamalek)
-- `user_property_access` table: exists, 1 row (Ahmed Magdy = owner)
-- `rate_plans.property_id`: exists and backfilled
-- `units.property_id`: **MISSING** -- column does not exist
-- `reservations.property_id`: **MISSING** -- column does not exist
+2. **Database RLS**: The `properties` SELECT policy only returns properties to users who either have a `user_property_access` record for that property OR are a system admin. If your current user is an `admin` role but NOT flagged `is_system_admin` in `profiles`, and has no `user_property_access` rows, they see zero properties and no create button.
 
-This means every frontend query that calls `withPropertyFilter(supabase.from('units')...)` or `withPropertyFilter(supabase.from('reservations')...)` is sending `.eq('property_id', ...)` to a column that doesn't exist, which will cause errors or return empty results.
+This creates a chicken-and-egg problem: you need to be a system admin to create the first property, but system admin is a separate flag from the admin role.
 
-### Additional Issue: Only 1 Property Exists
+## Plan
 
-Even after fixing the database, there's only one property configured. To meaningfully test switching, a second property should be created.
+### 1. Update RLS: Let admin-role users view all properties
 
-### Settings Page Issue
+Add a new SELECT policy (or amend the existing one) so users with the `admin` app_role can view all properties, not just ones they have explicit access to.
 
-The Settings page shows "No properties configured yet" because the browser test session user is not authenticated as Ahmed Magdy (the system admin). This is expected behavior in the sandboxed test environment.
+```sql
+-- Drop and recreate the SELECT policy
+DROP POLICY IF EXISTS "Users can view assigned properties" ON public.properties;
+CREATE POLICY "Users can view assigned properties" ON public.properties
+  FOR SELECT TO authenticated
+  USING (
+    public.has_property_access(auth.uid(), id)
+    OR public.is_system_admin(auth.uid())
+    OR public.has_role(auth.uid(), 'admin'::app_role)
+  );
+```
+
+### 2. Update Frontend: Let admin-role users create properties
+
+In `PropertyList.tsx`, change the create button visibility from `isSystemAdmin` only to also allow users with the `admin` role. The `useAuth` hook already provides `userRole`.
+
+Changes to `PropertyList.tsx`:
+- Import `useAuth` from `@/lib/auth`
+- Add `const { userRole } = useAuth();`
+- Compute `const canCreate = isSystemAdmin || userRole === 'admin';`
+- Replace all `isSystemAdmin` checks for the "Add Property" button with `canCreate`
+- Keep delete gated on `isSystemAdmin || propertyRole === 'owner'` (already handled via `canDeleteProperty` from context)
+
+### 3. Update Frontend: Let admin-role users edit/delete too
+
+The edit button is already always visible. The delete button checks `isSystemAdmin && !property.is_default` -- change this to also allow admin-role users who are property owners.
+
+No additional file changes needed beyond `PropertyList.tsx`.
 
 ---
 
-### Plan to Fix
+### Technical Details
 
-#### Step 1: Database Migration -- Add Missing Columns
+**Database migration** (1 SQL statement):
+- Drop and recreate the `"Users can view assigned properties"` SELECT policy on `properties` to include `has_role(auth.uid(), 'admin')`.
 
-Run a migration to add the `property_id` column to `units` and `reservations`, create indexes, backfill with the default property ID, and recreate the triggers properly:
-
-```sql
--- Add property_id to units
-ALTER TABLE public.units ADD COLUMN IF NOT EXISTS property_id uuid REFERENCES public.properties(id);
-CREATE INDEX IF NOT EXISTS idx_units_property_id ON public.units(property_id);
-
--- Add property_id to reservations
-ALTER TABLE public.reservations ADD COLUMN IF NOT EXISTS property_id uuid REFERENCES public.properties(id);
-CREATE INDEX IF NOT EXISTS idx_reservations_property_id ON public.reservations(property_id);
-
--- Backfill existing rows
-UPDATE public.units
-  SET property_id = (SELECT id FROM public.properties WHERE is_default = true LIMIT 1)
-  WHERE property_id IS NULL;
-
-UPDATE public.reservations
-  SET property_id = (SELECT id FROM public.properties WHERE is_default = true LIMIT 1)
-  WHERE property_id IS NULL;
-
--- Recreate triggers (already defined, just ensure they work now that columns exist)
-DROP TRIGGER IF EXISTS set_units_default_property ON public.units;
-DROP TRIGGER IF EXISTS set_reservations_default_property ON public.reservations;
-
-CREATE TRIGGER set_units_default_property BEFORE INSERT ON public.units
-  FOR EACH ROW EXECUTE FUNCTION set_default_property_id();
-CREATE TRIGGER set_reservations_default_property BEFORE INSERT ON public.reservations
-  FOR EACH ROW EXECUTE FUNCTION set_default_property_id();
-```
-
-#### Step 2: Verify Frontend Queries Work
-
-After the migration, all existing `withPropertyFilter` calls on `units` and `reservations` will work correctly since the column will exist and be populated.
-
-#### Step 3: Create a Second Test Property (Optional)
-
-To test switching behavior, create a second property via the Settings page or a seed migration. Without a second property, the `PropertySwitcher` component renders as a static label (single-property mode) rather than a dropdown.
-
-### No Frontend Code Changes Needed
-
-All frontend files were already updated in the previous implementation rounds. The only blocker is the missing database columns.
+**Frontend change** (`PropertyList.tsx`):
+- Import `useAuth`
+- Add `canCreate` computed boolean
+- Gate "Add Property" button and empty-state create button on `canCreate` instead of just `isSystemAdmin`
 
