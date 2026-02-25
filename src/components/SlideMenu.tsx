@@ -4,6 +4,8 @@ import {
   Sheet,
   SheetContent,
   SheetTrigger,
+  SheetTitle,
+  SheetDescription,
 } from '@/components/ui/sheet';
 import {
   Collapsible,
@@ -175,11 +177,13 @@ export function SlideMenu({ userRole }: SlideMenuProps) {
   return (
     <Sheet>
       <SheetTrigger asChild>
-        <Button variant="ghost" size="icon" className="h-10 w-10">
+        <Button variant="ghost" size="icon" className="h-10 w-10" type="button">
           <PanelLeft className="h-5 w-5" />
         </Button>
       </SheetTrigger>
       <SheetContent side="left" className="w-72 bg-[hsl(30,5%,20%)] border-[hsl(30,8%,30%)] p-0">
+        <SheetTitle className="sr-only">Navigation Menu</SheetTitle>
+        <SheetDescription className="sr-only">Admin navigation menu</SheetDescription>
         <div className="flex flex-col h-full py-6">
           {/* Header */}
           <div className="px-6 mb-6">
