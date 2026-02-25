@@ -48,8 +48,8 @@ export function BulkRestrictionEditor({ ratePlans, onSaved }: BulkRestrictionEdi
   const [enableCTD, setEnableCTD] = useState(false);
 
   // Values
-  const [minStayArrival, setMinStayArrival] = useState(1);
-  const [minStayThrough, setMinStayThrough] = useState(1);
+  const [minStayArrival, setMinStayArrival] = useState(2);
+  const [minStayThrough, setMinStayThrough] = useState(2);
   const [maxStay, setMaxStay] = useState(30);
   const [stopSell, setStopSell] = useState(false);
   const [closedToArrival, setClosedToArrival] = useState(false);
@@ -264,7 +264,10 @@ export function BulkRestrictionEditor({ ratePlans, onSaved }: BulkRestrictionEdi
                 <span className="block text-[10px] text-muted-foreground font-normal">Guest arriving on this date must stay at least X nights</span>
               </Label>
               {enableMinStayArrival && (
-                <Input type="number" min={1} max={30} value={minStayArrival} onChange={(e) => setMinStayArrival(parseInt(e.target.value) || 1)} className="w-20" />
+                <>
+                  <Input type="number" min={1} max={30} value={minStayArrival} onChange={(e) => setMinStayArrival(parseInt(e.target.value) || 1)} className="w-20" />
+                  <span className="text-xs text-muted-foreground">nights</span>
+                </>
               )}
             </div>
 
@@ -275,7 +278,10 @@ export function BulkRestrictionEditor({ ratePlans, onSaved }: BulkRestrictionEdi
                 <span className="block text-[10px] text-muted-foreground font-normal">Any booking including this date must be at least X nights</span>
               </Label>
               {enableMinStayThrough && (
-                <Input type="number" min={1} max={30} value={minStayThrough} onChange={(e) => setMinStayThrough(parseInt(e.target.value) || 1)} className="w-20" />
+                <>
+                  <Input type="number" min={1} max={30} value={minStayThrough} onChange={(e) => setMinStayThrough(parseInt(e.target.value) || 1)} className="w-20" />
+                  <span className="text-xs text-muted-foreground">nights</span>
+                </>
               )}
             </div>
 
@@ -283,7 +289,10 @@ export function BulkRestrictionEditor({ ratePlans, onSaved }: BulkRestrictionEdi
               <Checkbox checked={enableMaxStay} onCheckedChange={(v) => setEnableMaxStay(!!v)} />
               <Label className="text-sm flex-1">Max Stay</Label>
               {enableMaxStay && (
-                <Input type="number" min={1} max={365} value={maxStay} onChange={(e) => setMaxStay(parseInt(e.target.value) || 30)} className="w-20" />
+                <>
+                  <Input type="number" min={1} max={365} value={maxStay} onChange={(e) => setMaxStay(parseInt(e.target.value) || 30)} className="w-20" />
+                  <span className="text-xs text-muted-foreground">nights</span>
+                </>
               )}
             </div>
 
