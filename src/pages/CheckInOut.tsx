@@ -241,6 +241,15 @@ const CheckInOut = () => {
         console.error('Failed to send check-out notification:', notifError);
       }
 
+      // Fire-and-forget: send WhatsApp checkout message
+      try {
+        supabase.functions.invoke('send-whatsapp-message', {
+          body: { reservationId, messageType: 'checkout' }
+        });
+      } catch (whatsappErr) {
+        console.error('Failed to trigger WhatsApp checkout:', whatsappErr);
+      }
+
       toast({
         title: 'Success',
         description: 'Guest checked out successfully',
