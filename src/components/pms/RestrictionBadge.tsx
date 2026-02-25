@@ -1,19 +1,24 @@
 import { Tooltip, TooltipContent, TooltipTrigger, TooltipProvider } from '@/components/ui/tooltip';
 
 interface RestrictionBadgeProps {
-  type: 'min_stay' | 'max_stay' | 'stop_sell' | 'cta' | 'ctd';
+  type: 'min_stay_arrival' | 'min_stay_through' | 'max_stay' | 'stop_sell' | 'cta' | 'ctd';
   value?: number;
   synced?: boolean;
 }
 
 const badgeConfig = {
-  min_stay: {
-    label: (v?: number) => `MS:${v ?? 1}`,
-    tooltip: (v?: number) => `Min Stay: ${v ?? 1} night(s)`,
+  min_stay_arrival: {
+    label: (v?: number) => `A:${v ?? 1}`,
+    tooltip: (v?: number) => `Min Stay Arrival: ${v ?? 1} night(s) — guest arriving on this date must stay at least this many nights`,
     className: 'bg-blue-100 text-blue-800 border-blue-300',
   },
+  min_stay_through: {
+    label: (v?: number) => `T:${v ?? 1}`,
+    tooltip: (v?: number) => `Min Stay Through: ${v ?? 1} night(s) — any booking including this date must be at least this many nights`,
+    className: 'bg-purple-100 text-purple-800 border-purple-300',
+  },
   max_stay: {
-    label: (v?: number) => `MX:${v ?? '∞'}`,
+    label: (v?: number) => `X:${v ?? '∞'}`,
     tooltip: (v?: number) => `Max Stay: ${v ?? 'No limit'} night(s)`,
     className: 'bg-indigo-100 text-indigo-800 border-indigo-300',
   },
@@ -47,7 +52,7 @@ export function RestrictionBadge({ type, value, synced }: RestrictionBadgeProps)
             {config.label(value)}
           </span>
         </TooltipTrigger>
-        <TooltipContent side="top" className="text-xs">
+        <TooltipContent side="top" className="text-xs max-w-xs">
           <p>{config.tooltip(value)}</p>
           {synced === false && <p className="text-orange-500 mt-1">Pending sync to Channex</p>}
         </TooltipContent>
