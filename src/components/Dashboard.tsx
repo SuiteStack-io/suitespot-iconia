@@ -519,14 +519,6 @@ export const Dashboard = () => {
         } catch (notifError) {
           console.error('Failed to send check-in notification:', notifError);
         }
-        // Send WhatsApp welcome message
-        try {
-          await supabase.functions.invoke('send-whatsapp', {
-            body: { booking_id: reservationId, message_type: 'welcome' }
-          });
-        } catch (waError) {
-          console.error('Failed to send WhatsApp welcome:', waError);
-        }
       }
 
       // Send check-out notification to admins and housekeeping if status changed to checked-out AND notification requested
@@ -538,14 +530,6 @@ export const Dashboard = () => {
           });
         } catch (notifError) {
           console.error('Failed to send check-out notification:', notifError);
-        }
-        // Send WhatsApp checkout message
-        try {
-          await supabase.functions.invoke('send-whatsapp', {
-            body: { booking_id: reservationId, message_type: 'checkout' }
-          });
-        } catch (waError) {
-          console.error('Failed to send WhatsApp checkout:', waError);
         }
       }
 
@@ -617,14 +601,6 @@ export const Dashboard = () => {
       } catch (notifError) {
         console.error('Failed to send check-in notification:', notifError);
       }
-      // Send WhatsApp welcome message
-      try {
-        await supabase.functions.invoke('send-whatsapp', {
-          body: { booking_id: reservationId, message_type: 'welcome' }
-        });
-      } catch (waError) {
-        console.error('Failed to send WhatsApp welcome:', waError);
-      }
 
       toast({
         title: "Guest checked in",
@@ -672,14 +648,6 @@ export const Dashboard = () => {
         });
       } catch (notifError) {
         console.error('Failed to send check-out notification:', notifError);
-      }
-      // Send WhatsApp checkout message
-      try {
-        await supabase.functions.invoke('send-whatsapp', {
-          body: { booking_id: selectedReservation.id, message_type: 'checkout' }
-        });
-      } catch (waError) {
-        console.error('Failed to send WhatsApp checkout:', waError);
       }
 
       toast({

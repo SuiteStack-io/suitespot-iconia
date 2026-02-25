@@ -436,13 +436,6 @@ export const ReservationQuickActions = ({
         } catch (notifError) {
           console.error('Failed to send check-in notification:', notifError);
         }
-        try {
-          await supabase.functions.invoke('send-whatsapp', {
-            body: { booking_id: reservation.id, message_type: 'welcome' }
-          });
-        } catch (waError) {
-          console.error('Failed to send WhatsApp welcome:', waError);
-        }
       } else if (newStatus === 'checked-out') {
         try {
           const { data: { user } } = await supabase.auth.getUser();
@@ -451,13 +444,6 @@ export const ReservationQuickActions = ({
           });
         } catch (notifError) {
           console.error('Failed to send check-out notification:', notifError);
-        }
-        try {
-          await supabase.functions.invoke('send-whatsapp', {
-            body: { booking_id: reservation.id, message_type: 'checkout' }
-          });
-        } catch (waError) {
-          console.error('Failed to send WhatsApp checkout:', waError);
         }
       }
 

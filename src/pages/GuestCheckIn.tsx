@@ -317,18 +317,11 @@ const GuestCheckIn = () => {
         
         if (notifyError) {
           console.error('Error sending check-in notification:', notifyError);
+        } else {
+          console.log('Check-in notification sent to admins');
         }
       } catch (notifyErr) {
         console.error('Failed to send check-in notification:', notifyErr);
-      }
-
-      // Send WhatsApp welcome message
-      try {
-        await supabase.functions.invoke('send-whatsapp', {
-          body: { booking_id: reservationId, message_type: 'welcome' }
-        });
-      } catch (waError) {
-        console.error('Failed to send WhatsApp welcome:', waError);
       }
 
       // Store data for PDF generation

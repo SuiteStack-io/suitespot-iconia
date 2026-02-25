@@ -42,7 +42,6 @@ import {
   Radio,
   ArrowLeftRight,
   Tag,
-  MessageSquare,
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { useAuth } from '@/lib/auth';
@@ -68,16 +67,8 @@ interface MenuSection {
 export function SlideMenu({ userRole }: SlideMenuProps) {
   const navigate = useNavigate();
   const location = useLocation();
-  const [isSheetOpen, setIsSheetOpen] = useState(false);
   const [almazaBayOpen, setAlmazaBayOpen] = useState(false);
   const { hasPermission } = useAuth();
-
-  const handleMenuNavigation = (url: string, e: React.MouseEvent) => {
-    e.preventDefault();
-    e.stopPropagation();
-    navigate(url);
-    setIsSheetOpen(false);
-  };
 
   const menuSections: MenuSection[] = [
     {
@@ -115,13 +106,6 @@ export function SlideMenu({ userRole }: SlideMenuProps) {
         { title: 'Guest Forms', url: '/guest-forms', icon: FileSignature },
       ],
       showFor: userRole === 'admin' || hasPermission('can_access_front_desk') ? undefined : [],
-    },
-    {
-      label: 'CUSTOMER EXCELLENCE',
-      items: [
-        { title: 'Message Log', url: '/message-log', icon: MessageSquare },
-      ],
-      showFor: ['admin', 'manager', 'front_desk'],
     },
     {
       label: 'PMS',
@@ -180,9 +164,9 @@ export function SlideMenu({ userRole }: SlideMenuProps) {
     }));
 
   return (
-    <Sheet open={isSheetOpen} onOpenChange={setIsSheetOpen}>
+    <Sheet>
       <SheetTrigger asChild>
-        <Button type="button" variant="ghost" size="icon" className="h-10 w-10">
+        <Button variant="ghost" size="icon" className="h-10 w-10">
           <PanelLeft className="h-5 w-5" />
         </Button>
       </SheetTrigger>
@@ -190,13 +174,14 @@ export function SlideMenu({ userRole }: SlideMenuProps) {
         <div className="flex flex-col h-full py-6">
           {/* Header */}
           <div className="px-6 mb-6">
-            <button
-              type="button"
-              onClick={(e) => handleMenuNavigation('/admin', e)}
-              className="text-lg font-semibold text-white hover:text-cyan-400 transition-colors cursor-pointer"
-            >
-              Admin
-            </button>
+            <SheetTrigger asChild>
+              <button
+                onClick={() => navigate('/admin')}
+                className="text-lg font-semibold text-white hover:text-cyan-400 transition-colors cursor-pointer"
+              >
+                Admin
+              </button>
+            </SheetTrigger>
           </div>
 
           {/* Menu Sections */}
@@ -204,7 +189,7 @@ export function SlideMenu({ userRole }: SlideMenuProps) {
             {filteredSections.map((section, sectionIndex) => {
               const isCollapsible = section.collapsible;
               const isOpen = section.label === 'ALMAZA BAY' ? almazaBayOpen : true;
-              const setSectionOpen = section.label === 'ALMAZA BAY' ? setAlmazaBayOpen : undefined;
+              const setOpen = section.label === 'ALMAZA BAY' ? setAlmazaBayOpen : undefined;
 
               const sectionContent = (
                 <div className="space-y-1">
@@ -212,12 +197,11 @@ export function SlideMenu({ userRole }: SlideMenuProps) {
                     const Icon = item.icon;
                     const isActive = location.pathname === item.url;
 
-                      return (
+                    return (
+                      <SheetTrigger key={item.url} asChild>
                         <Button
-                          key={item.url}
-                          type="button"
                           variant="ghost"
-                          onClick={(e) => handleMenuNavigation(item.url, e)}
+                          onClick={() => navigate(item.url)}
                           className={cn(
                             'w-full justify-start gap-3 h-10 px-3 rounded-md',
                             'text-[hsl(30,15%,70%)] hover:text-white hover:bg-[hsl(30,8%,25%)]',
@@ -227,17 +211,18 @@ export function SlideMenu({ userRole }: SlideMenuProps) {
                           <Icon className={cn('h-4 w-4', isActive && 'text-cyan-400')} />
                           <span className="text-sm">{item.title}</span>
                         </Button>
-                      );
+                      </SheetTrigger>
+                    );
                   })}
                 </div>
               );
 
-              if (isCollapsible && setSectionOpen) {
+              if (isCollapsible && setOpen) {
                 return (
                   <Collapsible
                     key={section.label}
                     open={isOpen}
-                    onOpenChange={setSectionOpen}
+                    onOpenChange={setOpen}
                     className={sectionIndex > 0 ? 'mt-6' : ''}
                   >
                     <CollapsibleTrigger className="flex items-center justify-between w-full px-3 mb-2 group cursor-pointer">

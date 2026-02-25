@@ -1,37 +1,57 @@
 
+## Objective
+Fix the redirect bug that still prevents Dina (front_desk + `can_access_front_desk`) from accessing the **Guests** page.
 
-## Fix: Message Log New Tab / 404 Bug (Persistent Issue)
+## What I found
+I reviewed the current `Guests` page guards and found **two competing redirects**:
 
-### What I Found
+1. Correct front-desk permission guard:
+- Allows admins, and allows non-admin users only when `hasPermission('can_access_front_desk')` is true.
+- Redirects unauthorized users to `/admin`.
 
-After thorough investigation, I identified two concrete issues and one environmental factor:
+2. Legacy admin-only guard (still present):
+- If user is not admin, it unconditionally redirects to `/`.
+- This overrides Dina’s valid front-desk permission and causes the exact behavior reported: she lands on homepage.
 
-1. **Redundant auth redirect in MessageLog.tsx** (line 39-41): The page has its own `useEffect(() => { if (!loading && !user) navigate('/auth'); })` even though it's already wrapped in `<ProtectedRoute>`. This creates a race condition where both the page and the route guard compete to redirect, which can cause double navigation.
+So the root cause is **not** the recent auth loading fix; it is an old leftover guard in `src/pages/Guests.tsx`.
 
-2. **Missing `SheetTitle` in SheetContent** (sheet.tsx): The Sheet component (built on Radix Dialog) is missing a required `DialogTitle`, as confirmed by console errors. This causes Radix to emit warnings and can interfere with focus management and event handling when the sheet opens/closes, potentially causing click events to propagate incorrectly.
+## Implementation plan
+1. **Remove the legacy admin-only redirect effect** from `src/pages/Guests.tsx`:
+   - Delete:
+   ```ts
+   useEffect(() => {
+     if (!authLoading && userRole !== "admin") {
+       navigate("/");
+     }
+   }, [userRole, authLoading, navigate]);
+   ```
 
-3. **Stale PWA service worker**: The project uses `vite-plugin-pwa` with `registerType: "autoUpdate"`. A cached service worker from a previous build may be intercepting the `/message-log` navigation and serving a stale response that doesn't include this route, resulting in a 404. This would also explain why the issue persists across sidebar opens.
+2. **Keep the granular front-desk guard only**:
+   - This is the correct access model already aligned with your permission system:
+   ```ts
+   if (!authLoading && userRole && userRole !== 'admin' && !hasPermission('can_access_front_desk')) {
+     navigate('/admin');
+   }
+   ```
 
-### Changes
+3. **No backend/database changes**:
+   - Roles remain in `user_roles`.
+   - Permission remains in `user_permissions`.
+   - No RLS/policy migration required for this specific bug.
 
-**File: `src/pages/MessageLog.tsx`**
-- Remove the redundant `useEffect` auth redirect (lines 39-41). The `<ProtectedRoute>` wrapper already handles this.
-- Remove the early return `if (!user) return null;` (line 101) since ProtectedRoute already prevents rendering without auth.
+## Validation plan (end-to-end)
+I will verify with the following checks:
+1. Log in as Dina.
+2. Open `/guests` from the sidebar and direct URL.
+3. Confirm page loads (no redirect to `/`).
+4. Confirm unauthorized role without `can_access_front_desk` is redirected to `/admin`.
+5. Confirm admin still accesses `/guests` normally.
 
-**File: `src/components/ui/sheet.tsx`**
-- Add a visually hidden `SheetTitle` inside `SheetContent` to satisfy the Radix Dialog accessibility requirement and prevent the console error that may be disrupting event handling.
-- Add `aria-describedby={undefined}` to suppress the missing description warning.
+## Technical details (for developers)
+- **File to edit:** `src/pages/Guests.tsx`
+- **Change type:** client-side route guard cleanup
+- **Risk level:** low (single redundant effect removal)
+- **Why this is safe:** existing permission-based guard already enforces intended access; removing duplicate contradictory logic restores expected behavior.
 
-### Files to Modify
-| File | Change |
-|------|--------|
-| `src/pages/MessageLog.tsx` | Remove redundant auth useEffect and early return |
-| `src/components/ui/sheet.tsx` | Add hidden SheetTitle + aria-describedby to SheetContent |
-
-### Post-Fix Testing
-After applying these changes:
-1. Hard-refresh the browser (Ctrl+Shift+R) to clear any cached service worker
-2. Open sidebar → click Message Log → should navigate in the same tab, no new tab
-3. Open/close sidebar repeatedly on the Message Log page → no new tabs should appear
-4. Verify other sidebar items still work correctly
-
+## Expected outcome
+Dina will be able to open the **Guests** page successfully, while access control remains enforced for users without front desk permission.
