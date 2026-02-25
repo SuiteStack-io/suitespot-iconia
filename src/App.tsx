@@ -167,7 +167,7 @@ const App = () => (
         <Route path="/channex-debug" element={<ProtectedRoute><ChannexDebug /></ProtectedRoute>} />
         <Route path="/shuffle-history" element={<ProtectedRoute><ShuffleHistory /></ProtectedRoute>} />
         <Route path="/front-desk/room-rates" element={<ProtectedRoute><FrontDeskRoomRates /></ProtectedRoute>} />
-        <Route path="/message-log" element={<ProtectedRoute><AdminRoute><MessageLog /></AdminRoute></ProtectedRoute>} />
+        <Route path="/message-log" element={<ProtectedRoute><MessageLog /></ProtectedRoute>} />
               
               {/* ADD ALL CUSTOM ROUTES ABOVE THE CATCH-ALL "*" ROUTE */}
               <Route path="*" element={<NotFound />} />
