@@ -1,5 +1,6 @@
 import { useEffect, useState } from 'react';
 import { supabase } from '@/integrations/supabase/client';
+import { usePropertyId, withPropertyFilter } from '@/hooks/usePropertyFilter';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { ChevronLeft, ChevronRight } from 'lucide-react';
@@ -34,6 +35,7 @@ interface BlockedDate {
 
 export const WeeklyCalendar = () => {
   const isMobile = useIsMobile();
+  const propertyId = usePropertyId();
   const [currentWeekStart, setCurrentWeekStart] = useState(() => startOfDay(new Date()));
   const [units, setUnits] = useState<Unit[]>([]);
   const [reservations, setReservations] = useState<Reservation[]>([]);
@@ -53,13 +55,13 @@ export const WeeklyCalendar = () => {
     return () => {
       supabase.removeChannel(channel);
     };
-  }, []);
+  }, [propertyId]);
 
   const fetchUnits = async () => {
-    const { data, error } = await supabase
+    const { data, error } = await withPropertyFilter(supabase
       .from('units')
       .select('id, unit_number, name, booking_com_name, unit_type')
-      .order('unit_number');
+      .order('unit_number'), propertyId);
     
     if (error) {
       console.error('Error fetching units:', error);
@@ -69,11 +71,11 @@ export const WeeklyCalendar = () => {
   };
 
   const fetchReservations = async () => {
-      const { data, error } = await supabase
+      const { data, error } = await withPropertyFilter(supabase
         .from('reservations')
         .select('id, unit_id, check_in_date, check_out_date, status, source, guest_names, booking_reference')
         .in('status', ['confirmed', 'checked-in', 'checked-out'])
-        .is('cancelled_at', null);
+        .is('cancelled_at', null), propertyId);
     
     if (error) {
       console.error('Error fetching reservations:', error);

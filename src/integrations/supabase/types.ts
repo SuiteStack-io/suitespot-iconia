@@ -1551,7 +1551,7 @@ export type Database = {
             foreignKeyName: "rate_plans_property_id_fkey"
             columns: ["property_id"]
             isOneToOne: false
-            referencedRelation: "channex_mappings"
+            referencedRelation: "properties"
             referencedColumns: ["id"]
           },
         ]

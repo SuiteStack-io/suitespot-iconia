@@ -93,12 +93,11 @@ export default function RoomTypes() {
   const { data: roomTypes, isLoading } = useQuery({
     queryKey: ['room-types'],
     queryFn: async () => {
-      const { data, error } = await supabase
+      const { data, error } = await withPropertyFilter(supabase
         .from('units')
         .select('id, name, booking_com_name, max_guests, max_children, max_infants, default_occupancy, room_kind')
-        .eq('location', 'ICONIA')
         .or('is_private.eq.false,is_private.is.null')
-        .order('name');
+        .order('name'), propertyId);
 
       if (error) throw error;
       return data as RoomTypeData[];

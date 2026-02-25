@@ -103,7 +103,7 @@ export function PropertySettings() {
     try {
       const [configRes, unitsRes, mappingsRes, logsRes, bookingsRes] = await Promise.all([
         supabase.from('channex_property_config').select('*').limit(1).maybeSingle(),
-        supabase.from('units').select('id, name, booking_com_name, unit_number, max_guests, max_children, max_infants').eq('location', 'ICONIA').or('is_private.eq.false,is_private.is.null').order('unit_number'),
+        supabase.from('units').select('id, name, booking_com_name, unit_number, max_guests, max_children, max_infants').or('is_private.eq.false,is_private.is.null').order('unit_number'),
         supabase.from('channex_mappings').select('*').order('entity_type'),
         supabase.from('channex_sync_logs').select('id', { count: 'exact', head: true }),
         supabase.from('channex_bookings').select('id', { count: 'exact', head: true }),

@@ -51,7 +51,7 @@ export function PropertySync({ onSwitchToSettings }: PropertySyncProps) {
       const [configRes, mappingsRes, unitsRes] = await Promise.all([
         supabase.from('channex_property_config').select('id, property_name, channex_property_id').limit(1).maybeSingle(),
         supabase.from('channex_mappings').select('*'),
-        supabase.from('units').select('id, name, booking_com_name').eq('location', 'ICONIA').or('is_private.eq.false,is_private.is.null'),
+        supabase.from('units').select('id, name, booking_com_name').or('is_private.eq.false,is_private.is.null'),
       ]);
 
       setConfig(configRes.data as PropertyConfig | null);

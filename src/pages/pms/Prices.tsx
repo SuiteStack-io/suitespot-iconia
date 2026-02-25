@@ -8,6 +8,7 @@ import { Badge } from '@/components/ui/badge';
 import { Card, CardContent, CardHeader } from '@/components/ui/card';
 import { supabase } from '@/integrations/supabase/client';
 import { toast } from 'sonner';
+import { usePropertyId, withPropertyFilter } from '@/hooks/usePropertyFilter';
 import { RatePlanDialog } from '@/components/pms/RatePlanDialog';
 import { BulkRatePlanDialog } from '@/components/pms/BulkRatePlanDialog';
 import { getCancellationPolicyLabel } from '@/components/pms/CancellationPolicyDialog';
@@ -86,9 +87,9 @@ const PMSPrices = () => {
     setLoading(true);
     try {
       const [plansRes, pricesRes, unitsRes, markupsRes, derivedRes] = await Promise.all([
-        supabase.from('rate_plans').select('*').eq('is_active', true).order('room_type').order('priority', { ascending: false }),
+        withPropertyFilter(supabase.from('rate_plans').select('*').eq('is_active', true).order('room_type').order('priority', { ascending: false }), propertyId),
         supabase.from('rate_plan_prices').select('*'),
-        supabase.from('units').select('id, unit_number, booking_com_name').eq('location', 'ICONIA').not('booking_com_name', 'is', null),
+        withPropertyFilter(supabase.from('units').select('id, unit_number, booking_com_name').not('booking_com_name', 'is', null), propertyId),
         supabase.from('channel_markup_settings').select('id, channel_name, markup_percentage').eq('is_active', true),
         supabase.from('derived_rate_plan_mappings').select('id, base_rate_plan_id, channel_markup_id, channel_name, markup_percentage, channex_derived_rate_plan_id'),
       ]);
