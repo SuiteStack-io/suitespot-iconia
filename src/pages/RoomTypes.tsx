@@ -1,4 +1,5 @@
 import { useState, useEffect, useMemo } from 'react';
+import { usePropertyId, withPropertyFilter } from '@/hooks/usePropertyFilter';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/lib/auth';
@@ -83,6 +84,7 @@ const groupRoomsByType = (rooms: RoomTypeData[]): GroupedRoomType[] => {
 
 export default function RoomTypes() {
   const { userRole } = useAuth();
+  const propertyId = usePropertyId();
   const { toast } = useToast();
   const queryClient = useQueryClient();
 
