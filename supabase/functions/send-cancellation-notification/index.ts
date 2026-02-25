@@ -275,7 +275,7 @@ const handler = async (req: Request): Promise<Response> => {
       <!-- Footer -->
       <div style="background-color: #f9fafb; padding: 20px; text-align: center; border-top: 1px solid #e5e7eb;">
         <p style="margin: 0; color: #9ca3af; font-size: 12px;">
-          SuiteSpot • ICONIA Zamalek
+          SuiteSpot • ICONIA Zamalek - Boutique Stay & Wellness Residences
         </p>
       </div>
 

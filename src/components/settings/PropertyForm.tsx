@@ -128,7 +128,7 @@ export function PropertyForm({ property, open, onClose, onSaved }: PropertyFormP
               <div className="grid gap-3">
                 <div>
                   <Label>Property Name *</Label>
-                  <Input value={form.name} onChange={e => update('name', e.target.value)} placeholder="e.g., ICONIA Zamalek" />
+                  <Input value={form.name} onChange={e => update('name', e.target.value)} placeholder="e.g., ICONIA Zamalek - Boutique Stay & Wellness Residences" />
                 </div>
                 <div>
                   <Label>Legal/Business Name</Label>
