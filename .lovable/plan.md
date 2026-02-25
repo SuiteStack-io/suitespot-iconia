@@ -1,34 +1,30 @@
 
 
-## Update Ahmed Magdy's Property Role
+## Analysis
 
-### Current State
-- **Ahmed Magdy** (`7737ccd3-...`) has `owner` role in `user_property_access` (record ID: `e298ce92-160e-436b-94de-5dec86e4dc86`)
-- **Youssef Noureldin** (`d540b87e-...`) has no `user_property_access` record yet
+The database already stores the full name **"ICONIA Zamalek - Boutique Stay & Wellness Residences"** in both the `properties` table and `channex_property_config` table. The inconsistency is purely in frontend code.
 
-### Changes Required
+However, many of the "ICONIA Zamalek" references in the frontend are **public-facing branding** (navigation links, hero headings, page titles, footers) where the short form is intentional for readability. These should NOT be changed — "ICONIA Zamalek" is the brand name shown to guests; the longer name is the operational/system name.
 
-Two data operations (no schema changes):
+The places that should use the full name are **admin/system contexts** where the property name should match the database record:
 
-1. **Update Ahmed's role** from `owner` to `admin` in the `user_property_access` table
-2. **Insert Youssef as owner** in `user_property_access` for the ICONIA Zamalek property (`c98a2256-1787-47a4-bf0f-61942b4e87d5`)
-3. **Set Youssef as system admin** (`is_system_admin = true` in `profiles`) and remove Ahmed's system admin flag
+### Changes
 
-### SQL Statements
-```sql
--- 1. Downgrade Ahmed from owner to admin
-UPDATE user_property_access SET role = 'admin' WHERE id = 'e298ce92-160e-436b-94de-5dec86e4dc86';
+1. **`src/components/settings/PropertyForm.tsx`** — Update placeholder from `"e.g., ICONIA Zamalek"` to `"e.g., ICONIA Zamalek - Boutique Stay & Wellness Residences"`
 
--- 2. Add Youssef as owner
-INSERT INTO user_property_access (user_id, property_id, role, granted_by)
-VALUES ('d540b87e-f856-4ef1-9193-2fb077366ef9', 'c98a2256-1787-47a4-bf0f-61942b4e87d5', 'owner', 'd540b87e-f856-4ef1-9193-2fb077366ef9');
+2. **`supabase/functions/send-reservation-notification/index.ts`** — Replace all 6 occurrences of `"ICONIA Zamalek"` with `"ICONIA Zamalek - Boutique Stay & Wellness Residences"` in email templates (subject line, body text, footer)
 
--- 3. Make Youssef system admin
-UPDATE profiles SET is_system_admin = true WHERE id = 'd540b87e-f856-4ef1-9193-2fb077366ef9';
+3. **`supabase/functions/send-cancellation-notification/index.ts`** — Replace `"ICONIA Zamalek"` with `"ICONIA Zamalek - Boutique Stay & Wellness Residences"` in cancellation email footer
 
--- 4. Remove Ahmed's system admin flag
-UPDATE profiles SET is_system_admin = false WHERE id = '7737ccd3-87e3-4b61-bfe5-b2d05bd0304c';
-```
+### Not Changed (Intentional)
 
-No frontend code changes needed.
+The following use the short brand name for public-facing UI and should remain as-is:
+- `PublicNav.tsx` — Navigation menu links
+- `PublicFooter.tsx` — Footer links  
+- `PublicHome.tsx` — Hero heading and buttons
+- `About.tsx` — Property card titles and footer links
+- `BookingFlow.tsx` — Booking page heading
+- `IconiaZamalek.tsx` — Property page
+- `LocationsManagement.tsx` — Already uses the full name via `LOCATION_DISPLAY_NAMES` mapping
+- `channex/PropertySettings.tsx` — Already uses the full name as placeholder
 
