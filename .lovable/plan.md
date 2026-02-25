@@ -1,54 +1,57 @@
 
+## Objective
+Fix the redirect bug that still prevents Dina (front_desk + `can_access_front_desk`) from accessing the **Guests** page.
 
-## Bug: Race Condition in Permission Loading
+## What I found
+I reviewed the current `Guests` page guards and found **two competing redirects**:
 
-### Root Cause
+1. Correct front-desk permission guard:
+- Allows admins, and allows non-admin users only when `hasPermission('can_access_front_desk')` is true.
+- Redirects unauthorized users to `/admin`.
 
-There is a timing bug in `src/lib/auth.tsx`. On line 80, `setLoading(false)` is called **before** `fetchUserRole` and `fetchUserPermissions` finish (they are async and not awaited). This creates a race condition:
+2. Legacy admin-only guard (still present):
+- If user is not admin, it unconditionally redirects to `/`.
+- This overrides Dina’s valid front-desk permission and causes the exact behavior reported: she lands on homepage.
 
-1. `authLoading` becomes `false`
-2. `userRole` resolves to `'front_desk'` (fast query, single column)
-3. `permissions` are **still defaults** (all `false`) because `fetchUserPermissions` hasn't completed yet
-4. The guard in `Guests.tsx` evaluates: `!authLoading && userRole === 'front_desk' && !hasPermission('can_access_front_desk')` → **true** (because permissions are still defaults)
-5. User gets redirected to `/admin` before permissions finish loading
+So the root cause is **not** the recent auth loading fix; it is an old leftover guard in `src/pages/Guests.tsx`.
 
-This affects all three guarded pages (Guests, GuestForms, RoomRates).
+## Implementation plan
+1. **Remove the legacy admin-only redirect effect** from `src/pages/Guests.tsx`:
+   - Delete:
+   ```ts
+   useEffect(() => {
+     if (!authLoading && userRole !== "admin") {
+       navigate("/");
+     }
+   }, [userRole, authLoading, navigate]);
+   ```
 
-### Fix
+2. **Keep the granular front-desk guard only**:
+   - This is the correct access model already aligned with your permission system:
+   ```ts
+   if (!authLoading && userRole && userRole !== 'admin' && !hasPermission('can_access_front_desk')) {
+     navigate('/admin');
+   }
+   ```
 
-**File: `src/lib/auth.tsx`** — Await both `fetchUserRole` and `fetchUserPermissions` before setting `loading` to `false`:
+3. **No backend/database changes**:
+   - Roles remain in `user_roles`.
+   - Permission remains in `user_permissions`.
+   - No RLS/policy migration required for this specific bug.
 
-```typescript
-// Change lines 73-80 from:
-supabase.auth.getSession().then(({ data: { session } }) => {
-  setSession(session);
-  setUser(session?.user ?? null);
-  if (session?.user) {
-    fetchUserRole(session.user.id);
-    fetchUserPermissions(session.user.id);
-  }
-  setLoading(false);
-});
+## Validation plan (end-to-end)
+I will verify with the following checks:
+1. Log in as Dina.
+2. Open `/guests` from the sidebar and direct URL.
+3. Confirm page loads (no redirect to `/`).
+4. Confirm unauthorized role without `can_access_front_desk` is redirected to `/admin`.
+5. Confirm admin still accesses `/guests` normally.
 
-// To:
-supabase.auth.getSession().then(async ({ data: { session } }) => {
-  setSession(session);
-  setUser(session?.user ?? null);
-  if (session?.user) {
-    await Promise.all([
-      fetchUserRole(session.user.id),
-      fetchUserPermissions(session.user.id),
-    ]);
-  }
-  setLoading(false);
-});
-```
+## Technical details (for developers)
+- **File to edit:** `src/pages/Guests.tsx`
+- **Change type:** client-side route guard cleanup
+- **Risk level:** low (single redundant effect removal)
+- **Why this is safe:** existing permission-based guard already enforces intended access; removing duplicate contradictory logic restores expected behavior.
 
-This ensures `loading` stays `true` until both the role and permissions are fully loaded, preventing the premature redirect.
-
-### Files Changed
-
-| File | Change |
-|------|--------|
-| `src/lib/auth.tsx` | Await role + permissions fetch before setting loading=false |
-
+## Expected outcome
+Dina will be able to open the **Guests** page successfully, while access control remains enforced for users without front desk permission.
