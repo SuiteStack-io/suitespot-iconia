@@ -42,6 +42,7 @@ import {
   Radio,
   ArrowLeftRight,
   Tag,
+  MessageSquare,
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { useAuth } from '@/lib/auth';
@@ -106,6 +107,13 @@ export function SlideMenu({ userRole }: SlideMenuProps) {
         { title: 'Guest Forms', url: '/guest-forms', icon: FileSignature },
       ],
       showFor: userRole === 'admin' || hasPermission('can_access_front_desk') ? undefined : [],
+    },
+    {
+      label: 'CUSTOMER EXCELLENCE',
+      items: [
+        { title: 'Message Log', url: '/message-log', icon: MessageSquare },
+      ],
+      showFor: ['admin'],
     },
     {
       label: 'PMS',

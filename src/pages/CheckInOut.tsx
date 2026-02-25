@@ -198,6 +198,14 @@ const CheckInOut = () => {
       } catch (notifError) {
         console.error('Failed to send check-in notification:', notifError);
       }
+      // Send WhatsApp welcome message
+      try {
+        await supabase.functions.invoke('send-whatsapp', {
+          body: { booking_id: reservationId, message_type: 'welcome' }
+        });
+      } catch (waError) {
+        console.error('Failed to send WhatsApp welcome:', waError);
+      }
 
       toast({
         title: 'Success',
@@ -240,6 +248,14 @@ const CheckInOut = () => {
       } catch (notifError) {
         console.error('Failed to send check-out notification:', notifError);
       }
+      // Send WhatsApp checkout message
+      try {
+        await supabase.functions.invoke('send-whatsapp', {
+          body: { booking_id: reservationId, message_type: 'checkout' }
+        });
+      } catch (waError) {
+        console.error('Failed to send WhatsApp checkout:', waError);
+      }
 
       toast({
         title: 'Success',
@@ -281,6 +297,15 @@ const CheckInOut = () => {
           body: { reservationId }
         }).catch(err => console.error('Failed to send check-in notification:', err))
       );
+      await Promise.all(notificationPromises);
+
+      // Send WhatsApp welcome for all
+      const waPromises = Array.from(selectedArrivals).map(reservationId =>
+        supabase.functions.invoke('send-whatsapp', {
+          body: { booking_id: reservationId, message_type: 'welcome' }
+        }).catch(err => console.error('Failed to send WhatsApp welcome:', err))
+      );
+      await Promise.all(waPromises);
       
       await Promise.all(notificationPromises);
 
@@ -324,6 +349,15 @@ const CheckInOut = () => {
           body: { reservationId, userId: user?.id, checkedOutAt: checkoutTimestamp }
         }).catch(err => console.error('Failed to send check-out notification:', err))
       );
+      await Promise.all(notificationPromises);
+
+      // Send WhatsApp checkout for all
+      const waPromises = Array.from(selectedDepartures).map(reservationId =>
+        supabase.functions.invoke('send-whatsapp', {
+          body: { booking_id: reservationId, message_type: 'checkout' }
+        }).catch(err => console.error('Failed to send WhatsApp checkout:', err))
+      );
+      await Promise.all(waPromises);
       
       await Promise.all(notificationPromises);
 
