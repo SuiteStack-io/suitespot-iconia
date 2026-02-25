@@ -2,6 +2,7 @@ import { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useAuth } from '@/lib/auth';
 import { supabase } from '@/integrations/supabase/client';
+import { usePropertyId, withPropertyFilter } from '@/hooks/usePropertyFilter';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
@@ -78,6 +79,7 @@ const calculateWeekendRate = (weekdayRate: number | null): number | null => {
 
 const Rooms = () => {
   const { user, loading, userRole } = useAuth();
+  const propertyId = usePropertyId();
   const navigate = useNavigate();
   const { toast } = useToast();
   const [units, setUnits] = useState<Unit[]>([]);
@@ -201,11 +203,10 @@ const Rooms = () => {
   }, [user]);
 
   const fetchUnits = async () => {
-    const { data, error } = await supabase
+    const { data, error } = await withPropertyFilter(supabase
       .from('units')
       .select('*')
-      .eq('location', 'ICONIA')
-      .order('name');
+      .order('name'), propertyId);
 
     if (error) {
       toast({
@@ -221,11 +222,11 @@ const Rooms = () => {
 
   const fetchReservations = async () => {
     const today = new Date().toISOString().split('T')[0];
-    const { data, error } = await supabase
+    const { data, error } = await withPropertyFilter(supabase
       .from('reservations')
       .select('id, unit_id, check_in_date, check_out_date, status')
       .gte('check_in_date', today)
-      .order('check_in_date');
+      .order('check_in_date'), propertyId);
 
     if (error) {
       console.error('Failed to fetch reservations:', error);

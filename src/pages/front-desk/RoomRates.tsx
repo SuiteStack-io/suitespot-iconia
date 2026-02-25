@@ -41,7 +41,6 @@ export default function FrontDeskRoomRates() {
         supabase
           .from('units')
           .select('booking_com_name, unit_size, max_guests, features, photos')
-          .eq('location', 'ICONIA')
           .not('booking_com_name', 'is', null),
         supabase
           .from('rate_plans')

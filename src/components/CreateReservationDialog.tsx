@@ -474,11 +474,10 @@ export function CreateReservationDialog() {
   }, [checkInDate, checkOutDate, allUnits]);
 
   const fetchUnits = async () => {
-    const { data, error } = await supabase
+    const { data, error } = await withPropertyFilter(supabase
       .from("units")
       .select("id, name, unit_number, unit_type, booking_com_name, price_per_night, weekend_rate, tax_percentage, location, default_occupancy, max_guests")
-      .eq("location", "ICONIA")
-      .order("name");
+      .order("name"), propertyId);
 
     if (error) {
       console.error("Error fetching units:", error);

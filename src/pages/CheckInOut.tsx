@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { supabase } from '@/integrations/supabase/client';
+import { usePropertyId, withPropertyFilter } from '@/hooks/usePropertyFilter';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
@@ -30,6 +31,7 @@ interface Reservation {
 }
 
 const CheckInOut = () => {
+  const propertyId = usePropertyId();
   const navigate = useNavigate();
   const { toast } = useToast();
   const { user, loading, userRole, hasPermission } = useAuth();

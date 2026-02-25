@@ -1,6 +1,7 @@
 import { useState, useEffect } from 'react';
 import { format, addDays, isSameDay, startOfDay, startOfMonth, endOfMonth, eachDayOfInterval, startOfWeek, endOfWeek, isSameMonth, addMonths, isLastDayOfMonth, isFirstDayOfMonth, isBefore } from 'date-fns';
 import { supabase } from '@/integrations/supabase/client';
+import { usePropertyId, withPropertyFilter } from '@/hooks/usePropertyFilter';
 import { Button } from '@/components/ui/button';
 import { CheckCircle } from 'lucide-react';
 import { ChevronLeft, ChevronRight, AlertTriangle, Building2, Hash, ArrowRight, ArrowLeft, Shuffle } from 'lucide-react';
@@ -58,6 +59,7 @@ interface DayData {
 export const RoomCalendar = () => {
   const isMobile = useIsMobile();
   const navigate = useNavigate();
+  const propertyId = usePropertyId();
   const [currentWeekStart, setCurrentWeekStart] = useState(() => startOfDay(new Date()));
   const [currentMonth, setCurrentMonth] = useState(startOfMonth(new Date()));
   const [selectedLocation, setSelectedLocation] = useState<'ICONIA' | 'Almaza Bay'>('ICONIA');
@@ -97,7 +99,7 @@ export const RoomCalendar = () => {
     return () => {
       supabase.removeChannel(channel);
     };
-  }, [selectedLocation, sortByRoomType]);
+  }, [selectedLocation, sortByRoomType, propertyId]);
 
   useEffect(() => {
     localStorage.setItem('calendarSortByRoomType', String(sortByRoomType));
@@ -105,11 +107,10 @@ export const RoomCalendar = () => {
 
   const fetchUnitCounts = async () => {
     // Fetch ICONIA count
-    const { count: iconiaTotal } = await supabase
+    const { count: iconiaTotal } = await withPropertyFilter(supabase
       .from('units')
       .select('*', { count: 'exact', head: true })
-      .eq('location', 'ICONIA')
-      .eq('status', 'available');
+      .eq('status', 'available'), propertyId);
     
     // Fetch Almaza Bay count
     const { count: almazaTotal } = await supabase
@@ -123,11 +124,11 @@ export const RoomCalendar = () => {
   };
 
   const fetchUnits = async () => {
-    const { data, error } = await supabase
+    const { data, error } = await withPropertyFilter(supabase
       .from('units')
       .select('id, unit_number, name, unit_type, booking_com_name')
       .eq('location', selectedLocation)
-      .eq('status', 'available');
+      .eq('status', 'available'), propertyId);
     
     if (error) {
       console.error('Error fetching units:', error);
@@ -150,11 +151,11 @@ export const RoomCalendar = () => {
   };
 
   const fetchReservations = async () => {
-    const { data, error } = await supabase
+    const { data, error } = await withPropertyFilter(supabase
       .from('reservations')
       .select('*')
       .in('status', ['confirmed', 'checked-in', 'checked-out', 'completed'])
-      .is('cancelled_at', null);
+      .is('cancelled_at', null), propertyId);
     
     if (error) {
       console.error('Error fetching reservations:', error);

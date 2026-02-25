@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { supabase } from '@/integrations/supabase/client';
+import { usePropertyId, withPropertyFilter } from '@/hooks/usePropertyFilter';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
@@ -71,6 +72,7 @@ interface OccupiedRoom {
 const Housekeeping = () => {
   const navigate = useNavigate();
   const { toast } = useToast();
+  const propertyId = usePropertyId();
   const { user, loading, userRole } = useAuth();
   const [rooms, setRooms] = useState<CleaningRoom[]>([]);
   const [selectedRooms, setSelectedRooms] = useState<Set<string>>(new Set());
@@ -135,12 +137,12 @@ const Housekeeping = () => {
     const yesterday = format(new Date(Date.now() - 86400000), 'yyyy-MM-dd');
 
     // Fetch rooms that were checked out today or yesterday
-    const { data } = await supabase
+    const { data } = await withPropertyFilter(supabase
       .from('reservations')
       .select('id, check_out_date, guest_names, units!unit_id(id, name, unit_number, estimated_cleaning_minutes)')
       .eq('status', 'checked-out')
       .gte('check_out_date', yesterday)
-      .order('check_out_date', { ascending: false });
+      .order('check_out_date', { ascending: false }), propertyId);
 
     if (data) {
       const cleaningRooms: CleaningRoom[] = data
@@ -194,7 +196,7 @@ const Housekeeping = () => {
     const today = format(new Date(), 'yyyy-MM-dd');
     
     // Fetch checked-in reservations
-    const { data } = await supabase
+    const { data } = await withPropertyFilter(supabase
       .from('reservations')
       .select(`
         id,
@@ -206,7 +208,7 @@ const Housekeeping = () => {
         units(id, name, unit_number, estimated_cleaning_minutes)
       `)
       .eq('status', 'checked-in')
-      .order('check_in_date', { ascending: true });
+      .order('check_in_date', { ascending: true }), propertyId);
 
     if (data) {
       // For each reservation, get the most recent cleaning log

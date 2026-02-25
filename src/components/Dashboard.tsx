@@ -1,6 +1,7 @@
 import { useEffect, useState, useRef, useCallback } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { supabase } from '@/integrations/supabase/client';
+import { usePropertyId, withPropertyFilter } from '@/hooks/usePropertyFilter';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Calendar, LogIn, LogOut, TrendingUp, DollarSign, CheckCircle, Undo2, XCircle, FileSignature, ArrowRightLeft, Clock } from 'lucide-react';
 import { CheckInDialog } from './CheckInDialog';
@@ -97,6 +98,7 @@ const statusColors = {
 export const Dashboard = () => {
   const navigate = useNavigate();
   const { toast } = useToast();
+  const propertyId = usePropertyId();
   const [stats, setStats] = useState<DashboardStats>({
     todayArrivals: 0,
     arrivalsCheckedIn: 0,
@@ -187,28 +189,29 @@ export const Dashboard = () => {
       supabase.removeChannel(reservationsChannel);
       supabase.removeChannel(unitsChannel);
     };
-  }, []);
+  }, [propertyId]);
 
   const fetchStats = async () => {
+    if (!propertyId) return;
     const today = format(new Date(), 'yyyy-MM-dd');
     const yesterday = format(new Date(Date.now() - 86400000), 'yyyy-MM-dd');
     const sevenDaysAgo = format(new Date(Date.now() - 7 * 86400000), 'yyyy-MM-dd');
 
     // Today's arrivals (with group_id and status for split-stay filtering)
-    const { data: allArrivals } = await supabase
+    const { data: allArrivals } = await withPropertyFilter(supabase
       .from('reservations')
       .select('id, group_id, status')
       .eq('check_in_date', today)
       .neq('status', 'cancelled')
-      .is('cancelled_at', null);
+      .is('cancelled_at', null), propertyId);
 
     // Reservations ending today (for identifying transfers)
-    const { data: endingToday } = await supabase
+    const { data: endingToday } = await withPropertyFilter(supabase
       .from('reservations')
       .select('id, group_id, unit_id')
       .eq('check_out_date', today)
       .neq('status', 'cancelled')
-      .is('cancelled_at', null);
+      .is('cancelled_at', null), propertyId);
 
     // Filter arrivals: exclude if another reservation in same group ends today (transfer-in)
     const filteredArrivals = (allArrivals || []).filter(arrival => {
@@ -225,20 +228,20 @@ export const Dashboard = () => {
     ).length;
 
     // Today's departures (with group_id and status for split-stay filtering)
-    const { data: allDepartures } = await supabase
+    const { data: allDepartures } = await withPropertyFilter(supabase
       .from('reservations')
       .select('id, group_id, status')
       .eq('check_out_date', today)
       .neq('status', 'cancelled')
-      .is('cancelled_at', null);
+      .is('cancelled_at', null), propertyId);
 
     // Reservations starting today (for identifying transfers)
-    const { data: startingToday } = await supabase
+    const { data: startingToday } = await withPropertyFilter(supabase
       .from('reservations')
       .select('id, group_id, unit_id')
       .eq('check_in_date', today)
       .neq('status', 'cancelled')
-      .is('cancelled_at', null);
+      .is('cancelled_at', null), propertyId);
 
     // Filter departures: exclude if another reservation in same group starts today (transfer-out)
     const filteredDepartures = (allDepartures || []).filter(departure => {
@@ -255,19 +258,19 @@ export const Dashboard = () => {
     ).length;
 
     // In-house: only guests who have officially checked in (status = 'checked-in')
-    const { data: inHouse } = await supabase
+    const { data: inHouse } = await withPropertyFilter(supabase
       .from('reservations')
       .select('id', { count: 'exact' })
       .eq('status', 'checked-in')
       .gte('check_out_date', today)
-      .is('cancelled_at', null);
+      .is('cancelled_at', null), propertyId);
 
     // New bookings in last 24h
-    const { data: newBookings } = await supabase
+    const { data: newBookings } = await withPropertyFilter(supabase
       .from('reservations')
       .select('id, channel')
       .gte('created_at', yesterday)
-      .is('cancelled_at', null);
+      .is('cancelled_at', null), propertyId);
 
     // Calculate booking source breakdown
     const newBookingsBookingCom = (newBookings || []).filter(
@@ -276,18 +279,18 @@ export const Dashboard = () => {
     const newBookingsDirect = (newBookings?.length || 0) - newBookingsBookingCom;
 
     // Recent cancellations (last 24h)
-    const { data: cancellations } = await supabase
+    const { data: cancellations } = await withPropertyFilter(supabase
       .from('reservations')
       .select('id', { count: 'exact' })
       .eq('status', 'cancelled')
-      .gte('cancelled_at', yesterday);
+      .gte('cancelled_at', yesterday), propertyId);
 
     // Revenue calculations
-    const { data: revenueData } = await supabase
+    const { data: revenueData } = await withPropertyFilter(supabase
       .from('reservations')
       .select('total_price, net_revenue, commission_amount')
       .neq('status', 'cancelled')
-      .is('cancelled_at', null);
+      .is('cancelled_at', null), propertyId);
 
     const totalRevenue = revenueData?.reduce((sum, r) => sum + (r.total_price || 0), 0) || 0;
     const netRevenue = revenueData?.reduce((sum, r) => sum + ((r.total_price || 0) - (r.commission_amount || 0)), 0) || 0;

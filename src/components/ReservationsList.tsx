@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'react';
 import { CreateReservationDialog } from '@/components/CreateReservationDialog';
 import { supabase } from '@/integrations/supabase/client';
+import { usePropertyId, withPropertyFilter } from '@/hooks/usePropertyFilter';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -125,6 +126,7 @@ interface ReservationsListProps {
 }
 
 export const ReservationsList = ({ userRole }: ReservationsListProps) => {
+  const propertyId = usePropertyId();
   const [reservations, setReservations] = useState<Reservation[]>([]);
   const [filteredReservations, setFilteredReservations] = useState<GroupedReservation[]>([]);
   const [searchQuery, setSearchQuery] = useState('');
@@ -211,10 +213,10 @@ export const ReservationsList = ({ userRole }: ReservationsListProps) => {
   }, [reservations]);
 
   const fetchReservations = async () => {
-    const { data, error } = await supabase
+    const { data, error } = await withPropertyFilter(supabase
       .from('reservations')
       .select('*, units!unit_id(name, unit_number, booking_com_name)')
-      .order('check_in_date', { ascending: false });
+      .order('check_in_date', { ascending: false }), propertyId);
 
     if (!error && data) {
       setReservations(data as unknown as Reservation[]);
@@ -235,10 +237,10 @@ export const ReservationsList = ({ userRole }: ReservationsListProps) => {
   };
 
   const fetchUnits = async () => {
-    const { data, error } = await supabase
+    const { data, error } = await withPropertyFilter(supabase
       .from('units')
       .select('id, name, unit_number')
-      .order('unit_number');
+      .order('unit_number'), propertyId);
 
     if (!error && data) {
       setUnits(data);
