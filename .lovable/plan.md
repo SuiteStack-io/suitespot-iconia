@@ -1,69 +1,90 @@
 
 
-## Phase 2 Implementation Plan: Wire All Frontend Queries to Active Property Context
+## Plan: Wire Property Filtering Into All Remaining Files
 
-### Current State
-- Database migration is complete: `property_id` columns exist on `units`, `reservations`, and `rate_plans` with indexes, backfill, and auto-assign triggers
-- `usePropertyFilter` hook exists with `usePropertyId()` and `withPropertyFilter()` helpers
-- 12 files already updated: `Dashboard.tsx`, `Rooms.tsx`, `ReservationsList.tsx`, `RoomCalendar.tsx`, `WeeklyCalendar.tsx`, `Housekeeping.tsx`, `CheckInOut.tsx`, `CreateReservationDialog.tsx`, `RoomTypes.tsx`, `pms/Prices.tsx`, `pms/Restrictions.tsx`, `front-desk/RoomRates.tsx`, `channex/PropertySync.tsx`, `channex/PropertySettings.tsx`
-- Build is currently clean (no errors)
+### Summary
+15 files have the `usePropertyFilter` imports but are not actually using them in their queries. Each file needs `const propertyId = usePropertyId()` declared in the component body and `withPropertyFilter(...)` wrapping the relevant `supabase.from('units')` / `supabase.from('reservations')` queries. One file (ReservationDetail.tsx) is missing the import entirely.
 
-### Remaining Files to Update
+### Files and Changes
 
-Each file gets the same treatment:
-1. Add `import { usePropertyId, withPropertyFilter } from '@/hooks/usePropertyFilter';`
-2. Add `const propertyId = usePropertyId();` inside the component
-3. Wrap relevant `supabase.from('units')`, `supabase.from('reservations')`, and `supabase.from('rate_plans')` queries with `withPropertyFilter(..., propertyId)`
-4. Replace any `.eq('location', 'ICONIA')` with the property filter
-5. Add `propertyId` to dependency arrays where needed
+#### 1. `src/pages/CashSettlement.tsx`
+- Add `const propertyId = usePropertyId();` in the component
+- Wrap the reservations query (line 73) with `withPropertyFilter(..., propertyId)`
+- Add `propertyId` to `queryKey`
 
-#### Batch 1: Analytics (1 file, ~10 query sites)
-**`src/pages/Analytics.tsx`** -- The largest single file. Has 4 `.eq('location', 'ICONIA')` on unit queries (lines 302, 424, 631, 670) plus ~8 reservation queries that need wrapping. All inside `fetchAllStats`, `fetchOccupancyDetails`, `fetchBookingsDetails`, `fetchGuestsDetails`, `fetchSourcesDetails`, `fetchTotalRevenueDetails`, `fetchNetRevenueDetails`, `fetchCommissionDetails`, `fetchDirectSourceDetails`. Add `propertyId` to the useEffect dependency for `fetchAllStats`.
+#### 2. `src/pages/Commissions.tsx`
+- Add `const propertyId = usePropertyId();` in the component
+- Wrap the reservations query (line 77) with `withPropertyFilter(..., propertyId)`
+- Add `propertyId` to the `useEffect` dependency array
 
-#### Batch 2: AvailabilityCalendar (1 file, ~3 query sites)
-**`src/components/AvailabilityCalendar.tsx`** -- Has `.eq('location', 'ICONIA')` at line 380, plus `.eq('location', selectedLocation)` at line 435. The location switcher between ICONIA/Almaza Bay needs to be replaced with property context. The `fetchUnitCounts` function fetches both ICONIA and Almaza Bay counts -- this will be simplified to use the active property only.
+#### 3. `src/pages/GuestTickets.tsx`
+- Add `const propertyId = usePropertyId();` in the component
+- The `guest_tickets` table doesn't have `property_id`, but tickets join to `reservations` which does. Since tickets are fetched via join, we can't directly filter. Instead, we'll do client-side filtering using the reservation's property context, or leave as-is since tickets are cross-property by nature.
+- **Decision**: Skip direct filtering on `guest_tickets` since it doesn't have a `property_id` column. The ticket is linked to a reservation, but PostgREST doesn't support filtering on joined table columns in `.eq()`. We'll leave this file as-is (imports already present for future use).
 
-#### Batch 3: Operations Pages (3 files)
-- **`src/pages/CashSettlement.tsx`** -- 1 reservation query (line 72-83). Wrap with property filter, add `propertyId` to queryKey.
-- **`src/pages/Commissions.tsx`** -- 1 reservation query (line 76-83). Wrap with property filter.
-- **`src/pages/GuestTickets.tsx`** -- 1 ticket query with reservation join (line 56-76). Wrap with property filter on the reservation join or add direct filter.
+#### 4. `src/pages/GuestAccounts.tsx`
+- Add `const propertyId = usePropertyId();` in the component
+- Wrap the reservations query (line 110) with `withPropertyFilter(..., propertyId)`
 
-#### Batch 4: Guest Management (3 files)
-- **`src/pages/GuestAccounts.tsx`** -- 1 reservation query (line 109-114). Wrap with property filter.
-- **`src/pages/GuestForms.tsx`** -- 1 reservation query (line 135-150). Wrap with property filter.
-- **`src/pages/Guests.tsx`** -- 1 reservation query (line 149-155). Wrap with property filter.
+#### 5. `src/pages/GuestForms.tsx`
+- Add `const propertyId = usePropertyId();` in the component
+- Wrap the reservations query (line 136) with `withPropertyFilter(..., propertyId)`
+- Add `propertyId` to the `useEffect` dependency
 
-#### Batch 5: Booking & Reservation Pages (3 files)
-- **`src/pages/BookingComReservations.tsx`** -- 3 unit queries with `.eq('location', 'ICONIA')` (lines 164, 180, 433). Replace all with property filter.
-- **`src/pages/ReservationDetail.tsx`** -- Unit queries for room reassignment. Wrap with property filter.
-- **`src/components/PendingAssignmentsAlert.tsx`** -- 1 reservation query (line 49-53). Wrap with property filter.
+#### 6. `src/pages/Guests.tsx`
+- Add `const propertyId = usePropertyId();` in the component
+- Wrap the reservations query (line 150) with `withPropertyFilter(..., propertyId)`
+- Add `propertyId` to the `useEffect` dependency
 
-#### Batch 6: Dialogs (2 files)
-- **`src/components/RoomTransferDialog.tsx`** -- 1 unit query (line 115-119). Wrap with property filter.
-- **`src/components/RoomSwapDialog.tsx`** -- No unit query (queries reservations by overlap). No change needed.
+#### 7. `src/pages/BookingComReservations.tsx`
+- Add `const propertyId = usePropertyId();` in the component
+- Replace `.eq('location', 'ICONIA')` with `withPropertyFilter(...)` at 3 query sites (lines 162-166, 178-182, 431-435)
+- Add `propertyId` to the `useEffect` dependency for `fetchUnits`
 
-#### Batch 7: Channex (2 files)
-- **`src/pages/ChannexDebug.tsx`** -- 2 queries (units line 83, rate_plans line 85). Wrap with property filter.
-- **`src/components/channex/SyncLogs.tsx`** -- 1 unit query (line 48). Wrap with property filter.
+#### 8. `src/pages/ReservationDetail.tsx`
+- Add `import { usePropertyId, withPropertyFilter } from '@/hooks/usePropertyFilter';`
+- Add `const propertyId = usePropertyId();` in the component
+- Wrap the units query (line 291) with `withPropertyFilter(..., propertyId)`
 
-#### Batch 8: Analytics Sub-components (1 file)
-- **`src/components/analytics/CancellationAnalytics.tsx`** -- Receives `startDate`/`endDate` as props, queries reservations internally. Wrap with property filter.
+#### 9. `src/components/PendingAssignmentsAlert.tsx`
+- Add `const propertyId = usePropertyId();` in the component
+- Wrap the reservations query (line 50) with `withPropertyFilter(..., propertyId)`
 
-#### Batch 9: BlockedDatesManager (1 file)
-- **`src/components/BlockedDatesManager.tsx`** -- 2 queries (units line 85-89, blocked_dates line 101-111). Wrap units query with property filter.
+#### 10. `src/components/RoomTransferDialog.tsx`
+- Add `const propertyId = usePropertyId();` in the component
+- Wrap the units query (line 116) with `withPropertyFilter(..., propertyId)`
 
-### Insert Operations
-Files that create units or reservations need `property_id` added to the insert payload:
-- `CreateReservationDialog.tsx` (already has hook, needs insert update)
-- `BookingComReservations.tsx` (creates reservations from screenshots)
-- `Rooms.tsx` (creates units)
-- The database trigger will auto-assign the default property as a safety net, but explicit is better.
+#### 11. `src/pages/ChannexDebug.tsx`
+- Add `const propertyId = usePropertyId();` in the component
+- Wrap `units` and `rate_plans` queries (lines 84, 86) with `withPropertyFilter(..., propertyId)`
 
-### Implementation Order
-All files will be updated in a single pass since the pattern is mechanical and consistent. The total is approximately 17 files with ~35 query modification sites.
+#### 12. `src/components/channex/SyncLogs.tsx`
+- Add `const propertyId = usePropertyId();` in the component (note: it's not a hook-level component -- need to check if it's a function component, which it is)
+- Wrap the units query (line 49) with `withPropertyFilter(..., propertyId)`
+
+#### 13. `src/components/analytics/CancellationAnalytics.tsx`
+- Add `const propertyId = usePropertyId();` in the component
+- Wrap both reservation queries (lines 87, 94) with `withPropertyFilter(..., propertyId)`
+- Add `propertyId` to the `useEffect` dependency
+
+#### 14. `src/components/BlockedDatesManager.tsx`
+- Add `const propertyId = usePropertyId();` in the component
+- Wrap the units query (line 86) with `withPropertyFilter(..., propertyId)`
+
+#### 15. `src/components/AvailabilityCalendar.tsx`
+- Replace the `selectedLocation` state and location tabs with property context
+- Remove `fetchUnitCounts` (lines 377-392) -- no longer needed since property switcher handles this
+- Replace `.eq('location', selectedLocation)` in `fetchData` (line 436) with `withPropertyFilter(..., propertyId)`
+- Remove the ICONIA/Almaza Bay tabs from the UI
+- Add `propertyId` to the `useEffect` dependency instead of `selectedLocation`
+- Remove `iconiaCount`, `almazaBayCount`, `selectedLocation` state variables
+
+### Technical Details
+- The `withPropertyFilter` helper applies `.eq('property_id', propertyId)` to any Supabase query builder when `propertyId` is non-null
+- For `AvailabilityCalendar`, the location switcher tabs will be removed since the global `PropertySwitcher` in the navigation now controls which property's data is shown
+- `GuestTickets` will be left without direct filtering since the `guest_tickets` table lacks a `property_id` column -- this could be addressed in a future migration
 
 ### Risk Notes
-- `AvailabilityCalendar.tsx` has a location switcher (ICONIA / Almaza Bay) that currently uses `.eq('location', selectedLocation)`. This will be replaced with the property switcher context so the calendar always shows the active property.
-- `ReservationDetail.tsx` is a single-reservation view -- filtering the reservation fetch by property_id is optional since the reservation ID itself is unique. However, the unit dropdown for reassignment should be property-filtered.
-- Guest portal pages (`guest/Dashboard.tsx`, `guest/Login.tsx`, etc.) do NOT get property filtering since they're public-facing.
+- AvailabilityCalendar has a location tabs UI that will be removed. The property switcher in the nav replaces this functionality.
+- ReservationDetail fetches a single reservation by ID (no property filter needed on that query), but the unit dropdown for reassignment should be property-filtered.
 
