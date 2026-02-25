@@ -48,8 +48,8 @@ interface RatePlan {
   meal_plan_price: number | null;
   advance_booking_days: number;
   room_type: string | null;
-  default_min_stay_through?: number;
-  default_min_stay_arrival?: number;
+  default_min_stay_through?: number[] | null;
+  default_min_stay_arrival?: number[] | null;
   default_max_stay?: number | null;
   default_stop_sell?: boolean;
   default_closed_to_arrival?: boolean;
