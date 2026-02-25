@@ -156,7 +156,7 @@ const handler = async (req: Request): Promise<Response> => {
         const customerResult = await resend.emails.send({
           from: "SuiteSpot Reservations <reservations@bookings.suitespoteg.com>",
           to: [customerEmail],
-          subject: `Booking Confirmation - ${unitName} at ICONIA Zamalek`,
+          subject: `Booking Confirmation - ${unitName} at ICONIA Zamalek - Boutique Stay & Wellness Residences`,
           html: `
             <!DOCTYPE html>
             <html>
@@ -242,7 +242,7 @@ const handler = async (req: Request): Promise<Response> => {
                 <div class="header">
                   <div class="check-icon">✓</div>
                   <h1>Booking Confirmed!</h1>
-                  <p style="margin-top: 10px; margin-bottom: 0; font-size: 16px;">Your reservation at ICONIA Zamalek</p>
+                  <p style="margin-top: 10px; margin-bottom: 0; font-size: 16px;">Your reservation at ICONIA Zamalek - Boutique Stay & Wellness Residences</p>
                 </div>
                 
                 <div class="content">
@@ -250,7 +250,7 @@ const handler = async (req: Request): Promise<Response> => {
                     Dear ${guestNames[0] || 'Guest'},
                   </p>
                   <p style="color: #333; font-size: 14px; line-height: 1.6; margin-bottom: 30px;">
-                    Thank you for choosing SuiteSpot ICONIA Zamalek! We're delighted to confirm your reservation.
+                    Thank you for choosing SuiteSpot ICONIA Zamalek - Boutique Stay & Wellness Residences! We're delighted to confirm your reservation.
                   </p>
                   
                   <h2 style="color: #0f172a; margin-top: 0;">Your Booking Details</h2>
@@ -312,7 +312,7 @@ const handler = async (req: Request): Promise<Response> => {
                     <p style="margin: 10px 0; color: #1e3a8a; font-size: 14px;">
                       <strong>Check-in Time:</strong> From 3:00 PM<br/>
                       <strong>Check-out Time:</strong> By 12:00 PM<br/>
-                      <strong>Location:</strong> ICONIA Zamalek, Cairo, Egypt
+                      <strong>Location:</strong> ICONIA Zamalek - Boutique Stay & Wellness Residences, Cairo, Egypt
                     </p>
                     <p style="margin: 15px 0 0 0; color: #1e3a8a; font-size: 14px;">
                       Please bring a valid ID or passport for check-in. Early check-in and late check-out may be available upon request, subject to availability.
@@ -346,7 +346,7 @@ const handler = async (req: Request): Promise<Response> => {
                 <div class="footer">
                   <p>SuiteSpot - Your Home Away From Home</p>
                   <p style="font-size: 12px; margin-top: 10px; color: #9ca3af;">
-                    ICONIA Zamalek, Cairo, Egypt
+                    ICONIA Zamalek - Boutique Stay & Wellness Residences, Cairo, Egypt
                   </p>
                 </div>
               </body>
@@ -649,7 +649,7 @@ const handler = async (req: Request): Promise<Response> => {
             </head>
             <body>
               <div class="header">
-                <h1>New Reservation in ICONIA Zamalek</h1>
+                <h1>New Reservation in ICONIA Zamalek - Boutique Stay & Wellness Residences</h1>
                 <p style="margin-top: 0; margin-bottom: 0; font-size: 18px; font-weight: 400;">SuiteSpot Bookings</p>
               </div>
               
