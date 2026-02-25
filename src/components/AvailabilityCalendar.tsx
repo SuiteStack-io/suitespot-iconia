@@ -24,6 +24,7 @@ import { Calendar } from "@/components/ui/calendar";
 import { DateRange } from "react-day-picker";
 import { useIsMobile } from "@/hooks/use-mobile";
 import { useSwipeable } from "react-swipeable";
+import { usePropertyId, withPropertyFilter } from "@/hooks/usePropertyFilter";
 
 interface Unit {
   id: string;

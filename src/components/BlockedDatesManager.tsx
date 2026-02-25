@@ -15,6 +15,7 @@ import { toast } from "sonner";
 import { CalendarX, Plus, Trash2, CalendarIcon, Filter, X, ChevronDown, ChevronRight, Pencil } from "lucide-react";
 import { cn } from "@/lib/utils";
 import type { DateRange } from "react-day-picker";
+import { usePropertyId, withPropertyFilter } from "@/hooks/usePropertyFilter";
 
 interface Unit {
   id: string;

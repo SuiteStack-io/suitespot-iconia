@@ -29,6 +29,7 @@ import { toast } from 'sonner';
 import * as XLSX from 'xlsx';
 import { cn } from '@/lib/utils';
 import { DateRange } from 'react-day-picker';
+import { usePropertyId, withPropertyFilter } from '@/hooks/usePropertyFilter';
 
 type Reservation = {
   id: string;
