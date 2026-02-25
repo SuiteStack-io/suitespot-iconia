@@ -44,6 +44,7 @@ interface Reservation {
 const Commissions = () => {
   const { user, loading, userRole } = useAuth();
   const navigate = useNavigate();
+  const propertyId = usePropertyId();
   const [reservations, setReservations] = useState<Reservation[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [dateRange, setDateRange] = useState<DateRange | undefined>(undefined);
@@ -67,15 +68,15 @@ const Commissions = () => {
     if (user && userRole === 'admin') {
       fetchReservations();
     }
-  }, [user, userRole]);
+  }, [user, userRole, propertyId]);
 
   const fetchReservations = async () => {
     try {
       setIsLoading(true);
 
       // Fetch all reservations with commission (excluding booking.com and direct website)
-      const { data, error } = await supabase
-        .from('reservations')
+      const { data, error } = await withPropertyFilter(supabase
+        .from('reservations'), propertyId)
         .select('id, booking_reference, guest_names, check_in_date, check_out_date, status, total_price, commission_rate, commission_amount, net_revenue, source, payment_method, settled, commission_paid, commission_paid_at, price_per_night, nights, vat_exempt, units!unit_id(name, unit_number, booking_com_name)')
         .not('source', 'in', '("booking.com","direct website","Booking.com")')
         .not('commission_amount', 'is', null)

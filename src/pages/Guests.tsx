@@ -60,6 +60,7 @@ interface GuestRecord {
 const Guests = () => {
   const { userRole, loading: authLoading, hasPermission } = useAuth();
   const navigate = useNavigate();
+  const propertyId = usePropertyId();
   const isMobile = useIsMobile();
 
   useEffect(() => {
@@ -119,7 +120,7 @@ const Guests = () => {
   useEffect(() => {
     fetchGuests();
     fetchCheckInAgreements();
-  }, []);
+  }, [propertyId]);
 
   useEffect(() => {
     filterGuests();
@@ -147,8 +148,8 @@ const Guests = () => {
 
   const fetchGuests = async () => {
     try {
-      const { data: reservations, error } = await supabase
-        .from("reservations")
+      const { data: reservations, error } = await withPropertyFilter(supabase
+        .from("reservations"), propertyId)
         .select(`
           *,
           units!unit_id (name)

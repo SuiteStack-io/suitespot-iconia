@@ -56,6 +56,7 @@ export default function CashSettlement() {
   const navigate = useNavigate();
   const { userRole } = useAuth();
   const queryClient = useQueryClient();
+  const propertyId = usePropertyId();
   
   const [activeModal, setActiveModal] = useState<ModalType>(null);
   const [sourceFilter, setSourceFilter] = useState<string>('all');
@@ -68,10 +69,10 @@ export default function CashSettlement() {
 
   // Fetch reservations excluding booking.com and cancelled
   const { data: reservations = [], isLoading } = useQuery({
-    queryKey: ['cash-settlement-reservations'],
+    queryKey: ['cash-settlement-reservations', propertyId],
     queryFn: async () => {
-      const { data, error } = await supabase
-        .from('reservations')
+      const { data, error } = await withPropertyFilter(supabase
+        .from('reservations'), propertyId)
         .select('*, units!unit_id(name, unit_number, booking_com_name, tax_percentage)')
         .in('payment_method', ['cash', 'credit_card'])
         .neq('source', 'booking.com')

@@ -20,6 +20,7 @@ export const PendingAssignmentsAlert = () => {
   const [pendingReservations, setPendingReservations] = useState<PendingReservation[]>([]);
   const [loading, setLoading] = useState(true);
   const navigate = useNavigate();
+  const propertyId = usePropertyId();
 
   useEffect(() => {
     fetchPendingAssignments();
@@ -44,13 +45,13 @@ export const PendingAssignmentsAlert = () => {
     return () => {
       supabase.removeChannel(channel);
     };
-  }, []);
+  }, [propertyId]);
 
   const fetchPendingAssignments = async () => {
-    const { data, error } = await supabase
+    const { data, error } = await withPropertyFilter(supabase
       .from('reservations')
       .select('id, booking_reference, check_in_date, check_out_date, guest_names, notes')
-      .eq('status', 'pending_assignment')
+      .eq('status', 'pending_assignment'), propertyId)
       .order('created_at', { ascending: false });
 
     if (error) {

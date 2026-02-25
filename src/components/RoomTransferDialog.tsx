@@ -79,6 +79,7 @@ export function RoomTransferDialog({
   reservation,
   onSuccess,
 }: RoomTransferDialogProps) {
+  const propertyId = usePropertyId();
   const [transferDate, setTransferDate] = useState<Date | undefined>();
   const [newUnitId, setNewUnitId] = useState<string>('');
   const [availableUnits, setAvailableUnits] = useState<Unit[]>([]);
@@ -113,10 +114,10 @@ export function RoomTransferDialog({
     setLoading(true);
     try {
       // Get all units
-      const { data: allUnits, error: unitsError } = await supabase
+      const { data: allUnits, error: unitsError } = await withPropertyFilter(supabase
         .from('units')
         .select('id, name, booking_com_name, unit_number, status')
-        .eq('status', 'available')
+        .eq('status', 'available'), propertyId)
         .order('name');
 
       if (unitsError) throw unitsError;

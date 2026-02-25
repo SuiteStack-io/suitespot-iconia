@@ -64,6 +64,7 @@ interface CancellationDetail {
 const COLORS = ['#ef4444', '#f97316', '#eab308', '#22c55e', '#3b82f6', '#8b5cf6', '#ec4899'];
 
 export const CancellationAnalytics = ({ startDate, endDate }: CancellationAnalyticsProps) => {
+  const propertyId = usePropertyId();
   const [stats, setStats] = useState({
     totalCancellations: 0,
     cancellationRate: 0,
@@ -78,21 +79,21 @@ export const CancellationAnalytics = ({ startDate, endDate }: CancellationAnalyt
 
   useEffect(() => {
     fetchCancellationStats();
-  }, [startDate, endDate]);
+  }, [startDate, endDate, propertyId]);
 
   const fetchCancellationStats = async () => {
     setLoading(true);
     try {
       // Fetch all reservations in date range
-      const { data: allReservations } = await supabase
+      const { data: allReservations } = await withPropertyFilter(supabase
         .from('reservations')
         .select('id, status, source, total_price, nights')
-        .gte('check_in_date', startDate)
+        .gte('check_in_date', startDate), propertyId)
         .lte('check_in_date', endDate);
 
       // Fetch cancelled reservations with details
-      const { data: cancelledReservations } = await supabase
-        .from('reservations')
+      const { data: cancelledReservations } = await withPropertyFilter(supabase
+        .from('reservations'), propertyId)
         .select('*, units!unit_id(name, unit_number)')
         .eq('status', 'cancelled')
         .gte('check_in_date', startDate)

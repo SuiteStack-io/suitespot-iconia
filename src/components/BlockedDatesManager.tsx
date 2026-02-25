@@ -51,6 +51,7 @@ interface GroupedBlockedDates {
 
 export const BlockedDatesManager = () => {
   const { hasPermission } = useAuth();
+  const propertyId = usePropertyId();
   const [blockedDates, setBlockedDates] = useState<BlockedDate[]>([]);
   const [units, setUnits] = useState<Unit[]>([]);
   const [dateRange, setDateRange] = useState<DateRange | undefined>();
@@ -83,10 +84,10 @@ export const BlockedDatesManager = () => {
 
   const fetchUnits = async () => {
     try {
-      const { data, error } = await supabase
+      const { data, error } = await withPropertyFilter(supabase
         .from("units")
         .select("id, name, unit_number, booking_com_name")
-        .eq("status", "available")
+        .eq("status", "available"), propertyId)
         .order("unit_number", { ascending: true });
 
       if (error) throw error;

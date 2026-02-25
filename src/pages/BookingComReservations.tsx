@@ -86,6 +86,7 @@ interface SplitStaySegment {
 const BookingComReservations = () => {
   const { user, loading, userRole } = useAuth();
   const navigate = useNavigate();
+  const propertyId = usePropertyId();
   const { toast } = useToast();
   const [uploading, setUploading] = useState(false);
   const [parsedData, setParsedData] = useState<ParsedReservation | null>(null);
@@ -156,13 +157,12 @@ const BookingComReservations = () => {
 
   useEffect(() => {
     fetchUnits();
-  }, []);
+  }, [propertyId]);
 
   const fetchUnits = async () => {
-    const { data, error } = await supabase
+    const { data, error } = await withPropertyFilter(supabase
       .from('units')
-      .select('*')
-      .eq('location', 'ICONIA')
+      .select('*'), propertyId)
       .order('name');
     
     if (error) {
@@ -175,10 +175,9 @@ const BookingComReservations = () => {
   const fetchUnitsWithStatus = async (checkIn: string, checkOut: string, excludeReservationIds: string[] = []) => {
     setLoadingUnitsStatus(true);
     try {
-      const { data: allUnits } = await supabase
+      const { data: allUnits } = await withPropertyFilter(supabase
         .from('units')
-        .select('id, name, unit_number, unit_type, booking_com_name')
-        .eq('location', 'ICONIA')
+        .select('id, name, unit_number, unit_type, booking_com_name'), propertyId)
         .order('name');
 
       const unitsChecked = await Promise.all(
@@ -428,10 +427,9 @@ const BookingComReservations = () => {
       const checkIn = format(startDate, 'yyyy-MM-dd');
       const checkOut = format(endDate, 'yyyy-MM-dd');
       
-      const { data: allUnits } = await supabase
+      const { data: allUnits } = await withPropertyFilter(supabase
         .from('units')
-        .select('id, name, unit_number, unit_type, booking_com_name')
-        .eq('location', 'ICONIA')
+        .select('id, name, unit_number, unit_type, booking_com_name'), propertyId)
         .order('name');
 
       const unitsChecked = await Promise.all(
