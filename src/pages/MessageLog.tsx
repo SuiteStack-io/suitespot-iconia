@@ -36,9 +36,6 @@ const MessageLog = () => {
   const [dateFrom, setDateFrom] = useState('');
   const [dateTo, setDateTo] = useState('');
 
-  useEffect(() => {
-    if (!loading && !user) navigate('/auth');
-  }, [user, loading]);
 
   useEffect(() => {
     fetchLogs();
@@ -98,7 +95,6 @@ const MessageLog = () => {
   };
 
   if (loading) return null;
-  if (!user) return null;
 
   return (
     <div className="min-h-screen bg-background p-4 md:p-6">
