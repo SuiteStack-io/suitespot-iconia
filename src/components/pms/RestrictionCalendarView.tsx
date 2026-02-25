@@ -16,8 +16,8 @@ interface RatePlanOption {
   id: string;
   name: string;
   room_type: string | null;
-  default_min_stay_through?: number;
-  default_min_stay_arrival?: number;
+  default_min_stay_through?: number[] | null;
+  default_min_stay_arrival?: number[] | null;
   default_max_stay?: number | null;
   default_stop_sell?: boolean;
   default_closed_to_arrival?: boolean;
@@ -124,8 +124,9 @@ export function RestrictionCalendarView({ ratePlans }: RestrictionCalendarViewPr
     const plan = ratePlans.find((p) => p.id === planId);
     setEditPlanId(planId);
     setEditDate(dateStr);
-    setEditMinStayArrival(existing?.min_stay_arrival ?? plan?.default_min_stay_arrival ?? 1);
-    setEditMinStayThrough(existing?.min_stay_through ?? plan?.default_min_stay_through ?? 1);
+    const dow = new Date(dateStr + 'T00:00:00').getDay();
+    setEditMinStayArrival(existing?.min_stay_arrival ?? plan?.default_min_stay_arrival?.[dow] ?? 1);
+    setEditMinStayThrough(existing?.min_stay_through ?? plan?.default_min_stay_through?.[dow] ?? 1);
     setEditMaxStay(existing?.max_stay ?? plan?.default_max_stay ?? null);
     setEditStopSell(existing?.stop_sell ?? plan?.default_stop_sell ?? false);
     setEditCTA(existing?.closed_to_arrival ?? plan?.default_closed_to_arrival ?? false);
@@ -266,8 +267,9 @@ export function RestrictionCalendarView({ ratePlans }: RestrictionCalendarViewPr
                       const hasOverride = !!restriction;
                       const isWeekend = d.getDay() === 0 || d.getDay() === 6;
 
-                      const effectiveMinStayArrival = restriction?.min_stay_arrival ?? plan.default_min_stay_arrival ?? 1;
-                      const effectiveMinStayThrough = restriction?.min_stay_through ?? plan.default_min_stay_through ?? 1;
+                      const dow = d.getDay();
+                      const effectiveMinStayArrival = restriction?.min_stay_arrival ?? plan.default_min_stay_arrival?.[dow] ?? 1;
+                      const effectiveMinStayThrough = restriction?.min_stay_through ?? plan.default_min_stay_through?.[dow] ?? 1;
                       const effectiveStopSell = restriction?.stop_sell ?? plan.default_stop_sell ?? false;
                       const effectiveCTA = restriction?.closed_to_arrival ?? plan.default_closed_to_arrival ?? false;
                       const effectiveCTD = restriction?.closed_to_departure ?? plan.default_closed_to_departure ?? false;
