@@ -45,6 +45,7 @@ import {
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { useAuth } from '@/lib/auth';
+import { PropertySwitcher } from '@/components/PropertySwitcher';
 
 interface SlideMenuProps {
   userRole: string | null;
@@ -173,7 +174,7 @@ export function SlideMenu({ userRole }: SlideMenuProps) {
       <SheetContent side="left" className="w-72 bg-[hsl(30,5%,20%)] border-[hsl(30,8%,30%)] p-0">
         <div className="flex flex-col h-full py-6">
           {/* Header */}
-          <div className="px-6 mb-6">
+          <div className="px-6 mb-4">
             <SheetTrigger asChild>
               <button
                 onClick={() => navigate('/admin')}
@@ -182,6 +183,11 @@ export function SlideMenu({ userRole }: SlideMenuProps) {
                 Admin
               </button>
             </SheetTrigger>
+          </div>
+
+          {/* Property Switcher */}
+          <div className="px-3 mb-4">
+            <PropertySwitcher />
           </div>
 
           {/* Menu Sections */}

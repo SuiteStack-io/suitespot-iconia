@@ -4,6 +4,7 @@ import { TooltipProvider } from "@/components/ui/tooltip";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { BrowserRouter, Routes, Route } from "react-router-dom";
 import { AuthProvider } from "@/lib/auth";
+import { PropertyProvider } from "@/lib/propertyContext";
 import { GuestAuthProvider } from "@/lib/guestAuth";
 import { SelectionAuthProvider } from "@/lib/selectionAuth";
 import { RealtimeProvider } from "@/components/RealtimeProvider";
@@ -76,6 +77,7 @@ const App = () => (
   <QueryClientProvider client={queryClient}>
     <TooltipProvider>
       <AuthProvider>
+        <PropertyProvider>
         <GuestAuthProvider>
           <SelectionAuthProvider>
             <RealtimeProvider>
@@ -174,6 +176,7 @@ const App = () => (
         </RealtimeProvider>
         </SelectionAuthProvider>
         </GuestAuthProvider>
+        </PropertyProvider>
       </AuthProvider>
     </TooltipProvider>
   </QueryClientProvider>

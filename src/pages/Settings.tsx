@@ -1,44 +1,13 @@
-import { useEffect, useState } from "react";
 import { useNavigate } from "react-router-dom";
-import { supabase } from "@/integrations/supabase/client";
 import { Button } from "@/components/ui/button";
 import { ArrowLeft } from "lucide-react";
 import { SlideMenu } from "@/components/SlideMenu";
 import { useAuth } from "@/lib/auth";
+import { PropertyList } from "@/components/settings/PropertyList";
 
 export default function Settings() {
   const navigate = useNavigate();
-  const [isAdmin, setIsAdmin] = useState(false);
-  const [loading, setLoading] = useState(true);
-  const { userRole } = useAuth();
-
-  useEffect(() => {
-    checkAuth();
-  }, []);
-
-  const checkAuth = async () => {
-    const { data: { session } } = await supabase.auth.getSession();
-    
-    if (!session) {
-      navigate('/auth');
-      return;
-    }
-
-    const { data: roleData } = await supabase
-      .from('user_roles')
-      .select('role')
-      .eq('user_id', session.user.id)
-      .single();
-
-    const adminStatus = roleData?.role === 'admin';
-    setIsAdmin(adminStatus);
-
-    if (!adminStatus) {
-      navigate('/');
-    }
-
-    setLoading(false);
-  };
+  const { userRole, loading } = useAuth();
 
   if (loading) {
     return (
@@ -46,10 +15,6 @@ export default function Settings() {
         <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary"></div>
       </div>
     );
-  }
-
-  if (!isAdmin) {
-    return null;
   }
 
   return (
@@ -83,9 +48,7 @@ export default function Settings() {
         </div>
 
         <div className="space-y-6">
-          <div className="text-center py-12 text-muted-foreground">
-            No settings configured yet
-          </div>
+          <PropertyList />
         </div>
       </div>
     </div>
