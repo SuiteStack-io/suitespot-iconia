@@ -1,107 +1,69 @@
 
 
-## Phase 2: Wire Entities to Active Property Context
+## Phase 2 Implementation Plan: Wire All Frontend Queries to Active Property Context
 
-### Problem
-Currently, all queries for `units`, `reservations`, and `rate_plans` are global — they don't filter by property. The `rate_plans` table already has a `property_id` column, but `units` and `reservations` do not. When a user switches properties via the PropertySwitcher, the data shown should change accordingly.
+### Current State
+- Database migration is complete: `property_id` columns exist on `units`, `reservations`, and `rate_plans` with indexes, backfill, and auto-assign triggers
+- `usePropertyFilter` hook exists with `usePropertyId()` and `withPropertyFilter()` helpers
+- 12 files already updated: `Dashboard.tsx`, `Rooms.tsx`, `ReservationsList.tsx`, `RoomCalendar.tsx`, `WeeklyCalendar.tsx`, `Housekeeping.tsx`, `CheckInOut.tsx`, `CreateReservationDialog.tsx`, `RoomTypes.tsx`, `pms/Prices.tsx`, `pms/Restrictions.tsx`, `front-desk/RoomRates.tsx`, `channex/PropertySync.tsx`, `channex/PropertySettings.tsx`
+- Build is currently clean (no errors)
 
-### Scope Analysis
+### Remaining Files to Update
 
-**Database changes needed:**
-1. Add `property_id` (uuid, nullable, FK to `properties`) to `units` table
-2. Add `property_id` (uuid, nullable, FK to `properties`) to `reservations` table
-3. Backfill all existing rows in `units`, `reservations`, and `rate_plans` with the ICONIA Zamalek property ID
-4. Update RLS policies on all three tables to include property-based access checks
+Each file gets the same treatment:
+1. Add `import { usePropertyId, withPropertyFilter } from '@/hooks/usePropertyFilter';`
+2. Add `const propertyId = usePropertyId();` inside the component
+3. Wrap relevant `supabase.from('units')`, `supabase.from('reservations')`, and `supabase.from('rate_plans')` queries with `withPropertyFilter(..., propertyId)`
+4. Replace any `.eq('location', 'ICONIA')` with the property filter
+5. Add `propertyId` to dependency arrays where needed
 
-**Frontend files that query `units` (need property filtering) — ~19 files:**
-- `Dashboard.tsx`, `AvailabilityCalendar.tsx`, `RoomCalendar.tsx`, `WeeklyCalendar.tsx`
-- `Rooms.tsx`, `RoomTypes.tsx`, `BookingComReservations.tsx`
-- `Analytics.tsx`, `ReservationDetail.tsx`
-- `CreateReservationDialog.tsx`, `BlockedDatesManager.tsx`
-- `pms/Prices.tsx`, `pms/Restrictions.tsx`, `front-desk/RoomRates.tsx`
-- `channex/PropertySettings.tsx`, `channex/PropertySync.tsx`, `channex/SyncLogs.tsx`
-- `ChannexDebug.tsx`, `CheckInOut.tsx`
+#### Batch 1: Analytics (1 file, ~10 query sites)
+**`src/pages/Analytics.tsx`** -- The largest single file. Has 4 `.eq('location', 'ICONIA')` on unit queries (lines 302, 424, 631, 670) plus ~8 reservation queries that need wrapping. All inside `fetchAllStats`, `fetchOccupancyDetails`, `fetchBookingsDetails`, `fetchGuestsDetails`, `fetchSourcesDetails`, `fetchTotalRevenueDetails`, `fetchNetRevenueDetails`, `fetchCommissionDetails`, `fetchDirectSourceDetails`. Add `propertyId` to the useEffect dependency for `fetchAllStats`.
 
-**Frontend files that query `reservations` (need property filtering) — ~26 files:**
-- `Dashboard.tsx`, `ReservationsList.tsx`, `RoomCalendar.tsx`, `WeeklyCalendar.tsx`
-- `Analytics.tsx`, `CashSettlement.tsx`, `Commissions.tsx`, `Housekeeping.tsx`
-- `CheckInOut.tsx`, `ReservationDetail.tsx`, `GuestAccounts.tsx`, `GuestForms.tsx`
-- `CreateReservationDialog.tsx`, `RoomTransferDialog.tsx`, `RoomSwapDialog.tsx`
-- `BookingComReservations.tsx`, `PendingAssignmentsAlert.tsx`
-- `CancellationAnalytics.tsx`, `Guests.tsx`
-- Various edge function triggers (these will continue to work since `property_id` is nullable and existing triggers don't filter by property)
+#### Batch 2: AvailabilityCalendar (1 file, ~3 query sites)
+**`src/components/AvailabilityCalendar.tsx`** -- Has `.eq('location', 'ICONIA')` at line 380, plus `.eq('location', selectedLocation)` at line 435. The location switcher between ICONIA/Almaza Bay needs to be replaced with property context. The `fetchUnitCounts` function fetches both ICONIA and Almaza Bay counts -- this will be simplified to use the active property only.
 
-**Frontend files that query `rate_plans`** — ~10 files (already has column, just needs filtering)
+#### Batch 3: Operations Pages (3 files)
+- **`src/pages/CashSettlement.tsx`** -- 1 reservation query (line 72-83). Wrap with property filter, add `propertyId` to queryKey.
+- **`src/pages/Commissions.tsx`** -- 1 reservation query (line 76-83). Wrap with property filter.
+- **`src/pages/GuestTickets.tsx`** -- 1 ticket query with reservation join (line 56-76). Wrap with property filter on the reservation join or add direct filter.
 
-### Implementation Plan
+#### Batch 4: Guest Management (3 files)
+- **`src/pages/GuestAccounts.tsx`** -- 1 reservation query (line 109-114). Wrap with property filter.
+- **`src/pages/GuestForms.tsx`** -- 1 reservation query (line 135-150). Wrap with property filter.
+- **`src/pages/Guests.tsx`** -- 1 reservation query (line 149-155). Wrap with property filter.
 
-#### Step 1: Database Migration
-```sql
--- Add property_id to units
-ALTER TABLE public.units ADD COLUMN property_id uuid REFERENCES public.properties(id);
+#### Batch 5: Booking & Reservation Pages (3 files)
+- **`src/pages/BookingComReservations.tsx`** -- 3 unit queries with `.eq('location', 'ICONIA')` (lines 164, 180, 433). Replace all with property filter.
+- **`src/pages/ReservationDetail.tsx`** -- Unit queries for room reassignment. Wrap with property filter.
+- **`src/components/PendingAssignmentsAlert.tsx`** -- 1 reservation query (line 49-53). Wrap with property filter.
 
--- Add property_id to reservations  
-ALTER TABLE public.reservations ADD COLUMN property_id uuid REFERENCES public.properties(id);
+#### Batch 6: Dialogs (2 files)
+- **`src/components/RoomTransferDialog.tsx`** -- 1 unit query (line 115-119). Wrap with property filter.
+- **`src/components/RoomSwapDialog.tsx`** -- No unit query (queries reservations by overlap). No change needed.
 
--- Create indexes
-CREATE INDEX idx_units_property_id ON public.units(property_id);
-CREATE INDEX idx_reservations_property_id ON public.reservations(property_id);
-CREATE INDEX idx_rate_plans_property_id ON public.rate_plans(property_id);
+#### Batch 7: Channex (2 files)
+- **`src/pages/ChannexDebug.tsx`** -- 2 queries (units line 83, rate_plans line 85). Wrap with property filter.
+- **`src/components/channex/SyncLogs.tsx`** -- 1 unit query (line 48). Wrap with property filter.
 
--- Backfill: set all existing units, reservations, rate_plans to the ICONIA property
-UPDATE public.units SET property_id = (SELECT id FROM public.properties WHERE is_default = true LIMIT 1) WHERE property_id IS NULL;
-UPDATE public.reservations SET property_id = (SELECT id FROM public.properties WHERE is_default = true LIMIT 1) WHERE property_id IS NULL;
-UPDATE public.rate_plans SET property_id = (SELECT id FROM public.properties WHERE is_default = true LIMIT 1) WHERE property_id IS NULL;
+#### Batch 8: Analytics Sub-components (1 file)
+- **`src/components/analytics/CancellationAnalytics.tsx`** -- Receives `startDate`/`endDate` as props, queries reservations internally. Wrap with property filter.
 
--- Auto-assign property_id on new units (trigger)
-CREATE OR REPLACE FUNCTION public.set_default_property_id()
-RETURNS trigger LANGUAGE plpgsql AS $$
-BEGIN
-  IF NEW.property_id IS NULL THEN
-    SELECT id INTO NEW.property_id FROM public.properties WHERE is_default = true LIMIT 1;
-  END IF;
-  RETURN NEW;
-END;
-$$;
+#### Batch 9: BlockedDatesManager (1 file)
+- **`src/components/BlockedDatesManager.tsx`** -- 2 queries (units line 85-89, blocked_dates line 101-111). Wrap units query with property filter.
 
-CREATE TRIGGER set_units_default_property BEFORE INSERT ON public.units
-  FOR EACH ROW EXECUTE FUNCTION set_default_property_id();
-CREATE TRIGGER set_reservations_default_property BEFORE INSERT ON public.reservations
-  FOR EACH ROW EXECUTE FUNCTION set_default_property_id();
-CREATE TRIGGER set_rate_plans_default_property BEFORE INSERT ON public.rate_plans
-  FOR EACH ROW EXECUTE FUNCTION set_default_property_id();
-```
+### Insert Operations
+Files that create units or reservations need `property_id` added to the insert payload:
+- `CreateReservationDialog.tsx` (already has hook, needs insert update)
+- `BookingComReservations.tsx` (creates reservations from screenshots)
+- `Rooms.tsx` (creates units)
+- The database trigger will auto-assign the default property as a safety net, but explicit is better.
 
-#### Step 2: Create a Reusable Property Filter Hook
-Create `src/hooks/usePropertyFilter.ts` — a helper that provides `propertyId` and a `withPropertyFilter(query)` function to DRY up the filtering logic across all pages.
+### Implementation Order
+All files will be updated in a single pass since the pattern is mechanical and consistent. The total is approximately 17 files with ~35 query modification sites.
 
-#### Step 3: Update Frontend Queries (Incremental)
-For each page/component, the change pattern is:
-1. Import `usePropertySafe` (safe variant to avoid crashes on public pages)
-2. Add `.eq('property_id', activeProperty.id)` to the query
-3. Add `activeProperty?.id` to the query's dependency array
-
-**Replace `.eq('location', 'ICONIA')` with `.eq('property_id', propertyId)` in all 10+ files** that currently hardcode the ICONIA filter.
-
-**Priority order:**
-1. Core pages: `Dashboard.tsx`, `Rooms.tsx`, `ReservationsList.tsx`, `Calendar/RoomCalendar.tsx`
-2. PMS pages: `pms/Prices.tsx`, `pms/Restrictions.tsx`, `RoomTypes.tsx`, `RoomRates.tsx`
-3. Operations: `CheckInOut.tsx`, `CashSettlement.tsx`, `Commissions.tsx`, `Housekeeping.tsx`
-4. Analytics: `Analytics.tsx`, `CancellationAnalytics.tsx`
-5. Channex: `ChannexDebug.tsx`, `channex/PropertySettings.tsx`, `channex/PropertySync.tsx`
-6. Dialogs: `CreateReservationDialog.tsx`, `RoomTransferDialog.tsx`, `RoomSwapDialog.tsx`
-
-#### Step 4: Update Insert Operations
-When creating new units, reservations, or rate plans, include `property_id: activeProperty.id` in the insert payload.
-
-### Key Design Decisions
-- **`property_id` stays nullable** to avoid breaking existing edge functions and webhook-created records. The default-property trigger ensures new records always get assigned.
-- **Replace `location = 'ICONIA'` filter** with `property_id = X` — the `location` column becomes redundant for ICONIA queries but stays for backward compat with Almaza Bay (separate system).
-- **Public pages** (booking flow, guest portal) don't filter by property context since they're not in the admin scope.
-- **Edge functions** that create reservations (Channex webhook, etc.) will rely on the trigger to auto-assign the default property.
-
-### Risk Mitigation
-- All changes are additive (new column, nullable) — no existing data is lost
-- Backfill runs in the same migration so queries work immediately
-- The default-property trigger prevents orphaned records
+### Risk Notes
+- `AvailabilityCalendar.tsx` has a location switcher (ICONIA / Almaza Bay) that currently uses `.eq('location', selectedLocation)`. This will be replaced with the property switcher context so the calendar always shows the active property.
+- `ReservationDetail.tsx` is a single-reservation view -- filtering the reservation fetch by property_id is optional since the reservation ID itself is unique. However, the unit dropdown for reassignment should be property-filtered.
+- Guest portal pages (`guest/Dashboard.tsx`, `guest/Login.tsx`, etc.) do NOT get property filtering since they're public-facing.
 
