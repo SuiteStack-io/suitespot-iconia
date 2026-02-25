@@ -5,6 +5,7 @@ import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { AlertTriangle, ExternalLink } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
+import { usePropertyId, withPropertyFilter } from '@/hooks/usePropertyFilter';
 
 interface PendingReservation {
   id: string;

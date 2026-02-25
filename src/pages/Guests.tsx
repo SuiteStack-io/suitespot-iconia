@@ -22,6 +22,7 @@ import { SlideMenu } from "@/components/SlideMenu";
 import { downloadCheckInPDF } from "@/lib/generateCheckInPDF";
 import { toast } from "sonner";
 import { Checkbox } from "@/components/ui/checkbox";
+import { usePropertyId, withPropertyFilter } from "@/hooks/usePropertyFilter";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Progress } from "@/components/ui/progress";

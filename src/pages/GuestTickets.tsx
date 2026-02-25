@@ -12,6 +12,7 @@ import { Button } from "@/components/ui/button";
 import { SlideMenu } from "@/components/SlideMenu";
 import { useAuth } from "@/lib/auth";
 import { AdminBreadcrumb } from "@/components/AdminBreadcrumb";
+import { usePropertyId, withPropertyFilter } from "@/hooks/usePropertyFilter";
 
 export default function GuestTickets() {
   const navigate = useNavigate();

@@ -25,6 +25,7 @@ import { Badge } from '@/components/ui/badge';
 import { Card, CardContent } from '@/components/ui/card';
 import { CalendarIcon, Loader2, ArrowRight, AlertTriangle } from 'lucide-react';
 import { cn } from '@/lib/utils';
+import { usePropertyId, withPropertyFilter } from '@/hooks/usePropertyFilter';
 
 interface Reservation {
   id: string;

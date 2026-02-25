@@ -33,6 +33,7 @@ import {
 } from 'recharts';
 import * as XLSX from 'xlsx';
 import { toast } from 'sonner';
+import { usePropertyId, withPropertyFilter } from '@/hooks/usePropertyFilter';
 
 interface CancellationAnalyticsProps {
   startDate: string;

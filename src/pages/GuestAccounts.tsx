@@ -14,6 +14,7 @@ import { toast } from "sonner";
 import { Key, Ban, CheckCircle, Copy, UserPlus, Loader2, ArrowLeft } from "lucide-react";
 import { format } from "date-fns";
 import { SlideMenu } from "@/components/SlideMenu";
+import { usePropertyId, withPropertyFilter } from "@/hooks/usePropertyFilter";
 
 async function hashPassword(password: string): Promise<string> {
   const encoder = new TextEncoder();

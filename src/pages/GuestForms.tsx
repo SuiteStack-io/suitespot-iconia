@@ -57,6 +57,7 @@ import {
 } from 'lucide-react';
 import { PassportUploadDialog } from '@/components/PassportUploadDialog';
 import { toast } from 'sonner';
+import { usePropertyId, withPropertyFilter } from '@/hooks/usePropertyFilter';
 
 interface Unit {
   name: string;

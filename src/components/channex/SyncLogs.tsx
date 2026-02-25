@@ -8,6 +8,7 @@ import { Collapsible, CollapsibleContent, CollapsibleTrigger } from '@/component
 import { supabase } from '@/integrations/supabase/client';
 import { toast } from 'sonner';
 import { format } from 'date-fns';
+import { usePropertyId, withPropertyFilter } from '@/hooks/usePropertyFilter';
 
 interface SyncLog {
   id: string;
