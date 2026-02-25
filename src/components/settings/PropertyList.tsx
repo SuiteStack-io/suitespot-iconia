@@ -1,5 +1,6 @@
 import { useState } from 'react';
 import { useProperty, Property } from '@/lib/propertyContext';
+import { useAuth } from '@/lib/auth';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
@@ -11,7 +12,10 @@ import { supabase } from '@/integrations/supabase/client';
 import { toast } from 'sonner';
 
 export function PropertyList() {
-  const { properties, isLoading, refreshProperties, isSystemAdmin, canManageUsers } = useProperty();
+  const { properties, isLoading, refreshProperties, isSystemAdmin, canManageUsers, canDeleteProperty } = useProperty();
+  const { userRole } = useAuth();
+  const canCreate = isSystemAdmin || userRole === 'admin';
+  const canDelete = isSystemAdmin || userRole === 'admin';
   const [editingProperty, setEditingProperty] = useState<Property | null>(null);
   const [showCreateForm, setShowCreateForm] = useState(false);
   const [managingUsersFor, setManagingUsersFor] = useState<Property | null>(null);
@@ -41,7 +45,7 @@ export function PropertyList() {
     <div className="space-y-4">
       <div className="flex items-center justify-between">
         <h2 className="text-xl font-semibold">Properties</h2>
-        {isSystemAdmin && (
+        {canCreate && (
           <Button onClick={() => setShowCreateForm(true)} size="sm">
             <Plus className="h-4 w-4 mr-2" /> Add Property
           </Button>
@@ -53,7 +57,7 @@ export function PropertyList() {
           <CardContent className="py-12 text-center text-muted-foreground">
             <Building2 className="h-12 w-12 mx-auto mb-4 opacity-50" />
             <p>No properties configured yet.</p>
-            {isSystemAdmin && (
+            {canCreate && (
               <Button onClick={() => setShowCreateForm(true)} className="mt-4" variant="outline">
                 <Plus className="h-4 w-4 mr-2" /> Create First Property
               </Button>
@@ -105,7 +109,7 @@ export function PropertyList() {
                         <Star className="h-4 w-4" />
                       </Button>
                     )}
-                    {isSystemAdmin && !property.is_default && (
+                    {canDelete && !property.is_default && (
                       <Button variant="ghost" size="sm" className="text-destructive" onClick={() => setDeletingProperty(property)}>
                         <Trash2 className="h-4 w-4" />
                       </Button>
