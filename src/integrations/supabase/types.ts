@@ -1146,21 +1146,125 @@ export type Database = {
           created_at: string
           full_name: string | null
           id: string
+          is_system_admin: boolean | null
           updated_at: string
         }
         Insert: {
           created_at?: string
           full_name?: string | null
           id: string
+          is_system_admin?: boolean | null
           updated_at?: string
         }
         Update: {
           created_at?: string
           full_name?: string | null
           id?: string
+          is_system_admin?: boolean | null
           updated_at?: string
         }
         Relationships: []
+      }
+      properties: {
+        Row: {
+          address: string
+          address_line_2: string | null
+          channex_last_sync: string | null
+          channex_property_id: string | null
+          channex_synced: boolean | null
+          city: string
+          country: string
+          created_at: string | null
+          created_by: string | null
+          currency: string
+          default_checkin_time: string | null
+          default_checkout_time: string | null
+          description: string | null
+          email: string
+          id: string
+          is_active: boolean | null
+          is_default: boolean | null
+          latitude: number | null
+          legal_name: string | null
+          longitude: number | null
+          name: string
+          phone: string | null
+          property_type: string | null
+          state: string | null
+          timezone: string
+          updated_at: string | null
+          website: string | null
+          zip_code: string | null
+        }
+        Insert: {
+          address: string
+          address_line_2?: string | null
+          channex_last_sync?: string | null
+          channex_property_id?: string | null
+          channex_synced?: boolean | null
+          city: string
+          country?: string
+          created_at?: string | null
+          created_by?: string | null
+          currency?: string
+          default_checkin_time?: string | null
+          default_checkout_time?: string | null
+          description?: string | null
+          email: string
+          id?: string
+          is_active?: boolean | null
+          is_default?: boolean | null
+          latitude?: number | null
+          legal_name?: string | null
+          longitude?: number | null
+          name: string
+          phone?: string | null
+          property_type?: string | null
+          state?: string | null
+          timezone?: string
+          updated_at?: string | null
+          website?: string | null
+          zip_code?: string | null
+        }
+        Update: {
+          address?: string
+          address_line_2?: string | null
+          channex_last_sync?: string | null
+          channex_property_id?: string | null
+          channex_synced?: boolean | null
+          city?: string
+          country?: string
+          created_at?: string | null
+          created_by?: string | null
+          currency?: string
+          default_checkin_time?: string | null
+          default_checkout_time?: string | null
+          description?: string | null
+          email?: string
+          id?: string
+          is_active?: boolean | null
+          is_default?: boolean | null
+          latitude?: number | null
+          legal_name?: string | null
+          longitude?: number | null
+          name?: string
+          phone?: string | null
+          property_type?: string | null
+          state?: string | null
+          timezone?: string
+          updated_at?: string | null
+          website?: string | null
+          zip_code?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "properties_created_by_fkey"
+            columns: ["created_by"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+        ]
       }
       property_amenities: {
         Row: {
@@ -2163,6 +2267,55 @@ export type Database = {
         }
         Relationships: []
       }
+      user_property_access: {
+        Row: {
+          granted_at: string | null
+          granted_by: string | null
+          id: string
+          property_id: string
+          role: string
+          user_id: string
+        }
+        Insert: {
+          granted_at?: string | null
+          granted_by?: string | null
+          id?: string
+          property_id: string
+          role?: string
+          user_id: string
+        }
+        Update: {
+          granted_at?: string | null
+          granted_by?: string | null
+          id?: string
+          property_id?: string
+          role?: string
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "user_property_access_granted_by_fkey"
+            columns: ["granted_by"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "user_property_access_property_id_fkey"
+            columns: ["property_id"]
+            isOneToOne: false
+            referencedRelation: "properties"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "user_property_access_user_id_fkey"
+            columns: ["user_id"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       user_roles: {
         Row: {
           created_at: string
@@ -2325,6 +2478,14 @@ export type Database = {
         Args: { _permission: string; _user_id: string }
         Returns: boolean
       }
+      has_property_access: {
+        Args: { _property_id: string; _user_id: string }
+        Returns: boolean
+      }
+      has_property_role: {
+        Args: { _property_id: string; _roles: string[]; _user_id: string }
+        Returns: boolean
+      }
       has_reservation_conflict: {
         Args: {
           p_check_in_date: string
@@ -2345,6 +2506,7 @@ export type Database = {
         Args: { p_reservation_id: string }
         Returns: boolean
       }
+      is_system_admin: { Args: { _user_id: string }; Returns: boolean }
       notify_mid_stay_cleaning: { Args: never; Returns: undefined }
       reset_guest_password: {
         Args: { p_account_id: string; p_new_password_hash: string }

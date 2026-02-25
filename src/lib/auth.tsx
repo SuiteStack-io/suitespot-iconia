@@ -31,6 +31,7 @@ interface AuthContextType {
   user: User | null;
   session: Session | null;
   userRole: string | null;
+  isSystemAdmin: boolean;
   permissions: UserPermissions;
   hasPermission: (permission: keyof UserPermissions) => boolean;
   signIn: (email: string, password: string) => Promise<{ error: any }>;
@@ -47,6 +48,7 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
   const [session, setSession] = useState<Session | null>(null);
   const [userRole, setUserRole] = useState<string | null>(null);
   const [permissions, setPermissions] = useState<UserPermissions>(DEFAULT_PERMISSIONS);
+  const [isSystemAdmin, setIsSystemAdmin] = useState(false);
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
@@ -61,10 +63,12 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
           setTimeout(() => {
             fetchUserRole(session.user.id);
             fetchUserPermissions(session.user.id);
+            fetchSystemAdmin(session.user.id);
           }, 0);
         } else {
           setUserRole(null);
           setPermissions(DEFAULT_PERMISSIONS);
+          setIsSystemAdmin(false);
         }
       }
     );
@@ -77,6 +81,7 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
         await Promise.all([
           fetchUserRole(session.user.id),
           fetchUserPermissions(session.user.id),
+          fetchSystemAdmin(session.user.id),
         ]);
       }
       setLoading(false);
@@ -84,6 +89,15 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
 
     return () => subscription.unsubscribe();
   }, []);
+
+  const fetchSystemAdmin = async (userId: string) => {
+    const { data } = await supabase
+      .from('profiles')
+      .select('is_system_admin')
+      .eq('id', userId)
+      .single();
+    setIsSystemAdmin(data?.is_system_admin ?? false);
+  };
 
   const fetchUserRole = async (userId: string) => {
     const { data, error } = await supabase
@@ -161,6 +175,7 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
     await supabase.auth.signOut();
     setUserRole(null);
     setPermissions(DEFAULT_PERMISSIONS);
+    setIsSystemAdmin(false);
   };
 
   return (
@@ -168,6 +183,7 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
       user, 
       session, 
       userRole, 
+      isSystemAdmin,
       permissions,
       hasPermission,
       signIn, 
