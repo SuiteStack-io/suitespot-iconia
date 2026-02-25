@@ -68,9 +68,16 @@ interface MenuSection {
 export function SlideMenu({ userRole }: SlideMenuProps) {
   const navigate = useNavigate();
   const location = useLocation();
-  const [open, setOpen] = useState(false);
+  const [isSheetOpen, setIsSheetOpen] = useState(false);
   const [almazaBayOpen, setAlmazaBayOpen] = useState(false);
   const { hasPermission } = useAuth();
+
+  const handleMenuNavigation = (url: string, e: React.MouseEvent) => {
+    e.preventDefault();
+    e.stopPropagation();
+    navigate(url);
+    setIsSheetOpen(false);
+  };
 
   const menuSections: MenuSection[] = [
     {
@@ -173,9 +180,9 @@ export function SlideMenu({ userRole }: SlideMenuProps) {
     }));
 
   return (
-    <Sheet open={open} onOpenChange={setOpen}>
+    <Sheet open={isSheetOpen} onOpenChange={setIsSheetOpen}>
       <SheetTrigger asChild>
-        <Button variant="ghost" size="icon" className="h-10 w-10">
+        <Button type="button" variant="ghost" size="icon" className="h-10 w-10">
           <PanelLeft className="h-5 w-5" />
         </Button>
       </SheetTrigger>
@@ -184,7 +191,8 @@ export function SlideMenu({ userRole }: SlideMenuProps) {
           {/* Header */}
           <div className="px-6 mb-6">
             <button
-              onClick={() => { navigate('/admin'); setOpen(false); }}
+              type="button"
+              onClick={(e) => handleMenuNavigation('/admin', e)}
               className="text-lg font-semibold text-white hover:text-cyan-400 transition-colors cursor-pointer"
             >
               Admin
@@ -196,7 +204,7 @@ export function SlideMenu({ userRole }: SlideMenuProps) {
             {filteredSections.map((section, sectionIndex) => {
               const isCollapsible = section.collapsible;
               const isOpen = section.label === 'ALMAZA BAY' ? almazaBayOpen : true;
-              const setOpen = section.label === 'ALMAZA BAY' ? setAlmazaBayOpen : undefined;
+              const setSectionOpen = section.label === 'ALMAZA BAY' ? setAlmazaBayOpen : undefined;
 
               const sectionContent = (
                 <div className="space-y-1">
@@ -207,8 +215,9 @@ export function SlideMenu({ userRole }: SlideMenuProps) {
                       return (
                         <Button
                           key={item.url}
+                          type="button"
                           variant="ghost"
-                          onClick={() => { navigate(item.url); setOpen(false); }}
+                          onClick={(e) => handleMenuNavigation(item.url, e)}
                           className={cn(
                             'w-full justify-start gap-3 h-10 px-3 rounded-md',
                             'text-[hsl(30,15%,70%)] hover:text-white hover:bg-[hsl(30,8%,25%)]',
@@ -223,12 +232,12 @@ export function SlideMenu({ userRole }: SlideMenuProps) {
                 </div>
               );
 
-              if (isCollapsible && setOpen) {
+              if (isCollapsible && setSectionOpen) {
                 return (
                   <Collapsible
                     key={section.label}
                     open={isOpen}
-                    onOpenChange={setOpen}
+                    onOpenChange={setSectionOpen}
                     className={sectionIndex > 0 ? 'mt-6' : ''}
                   >
                     <CollapsibleTrigger className="flex items-center justify-between w-full px-3 mb-2 group cursor-pointer">
