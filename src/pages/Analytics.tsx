@@ -1112,12 +1112,12 @@ const Analytics = () => {
 
         {/* Revenue Breakdown Charts */}
         <div className="grid gap-6 md:grid-cols-2">
-          <RevenueBySource startDate={startDate} endDate={endDate} />
-          <RevenueByRoom startDate={startDate} endDate={endDate} />
+          <RevenueBySource mainDateRange={{ from: new Date(startDate), to: new Date(endDate) }} />
+          <RevenueByRoom mainDateRange={{ from: new Date(startDate), to: new Date(endDate) }} />
         </div>
         <div className="grid gap-6 md:grid-cols-2">
-          <RevenueByGuests startDate={startDate} endDate={endDate} />
-          <RevenueByNationality startDate={startDate} endDate={endDate} />
+          <RevenueByGuests mainDateRange={{ from: new Date(startDate), to: new Date(endDate) }} />
+          <RevenueByNationality mainDateRange={{ from: new Date(startDate), to: new Date(endDate) }} />
         </div>
 
         {/* Cancellation Analytics */}

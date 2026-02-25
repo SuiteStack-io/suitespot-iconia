@@ -27,6 +27,11 @@ import { Button } from '@/components/ui/button';
 import * as XLSX from 'xlsx';
 import { toast } from 'sonner';
 import { format } from 'date-fns';
+import { DateRange } from 'react-day-picker';
+
+interface RevenueBySourceProps {
+  mainDateRange?: DateRange;
+}
 
 interface BookingDetail {
   guestName: string;
@@ -61,7 +66,7 @@ const getCommissionRate = (source: string): number => {
   return COMMISSION_RATES[source] || COMMISSION_RATES['default'];
 };
 
-export const RevenueBySource = () => {
+export const RevenueBySource = ({ mainDateRange }: RevenueBySourceProps) => {
   const [revenueBySource, setRevenueBySource] = useState<SourceRevenue[]>([]);
   const [filteredRevenue, setFilteredRevenue] = useState<SourceRevenue[]>([]);
   const [loading, setLoading] = useState(true);
