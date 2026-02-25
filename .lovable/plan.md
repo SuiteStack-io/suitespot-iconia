@@ -1,53 +1,54 @@
 
 
-## Add "Access Front Desk" Permission
+## Bug: Race Condition in Permission Loading
 
-Add a new granular permission `can_access_front_desk` that controls access to the Front Desk section pages: Room Rates, Guests, and Guest Forms.
+### Root Cause
 
-### 1. Database Migration
+There is a timing bug in `src/lib/auth.tsx`. On line 80, `setLoading(false)` is called **before** `fetchUserRole` and `fetchUserPermissions` finish (they are async and not awaited). This creates a race condition:
 
-Add a new column to the `user_permissions` table:
+1. `authLoading` becomes `false`
+2. `userRole` resolves to `'front_desk'` (fast query, single column)
+3. `permissions` are **still defaults** (all `false`) because `fetchUserPermissions` hasn't completed yet
+4. The guard in `Guests.tsx` evaluates: `!authLoading && userRole === 'front_desk' && !hasPermission('can_access_front_desk')` → **true** (because permissions are still defaults)
+5. User gets redirected to `/admin` before permissions finish loading
 
-```sql
-ALTER TABLE public.user_permissions
-ADD COLUMN can_access_front_desk boolean NOT NULL DEFAULT false;
+This affects all three guarded pages (Guests, GuestForms, RoomRates).
+
+### Fix
+
+**File: `src/lib/auth.tsx`** — Await both `fetchUserRole` and `fetchUserPermissions` before setting `loading` to `false`:
+
+```typescript
+// Change lines 73-80 from:
+supabase.auth.getSession().then(({ data: { session } }) => {
+  setSession(session);
+  setUser(session?.user ?? null);
+  if (session?.user) {
+    fetchUserRole(session.user.id);
+    fetchUserPermissions(session.user.id);
+  }
+  setLoading(false);
+});
+
+// To:
+supabase.auth.getSession().then(async ({ data: { session } }) => {
+  setSession(session);
+  setUser(session?.user ?? null);
+  if (session?.user) {
+    await Promise.all([
+      fetchUserRole(session.user.id),
+      fetchUserPermissions(session.user.id),
+    ]);
+  }
+  setLoading(false);
+});
 ```
 
-### 2. Auth Context (`src/lib/auth.tsx`)
+This ensures `loading` stays `true` until both the role and permissions are fully loaded, preventing the premature redirect.
 
-- Add `can_access_front_desk` to the `UserPermissions` interface and `DEFAULT_PERMISSIONS`
-- Include it in `fetchUserPermissions` mapping
-
-### 3. Permissions Dialog (`src/components/EditPermissionsDialog.tsx`)
-
-- Add `can_access_front_desk` to the `UserPermissions` interface
-- Add label entry: **"Access Front Desk"** with description **"Access to Room Rates, Guests, and Guest Forms pages"**
-- Include it in `PERMISSION_LABELS`, default state, fetch mapping, toggle-all, and save logic
-
-### 4. Route Protection
-
-Wrap the three Front Desk routes in `src/App.tsx` with permission checks (or add guards inside each page component) so that users without `can_access_front_desk` (and who are not admins) get redirected.
-
-**Pages affected:**
-- `/front-desk/room-rates` -- `src/pages/front-desk/RoomRates.tsx`
-- `/guests` -- `src/pages/Guests.tsx`
-- `/guest-forms` -- `src/pages/GuestForms.tsx`
-
-Each page will check `hasPermission('can_access_front_desk')` early and redirect to `/admin` if denied.
-
-### 5. Sidebar Visibility (`src/components/SlideMenu.tsx`)
-
-Add `can_access_front_desk` permission check to the FRONT DESK section items so they are hidden from users who lack the permission. Admins always see everything.
-
-### Summary of Files Changed
+### Files Changed
 
 | File | Change |
 |------|--------|
-| Database migration | Add `can_access_front_desk` column |
-| `src/lib/auth.tsx` | Add to interface + defaults + fetch |
-| `src/components/EditPermissionsDialog.tsx` | Add to interface, labels, state, save |
-| `src/components/SlideMenu.tsx` | Conditionally show Front Desk items |
-| `src/pages/Guests.tsx` | Permission guard |
-| `src/pages/GuestForms.tsx` | Permission guard |
-| `src/pages/front-desk/RoomRates.tsx` | Permission guard |
+| `src/lib/auth.tsx` | Await role + permissions fetch before setting loading=false |
 
