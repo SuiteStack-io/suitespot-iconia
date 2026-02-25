@@ -48,7 +48,8 @@ interface RatePlan {
   meal_plan_price: number | null;
   advance_booking_days: number;
   room_type: string | null;
-  default_min_stay?: number;
+  default_min_stay_through?: number;
+  default_min_stay_arrival?: number;
   default_max_stay?: number | null;
   default_stop_sell?: boolean;
   default_closed_to_arrival?: boolean;
@@ -81,7 +82,7 @@ const PMSRestrictions = () => {
     try {
       const { data: plans, error: plansError } = await supabase
         .from('rate_plans')
-        .select('id, name, cancellation_policy, meal_plan, meal_plan_price, advance_booking_days, room_type, default_min_stay, default_max_stay, default_stop_sell, default_closed_to_arrival, default_closed_to_departure')
+        .select('id, name, cancellation_policy, meal_plan, meal_plan_price, advance_booking_days, room_type, default_min_stay_through, default_min_stay_arrival, default_max_stay, default_stop_sell, default_closed_to_arrival, default_closed_to_departure')
         .eq('is_active', true)
         .order('room_type')
         .order('name');

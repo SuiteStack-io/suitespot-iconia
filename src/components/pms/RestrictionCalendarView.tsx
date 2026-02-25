@@ -1,4 +1,4 @@
-import { useState, useEffect, useRef, useCallback } from 'react';
+import { useState, useEffect, useCallback } from 'react';
 import { format, addDays } from 'date-fns';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
@@ -10,13 +10,14 @@ import { ScrollArea, ScrollBar } from '@/components/ui/scroll-area';
 import { RestrictionBadge } from './RestrictionBadge';
 import { supabase } from '@/integrations/supabase/client';
 import { useToast } from '@/hooks/use-toast';
-import { Loader2, ChevronLeft, ChevronRight } from 'lucide-react';
+import { Loader2, ChevronLeft, ChevronRight, RefreshCw, CheckCircle2, AlertCircle } from 'lucide-react';
 
 interface RatePlanOption {
   id: string;
   name: string;
   room_type: string | null;
-  default_min_stay?: number;
+  default_min_stay_through?: number;
+  default_min_stay_arrival?: number;
   default_max_stay?: number | null;
   default_stop_sell?: boolean;
   default_closed_to_arrival?: boolean;
@@ -28,7 +29,8 @@ interface Restriction {
   rate_plan_id: string;
   date_from: string;
   date_to: string;
-  min_stay: number;
+  min_stay_through: number;
+  min_stay_arrival: number;
   max_stay: number | null;
   stop_sell: boolean;
   closed_to_arrival: boolean;
@@ -51,17 +53,41 @@ export function RestrictionCalendarView({ ratePlans }: RestrictionCalendarViewPr
   const [editOpen, setEditOpen] = useState(false);
   const [editPlanId, setEditPlanId] = useState('');
   const [editDate, setEditDate] = useState('');
-  const [editMinStay, setEditMinStay] = useState(1);
+  const [editMinStayArrival, setEditMinStayArrival] = useState(1);
+  const [editMinStayThrough, setEditMinStayThrough] = useState(1);
   const [editMaxStay, setEditMaxStay] = useState<number | null>(null);
   const [editStopSell, setEditStopSell] = useState(false);
   const [editCTA, setEditCTA] = useState(false);
   const [editCTD, setEditCTD] = useState(false);
   const [editSaving, setEditSaving] = useState(false);
 
+  // Sync status
+  const [pendingCount, setPendingCount] = useState(0);
+  const [lastSyncTime, setLastSyncTime] = useState<string | null>(null);
+  const [syncing, setSyncing] = useState(false);
+
   const today = new Date();
   today.setHours(0, 0, 0, 0);
 
   const dates = Array.from({ length: VISIBLE_DAYS }, (_, i) => addDays(today, startOffset + i));
+
+  const fetchSyncStatus = useCallback(async () => {
+    const [{ count }, { data: lastLog }] = await Promise.all([
+      supabase
+        .from('rate_plan_restrictions')
+        .select('*', { count: 'exact', head: true })
+        .eq('synced_to_channex', false),
+      supabase
+        .from('channex_sync_logs')
+        .select('created_at')
+        .eq('function_name', 'channex-push-restrictions')
+        .order('created_at', { ascending: false })
+        .limit(1)
+        .maybeSingle(),
+    ]);
+    setPendingCount(count ?? 0);
+    setLastSyncTime(lastLog?.created_at ?? null);
+  }, []);
 
   const fetchRestrictions = useCallback(async () => {
     setLoading(true);
@@ -80,6 +106,7 @@ export function RestrictionCalendarView({ ratePlans }: RestrictionCalendarViewPr
       setRestrictions((data as Restriction[]) || []);
     }
     setLoading(false);
+    fetchSyncStatus();
   }, [startOffset]);
 
   useEffect(() => {
@@ -97,7 +124,8 @@ export function RestrictionCalendarView({ ratePlans }: RestrictionCalendarViewPr
     const plan = ratePlans.find((p) => p.id === planId);
     setEditPlanId(planId);
     setEditDate(dateStr);
-    setEditMinStay(existing?.min_stay ?? plan?.default_min_stay ?? 1);
+    setEditMinStayArrival(existing?.min_stay_arrival ?? plan?.default_min_stay_arrival ?? 1);
+    setEditMinStayThrough(existing?.min_stay_through ?? plan?.default_min_stay_through ?? 1);
     setEditMaxStay(existing?.max_stay ?? plan?.default_max_stay ?? null);
     setEditStopSell(existing?.stop_sell ?? plan?.default_stop_sell ?? false);
     setEditCTA(existing?.closed_to_arrival ?? plan?.default_closed_to_arrival ?? false);
@@ -106,9 +134,21 @@ export function RestrictionCalendarView({ ratePlans }: RestrictionCalendarViewPr
   };
 
   const handleCellSave = async () => {
+    // Validation
+    if (editMinStayArrival < 1 || editMinStayThrough < 1) {
+      toast({ title: 'Validation Error', description: 'Min stay values must be at least 1', variant: 'destructive' });
+      return;
+    }
+    if (editMaxStay !== null && editMaxStay > 0 && (editMaxStay < editMinStayArrival || editMaxStay < editMinStayThrough)) {
+      toast({ title: 'Validation Error', description: 'Max stay must be >= both min stay values', variant: 'destructive' });
+      return;
+    }
+    if (editStopSell && editCTA) {
+      toast({ title: 'Warning', description: 'Stop Sell already blocks all arrivals — Closed to Arrival is redundant' });
+    }
+
     setEditSaving(true);
     try {
-      // Delete any existing restriction for this plan+date
       await supabase
         .from('rate_plan_restrictions')
         .delete()
@@ -116,13 +156,13 @@ export function RestrictionCalendarView({ ratePlans }: RestrictionCalendarViewPr
         .lte('date_from', editDate)
         .gt('date_to', editDate);
 
-      // Insert single-day restriction
       const nextDay = format(addDays(new Date(editDate), 1), 'yyyy-MM-dd');
       const { error } = await supabase.from('rate_plan_restrictions').insert({
         rate_plan_id: editPlanId,
         date_from: editDate,
         date_to: nextDay,
-        min_stay: editMinStay,
+        min_stay_arrival: editMinStayArrival,
+        min_stay_through: editMinStayThrough,
         max_stay: editMaxStay,
         stop_sell: editStopSell,
         closed_to_arrival: editCTA,
@@ -132,20 +172,36 @@ export function RestrictionCalendarView({ ratePlans }: RestrictionCalendarViewPr
 
       if (error) throw error;
 
-      // Trigger sync
-      try {
-        await supabase.functions.invoke('channex-push-restrictions', {
-          body: { rate_plan_ids: [editPlanId] },
-        });
-      } catch { /* non-fatal */ }
+      // Auto-sync after 5 seconds
+      setTimeout(async () => {
+        try {
+          await supabase.functions.invoke('channex-push-restrictions', {
+            body: { rate_plan_ids: [editPlanId] },
+          });
+          fetchSyncStatus();
+        } catch { /* non-fatal */ }
+      }, 5000);
 
-      toast({ title: 'Saved', description: 'Restriction updated and syncing' });
+      toast({ title: 'Saved', description: 'Restriction updated — will sync in 5s' });
       setEditOpen(false);
       fetchRestrictions();
     } catch (err: any) {
       toast({ title: 'Error', description: err.message, variant: 'destructive' });
     } finally {
       setEditSaving(false);
+    }
+  };
+
+  const handleSyncNow = async () => {
+    setSyncing(true);
+    try {
+      await supabase.functions.invoke('channex-push-restrictions');
+      toast({ title: 'Synced', description: 'Restrictions pushed to Channex' });
+      fetchRestrictions();
+    } catch (err: any) {
+      toast({ title: 'Sync Error', description: err.message, variant: 'destructive' });
+    } finally {
+      setSyncing(false);
     }
   };
 
@@ -176,7 +232,7 @@ export function RestrictionCalendarView({ ratePlans }: RestrictionCalendarViewPr
           ) : (
             <ScrollArea className="w-full">
               <div className="min-w-max">
-                {/* Header row - dates */}
+                {/* Header row */}
                 <div className="flex border-b sticky top-0 bg-card z-10">
                   <div className="w-48 shrink-0 p-2 text-xs font-medium text-muted-foreground border-r">
                     Rate Plan
@@ -210,13 +266,12 @@ export function RestrictionCalendarView({ ratePlans }: RestrictionCalendarViewPr
                       const hasOverride = !!restriction;
                       const isWeekend = d.getDay() === 0 || d.getDay() === 6;
 
-                      // Determine effective values
-                      const effectiveMinStay = restriction?.min_stay ?? plan.default_min_stay ?? 1;
+                      const effectiveMinStayArrival = restriction?.min_stay_arrival ?? plan.default_min_stay_arrival ?? 1;
+                      const effectiveMinStayThrough = restriction?.min_stay_through ?? plan.default_min_stay_through ?? 1;
                       const effectiveStopSell = restriction?.stop_sell ?? plan.default_stop_sell ?? false;
                       const effectiveCTA = restriction?.closed_to_arrival ?? plan.default_closed_to_arrival ?? false;
                       const effectiveCTD = restriction?.closed_to_departure ?? plan.default_closed_to_departure ?? false;
-
-                      const hasBadges = effectiveMinStay > 1 || effectiveStopSell || effectiveCTA || effectiveCTD;
+                      const effectiveMaxStay = restriction?.max_stay ?? plan.default_max_stay ?? null;
 
                       let bgClass = isWeekend ? 'bg-muted/30' : '';
                       if (effectiveStopSell) bgClass = 'bg-red-50';
@@ -232,8 +287,14 @@ export function RestrictionCalendarView({ ratePlans }: RestrictionCalendarViewPr
                             {effectiveStopSell && (
                               <RestrictionBadge type="stop_sell" synced={hasOverride ? restriction?.synced_to_channex : undefined} />
                             )}
-                            {effectiveMinStay > 1 && !effectiveStopSell && (
-                              <RestrictionBadge type="min_stay" value={effectiveMinStay} synced={hasOverride ? restriction?.synced_to_channex : undefined} />
+                            {!effectiveStopSell && effectiveMinStayArrival > 1 && (
+                              <RestrictionBadge type="min_stay_arrival" value={effectiveMinStayArrival} synced={hasOverride ? restriction?.synced_to_channex : undefined} />
+                            )}
+                            {!effectiveStopSell && effectiveMinStayThrough > 1 && (
+                              <RestrictionBadge type="min_stay_through" value={effectiveMinStayThrough} synced={hasOverride ? restriction?.synced_to_channex : undefined} />
+                            )}
+                            {!effectiveStopSell && effectiveMaxStay && (
+                              <RestrictionBadge type="max_stay" value={effectiveMaxStay} synced={hasOverride ? restriction?.synced_to_channex : undefined} />
                             )}
                             {effectiveCTA && !effectiveStopSell && (
                               <RestrictionBadge type="cta" synced={hasOverride ? restriction?.synced_to_channex : undefined} />
@@ -254,6 +315,35 @@ export function RestrictionCalendarView({ ratePlans }: RestrictionCalendarViewPr
         </CardContent>
       </Card>
 
+      {/* Sync Status */}
+      <Card className="mt-4">
+        <CardContent className="py-3 px-4">
+          <div className="flex items-center justify-between flex-wrap gap-2">
+            <div className="flex items-center gap-4 text-sm">
+              <div className="flex items-center gap-1.5">
+                {pendingCount > 0 ? (
+                  <AlertCircle className="h-4 w-4 text-orange-500" />
+                ) : (
+                  <CheckCircle2 className="h-4 w-4 text-green-500" />
+                )}
+                <span>
+                  {pendingCount > 0 ? `${pendingCount} pending` : 'All synced'}
+                </span>
+              </div>
+              {lastSyncTime && (
+                <span className="text-xs text-muted-foreground">
+                  Last sync: {format(new Date(lastSyncTime), 'MMM d, HH:mm')}
+                </span>
+              )}
+            </div>
+            <Button variant="outline" size="sm" onClick={handleSyncNow} disabled={syncing || pendingCount === 0}>
+              {syncing ? <Loader2 className="h-3.5 w-3.5 mr-1.5 animate-spin" /> : <RefreshCw className="h-3.5 w-3.5 mr-1.5" />}
+              Sync Now
+            </Button>
+          </div>
+        </CardContent>
+      </Card>
+
       {/* Cell Edit Dialog */}
       <Dialog open={editOpen} onOpenChange={setEditOpen}>
         <DialogContent className="sm:max-w-md">
@@ -265,20 +355,26 @@ export function RestrictionCalendarView({ ratePlans }: RestrictionCalendarViewPr
           <div className="space-y-4">
             <div className="grid grid-cols-2 gap-4">
               <div className="space-y-1.5">
-                <Label className="text-sm">Min Stay</Label>
-                <Input type="number" min={1} max={30} value={editMinStay} onChange={(e) => setEditMinStay(parseInt(e.target.value) || 1)} />
+                <Label className="text-sm">Min Stay Arrival</Label>
+                <Input type="number" min={1} max={30} value={editMinStayArrival} onChange={(e) => setEditMinStayArrival(parseInt(e.target.value) || 1)} />
+                <p className="text-[10px] text-muted-foreground">Guests arriving on this date</p>
               </div>
               <div className="space-y-1.5">
-                <Label className="text-sm">Max Stay</Label>
-                <Input
-                  type="number"
-                  min={1}
-                  max={365}
-                  placeholder="No limit"
-                  value={editMaxStay ?? ''}
-                  onChange={(e) => setEditMaxStay(e.target.value ? parseInt(e.target.value) : null)}
-                />
+                <Label className="text-sm">Min Stay Through</Label>
+                <Input type="number" min={1} max={30} value={editMinStayThrough} onChange={(e) => setEditMinStayThrough(parseInt(e.target.value) || 1)} />
+                <p className="text-[10px] text-muted-foreground">Any booking including this date</p>
               </div>
+            </div>
+            <div className="space-y-1.5">
+              <Label className="text-sm">Max Stay</Label>
+              <Input
+                type="number"
+                min={1}
+                max={365}
+                placeholder="No limit"
+                value={editMaxStay ?? ''}
+                onChange={(e) => setEditMaxStay(e.target.value ? parseInt(e.target.value) : null)}
+              />
             </div>
             <div className="space-y-3">
               <div className="flex items-center justify-between">

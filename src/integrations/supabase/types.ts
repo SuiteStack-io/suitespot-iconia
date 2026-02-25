@@ -1267,7 +1267,8 @@ export type Database = {
           date_to: string
           id: string
           max_stay: number | null
-          min_stay: number | null
+          min_stay_arrival: number | null
+          min_stay_through: number | null
           rate_plan_id: string
           stop_sell: boolean | null
           synced_to_channex: boolean | null
@@ -1282,7 +1283,8 @@ export type Database = {
           date_to: string
           id?: string
           max_stay?: number | null
-          min_stay?: number | null
+          min_stay_arrival?: number | null
+          min_stay_through?: number | null
           rate_plan_id: string
           stop_sell?: boolean | null
           synced_to_channex?: boolean | null
@@ -1297,7 +1299,8 @@ export type Database = {
           date_to?: string
           id?: string
           max_stay?: number | null
-          min_stay?: number | null
+          min_stay_arrival?: number | null
+          min_stay_through?: number | null
           rate_plan_id?: string
           stop_sell?: boolean | null
           synced_to_channex?: boolean | null
@@ -1362,7 +1365,8 @@ export type Database = {
           default_closed_to_arrival: boolean | null
           default_closed_to_departure: boolean | null
           default_max_stay: number | null
-          default_min_stay: number | null
+          default_min_stay_arrival: number | null
+          default_min_stay_through: number | null
           default_stop_sell: boolean | null
           extra_adult_rate: number | null
           extra_child_rate: number | null
@@ -1390,7 +1394,8 @@ export type Database = {
           default_closed_to_arrival?: boolean | null
           default_closed_to_departure?: boolean | null
           default_max_stay?: number | null
-          default_min_stay?: number | null
+          default_min_stay_arrival?: number | null
+          default_min_stay_through?: number | null
           default_stop_sell?: boolean | null
           extra_adult_rate?: number | null
           extra_child_rate?: number | null
@@ -1418,7 +1423,8 @@ export type Database = {
           default_closed_to_arrival?: boolean | null
           default_closed_to_departure?: boolean | null
           default_max_stay?: number | null
-          default_min_stay?: number | null
+          default_min_stay_arrival?: number | null
+          default_min_stay_through?: number | null
           default_stop_sell?: boolean | null
           extra_adult_rate?: number | null
           extra_child_rate?: number | null

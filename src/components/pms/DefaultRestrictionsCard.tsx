@@ -14,7 +14,8 @@ interface DefaultRestrictionsCardProps {
 }
 
 interface Defaults {
-  default_min_stay: number;
+  default_min_stay_through: number;
+  default_min_stay_arrival: number;
   default_max_stay: number | null;
   default_stop_sell: boolean;
   default_closed_to_arrival: boolean;
@@ -24,7 +25,8 @@ interface Defaults {
 export function DefaultRestrictionsCard({ ratePlanId, ratePlanName }: DefaultRestrictionsCardProps) {
   const { toast } = useToast();
   const [defaults, setDefaults] = useState<Defaults>({
-    default_min_stay: 1,
+    default_min_stay_through: 1,
+    default_min_stay_arrival: 1,
     default_max_stay: null,
     default_stop_sell: false,
     default_closed_to_arrival: false,
@@ -37,13 +39,14 @@ export function DefaultRestrictionsCard({ ratePlanId, ratePlanName }: DefaultRes
     const fetch = async () => {
       const { data } = await supabase
         .from('rate_plans')
-        .select('default_min_stay, default_max_stay, default_stop_sell, default_closed_to_arrival, default_closed_to_departure')
+        .select('default_min_stay_through, default_min_stay_arrival, default_max_stay, default_stop_sell, default_closed_to_arrival, default_closed_to_departure')
         .eq('id', ratePlanId)
         .maybeSingle();
 
       if (data) {
         setDefaults({
-          default_min_stay: data.default_min_stay ?? 1,
+          default_min_stay_through: data.default_min_stay_through ?? 1,
+          default_min_stay_arrival: data.default_min_stay_arrival ?? 1,
           default_max_stay: data.default_max_stay ?? null,
           default_stop_sell: data.default_stop_sell ?? false,
           default_closed_to_arrival: data.default_closed_to_arrival ?? false,
@@ -63,13 +66,12 @@ export function DefaultRestrictionsCard({ ratePlanId, ratePlanName }: DefaultRes
   const handleSave = async () => {
     setSaving(true);
     try {
-      // Validation
-      if (defaults.default_min_stay < 1) {
-        toast({ title: 'Validation Error', description: 'Min stay must be at least 1', variant: 'destructive' });
+      if (defaults.default_min_stay_arrival < 1 || defaults.default_min_stay_through < 1) {
+        toast({ title: 'Validation Error', description: 'Min stay values must be at least 1', variant: 'destructive' });
         return;
       }
-      if (defaults.default_max_stay !== null && defaults.default_max_stay <= defaults.default_min_stay) {
-        toast({ title: 'Validation Error', description: 'Max stay must be greater than min stay', variant: 'destructive' });
+      if (defaults.default_max_stay !== null && (defaults.default_max_stay <= defaults.default_min_stay_arrival || defaults.default_max_stay <= defaults.default_min_stay_through)) {
+        toast({ title: 'Validation Error', description: 'Max stay must be greater than both min stay values', variant: 'destructive' });
         return;
       }
 
@@ -97,16 +99,28 @@ export function DefaultRestrictionsCard({ ratePlanId, ratePlanName }: DefaultRes
         </p>
       </CardHeader>
       <CardContent className="space-y-4">
-        <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+        <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
           <div className="space-y-1.5">
-            <Label className="text-sm">Min Stay (nights)</Label>
+            <Label className="text-sm">Min Stay Arrival</Label>
             <Input
               type="number"
               min={1}
               max={30}
-              value={defaults.default_min_stay}
-              onChange={(e) => update('default_min_stay', parseInt(e.target.value) || 1)}
+              value={defaults.default_min_stay_arrival}
+              onChange={(e) => update('default_min_stay_arrival', parseInt(e.target.value) || 1)}
             />
+            <p className="text-[10px] text-muted-foreground">Guests arriving on this date</p>
+          </div>
+          <div className="space-y-1.5">
+            <Label className="text-sm">Min Stay Through</Label>
+            <Input
+              type="number"
+              min={1}
+              max={30}
+              value={defaults.default_min_stay_through}
+              onChange={(e) => update('default_min_stay_through', parseInt(e.target.value) || 1)}
+            />
+            <p className="text-[10px] text-muted-foreground">Any booking including this date</p>
           </div>
           <div className="space-y-1.5">
             <Label className="text-sm">Max Stay (nights)</Label>
