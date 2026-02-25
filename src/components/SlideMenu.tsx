@@ -114,7 +114,7 @@ export function SlideMenu({ userRole }: SlideMenuProps) {
       items: [
         { title: 'Message Log', url: '/message-log', icon: MessageSquare },
       ],
-      showFor: ['admin'],
+      showFor: ['admin', 'manager', 'front_desk'],
     },
     {
       label: 'PMS',
