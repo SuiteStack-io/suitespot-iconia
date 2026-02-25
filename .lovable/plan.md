@@ -1,83 +1,74 @@
 
 
-# Plan: Split Min Stay into Arrival + Through (Channex-Compatible)
+# Plan: Day-of-Week Default Restrictions
 
-## Approach
-The existing `min_stay` column already behaves as "min stay through" (minimum nights for any booking that includes this date). We will rename it to `min_stay_through` and add a new `min_stay_arrival` column (minimum nights when a guest arrives on this date).
+## Summary
+Replace the single-value `default_min_stay_arrival` and `default_min_stay_through` columns with 7-element integer arrays (Sun–Sat), update the DefaultRestrictionsCard UI to show a day-of-week table with presets, and update the calendar view to resolve effective defaults per day of week.
 
 ---
 
-## Database Migrations
+## Database Migration
 
-### Migration: `rate_plan_restrictions` table
+Replace the two integer columns with integer arrays on `rate_plans`:
+
 ```sql
-ALTER TABLE rate_plan_restrictions RENAME COLUMN min_stay TO min_stay_through;
-ALTER TABLE rate_plan_restrictions ADD COLUMN min_stay_arrival INTEGER DEFAULT 1;
+ALTER TABLE rate_plans 
+  ALTER COLUMN default_min_stay_arrival TYPE INTEGER[] USING ARRAY[default_min_stay_arrival, default_min_stay_arrival, default_min_stay_arrival, default_min_stay_arrival, default_min_stay_arrival, default_min_stay_arrival, default_min_stay_arrival],
+  ALTER COLUMN default_min_stay_arrival SET DEFAULT '{1,1,1,1,1,1,1}';
+
+ALTER TABLE rate_plans 
+  ALTER COLUMN default_min_stay_through TYPE INTEGER[] USING ARRAY[default_min_stay_through, default_min_stay_through, default_min_stay_through, default_min_stay_through, default_min_stay_through, default_min_stay_through, default_min_stay_through],
+  ALTER COLUMN default_min_stay_through SET DEFAULT '{1,1,1,1,1,1,1}';
 ```
 
-### Migration: `rate_plans` table (defaults)
-```sql
-ALTER TABLE rate_plans RENAME COLUMN default_min_stay TO default_min_stay_through;
-ALTER TABLE rate_plans ADD COLUMN default_min_stay_arrival INTEGER DEFAULT 1;
-```
+This preserves existing data by expanding the current single value to all 7 days. Array index 0 = Sunday, 6 = Saturday (matching JS `Date.getDay()`).
 
 ---
 
 ## Files to Modify
 
-### 1. `src/components/pms/BulkRestrictionEditor.tsx`
-- Replace `enableMinStay`/`minStay` with two separate state pairs: `enableMinStayArrival`/`minStayArrival` and `enableMinStayThrough`/`minStayThrough`
-- Two checkbox rows in the UI with descriptions:
-  - "Min Stay Arrival" — guest arriving on this date must stay at least X nights
-  - "Min Stay Through" — any booking including this date must be at least X nights
-- Update insert payload: `min_stay_arrival` and `min_stay_through` instead of `min_stay`
-- Update validation: both >= 1, max_stay >= both (if set), warning if Stop Sell + CTA both checked
-- Add sync status section: pending count query, last sync timestamp, "Sync Now" button
+### 1. `src/components/pms/DefaultRestrictionsCard.tsx`
+**Major rewrite.** Replace the two single number inputs with:
+- A 7-row table: columns for Day, Min Stay Arrival (number input), Min Stay Through (number input)
+- Days labeled Sunday through Saturday
+- Helper text above the table explaining both field meanings
+- Quick preset buttons below the table:
+  - "Weekday: 1 / Weekend: 2" — sets Sun/Sat to 2, Mon–Fri to 1
+  - "All days: 1" — resets everything to 1
+  - "All days: 2" — sets everything to 2
+- Keep the existing Max Stay, Stop Sell, CTA, CTD controls as-is (these remain single values)
+- Update the `Defaults` interface to use `number[]` for both min stay fields
+- Update fetch/save to handle arrays
+- Validation: every array element must be >= 1
 
-### 2. `src/components/pms/RestrictionCalendarView.tsx`
-- Update `Restriction` interface: `min_stay` → `min_stay_through`, add `min_stay_arrival`
-- Update cell edit dialog: two inputs ("Min Stay Arrival" and "Min Stay Through") instead of one "Min Stay"
-- Update state: `editMinStay` → `editMinStayThrough` + new `editMinStayArrival`
-- Update `handleCellSave` to write both columns
-- Update calendar cell rendering to show both badge types (`A:X` and `T:X`)
-- Add sync status indicator below the calendar grid
+### 2. `src/pages/pms/Restrictions.tsx`
+- Update `RatePlan` interface: `default_min_stay_arrival` and `default_min_stay_through` become `number[] | null`
+- No query changes needed (select already fetches these columns)
 
-### 3. `src/components/pms/DefaultRestrictionsCard.tsx`
-- Rename `default_min_stay` → `default_min_stay_through` in interface and state
-- Add `default_min_stay_arrival` field
-- Two separate inputs with descriptions
-- Update validation and save payload
+### 3. `src/components/pms/RestrictionCalendarView.tsx`
+- Update `RatePlanOption` interface: both default min stay fields become `number[]`
+- Update effective value resolution in the calendar cell rendering:
+  - Instead of `plan.default_min_stay_arrival ?? 1`, use `(plan.default_min_stay_arrival?.[d.getDay()] ?? 1)` where `d` is the date object for that cell
+  - Same for `default_min_stay_through`
+- Update `openCellEdit` to resolve defaults by day of week
 
-### 4. `src/components/pms/RestrictionBadge.tsx`
-- Replace `min_stay` type with `min_stay_arrival` and `min_stay_through`
-- `min_stay_arrival`: label `A:X`, blue badge
-- `min_stay_through`: label `T:X`, purple badge (`bg-purple-100 text-purple-800 border-purple-300`)
+### 4. `supabase/functions/channex-push-restrictions/index.ts`
+No changes needed. This function pushes date-specific `rate_plan_restrictions` rows (which still use single integer values per date range). The day-of-week defaults only affect the UI display and are not pushed as restrictions — they serve as fallback values when no date-specific override exists.
 
-### 5. `src/pages/pms/Restrictions.tsx`
-- Update `RatePlan` interface: `default_min_stay` → `default_min_stay_through`, add `default_min_stay_arrival`
-- Update the select query to fetch both new column names
-
-### 6. `supabase/functions/channex-push-restrictions/index.ts`
-- Update payload to send both fields from the renamed columns:
-  ```
-  min_stay_arrival: r.min_stay_arrival || 1,
-  min_stay_through: r.min_stay_through || 1,
-  ```
-- Remove old `min_stay_arrival: r.min_stay || 1` mapping
+### 5. `src/integrations/supabase/types.ts`
+Will be auto-updated after migration. The columns will change from `number | null` to `number[] | null`.
 
 ---
 
-## Sync Status Indicator (added to RestrictionCalendarView + BulkRestrictionEditor)
-- Query `rate_plan_restrictions` where `synced_to_channex = false` for pending count
-- Query `channex_sync_logs` for latest `channex-push-restrictions` entry for last sync time
-- "Sync Now" button invoking `channex-push-restrictions`
-- Auto-refresh status after sync
+## Priority Resolution (unchanged)
+1. Date-specific restriction from `rate_plan_restrictions` table (highest)
+2. Day-of-week default from `rate_plans` arrays (new)
+3. Fallback value of 1
 
-## Validation Rules
-- `min_stay_arrival >= 1`
-- `min_stay_through >= 1`
-- `max_stay >= min_stay_arrival` and `>= min_stay_through` (if set)
-- `max_stay` of 0 or empty = no limit
-- Date range: from >= today, to >= from
-- Warning toast if Stop Sell + CTA both checked
+---
+
+## Technical Notes
+- The `USING` clause in the migration converts existing single integer values to 7-element arrays, so no data loss occurs
+- The Channex push function does not need changes because it only sends date-specific overrides from `rate_plan_restrictions`, not defaults
+- The `rate_plan_restrictions` table columns (`min_stay_arrival`, `min_stay_through`) remain as single integers — they represent overrides for specific date ranges
 
