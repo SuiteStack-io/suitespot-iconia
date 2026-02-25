@@ -68,6 +68,7 @@ interface MenuSection {
 export function SlideMenu({ userRole }: SlideMenuProps) {
   const navigate = useNavigate();
   const location = useLocation();
+  const [open, setOpen] = useState(false);
   const [almazaBayOpen, setAlmazaBayOpen] = useState(false);
   const { hasPermission } = useAuth();
 
@@ -172,7 +173,7 @@ export function SlideMenu({ userRole }: SlideMenuProps) {
     }));
 
   return (
-    <Sheet>
+    <Sheet open={open} onOpenChange={setOpen}>
       <SheetTrigger asChild>
         <Button variant="ghost" size="icon" className="h-10 w-10">
           <PanelLeft className="h-5 w-5" />
@@ -182,14 +183,12 @@ export function SlideMenu({ userRole }: SlideMenuProps) {
         <div className="flex flex-col h-full py-6">
           {/* Header */}
           <div className="px-6 mb-6">
-            <SheetTrigger asChild>
-              <button
-                onClick={() => navigate('/admin')}
-                className="text-lg font-semibold text-white hover:text-cyan-400 transition-colors cursor-pointer"
-              >
-                Admin
-              </button>
-            </SheetTrigger>
+            <button
+              onClick={() => { navigate('/admin'); setOpen(false); }}
+              className="text-lg font-semibold text-white hover:text-cyan-400 transition-colors cursor-pointer"
+            >
+              Admin
+            </button>
           </div>
 
           {/* Menu Sections */}
@@ -205,11 +204,11 @@ export function SlideMenu({ userRole }: SlideMenuProps) {
                     const Icon = item.icon;
                     const isActive = location.pathname === item.url;
 
-                    return (
-                      <SheetTrigger key={item.url} asChild>
+                      return (
                         <Button
+                          key={item.url}
                           variant="ghost"
-                          onClick={() => navigate(item.url)}
+                          onClick={() => { navigate(item.url); setOpen(false); }}
                           className={cn(
                             'w-full justify-start gap-3 h-10 px-3 rounded-md',
                             'text-[hsl(30,15%,70%)] hover:text-white hover:bg-[hsl(30,8%,25%)]',
@@ -219,8 +218,7 @@ export function SlideMenu({ userRole }: SlideMenuProps) {
                           <Icon className={cn('h-4 w-4', isActive && 'text-cyan-400')} />
                           <span className="text-sm">{item.title}</span>
                         </Button>
-                      </SheetTrigger>
-                    );
+                      );
                   })}
                 </div>
               );
