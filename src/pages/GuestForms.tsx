@@ -96,6 +96,7 @@ type SortOrder = 'asc' | 'desc';
 export default function GuestForms() {
   const navigate = useNavigate();
   const { user, userRole, loading: authLoading, hasPermission } = useAuth();
+  const propertyId = usePropertyId();
 
   useEffect(() => {
     if (!authLoading && userRole && userRole !== 'admin' && !hasPermission('can_access_front_desk')) {
@@ -126,15 +127,15 @@ export default function GuestForms() {
     if (user) {
       fetchData();
     }
-  }, [user]);
+  }, [user, propertyId]);
 
   const fetchData = async () => {
     setLoading(true);
     try {
       // Fetch reservations with checked-in, checked-out, or confirmed status (where check-in date is today or earlier)
       const today = format(new Date(), 'yyyy-MM-dd');
-      const { data: reservationsData, error: reservationsError } = await supabase
-        .from('reservations')
+      const { data: reservationsData, error: reservationsError } = await withPropertyFilter(supabase
+        .from('reservations'), propertyId)
         .select(`
           id,
           booking_reference,

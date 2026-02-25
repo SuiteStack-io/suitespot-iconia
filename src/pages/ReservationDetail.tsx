@@ -34,6 +34,7 @@ import { cn } from '@/lib/utils';
 import { CreateGuestAccountDialog } from '@/components/CreateGuestAccountDialog';
 import { SlideMenu } from '@/components/SlideMenu';
 import { RoomTransferDialog } from '@/components/RoomTransferDialog';
+import { usePropertyId, withPropertyFilter } from '@/hooks/usePropertyFilter';
 import {
   AlertDialog,
   AlertDialogAction,
@@ -152,6 +153,7 @@ const statusLabels = {
 const ReservationDetail = () => {
   const { id } = useParams();
   const navigate = useNavigate();
+  const propertyId = usePropertyId();
   const { userRole } = useAuth();
   const [reservation, setReservation] = useState<Reservation | null>(null);
   const [units, setUnits] = useState<Unit[]>([]);
@@ -288,9 +290,9 @@ const ReservationDetail = () => {
   };
 
   const fetchUnits = async () => {
-    const { data } = await supabase
+    const { data } = await withPropertyFilter(supabase
       .from('units')
-      .select('id, name, unit_number, unit_type, status')
+      .select('id, name, unit_number, unit_type, status'), propertyId)
       .order('name');
     
     if (data) {

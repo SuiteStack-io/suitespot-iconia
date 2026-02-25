@@ -67,6 +67,7 @@ interface GuestAccount {
 export default function GuestAccounts() {
   const navigate = useNavigate();
   const { user, userRole } = useAuth();
+  const propertyId = usePropertyId();
   const [loading, setLoading] = useState(true);
   const [accounts, setAccounts] = useState<GuestAccount[]>([]);
   const [resetDialogOpen, setResetDialogOpen] = useState(false);
@@ -107,8 +108,8 @@ export default function GuestAccounts() {
   };
 
   const fetchReservations = async () => {
-    const { data, error } = await supabase
-      .from("reservations")
+    const { data, error } = await withPropertyFilter(supabase
+      .from("reservations"), propertyId)
       .select("id, booking_reference, guest_names, check_in_date, check_out_date, units!unit_id(name)")
       .eq("status", "confirmed")
       .order("check_in_date", { ascending: false })

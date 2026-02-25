@@ -72,6 +72,7 @@ function StatusBadge({ success }: { success: boolean | null }) {
 
 const ChannexDebug = () => {
   const { userRole } = useAuth();
+  const propertyId = usePropertyId();
 
   // Shared data
   const [units, setUnits] = useState<any[]>([]);
@@ -81,9 +82,9 @@ const ChannexDebug = () => {
   useEffect(() => {
     const load = async () => {
       const [u, m, r] = await Promise.all([
-        supabase.from('units').select('id, name, unit_number, booking_com_name').order('name'),
+        withPropertyFilter(supabase.from('units').select('id, name, unit_number, booking_com_name'), propertyId).order('name'),
         supabase.from('channex_mappings').select('*').eq('sync_status', 'synced'),
-        supabase.from('rate_plans').select('id, name').eq('is_active', true),
+        withPropertyFilter(supabase.from('rate_plans').select('id, name').eq('is_active', true), propertyId),
       ]);
       setUnits(u.data || []);
       setMappings(m.data || []);

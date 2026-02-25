@@ -30,6 +30,7 @@ interface Unit {
 }
 
 export function SyncLogs() {
+  const propertyId = usePropertyId();
   const [loading, setLoading] = useState(true);
   const [logs, setLogs] = useState<SyncLog[]>([]);
   const [units, setUnits] = useState<Unit[]>([]);
@@ -46,7 +47,7 @@ export function SyncLogs() {
     try {
       const [logsRes, unitsRes] = await Promise.all([
         supabase.from('channex_sync_logs').select('*').order('created_at', { ascending: false }).limit(100),
-        supabase.from('units').select('id, name, unit_number').order('unit_number'),
+        withPropertyFilter(supabase.from('units').select('id, name, unit_number'), propertyId).order('unit_number'),
       ]);
       if (logsRes.error) throw logsRes.error;
       if (unitsRes.error) throw unitsRes.error;

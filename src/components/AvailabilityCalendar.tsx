@@ -16,7 +16,7 @@ import * as XLSX from 'xlsx';
 import { ReservationQuickActions } from "./ReservationQuickActions";
 import { CreateReservationDialog } from "./CreateReservationDialog";
 import { DndContext, DragEndEvent, DragOverlay, DragStartEvent, useDraggable, useDroppable, PointerSensor, useSensor, useSensors } from "@dnd-kit/core";
-import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
+
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from "@/components/ui/alert-dialog";
 import { Label } from "@/components/ui/label";
@@ -248,9 +248,7 @@ export const AvailabilityCalendar = () => {
     guestName: string;
     timestamp: number;
   } | null>(null);
-  const [selectedLocation, setSelectedLocation] = useState<'ICONIA' | 'Almaza Bay'>('ICONIA');
-  const [iconiaCount, setIconiaCount] = useState(0);
-  const [almazaBayCount, setAlmazaBayCount] = useState(0);
+  const propertyId = usePropertyId();
   const [sortByRoomType, setSortByRoomType] = useState<boolean>(() => {
     const saved = localStorage.getItem('calendarSortByRoomType');
     return saved === null ? true : saved === 'true';
@@ -374,25 +372,7 @@ export const AvailabilityCalendar = () => {
     localStorage.setItem('calendarSortByRoomType', String(sortByRoomType));
   }, [sortByRoomType]);
 
-  const fetchUnitCounts = async () => {
-    const { count: iconiaTotal } = await supabase
-      .from('units')
-      .select('*', { count: 'exact', head: true })
-      .eq('location', 'ICONIA')
-      .eq('status', 'available');
-    
-    const { count: almazaTotal } = await supabase
-      .from('units')
-      .select('*', { count: 'exact', head: true })
-      .eq('location', 'Almaza Bay')
-      .eq('status', 'available');
-    
-    setIconiaCount(iconiaTotal || 0);
-    setAlmazaBayCount(almazaTotal || 0);
-  };
-
   useEffect(() => {
-    fetchUnitCounts();
     fetchData();
     
     // Real-time subscription
@@ -425,15 +405,14 @@ export const AvailabilityCalendar = () => {
     return () => {
       supabase.removeChannel(channel);
     };
-  }, [currentWeekStart, currentMonth, viewMode, selectedLocation, sortByRoomType]);
+  }, [currentWeekStart, currentMonth, viewMode, propertyId, sortByRoomType]);
 
   const fetchData = async () => {
     // Fetch units filtered by location
-    const { data: unitsData } = await supabase
+    const { data: unitsData } = await withPropertyFilter(supabase
       .from('units')
       .select('*')
-      .eq('status', 'available')
-      .eq('location', selectedLocation);
+      .eq('status', 'available'), propertyId);
 
     if (unitsData) {
       // Sort based on user preference
@@ -1834,22 +1813,6 @@ export const AvailabilityCalendar = () => {
             )}
           </div>
         </div>
-        {!isFullscreen && (
-          <Tabs 
-            value={selectedLocation} 
-            onValueChange={(value) => setSelectedLocation(value as 'ICONIA' | 'Almaza Bay')}
-            className="mt-4"
-          >
-            <TabsList>
-              <TabsTrigger value="ICONIA">
-                ICONIA <span className="ml-1.5 text-xs opacity-70">({iconiaCount})</span>
-              </TabsTrigger>
-              <TabsTrigger value="Almaza Bay">
-                Almaza Bay <span className="ml-1.5 text-xs opacity-70">({almazaBayCount})</span>
-              </TabsTrigger>
-            </TabsList>
-          </Tabs>
-        )}
       </CardHeader>
       <CardContent>
         {/* Fullscreen Header - Only date range and exit button */}
