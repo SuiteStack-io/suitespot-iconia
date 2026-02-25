@@ -1,4 +1,5 @@
 import { useState, useEffect, useRef } from "react";
+import { usePropertyId, withPropertyFilter } from "@/hooks/usePropertyFilter";
 import { useIsMobile } from "@/hooks/use-mobile";
 import { Button } from "@/components/ui/button";
 import {
@@ -173,6 +174,7 @@ interface Unit {
 
 export function CreateReservationDialog() {
   const { userRole, hasPermission } = useAuth();
+  const propertyId = usePropertyId();
   const isMobile = useIsMobile();
   const canCreateBooking = hasPermission('can_create_booking');
   const [open, setOpen] = useState(false);

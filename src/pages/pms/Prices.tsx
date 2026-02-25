@@ -65,6 +65,7 @@ interface Unit {
 
 const PMSPrices = () => {
   const { userRole } = useAuth();
+  const propertyId = usePropertyId();
   const [loading, setLoading] = useState(true);
   const [ratePlans, setRatePlans] = useState<RatePlan[]>([]);
   const [ratePlanPrices, setRatePlanPrices] = useState<Record<string, RatePlanPrice[]>>({});
