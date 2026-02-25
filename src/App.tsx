@@ -70,6 +70,8 @@ import ChannexDebug from "./pages/ChannexDebug";
 import ShuffleHistory from "./pages/ShuffleHistory";
 import FrontDeskRoomRates from "./pages/front-desk/RoomRates";
 import ChannelMarkup from "./pages/pms/ChannelMarkup";
+import MessageTemplates from "./pages/MessageTemplates";
+import MessageLog from "./pages/MessageLog";
 const queryClient = new QueryClient();
 
 const App = () => (
@@ -166,6 +168,8 @@ const App = () => (
         <Route path="/channex-debug" element={<ProtectedRoute><ChannexDebug /></ProtectedRoute>} />
         <Route path="/shuffle-history" element={<ProtectedRoute><ShuffleHistory /></ProtectedRoute>} />
         <Route path="/front-desk/room-rates" element={<ProtectedRoute><FrontDeskRoomRates /></ProtectedRoute>} />
+        <Route path="/message-templates" element={<ProtectedRoute><AdminRoute><MessageTemplates /></AdminRoute></ProtectedRoute>} />
+        <Route path="/message-log" element={<ProtectedRoute><AdminRoute><MessageLog /></AdminRoute></ProtectedRoute>} />
               
               {/* ADD ALL CUSTOM ROUTES ABOVE THE CATCH-ALL "*" ROUTE */}
               <Route path="*" element={<NotFound />} />

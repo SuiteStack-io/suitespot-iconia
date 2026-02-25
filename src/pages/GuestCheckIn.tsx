@@ -324,8 +324,17 @@ const GuestCheckIn = () => {
         console.error('Failed to send check-in notification:', notifyErr);
       }
 
+      // Fire-and-forget: send WhatsApp welcome message
+      try {
+        supabase.functions.invoke('send-whatsapp-message', {
+          body: { reservationId, messageType: 'welcome' }
+        });
+      } catch (whatsappErr) {
+        console.error('Failed to trigger WhatsApp welcome:', whatsappErr);
+      }
+
       // Store data for PDF generation
-      const unitDisplay = reservation?.units 
+      const unitDisplay = reservation?.units
         ? `${reservation.units.booking_com_name || reservation.units.name}${reservation.units.unit_number ? ` (${reservation.units.unit_number})` : ''}`
         : 'Your Unit';
       
