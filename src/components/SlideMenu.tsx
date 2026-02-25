@@ -4,8 +4,6 @@ import {
   Sheet,
   SheetContent,
   SheetTrigger,
-  SheetTitle,
-  SheetDescription,
 } from '@/components/ui/sheet';
 import {
   Collapsible,
@@ -44,7 +42,6 @@ import {
   Radio,
   ArrowLeftRight,
   Tag,
-  MessageSquareText,
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { useAuth } from '@/lib/auth';
@@ -111,14 +108,6 @@ export function SlideMenu({ userRole }: SlideMenuProps) {
       showFor: userRole === 'admin' || hasPermission('can_access_front_desk') ? undefined : [],
     },
     {
-      label: 'CUSTOMER EXCELLENCE',
-      items: [
-        { title: 'Message Templates', url: '/message-templates', icon: MessageSquareText },
-        { title: 'Message Log', url: '/message-log', icon: ScrollText },
-      ],
-      showFor: ['admin'],
-    },
-    {
       label: 'PMS',
       items: [
         { title: 'Availability', url: '/pms/availability', icon: CalendarDays },
@@ -177,13 +166,11 @@ export function SlideMenu({ userRole }: SlideMenuProps) {
   return (
     <Sheet>
       <SheetTrigger asChild>
-        <Button variant="ghost" size="icon" className="h-10 w-10" type="button">
+        <Button variant="ghost" size="icon" className="h-10 w-10">
           <PanelLeft className="h-5 w-5" />
         </Button>
       </SheetTrigger>
       <SheetContent side="left" className="w-72 bg-[hsl(30,5%,20%)] border-[hsl(30,8%,30%)] p-0">
-        <SheetTitle className="sr-only">Navigation Menu</SheetTitle>
-        <SheetDescription className="sr-only">Admin navigation menu</SheetDescription>
         <div className="flex flex-col h-full py-6">
           {/* Header */}
           <div className="px-6 mb-6">

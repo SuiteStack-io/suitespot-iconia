@@ -84,9 +84,3 @@ verify_jwt = false
 
 [functions.channex-push-restrictions]
 verify_jwt = false
-
-[functions.send-whatsapp-message]
-verify_jwt = false
-
-[functions.send-whatsapp-midstay-cron]
-verify_jwt = false

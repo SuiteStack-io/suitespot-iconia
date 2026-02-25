@@ -1,44 +1,57 @@
 
+## Objective
+Fix the redirect bug that still prevents Dina (front_desk + `can_access_front_desk`) from accessing the **Guests** page.
 
-# Fix: Hamburger menu missing accessibility components
+## What I found
+I reviewed the current `Guests` page guards and found **two competing redirects**:
 
-## Root Cause
+1. Correct front-desk permission guard:
+- Allows admins, and allows non-admin users only when `hasPermission('can_access_front_desk')` is true.
+- Redirects unauthorized users to `/admin`.
 
-The `SheetContent` in `SlideMenu.tsx` is missing the required `SheetTitle` and `SheetDescription` components. Radix UI's Dialog (which Sheet is built on) requires these for accessibility. Without them, the component throws errors and behaves unpredictably — in the preview environment, this manifests as opening a new tab instead of the slide-out panel.
+2. Legacy admin-only guard (still present):
+- If user is not admin, it unconditionally redirects to `/`.
+- This overrides Dina’s valid front-desk permission and causes the exact behavior reported: she lands on homepage.
 
-The routing and auth setup (`ProtectedRoute` + `AdminRoute` wrapping both `/message-templates` and `/message-log`) are correct. This is not an auth issue — it is a UI component issue preventing the menu from opening at all.
+So the root cause is **not** the recent auth loading fix; it is an old leftover guard in `src/pages/Guests.tsx`.
 
-## Fix
+## Implementation plan
+1. **Remove the legacy admin-only redirect effect** from `src/pages/Guests.tsx`:
+   - Delete:
+   ```ts
+   useEffect(() => {
+     if (!authLoading && userRole !== "admin") {
+       navigate("/");
+     }
+   }, [userRole, authLoading, navigate]);
+   ```
 
-**File: `src/components/SlideMenu.tsx`**
+2. **Keep the granular front-desk guard only**:
+   - This is the correct access model already aligned with your permission system:
+   ```ts
+   if (!authLoading && userRole && userRole !== 'admin' && !hasPermission('can_access_front_desk')) {
+     navigate('/admin');
+   }
+   ```
 
-1. Import `SheetTitle` and `SheetDescription` from `@/components/ui/sheet`
-2. Add visually-hidden `SheetTitle` and `SheetDescription` inside `SheetContent` to satisfy Radix UI requirements
-3. Add `type="button"` to the hamburger trigger `Button` to prevent default submit behavior
+3. **No backend/database changes**:
+   - Roles remain in `user_roles`.
+   - Permission remains in `user_permissions`.
+   - No RLS/policy migration required for this specific bug.
 
-These are 3 small, targeted changes — no structural or logic changes.
+## Validation plan (end-to-end)
+I will verify with the following checks:
+1. Log in as Dina.
+2. Open `/guests` from the sidebar and direct URL.
+3. Confirm page loads (no redirect to `/`).
+4. Confirm unauthorized role without `can_access_front_desk` is redirected to `/admin`.
+5. Confirm admin still accesses `/guests` normally.
 
-### Change 1: Update imports (line 4-7)
-```tsx
-import {
-  Sheet,
-  SheetContent,
-  SheetTrigger,
-  SheetTitle,
-  SheetDescription,
-} from '@/components/ui/sheet';
-```
+## Technical details (for developers)
+- **File to edit:** `src/pages/Guests.tsx`
+- **Change type:** client-side route guard cleanup
+- **Risk level:** low (single redundant effect removal)
+- **Why this is safe:** existing permission-based guard already enforces intended access; removing duplicate contradictory logic restores expected behavior.
 
-### Change 2: Add `type="button"` to trigger (line 178)
-```tsx
-<Button variant="ghost" size="icon" className="h-10 w-10" type="button">
-```
-
-### Change 3: Add hidden title/description inside SheetContent (after line 182)
-```tsx
-<SheetContent side="left" className="w-72 bg-[hsl(30,5%,20%)] border-[hsl(30,8%,30%)] p-0">
-  <SheetTitle className="sr-only">Navigation Menu</SheetTitle>
-  <SheetDescription className="sr-only">Admin navigation menu</SheetDescription>
-  <div className="flex flex-col h-full py-6">
-```
-
+## Expected outcome
+Dina will be able to open the **Guests** page successfully, while access control remains enforced for users without front desk permission.
