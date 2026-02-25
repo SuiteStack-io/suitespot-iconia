@@ -1626,6 +1626,7 @@ export type Database = {
           payment_method: string | null
           preferred_language: string | null
           price_per_night: number | null
+          property_id: string | null
           settled: string | null
           shuffle_log_id: string | null
           shuffled_at: string | null
@@ -1685,6 +1686,7 @@ export type Database = {
           payment_method?: string | null
           preferred_language?: string | null
           price_per_night?: number | null
+          property_id?: string | null
           settled?: string | null
           shuffle_log_id?: string | null
           shuffled_at?: string | null
@@ -1744,6 +1746,7 @@ export type Database = {
           payment_method?: string | null
           preferred_language?: string | null
           price_per_night?: number | null
+          property_id?: string | null
           settled?: string | null
           shuffle_log_id?: string | null
           shuffled_at?: string | null
@@ -1759,6 +1762,13 @@ export type Database = {
           vat_exempt?: boolean | null
         }
         Relationships: [
+          {
+            foreignKeyName: "reservations_property_id_fkey"
+            columns: ["property_id"]
+            isOneToOne: false
+            referencedRelation: "properties"
+            referencedColumns: ["id"]
+          },
           {
             foreignKeyName: "reservations_shuffle_log_id_fkey"
             columns: ["shuffle_log_id"]
@@ -2130,6 +2140,7 @@ export type Database = {
           payment_terms: string | null
           photos: string[] | null
           price_per_night: number | null
+          property_id: string | null
           room_kind: string | null
           sofa_bed: boolean | null
           status: string
@@ -2168,6 +2179,7 @@ export type Database = {
           payment_terms?: string | null
           photos?: string[] | null
           price_per_night?: number | null
+          property_id?: string | null
           room_kind?: string | null
           sofa_bed?: boolean | null
           status: string
@@ -2206,6 +2218,7 @@ export type Database = {
           payment_terms?: string | null
           photos?: string[] | null
           price_per_night?: number | null
+          property_id?: string | null
           room_kind?: string | null
           sofa_bed?: boolean | null
           status?: string
@@ -2217,7 +2230,15 @@ export type Database = {
           view?: string | null
           weekend_rate?: number | null
         }
-        Relationships: []
+        Relationships: [
+          {
+            foreignKeyName: "units_property_id_fkey"
+            columns: ["property_id"]
+            isOneToOne: false
+            referencedRelation: "properties"
+            referencedColumns: ["id"]
+          },
+        ]
       }
       user_permissions: {
         Row: {
