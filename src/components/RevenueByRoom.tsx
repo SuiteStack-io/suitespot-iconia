@@ -10,8 +10,8 @@ import {
   TableRow,
 } from '@/components/ui/table';
 import { Button } from '@/components/ui/button';
-import { Tabs, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { ChevronDown, ChevronRight } from 'lucide-react';
+import { usePropertyId, withPropertyFilter } from '@/hooks/usePropertyFilter';
 import { format } from 'date-fns';
 import { DateRange } from 'react-day-picker';
 
@@ -39,11 +39,11 @@ interface RevenueByRoomProps {
 }
 
 export const RevenueByRoom = ({ mainDateRange }: RevenueByRoomProps) => {
+  const propertyId = usePropertyId();
   const [revenueByRoom, setRevenueByRoom] = useState<RoomRevenue[]>([]);
   const [groupedRevenue, setGroupedRevenue] = useState<GroupedRoomRevenue[]>([]);
   const [expandedGroups, setExpandedGroups] = useState<Set<string>>(new Set());
   const [loading, setLoading] = useState(true);
-  const [selectedLocation, setSelectedLocation] = useState<'ICONIA' | 'Almaza Bay'>('ICONIA');
   const [dateRange, setDateRange] = useState<DateRange | undefined>(() => {
     if (mainDateRange?.from && mainDateRange?.to) {
       return mainDateRange;
@@ -82,7 +82,7 @@ export const RevenueByRoom = ({ mainDateRange }: RevenueByRoomProps) => {
     return () => {
       supabase.removeChannel(channel);
     };
-  }, [dateRange, selectedLocation]);
+  }, [dateRange, propertyId]);
 
   // Group rooms by room name whenever revenueByRoom changes
   useEffect(() => {
@@ -158,12 +158,11 @@ export const RevenueByRoom = ({ mainDateRange }: RevenueByRoomProps) => {
     // Calculate total days in the date range
     const daysDiff = Math.ceil((dateRange.to.getTime() - dateRange.from.getTime()) / (1000 * 60 * 60 * 24)) + 1;
 
-    // Fetch all units for selected location
-    const { data: units, error: unitsError } = await supabase
+    // Fetch all units for active property
+    const { data: units, error: unitsError } = await withPropertyFilter(supabase
       .from('units')
       .select('id, name, unit_number, unit_size, unit_type, booking_com_name')
-      .eq('location', selectedLocation)
-      .order('unit_number', { ascending: true });
+      .order('unit_number', { ascending: true }), propertyId);
 
     if (unitsError) {
       console.error('Error fetching units:', unitsError);
@@ -172,13 +171,13 @@ export const RevenueByRoom = ({ mainDateRange }: RevenueByRoomProps) => {
     }
 
     // Fetch reservations for the date range
-    const { data: reservations, error: reservationsError } = await supabase
+    const { data: reservations, error: reservationsError } = await withPropertyFilter(supabase
       .from('reservations')
       .select('unit_id, total_price, commission_amount, check_in_date, check_out_date, nights')
       .neq('status', 'Cancelled')
       .is('cancelled_at', null)
       .gte('check_in_date', startDate)
-      .lte('check_out_date', endDate);
+      .lte('check_out_date', endDate), propertyId);
 
     if (reservationsError) {
       console.error('Error fetching reservations:', reservationsError);
@@ -274,22 +273,14 @@ export const RevenueByRoom = ({ mainDateRange }: RevenueByRoomProps) => {
       <CardHeader className="space-y-4">
         <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-4">
           <CardTitle>Revenue by Room</CardTitle>
-          <div className="flex flex-wrap items-center gap-2">
-            <Tabs value={selectedLocation} onValueChange={(value) => setSelectedLocation(value as 'ICONIA' | 'Almaza Bay')}>
-              <TabsList className="h-8">
-                <TabsTrigger value="ICONIA" className="text-xs px-3">ICONIA</TabsTrigger>
-                <TabsTrigger value="Almaza Bay" className="text-xs px-3">Almaza Bay</TabsTrigger>
-              </TabsList>
-            </Tabs>
-            <Button
-              variant="ghost"
-              size="sm"
-              onClick={allExpanded ? collapseAll : expandAll}
-              className="text-muted-foreground"
-            >
-              {allExpanded ? 'Collapse All' : 'Expand All'}
-            </Button>
-          </div>
+          <Button
+            variant="ghost"
+            size="sm"
+            onClick={allExpanded ? collapseAll : expandAll}
+            className="text-muted-foreground"
+          >
+            {allExpanded ? 'Collapse All' : 'Expand All'}
+          </Button>
         </div>
       </CardHeader>
       <CardContent>

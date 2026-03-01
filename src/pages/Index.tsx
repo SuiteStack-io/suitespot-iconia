@@ -19,6 +19,8 @@ import { useToast } from '@/hooks/use-toast';
 import { supabase } from '@/integrations/supabase/client';
 import { useNotifications } from '@/hooks/useNotifications';
 import { Avatar, AvatarFallback } from '@/components/ui/avatar';
+import { Badge } from '@/components/ui/badge';
+import { usePropertySafe } from '@/lib/propertyContext';
 
 const Index = () => {
   const { user, loading, signOut, userRole } = useAuth();
@@ -27,6 +29,7 @@ const Index = () => {
   const { toast } = useToast();
   
   const { permission, requestPermission } = useNotifications();
+  const propertyCtx = usePropertySafe();
   const [showScrollTop, setShowScrollTop] = useState(false);
   const [userName, setUserName] = useState<string>("");
 
@@ -139,6 +142,12 @@ const Index = () => {
               </div>
             </div>
 
+            {propertyCtx?.activeProperty && (
+              <Badge variant="outline" className="hidden md:flex items-center gap-1.5 text-xs font-normal border-border">
+                <span className="h-2 w-2 rounded-full bg-emerald-500 shrink-0" />
+                {propertyCtx.activeProperty.name}
+              </Badge>
+            )}
             <NotificationBell />
             <Button 
               variant="outline" 

@@ -11,7 +11,7 @@ import { Sheet, SheetContent, SheetHeader, SheetTitle } from '@/components/ui/sh
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip';
 import { Badge } from '@/components/ui/badge';
-import { Tabs, TabsList, TabsTrigger } from '@/components/ui/tabs';
+
 import { useNavigate } from 'react-router-dom';
 import { useIsMobile } from '@/hooks/use-mobile';
 import { ReservationQuickActions } from './ReservationQuickActions';
@@ -62,14 +62,13 @@ export const RoomCalendar = () => {
   const propertyId = usePropertyId();
   const [currentWeekStart, setCurrentWeekStart] = useState(() => startOfDay(new Date()));
   const [currentMonth, setCurrentMonth] = useState(startOfMonth(new Date()));
-  const [selectedLocation, setSelectedLocation] = useState<'ICONIA' | 'Almaza Bay'>('ICONIA');
+  
   const [units, setUnits] = useState<Unit[]>([]);
   const [reservations, setReservations] = useState<Reservation[]>([]);
   const [blockedDates, setBlockedDates] = useState<BlockedDate[]>([]);
   const [selectedDay, setSelectedDay] = useState<DayData | null>(null);
   const [sheetOpen, setSheetOpen] = useState(false);
-  const [iconiaCount, setIconiaCount] = useState(0);
-  const [almazaBayCount, setAlmazaBayCount] = useState(0);
+  const [unitCount, setUnitCount] = useState(0);
   const [quickActionsOpen, setQuickActionsOpen] = useState(false);
   const [selectedReservation, setSelectedReservation] = useState<Reservation | null>(null);
   const [selectedUnit, setSelectedUnit] = useState<Unit | null>(null);
@@ -99,35 +98,25 @@ export const RoomCalendar = () => {
     return () => {
       supabase.removeChannel(channel);
     };
-  }, [selectedLocation, sortByRoomType, propertyId]);
+  }, [sortByRoomType, propertyId]);
 
   useEffect(() => {
     localStorage.setItem('calendarSortByRoomType', String(sortByRoomType));
   }, [sortByRoomType]);
 
   const fetchUnitCounts = async () => {
-    // Fetch ICONIA count
-    const { count: iconiaTotal } = await withPropertyFilter(supabase
+    const { count } = await withPropertyFilter(supabase
       .from('units')
       .select('*', { count: 'exact', head: true })
       .eq('status', 'available'), propertyId);
     
-    // Fetch Almaza Bay count
-    const { count: almazaTotal } = await supabase
-      .from('units')
-      .select('*', { count: 'exact', head: true })
-      .eq('location', 'Almaza Bay')
-      .eq('status', 'available');
-    
-    setIconiaCount(iconiaTotal || 0);
-    setAlmazaBayCount(almazaTotal || 0);
+    setUnitCount(count || 0);
   };
 
   const fetchUnits = async () => {
     const { data, error } = await withPropertyFilter(supabase
       .from('units')
       .select('id, unit_number, name, unit_type, booking_com_name')
-      .eq('location', selectedLocation)
       .eq('status', 'available'), propertyId);
     
     if (error) {
@@ -598,33 +587,11 @@ export const RoomCalendar = () => {
       <CardHeader>
         <div className="flex flex-col gap-4">
           <div className="flex items-center justify-between">
-            <CardTitle className={isMobile ? "hidden" : ""}>Room Calendar</CardTitle>
-            {!isMobile && (
-              <Tabs value={selectedLocation} onValueChange={(value) => setSelectedLocation(value as 'ICONIA' | 'Almaza Bay')}>
-                <TabsList>
-                  <TabsTrigger value="ICONIA">
-                    ICONIA <span className="ml-1.5 text-xs opacity-70">({iconiaCount})</span>
-                  </TabsTrigger>
-                  <TabsTrigger value="Almaza Bay">
-                    Almaza Bay <span className="ml-1.5 text-xs opacity-70">({almazaBayCount})</span>
-                  </TabsTrigger>
-                </TabsList>
-              </Tabs>
-            )}
+            <div className="flex items-center gap-2">
+              <CardTitle className={isMobile ? "hidden" : ""}>Room Calendar</CardTitle>
+              <Badge variant="secondary" className="text-xs">{unitCount} units</Badge>
+            </div>
           </div>
-          
-          {isMobile && (
-            <Tabs value={selectedLocation} onValueChange={(value) => setSelectedLocation(value as 'ICONIA' | 'Almaza Bay')} className="w-full">
-              <TabsList className="w-full grid grid-cols-2">
-                <TabsTrigger value="ICONIA" className="text-xs sm:text-sm">
-                  ICONIA <span className="ml-1 opacity-70">({iconiaCount})</span>
-                </TabsTrigger>
-                <TabsTrigger value="Almaza Bay" className="text-xs sm:text-sm">
-                  Almaza Bay <span className="ml-1 opacity-70">({almazaBayCount})</span>
-                </TabsTrigger>
-              </TabsList>
-            </Tabs>
-          )}
           
           <div className={`flex items-center ${isMobile ? 'gap-1.5 w-full justify-between' : 'gap-2'}`}>
             {!isMobile ? (
