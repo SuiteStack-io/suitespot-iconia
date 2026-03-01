@@ -2,6 +2,7 @@ import { useState } from 'react';
 import { Property } from '@/lib/propertyContext';
 import { useAuth } from '@/lib/auth';
 import { supabase } from '@/integrations/supabase/client';
+import { usePropertySafe } from '@/lib/propertyContext';
 import {
   Dialog, DialogContent, DialogHeader, DialogTitle,
 } from '@/components/ui/dialog';
@@ -34,6 +35,7 @@ interface PropertyFormProps {
 
 export function PropertyForm({ property, open, onClose, onSaved }: PropertyFormProps) {
   const { user } = useAuth();
+  const propertyContext = usePropertySafe();
   const isEdit = !!property;
 
   const [form, setForm] = useState({
@@ -100,6 +102,9 @@ export function PropertyForm({ property, open, onClose, onSaved }: PropertyFormP
         toast.success('Property updated');
       } else {
         payload.created_by = user?.id;
+        // Auto-set company_id from current user's active property context
+        const companyId = propertyContext?.company?.id || (propertyContext?.activeProperty as any)?.company_id;
+        if (companyId) payload.company_id = companyId;
         const { error } = await supabase
           .from('properties')
           .insert(payload);

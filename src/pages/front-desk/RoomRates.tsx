@@ -4,6 +4,7 @@ import { useQuery } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
 import { SlideMenu } from '@/components/SlideMenu';
 import { useAuth } from '@/lib/auth';
+import { usePropertyId, withPropertyFilter } from '@/hooks/usePropertyFilter';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { Skeleton } from '@/components/ui/skeleton';
@@ -33,8 +34,10 @@ export default function FrontDeskRoomRates() {
     }
   }, [userRole, hasPermission, navigate]);
 
+  const propertyId = usePropertyId();
+
   const { data: roomTypes, isLoading } = useQuery({
-    queryKey: ['front-desk-room-rates'],
+    queryKey: ['front-desk-room-rates', propertyId],
     queryFn: async () => {
       // Fetch units, rate plans, and channel markups
       const [unitsRes, rpRes, markupsRes] = await Promise.all([
@@ -47,10 +50,13 @@ export default function FrontDeskRoomRates() {
           .select('id, name, is_default, currency, room_type, rate_plan_prices(room_type, weekday_rate, weekend_rate, unit_id)')
           .eq('is_active', true)
           .order('priority', { ascending: false }),
-        supabase
-          .from('channel_markup_settings')
-          .select('channel_name, markup_percentage')
-          .eq('is_active', true),
+        withPropertyFilter(
+          supabase
+            .from('channel_markup_settings')
+            .select('channel_name, markup_percentage')
+            .eq('is_active', true),
+          propertyId
+        ),
       ]);
 
       const { data: units, error: unitsError } = unitsRes;

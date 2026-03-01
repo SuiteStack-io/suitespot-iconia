@@ -2,6 +2,7 @@ import { useEffect, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useAuth } from '@/lib/auth';
 import { supabase } from '@/integrations/supabase/client';
+import { usePropertyId, withPropertyFilter } from '@/hooks/usePropertyFilter';
 import { SlideMenu } from '@/components/SlideMenu';
 import { AdminBreadcrumb } from '@/components/AdminBreadcrumb';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
@@ -26,6 +27,7 @@ const ShuffleHistory = () => {
   const navigate = useNavigate();
   const [logs, setLogs] = useState<ShuffleLog[]>([]);
   const [fetching, setFetching] = useState(true);
+  const propertyId = usePropertyId();
 
   useEffect(() => {
     if (!loading && !user) navigate('/auth');
@@ -33,15 +35,17 @@ const ShuffleHistory = () => {
 
   useEffect(() => {
     if (user) fetchLogs();
-  }, [user]);
+  }, [user, propertyId]);
 
   const fetchLogs = async () => {
     setFetching(true);
-    const { data, error } = await supabase
+    let query = supabase
       .from('room_shuffle_log')
       .select('*')
       .order('shuffle_date', { ascending: false })
       .limit(100);
+    query = withPropertyFilter(query, propertyId) as any;
+    const { data, error } = await query;
 
     if (error) console.error('Error fetching shuffle logs:', error);
     else setLogs((data as any) || []);

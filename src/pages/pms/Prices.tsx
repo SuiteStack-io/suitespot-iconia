@@ -91,8 +91,8 @@ const PMSPrices = () => {
         withPropertyFilter(supabase.from('rate_plans').select('*').eq('is_active', true).order('room_type').order('priority', { ascending: false }), propertyId),
         supabase.from('rate_plan_prices').select('*'),
         withPropertyFilter(supabase.from('units').select('id, unit_number, booking_com_name').not('booking_com_name', 'is', null), propertyId),
-        supabase.from('channel_markup_settings').select('id, channel_name, markup_percentage').eq('is_active', true),
-        supabase.from('derived_rate_plan_mappings').select('id, base_rate_plan_id, channel_markup_id, channel_name, markup_percentage, channex_derived_rate_plan_id'),
+        withPropertyFilter(supabase.from('channel_markup_settings').select('id, channel_name, markup_percentage').eq('is_active', true), propertyId),
+        withPropertyFilter(supabase.from('derived_rate_plan_mappings').select('id, base_rate_plan_id, channel_markup_id, channel_name, markup_percentage, channex_derived_rate_plan_id'), propertyId),
       ]);
 
       if (plansRes.error) throw plansRes.error;

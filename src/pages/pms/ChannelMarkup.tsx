@@ -14,6 +14,7 @@ import { Command, CommandEmpty, CommandGroup, CommandInput, CommandItem, Command
 import { cn } from '@/lib/utils';
 import { supabase } from '@/integrations/supabase/client';
 import { toast } from 'sonner';
+import { usePropertyId, withPropertyFilter } from '@/hooks/usePropertyFilter';
 import {
   AlertDialog,
   AlertDialogAction,
@@ -104,14 +105,16 @@ const ChannelMarkupPage = () => {
   const [deletingChannel, setDeletingChannel] = useState<string | null>(null);
   const [deleteDialogOpen, setDeleteDialogOpen] = useState(false);
 
-  useEffect(() => { fetchData(); }, []);
+  const propertyId = usePropertyId();
+
+  useEffect(() => { fetchData(); }, [propertyId]);
 
   const fetchData = async () => {
     setLoading(true);
     try {
       const [channelsRes, mappingsRes, plansRes, channexRes] = await Promise.all([
-        supabase.from('channel_markup_settings').select('*').order('created_at'),
-        supabase.from('derived_rate_plan_mappings').select('*'),
+        withPropertyFilter(supabase.from('channel_markup_settings').select('*').order('created_at'), propertyId),
+        withPropertyFilter(supabase.from('derived_rate_plan_mappings').select('*'), propertyId),
         supabase.from('rate_plans').select('id, name, room_type').eq('is_active', true),
         supabase.from('channex_mappings').select('local_id, channex_id, entity_type, sync_status').in('entity_type', ['rate_plan', 'derived_rate_plan']),
       ]);

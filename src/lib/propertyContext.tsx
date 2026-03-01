@@ -2,6 +2,17 @@ import { createContext, useContext, useEffect, useState, useCallback, ReactNode 
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/lib/auth';
 
+export interface Company {
+  id: string;
+  name: string;
+  logo_url: string | null;
+  default_currency: string;
+  default_timezone: string;
+  vat_rate: number;
+  created_at: string;
+  updated_at: string;
+}
+
 export interface Property {
   id: string;
   name: string;
@@ -31,6 +42,7 @@ export interface Property {
   created_at: string;
   updated_at: string;
   created_by: string | null;
+  company_id: string | null;
 }
 
 export type PropertyRole = 'owner' | 'admin' | 'manager' | 'staff' | 'viewer';
@@ -46,6 +58,7 @@ interface PropertyContextType {
   canDeleteProperty: boolean;
   canManageUsers: boolean;
   refreshProperties: () => Promise<void>;
+  company: Company | null;
 }
 
 const PropertyContext = createContext<PropertyContextType | undefined>(undefined);
@@ -59,6 +72,7 @@ export const PropertyProvider = ({ children }: { children: ReactNode }) => {
   const [propertyRole, setPropertyRole] = useState<PropertyRole | null>(null);
   const [isSystemAdmin, setIsSystemAdmin] = useState(false);
   const [isLoading, setIsLoading] = useState(true);
+  const [company, setCompany] = useState<Company | null>(null);
 
   const fetchProperties = useCallback(async () => {
     if (!user) {
@@ -106,6 +120,17 @@ export const PropertyProvider = ({ children }: { children: ReactNode }) => {
           .eq('property_id', active.id)
           .single();
         setPropertyRole((access?.role as PropertyRole) ?? null);
+
+        // Fetch company info if property has company_id
+        const companyId = (active as any).company_id;
+        if (companyId) {
+          const { data: companyData } = await supabase
+            .from('companies')
+            .select('*')
+            .eq('id', companyId)
+            .single();
+          setCompany(companyData as Company | null);
+        }
       }
     } catch (err) {
       console.error('Error fetching properties:', err);
@@ -151,6 +176,7 @@ export const PropertyProvider = ({ children }: { children: ReactNode }) => {
       canDeleteProperty,
       canManageUsers,
       refreshProperties: fetchProperties,
+      company,
     }}>
       {children}
     </PropertyContext.Provider>
