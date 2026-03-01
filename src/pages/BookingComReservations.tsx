@@ -147,6 +147,9 @@ const BookingComReservations = () => {
   // Modification mode state
   const [isModificationMode, setIsModificationMode] = useState(false);
   const [existingReservationsToUpdate, setExistingReservationsToUpdate] = useState<any[]>([]);
+  
+  // Arrival time state
+  const [arrivalTime, setArrivalTime] = useState('');
   const [originalReservationData, setOriginalReservationData] = useState<any>(null);
 
   useEffect(() => {
@@ -322,6 +325,13 @@ const BookingComReservations = () => {
               setParsedData(data.data);
               setShowPreview(true);
               setUploadComplete(false);
+              
+              // Auto-parse arrival time from notes
+              const notes = data.data?.notes || '';
+              const timeMatch = notes.match(/(?:arrive|arrival|ETA|check.?in)[^\d]*(\d{1,2}[:.]\d{2})/i)
+                || notes.match(/(\d{1,2}[:.]\d{2})\s*(?:-|–|to)\s*\d{1,2}[:.]\d{2}/i)
+                || notes.match(/\b(\d{1,2}:\d{2})\b/);
+              setArrivalTime(timeMatch ? timeMatch[1].replace('.', ':') : '');
               setUploading(false);
               // Fetch units with status for manual room selection
               // In modification mode, exclude the existing reservations from conflict detection
@@ -743,7 +753,8 @@ const BookingComReservations = () => {
         source: 'booking.com',
         channel: 'Booking.com',
         preferred_language: parsedData.preferredLanguage || null,
-        booking_screenshot_url: screenshotUrl
+        booking_screenshot_url: screenshotUrl,
+        arrival_time: arrivalTime || null
       })
       .select()
       .single();
@@ -925,7 +936,8 @@ const BookingComReservations = () => {
           source: 'booking.com',
           channel: 'Booking.com',
           preferred_language: parsedData.preferredLanguage || null,
-          booking_screenshot_url: screenshotUrl
+          booking_screenshot_url: screenshotUrl,
+          arrival_time: arrivalTime || null
         })
         .select()
         .single();
@@ -1070,6 +1082,7 @@ const BookingComReservations = () => {
               preferred_language: parsedData.preferredLanguage || null,
               booking_screenshot_url: screenshotUrl,
               group_id: groupId,
+              arrival_time: arrivalTime || null,
             })
             .select()
             .single();
@@ -1395,6 +1408,7 @@ const BookingComReservations = () => {
           children: parsedData.children,
           notes: `Updated from Booking.com modification. ${parsedData.notes || ''}`.trim(),
           updated_at: new Date().toISOString(),
+          arrival_time: arrivalTime || null,
         };
         
         // Recalculate derived fields
@@ -2345,6 +2359,16 @@ const BookingComReservations = () => {
                   <p className="text-sm">{parsedData.notes}</p>
                 </div>
               )}
+
+              <div>
+                <Label className="text-xs text-muted-foreground">Arrival Time</Label>
+                <Input
+                  value={arrivalTime}
+                  onChange={(e) => setArrivalTime(e.target.value)}
+                  placeholder="HH:MM (e.g., 14:00)"
+                  className="mt-1"
+                />
+              </div>
             </div>
           )}
 
@@ -2368,7 +2392,7 @@ const BookingComReservations = () => {
               )}
             </Button>
             <div className="flex gap-2 w-full sm:w-auto">
-              <Button variant="outline" onClick={() => { setShowPreview(false); setExistingReservation(null); setRoomAssignments([]); setSplitSegments([]); setIsSplitStay(false); setSegmentAvailability({}); setLoadingSegmentAvailability({}); setIsModificationMode(false); setExistingReservationsToUpdate([]); setOriginalReservationData(null); }} disabled={creating} className="flex-1 sm:flex-none">
+              <Button variant="outline" onClick={() => { setShowPreview(false); setExistingReservation(null); setRoomAssignments([]); setSplitSegments([]); setIsSplitStay(false); setSegmentAvailability({}); setLoadingSegmentAvailability({}); setIsModificationMode(false); setExistingReservationsToUpdate([]); setOriginalReservationData(null); setArrivalTime(''); }} disabled={creating} className="flex-1 sm:flex-none">
                 Cancel
               </Button>
               <Button 
