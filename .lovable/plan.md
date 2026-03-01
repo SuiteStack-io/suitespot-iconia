@@ -1,21 +1,53 @@
 
 
-## Problem
+## Plan: Add Property Access to the Permissions Dialog
 
-The dashboard cards don't load for **Manager** and **Front Desk** users because:
+### What changes
 
-1. The `properties` table has an RLS SELECT policy requiring `has_property_access(auth.uid(), id)` OR `is_system_admin` OR `admin` role
-2. The three non-admin users (Nikola Bagaric, Emad Rezk, Dina Mamdouh) have **no rows** in the `user_property_access` table
-3. Without property access, `PropertyProvider` returns no properties, so `propertyId` is `null`
-4. `Dashboard.fetchStats()` has an early return: `if (!propertyId) return;` — cards stay at zero
+The `EditPermissionsDialog` currently only manages granular permission toggles (can_check_in, can_check_out, etc.). The user wants property access management (currently in `ManagePropertyUsersDialog` on the Settings page) to also appear inside this dialog.
 
-## Fix
+### Implementation
 
-**Database**: Insert `user_property_access` rows for the three users, granting them appropriate roles on the ICONIA Zamalek property (`c98a2256-1787-47a4-bf0f-61942b4e87d5`):
+#### 1. Extend `EditPermissionsDialog` with a "Property Access" section
 
-- Nikola Bagaric (`647e42ed-...`) → `manager`
-- Emad Rezk (`f2cd80ca-...`) → `manager`  
-- Dina Mamdouh (`55dcbd5e-...`) → `staff`
+Add a new section below the permission toggles that shows which properties the user has access to and their role for each. This section will:
 
-**No code changes needed** — the existing logic works correctly once these users can see the property through RLS.
+- Fetch from `user_property_access` joined with `properties` for the selected user
+- Display each property with a role dropdown (owner/admin/manager/staff/viewer)
+- Allow adding access to properties the user doesn't have yet
+- Allow removing property access
+- Use the same `properties` table data already available
+
+#### 2. Files to modify
+
+**`src/components/EditPermissionsDialog.tsx`**:
+- Add state for property access records and available properties
+- Fetch `user_property_access` + `properties` when dialog opens
+- Add a "Property Access" section with:
+  - List of assigned properties with role selector and remove button
+  - "Add Property" dropdown to grant access to new properties
+- Handle add/update/remove operations on `user_property_access`
+- Save property access changes alongside permission changes
+
+#### 3. No other files need changes
+
+The `ManagePropertyUsersDialog` and its usage in `PropertyList.tsx` remain untouched — property access can still be managed from Settings too. The permissions dialog simply becomes another entry point for the same data.
+
+### Technical Details
+
+The property access section will query:
+```typescript
+// Fetch user's property access
+const { data } = await supabase
+  .from('user_property_access')
+  .select('id, property_id, role')
+  .eq('user_id', user.id);
+
+// Fetch all properties for the dropdown
+const { data: properties } = await supabase
+  .from('properties')
+  .select('id, name');
+```
+
+RLS already permits admins to read/write `user_property_access`, so no database changes are needed.
 
