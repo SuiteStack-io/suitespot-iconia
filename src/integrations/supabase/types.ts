@@ -2542,6 +2542,10 @@ export type Database = {
         Returns: boolean
       }
       update_reservation_statuses: { Args: never; Returns: undefined }
+      user_has_property_access: {
+        Args: { property_uuid: string; required_role?: string }
+        Returns: boolean
+      }
     }
     Enums: {
       app_role: "admin" | "front_desk" | "housekeeping" | "manager"
