@@ -34,6 +34,7 @@ interface BulkRatePlanDialogProps {
   onOpenChange: (open: boolean) => void;
   roomTypes: RoomType[];
   onSave: () => void;
+  propertyId: string | null;
 }
 
 interface RoomTypePrice {
@@ -41,7 +42,7 @@ interface RoomTypePrice {
   weekend_rate: number;
 }
 
-export function BulkRatePlanDialog({ open, onOpenChange, roomTypes, onSave }: BulkRatePlanDialogProps) {
+export function BulkRatePlanDialog({ open, onOpenChange, roomTypes, onSave, propertyId }: BulkRatePlanDialogProps) {
   const [namePrefix, setNamePrefix] = useState('Standard Rate');
   const [minStay, setMinStay] = useState(1);
   const [autoCalculateWeekend, setAutoCalculateWeekend] = useState(true);
@@ -79,6 +80,7 @@ export function BulkRatePlanDialog({ open, onOpenChange, roomTypes, onSave }: Bu
             is_active: true,
             is_default: false,
             priority: 0,
+            property_id: propertyId,
           })
           .select()
           .single();

@@ -231,7 +231,7 @@ const PMSPrices = () => {
       } else {
         const { data: newPlan, error: createError } = await supabase
           .from('rate_plans')
-          .insert([{ ...ratePlanData, room_type: addingForRoomType || ratePlanData.room_type }])
+          .insert([{ ...ratePlanData, room_type: addingForRoomType || ratePlanData.room_type, property_id: propertyId }])
           .select()
           .single();
         if (createError) throw createError;
@@ -465,6 +465,7 @@ const PMSPrices = () => {
         onOpenChange={setBulkDialogOpen}
         roomTypes={roomTypes}
         onSave={fetchData}
+        propertyId={propertyId}
       />
 
       <AlertDialog open={deleteDialogOpen} onOpenChange={setDeleteDialogOpen}>
