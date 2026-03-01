@@ -1,12 +1,21 @@
 import { useState, useEffect } from 'react';
-import { Loader2, RefreshCw, Settings } from 'lucide-react';
+import { Loader2, RefreshCw, Settings, ChevronDown } from 'lucide-react';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
+import { Collapsible, CollapsibleContent, CollapsibleTrigger } from '@/components/ui/collapsible';
 import { supabase } from '@/integrations/supabase/client';
 import { toast } from 'sonner';
 import { format } from 'date-fns';
+
+interface Property {
+  id: string;
+  name: string;
+  channex_property_id: string | null;
+  channex_synced: boolean | null;
+  channex_last_sync: string | null;
+}
 
 interface Mapping {
   id: string;
@@ -18,68 +27,58 @@ interface Mapping {
   error_message: string | null;
 }
 
-interface PropertyConfig {
-  id: string;
-  property_name: string;
-  channex_property_id: string | null;
-}
-
-interface RoomTypeGroup {
-  name: string;
-  count: number;
-}
-
 interface PropertySyncProps {
   onSwitchToSettings?: () => void;
 }
 
 export function PropertySync({ onSwitchToSettings }: PropertySyncProps) {
   const [loading, setLoading] = useState(true);
-  const [syncing, setSyncing] = useState(false);
-  const [config, setConfig] = useState<PropertyConfig | null>(null);
+  const [properties, setProperties] = useState<Property[]>([]);
   const [mappings, setMappings] = useState<Mapping[]>([]);
-  const [roomTypes, setRoomTypes] = useState<RoomTypeGroup[]>([]);
-  const [totalUnits, setTotalUnits] = useState(0);
-  const [unitsLookup, setUnitsLookup] = useState<Record<string, string>>({});
-  const [ratePlansLookup, setRatePlansLookup] = useState<Record<string, { name: string; room_type: string | null }>>({});
+  const [unitsPerProperty, setUnitsPerProperty] = useState<Record<string, { name: string; count: number; id: string }[]>>({});
+  const [ratePlansPerProperty, setRatePlansPerProperty] = useState<Record<string, { id: string; name: string; room_type: string | null }[]>>({});
+  const [syncingPropertyId, setSyncingPropertyId] = useState<string | null>(null);
 
-  useEffect(() => {
-    fetchData();
-  }, []);
+  useEffect(() => { fetchData(); }, []);
 
   const fetchData = async () => {
     setLoading(true);
     try {
-      const [configRes, mappingsRes, unitsRes, ratePlansRes] = await Promise.all([
-        supabase.from('channex_property_config').select('id, property_name, channex_property_id').limit(1).maybeSingle(),
+      const [propertiesRes, mappingsRes, unitsRes, ratePlansRes] = await Promise.all([
+        supabase.from('properties').select('id, name, channex_property_id, channex_synced, channex_last_sync').order('created_at', { ascending: true }),
         supabase.from('channex_mappings').select('*'),
-        supabase.from('units').select('id, name, booking_com_name').or('is_private.eq.false,is_private.is.null'),
-        supabase.from('rate_plans').select('id, name, room_type'),
+        supabase.from('units').select('id, name, booking_com_name, property_id').or('is_private.eq.false,is_private.is.null'),
+        supabase.from('rate_plans').select('id, name, room_type, property_id'),
       ]);
 
-      setConfig(configRes.data as PropertyConfig | null);
+      setProperties((propertiesRes.data as Property[]) || []);
       setMappings((mappingsRes.data as Mapping[]) || []);
 
-      if (unitsRes.data) {
-        const groups: Record<string, number> = {};
-        const lookup: Record<string, string> = {};
-        for (const u of unitsRes.data) {
-          const name = u.booking_com_name || u.name;
-          groups[name] = (groups[name] || 0) + 1;
-          lookup[u.id] = name;
+      // Group units by property
+      const unitsByProp: Record<string, Record<string, { count: number; id: string }>> = {};
+      for (const u of (unitsRes.data || [])) {
+        const pid = u.property_id || 'unknown';
+        if (!unitsByProp[pid]) unitsByProp[pid] = {};
+        const displayName = u.booking_com_name || u.name;
+        if (!unitsByProp[pid][displayName]) {
+          unitsByProp[pid][displayName] = { count: 0, id: u.id };
         }
-        setRoomTypes(Object.entries(groups).map(([name, count]) => ({ name, count })));
-        setTotalUnits(unitsRes.data.length);
-        setUnitsLookup(lookup);
+        unitsByProp[pid][displayName].count++;
       }
+      const grouped: Record<string, { name: string; count: number; id: string }[]> = {};
+      for (const [pid, rooms] of Object.entries(unitsByProp)) {
+        grouped[pid] = Object.entries(rooms).map(([name, data]) => ({ name, ...data }));
+      }
+      setUnitsPerProperty(grouped);
 
-      if (ratePlansRes.data) {
-        const lookup: Record<string, { name: string; room_type: string | null }> = {};
-        for (const rp of ratePlansRes.data) {
-          lookup[rp.id] = { name: rp.name, room_type: rp.room_type };
-        }
-        setRatePlansLookup(lookup);
+      // Group rate plans by property
+      const rpByProp: Record<string, { id: string; name: string; room_type: string | null }[]> = {};
+      for (const rp of (ratePlansRes.data || [])) {
+        const pid = rp.property_id || 'unknown';
+        if (!rpByProp[pid]) rpByProp[pid] = [];
+        rpByProp[pid].push({ id: rp.id, name: rp.name, room_type: rp.room_type });
       }
+      setRatePlansPerProperty(rpByProp);
     } catch {
       toast.error('Failed to load data');
     } finally {
@@ -87,10 +86,12 @@ export function PropertySync({ onSwitchToSettings }: PropertySyncProps) {
     }
   };
 
-  const syncProperty = async () => {
-    setSyncing(true);
+  const syncProperty = async (propertyId: string) => {
+    setSyncingPropertyId(propertyId);
     try {
-      const { data, error } = await supabase.functions.invoke('channex-sync-property');
+      const { data, error } = await supabase.functions.invoke('channex-sync-property', {
+        body: { propertyId },
+      });
       if (error) throw error;
       if (data?.success) {
         toast.success('Property synced to Channex');
@@ -101,24 +102,19 @@ export function PropertySync({ onSwitchToSettings }: PropertySyncProps) {
     } catch (err: any) {
       toast.error(err.message || 'Sync failed');
     } finally {
-      setSyncing(false);
+      setSyncingPropertyId(null);
     }
   };
-
-  const propertyMapping = mappings.find(m => m.entity_type === 'property');
-  const roomTypeMappings = mappings.filter(m => m.entity_type === 'room_type');
-  const ratePlanMappings = mappings.filter(m => m.entity_type === 'rate_plan');
-  const derivedRatePlanMappings = mappings.filter(m => m.entity_type === 'derived_rate_plan');
 
   if (loading) {
     return <div className="flex justify-center py-12"><Loader2 className="h-8 w-8 animate-spin text-muted-foreground" /></div>;
   }
 
-  if (!config) {
+  if (properties.length === 0) {
     return (
       <Card>
         <CardContent className="py-12 text-center space-y-4">
-          <p className="text-muted-foreground">Please configure your property details in the Settings tab first.</p>
+          <p className="text-muted-foreground">No properties found. Please create a property first.</p>
           {onSwitchToSettings && (
             <Button variant="outline" onClick={onSwitchToSettings} className="gap-2">
               <Settings className="h-4 w-4" />
@@ -132,167 +128,218 @@ export function PropertySync({ onSwitchToSettings }: PropertySyncProps) {
 
   return (
     <div className="space-y-4">
-      {/* Property Overview */}
-      <Card>
-        <CardHeader>
-          <div className="flex items-center justify-between flex-wrap gap-4">
-            <div>
-              <CardTitle>{config.property_name}</CardTitle>
-              <CardDescription>{roomTypes.length} room types, {totalUnits} total units</CardDescription>
-            </div>
-            <div className="flex items-center gap-2">
-              {config.channex_property_id ? (
-                <Badge className="bg-green-600 hover:bg-green-700">Synced</Badge>
-              ) : (
-                <Badge variant="secondary">Not Synced</Badge>
-              )}
-              <Button onClick={syncProperty} disabled={syncing} className="gap-2">
-                {syncing ? <Loader2 className="h-4 w-4 animate-spin" /> : <RefreshCw className="h-4 w-4" />}
-                Sync to Channex
-              </Button>
-              <Button variant="outline" size="sm" onClick={fetchData} className="gap-2">
-                <RefreshCw className="h-4 w-4" />
-                Refresh
-              </Button>
-            </div>
-          </div>
-        </CardHeader>
-        <CardContent className="space-y-2">
-          {config.channex_property_id && (
-            <p className="text-xs text-muted-foreground">
-              Channex Property ID: <code className="bg-muted px-1 rounded">{config.channex_property_id}</code>
-            </p>
-          )}
-          {propertyMapping?.last_synced_at && (
-            <p className="text-xs text-muted-foreground">
-              Last synced: {format(new Date(propertyMapping.last_synced_at), 'MMM d, yyyy HH:mm')}
-            </p>
-          )}
-          {propertyMapping?.error_message && (
-            <p className="text-xs text-destructive">{propertyMapping.error_message}</p>
-          )}
-        </CardContent>
-      </Card>
+      {properties.map(property => {
+        const isSyncing = syncingPropertyId === property.id;
+        const propertyMapping = mappings.find(m => m.entity_type === 'property' && m.local_id === property.id);
+        const unitGroups = unitsPerProperty[property.id] || [];
+        const totalUnits = unitGroups.reduce((sum, g) => sum + g.count, 0);
+        const unitIds = new Set(unitGroups.map(g => g.id));
+        const roomTypeMappings = mappings.filter(m => m.entity_type === 'room_type' && unitIds.has(m.local_id));
+        const propertyRatePlans = ratePlansPerProperty[property.id] || [];
+        const rpIds = new Set(propertyRatePlans.map(rp => rp.id));
+        const ratePlanMappings = mappings.filter(m => m.entity_type === 'rate_plan' && rpIds.has(m.local_id));
+        const derivedRatePlanMappings = mappings.filter(m => m.entity_type === 'derived_rate_plan' && rpIds.has(m.local_id));
 
-      {/* Synced Room Types */}
-      {roomTypeMappings.length > 0 && (
-        <Card>
-          <CardHeader>
-            <CardTitle className="text-base">Synced Room Types</CardTitle>
-          </CardHeader>
-          <CardContent>
-            <Table>
-              <TableHeader>
-                <TableRow>
-                  <TableHead className="text-xs">Room Name</TableHead>
-                  <TableHead className="text-xs">Local ID</TableHead>
-                  <TableHead className="text-xs">Channex ID</TableHead>
-                  <TableHead className="text-xs">Status</TableHead>
-                </TableRow>
-              </TableHeader>
-              <TableBody>
-                {roomTypeMappings.map(m => (
-                  <TableRow key={m.id}>
-                    <TableCell className="text-xs font-medium">{unitsLookup[m.local_id] || '—'}</TableCell>
-                    <TableCell className="text-xs font-mono break-all cursor-pointer select-all" onClick={() => { navigator.clipboard.writeText(m.local_id); toast.success('Copied!'); }}>{m.local_id}</TableCell>
-                    <TableCell className="text-xs font-mono break-all cursor-pointer select-all" onClick={() => { navigator.clipboard.writeText(m.channex_id); toast.success('Copied!'); }}>{m.channex_id}</TableCell>
-                    <TableCell>
-                      {m.sync_status === 'error' ? (
-                        <Badge variant="destructive">Error</Badge>
-                      ) : (
-                        <Badge className="bg-green-600 hover:bg-green-700">Synced</Badge>
-                      )}
-                    </TableCell>
-                  </TableRow>
-                ))}
-              </TableBody>
-            </Table>
-          </CardContent>
-        </Card>
-      )}
-
-      {/* Synced Rate Plans */}
-      {ratePlanMappings.length > 0 && (
-        <Card>
-          <CardHeader>
-            <CardTitle className="text-base">Synced Rate Plans</CardTitle>
-          </CardHeader>
-          <CardContent>
-            <Table>
-              <TableHeader>
-                <TableRow>
-                  <TableHead className="text-xs">Plan Name</TableHead>
-                  <TableHead className="text-xs">Room Type</TableHead>
-                  <TableHead className="text-xs">Local ID</TableHead>
-                  <TableHead className="text-xs">Channex ID</TableHead>
-                  <TableHead className="text-xs">Status</TableHead>
-                </TableRow>
-              </TableHeader>
-              <TableBody>
-                {ratePlanMappings.map(m => {
-                  const rp = ratePlansLookup[m.local_id];
-                  return (
-                  <TableRow key={m.id}>
-                    <TableCell className="text-xs font-medium">{rp?.name || '—'}</TableCell>
-                    <TableCell className="text-xs">{rp?.room_type || '—'}</TableCell>
-                    <TableCell className="text-xs font-mono break-all cursor-pointer select-all" onClick={() => { navigator.clipboard.writeText(m.local_id); toast.success('Copied!'); }}>{m.local_id}</TableCell>
-                    <TableCell className="text-xs font-mono break-all cursor-pointer select-all" onClick={() => { navigator.clipboard.writeText(m.channex_id); toast.success('Copied!'); }}>{m.channex_id}</TableCell>
-                    <TableCell>
-                      {m.sync_status === 'error' ? (
-                        <Badge variant="destructive">Error</Badge>
-                      ) : (
-                        <Badge className="bg-green-600 hover:bg-green-700">Synced</Badge>
-                      )}
-                    </TableCell>
-                  </TableRow>
-                  );
-                })}
-              </TableBody>
-            </Table>
-          </CardContent>
-        </Card>
-      )}
-
-      {/* Derived Rate Plans */}
-      {derivedRatePlanMappings.length > 0 && (
-        <Card>
-          <CardHeader>
-            <CardTitle className="text-base">Derived Rate Plans (Channel Markup)</CardTitle>
-            <CardDescription>{derivedRatePlanMappings.length} derived plans synced</CardDescription>
-          </CardHeader>
-          <CardContent>
-            <Table>
-              <TableHeader>
-                <TableRow>
-                  <TableHead className="text-xs">Base Plan Name</TableHead>
-                  <TableHead className="text-xs">Base Plan ID</TableHead>
-                  <TableHead className="text-xs">Channex ID</TableHead>
-                  <TableHead className="text-xs">Status</TableHead>
-                </TableRow>
-              </TableHeader>
-              <TableBody>
-                {derivedRatePlanMappings.map(m => {
-                  const rp = ratePlansLookup[m.local_id];
-                  return (
-                  <TableRow key={m.id}>
-                    <TableCell className="text-xs font-medium">{rp?.name || '—'}</TableCell>
-                    <TableCell className="text-xs font-mono break-all cursor-pointer select-all" onClick={() => { navigator.clipboard.writeText(m.local_id); toast.success('Copied!'); }}>{m.local_id}</TableCell>
-                    <TableCell className="text-xs font-mono break-all cursor-pointer select-all" onClick={() => { navigator.clipboard.writeText(m.channex_id); toast.success('Copied!'); }}>{m.channex_id}</TableCell>
-                    <TableCell>
-                      {m.sync_status === 'error' ? (
-                        <Badge variant="destructive">Error</Badge>
-                      ) : (
-                        <Badge className="bg-green-600 hover:bg-green-700">Synced</Badge>
-                      )}
-                    </TableCell>
-                  </TableRow>
-                  );
-                })}
-              </TableBody>
-            </Table>
-          </CardContent>
-        </Card>
-      )}
+        return (
+          <PropertyCard
+            key={property.id}
+            property={property}
+            propertyMapping={propertyMapping}
+            unitGroups={unitGroups}
+            totalUnits={totalUnits}
+            roomTypeMappings={roomTypeMappings}
+            ratePlanMappings={ratePlanMappings}
+            derivedRatePlanMappings={derivedRatePlanMappings}
+            propertyRatePlans={propertyRatePlans}
+            isSyncing={isSyncing}
+            onSync={() => syncProperty(property.id)}
+            onRefresh={fetchData}
+          />
+        );
+      })}
     </div>
+  );
+}
+
+interface PropertyCardProps {
+  property: Property;
+  propertyMapping?: Mapping;
+  unitGroups: { name: string; count: number; id: string }[];
+  totalUnits: number;
+  roomTypeMappings: Mapping[];
+  ratePlanMappings: Mapping[];
+  derivedRatePlanMappings: Mapping[];
+  propertyRatePlans: { id: string; name: string; room_type: string | null }[];
+  isSyncing: boolean;
+  onSync: () => void;
+  onRefresh: () => void;
+}
+
+function PropertyCard({
+  property, propertyMapping, unitGroups, totalUnits,
+  roomTypeMappings, ratePlanMappings, derivedRatePlanMappings,
+  propertyRatePlans, isSyncing, onSync, onRefresh,
+}: PropertyCardProps) {
+  const [open, setOpen] = useState(false);
+  const isSynced = !!property.channex_property_id;
+
+  const rpLookup: Record<string, { name: string; room_type: string | null }> = {};
+  for (const rp of propertyRatePlans) rpLookup[rp.id] = { name: rp.name, room_type: rp.room_type };
+
+  const unitLookup: Record<string, string> = {};
+  for (const g of unitGroups) unitLookup[g.id] = g.name;
+
+  const hasMappings = roomTypeMappings.length > 0 || ratePlanMappings.length > 0 || derivedRatePlanMappings.length > 0;
+
+  return (
+    <Card>
+      <CardHeader>
+        <div className="flex items-center justify-between flex-wrap gap-4">
+          <div>
+            <CardTitle>{property.name}</CardTitle>
+            <CardDescription>{unitGroups.length} room types, {totalUnits} total units</CardDescription>
+          </div>
+          <div className="flex items-center gap-2">
+            {isSynced ? (
+              <Badge className="bg-green-600 hover:bg-green-700">Synced</Badge>
+            ) : (
+              <Badge variant="secondary">Not Synced</Badge>
+            )}
+            <Button onClick={onSync} disabled={isSyncing} size="sm" className="gap-2">
+              {isSyncing ? <Loader2 className="h-4 w-4 animate-spin" /> : <RefreshCw className="h-4 w-4" />}
+              Sync to Channex
+            </Button>
+            <Button variant="outline" size="sm" onClick={onRefresh} className="gap-2">
+              <RefreshCw className="h-4 w-4" />
+              Refresh
+            </Button>
+          </div>
+        </div>
+      </CardHeader>
+      <CardContent className="space-y-2">
+        {isSynced && (
+          <p className="text-xs text-muted-foreground">
+            Channex Property ID: <code className="bg-muted px-1 rounded">{property.channex_property_id}</code>
+          </p>
+        )}
+        {!isSynced && (
+          <p className="text-xs text-muted-foreground">Channex Property ID: —</p>
+        )}
+        {property.channex_last_sync ? (
+          <p className="text-xs text-muted-foreground">
+            Last synced: {format(new Date(property.channex_last_sync), 'MMM d, yyyy HH:mm')}
+          </p>
+        ) : (
+          <p className="text-xs text-muted-foreground">Last synced: Never</p>
+        )}
+        {propertyMapping?.error_message && (
+          <p className="text-xs text-destructive">{propertyMapping.error_message}</p>
+        )}
+
+        {hasMappings && (
+          <Collapsible open={open} onOpenChange={setOpen}>
+            <CollapsibleTrigger asChild>
+              <Button variant="ghost" size="sm" className="gap-2 mt-2">
+                <ChevronDown className={`h-4 w-4 transition-transform ${open ? 'rotate-180' : ''}`} />
+                {open ? 'Hide' : 'Show'} Synced Entities ({roomTypeMappings.length + ratePlanMappings.length + derivedRatePlanMappings.length})
+              </Button>
+            </CollapsibleTrigger>
+            <CollapsibleContent className="space-y-4 mt-4">
+              {roomTypeMappings.length > 0 && (
+                <div>
+                  <h4 className="text-sm font-medium mb-2">Synced Room Types</h4>
+                  <Table>
+                    <TableHeader>
+                      <TableRow>
+                        <TableHead className="text-xs">Room Name</TableHead>
+                        <TableHead className="text-xs">Local ID</TableHead>
+                        <TableHead className="text-xs">Channex ID</TableHead>
+                        <TableHead className="text-xs">Status</TableHead>
+                      </TableRow>
+                    </TableHeader>
+                    <TableBody>
+                      {roomTypeMappings.map(m => (
+                        <TableRow key={m.id}>
+                          <TableCell className="text-xs font-medium">{unitLookup[m.local_id] || '—'}</TableCell>
+                          <TableCell className="text-xs font-mono break-all cursor-pointer select-all" onClick={() => { navigator.clipboard.writeText(m.local_id); toast.success('Copied!'); }}>{m.local_id}</TableCell>
+                          <TableCell className="text-xs font-mono break-all cursor-pointer select-all" onClick={() => { navigator.clipboard.writeText(m.channex_id); toast.success('Copied!'); }}>{m.channex_id}</TableCell>
+                          <TableCell>
+                            {m.sync_status === 'error' ? <Badge variant="destructive">Error</Badge> : <Badge className="bg-green-600 hover:bg-green-700">Synced</Badge>}
+                          </TableCell>
+                        </TableRow>
+                      ))}
+                    </TableBody>
+                  </Table>
+                </div>
+              )}
+
+              {ratePlanMappings.length > 0 && (
+                <div>
+                  <h4 className="text-sm font-medium mb-2">Synced Rate Plans</h4>
+                  <Table>
+                    <TableHeader>
+                      <TableRow>
+                        <TableHead className="text-xs">Plan Name</TableHead>
+                        <TableHead className="text-xs">Room Type</TableHead>
+                        <TableHead className="text-xs">Local ID</TableHead>
+                        <TableHead className="text-xs">Channex ID</TableHead>
+                        <TableHead className="text-xs">Status</TableHead>
+                      </TableRow>
+                    </TableHeader>
+                    <TableBody>
+                      {ratePlanMappings.map(m => {
+                        const rp = rpLookup[m.local_id];
+                        return (
+                          <TableRow key={m.id}>
+                            <TableCell className="text-xs font-medium">{rp?.name || '—'}</TableCell>
+                            <TableCell className="text-xs">{rp?.room_type || '—'}</TableCell>
+                            <TableCell className="text-xs font-mono break-all cursor-pointer select-all" onClick={() => { navigator.clipboard.writeText(m.local_id); toast.success('Copied!'); }}>{m.local_id}</TableCell>
+                            <TableCell className="text-xs font-mono break-all cursor-pointer select-all" onClick={() => { navigator.clipboard.writeText(m.channex_id); toast.success('Copied!'); }}>{m.channex_id}</TableCell>
+                            <TableCell>
+                              {m.sync_status === 'error' ? <Badge variant="destructive">Error</Badge> : <Badge className="bg-green-600 hover:bg-green-700">Synced</Badge>}
+                            </TableCell>
+                          </TableRow>
+                        );
+                      })}
+                    </TableBody>
+                  </Table>
+                </div>
+              )}
+
+              {derivedRatePlanMappings.length > 0 && (
+                <div>
+                  <h4 className="text-sm font-medium mb-2">Derived Rate Plans (Channel Markup)</h4>
+                  <Table>
+                    <TableHeader>
+                      <TableRow>
+                        <TableHead className="text-xs">Base Plan Name</TableHead>
+                        <TableHead className="text-xs">Base Plan ID</TableHead>
+                        <TableHead className="text-xs">Channex ID</TableHead>
+                        <TableHead className="text-xs">Status</TableHead>
+                      </TableRow>
+                    </TableHeader>
+                    <TableBody>
+                      {derivedRatePlanMappings.map(m => {
+                        const rp = rpLookup[m.local_id];
+                        return (
+                          <TableRow key={m.id}>
+                            <TableCell className="text-xs font-medium">{rp?.name || '—'}</TableCell>
+                            <TableCell className="text-xs font-mono break-all cursor-pointer select-all" onClick={() => { navigator.clipboard.writeText(m.local_id); toast.success('Copied!'); }}>{m.local_id}</TableCell>
+                            <TableCell className="text-xs font-mono break-all cursor-pointer select-all" onClick={() => { navigator.clipboard.writeText(m.channex_id); toast.success('Copied!'); }}>{m.channex_id}</TableCell>
+                            <TableCell>
+                              {m.sync_status === 'error' ? <Badge variant="destructive">Error</Badge> : <Badge className="bg-green-600 hover:bg-green-700">Synced</Badge>}
+                            </TableCell>
+                          </TableRow>
+                        );
+                      })}
+                    </TableBody>
+                  </Table>
+                </div>
+              )}
+            </CollapsibleContent>
+          </Collapsible>
+        )}
+      </CardContent>
+    </Card>
   );
 }
