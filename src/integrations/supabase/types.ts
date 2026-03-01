@@ -193,6 +193,7 @@ export type Database = {
           id: string
           is_active: boolean
           markup_percentage: number
+          property_id: string | null
           updated_at: string
         }
         Insert: {
@@ -202,6 +203,7 @@ export type Database = {
           id?: string
           is_active?: boolean
           markup_percentage?: number
+          property_id?: string | null
           updated_at?: string
         }
         Update: {
@@ -211,6 +213,7 @@ export type Database = {
           id?: string
           is_active?: boolean
           markup_percentage?: number
+          property_id?: string | null
           updated_at?: string
         }
         Relationships: []
@@ -568,6 +571,39 @@ export type Database = {
           },
         ]
       }
+      companies: {
+        Row: {
+          created_at: string
+          default_currency: string
+          default_timezone: string
+          id: string
+          logo_url: string | null
+          name: string
+          updated_at: string
+          vat_rate: number
+        }
+        Insert: {
+          created_at?: string
+          default_currency?: string
+          default_timezone?: string
+          id?: string
+          logo_url?: string | null
+          name: string
+          updated_at?: string
+          vat_rate?: number
+        }
+        Update: {
+          created_at?: string
+          default_currency?: string
+          default_timezone?: string
+          id?: string
+          logo_url?: string | null
+          name?: string
+          updated_at?: string
+          vat_rate?: number
+        }
+        Relationships: []
+      }
       derived_rate_plan_mappings: {
         Row: {
           base_rate_plan_id: string
@@ -578,6 +614,7 @@ export type Database = {
           created_at: string
           id: string
           markup_percentage: number
+          property_id: string | null
           updated_at: string
         }
         Insert: {
@@ -589,6 +626,7 @@ export type Database = {
           created_at?: string
           id?: string
           markup_percentage: number
+          property_id?: string | null
           updated_at?: string
         }
         Update: {
@@ -600,6 +638,7 @@ export type Database = {
           created_at?: string
           id?: string
           markup_percentage?: number
+          property_id?: string | null
           updated_at?: string
         }
         Relationships: [
@@ -1143,6 +1182,7 @@ export type Database = {
       }
       profiles: {
         Row: {
+          company_id: string | null
           created_at: string
           full_name: string | null
           id: string
@@ -1150,6 +1190,7 @@ export type Database = {
           updated_at: string
         }
         Insert: {
+          company_id?: string | null
           created_at?: string
           full_name?: string | null
           id: string
@@ -1157,13 +1198,22 @@ export type Database = {
           updated_at?: string
         }
         Update: {
+          company_id?: string | null
           created_at?: string
           full_name?: string | null
           id?: string
           is_system_admin?: boolean | null
           updated_at?: string
         }
-        Relationships: []
+        Relationships: [
+          {
+            foreignKeyName: "profiles_company_id_fkey"
+            columns: ["company_id"]
+            isOneToOne: false
+            referencedRelation: "companies"
+            referencedColumns: ["id"]
+          },
+        ]
       }
       properties: {
         Row: {
@@ -1173,6 +1223,7 @@ export type Database = {
           channex_property_id: string | null
           channex_synced: boolean | null
           city: string
+          company_id: string | null
           country: string
           created_at: string | null
           created_by: string | null
@@ -1203,6 +1254,7 @@ export type Database = {
           channex_property_id?: string | null
           channex_synced?: boolean | null
           city: string
+          company_id?: string | null
           country?: string
           created_at?: string | null
           created_by?: string | null
@@ -1233,6 +1285,7 @@ export type Database = {
           channex_property_id?: string | null
           channex_synced?: boolean | null
           city?: string
+          company_id?: string | null
           country?: string
           created_at?: string | null
           created_by?: string | null
@@ -1257,6 +1310,13 @@ export type Database = {
           zip_code?: string | null
         }
         Relationships: [
+          {
+            foreignKeyName: "properties_company_id_fkey"
+            columns: ["company_id"]
+            isOneToOne: false
+            referencedRelation: "companies"
+            referencedColumns: ["id"]
+          },
           {
             foreignKeyName: "properties_created_by_fkey"
             columns: ["created_by"]
@@ -1798,6 +1858,7 @@ export type Database = {
           id: string
           move_count: number
           moves: Json
+          property_id: string | null
           reason: string | null
           room_type: string
           shuffle_date: string
@@ -1809,6 +1870,7 @@ export type Database = {
           id?: string
           move_count?: number
           moves?: Json
+          property_id?: string | null
           reason?: string | null
           room_type: string
           shuffle_date?: string
@@ -1820,6 +1882,7 @@ export type Database = {
           id?: string
           move_count?: number
           moves?: Json
+          property_id?: string | null
           reason?: string | null
           room_type?: string
           shuffle_date?: string
@@ -2367,6 +2430,7 @@ export type Database = {
           message_body: string
           message_type: string
           phone_number: string
+          property_id: string | null
           reservation_id: string | null
           sent_at: string
           status: string
@@ -2380,6 +2444,7 @@ export type Database = {
           message_body: string
           message_type: string
           phone_number: string
+          property_id?: string | null
           reservation_id?: string | null
           sent_at?: string
           status?: string
@@ -2393,6 +2458,7 @@ export type Database = {
           message_body?: string
           message_type?: string
           phone_number?: string
+          property_id?: string | null
           reservation_id?: string | null
           sent_at?: string
           status?: string
