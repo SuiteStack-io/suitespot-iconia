@@ -18,7 +18,16 @@ export function PropertySwitcher() {
 
   const activeProperties = properties.filter(p => p.is_active !== false);
 
-  if (isLoading || activeProperties.length === 0) return null;
+  if (isLoading) return null;
+
+  if (activeProperties.length === 0) {
+    return (
+      <div className="flex items-center gap-2 px-3 py-2.5 rounded-md bg-[hsl(30,8%,25%)]">
+        <Building2 className="h-4 w-4 text-destructive shrink-0" />
+        <span className="text-xs text-muted-foreground">No properties assigned. Contact your administrator.</span>
+      </div>
+    );
+  }
 
   const formatLabel = (prop: { name: string; city: string }) =>
     `${prop.name} — ${prop.city}`;

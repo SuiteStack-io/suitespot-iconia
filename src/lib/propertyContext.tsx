@@ -91,16 +91,51 @@ export const PropertyProvider = ({ children }: { children: ReactNode }) => {
         .eq('id', user.id)
         .single();
       
-      setIsSystemAdmin(profile?.is_system_admin ?? false);
+      const sysAdmin = profile?.is_system_admin ?? false;
+      setIsSystemAdmin(sysAdmin);
 
-      // Fetch properties (RLS handles filtering)
-      const { data: props, error } = await supabase
-        .from('properties')
-        .select('*')
-        .order('is_default', { ascending: false })
-        .order('name');
+      // Check if user has admin app_role
+      const { data: roleData } = await supabase
+        .from('user_roles')
+        .select('role')
+        .eq('user_id', user.id)
+        .eq('role', 'admin')
+        .maybeSingle();
+      const isAppAdmin = !!roleData;
 
-      if (error) throw error;
+      let props: any[] | null = null;
+
+      if (sysAdmin || isAppAdmin) {
+        // Admin users: fetch all properties
+        const { data, error: fetchError } = await supabase
+          .from('properties')
+          .select('*')
+          .order('is_default', { ascending: false })
+          .order('name');
+        if (fetchError) throw fetchError;
+        props = data;
+      } else {
+        // Non-admin: fetch only accessible properties
+        const { data: accessData, error: accessError } = await supabase
+          .from('user_property_access')
+          .select('property_id')
+          .eq('user_id', user.id);
+        if (accessError) throw accessError;
+
+        const propertyIds = (accessData || []).map(a => a.property_id);
+        if (propertyIds.length > 0) {
+          const { data, error: fetchError } = await supabase
+            .from('properties')
+            .select('*')
+            .in('id', propertyIds)
+            .order('is_default', { ascending: false })
+            .order('name');
+          if (fetchError) throw fetchError;
+          props = data;
+        } else {
+          props = [];
+        }
+      }
 
       setProperties((props as Property[]) || []);
 
