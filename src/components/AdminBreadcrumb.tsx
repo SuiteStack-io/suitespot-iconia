@@ -7,6 +7,9 @@ import {
   BreadcrumbPage,
   BreadcrumbSeparator,
 } from "@/components/ui/breadcrumb";
+import { usePropertySafe } from "@/lib/propertyContext";
+
+const NON_PROPERTY_SECTIONS = ["PMS", "System"];
 
 interface AdminBreadcrumbProps {
   section: string;
@@ -16,23 +19,29 @@ interface AdminBreadcrumbProps {
 
 export function AdminBreadcrumb({ section, currentPage, sectionPath }: AdminBreadcrumbProps) {
   const location = useLocation();
+  const propertyCtx = usePropertySafe();
   
+  // For property-specific sections, use the active property name
+  const displaySection = NON_PROPERTY_SECTIONS.includes(section)
+    ? section
+    : propertyCtx?.activeProperty?.name || section;
+
   // Auto-determine section path based on section name if not provided
   const getSectionPath = () => {
     if (sectionPath) return sectionPath;
     
-    switch (section) {
-      case "ICONIA":
-        return "/rooms";
-      case "Almaza Bay":
-        return "/almaza-bay";
-      case "PMS":
-        return "/pms/availability";
-      case "System":
-        return "/users";
-      default:
-        return "/admin";
+    if (NON_PROPERTY_SECTIONS.includes(section)) {
+      switch (section) {
+        case "PMS":
+          return "/pms/availability";
+        case "System":
+          return "/users";
+        default:
+          return "/admin";
+      }
     }
+    // Property-specific sections default to /rooms
+    return "/rooms";
   };
 
   const sectionPathValue = getSectionPath();
@@ -67,7 +76,7 @@ export function AdminBreadcrumb({ section, currentPage, sectionPath }: AdminBrea
                   : "hover:text-primary"
               }`}
             >
-              {section}
+              {displaySection}
             </Link>
           </BreadcrumbLink>
         </BreadcrumbItem>
