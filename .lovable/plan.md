@@ -1,56 +1,44 @@
 
 
-## Add Companies Table + Missing property_id Columns
+## Property Switcher UI Implementation
 
-### Database Migration
+### What Already Exists
+- `PropertySwitcher` component in `SlideMenu` (basic Select dropdown)
+- `PropertyProvider` context with `activeProperty`, `setActiveProperty`, localStorage persistence
+- `withPropertyFilter` / `usePropertyId` hooks used across ~30 files
+- All major pages already filter by `propertyId`
 
-**1. Create `companies` table:**
-- id (uuid, PK, default gen_random_uuid())
-- name (text, not null)
-- logo_url (text, nullable)
-- default_currency (text, default 'USD')
-- default_timezone (text, default 'Africa/Cairo')
-- vat_rate (numeric, default 14)
-- created_at, updated_at (timestamptz)
-- Enable RLS: admins full access, authenticated users can view their company
+### What Needs to Change
 
-**2. Add `company_id` to existing tables:**
-- `properties` -- add `company_id uuid references companies(id)`, nullable initially
-- `profiles` -- add `company_id uuid references companies(id)`, nullable initially
+#### 1. Redesign PropertySwitcher Component
+Upgrade `src/components/PropertySwitcher.tsx` from a plain Select to a styled dropdown that:
+- Shows property name + city (e.g. "ICONIA Zamalek -- Cairo")
+- Uses a checkmark on the active property
+- Matches the dark sidebar theme (warm gray background)
+- Shows a `Building2` icon and chevron
 
-**3. Add `property_id` to secondary tables missing it:**
-- `whatsapp_message_log` -- add `property_id uuid`, nullable, with `set_default_property_id` trigger
-- `room_shuffle_log` -- add `property_id uuid`, nullable, with `set_default_property_id` trigger
-- `channel_markup_settings` -- add `property_id uuid`, nullable, with `set_default_property_id` trigger
-- `derived_rate_plan_mappings` -- add `property_id uuid`, nullable, with `set_default_property_id` trigger
+#### 2. Add Property Indicator to Header Bar
+In `src/pages/Index.tsx` header, add a subtle property badge next to the user avatar showing the active property name with a colored dot. Use `usePropertySafe` to read it.
 
-**4. Seed default company + backfill:**
-- Insert a "SuiteSpot Hospitality" company record
-- Update all existing `properties` rows to reference it
-- Update all existing `profiles` rows to reference it
-- Backfill `property_id` on the 4 secondary tables using the default property
+#### 3. Remove Location Tabs from RoomCalendar
+In `src/components/RoomCalendar.tsx`:
+- Remove the `selectedLocation` state and the ICONIA/Almaza Bay Tabs
+- Remove `fetchUnitCounts` for separate locations
+- The calendar already uses `withPropertyFilter` via `propertyId` -- just remove the `.eq('location', selectedLocation)` filter since the property switcher now handles scoping
+- Show a simple unit count badge instead of the tabs
 
-**5. RLS policies for `companies`:**
-- Admins can manage all companies
-- Users can SELECT their own company (via profiles.company_id)
+#### 4. Remove Location Tabs from RevenueByRoom
+In `src/components/RevenueByRoom.tsx`:
+- Same pattern -- remove the ICONIA/Almaza Bay location tabs
+- Rely on global property context filtering
 
-### Frontend Changes
+#### 5. Verify All Listed Pages Already Filter by Property
+These pages already use `withPropertyFilter`: Dashboard, ReservationsList, CheckInOut, Housekeeping, Front Desk Room Rates, Prices, Availability, Restrictions, Commissions, Analytics, ShuffleHistory, BookingComReservations. Only the calendar and revenue-by-room need the location tabs removed.
 
-**6. Update `PropertyProvider` context (`src/lib/propertyContext.tsx`):**
-- Add `company` field to context (fetched from properties → company)
-- Extend the `Property` interface with `company_id`
-
-**7. Update `PropertyForm` (`src/components/settings/PropertyForm.tsx`):**
-- Add `company_id` field (auto-set to current user's company, hidden from UI for now)
-
-**8. Update query filters on secondary tables:**
-- `whatsapp_message_log` queries -- apply `withPropertyFilter`
-- `room_shuffle_log` queries -- apply `withPropertyFilter`
-- `channel_markup_settings` queries -- apply `withPropertyFilter`
-- `derived_rate_plan_mappings` queries -- apply `withPropertyFilter`
-
-### Summary
-- 1 migration with all schema changes + seed data
-- ~6 files updated for frontend property filtering on newly-scoped tables
-- No breaking changes -- all nullable columns with triggers for backward compatibility
+### Files to Modify
+1. `src/components/PropertySwitcher.tsx` -- redesign with city, checkmark, dark theme
+2. `src/pages/Index.tsx` -- add property badge in header
+3. `src/components/RoomCalendar.tsx` -- remove location tabs, remove `.eq('location', selectedLocation)`
+4. `src/components/RevenueByRoom.tsx` -- remove location tabs
+5. `src/components/MobileCalendarView.tsx` -- check if it also has location tabs to remove
 
