@@ -438,12 +438,12 @@ export const AvailabilityCalendar = () => {
       ? format(endOfMonth(currentMonth), 'yyyy-MM-dd')
       : format(addDays(currentWeekStart, 13), 'yyyy-MM-dd');
 
-    const { data: reservationsData } = await supabase
+    const { data: reservationsData } = await withPropertyFilter(supabase
       .from('reservations')
       .select('*')
       .in('status', ['confirmed', 'checked-in', 'checked-out', 'completed'])
       .is('cancelled_at', null)
-      .or(`and(check_in_date.lte.${endDate},check_out_date.gte.${startDate})`);
+      .or(`and(check_in_date.lte.${endDate},check_out_date.gte.${startDate})`), propertyId);
 
     if (reservationsData) {
       setReservations(reservationsData);
