@@ -40,6 +40,8 @@ export function PropertySync({ onSwitchToSettings }: PropertySyncProps) {
   const [mappings, setMappings] = useState<Mapping[]>([]);
   const [roomTypes, setRoomTypes] = useState<RoomTypeGroup[]>([]);
   const [totalUnits, setTotalUnits] = useState(0);
+  const [unitsLookup, setUnitsLookup] = useState<Record<string, string>>({});
+  const [ratePlansLookup, setRatePlansLookup] = useState<Record<string, { name: string; room_type: string | null }>>({});
 
   useEffect(() => {
     fetchData();
@@ -48,10 +50,11 @@ export function PropertySync({ onSwitchToSettings }: PropertySyncProps) {
   const fetchData = async () => {
     setLoading(true);
     try {
-      const [configRes, mappingsRes, unitsRes] = await Promise.all([
+      const [configRes, mappingsRes, unitsRes, ratePlansRes] = await Promise.all([
         supabase.from('channex_property_config').select('id, property_name, channex_property_id').limit(1).maybeSingle(),
         supabase.from('channex_mappings').select('*'),
         supabase.from('units').select('id, name, booking_com_name').or('is_private.eq.false,is_private.is.null'),
+        supabase.from('rate_plans').select('id, name, room_type'),
       ]);
 
       setConfig(configRes.data as PropertyConfig | null);
@@ -59,12 +62,23 @@ export function PropertySync({ onSwitchToSettings }: PropertySyncProps) {
 
       if (unitsRes.data) {
         const groups: Record<string, number> = {};
+        const lookup: Record<string, string> = {};
         for (const u of unitsRes.data) {
           const name = u.booking_com_name || u.name;
           groups[name] = (groups[name] || 0) + 1;
+          lookup[u.id] = name;
         }
         setRoomTypes(Object.entries(groups).map(([name, count]) => ({ name, count })));
         setTotalUnits(unitsRes.data.length);
+        setUnitsLookup(lookup);
+      }
+
+      if (ratePlansRes.data) {
+        const lookup: Record<string, { name: string; room_type: string | null }> = {};
+        for (const rp of ratePlansRes.data) {
+          lookup[rp.id] = { name: rp.name, room_type: rp.room_type };
+        }
+        setRatePlansLookup(lookup);
       }
     } catch {
       toast.error('Failed to load data');
@@ -170,6 +184,7 @@ export function PropertySync({ onSwitchToSettings }: PropertySyncProps) {
             <Table>
               <TableHeader>
                 <TableRow>
+                  <TableHead className="text-xs">Room Name</TableHead>
                   <TableHead className="text-xs">Local ID</TableHead>
                   <TableHead className="text-xs">Channex ID</TableHead>
                   <TableHead className="text-xs">Status</TableHead>
@@ -178,6 +193,7 @@ export function PropertySync({ onSwitchToSettings }: PropertySyncProps) {
               <TableBody>
                 {roomTypeMappings.map(m => (
                   <TableRow key={m.id}>
+                    <TableCell className="text-xs font-medium">{unitsLookup[m.local_id] || '—'}</TableCell>
                     <TableCell className="text-xs font-mono break-all cursor-pointer select-all" onClick={() => { navigator.clipboard.writeText(m.local_id); toast.success('Copied!'); }}>{m.local_id}</TableCell>
                     <TableCell className="text-xs font-mono break-all cursor-pointer select-all" onClick={() => { navigator.clipboard.writeText(m.channex_id); toast.success('Copied!'); }}>{m.channex_id}</TableCell>
                     <TableCell>
@@ -205,14 +221,20 @@ export function PropertySync({ onSwitchToSettings }: PropertySyncProps) {
             <Table>
               <TableHeader>
                 <TableRow>
+                  <TableHead className="text-xs">Plan Name</TableHead>
+                  <TableHead className="text-xs">Room Type</TableHead>
                   <TableHead className="text-xs">Local ID</TableHead>
                   <TableHead className="text-xs">Channex ID</TableHead>
                   <TableHead className="text-xs">Status</TableHead>
                 </TableRow>
               </TableHeader>
               <TableBody>
-                {ratePlanMappings.map(m => (
+                {ratePlanMappings.map(m => {
+                  const rp = ratePlansLookup[m.local_id];
+                  return (
                   <TableRow key={m.id}>
+                    <TableCell className="text-xs font-medium">{rp?.name || '—'}</TableCell>
+                    <TableCell className="text-xs">{rp?.room_type || '—'}</TableCell>
                     <TableCell className="text-xs font-mono break-all cursor-pointer select-all" onClick={() => { navigator.clipboard.writeText(m.local_id); toast.success('Copied!'); }}>{m.local_id}</TableCell>
                     <TableCell className="text-xs font-mono break-all cursor-pointer select-all" onClick={() => { navigator.clipboard.writeText(m.channex_id); toast.success('Copied!'); }}>{m.channex_id}</TableCell>
                     <TableCell>
@@ -223,7 +245,8 @@ export function PropertySync({ onSwitchToSettings }: PropertySyncProps) {
                       )}
                     </TableCell>
                   </TableRow>
-                ))}
+                  );
+                })}
               </TableBody>
             </Table>
           </CardContent>
@@ -241,14 +264,18 @@ export function PropertySync({ onSwitchToSettings }: PropertySyncProps) {
             <Table>
               <TableHeader>
                 <TableRow>
+                  <TableHead className="text-xs">Base Plan Name</TableHead>
                   <TableHead className="text-xs">Base Plan ID</TableHead>
                   <TableHead className="text-xs">Channex ID</TableHead>
                   <TableHead className="text-xs">Status</TableHead>
                 </TableRow>
               </TableHeader>
               <TableBody>
-                {derivedRatePlanMappings.map(m => (
+                {derivedRatePlanMappings.map(m => {
+                  const rp = ratePlansLookup[m.local_id];
+                  return (
                   <TableRow key={m.id}>
+                    <TableCell className="text-xs font-medium">{rp?.name || '—'}</TableCell>
                     <TableCell className="text-xs font-mono break-all cursor-pointer select-all" onClick={() => { navigator.clipboard.writeText(m.local_id); toast.success('Copied!'); }}>{m.local_id}</TableCell>
                     <TableCell className="text-xs font-mono break-all cursor-pointer select-all" onClick={() => { navigator.clipboard.writeText(m.channex_id); toast.success('Copied!'); }}>{m.channex_id}</TableCell>
                     <TableCell>
@@ -259,7 +286,8 @@ export function PropertySync({ onSwitchToSettings }: PropertySyncProps) {
                       )}
                     </TableCell>
                   </TableRow>
-                ))}
+                  );
+                })}
               </TableBody>
             </Table>
           </CardContent>
