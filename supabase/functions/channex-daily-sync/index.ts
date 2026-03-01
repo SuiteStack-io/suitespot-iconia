@@ -224,12 +224,16 @@ serve(async (req: Request) => {
           for (const rpMapping of ratePlanMappings) {
             try {
               // Get rate plan details (including default restrictions)
-              const { data: ratePlan } = await supabase
+              const { data: ratePlan, error: rpError } = await supabase
                 .from("rate_plans")
-                .select("*, default_min_stay, default_max_stay, default_stop_sell, default_closed_to_arrival, default_closed_to_departure")
+                .select("*")
                 .eq("id", rpMapping.local_id)
                 .maybeSingle();
 
+              if (rpError) {
+                summary.errors.push(`Rate plan ${rpMapping.local_id}: query error - ${rpError.message}`);
+                continue;
+              }
               if (!ratePlan) {
                 summary.errors.push(`Rate plan ${rpMapping.local_id}: not found`);
                 continue;
@@ -285,7 +289,14 @@ serve(async (req: Request) => {
                   );
 
                   // Use date-specific override if available, otherwise defaults
-                  const minStay = chunkRestriction?.min_stay ?? ratePlan.default_min_stay ?? 1;
+                  // default_min_stay_arrival is an array of 7 (per day-of-week); take first or 1
+                  const defaultMinStayArr = ratePlan.default_min_stay_arrival;
+                  const defaultMinStayVal = Array.isArray(defaultMinStayArr) && defaultMinStayArr.length > 0 ? defaultMinStayArr[0] : 1;
+                  const defaultMinThroughArr = ratePlan.default_min_stay_through;
+                  const defaultMinThroughVal = Array.isArray(defaultMinThroughArr) && defaultMinThroughArr.length > 0 ? defaultMinThroughArr[0] : 1;
+
+                  const minStayArrival = chunkRestriction?.min_stay_arrival ?? defaultMinStayVal;
+                  const minStayThrough = chunkRestriction?.min_stay_through ?? defaultMinThroughVal;
                   const maxStay = chunkRestriction?.max_stay ?? ratePlan.default_max_stay ?? null;
                   const stopSellVal = chunkRestriction?.stop_sell ?? ratePlan.default_stop_sell ?? false;
                   const ctaVal = chunkRestriction?.closed_to_arrival ?? ratePlan.default_closed_to_arrival ?? false;
@@ -297,7 +308,8 @@ serve(async (req: Request) => {
                     date_from: effectiveFrom,
                     date_to: chunkToStr,
                     rate: rateInCents,
-                    min_stay_arrival: minStay,
+                    min_stay_arrival: minStayArrival,
+                    min_stay_through: minStayThrough,
                     stop_sell: stopSellVal,
                     closed_to_arrival: ctaVal,
                     closed_to_departure: ctdVal,
