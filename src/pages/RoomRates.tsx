@@ -3,6 +3,8 @@ import { supabase } from '@/integrations/supabase/client';
 import { SlideMenu } from '@/components/SlideMenu';
 import { AdminBreadcrumb } from '@/components/AdminBreadcrumb';
 import { useAuth } from '@/lib/auth';
+import { usePropertyId, withPropertyFilter } from '@/hooks/usePropertyFilter';
+import { useProperty } from '@/lib/propertyContext';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
@@ -62,6 +64,8 @@ interface EditedPlan {
 
 const RoomRates = () => {
   const { userRole } = useAuth();
+  const propertyId = usePropertyId();
+  const { activeProperty } = useProperty();
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [ratePlans, setRatePlans] = useState<RatePlan[]>([]);
@@ -73,16 +77,19 @@ const RoomRates = () => {
 
   useEffect(() => {
     fetchData();
-  }, []);
+  }, [propertyId]);
 
   const fetchData = async () => {
     try {
-      const { data: plans, error: plansError } = await supabase
-        .from('rate_plans')
-        .select('id, name, is_default, is_active, room_type, currency, sell_mode, extra_adult_rate, extra_child_rate')
-        .eq('is_active', true)
-        .order('room_type')
-        .order('name');
+      const { data: plans, error: plansError } = await withPropertyFilter(
+        supabase
+          .from('rate_plans')
+          .select('id, name, is_default, is_active, room_type, currency, sell_mode, extra_adult_rate, extra_child_rate')
+          .eq('is_active', true)
+          .order('room_type')
+          .order('name'),
+        propertyId
+      );
 
       if (plansError) throw plansError;
 
@@ -221,7 +228,7 @@ const RoomRates = () => {
           </Button>
         </div>
         <div className="px-4 pb-3">
-          <AdminBreadcrumb section="ICONIA" currentPage="Room Rates" />
+          <AdminBreadcrumb section={activeProperty?.name || 'Property'} currentPage="Room Rates" />
         </div>
       </header>
 
