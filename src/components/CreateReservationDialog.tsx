@@ -448,7 +448,7 @@ export function CreateReservationDialog() {
     return () => {
       supabase.removeChannel(profilesChannel);
     };
-  }, []);
+  }, [propertyId]);
 
   const fetchUsers = async () => {
     const { data, error } = await supabase
