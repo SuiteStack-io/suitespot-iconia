@@ -14,6 +14,8 @@ import { Label } from '@/components/ui/label';
 import { Badge } from '@/components/ui/badge';
 import { useToast } from '@/hooks/use-toast';
 import { Loader2, Shield } from 'lucide-react';
+import { PropertyAccessSection } from './PropertyAccessSection';
+import { Separator } from '@/components/ui/separator';
 
 interface User {
   id: string;
@@ -225,7 +227,7 @@ export function EditPermissionsDialog({
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="sm:max-w-md">
+      <DialogContent className="sm:max-w-md max-h-[85vh] overflow-y-auto">
         <DialogHeader>
           <DialogTitle className="flex items-center gap-2">
             <Shield className="h-5 w-5" />
@@ -290,6 +292,13 @@ export function EditPermissionsDialog({
               </div>
             ))}
           </div>
+        )}
+
+        {user && (
+          <>
+            <Separator />
+            <PropertyAccessSection userId={user.id} isAdmin={isAdmin} />
+          </>
         )}
 
         <DialogFooter className="gap-2 sm:gap-0">
