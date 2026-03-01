@@ -138,7 +138,7 @@ export function PropertyForm({ property, open, onClose, onSaved }: PropertyFormP
       if (newProp) propertyContext.setActiveProperty(newProp);
     }
     onSaved();
-    navigate('/room-types');
+    navigate('/rooms');
   };
 
   const handleDoLater = () => {
