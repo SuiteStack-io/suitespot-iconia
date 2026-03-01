@@ -1,24 +1,23 @@
 
 
-## Plan: Complete Property Access Filtering
+## Add Country Code Selection to Phone Fields
 
-### 1. Update PropertyProvider to filter by access
-**File: `src/lib/propertyContext.tsx`**
-- After checking `is_system_admin` and `has_role('admin')`, decide the fetch strategy:
-  - **Admin/system admin users**: fetch all properties (current behavior)
-  - **Non-admin users**: first query `user_property_access` for the user's property IDs, then fetch only those properties using `.in('id', propertyIds)`
-- If non-admin user has zero accessible properties, the `properties` array will be empty naturally
+### Approach
+Create a reusable `PhoneInput` component that combines a country code dropdown with a phone number input field, then apply it to the PropertyForm (the form shown in the screenshot).
 
-### 2. Update PropertySwitcher empty state
-**File: `src/components/PropertySwitcher.tsx`**
-- When `properties` is empty and `isLoading` is false, show: "No properties assigned. Contact your administrator." instead of returning null
-- Check `isSystemAdmin` from context to differentiate admin vs non-admin empty states
+### New Component: `src/components/ui/phone-input.tsx`
+- A composite input with a Select dropdown for country code (flag + dial code) on the left, and a standard text input for the number on the right
+- Common country codes: Egypt (+20), UAE (+971), Saudi Arabia (+966), US (+1), UK (+44), France (+33), Germany (+49), Jordan (+962), Lebanon (+961), Morocco (+212)
+- Props: `value` (full phone string like "+201003901516"), `onChange`, `placeholder`
+- On change, combines the selected dial code with the local number into a single string
+- Parses existing values to auto-detect the country code on mount
 
-### 3. Database trigger: auto-grant admin access on new property
-**Migration** -- Create a trigger `trg_auto_grant_admin_property_access` on `properties` INSERT that inserts a `user_property_access` row (role = 'admin') for every user with `admin` app_role in `user_roles`
+### Modified File: `src/components/settings/PropertyForm.tsx`
+- Replace the two phone `<Input>` fields (lines 235 and 265) with the new `<PhoneInput>` component
+- No changes to the data model -- the phone field still stores a single string like "+201003901516"
 
-### Files modified
-- `src/lib/propertyContext.tsx` -- access-filtered property fetching
-- `src/components/PropertySwitcher.tsx` -- empty state message
-- 1 SQL migration -- admin auto-grant trigger
+### Design
+- Matches the existing input styling (h-10, rounded-md, border)
+- Country code selector as a compact dropdown on the left side of the input
+- Shows country flag emoji + dial code in the trigger
 
