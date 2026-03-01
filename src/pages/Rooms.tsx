@@ -108,6 +108,8 @@ const Rooms = () => {
     tax_percentage: 14.00,
     photos: [],
     view: null,
+    count_of_rooms: 1,
+    default_occupancy: 2,
   });
   const [uploadingPhotos, setUploadingPhotos] = useState<string | null>(null);
   const [uploadProgress, setUploadProgress] = useState<{ [key: string]: number }>({});
@@ -550,6 +552,8 @@ const Rooms = () => {
       tax_percentage: newUnit.tax_percentage || 14.00,
       property_id: propertyId || null,
       view: newUnit.view || null,
+      count_of_rooms: newUnit.count_of_rooms ?? 1,
+      default_occupancy: newUnit.default_occupancy ?? 2,
     }]);
 
     if (error) {
@@ -585,6 +589,8 @@ const Rooms = () => {
       tax_percentage: 14.00,
       photos: [],
       view: null,
+      count_of_rooms: 1,
+      default_occupancy: 2,
     });
     fetchUnits();
   };
@@ -1449,7 +1455,7 @@ const Rooms = () => {
             name: '', unit_number: '', unit_type: '', unit_size: '', status: 'available',
             booking_com_id: '', booking_com_name: '', comments: '', beds: null, baths: null,
             max_guests: null, sofa_bed: false, price_per_night: null, weekend_rate: null,
-            tax_percentage: 14.00, photos: [], view: null,
+            tax_percentage: 14.00, photos: [], view: null, count_of_rooms: 1, default_occupancy: 2,
           });
         }
       }}>
@@ -1494,6 +1500,14 @@ const Rooms = () => {
             <div className="space-y-2">
               <Label htmlFor="add-guests">Max Guests</Label>
               <Input id="add-guests" type="number" value={newUnit.max_guests || ''} onChange={(e) => setNewUnit({ ...newUnit, max_guests: e.target.value ? parseInt(e.target.value) : null })} placeholder="0" />
+            </div>
+            <div className="space-y-2">
+              <Label htmlFor="add-count">Count</Label>
+              <Input id="add-count" type="number" min="1" value={newUnit.count_of_rooms ?? 1} onChange={(e) => setNewUnit({ ...newUnit, count_of_rooms: e.target.value ? parseInt(e.target.value) : 1 })} placeholder="1" />
+            </div>
+            <div className="space-y-2">
+              <Label htmlFor="add-occupancy">Default Occupancy</Label>
+              <Input id="add-occupancy" type="number" min="1" value={newUnit.default_occupancy ?? 2} onChange={(e) => setNewUnit({ ...newUnit, default_occupancy: e.target.value ? parseInt(e.target.value) : 2 })} placeholder="2" />
             </div>
             <div className="space-y-2">
               <Label>Sofa Bed</Label>
