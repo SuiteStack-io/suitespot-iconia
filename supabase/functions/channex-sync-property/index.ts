@@ -1,8 +1,8 @@
 /**
- * Channex Sync Property Edge Function (v3)
+ * Channex Sync Property Edge Function (v4 - Multi-Property)
  * 
- * Now each rate plan is linked to ONE room type via rate_plans.room_type,
- * making Channex sync a simple 1-to-1 mapping.
+ * Accepts { propertyId } to sync a specific property from the `properties` table.
+ * Falls back to `channex_property_config` if no propertyId is provided (backward compat).
  */
 
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
@@ -66,18 +66,89 @@ Deno.serve(async (req) => {
       return new Response(JSON.stringify({ error: 'Admin access required' }), { status: 403, headers: { ...corsHeaders, 'Content-Type': 'application/json' } });
     }
 
-    // STEP 0: READ PROPERTY CONFIG
-    const { data: propertyConfig, error: configError } = await supabaseAdmin
-      .from('channex_property_config')
-      .select('*')
-      .limit(1)
-      .maybeSingle();
-
-    if (configError || !propertyConfig) {
-      return new Response(JSON.stringify({ error: 'Please configure property settings first.' }), { status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' } });
+    // Parse request body
+    let propertyId: string | null = null;
+    try {
+      const body = await req.json();
+      propertyId = body?.propertyId || null;
+    } catch {
+      // No body or invalid JSON — fall back to legacy mode
     }
 
-    console.log(`[Sync] Starting sync for: ${propertyConfig.property_name}`);
+    // STEP 0: LOAD PROPERTY CONFIG
+    let propConfig: {
+      id: string;
+      property_name: string;
+      currency: string;
+      email: string;
+      phone: string | null;
+      zip_code: string | null;
+      country: string;
+      city: string;
+      address: string;
+      timezone: string;
+      latitude: number | null;
+      longitude: number | null;
+      description: string | null;
+    };
+
+    if (propertyId) {
+      // New multi-property mode: load from `properties` table
+      const { data: property, error: propError } = await supabaseAdmin
+        .from('properties')
+        .select('id, name, currency, email, phone, zip_code, country, city, address, timezone, latitude, longitude, description')
+        .eq('id', propertyId)
+        .single();
+
+      if (propError || !property) {
+        return new Response(JSON.stringify({ error: 'Property not found.' }), { status: 404, headers: { ...corsHeaders, 'Content-Type': 'application/json' } });
+      }
+
+      propConfig = {
+        id: property.id,
+        property_name: property.name,
+        currency: property.currency || 'USD',
+        email: property.email,
+        phone: property.phone,
+        zip_code: property.zip_code,
+        country: property.country || 'EG',
+        city: property.city || 'Cairo',
+        address: property.address || '',
+        timezone: property.timezone || 'Africa/Cairo',
+        latitude: property.latitude,
+        longitude: property.longitude,
+        description: property.description,
+      };
+    } else {
+      // Legacy fallback: use channex_property_config
+      const { data: propertyConfig, error: configError } = await supabaseAdmin
+        .from('channex_property_config')
+        .select('*')
+        .limit(1)
+        .maybeSingle();
+
+      if (configError || !propertyConfig) {
+        return new Response(JSON.stringify({ error: 'Please configure property settings first.' }), { status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' } });
+      }
+
+      propConfig = {
+        id: propertyConfig.id,
+        property_name: propertyConfig.property_name,
+        currency: propertyConfig.currency || 'USD',
+        email: propertyConfig.email,
+        phone: propertyConfig.phone,
+        zip_code: propertyConfig.zip_code,
+        country: propertyConfig.country || 'EG',
+        city: propertyConfig.city || 'Cairo',
+        address: propertyConfig.address || '',
+        timezone: propertyConfig.timezone || 'Africa/Cairo',
+        latitude: propertyConfig.latitude,
+        longitude: propertyConfig.longitude,
+        description: propertyConfig.description,
+      };
+    }
+
+    console.log(`[Sync] Starting sync for: ${propConfig.property_name} (${propConfig.id})`);
 
     const errors: SyncError[] = [];
     const roomTypeResults: { local_id: string; channex_id: string; name: string; status: string }[] = [];
@@ -89,7 +160,7 @@ Deno.serve(async (req) => {
     const { data: existingPropertyMapping } = await supabaseAdmin
       .from('channex_mappings')
       .select('channex_id')
-      .eq('local_id', propertyConfig.id)
+      .eq('local_id', propConfig.id)
       .eq('entity_type', 'property')
       .maybeSingle();
 
@@ -101,19 +172,19 @@ Deno.serve(async (req) => {
       console.log('[Property] Creating in Channex...');
       const payload = {
         property: {
-          title: propertyConfig.property_name,
-          currency: propertyConfig.currency || 'USD',
-          email: propertyConfig.email,
-          phone: propertyConfig.phone,
-          zip_code: propertyConfig.zip_code,
-          country: propertyConfig.country || 'EG',
-          state: propertyConfig.city || 'Cairo',
-          city: propertyConfig.city || 'Cairo',
-          address: propertyConfig.address || '',
-          timezone: propertyConfig.timezone || 'Africa/Cairo',
+          title: propConfig.property_name,
+          currency: propConfig.currency,
+          email: propConfig.email,
+          phone: propConfig.phone || '',
+          zip_code: propConfig.zip_code || '',
+          country: propConfig.country,
+          state: propConfig.city,
+          city: propConfig.city,
+          address: propConfig.address,
+          timezone: propConfig.timezone,
           facilities: [],
-          latitude: propertyConfig.latitude || 30.0626,
-          longitude: propertyConfig.longitude || 31.2247,
+          latitude: propConfig.latitude || 30.0626,
+          longitude: propConfig.longitude || 31.2247,
         }
       };
 
@@ -123,7 +194,7 @@ Deno.serve(async (req) => {
         console.log(`[Property] Created -> ${channexPropertyId}`);
 
         await supabaseAdmin.from('channex_mappings').insert({
-          local_id: propertyConfig.id,
+          local_id: propConfig.id,
           channex_id: channexPropertyId,
           entity_type: 'property',
           sync_status: 'synced',
@@ -131,25 +202,42 @@ Deno.serve(async (req) => {
           channex_data: res.data,
         });
 
-        await supabaseAdmin.from('channex_property_config').update({ channex_property_id: channexPropertyId }).eq('id', propertyConfig.id);
+        // Update source table
+        if (propertyId) {
+          await supabaseAdmin.from('properties').update({
+            channex_property_id: channexPropertyId,
+            channex_synced: true,
+            channex_last_sync: new Date().toISOString(),
+          }).eq('id', propertyId);
+        } else {
+          await supabaseAdmin.from('channex_property_config').update({ channex_property_id: channexPropertyId }).eq('id', propConfig.id);
+        }
 
         propertyStatus = 'created';
-        await logSync('channex-sync-property', '/api/v1/properties', payload, res, 200, true, null, propertyConfig.id);
+        await logSync('channex-sync-property', '/api/v1/properties', payload, res, 200, true, null, propConfig.id);
       } catch (error) {
         const msg = error instanceof Error ? error.message : String(error);
         console.error('[Property] Failed:', msg);
-        await logSync('channex-sync-property', '/api/v1/properties', payload, null, 500, false, msg, propertyConfig.id);
-        await createAlert('sync_error', `Failed to create property: ${msg}`, propertyConfig.id);
+        await logSync('channex-sync-property', '/api/v1/properties', payload, null, 500, false, msg, propConfig.id);
+        await createAlert('sync_error', `Failed to create property: ${msg}`, propConfig.id);
         return new Response(JSON.stringify({ error: `Failed to create property: ${msg}` }), { status: 502, headers: { ...corsHeaders, 'Content-Type': 'application/json' } });
       }
     }
 
     // STEP 2: ROOM TYPES (grouped by booking_com_name)
-    const { data: units, error: unitsError } = await supabaseAdmin
+    // Filter by property_id if using multi-property mode, else fall back to location filter
+    let unitsQuery = supabaseAdmin
       .from('units')
       .select('id, name, booking_com_name, max_guests, max_children, max_infants, default_occupancy, room_kind')
-      .eq('location', 'ICONIA')
       .or('is_private.eq.false,is_private.is.null');
+
+    if (propertyId) {
+      unitsQuery = unitsQuery.eq('property_id', propertyId);
+    } else {
+      unitsQuery = unitsQuery.eq('location', 'ICONIA');
+    }
+
+    const { data: units, error: unitsError } = await unitsQuery;
 
     if (unitsError) {
       errors.push({ entity: 'room_type', local_id: 'all', name: 'All', error: unitsError.message });
@@ -210,7 +298,7 @@ Deno.serve(async (req) => {
           });
 
           roomTypeResults.push({ local_id: rt.unitId, channex_id: channexRtId, name: displayName, status: 'created' });
-          await logSync('channex-sync-property', '/api/v1/room_types', payload, res, 200, true, null, propertyConfig.id);
+          await logSync('channex-sync-property', '/api/v1/room_types', payload, res, 200, true, null, propConfig.id);
         } catch (error) {
           const msg = error instanceof Error ? error.message : String(error);
           errors.push({ entity: 'room_type', local_id: rt.unitId, name: displayName, error: msg });
@@ -219,19 +307,23 @@ Deno.serve(async (req) => {
     }
 
     // STEP 3: RATE PLANS (1-to-1 mapping via rate_plans.room_type)
-    const { data: ratePlans } = await supabaseAdmin
+    let ratePlansQuery = supabaseAdmin
       .from('rate_plans')
       .select('id, name, currency, sell_mode, room_type, is_active')
       .eq('is_active', true)
       .not('room_type', 'is', null);
 
+    if (propertyId) {
+      ratePlansQuery = ratePlansQuery.eq('property_id', propertyId);
+    }
+
+    const { data: ratePlans } = await ratePlansQuery;
+
     if (ratePlans && ratePlans.length > 0) {
-      // Build lookup: room type display name -> channex room type ID
       const rtLookup: Record<string, string> = {};
       for (const result of roomTypeResults) {
         rtLookup[result.name] = result.channex_id;
       }
-      // Also check existing mappings for room types not just created
       if (units) {
         const groups: Record<string, string> = {};
         for (const u of units) {
@@ -255,7 +347,6 @@ Deno.serve(async (req) => {
             continue;
           }
 
-          // Direct 1-to-1: use rate_plan.room_type to find Channex room type ID
           const channexRtId = rp.room_type ? rtLookup[rp.room_type] : null;
           if (!channexRtId) {
             errors.push({ entity: 'rate_plan', local_id: rp.id, name: rp.name, error: `No synced room type found for "${rp.room_type}"` });
@@ -289,7 +380,7 @@ Deno.serve(async (req) => {
           });
 
           ratePlanResults.push({ local_id: rp.id, channex_id: res.data.id, name: rp.name, status: 'created' });
-          await logSync('channex-sync-property', '/api/v1/rate_plans', payload, res, 200, true, null, propertyConfig.id);
+          await logSync('channex-sync-property', '/api/v1/rate_plans', payload, res, 200, true, null, propConfig.id);
         } catch (error) {
           const msg = error instanceof Error ? error.message : String(error);
           errors.push({ entity: 'rate_plan', local_id: rp.id, name: rp.name, error: msg });
@@ -297,12 +388,20 @@ Deno.serve(async (req) => {
       }
     }
 
+    // Update channex_last_sync on the properties table
+    if (propertyId) {
+      await supabaseAdmin.from('properties').update({
+        channex_last_sync: new Date().toISOString(),
+        channex_synced: true,
+      }).eq('id', propertyId);
+    }
+
     // SUMMARY
     console.log(`[Sync] Done. RT: ${roomTypeResults.length}, RP: ${ratePlanResults.length}, Errors: ${errors.length}`);
 
     return new Response(JSON.stringify({
       success: true,
-      property: { local_id: propertyConfig.id, channex_id: channexPropertyId, status: propertyStatus },
+      property: { local_id: propConfig.id, channex_id: channexPropertyId, status: propertyStatus },
       room_types: roomTypeResults,
       rate_plans: ratePlanResults,
       errors
