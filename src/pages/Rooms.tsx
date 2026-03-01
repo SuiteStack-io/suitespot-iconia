@@ -6,6 +6,7 @@ import { usePropertyId, withPropertyFilter } from '@/hooks/usePropertyFilter';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
+import { Textarea } from '@/components/ui/textarea';
 import { Save, Plus, Pencil, X, Upload, Trash2, Eye, ChevronDown, Copy, Image as ImageIcon, GripVertical, ArrowLeft } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
 import { Progress } from '@/components/ui/progress';
@@ -86,7 +87,7 @@ const Rooms = () => {
   const [reservations, setReservations] = useState<Reservation[]>([]);
   const [editingId, setEditingId] = useState<string | null>(null);
   const [editedUnit, setEditedUnit] = useState<Partial<Unit>>({});
-  const [isAdding, setIsAdding] = useState(false);
+  const [addDialogOpen, setAddDialogOpen] = useState(false);
   const [isBulkEdit, setIsBulkEdit] = useState(false);
   const [bulkEditUnits, setBulkEditUnits] = useState<Record<string, Partial<Unit>>>({});
   const [newUnit, setNewUnit] = useState<Partial<Unit>>({
@@ -107,7 +108,6 @@ const Rooms = () => {
     tax_percentage: 14.00,
     photos: [],
     view: null,
-    location: 'ICONIA',
   });
   const [uploadingPhotos, setUploadingPhotos] = useState<string | null>(null);
   const [uploadProgress, setUploadProgress] = useState<{ [key: string]: number }>({});
@@ -548,7 +548,8 @@ const Rooms = () => {
       price_per_night: newUnit.price_per_night || null,
       weekend_rate: newUnit.weekend_rate || null,
       tax_percentage: newUnit.tax_percentage || 14.00,
-      location: 'ICONIA',
+      property_id: propertyId || null,
+      view: newUnit.view || null,
     }]);
 
     if (error) {
@@ -565,7 +566,7 @@ const Rooms = () => {
       description: 'Room added successfully',
     });
 
-    setIsAdding(false);
+    setAddDialogOpen(false);
     setNewUnit({
       name: '',
       unit_number: '',
@@ -573,6 +574,7 @@ const Rooms = () => {
       unit_size: '',
       status: 'available',
       booking_com_id: '',
+      booking_com_name: '',
       comments: '',
       beds: null,
       baths: null,
@@ -582,7 +584,7 @@ const Rooms = () => {
       weekend_rate: null,
       tax_percentage: 14.00,
       photos: [],
-      location: 'ICONIA',
+      view: null,
     });
     fetchUnits();
   };
@@ -844,7 +846,7 @@ const Rooms = () => {
                       <Pencil className="h-4 w-4 mr-2" />
                       Bulk Edit
                     </Button>
-                    <Button onClick={() => setIsAdding(true)} disabled={isAdding}>
+                    <Button onClick={() => setAddDialogOpen(true)}>
                       <Plus className="h-4 w-4 mr-2" />
                       Add Room
                     </Button>
@@ -919,187 +921,6 @@ const Rooms = () => {
                 </tr>
               </thead>
               <TableBody>
-              {isAdding && (
-                <TableRow className="bg-muted/50">
-                  <TableCell className="text-muted-foreground sticky left-0 z-[5] bg-muted/50">-</TableCell>
-                  <TableCell className="sticky left-[50px] z-[5] bg-muted/50">
-                    <Input
-                      value={newUnit.name}
-                      onChange={(e) => setNewUnit({ ...newUnit, name: e.target.value })}
-                      placeholder="Room name"
-                    />
-                  </TableCell>
-                  <TableCell className="sticky left-[250px] z-[5] bg-muted/50 border-r">
-                    <Input
-                      value={newUnit.unit_number || ''}
-                      onChange={(e) => setNewUnit({ ...newUnit, unit_number: e.target.value })}
-                      placeholder="Unit #"
-                    />
-                  </TableCell>
-                  <TableCell>
-                    <Input
-                      value={newUnit.unit_type || ''}
-                      onChange={(e) => setNewUnit({ ...newUnit, unit_type: e.target.value })}
-                      placeholder="Type"
-                    />
-                  </TableCell>
-                  <TableCell>
-                    <span className="text-muted-foreground">-</span>
-                  </TableCell>
-                  <TableCell>
-                    <Input
-                      value={newUnit.booking_com_name || ''}
-                      onChange={(e) => setNewUnit({ ...newUnit, booking_com_name: e.target.value })}
-                      placeholder="Booking.com Name"
-                    />
-                  </TableCell>
-                  <TableCell>
-                    <Input
-                      value={newUnit.unit_size || ''}
-                      onChange={(e) => setNewUnit({ ...newUnit, unit_size: e.target.value })}
-                      placeholder="Size"
-                    />
-                  </TableCell>
-                  <TableCell>
-                    <Input
-                      type="number"
-                      value={newUnit.beds || ''}
-                      onChange={(e) => setNewUnit({ ...newUnit, beds: e.target.value ? parseInt(e.target.value) : null })}
-                      placeholder="Beds"
-                    />
-                  </TableCell>
-                  <TableCell>
-                    <Input
-                      type="number"
-                      value={newUnit.baths || ''}
-                      onChange={(e) => setNewUnit({ ...newUnit, baths: e.target.value ? parseInt(e.target.value) : null })}
-                      placeholder="Baths"
-                    />
-                  </TableCell>
-                  <TableCell>
-                    <Input
-                      type="number"
-                      value={newUnit.max_guests || ''}
-                      onChange={(e) => setNewUnit({ ...newUnit, max_guests: e.target.value ? parseInt(e.target.value) : null })}
-                      placeholder="Max"
-                    />
-                  </TableCell>
-                  <TableCell>
-                    <Select
-                      value={newUnit.sofa_bed ? 'true' : 'false'}
-                      onValueChange={(value) => setNewUnit({ ...newUnit, sofa_bed: value === 'true' })}
-                    >
-                      <SelectTrigger>
-                        <SelectValue />
-                      </SelectTrigger>
-                      <SelectContent>
-                        <SelectItem value="true">Yes</SelectItem>
-                        <SelectItem value="false">No</SelectItem>
-                      </SelectContent>
-                    </Select>
-                  </TableCell>
-                  <TableCell>
-                    <Input
-                      type="number"
-                      step="0.01"
-                      value={newUnit.price_per_night || ''}
-                      onChange={(e) => {
-                        const weekdayRate = e.target.value ? parseFloat(e.target.value) : null;
-                        setNewUnit({ 
-                          ...newUnit, 
-                          price_per_night: weekdayRate,
-                          weekend_rate: calculateWeekendRate(weekdayRate)
-                        });
-                      }}
-                      placeholder="Weekday"
-                    />
-                  </TableCell>
-                  <TableCell>
-                    <Input
-                      type="number"
-                      step="0.01"
-                      value={newUnit.weekend_rate || ''}
-                      onChange={(e) => setNewUnit({ ...newUnit, weekend_rate: e.target.value ? parseFloat(e.target.value) : null })}
-                      placeholder="Weekend"
-                    />
-                  </TableCell>
-                  <TableCell>
-                    <Input
-                      type="number"
-                      step="0.01"
-                      min="0"
-                      max="100"
-                      value={newUnit.tax_percentage ?? ''}
-                      onChange={(e) => setNewUnit({ ...newUnit, tax_percentage: e.target.value ? parseFloat(e.target.value) : null })}
-                      placeholder="14"
-                    />
-                  </TableCell>
-                  <TableCell>
-                    <div className="text-muted-foreground text-sm">Add room first, then upload photos</div>
-                  </TableCell>
-                  <TableCell>
-                    <Select
-                      value={newUnit.status}
-                      onValueChange={(value) => setNewUnit({ ...newUnit, status: value })}
-                    >
-                      <SelectTrigger>
-                        <SelectValue placeholder="Select status" />
-                      </SelectTrigger>
-                      <SelectContent>
-                        {STATUS_OPTIONS.map((status) => (
-                          <SelectItem key={status} value={status}>
-                            {status.charAt(0).toUpperCase() + status.slice(1)}
-                          </SelectItem>
-                        ))}
-                      </SelectContent>
-                    </Select>
-                  </TableCell>
-                  <TableCell>
-                    <Input
-                      value={newUnit.booking_com_id || ''}
-                      onChange={(e) => setNewUnit({ ...newUnit, booking_com_id: e.target.value })}
-                      placeholder="Booking.com Room ID"
-                    />
-                  </TableCell>
-                  <TableCell>
-                    <span className="text-muted-foreground">-</span>
-                  </TableCell>
-                  <TableCell>
-                    <div className="flex gap-2">
-                      <Button size="sm" onClick={handleAddRoom}>
-                        <Save className="h-4 w-4" />
-                      </Button>
-                      <Button
-                        size="sm"
-                        variant="ghost"
-                        onClick={() => {
-                          setIsAdding(false);
-                          setNewUnit({
-                            name: '',
-                            unit_number: '',
-                            unit_type: '',
-                            unit_size: '',
-                            status: 'available',
-                            booking_com_id: '',
-                            booking_com_name: '',
-                            comments: '',
-                            beds: null,
-                            baths: null,
-                            max_guests: null,
-                            sofa_bed: false,
-                            price_per_night: null,
-                            weekend_rate: null,
-                            tax_percentage: 14.00,
-                            photos: [],
-                          });
-                        }}
-                      >
-                        <X className="h-4 w-4" />
-                      </Button>
-                    </div>
-                  </TableCell>
-                </TableRow>
-              )}
               {sortedUnits.map((unit, index) => {
                 const isEditing = isBulkEdit || editingId === unit.id;
                 const currentUnit = isBulkEdit ? bulkEditUnits[unit.id] : editedUnit;
@@ -1616,6 +1437,112 @@ const Rooms = () => {
             >
               Delete Room
             </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* Add Room Dialog */}
+      <Dialog open={addDialogOpen} onOpenChange={(open) => {
+        setAddDialogOpen(open);
+        if (!open) {
+          setNewUnit({
+            name: '', unit_number: '', unit_type: '', unit_size: '', status: 'available',
+            booking_com_id: '', booking_com_name: '', comments: '', beds: null, baths: null,
+            max_guests: null, sofa_bed: false, price_per_night: null, weekend_rate: null,
+            tax_percentage: 14.00, photos: [], view: null,
+          });
+        }
+      }}>
+        <DialogContent className="max-w-2xl max-h-[90vh] overflow-y-auto">
+          <DialogHeader>
+            <DialogTitle>Add New Room</DialogTitle>
+            <DialogDescription>Fill in the room details below. Fields marked with * are required.</DialogDescription>
+          </DialogHeader>
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4 py-4">
+            <div className="space-y-2">
+              <Label htmlFor="add-name">Room Name *</Label>
+              <Input id="add-name" value={newUnit.name} onChange={(e) => setNewUnit({ ...newUnit, name: e.target.value })} placeholder="e.g. Deluxe Suite" />
+            </div>
+            <div className="space-y-2">
+              <Label htmlFor="add-number">Room #</Label>
+              <Input id="add-number" value={newUnit.unit_number || ''} onChange={(e) => setNewUnit({ ...newUnit, unit_number: e.target.value })} placeholder="e.g. 101" />
+            </div>
+            <div className="space-y-2">
+              <Label htmlFor="add-type">Type</Label>
+              <Input id="add-type" value={newUnit.unit_type || ''} onChange={(e) => setNewUnit({ ...newUnit, unit_type: e.target.value })} placeholder="e.g. Studio, 1BR" />
+            </div>
+            <div className="space-y-2">
+              <Label htmlFor="add-bcom-name">Booking.com Name</Label>
+              <Input id="add-bcom-name" value={newUnit.booking_com_name || ''} onChange={(e) => setNewUnit({ ...newUnit, booking_com_name: e.target.value })} placeholder="Booking.com display name" />
+            </div>
+            <div className="space-y-2">
+              <Label htmlFor="add-view">Room View</Label>
+              <Input id="add-view" value={newUnit.view || ''} onChange={(e) => setNewUnit({ ...newUnit, view: e.target.value })} placeholder="e.g. City View, Pool View" />
+            </div>
+            <div className="space-y-2">
+              <Label htmlFor="add-size">Size</Label>
+              <Input id="add-size" value={newUnit.unit_size || ''} onChange={(e) => setNewUnit({ ...newUnit, unit_size: e.target.value })} placeholder="e.g. 45 sqm" />
+            </div>
+            <div className="space-y-2">
+              <Label htmlFor="add-beds">Beds</Label>
+              <Input id="add-beds" type="number" value={newUnit.beds || ''} onChange={(e) => setNewUnit({ ...newUnit, beds: e.target.value ? parseInt(e.target.value) : null })} placeholder="0" />
+            </div>
+            <div className="space-y-2">
+              <Label htmlFor="add-baths">Baths</Label>
+              <Input id="add-baths" type="number" value={newUnit.baths || ''} onChange={(e) => setNewUnit({ ...newUnit, baths: e.target.value ? parseInt(e.target.value) : null })} placeholder="0" />
+            </div>
+            <div className="space-y-2">
+              <Label htmlFor="add-guests">Max Guests</Label>
+              <Input id="add-guests" type="number" value={newUnit.max_guests || ''} onChange={(e) => setNewUnit({ ...newUnit, max_guests: e.target.value ? parseInt(e.target.value) : null })} placeholder="0" />
+            </div>
+            <div className="space-y-2">
+              <Label>Sofa Bed</Label>
+              <Select value={newUnit.sofa_bed ? 'true' : 'false'} onValueChange={(v) => setNewUnit({ ...newUnit, sofa_bed: v === 'true' })}>
+                <SelectTrigger><SelectValue /></SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="false">No</SelectItem>
+                  <SelectItem value="true">Yes</SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
+            <div className="space-y-2">
+              <Label htmlFor="add-weekday">Weekday Rate</Label>
+              <Input id="add-weekday" type="number" step="0.01" value={newUnit.price_per_night || ''} onChange={(e) => {
+                const rate = e.target.value ? parseFloat(e.target.value) : null;
+                setNewUnit({ ...newUnit, price_per_night: rate, weekend_rate: calculateWeekendRate(rate) });
+              }} placeholder="0.00" />
+            </div>
+            <div className="space-y-2">
+              <Label htmlFor="add-weekend">Weekend Rate</Label>
+              <Input id="add-weekend" type="number" step="0.01" value={newUnit.weekend_rate || ''} onChange={(e) => setNewUnit({ ...newUnit, weekend_rate: e.target.value ? parseFloat(e.target.value) : null })} placeholder="Auto-calculated" />
+            </div>
+            <div className="space-y-2">
+              <Label htmlFor="add-tax">Tax %</Label>
+              <Input id="add-tax" type="number" step="0.01" min="0" max="100" value={newUnit.tax_percentage ?? ''} onChange={(e) => setNewUnit({ ...newUnit, tax_percentage: e.target.value ? parseFloat(e.target.value) : null })} placeholder="14" />
+            </div>
+            <div className="space-y-2">
+              <Label>Status</Label>
+              <Select value={newUnit.status} onValueChange={(v) => setNewUnit({ ...newUnit, status: v })}>
+                <SelectTrigger><SelectValue placeholder="Select status" /></SelectTrigger>
+                <SelectContent>
+                  {STATUS_OPTIONS.map((s) => (
+                    <SelectItem key={s} value={s}>{s.charAt(0).toUpperCase() + s.slice(1)}</SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+            <div className="space-y-2">
+              <Label htmlFor="add-bcom-id">Booking.com Room ID</Label>
+              <Input id="add-bcom-id" value={newUnit.booking_com_id || ''} onChange={(e) => setNewUnit({ ...newUnit, booking_com_id: e.target.value })} placeholder="Room ID" />
+            </div>
+            <div className="space-y-2 sm:col-span-2 lg:col-span-3">
+              <Label htmlFor="add-comments">Comments</Label>
+              <Textarea id="add-comments" value={newUnit.comments || ''} onChange={(e) => setNewUnit({ ...newUnit, comments: e.target.value })} placeholder="Any additional notes..." rows={3} />
+            </div>
+          </div>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setAddDialogOpen(false)}>Cancel</Button>
+            <Button onClick={handleAddRoom}><Plus className="h-4 w-4 mr-2" />Add Room</Button>
           </DialogFooter>
         </DialogContent>
       </Dialog>
