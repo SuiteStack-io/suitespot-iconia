@@ -147,6 +147,8 @@ const handler = async (req: Request): Promise<Response> => {
     console.log(`Sending cancellation notification to ${adminEmails.length} admin(s)`);
 
     // Format dates
+    const checkInShort = new Date(check_in_date).toLocaleDateString("en-US", { month: "short", day: "numeric" });
+    const checkOutShort = new Date(check_out_date).toLocaleDateString("en-US", { month: "short", day: "numeric" });
     const checkInFormatted = new Date(check_in_date).toLocaleDateString("en-US", {
       weekday: "long",
       year: "numeric",
@@ -296,7 +298,7 @@ const handler = async (req: Request): Promise<Response> => {
         const result = await resend.emails.send({
           from: "SuiteSpot Reservations <reservations@bookings.suitespoteg.com>",
           to: [admin.email as string],
-          subject: `Cancelled Booking - ${guest_names?.[0] || "Guest"} (${booking_reference})`,
+          subject: `Cancelled Booking - ${guest_names?.[0] || "Guest"} - ${checkInShort} to ${checkOutShort}${unit_number ? ` - Room #${unit_number}` : ''}`,
           html: emailHtml,
         });
         
