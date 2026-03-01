@@ -14,6 +14,7 @@ import { Textarea } from '@/components/ui/textarea';
 import {
   Select, SelectContent, SelectItem, SelectTrigger, SelectValue,
 } from '@/components/ui/select';
+import { PhoneInput } from '@/components/ui/phone-input';
 import { toast } from 'sonner';
 import { CheckCircle2, ArrowRight, ArrowLeft } from 'lucide-react';
 
@@ -232,7 +233,7 @@ export function PropertyForm({ property, open, onClose, onSaved }: PropertyFormP
                 <>
                   <div className="grid gap-3 sm:grid-cols-2">
                     <div><Label>Email</Label><Input type="email" value={form.email} onChange={e => update('email', e.target.value)} /></div>
-                    <div><Label>Phone</Label><Input value={form.phone} onChange={e => update('phone', e.target.value)} /></div>
+                    <div><Label>Phone</Label><PhoneInput value={form.phone} onChange={v => update('phone', v)} /></div>
                   </div>
                   <div><Label>Website</Label><Input value={form.website} onChange={e => update('website', e.target.value)} /></div>
                   <div className="grid gap-3 sm:grid-cols-2">
@@ -262,7 +263,7 @@ export function PropertyForm({ property, open, onClose, onSaved }: PropertyFormP
             {!isEdit && (
               <div className="grid gap-3 sm:grid-cols-2">
                 <div><Label>Email</Label><Input type="email" value={form.email} onChange={e => update('email', e.target.value)} placeholder="Optional" /></div>
-                <div><Label>Phone</Label><Input value={form.phone} onChange={e => update('phone', e.target.value)} placeholder="Optional" /></div>
+                <div><Label>Phone</Label><PhoneInput value={form.phone} onChange={v => update('phone', v)} placeholder="Optional" /></div>
               </div>
             )}
             <p className="text-xs text-muted-foreground">VAT rate is inherited from your company settings.</p>
