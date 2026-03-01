@@ -1,16 +1,17 @@
 
 
-## Fix: Room Rates page not filtering by active property
+## Fix: Room Rates admin page not filtering by active property
 
 ### Problem
-On `src/pages/front-desk/RoomRates.tsx`, the `units` and `rate_plans` queries fetch **all** records across all properties. Only `channel_markup_settings` uses `withPropertyFilter`. This causes the Test property to show ICONIA's room types and rates.
+`src/pages/RoomRates.tsx` fetches `rate_plans` and `rate_plan_prices` without any `property_id` filter, so it shows all properties' data regardless of the active property selection.
 
-### Fix (single file: `src/pages/front-desk/RoomRates.tsx`)
+### Fix (single file: `src/pages/RoomRates.tsx`)
 
-Wrap the `units` and `rate_plans` queries with `withPropertyFilter(query, propertyId)`:
+1. Import `usePropertyId` and `withPropertyFilter` from `@/hooks/usePropertyFilter`
+2. Call `usePropertyId()` in the component
+3. Re-fetch when `propertyId` changes (add to `useEffect` dependency)
+4. Wrap the `rate_plans` query with `withPropertyFilter(query, propertyId)`
+5. Update the breadcrumb to use the active property name instead of the hardcoded "ICONIA"
 
-1. **Units query** (line 44-47): Add `.eq('property_id', propertyId)` via `withPropertyFilter`
-2. **Rate plans query** (line 49-52): Add `.eq('property_id', propertyId)` via `withPropertyFilter`
-
-Both tables already have a `property_id` column, so no database changes needed.
+No database changes needed — `rate_plans` already has a `property_id` column.
 
