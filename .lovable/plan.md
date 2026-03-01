@@ -1,19 +1,28 @@
 
 
-## Add Room/Plan Name Columns to Channex Sync Tables
+## Fix: Daily Sync "Rate Plan Not Found" Bug
 
-The three tables (Synced Room Types, Synced Rate Plans, Derived Rate Plans) currently only show UUIDs. I'll add human-readable name columns by cross-referencing fetched data.
+### Root Cause
 
-### Changes to `src/components/channex/PropertySync.tsx`
+In `channex-daily-sync/index.ts` line 229, the query selects a column called `default_min_stay` which **does not exist** in the `rate_plans` table. The actual columns are `default_min_stay_arrival` and `default_min_stay_through`.
 
-1. **Fetch rate plans** alongside units in `fetchData` -- add a query for `rate_plans` selecting `id, name, room_type`
-2. **Store units as a lookup map** (id → name) from the already-fetched units data
-3. **Synced Room Types table**: Add "Room Name" column, resolved by looking up `local_id` in the units map (using `booking_com_name || name`)
-4. **Synced Rate Plans table**: Add "Plan Name" and "Room Type" columns, resolved by looking up `local_id` in the rate plans data
-5. **Derived Rate Plans table**: Add "Base Plan Name" column, resolved by looking up `local_id` in the rate plans data (the `local_id` for derived mappings references the base rate plan)
+```
+.select("*, default_min_stay, default_max_stay, ...")
+//           ^^^^^^^^^^^^^^^^ DOES NOT EXIST
+```
 
-### Data Flow
-- Units are already fetched (`id, name, booking_com_name`) -- just need to keep the raw array for lookup
-- Rate plans need a new fetch: `supabase.from('rate_plans').select('id, name, room_type')`
-- Lookups are done client-side via `.find()` on the arrays
+This causes PostgREST to return a 400 error, making `ratePlan` null for every rate plan. The code then logs `"Rate plan {local_id}: not found"` -- which is misleading because the rate plan exists, the query just failed.
+
+### Fix in `supabase/functions/channex-daily-sync/index.ts`
+
+1. **Line 229**: Change the `.select()` to just `"*"` (all columns are already included by `*`, and the extra invalid column name breaks the query)
+
+2. **Line 288**: Change `ratePlan.default_min_stay` to `ratePlan.default_min_stay_arrival` (matching the actual column name), and add `default_min_stay_through` usage as `min_stay_through`
+
+3. **Add error checking**: After the rate plan query, check for errors explicitly so future issues are easier to diagnose
+
+### Summary
+- One file changed: `supabase/functions/channex-daily-sync/index.ts`
+- Fix the invalid column reference that silently breaks all rate plan queries
+- This should resolve all 4 recurring daily sync alerts immediately
 
