@@ -1,27 +1,19 @@
 
 
-## Show Full IDs in Channex Integration Pages
+## Add Room/Plan Name Columns to Channex Sync Tables
 
-The IDs are truncated in three files. The fix is to show full IDs with horizontal scroll or text wrapping, and add a click-to-copy feature for convenience.
+The three tables (Synced Room Types, Synced Rate Plans, Derived Rate Plans) currently only show UUIDs. I'll add human-readable name columns by cross-referencing fetched data.
 
-### Files to Update
+### Changes to `src/components/channex/PropertySync.tsx`
 
-1. **`src/components/channex/PropertySync.tsx`** (lines 181-182, 216-217, 252-253)
-   - Replace `m.local_id.slice(0, 8)...` and `m.channex_id.slice(0, 8)...` with the full ID
-   - Make cells use `break-all` or `select-all` for easy copying
+1. **Fetch rate plans** alongside units in `fetchData` -- add a query for `rate_plans` selecting `id, name, room_type`
+2. **Store units as a lookup map** (id → name) from the already-fetched units data
+3. **Synced Room Types table**: Add "Room Name" column, resolved by looking up `local_id` in the units map (using `booking_com_name || name`)
+4. **Synced Rate Plans table**: Add "Plan Name" and "Room Type" columns, resolved by looking up `local_id` in the rate plans data
+5. **Derived Rate Plans table**: Add "Base Plan Name" column, resolved by looking up `local_id` in the rate plans data (the `local_id` for derived mappings references the base rate plan)
 
-2. **`src/components/channex/PropertySettings.tsx`** (line 249, used at lines 433-434)
-   - Remove the `truncateId` helper or make it show the full ID
-   - Show full IDs in the mappings table
-
-3. **`src/pages/pms/ChannelMarkup.tsx`** (line 467)
-   - Replace `dm.channex_derived_rate_plan_id.slice(0, 12)...` with the full ID
-
-4. **`src/components/channex/RecentBookings.tsx`** (line 161)
-   - Replace `b.channex_booking_id.slice(0, 12)...` with the full ID
-
-### Approach
-- Show full UUIDs in `text-xs font-mono break-all` styled cells
-- Add click-to-copy (toast "Copied!") on each ID for usability
-- Ensure table columns don't break layout by using appropriate min-widths
+### Data Flow
+- Units are already fetched (`id, name, booking_com_name`) -- just need to keep the raw array for lookup
+- Rate plans need a new fetch: `supabase.from('rate_plans').select('id, name, room_type')`
+- Lookups are done client-side via `.find()` on the arrays
 
