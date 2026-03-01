@@ -1,32 +1,24 @@
 
 
-## Plan: Property Access Control per User
+## Plan: Complete Property Access Filtering
 
-### Current State
-- `user_property_access` table exists with roles (owner/admin/manager/staff/viewer) and proper RLS
-- `PropertyAccessSection` already exists in the EditPermissionsDialog — admins can assign/remove property access per user
-- `PropertyProvider` fetches ALL properties regardless of user access
-- `PropertySwitcher` shows all active properties
-- `auto_assign_property_owner` trigger grants owner role to property creator
-
-### What Needs to Change
-
-#### 1. Filter Properties by User Access in PropertyProvider
+### 1. Update PropertyProvider to filter by access
 **File: `src/lib/propertyContext.tsx`**
-- For non-admin users: fetch only properties where the user has a `user_property_access` row, by first querying `user_property_access` for the user's property IDs, then filtering the properties query
-- For admin users / system admins: continue fetching all properties (admins have unrestricted access)
-- If a non-admin user has zero accessible properties, set an `accessDenied` flag in context
+- After checking `is_system_admin` and `has_role('admin')`, decide the fetch strategy:
+  - **Admin/system admin users**: fetch all properties (current behavior)
+  - **Non-admin users**: first query `user_property_access` for the user's property IDs, then fetch only those properties using `.in('id', propertyIds)`
+- If non-admin user has zero accessible properties, the `properties` array will be empty naturally
 
-#### 2. Update PropertySwitcher for Empty State
+### 2. Update PropertySwitcher empty state
 **File: `src/components/PropertySwitcher.tsx`**
-- When `properties` is empty and user is not admin, show "No properties assigned. Contact your administrator." message instead of hiding the switcher
+- When `properties` is empty and `isLoading` is false, show: "No properties assigned. Contact your administrator." instead of returning null
+- Check `isSystemAdmin` from context to differentiate admin vs non-admin empty states
 
-#### 3. Database: Auto-grant Property Access to All Admins on New Property Creation
-**Migration** — Create a trigger on `properties` INSERT that inserts a `user_property_access` row for every user with the `admin` app_role, granting them `admin` property role on the new property.
+### 3. Database trigger: auto-grant admin access on new property
+**Migration** -- Create a trigger `trg_auto_grant_admin_property_access` on `properties` INSERT that inserts a `user_property_access` row (role = 'admin') for every user with `admin` app_role in `user_roles`
 
-#### 4. No Other Changes Needed
-- The `PropertyAccessSection` in EditPermissionsDialog already provides the UI for admins to manage per-user property access with role selection
-- RLS on `units`, `reservations`, `rate_plans` already uses `user_has_property_access()` which validates property-level access
-- localStorage persistence of last selected property already works
-- If a user switches to a property they lost access to, the filtered list simply won't include it and the provider will fall back to the first accessible property
+### Files modified
+- `src/lib/propertyContext.tsx` -- access-filtered property fetching
+- `src/components/PropertySwitcher.tsx` -- empty state message
+- 1 SQL migration -- admin auto-grant trigger
 
