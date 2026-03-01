@@ -1,19 +1,10 @@
 
 
-## Fix: Rate plan creation fails due to missing `property_id`
+## Remove Booking.com ID field from Rate Plan dialog
 
-### Root Cause
-The RLS policy on `rate_plans` requires `user_has_property_access(property_id, 'manager')`. Both the create flow in `Prices.tsx` and the bulk create in `BulkRatePlanDialog.tsx` insert rows without setting `property_id`, causing a "violates row-level security policy" error.
+### Change
 
-### Changes
+**`src/components/pms/RatePlanDialog.tsx`**: Remove the Booking.com ID input field block (the `<div>` containing the label, input, and helper text around lines 178-183).
 
-**1. `src/pages/pms/Prices.tsx` (line 234)**
-Add `property_id: propertyId` to the insert object so the RLS check passes.
-
-**2. `src/components/pms/BulkRatePlanDialog.tsx`**
-- Add `propertyId` prop to the interface
-- Include `property_id: propertyId` in the insert (line 76-82)
-- The parent (`Prices.tsx`) already has `propertyId` and will pass it down
-
-Both fixes are one-line additions each. No database or schema changes needed.
+No other files need changes — the `booking_com_id` state and save logic can stay since the field exists in the database; we're just removing it from the UI.
 
