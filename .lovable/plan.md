@@ -1,15 +1,19 @@
 
 
-## Fix: Filter rooms by active property in Create Reservation dialog
+## Fix: Reservations List not refreshing on property change
 
-### Problem
-The `fetchUnits` function in `CreateReservationDialog.tsx` uses `withPropertyFilter` with `propertyId`, but the `useEffect` that calls it (line 428) has an empty dependency array `[]` (line 451). This means:
-1. Units are fetched only once on mount, using whatever `propertyId` was active at that time
-2. If the property context changes, the room list is stale and may show rooms from a different property
+### Problem Found
+In `src/components/ReservationsList.tsx` (line 203), the main `useEffect` that fetches reservations and units has an empty dependency array `[]`. This means:
 
-### Fix — `src/components/CreateReservationDialog.tsx`
+1. Data is fetched only once when the component mounts
+2. When the active property changes (e.g., switching to ICONIA Zamalek), the list does NOT re-fetch
+3. The user may see stale data from the previously active property, or no data at all if `propertyId` wasn't set during the initial mount
 
-**Line 451**: Add `propertyId` to the dependency array of the useEffect that calls `fetchUnits`:
+The calendar components (`AvailabilityCalendar`, `RoomCalendar`, `Dashboard`) all correctly include `propertyId` in their dependency arrays, so those should be working. The reservations list page is the one with the bug.
+
+### Fix — `src/components/ReservationsList.tsx`
+
+**Line 203**: Add `propertyId` to the dependency array:
 ```typescript
 // Change from:
 }, []);
@@ -17,5 +21,5 @@ The `fetchUnits` function in `CreateReservationDialog.tsx` uses `withPropertyFil
 }, [propertyId]);
 ```
 
-This ensures that whenever the active property changes, the units list is re-fetched with the correct property filter, so only rooms belonging to the selected property appear in the dropdown.
+This is the exact same fix pattern applied to `CreateReservationDialog.tsx` in the previous change.
 
