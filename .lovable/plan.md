@@ -1,44 +1,31 @@
 
-Goal: restore ICONIA reservations/calendar visibility and remove the reservation error when operating as an admin user.
 
-What I found
-- The data is still in the database:
-  - ICONIA property has 281 reservations and 12 units.
-- Your current logged-in user is app role `admin`, but only has `user_property_access` for **Test Property**.
-- Reservations are protected by property-scoped policies using `user_has_property_access(...)`, which currently does **not** treat app `admin` as globally allowed.
-- Result: on ICONIA, reservations queries return `[]` (not an HTTP error), so pages look empty.
-- Additional frontend gap: `AvailabilityCalendar.tsx` reservations fetch is not property-filtered, which can cause cross-property inconsistencies once access is fixed.
+## Add Arrival Time field to Booking.com screenshot confirmation dialog
 
-Implementation plan
-1) Backend permission fix (primary root cause)
-- Create a migration to update `public.user_has_property_access(...)` so it returns `true` when the user has app role `admin`.
-- Keep existing system admin + property-role logic unchanged.
+### Problem
+When creating reservations from Booking.com screenshots, there's no way to set the arrival time before confirming. Users must manually edit each reservation afterward.
 
-2) Backfill missing access records for existing admin users
-- In the same migration, insert missing `(admin_user, property)` rows into `user_property_access` for all existing properties.
-- Use `ON CONFLICT (user_id, property_id) DO NOTHING` to avoid duplicates.
-- This immediately restores visibility for current admins (including your current account), not only future properties.
+### Plan
 
-3) Frontend query correctness for calendar
-- Update `src/components/AvailabilityCalendar.tsx`:
-  - Apply `withPropertyFilter(...)` to the reservations query inside `fetchData()`.
-- This ensures the unit availability calendar shows only the active property’s bookings and avoids mixed-property behavior.
+**1. Add `arrivalTime` state to `BookingComReservations.tsx`**
+- Add a new `arrivalTime` state variable (string, default empty)
+- Reset it when the dialog closes or a new screenshot is uploaded
 
-4) Verification checklist
-- Switch to ICONIA and verify:
-  - `/admin` cards (arrivals, in-house, etc.) show non-zero values where expected.
-  - Unit Availability Calendar shows real bookings (not only empty cells).
-  - `/reservations-list` table repopulates with ICONIA rows.
-  - “Create Reservation” on ICONIA succeeds without permission error.
-- Switch to Test Property and confirm data is isolated by property.
+**2. Add editable Arrival Time input field in the confirmation dialog**
+- Location: right after the Notes section (line 2347), before the DialogFooter
+- Input type: text with placeholder "HH:MM (e.g., 14:00)"
+- Include a label "Arrival Time"
+- Allow the user to type or edit the time before confirming
 
-Technical details
-- Files to change:
-  - `supabase/migrations/<new>.sql`
-    - `CREATE OR REPLACE FUNCTION public.user_has_property_access(...)` with admin-role bypass.
-    - Backfill SQL for admin-property access rows.
-  - `src/components/AvailabilityCalendar.tsx`
-    - Add `withPropertyFilter` wrapper to reservations query in `fetchData`.
-- No changes needed in:
-  - `src/components/ReservationsList.tsx` dependency fix already applied.
-  - `src/components/CreateReservationDialog.tsx` property-change refetch already applied.
+**3. Parse arrival time from AI-extracted notes automatically**
+- When `parsedData` is set, check if the notes contain arrival time patterns (e.g., "arrive between 14:00 - 15:00", "ETA 15:30")
+- Pre-fill the `arrivalTime` field with the extracted time so the user can review/edit it
+
+**4. Include `arrival_time` in all reservation insert/update calls**
+- Single room creation (line ~903-931): add `arrival_time: arrivalTime || null`
+- Multi-room creation (line ~735-745): add `arrival_time: arrivalTime || null`
+- Split-stay creation (line ~1060-1070): add `arrival_time: arrivalTime || null`
+- Modification/update path (line ~1394): add `arrival_time: arrivalTime || null`
+
+This touches only `src/pages/BookingComReservations.tsx`. No database changes needed since `arrival_time` column already exists on the `reservations` table.
+
