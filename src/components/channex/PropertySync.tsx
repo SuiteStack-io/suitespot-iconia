@@ -178,8 +178,8 @@ export function PropertySync({ onSwitchToSettings }: PropertySyncProps) {
               <TableBody>
                 {roomTypeMappings.map(m => (
                   <TableRow key={m.id}>
-                    <TableCell className="text-xs font-mono">{m.local_id.slice(0, 8)}...</TableCell>
-                    <TableCell className="text-xs font-mono">{m.channex_id.slice(0, 8)}...</TableCell>
+                    <TableCell className="text-xs font-mono break-all cursor-pointer select-all" onClick={() => { navigator.clipboard.writeText(m.local_id); toast.success('Copied!'); }}>{m.local_id}</TableCell>
+                    <TableCell className="text-xs font-mono break-all cursor-pointer select-all" onClick={() => { navigator.clipboard.writeText(m.channex_id); toast.success('Copied!'); }}>{m.channex_id}</TableCell>
                     <TableCell>
                       {m.sync_status === 'error' ? (
                         <Badge variant="destructive">Error</Badge>
@@ -213,8 +213,8 @@ export function PropertySync({ onSwitchToSettings }: PropertySyncProps) {
               <TableBody>
                 {ratePlanMappings.map(m => (
                   <TableRow key={m.id}>
-                    <TableCell className="text-xs font-mono">{m.local_id.slice(0, 8)}...</TableCell>
-                    <TableCell className="text-xs font-mono">{m.channex_id.slice(0, 8)}...</TableCell>
+                    <TableCell className="text-xs font-mono break-all cursor-pointer select-all" onClick={() => { navigator.clipboard.writeText(m.local_id); toast.success('Copied!'); }}>{m.local_id}</TableCell>
+                    <TableCell className="text-xs font-mono break-all cursor-pointer select-all" onClick={() => { navigator.clipboard.writeText(m.channex_id); toast.success('Copied!'); }}>{m.channex_id}</TableCell>
                     <TableCell>
                       {m.sync_status === 'error' ? (
                         <Badge variant="destructive">Error</Badge>
@@ -249,8 +249,8 @@ export function PropertySync({ onSwitchToSettings }: PropertySyncProps) {
               <TableBody>
                 {derivedRatePlanMappings.map(m => (
                   <TableRow key={m.id}>
-                    <TableCell className="text-xs font-mono">{m.local_id.slice(0, 8)}...</TableCell>
-                    <TableCell className="text-xs font-mono">{m.channex_id.slice(0, 8)}...</TableCell>
+                    <TableCell className="text-xs font-mono break-all cursor-pointer select-all" onClick={() => { navigator.clipboard.writeText(m.local_id); toast.success('Copied!'); }}>{m.local_id}</TableCell>
+                    <TableCell className="text-xs font-mono break-all cursor-pointer select-all" onClick={() => { navigator.clipboard.writeText(m.channex_id); toast.success('Copied!'); }}>{m.channex_id}</TableCell>
                     <TableCell>
                       {m.sync_status === 'error' ? (
                         <Badge variant="destructive">Error</Badge>

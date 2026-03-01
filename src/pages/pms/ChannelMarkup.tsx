@@ -464,7 +464,7 @@ const ChannelMarkupPage = () => {
                         <TableCell className="text-muted-foreground">{basePlan?.room_type || '—'}</TableCell>
                         <TableCell>{dm.channel_name}</TableCell>
                         <TableCell>+{dm.markup_percentage}%</TableCell>
-                        <TableCell className="font-mono text-xs">{dm.channex_derived_rate_plan_id.slice(0, 12)}...</TableCell>
+                        <TableCell className="font-mono text-xs break-all cursor-pointer select-all" onClick={() => { navigator.clipboard.writeText(dm.channex_derived_rate_plan_id); toast.success('Copied!'); }}>{dm.channex_derived_rate_plan_id}</TableCell>
                       </TableRow>
                     );
                   })}

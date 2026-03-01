@@ -246,7 +246,7 @@ export function PropertySettings() {
     }
   };
 
-  const truncateId = (id: string) => id.length > 12 ? `${id.slice(0, 6)}…${id.slice(-4)}` : id;
+  const copyId = (id: string) => { navigator.clipboard.writeText(id); toast.success('Copied!'); };
 
   if (loading) {
     return <div className="flex justify-center py-12"><Loader2 className="h-8 w-8 animate-spin text-muted-foreground" /></div>;
@@ -430,8 +430,8 @@ export function PropertySettings() {
                         <TableCell>
                           <Badge variant="outline" className="capitalize">{m.entity_type.replace('_', ' ')}</Badge>
                         </TableCell>
-                        <TableCell className="font-mono text-xs">{truncateId(m.local_id)}</TableCell>
-                        <TableCell className="font-mono text-xs">{truncateId(m.channex_id)}</TableCell>
+                        <TableCell className="font-mono text-xs break-all cursor-pointer select-all" onClick={() => copyId(m.local_id)}>{m.local_id}</TableCell>
+                        <TableCell className="font-mono text-xs break-all cursor-pointer select-all" onClick={() => copyId(m.channex_id)}>{m.channex_id}</TableCell>
                         <TableCell>
                           <Badge variant={m.sync_status === 'synced' ? 'default' : 'secondary'} className={m.sync_status === 'synced' ? 'bg-green-600 hover:bg-green-700' : ''}>
                             {m.sync_status}

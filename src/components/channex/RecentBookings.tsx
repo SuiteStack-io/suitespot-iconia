@@ -158,7 +158,7 @@ export function RecentBookings() {
                             </div>
                             <div>
                               <span className="text-muted-foreground">Channex ID:</span>{' '}
-                              <code className="bg-muted px-1 rounded">{b.channex_booking_id.slice(0, 12)}...</code>
+                              <code className="bg-muted px-1 rounded break-all cursor-pointer select-all" onClick={() => { navigator.clipboard.writeText(b.channex_booking_id); toast.success('Copied!'); }}>{b.channex_booking_id}</code>
                             </div>
                           </div>
                           {b.booking_data && (
