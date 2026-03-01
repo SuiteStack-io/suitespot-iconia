@@ -16,16 +16,18 @@ export function PropertySwitcher() {
 
   const { properties, activeProperty, setActiveProperty, isLoading } = propertyContext;
 
-  if (isLoading || properties.length === 0) return null;
+  const activeProperties = properties.filter(p => p.is_active !== false);
+
+  if (isLoading || activeProperties.length === 0) return null;
 
   const formatLabel = (prop: { name: string; city: string }) =>
     `${prop.name} — ${prop.city}`;
 
-  if (properties.length === 1) {
+  if (activeProperties.length === 1) {
     return (
       <div className="flex items-center gap-2 px-3 py-2.5 rounded-md bg-[hsl(30,8%,25%)]">
         <Building2 className="h-4 w-4 text-cyan-400 shrink-0" />
-        <span className="text-sm text-white truncate">{formatLabel(properties[0])}</span>
+        <span className="text-sm text-white truncate">{formatLabel(activeProperties[0])}</span>
       </div>
     );
   }
@@ -48,7 +50,7 @@ export function PropertySwitcher() {
         align="start"
         sideOffset={4}
       >
-        {properties.map(prop => {
+        {activeProperties.map(prop => {
           const isActive = activeProperty?.id === prop.id;
           return (
             <button
