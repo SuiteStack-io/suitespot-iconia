@@ -1,28 +1,56 @@
 
 
-## Fix: Daily Sync "Rate Plan Not Found" Bug
+## Add Companies Table + Missing property_id Columns
 
-### Root Cause
+### Database Migration
 
-In `channex-daily-sync/index.ts` line 229, the query selects a column called `default_min_stay` which **does not exist** in the `rate_plans` table. The actual columns are `default_min_stay_arrival` and `default_min_stay_through`.
+**1. Create `companies` table:**
+- id (uuid, PK, default gen_random_uuid())
+- name (text, not null)
+- logo_url (text, nullable)
+- default_currency (text, default 'USD')
+- default_timezone (text, default 'Africa/Cairo')
+- vat_rate (numeric, default 14)
+- created_at, updated_at (timestamptz)
+- Enable RLS: admins full access, authenticated users can view their company
 
-```
-.select("*, default_min_stay, default_max_stay, ...")
-//           ^^^^^^^^^^^^^^^^ DOES NOT EXIST
-```
+**2. Add `company_id` to existing tables:**
+- `properties` -- add `company_id uuid references companies(id)`, nullable initially
+- `profiles` -- add `company_id uuid references companies(id)`, nullable initially
 
-This causes PostgREST to return a 400 error, making `ratePlan` null for every rate plan. The code then logs `"Rate plan {local_id}: not found"` -- which is misleading because the rate plan exists, the query just failed.
+**3. Add `property_id` to secondary tables missing it:**
+- `whatsapp_message_log` -- add `property_id uuid`, nullable, with `set_default_property_id` trigger
+- `room_shuffle_log` -- add `property_id uuid`, nullable, with `set_default_property_id` trigger
+- `channel_markup_settings` -- add `property_id uuid`, nullable, with `set_default_property_id` trigger
+- `derived_rate_plan_mappings` -- add `property_id uuid`, nullable, with `set_default_property_id` trigger
 
-### Fix in `supabase/functions/channex-daily-sync/index.ts`
+**4. Seed default company + backfill:**
+- Insert a "SuiteSpot Hospitality" company record
+- Update all existing `properties` rows to reference it
+- Update all existing `profiles` rows to reference it
+- Backfill `property_id` on the 4 secondary tables using the default property
 
-1. **Line 229**: Change the `.select()` to just `"*"` (all columns are already included by `*`, and the extra invalid column name breaks the query)
+**5. RLS policies for `companies`:**
+- Admins can manage all companies
+- Users can SELECT their own company (via profiles.company_id)
 
-2. **Line 288**: Change `ratePlan.default_min_stay` to `ratePlan.default_min_stay_arrival` (matching the actual column name), and add `default_min_stay_through` usage as `min_stay_through`
+### Frontend Changes
 
-3. **Add error checking**: After the rate plan query, check for errors explicitly so future issues are easier to diagnose
+**6. Update `PropertyProvider` context (`src/lib/propertyContext.tsx`):**
+- Add `company` field to context (fetched from properties → company)
+- Extend the `Property` interface with `company_id`
+
+**7. Update `PropertyForm` (`src/components/settings/PropertyForm.tsx`):**
+- Add `company_id` field (auto-set to current user's company, hidden from UI for now)
+
+**8. Update query filters on secondary tables:**
+- `whatsapp_message_log` queries -- apply `withPropertyFilter`
+- `room_shuffle_log` queries -- apply `withPropertyFilter`
+- `channel_markup_settings` queries -- apply `withPropertyFilter`
+- `derived_rate_plan_mappings` queries -- apply `withPropertyFilter`
 
 ### Summary
-- One file changed: `supabase/functions/channex-daily-sync/index.ts`
-- Fix the invalid column reference that silently breaks all rate plan queries
-- This should resolve all 4 recurring daily sync alerts immediately
+- 1 migration with all schema changes + seed data
+- ~6 files updated for frontend property filtering on newly-scoped tables
+- No breaking changes -- all nullable columns with triggers for backward compatibility
 
