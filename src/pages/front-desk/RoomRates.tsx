@@ -41,15 +41,21 @@ export default function FrontDeskRoomRates() {
     queryFn: async () => {
       // Fetch units, rate plans, and channel markups
       const [unitsRes, rpRes, markupsRes] = await Promise.all([
-        supabase
-          .from('units')
-          .select('booking_com_name, unit_size, max_guests, features, photos')
-          .not('booking_com_name', 'is', null),
-        supabase
-          .from('rate_plans')
-          .select('id, name, is_default, currency, room_type, rate_plan_prices(room_type, weekday_rate, weekend_rate, unit_id)')
-          .eq('is_active', true)
-          .order('priority', { ascending: false }),
+        withPropertyFilter(
+          supabase
+            .from('units')
+            .select('booking_com_name, unit_size, max_guests, features, photos')
+            .not('booking_com_name', 'is', null),
+          propertyId
+        ),
+        withPropertyFilter(
+          supabase
+            .from('rate_plans')
+            .select('id, name, is_default, currency, room_type, rate_plan_prices(room_type, weekday_rate, weekend_rate, unit_id)')
+            .eq('is_active', true)
+            .order('priority', { ascending: false }),
+          propertyId
+        ),
         withPropertyFilter(
           supabase
             .from('channel_markup_settings')
