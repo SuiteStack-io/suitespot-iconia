@@ -245,12 +245,6 @@ export function RatePlanDialog({
             <Input id="name" value={name} onChange={(e) => setName(e.target.value)} placeholder="e.g., Standard Rate" />
           </div>
 
-          <div className="space-y-2">
-            <Label htmlFor="bookingComId">Booking.com ID</Label>
-            <Input id="bookingComId" value={bookingComId} onChange={(e) => setBookingComId(e.target.value)} placeholder="e.g., 59882860" />
-            <p className="text-xs text-muted-foreground">Optional identifier for Booking.com integration</p>
-          </div>
-
           <div className="space-y-3">
             <Label>Validity Period</Label>
             <RadioGroup value={validityType} onValueChange={(v: 'always' | 'dateRange') => setValidityType(v)} className="space-y-2">
