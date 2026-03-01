@@ -200,7 +200,7 @@ export const ReservationsList = ({ userRole }: ReservationsListProps) => {
       supabase.removeChannel(reservationsChannel);
       supabase.removeChannel(unitsChannel);
     };
-  }, []);
+  }, [propertyId]);
 
   useEffect(() => {
     filterReservations();
