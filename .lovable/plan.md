@@ -1,22 +1,37 @@
 
 
-## Fix: Replace all hardcoded breadcrumb sections with dynamic property name
+## Fix: Replace inline "Add Room" row with a modal dialog
 
-### Approach
-Instead of editing 17+ page files individually, modify the `AdminBreadcrumb` component itself to automatically pull the active property name from context. This eliminates all hardcoding in one change.
+### Problem
+Currently, clicking "Add Room" inserts an inline row at the top of the table. Since the table has 18+ columns, users must scroll horizontally to fill in all fields — poor UX.
 
-### Changes
+### Solution
+Replace the inline row with a dialog modal containing a clean form layout with all the same fields organized in a grid.
 
-**File: `src/components/AdminBreadcrumb.tsx`**
-1. Import `useProperty` from `@/lib/propertyContext`
-2. Call `const { activeProperty } = useProperty()` inside the component
-3. Replace the rendered `section` text: if `section` matches a known hardcoded value (`"ICONIA"`, `"Almaza Bay"`, `"System"`, `"PMS"`), substitute it with `activeProperty?.name || section` for property-specific sections (`"ICONIA"`, `"Almaza Bay"`), and keep `"PMS"` / `"System"` as-is since those are functional categories, not property names
+### Changes (single file: `src/pages/Rooms.tsx`)
 
-**Specifically:**
-- The breadcrumb will compute: if the passed `section` is not `"PMS"` and not `"System"`, use `activeProperty?.name || section` instead
-- This means all 6 pages with `section="ICONIA"`, all 3 pages with `section="Almaza Bay"`, and `RoomRates.tsx` (already dynamic) will all automatically show the correct property name
-- PMS and System sections remain unchanged since they're functional groupings, not property labels
+1. **Remove the inline `isAdding` table row** (lines 922-1100) — the entire `{isAdding && (<TableRow>...)}` block
 
-### Also update the `sectionPath` auto-detection
-Update the `getSectionPath` switch to handle dynamic property names instead of only matching `"ICONIA"` / `"Almaza Bay"` literally. Use `activeProperty?.id` or a fallback default path.
+2. **Replace the "Add Room" button** to open a dialog instead of setting `isAdding(true)`
+   - Change `onClick={() => setIsAdding(true)}` to `onClick={() => setAddDialogOpen(true)}`
+   - Add new state: `const [addDialogOpen, setAddDialogOpen] = useState(false)`
+
+3. **Add a new `<Dialog>` component** with a structured form containing all fields in a responsive grid layout:
+   - Row 1: Room Name*, Room #, Type
+   - Row 2: Booking.com Name, Room View, Size
+   - Row 3: Beds, Baths, Max Guests, Sofa Bed
+   - Row 4: Weekday Rate, Weekend Rate (auto-calculated), Tax %
+   - Row 5: Status, Booking.com Room ID
+   - Row 6: Comments (full width textarea)
+   - Footer: Cancel + Add Room buttons
+
+4. **Update `handleAddRoom`** to close dialog and also include `property_id: propertyId` instead of hardcoded `location: 'ICONIA'`
+
+5. **Clean up** the `isAdding` state variable since it's no longer needed
+
+### Technical details
+- The modal reuses the existing `newUnit` state and `handleAddRoom` function
+- Weekend rate auto-calculation via `calculateWeekendRate` is preserved
+- The `property_id` will be set from the active property context instead of hardcoding location
+- Form uses 2-3 column grid on desktop, single column on mobile
 
