@@ -188,6 +188,7 @@ const RoomRates = () => {
       }
 
       toast.success('All changes saved');
+      toast.info('Syncing rates to Channex in the background…');
       setHasChanges(false);
       await fetchData();
     } catch (error) {

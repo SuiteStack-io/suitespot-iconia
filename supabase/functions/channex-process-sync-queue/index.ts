@@ -177,33 +177,36 @@ serve(async (req: Request) => {
             continue;
           }
 
-          // Get property mapping
-          const { data: propMapping } = await supabase
-            .from("channex_mappings")
-            .select("channex_id")
-            .eq("entity_type", "property")
+          // Look up the rate plan's property_id to scope property resolution
+          const { data: ratePlanData } = await supabase
+            .from("rate_plans")
+            .select("property_id, valid_from, valid_to")
+            .eq("id", item.entity_id)
             .maybeSingle();
 
-          if (!propMapping) {
-            await markFailed(supabase, item.id, "No property mapped to Channex");
+          if (!ratePlanData?.property_id) {
+            await markFailed(supabase, item.id, "Rate plan has no property_id");
+            continue;
+          }
+
+          // Get property mapping scoped to the correct property
+          const channexPropertyId = await resolve(ratePlanData.property_id, "property");
+          if (!channexPropertyId) {
+            await markFailed(supabase, item.id, "Property not mapped to Channex");
             continue;
           }
 
           const payload = item.payload || {};
           const weekdayRate = payload.weekday_rate;
+          const weekendRate = payload.weekend_rate;
 
           if (weekdayRate && weekdayRate > 0) {
-            // Get the rate plan's valid_from/valid_to for date range
-            const { data: ratePlan } = await supabase
-              .from("rate_plans")
-              .select("valid_from, valid_to")
-              .eq("id", item.entity_id)
-              .maybeSingle();
-
             const today = new Date().toISOString().split("T")[0];
-            const dateFrom = ratePlan?.valid_from || today;
-            const dateTo = ratePlan?.valid_to || new Date(Date.now() + 365 * 86400000).toISOString().split("T")[0];
-            const rateInCents = Math.round(weekdayRate * 100);
+            const dateFrom = ratePlanData.valid_from || today;
+            const dateTo = ratePlanData.valid_to || new Date(Date.now() + 365 * 86400000).toISOString().split("T")[0];
+            const weekdayRateCents = Math.round(weekdayRate * 100);
+            const weekendRateCents = weekendRate ? Math.round(weekendRate * 100) : weekdayRateCents;
+            const hasDifferentWeekendRate = weekendRateCents !== weekdayRateCents;
 
             // Chunk into 30-day windows to avoid Channex 500 errors
             const CHUNK_DAYS = 30;
@@ -224,18 +227,74 @@ serve(async (req: Request) => {
                 continue;
               }
 
-              values.push({
-                property_id: propMapping.channex_id,
-                rate_plan_id: channexRatePlanId,
-                date_from: chunkFromStr < today ? today : chunkFromStr,
-                date_to: chunkToStr,
-                rate: rateInCents,
-              });
+              const effectiveFrom = chunkFromStr < today ? today : chunkFromStr;
+
+              if (!hasDifferentWeekendRate) {
+                // Same rate every day — single push for the chunk
+                values.push({
+                  property_id: channexPropertyId,
+                  rate_plan_id: channexRatePlanId,
+                  date_from: effectiveFrom,
+                  date_to: chunkToStr,
+                  rate: weekdayRateCents,
+                });
+              } else {
+                // Split into weekday (Sun-Wed) and weekend (Thu-Sat) date ranges
+                const cursor = new Date(effectiveFrom);
+                const end = new Date(chunkToStr);
+                let weekdayStart: string | null = null;
+                let weekendStart: string | null = null;
+
+                const flushWeekday = (beforeDate: string) => {
+                  if (weekdayStart) {
+                    values.push({
+                      property_id: channexPropertyId,
+                      rate_plan_id: channexRatePlanId,
+                      date_from: weekdayStart,
+                      date_to: beforeDate,
+                      rate: weekdayRateCents,
+                    });
+                    weekdayStart = null;
+                  }
+                };
+                const flushWeekend = (beforeDate: string) => {
+                  if (weekendStart) {
+                    values.push({
+                      property_id: channexPropertyId,
+                      rate_plan_id: channexRatePlanId,
+                      date_from: weekendStart,
+                      date_to: beforeDate,
+                      rate: weekendRateCents,
+                    });
+                    weekendStart = null;
+                  }
+                };
+
+                while (cursor < end) {
+                  const dateStr = cursor.toISOString().split("T")[0];
+                  const dow = cursor.getDay(); // 0=Sun
+                  // Weekend = Thu(4), Fri(5), Sat(6)
+                  const isWeekend = dow === 4 || dow === 5 || dow === 6;
+
+                  if (isWeekend) {
+                    flushWeekday(dateStr);
+                    if (!weekendStart) weekendStart = dateStr;
+                  } else {
+                    flushWeekend(dateStr);
+                    if (!weekdayStart) weekdayStart = dateStr;
+                  }
+                  cursor.setDate(cursor.getDate() + 1);
+                }
+
+                const endStr = end.toISOString().split("T")[0];
+                flushWeekday(endStr);
+                flushWeekend(endStr);
+              }
 
               chunkStart = chunkEnd;
             }
 
-            console.log(`[process-sync-queue] Chunked rate plan ${item.entity_id}: ${values.length} chunks, rate=${rateInCents} cents`);
+            console.log(`[process-sync-queue] Chunked rate plan ${item.entity_id}: ${values.length} chunks, weekday=${weekdayRateCents} weekend=${weekendRateCents} cents`);
           }
 
           await markCompleted(supabase, item.id);
