@@ -61,6 +61,7 @@ const PMSRestrictions = () => {
   const { userRole } = useAuth();
   const { toast } = useToast();
   const navigate = useNavigate();
+  const propertyId = usePropertyId();
 
   const [ratePlans, setRatePlans] = useState<RatePlan[]>([]);
   const [selectedPlanId, setSelectedPlanId] = useState<string>('');
@@ -80,11 +81,13 @@ const PMSRestrictions = () => {
   const [bookingRulesDialogOpen, setBookingRulesDialogOpen] = useState(false);
 
   const fetchPlans = async () => {
+    if (!propertyId) { setLoading(false); return; }
     try {
       const { data: plans, error: plansError } = await supabase
         .from('rate_plans')
         .select('id, name, cancellation_policy, meal_plan, meal_plan_price, advance_booking_days, room_type, default_min_stay_through, default_min_stay_arrival, default_max_stay, default_stop_sell, default_closed_to_arrival, default_closed_to_departure')
         .eq('is_active', true)
+        .eq('property_id', propertyId)
         .order('room_type')
         .order('name');
 
@@ -104,8 +107,9 @@ const PMSRestrictions = () => {
   };
 
   useEffect(() => {
+    setSelectedPlanId('');
     fetchPlans();
-  }, [toast]);
+  }, [propertyId, toast]);
 
   useEffect(() => {
     if (!selectedPlanId) {
