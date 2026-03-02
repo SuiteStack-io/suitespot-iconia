@@ -1,10 +1,11 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useMemo } from 'react';
 import { Loader2, CheckCircle2, XCircle, Wifi, AlertTriangle, Clock, Copy, Check, FlaskConical, RefreshCw, Database } from 'lucide-react';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { supabase } from '@/integrations/supabase/client';
 import { toast } from 'sonner';
+import { Progress } from '@/components/ui/progress';
 import {
   AlertDialog,
   AlertDialogAction,
@@ -122,8 +123,13 @@ export function ConnectionStatus() {
   };
 
   const [syncProgress, setSyncProgress] = useState('');
+  const [syncTotal, setSyncTotal] = useState(0);
+  const [syncCompleted, setSyncCompleted] = useState(0);
+  const syncPercent = syncTotal > 0 ? Math.round((syncCompleted / syncTotal) * 100) : 0;
 
   const runFullSync = async () => {
+    setSyncCompleted(0);
+    setSyncTotal(0);
     setSyncing(true);
     try {
       // Fetch all channex-synced properties
@@ -141,6 +147,7 @@ export function ConnectionStatus() {
       }
 
       const results: { name: string; success: boolean; error?: string }[] = [];
+      setSyncTotal(properties.length);
 
       for (let i = 0; i < properties.length; i++) {
         const prop = properties[i];
@@ -161,6 +168,7 @@ export function ConnectionStatus() {
         } catch (err: any) {
           results.push({ name: propName, success: false, error: err.message });
         }
+        setSyncCompleted(i + 1);
       }
 
       toast.dismiss('full-sync-progress');
@@ -179,6 +187,8 @@ export function ConnectionStatus() {
     } finally {
       setSyncing(false);
       setSyncProgress('');
+      setSyncTotal(0);
+      setSyncCompleted(0);
     }
   };
 
@@ -341,8 +351,14 @@ export function ConnectionStatus() {
             </div>
           )}
 
-          {syncProgress && (
-            <div className="text-sm text-muted-foreground animate-pulse">{syncProgress}</div>
+          {syncing && syncProgress && (
+            <div className="space-y-2">
+              <div className="flex items-center justify-between text-sm text-muted-foreground">
+                <span className="animate-pulse">{syncProgress}</span>
+                <span className="font-medium">{syncPercent}%</span>
+              </div>
+              <Progress value={syncPercent} className="h-2" />
+            </div>
           )}
 
           <AlertDialog>
