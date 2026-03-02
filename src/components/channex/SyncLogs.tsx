@@ -8,7 +8,6 @@ import { Collapsible, CollapsibleContent, CollapsibleTrigger } from '@/component
 import { supabase } from '@/integrations/supabase/client';
 import { toast } from 'sonner';
 import { format } from 'date-fns';
-import { usePropertyId, withPropertyFilter } from '@/hooks/usePropertyFilter';
 
 interface SyncLog {
   id: string;
@@ -23,17 +22,15 @@ interface SyncLog {
   response_payload: any;
 }
 
-interface Unit {
+interface Property {
   id: string;
-  name: string | null;
-  unit_number: string | null;
+  name: string;
 }
 
 export function SyncLogs() {
-  const propertyId = usePropertyId();
   const [loading, setLoading] = useState(true);
   const [logs, setLogs] = useState<SyncLog[]>([]);
-  const [units, setUnits] = useState<Unit[]>([]);
+  const [properties, setProperties] = useState<Property[]>([]);
   const [propertyFilter, setPropertyFilter] = useState<string>('all');
   const [statusFilter, setStatusFilter] = useState<string>('all');
   const [expandedId, setExpandedId] = useState<string | null>(null);
@@ -47,12 +44,12 @@ export function SyncLogs() {
     try {
       const [logsRes, unitsRes] = await Promise.all([
         supabase.from('channex_sync_logs').select('*').order('created_at', { ascending: false }).limit(100),
-        withPropertyFilter(supabase.from('units').select('id, name, unit_number'), propertyId).order('unit_number'),
+        supabase.from('properties').select('id, name').order('name'),
       ]);
       if (logsRes.error) throw logsRes.error;
       if (unitsRes.error) throw unitsRes.error;
       setLogs(logsRes.data || []);
-      setUnits(unitsRes.data || []);
+      setProperties(unitsRes.data || []);
     } catch {
       toast.error('Failed to load sync logs');
     } finally {
@@ -67,10 +64,10 @@ export function SyncLogs() {
     return true;
   });
 
-  const unitName = (id: string | null) => {
+  const propertyName = (id: string | null) => {
     if (!id) return '—';
-    const u = units.find((u) => u.id === id);
-    return u?.name || u?.unit_number || id.slice(0, 8);
+    const p = properties.find((p) => p.id === id);
+    return p?.name || id.slice(0, 8);
   };
 
   if (loading) {
@@ -98,9 +95,9 @@ export function SyncLogs() {
           </SelectTrigger>
           <SelectContent>
             <SelectItem value="all">All Properties</SelectItem>
-            {units.map((u) => (
-              <SelectItem key={u.id} value={u.id}>
-                {u.name || u.unit_number || u.id.slice(0, 8)}
+            {properties.map((p) => (
+              <SelectItem key={p.id} value={p.id}>
+                {p.name}
               </SelectItem>
             ))}
           </SelectContent>
@@ -158,7 +155,7 @@ export function SyncLogs() {
                               <Badge variant="destructive" className="text-xs">Error</Badge>
                             )}
                           </TableCell>
-                          <TableCell className="text-xs hidden md:table-cell">{unitName(log.property_id)}</TableCell>
+                          <TableCell className="text-xs hidden md:table-cell">{propertyName(log.property_id)}</TableCell>
                         </TableRow>
                       </CollapsibleTrigger>
                       <CollapsibleContent asChild>

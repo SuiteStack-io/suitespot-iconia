@@ -156,7 +156,14 @@ serve(async (req: Request) => {
           const channexPayload = { values };
           console.log(`[process-sync-queue] Pushing ${values.length} availability values`);
           const response = await channexRequest<object>("POST", "/api/v1/availability", channexPayload);
-          await logSync("channex-process-sync-queue", "/api/v1/availability", channexPayload, response, 200, true, null, null);
+          // Resolve local property ID from the first availability item for logging
+          const firstAvailItem = deduped[0];
+          let availPropertyId: string | null = null;
+          if (firstAvailItem?.entity_id) {
+            const { data: avUnit } = await supabase.from("units").select("property_id").eq("id", firstAvailItem.entity_id).maybeSingle();
+            availPropertyId = avUnit?.property_id || null;
+          }
+          await logSync("channex-process-sync-queue", "/api/v1/availability", channexPayload, response, 200, true, null, availPropertyId);
         } catch (err: any) {
           console.error("[process-sync-queue] Availability push failed:", err.message);
           await logSync("channex-process-sync-queue", "/api/v1/availability", null, null, null, false, err.message, null);
@@ -212,6 +219,7 @@ serve(async (req: Request) => {
             const CHUNK_DAYS = 30;
             let chunkStart = new Date(dateFrom);
             const rangeEnd = new Date(dateTo);
+            rangeEnd.setDate(rangeEnd.getDate() + 1); // Make date_to inclusive
 
             while (chunkStart < rangeEnd) {
               const chunkEnd = new Date(Math.min(
@@ -308,7 +316,14 @@ serve(async (req: Request) => {
           const channexPayload = { values };
           console.log(`[process-sync-queue] Pushing ${values.length} rate values`);
           const response = await channexRequest<object>("POST", "/api/v1/restrictions", channexPayload);
-          await logSync("channex-process-sync-queue", "/api/v1/restrictions", channexPayload, response, 200, true, null, null);
+          // Resolve local property ID from first rate item for logging
+          const firstRateItem = rateItems[0];
+          let ratePropertyId: string | null = null;
+          if (firstRateItem?.entity_id) {
+            const { data: rpData } = await supabase.from("rate_plans").select("property_id").eq("id", firstRateItem.entity_id).maybeSingle();
+            ratePropertyId = rpData?.property_id || null;
+          }
+          await logSync("channex-process-sync-queue", "/api/v1/restrictions", channexPayload, response, 200, true, null, ratePropertyId);
         } catch (err: any) {
           console.error("[process-sync-queue] Rate push failed:", err.message);
           await logSync("channex-process-sync-queue", "/api/v1/restrictions", null, null, null, false, err.message, null);
@@ -328,14 +343,48 @@ serve(async (req: Request) => {
             continue;
           }
 
-          const { data: propMapping } = await supabase
-            .from("channex_mappings")
-            .select("channex_id")
-            .eq("entity_type", "property")
+          // Look up the rate plan's property_id to scope property resolution
+          const { data: restrRatePlan } = await supabase
+            .from("rate_plans")
+            .select("property_id")
+            .eq("id", item.entity_id)
             .maybeSingle();
 
-          if (!propMapping) {
-            await markFailed(supabase, item.id, "No property mapped to Channex");
+          const restrPropId = restrRatePlan?.property_id;
+          const channexPropId = restrPropId ? await resolve(restrPropId, "property") : null;
+
+          if (!channexPropId) {
+            // Fallback to any property mapping
+            const { data: propMapping } = await supabase
+              .from("channex_mappings")
+              .select("channex_id")
+              .eq("entity_type", "property")
+              .maybeSingle();
+            if (!propMapping) {
+              await markFailed(supabase, item.id, "No property mapped to Channex");
+              continue;
+            }
+            // Use fallback
+            const payload2 = item.payload || {};
+            const dateFrom2 = item.date_from || payload2.date_from;
+            const dateTo2 = item.date_to || payload2.date_to;
+            if (!dateFrom2 || !dateTo2) {
+              await markFailed(supabase, item.id, "Missing date_from or date_to");
+              continue;
+            }
+            const value2: Record<string, any> = {
+              property_id: propMapping.channex_id,
+              rate_plan_id: channexRatePlanId,
+              date_from: dateFrom2,
+              date_to: dateTo2,
+            };
+            if (payload2.min_stay != null) value2.min_stay_arrival = payload2.min_stay;
+            if (payload2.max_stay != null) value2.max_stay = payload2.max_stay;
+            if (payload2.stop_sell != null) value2.stop_sell = payload2.stop_sell;
+            if (payload2.closed_to_arrival != null) value2.closed_to_arrival = payload2.closed_to_arrival;
+            if (payload2.closed_to_departure != null) value2.closed_to_departure = payload2.closed_to_departure;
+            values.push(value2);
+            await markCompleted(supabase, item.id);
             continue;
           }
 
@@ -349,7 +398,7 @@ serve(async (req: Request) => {
           }
 
           const value: Record<string, any> = {
-            property_id: propMapping.channex_id,
+            property_id: channexPropId,
             rate_plan_id: channexRatePlanId,
             date_from: dateFrom,
             date_to: dateTo,
@@ -373,7 +422,14 @@ serve(async (req: Request) => {
           const channexPayload = { values };
           console.log(`[process-sync-queue] Pushing ${values.length} restriction values`);
           const response = await channexRequest<object>("POST", "/api/v1/restrictions", channexPayload);
-          await logSync("channex-process-sync-queue", "/api/v1/restrictions", channexPayload, response, 200, true, null, null);
+          // Resolve local property ID from first restriction item for logging
+          const firstRestrItem = restrictionItems[0];
+          let restrPropertyId: string | null = null;
+          if (firstRestrItem?.entity_id) {
+            const { data: rpData2 } = await supabase.from("rate_plans").select("property_id").eq("id", firstRestrItem.entity_id).maybeSingle();
+            restrPropertyId = rpData2?.property_id || null;
+          }
+          await logSync("channex-process-sync-queue", "/api/v1/restrictions", channexPayload, response, 200, true, null, restrPropertyId);
         } catch (err: any) {
           console.error("[process-sync-queue] Restriction push failed:", err.message);
           await logSync("channex-process-sync-queue", "/api/v1/restrictions", null, null, null, false, err.message, null);
