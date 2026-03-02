@@ -1,4 +1,5 @@
 import { useState, useEffect, useMemo } from 'react';
+import { format } from 'date-fns';
 import { Plus, DollarSign, Loader2, ChevronDown, ChevronRight, Pencil, Trash2, Layers } from 'lucide-react';
 import { SlideMenu } from '@/components/SlideMenu';
 import { AdminBreadcrumb } from '@/components/AdminBreadcrumb';
@@ -377,8 +378,14 @@ const PMSPrices = () => {
                                       variant={plan.cancellation_policy === 'non_refundable' ? 'destructive' : 'outline'}
                                       className="text-xs"
                                     >
-                                      {getCancellationPolicyLabel(plan.cancellation_policy || 'flexible_1_day')}
+                                    {getCancellationPolicyLabel(plan.cancellation_policy || 'flexible_1_day')}
                                     </Badge>
+                                    {plan.valid_from && (
+                                      <Badge variant="outline" className="text-xs">
+                                        {format(new Date(plan.valid_from + 'T00:00:00'), 'MMM d, yyyy')}
+                                        {plan.valid_to && plan.valid_to !== plan.valid_from && ` – ${format(new Date(plan.valid_to + 'T00:00:00'), 'MMM d, yyyy')}`}
+                                      </Badge>
+                                    )}
                                   </div>
                                   {price && (
                                     <p className="text-sm text-muted-foreground">
