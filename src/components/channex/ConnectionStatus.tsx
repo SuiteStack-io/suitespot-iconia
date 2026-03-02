@@ -1,11 +1,12 @@
 import { useState, useEffect, useMemo } from 'react';
-import { Loader2, CheckCircle2, XCircle, Wifi, AlertTriangle, Clock, Copy, Check, FlaskConical, RefreshCw, Database } from 'lucide-react';
+import { Loader2, CheckCircle2, XCircle, Wifi, AlertTriangle, Clock, Copy, Check, FlaskConical, RefreshCw, Database, Trash2, ChevronDown } from 'lucide-react';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { supabase } from '@/integrations/supabase/client';
 import { toast } from 'sonner';
 import { Progress } from '@/components/ui/progress';
+import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import {
   AlertDialog,
   AlertDialogAction,
@@ -40,6 +41,17 @@ interface QueueStats {
   completed: number;
 }
 
+interface QueueItem {
+  id: string;
+  sync_type: string;
+  entity_id: string | null;
+  status: string;
+  error_message: string | null;
+  created_at: string;
+  date_from: string | null;
+  date_to: string | null;
+}
+
 const statusColors = {
   healthy: 'bg-green-600 hover:bg-green-700',
   degraded: 'bg-amber-500 hover:bg-amber-600',
@@ -66,6 +78,10 @@ export function ConnectionStatus() {
   const [lastSyncAt, setLastSyncAt] = useState<string | null>(null);
   const [lastSyncSuccess, setLastSyncSuccess] = useState<boolean | null>(null);
   const [queueStats, setQueueStats] = useState<QueueStats>({ pending: 0, processing: 0, failed: 0, completed: 0 });
+  const [selectedQueueStatus, setSelectedQueueStatus] = useState<string | null>(null);
+  const [queueItems, setQueueItems] = useState<QueueItem[]>([]);
+  const [loadingQueueItems, setLoadingQueueItems] = useState(false);
+  const [clearing, setClearing] = useState(false);
 
   useEffect(() => {
     fetchLastSync();
@@ -76,7 +92,7 @@ export function ConnectionStatus() {
     const { data } = await supabase
       .from('channex_sync_logs')
       .select('created_at, success')
-      .eq('function_name', 'channex-daily-sync')
+      .in('function_name', ['channex-daily-sync', 'channex-full-sync'])
       .order('created_at', { ascending: false })
       .limit(1)
       .maybeSingle();
@@ -96,6 +112,49 @@ export function ConnectionStatus() {
         if (row.status in stats) stats[row.status as keyof QueueStats]++;
       }
       setQueueStats(stats);
+    }
+  };
+
+  const fetchQueueItems = async (status: string) => {
+    setLoadingQueueItems(true);
+    const { data } = await supabase
+      .from('channex_sync_queue')
+      .select('id, sync_type, entity_id, status, error_message, created_at, date_from, date_to')
+      .eq('status', status)
+      .order('created_at', { ascending: false })
+      .limit(50);
+    setQueueItems(data || []);
+    setLoadingQueueItems(false);
+  };
+
+  const handleQueueCardClick = (status: string) => {
+    if (selectedQueueStatus === status) {
+      setSelectedQueueStatus(null);
+      setQueueItems([]);
+    } else {
+      setSelectedQueueStatus(status);
+      fetchQueueItems(status);
+    }
+  };
+
+  const clearCompletedQueue = async () => {
+    setClearing(true);
+    try {
+      const { error } = await supabase
+        .from('channex_sync_queue')
+        .delete()
+        .eq('status', 'completed');
+      if (error) throw error;
+      toast.success('Completed queue items cleared');
+      fetchQueueStats();
+      if (selectedQueueStatus === 'completed') {
+        setSelectedQueueStatus(null);
+        setQueueItems([]);
+      }
+    } catch (err: any) {
+      toast.error(`Failed to clear queue: ${err.message}`);
+    } finally {
+      setClearing(false);
     }
   };
 
@@ -132,7 +191,6 @@ export function ConnectionStatus() {
     setSyncTotal(0);
     setSyncing(true);
     try {
-      // Fetch all channex-synced properties
       const { data: properties, error: propError } = await supabase
         .from('channex_mappings')
         .select('local_id, channex_id, channex_data')
@@ -243,6 +301,13 @@ export function ConnectionStatus() {
     }
   };
 
+  const queueCardData = [
+    { key: 'pending', label: 'Pending', count: queueStats.pending, colorClass: 'text-amber-500' },
+    { key: 'processing', label: 'Processing', count: queueStats.processing, colorClass: 'text-blue-500' },
+    { key: 'failed', label: 'Failed', count: queueStats.failed, colorClass: 'text-destructive' },
+    { key: 'completed', label: 'Completed', count: queueStats.completed, colorClass: 'text-green-600' },
+  ];
+
   return (
     <div className="space-y-6">
       <Card>
@@ -256,7 +321,6 @@ export function ConnectionStatus() {
           </CardDescription>
         </CardHeader>
         <CardContent className="space-y-6">
-          {/* Webhook URL Section */}
           <div className="rounded-lg border border-border bg-muted/30 p-4 space-y-2">
             <h4 className="text-sm font-semibold">Webhook URL</h4>
             <p className="text-xs text-muted-foreground">
@@ -326,7 +390,6 @@ export function ConnectionStatus() {
         </CardContent>
       </Card>
 
-      {/* Full Sync Card */}
       <Card>
         <CardHeader>
           <CardTitle className="flex items-center gap-2">
@@ -384,7 +447,6 @@ export function ConnectionStatus() {
         </CardContent>
       </Card>
 
-      {/* Queue Status Card */}
       <Card>
         <CardHeader>
           <CardTitle className="flex items-center gap-2">
@@ -392,32 +454,117 @@ export function ConnectionStatus() {
             Sync Queue Status
           </CardTitle>
           <CardDescription>
-            Real-time status of the automatic sync queue for rate, availability, and restriction changes.
+            Real-time status of the automatic sync queue. Click a card to view details.
           </CardDescription>
         </CardHeader>
-        <CardContent>
+        <CardContent className="space-y-4">
           <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
-            <div className="rounded-lg border border-border p-3 text-center">
-              <div className="text-2xl font-bold text-amber-500">{queueStats.pending}</div>
-              <div className="text-xs text-muted-foreground">Pending</div>
-            </div>
-            <div className="rounded-lg border border-border p-3 text-center">
-              <div className="text-2xl font-bold text-blue-500">{queueStats.processing}</div>
-              <div className="text-xs text-muted-foreground">Processing</div>
-            </div>
-            <div className="rounded-lg border border-border p-3 text-center">
-              <div className="text-2xl font-bold text-destructive">{queueStats.failed}</div>
-              <div className="text-xs text-muted-foreground">Failed</div>
-            </div>
-            <div className="rounded-lg border border-border p-3 text-center">
-              <div className="text-2xl font-bold text-green-600">{queueStats.completed}</div>
-              <div className="text-xs text-muted-foreground">Completed</div>
-            </div>
+            {queueCardData.map(({ key, label, count, colorClass }) => (
+              <button
+                key={key}
+                onClick={() => handleQueueCardClick(key)}
+                className={`rounded-lg border p-3 text-center transition-all hover:shadow-md cursor-pointer ${
+                  selectedQueueStatus === key
+                    ? 'border-primary bg-primary/5 ring-1 ring-primary'
+                    : 'border-border hover:border-muted-foreground/30'
+                }`}
+              >
+                <div className={`text-2xl font-bold ${colorClass}`}>{count}</div>
+                <div className="text-xs text-muted-foreground flex items-center justify-center gap-1">
+                  {label}
+                  <ChevronDown className={`h-3 w-3 transition-transform ${selectedQueueStatus === key ? 'rotate-180' : ''}`} />
+                </div>
+              </button>
+            ))}
           </div>
-          <Button variant="ghost" size="sm" onClick={fetchQueueStats} className="mt-3 gap-1.5">
-            <RefreshCw className="h-3.5 w-3.5" />
-            Refresh
-          </Button>
+
+          {selectedQueueStatus && (
+            <div className="rounded-lg border border-border overflow-hidden">
+              {loadingQueueItems ? (
+                <div className="flex items-center justify-center p-6">
+                  <Loader2 className="h-5 w-5 animate-spin text-muted-foreground" />
+                </div>
+              ) : queueItems.length === 0 ? (
+                <div className="text-center text-sm text-muted-foreground p-6">
+                  No {selectedQueueStatus} items in the queue.
+                </div>
+              ) : (
+                <Table>
+                  <TableHeader>
+                    <TableRow>
+                      <TableHead>Time</TableHead>
+                      <TableHead>Type</TableHead>
+                      <TableHead>Date Range</TableHead>
+                      <TableHead>Status</TableHead>
+                      {selectedQueueStatus === 'failed' && <TableHead>Error</TableHead>}
+                    </TableRow>
+                  </TableHeader>
+                  <TableBody>
+                    {queueItems.map((item) => (
+                      <TableRow key={item.id}>
+                        <TableCell className="text-xs text-muted-foreground whitespace-nowrap">
+                          {new Date(item.created_at).toLocaleString()}
+                        </TableCell>
+                        <TableCell>
+                          <Badge variant="outline" className="text-xs">{item.sync_type}</Badge>
+                        </TableCell>
+                        <TableCell className="text-xs">
+                          {item.date_from && item.date_to
+                            ? `${item.date_from} → ${item.date_to}`
+                            : '—'}
+                        </TableCell>
+                        <TableCell>
+                          <Badge
+                            variant="outline"
+                            className={`text-xs ${
+                              item.status === 'failed' ? 'text-destructive border-destructive' :
+                              item.status === 'completed' ? 'text-green-600 border-green-600' :
+                              item.status === 'processing' ? 'text-blue-500 border-blue-500' :
+                              'text-amber-500 border-amber-500'
+                            }`}
+                          >
+                            {item.status}
+                          </Badge>
+                        </TableCell>
+                        {selectedQueueStatus === 'failed' && (
+                          <TableCell className="text-xs text-destructive max-w-[200px] truncate" title={item.error_message || ''}>
+                            {item.error_message || '—'}
+                          </TableCell>
+                        )}
+                      </TableRow>
+                    ))}
+                  </TableBody>
+                </Table>
+              )}
+            </div>
+          )}
+
+          <div className="flex gap-2">
+            <Button variant="ghost" size="sm" onClick={() => { fetchQueueStats(); if (selectedQueueStatus) fetchQueueItems(selectedQueueStatus); }} className="gap-1.5">
+              <RefreshCw className="h-3.5 w-3.5" />
+              Refresh
+            </Button>
+            <AlertDialog>
+              <AlertDialogTrigger asChild>
+                <Button variant="ghost" size="sm" disabled={clearing || queueStats.completed === 0} className="gap-1.5 text-destructive hover:text-destructive">
+                  {clearing ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Trash2 className="h-3.5 w-3.5" />}
+                  Clear Completed ({queueStats.completed})
+                </Button>
+              </AlertDialogTrigger>
+              <AlertDialogContent>
+                <AlertDialogHeader>
+                  <AlertDialogTitle>Clear Completed Items?</AlertDialogTitle>
+                  <AlertDialogDescription>
+                    This will permanently delete {queueStats.completed} completed queue items. This action cannot be undone.
+                  </AlertDialogDescription>
+                </AlertDialogHeader>
+                <AlertDialogFooter>
+                  <AlertDialogCancel>Cancel</AlertDialogCancel>
+                  <AlertDialogAction onClick={clearCompletedQueue}>Clear</AlertDialogAction>
+                </AlertDialogFooter>
+              </AlertDialogContent>
+            </AlertDialog>
+          </div>
         </CardContent>
       </Card>
     </div>
