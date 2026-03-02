@@ -121,22 +121,64 @@ export function ConnectionStatus() {
     }
   };
 
+  const [syncProgress, setSyncProgress] = useState('');
+
   const runFullSync = async () => {
     setSyncing(true);
     try {
-      const { data, error } = await supabase.functions.invoke('channex-daily-sync');
-      if (error) throw error;
-      if (data?.success) {
-        toast.success(`Full sync complete: ${data.summary?.availability_values_pushed || 0} availability, ${data.summary?.rate_values_pushed || 0} rate values pushed`);
+      // Fetch all channex-synced properties
+      const { data: properties, error: propError } = await supabase
+        .from('channex_mappings')
+        .select('local_id, channex_id, channex_data')
+        .eq('entity_type', 'property')
+        .eq('sync_status', 'synced');
+      
+      if (propError) throw propError;
+      if (!properties || properties.length === 0) {
+        toast.error('No synced properties found');
+        setSyncing(false);
+        return;
+      }
+
+      const results: { name: string; success: boolean; error?: string }[] = [];
+
+      for (let i = 0; i < properties.length; i++) {
+        const prop = properties[i];
+        const propName = (prop.channex_data as any)?.title || prop.local_id;
+        setSyncProgress(`Syncing property ${i + 1} of ${properties.length}: ${propName}...`);
+        toast.loading(`Syncing property ${i + 1} of ${properties.length}: ${propName}...`, { id: 'full-sync-progress' });
+
+        try {
+          const { data, error } = await supabase.functions.invoke('channex-full-sync', {
+            body: { propertyId: prop.local_id },
+          });
+          if (error) throw error;
+          if (data?.success) {
+            results.push({ name: propName, success: true });
+          } else {
+            results.push({ name: propName, success: false, error: data?.error || 'Unknown' });
+          }
+        } catch (err: any) {
+          results.push({ name: propName, success: false, error: err.message });
+        }
+      }
+
+      toast.dismiss('full-sync-progress');
+      const succeeded = results.filter(r => r.success).length;
+      const failed = results.filter(r => !r.success);
+      if (failed.length === 0) {
+        toast.success(`Full sync complete: ${succeeded}/${results.length} properties synced successfully`);
       } else {
-        toast.error(`Sync failed: ${data?.error || 'Unknown error'}`);
+        toast.warning(`Sync done: ${succeeded} succeeded, ${failed.length} failed (${failed.map(f => f.name).join(', ')})`);
       }
       fetchLastSync();
       fetchQueueStats();
-    } catch {
-      toast.error('Failed to run full sync');
+    } catch (err: any) {
+      toast.dismiss('full-sync-progress');
+      toast.error(`Failed to run full sync: ${err.message}`);
     } finally {
       setSyncing(false);
+      setSyncProgress('');
     }
   };
 
@@ -297,6 +339,10 @@ export function ConnectionStatus() {
                   : <Badge variant="outline" className="text-destructive border-destructive text-xs">Failed</Badge>
               )}
             </div>
+          )}
+
+          {syncProgress && (
+            <div className="text-sm text-muted-foreground animate-pulse">{syncProgress}</div>
           )}
 
           <AlertDialog>
