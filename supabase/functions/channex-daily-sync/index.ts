@@ -86,12 +86,17 @@ serve(async (req: Request) => {
         if (roomTypeMappings && roomTypeMappings.length > 0) {
           for (const rtMapping of roomTypeMappings) {
             try {
-              // Get room type name from the unit
+              // Get room type name from the unit and verify it belongs to this property
               const { data: unitData } = await supabase
                 .from("units")
-                .select("booking_com_name")
+                .select("booking_com_name, property_id")
                 .eq("id", rtMapping.local_id)
                 .maybeSingle();
+
+              // Skip room types that don't belong to this property
+              if (!unitData || unitData.property_id !== propMapping.local_id) {
+                continue;
+              }
 
               if (!unitData?.booking_com_name) {
                 summary.errors.push(`Room type ${rtMapping.local_id}: no booking_com_name`);
@@ -236,6 +241,11 @@ serve(async (req: Request) => {
               }
               if (!ratePlan) {
                 summary.errors.push(`Rate plan ${rpMapping.local_id}: not found`);
+                continue;
+              }
+
+              // Skip rate plans that don't belong to this property
+              if (ratePlan.property_id !== propMapping.local_id) {
                 continue;
               }
 
