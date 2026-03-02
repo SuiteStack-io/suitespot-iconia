@@ -1,40 +1,33 @@
 
 
-## Multi-Property Channex Integration
+## Full Sync (500 days) for Channex Certification
 
-### Current Architecture
-The Channex integration is built around a **single-row** `channex_property_config` table. Both the frontend (`PropertySync.tsx`) and the edge function (`channex-sync-property`) query this table with `.limit(1).maybeSingle()`. The `properties` table already has `channex_property_id`, `channex_synced`, and `channex_last_sync` columns, but they are unused by the Channex sync system.
+### Overview
+Add a per-property "Full Sync" button that pushes 500 days of availability, rates, and restrictions to Channex and returns task IDs needed for certification.
 
-### Plan
+### Implementation
 
-**1. Refactor `PropertySync.tsx` to show all properties**
-- Query the `properties` table (all rows) instead of `channex_property_config` (single row)
-- For each property, look up its Channex mapping from `channex_mappings` (where `entity_type = 'property'` and `local_id = property.id`)
-- Query units per property using `property_id` filter
-- Show each property as a collapsible card with sync status, room types count, and Channex ID
-- Expandable sections for synced room types, rate plans, and derived rate plans (filtered by that property's units/rate plans)
+**1. Create `supabase/functions/channex-full-sync/index.ts`**
+- Accepts `{ propertyId }` in request body
+- Reuses the same logic as `channex-daily-sync` but scoped to a single property
+- Key difference: captures and returns Channex API response task IDs from each POST call
+- Returns a structured result with `availability_task_ids` and `rates_task_ids` arrays, plus counts of room types and rate plans pushed
+- Uses the shared `channex-client.ts` for API calls but also captures raw responses for task IDs
+- Logs results to `channex_sync_logs`
 
-**2. Update `channex-sync-property` edge function to accept a `propertyId`**
-- Accept `{ propertyId }` from request body
-- Load property details from the `properties` table (not `channex_property_config`)
-- Filter units by `property_id` instead of hardcoded `.eq('location', 'ICONIA')`
-- Filter rate plans by `property_id`
-- Store channex mapping with `local_id = property.id`
-- Update `properties.channex_property_id` and `properties.channex_synced` on success
-- Fall back to `channex_property_config` if no `propertyId` is provided (backward compatibility)
+**2. Update `src/components/channex/PropertySync.tsx`**
+- Add a "Full Sync (500 days)" button to each synced property card (next to existing Sync/Refresh buttons)
+- Add state for `fullSyncingPropertyId` and `fullSyncResult`
+- On click, invoke `channex-full-sync` with the property ID
+- On success, show a Dialog with:
+  - Availability pushed count (room types x 500 days)
+  - Availability task IDs with copy buttons
+  - Rates & restrictions pushed count (rate plans x 500 days)
+  - Rates task IDs with copy buttons
+  - Note to save IDs for certification
 
-**3. Update `PropertySync` sync action**
-- Pass the property ID when invoking the edge function: `supabase.functions.invoke('channex-sync-property', { body: { propertyId: property.id } })`
-- Each property gets independent sync/refresh buttons
-
-**4. Update `PropertySettings.tsx`**
-- Add a property selector dropdown so settings can be viewed/edited per property
-- Or keep current single-config behavior but note it applies to the default property only
-
-### Files to change
-- `src/components/channex/PropertySync.tsx` — full rewrite to multi-property cards
-- `supabase/functions/channex-sync-property/index.ts` — accept `propertyId`, query `properties` table, filter units/rate plans by property
-
-### No database migration needed
-The `properties` table already has `channex_property_id`, `channex_synced`, and `channex_last_sync` columns ready to use.
+**3. Files**
+- New: `supabase/functions/channex-full-sync/index.ts`
+- Edit: `src/components/channex/PropertySync.tsx`
+- No database changes needed
 
