@@ -1,33 +1,26 @@
 
 
-## Full Sync (500 days) for Channex Certification
+## Fix: Daily Sync Not Scoping by Property
 
-### Overview
-Add a per-property "Full Sync" button that pushes 500 days of availability, rates, and restrictions to Channex and returns task IDs needed for certification.
+### Root Cause
+In `channex-daily-sync`, lines 80-84 and 217-221 query ALL `channex_mappings` for room types and rate plans without filtering by the current property. This means rate plans from Property B are processed under Property A's Channex ID, causing lookup failures and the "Failed" status.
 
-### Implementation
+The `channex-full-sync` function already handles this correctly by filtering units/rate plans by `property_id`.
 
-**1. Create `supabase/functions/channex-full-sync/index.ts`**
-- Accepts `{ propertyId }` in request body
-- Reuses the same logic as `channex-daily-sync` but scoped to a single property
-- Key difference: captures and returns Channex API response task IDs from each POST call
-- Returns a structured result with `availability_task_ids` and `rates_task_ids` arrays, plus counts of room types and rate plans pushed
-- Uses the shared `channex-client.ts` for API calls but also captures raw responses for task IDs
-- Logs results to `channex_sync_logs`
+### Fix
+**File:** `supabase/functions/channex-daily-sync/index.ts`
 
-**2. Update `src/components/channex/PropertySync.tsx`**
-- Add a "Full Sync (500 days)" button to each synced property card (next to existing Sync/Refresh buttons)
-- Add state for `fullSyncingPropertyId` and `fullSyncResult`
-- On click, invoke `channex-full-sync` with the property ID
-- On success, show a Dialog with:
-  - Availability pushed count (room types x 500 days)
-  - Availability task IDs with copy buttons
-  - Rates & restrictions pushed count (rate plans x 500 days)
-  - Rates task IDs with copy buttons
-  - Note to save IDs for certification
+Apply the same property-scoping pattern used in `channex-full-sync`:
 
-**3. Files**
-- New: `supabase/functions/channex-full-sync/index.ts`
-- Edit: `src/components/channex/PropertySync.tsx`
-- No database changes needed
+1. **Room type mappings (lines 80-213):** After fetching all room type mappings, filter each one by checking if its unit belongs to the current property (`property_id = propMapping.local_id`). Skip room types from other properties.
+
+2. **Rate plan mappings (lines 217-354):** After fetching all rate plan mappings, filter each one by checking if the rate plan's `property_id` matches the current property. Skip rate plans from other properties.
+
+The filtering logic (for each mapping, look up the parent entity and check `property_id`) mirrors what `channex-full-sync` does at its lines 80-97 and 162-175.
+
+### Result
+Each property only syncs its own room types and rate plans. The "not found" errors disappear, and the sync logs as successful.
+
+### Files to change
+- `supabase/functions/channex-daily-sync/index.ts`
 
