@@ -1,54 +1,39 @@
 
 
-## Quick Rate Editor: Bug Fixes and Drag-to-Fill Feature
+## Reset Rates to $120 Default
 
-### BUG 1: Rate Changes Apply Globally (Not Per-Date)
+### Why the rates are wrong
 
-**Root cause**: The `rate_plan_prices` table stores ONE `weekday_rate` and ONE `weekend_rate` per rate plan — not per-date rates. When you edit a cell for Nov 21 and save, `syncNow()` updates the base `weekday_rate` on the `rate_plan_prices` row, which changes ALL weekday cells. The DB trigger then pushes to Channex without date context, so Channex applies it from today forward.
+The current database values for the 4 rate plans on property ICONIA are:
+- **Bed & Breakfast Rate** (Double + Twin): weekday=$456.23, weekend=$505
+- **Best Available Rate** (Double + Twin): weekday=$444, weekend=$490
 
-**Fix**: The grid's sync logic should push date-specific entries to the `channex_sync_queue` table directly (with explicit `date_from`/`date_to` from each pending change), instead of relying on the DB trigger which has no date awareness. The local `rate_plan_prices` row still gets updated (since that's the source of truth for the base rate), but the Channex push uses the exact dates from the pending changes.
+These got corrupted because the Quick Rate Editor's `syncNow()` updates the **global** `weekday_rate` / `weekend_rate` on the `rate_plan_prices` row every time you edit any cell. Since there's only one rate per plan (not per-date), editing any single cell changes the rate for all dates.
 
-In `syncNow()`:
-- After updating `rate_plan_prices`, insert entries into `channex_sync_queue` with each change's specific date as both `date_from` and `date_to`
-- Skip the automatic `channex-process-sync-queue` invocation from the trigger (already handled by the manual invoke at the end)
+### Fix: Two steps
 
-### BUG 2: Weekend Highlighting Includes Thursday
+#### 1. Reset the 4 rate_plan_prices rows via data update
 
-**Root cause**: Line 55 — `isWeekendDay` uses `isThursday || isFriday || isSaturday`. Thursday/Friday/Saturday are weekend **pricing** days, but visually only Friday and Saturday should be highlighted as weekends.
+Update these rows to:
+- `weekday_rate` = 120
+- `weekend_rate` = 135 (standard 10% markup, rounded to nearest $5)
 
-**Fix**: Split into two functions:
-- `isWeekendRate(date)` — Thu/Fri/Sat — used for **rate calculation** (which rate to display/save)
-- `isWeekendHighlight(date)` — Fri/Sat only — used for **visual highlighting** (pink/accent background)
+IDs to update:
+- `7bb97c14` (Double Room / B&B)
+- `ddfe83b8` (Double Room / BAR)
+- `e77b63be` (Twin Room / B&B)
+- `2e6ac56f` (Twin Room / BAR)
 
-### FEATURE: Drag-to-Fill
+#### 2. Fix `syncNow()` to stop overwriting base rates
 
-After editing a cell, the user can drag a handle to copy the value across adjacent cells in the same row.
+In `src/components/pms/QuickRateGrid.tsx`, remove the `rate_plan_prices` UPDATE from `syncNow()`. Instead, only insert date-specific entries into `channex_sync_queue`. The base rate should only be changed via the Rate Plans tab (RatePlanDialog), not the Quick Editor.
 
-**State additions**: `isDragging`, `dragStartCell`, `dragValue`, `draggedOverCells`
+This means the Quick Editor becomes a **Channex-only override tool**: it pushes date-specific rates to Channex without modifying the stored base rates. The grid will still show the base rate for unchanged cells, and pending changes shown in yellow until synced.
 
-**Implementation**:
-- Each non-editing cell gets `onMouseDown` (start drag from committed value), `onMouseEnter` (track hovered cells during drag), and a global `onMouseUp` (apply value to all dragged cells)
-- Only horizontal drag within the same row is allowed
-- Dragged-over cells show dashed blue border and the preview value
-- On mouse-up, all dragged cells are added to `pendingChanges`
-- Also support **Shift+Click** as an alternative: click cell A, edit value, press Enter, then Shift+Click cell D — fills A through D with the same value
-
-**Keyboard shortcuts**:
-- `Ctrl+Right` after editing: copy value to next cell
-- `Ctrl+Shift+Right`: copy to all remaining cells in the row
-
-### Files to Change
+### Files to change
 
 | # | File | Change |
 |---|------|--------|
-| 1 | `src/components/pms/QuickRateGrid.tsx` | Fix sync to use per-date queue entries; split weekend logic; add drag-to-fill state and handlers |
-
-### Summary of Changes in QuickRateGrid.tsx
-
-1. Replace `isWeekendDay` with `isWeekendRate` (Thu/Fri/Sat for pricing) and `isWeekendHighlight` (Fri/Sat for visuals)
-2. In `syncNow()`: after updating `rate_plan_prices`, also insert rows into `channex_sync_queue` with each change's exact `date`/`date` as `date_from`/`date_to`
-3. Add drag state (`isDragging`, `dragValue`, `draggedCells`) and mouse event handlers on cells
-4. Add drag handle UI element on the active/recently-edited cell
-5. Add Shift+Click range fill support
-6. Add `Ctrl+Right` / `Ctrl+Shift+Right` keyboard shortcuts
+| 1 | Database (data update) | Reset 4 `rate_plan_prices` rows to $120/$135 |
+| 2 | `src/components/pms/QuickRateGrid.tsx` | Remove `rate_plan_prices` UPDATE from `syncNow()`, keep only `channex_sync_queue` inserts |
 
