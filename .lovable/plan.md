@@ -1,23 +1,23 @@
 
 
-## Bug: Price Lab changes revert when switching tabs
+## Why Save Takes 30+ Seconds — and the Fix
 
 ### Root Cause
-The `syncNow` function in `QuickRateGrid.tsx` (line 479-492) only updates **local React state** (`setPrices`) after saving. It does **not** persist the new rates to the `rate_plan_prices` database table. When you switch to the "Rate Plans" tab and back, the component remounts, `fetchData()` runs, and reloads the old values from the database.
+The `syncNow()` function in `QuickRateGrid.tsx` (line 471) calls `channex-process-sync-queue` with `await`, which means the UI blocks until the edge function returns. That edge function has a **30-second sleep** (line 38 of the function) designed to batch concurrent database-trigger-fired updates into single API calls.
 
-### Fix
-In `syncNow()`, after pushing to the Channex sync queue and before updating local state, **also update the `rate_plan_prices` table** in the database with the new weekday/weekend rates. This ensures the changes persist across tab switches and page reloads.
+The Price Lab doesn't need to wait for this. The sync queue items are already inserted; the edge function will process them regardless.
 
-### Changes — `src/components/pms/QuickRateGrid.tsx`
+### Fix — `src/components/pms/QuickRateGrid.tsx`
 
-After the Channex sync queue push (around line 476), add a database update step:
+Change the `await supabase.functions.invoke('channex-process-sync-queue')` call to **fire-and-forget** — don't `await` it. This way:
 
-1. Group pending changes by `ratePlanId`
-2. For each rate plan with changes, update `rate_plan_prices` with the new `weekday_rate` and/or `weekend_rate` using the existing `prices[planId].id` to target the correct row
-3. Since multiple changes for the same plan may set different date-specific rates, use the **last changed value** for weekday and weekend rates respectively (matching the existing local state update logic at lines 484-489)
+1. Sync queue items are inserted (already done before this call)
+2. The edge function is triggered but the UI doesn't wait for it
+3. DB persistence (`rate_plan_prices` update) and local state update happen immediately
+4. Save completes in ~1-2 seconds instead of ~33 seconds
 
-The update will be a simple `supabase.from('rate_plan_prices').update({ weekday_rate, weekend_rate }).eq('id', priceId)` call for each affected rate plan.
+The change is a single line: remove `await` from the `supabase.functions.invoke` call (or move it into a `.then()` / fire-and-forget pattern).
 
 ### Files to edit
-- `src/components/pms/QuickRateGrid.tsx` — add DB persistence in `syncNow()` before the local state update
+- `src/components/pms/QuickRateGrid.tsx` — remove `await` from the sync queue processing call
 
