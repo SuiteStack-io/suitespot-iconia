@@ -1,6 +1,7 @@
 import { useState, useEffect, useRef, useCallback, useMemo } from 'react';
 import { format, addDays, startOfWeek, startOfMonth, endOfMonth, eachDayOfInterval, isFriday, isSaturday, isThursday, differenceInDays, addMonths, subMonths } from 'date-fns';
 import { ChevronLeft, ChevronRight, Send, Trash2, Pencil, GripVertical, Check, CalendarIcon, Save } from 'lucide-react';
+import { Progress } from '@/components/ui/progress';
 import { Calendar } from '@/components/ui/calendar';
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
 import { cn } from '@/lib/utils';
@@ -108,6 +109,7 @@ export const QuickRateGrid = ({ onSyncQueueCount }: QuickRateGridProps) => {
   const [editValue, setEditValue] = useState('');
   const [syncing, setSyncing] = useState(false);
   const [syncSuccess, setSyncSuccess] = useState(false);
+  const [syncProgress, setSyncProgress] = useState(0);
   const [filterRoomType, setFilterRoomType] = useState<string>('all');
   const [filterRatePlan, setFilterRatePlan] = useState<string>('all');
   const [bulkOpen, setBulkOpen] = useState(false);
@@ -417,6 +419,7 @@ export const QuickRateGrid = ({ onSyncQueueCount }: QuickRateGridProps) => {
   const syncNow = async () => {
     if (pendingChanges.size === 0 || syncing) return;
     setSyncing(true);
+    setSyncProgress(10);
 
     try {
       const byPlan = new Map<string, PendingChange[]>();
@@ -462,20 +465,45 @@ export const QuickRateGrid = ({ onSyncQueueCount }: QuickRateGridProps) => {
         }
       }
 
+      setSyncProgress(40);
+
       try {
         await supabase.functions.invoke('channex-process-sync-queue', { body: {} });
       } catch {
         // Non-critical
       }
 
+      setSyncProgress(70);
+
+      // Step 1: Update local prices state so grid keeps showing new values
+      setPrices(prev => {
+        const updated = { ...prev };
+        pendingChanges.forEach(change => {
+          const existing = updated[change.ratePlanId];
+          if (!existing) return;
+          updated[change.ratePlanId] = {
+            ...existing,
+            ...(change.isWeekend
+              ? { weekend_rate: change.newRate }
+              : { weekday_rate: change.newRate }),
+          };
+        });
+        return updated;
+      });
+
+      // Step 2: Clear pending changes
       const changeCount = pendingChanges.size;
       setPendingChanges(new Map());
+
+      setSyncProgress(100);
       setSyncSuccess(true);
       setTimeout(() => setSyncSuccess(false), 3000);
+      setTimeout(() => setSyncProgress(0), 1500);
       toast.success(`${changeCount} rate change(s) saved & syncing`);
     } catch (err) {
       console.error('Sync error:', err);
       toast.error('Failed to save rate changes');
+      setSyncProgress(0);
     } finally {
       setSyncing(false);
     }
@@ -634,7 +662,7 @@ export const QuickRateGrid = ({ onSyncQueueCount }: QuickRateGridProps) => {
               <Badge variant="secondary" className="gap-1 bg-yellow-100 text-yellow-800 dark:bg-yellow-900/30 dark:text-yellow-400 border-yellow-300">
                 {pendingChanges.size} pending
               </Badge>
-              <Button size="sm" onClick={syncNow} disabled={syncing} className="gap-1.5">
+              <Button size="sm" onClick={syncNow} disabled={syncing} className="gap-1.5 bg-black text-white hover:bg-black/90">
                 <Save className="h-3.5 w-3.5" />
                 {syncing ? 'Saving...' : 'Save Changes'}
               </Button>
@@ -642,6 +670,11 @@ export const QuickRateGrid = ({ onSyncQueueCount }: QuickRateGridProps) => {
           )}
         </div>
       </div>
+
+      {/* Progress bar */}
+      {(syncing || syncProgress > 0) && (
+        <Progress value={syncProgress} className="h-2 [&>div]:bg-black" />
+      )}
 
       {/* Date nav + View toggle */}
       <div className="flex items-center gap-2 flex-wrap">
