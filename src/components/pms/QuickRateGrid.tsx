@@ -467,11 +467,8 @@ export const QuickRateGrid = ({ onSyncQueueCount }: QuickRateGridProps) => {
 
       setSyncProgress(40);
 
-      try {
-        await supabase.functions.invoke('channex-process-sync-queue', { body: {} });
-      } catch {
-        // Non-critical
-      }
+      // Fire-and-forget: don't await the 30s batching delay
+      supabase.functions.invoke('channex-process-sync-queue', { body: {} }).catch(() => {});
 
       setSyncProgress(60);
 
