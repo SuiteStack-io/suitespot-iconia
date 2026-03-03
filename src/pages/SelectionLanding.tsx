@@ -6,6 +6,7 @@ import { Loader2, Clock } from "lucide-react";
 import { toast } from "sonner";
 import { PropertyDetailsModal } from "@/components/PropertyDetailsModal";
 import { SelectionUnit } from "@/types/unit";
+import { getActiveRate } from "@/lib/rateResolver";
 
 export default function SelectionLanding() {
   const { token } = useParams();
@@ -87,7 +88,20 @@ export default function SelectionLanding() {
 
       if (unitsError) throw unitsError;
 
-      setUnits(unitsData || []);
+      // Resolve rate plan prices for each unit
+      const enriched = await Promise.all(
+        (unitsData || []).map(async (unit: any) => {
+          if (!unit.unit_type) return unit;
+          const rate = await getActiveRate(unit.unit_type, new Date(), unit.id);
+          return {
+            ...unit,
+            price_per_night: rate ? rate.weekdayRate : unit.price_per_night,
+            min_stay: rate ? rate.minStay : unit.min_stay,
+            _ratePlanName: rate?.ratePlanName,
+          };
+        })
+      );
+      setUnits(enriched);
     } catch (error) {
       console.error("Error fetching units:", error);
       toast.error("Failed to load properties");
@@ -260,6 +274,7 @@ export default function SelectionLanding() {
           open={!!selectedUnit}
           onClose={() => setSelectedUnit(null)}
           property={selectedUnit}
+          ratePlanName={(selectedUnit as any)._ratePlanName}
         />
       )}
     </div>

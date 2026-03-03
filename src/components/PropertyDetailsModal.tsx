@@ -32,9 +32,10 @@ interface PropertyDetailsModalProps {
     price_per_night: number | null;
     payment_terms: string | null;
   };
+  ratePlanName?: string;
 }
 
-export function PropertyDetailsModal({ open, onClose, property }: PropertyDetailsModalProps) {
+export function PropertyDetailsModal({ open, onClose, property, ratePlanName }: PropertyDetailsModalProps) {
   const [currentPhotoIndex, setCurrentPhotoIndex] = useState(0);
   const [isFullscreen, setIsFullscreen] = useState(false);
   const [isAmenitiesOpen, setIsAmenitiesOpen] = useState(false);
@@ -178,6 +179,9 @@ export function PropertyDetailsModal({ open, onClose, property }: PropertyDetail
             {property.price_per_night && (
               <div>
                 <span className="font-semibold">Price per Night:</span> ${property.price_per_night}
+                {ratePlanName && (
+                  <span className="text-xs text-muted-foreground ml-1">({ratePlanName})</span>
+                )}
               </div>
             )}
             {property.payment_terms && (
