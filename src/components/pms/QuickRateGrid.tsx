@@ -473,9 +473,34 @@ export const QuickRateGrid = ({ onSyncQueueCount }: QuickRateGridProps) => {
         // Non-critical
       }
 
+      setSyncProgress(60);
+
+      // Step 1: Persist rate changes to rate_plan_prices table
+      const dbUpdates = new Map<string, { weekday_rate?: number; weekend_rate?: number; priceId: string }>();
+      pendingChanges.forEach(change => {
+        const existing = prices[change.ratePlanId];
+        if (!existing?.id) return;
+        const current = dbUpdates.get(change.ratePlanId) || { priceId: existing.id };
+        if (change.isWeekend) {
+          current.weekend_rate = change.newRate;
+        } else {
+          current.weekday_rate = change.newRate;
+        }
+        dbUpdates.set(change.ratePlanId, current);
+      });
+
+      for (const [, update] of dbUpdates) {
+        const payload: Record<string, number> = {};
+        if (update.weekday_rate !== undefined) payload.weekday_rate = update.weekday_rate;
+        if (update.weekend_rate !== undefined) payload.weekend_rate = update.weekend_rate;
+        if (Object.keys(payload).length > 0) {
+          await supabase.from('rate_plan_prices').update(payload).eq('id', update.priceId);
+        }
+      }
+
       setSyncProgress(70);
 
-      // Step 1: Update local prices state so grid keeps showing new values
+      // Step 2: Update local prices state so grid keeps showing new values
       setPrices(prev => {
         const updated = { ...prev };
         pendingChanges.forEach(change => {
