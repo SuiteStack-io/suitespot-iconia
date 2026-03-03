@@ -142,8 +142,10 @@ const PMSPrices = () => {
   };
 
   useEffect(() => {
-    fetchData();
-  }, []);
+    if (propertyId) {
+      fetchData();
+    }
+  }, [propertyId]);
 
   const fetchData = async () => {
     setLoading(true);
