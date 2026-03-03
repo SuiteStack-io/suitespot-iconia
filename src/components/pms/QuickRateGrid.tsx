@@ -435,31 +435,11 @@ export const QuickRateGrid = ({ onSyncQueueCount }: QuickRateGridProps) => {
         const price = prices[planId];
         if (!price) continue;
 
-        // Determine new weekday and weekend rates from changes
-        let newWeekday = price.weekday_rate;
-        let newWeekend = price.weekend_rate;
-
-        for (const c of changes) {
-          if (c.isWeekend) newWeekend = c.newRate;
-          else newWeekday = c.newRate;
-        }
-
-        // Update the base rate_plan_prices row
-        const { error } = await supabase
-          .from('rate_plan_prices')
-          .update({ weekday_rate: newWeekday, weekend_rate: newWeekend })
-          .eq('id', price.id);
-
-        if (error) throw error;
-
-        // Update local state
-        setPrices(prev => ({
-          ...prev,
-          [planId]: { ...prev[planId], weekday_rate: newWeekday, weekend_rate: newWeekend },
-        }));
+        // NOTE: We do NOT update rate_plan_prices here.
+        // The Quick Editor only pushes date-specific overrides to Channex.
+        // Base rates should only be changed via the Rate Plans tab (RatePlanDialog).
 
         // Insert date-specific entries into channex_sync_queue for precise Channex pushes
-        // Group by contiguous date ranges per rate type
         const sortedChanges = [...changes].sort((a, b) => a.date.localeCompare(b.date));
         
         // Check if this rate plan is mapped to Channex
