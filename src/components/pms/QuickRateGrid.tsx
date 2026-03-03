@@ -1,6 +1,9 @@
 import { useState, useEffect, useRef, useCallback, useMemo } from 'react';
-import { format, addDays, startOfWeek, isFriday, isSaturday, isThursday } from 'date-fns';
-import { ChevronLeft, ChevronRight, Send, Clock, Trash2, Pencil, GripVertical, Check } from 'lucide-react';
+import { format, addDays, startOfWeek, isFriday, isSaturday, isThursday, differenceInDays } from 'date-fns';
+import { ChevronLeft, ChevronRight, Send, Trash2, Pencil, GripVertical, Check, CalendarIcon, Save } from 'lucide-react';
+import { Calendar } from '@/components/ui/calendar';
+import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
+import { cn } from '@/lib/utils';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { Card, CardContent } from '@/components/ui/card';
@@ -50,7 +53,7 @@ interface PendingChange {
   isWeekend: boolean;
 }
 
-const SYNC_DELAY = 30;
+// Auto-sync removed — manual "Save Changes" only
 
 // Thu/Fri/Sat use weekend_rate pricing
 const isWeekendRate = (date: Date) => isThursday(date) || isFriday(date) || isSaturday(date);
@@ -79,7 +82,6 @@ export const QuickRateGrid = ({ onSyncQueueCount }: QuickRateGridProps) => {
   const [pendingChanges, setPendingChanges] = useState<Map<string, PendingChange>>(new Map());
   const [activeCell, setActiveCell] = useState<string | null>(null);
   const [editValue, setEditValue] = useState('');
-  const [countdown, setCountdown] = useState<number | null>(null);
   const [syncing, setSyncing] = useState(false);
   const [syncSuccess, setSyncSuccess] = useState(false);
   const [filterRoomType, setFilterRoomType] = useState<string>('all');
@@ -88,9 +90,10 @@ export const QuickRateGrid = ({ onSyncQueueCount }: QuickRateGridProps) => {
   const [bulkRate, setBulkRate] = useState('');
   const [bulkRoomType, setBulkRoomType] = useState('all');
   const [bulkRatePlan, setBulkRatePlan] = useState('all');
+  const [bulkDateFrom, setBulkDateFrom] = useState<Date | undefined>();
+  const [bulkDateTo, setBulkDateTo] = useState<Date | undefined>();
   const [lastCommittedCell, setLastCommittedCell] = useState<{ planId: string; colIdx: number; value: number } | null>(null);
   const inputRefs = useRef<Record<string, HTMLInputElement | null>>({});
-  const countdownRef = useRef<ReturnType<typeof setInterval> | null>(null);
 
   // Drag-to-fill state
   const [drag, setDrag] = useState<DragState>({ isDragging: false, planId: null, value: null, startColIdx: 0, currentColIdx: 0 });
@@ -163,39 +166,7 @@ export const QuickRateGrid = ({ onSyncQueueCount }: QuickRateGridProps) => {
     return isWeekendRate(date) ? price.weekend_rate : price.weekday_rate;
   };
 
-  const startCountdown = useCallback(() => {
-    if (countdownRef.current) return;
-    setCountdown(SYNC_DELAY);
-    countdownRef.current = setInterval(() => {
-      setCountdown(prev => {
-        if (prev === null || prev <= 1) {
-          if (countdownRef.current) clearInterval(countdownRef.current);
-          countdownRef.current = null;
-          return null;
-        }
-        return prev - 1;
-      });
-    }, 1000);
-  }, []);
-
-  // Auto-sync when countdown reaches 0
-  useEffect(() => {
-    if (countdown === null && pendingChanges.size > 0 && !syncing) {
-      syncNow();
-    }
-  }, [countdown]);
-
-  // Ctrl+S handler
-  useEffect(() => {
-    const handler = (e: KeyboardEvent) => {
-      if ((e.ctrlKey || e.metaKey) && e.key === 's') {
-        e.preventDefault();
-        if (pendingChanges.size > 0) syncNow();
-      }
-    };
-    window.addEventListener('keydown', handler);
-    return () => window.removeEventListener('keydown', handler);
-  }, [pendingChanges]);
+  // Auto-sync and countdown removed — manual save only
 
   // Global mouseup for drag-to-fill
   useEffect(() => {
@@ -242,7 +213,6 @@ export const QuickRateGrid = ({ onSyncQueueCount }: QuickRateGridProps) => {
 
       if (count > 0) {
         setPendingChanges(newPending);
-        startCountdown();
         toast.success(`${count} cell(s) filled`);
       }
 
@@ -251,7 +221,7 @@ export const QuickRateGrid = ({ onSyncQueueCount }: QuickRateGridProps) => {
 
     window.addEventListener('mouseup', handleMouseUp);
     return () => window.removeEventListener('mouseup', handleMouseUp);
-  }, [drag, days, ratePlans, prices, pendingChanges, startCountdown]);
+  }, [drag, days, ratePlans, prices, pendingChanges]);
 
   const handleCellClick = (planId: string, date: Date, price: RatePlanPrice | null, colIdx: number, shiftKey?: boolean) => {
     // Shift+Click range fill
@@ -289,7 +259,6 @@ export const QuickRateGrid = ({ onSyncQueueCount }: QuickRateGridProps) => {
 
       if (count > 0) {
         setPendingChanges(newPending);
-        startCountdown();
         toast.success(`${count} cell(s) filled`);
       }
       return;
@@ -341,7 +310,6 @@ export const QuickRateGrid = ({ onSyncQueueCount }: QuickRateGridProps) => {
         });
         return next;
       });
-      startCountdown();
     }
 
     setLastCommittedCell({ planId, colIdx, value: newRate });
@@ -408,7 +376,6 @@ export const QuickRateGrid = ({ onSyncQueueCount }: QuickRateGridProps) => {
 
     if (count > 0) {
       setPendingChanges(newPending);
-      startCountdown();
       toast.success(`Copied to ${count} cell(s)`);
     }
   };
@@ -416,11 +383,6 @@ export const QuickRateGrid = ({ onSyncQueueCount }: QuickRateGridProps) => {
   const syncNow = async () => {
     if (pendingChanges.size === 0 || syncing) return;
     setSyncing(true);
-    if (countdownRef.current) {
-      clearInterval(countdownRef.current);
-      countdownRef.current = null;
-    }
-    setCountdown(null);
 
     try {
       // Group changes by rate plan
@@ -500,6 +462,10 @@ export const QuickRateGrid = ({ onSyncQueueCount }: QuickRateGridProps) => {
       toast.error('Enter a valid rate');
       return;
     }
+    if (!bulkDateFrom || !bulkDateTo) {
+      toast.error('Select a date range');
+      return;
+    }
 
     const targetPlans = ratePlans.filter(p => {
       if (bulkRoomType !== 'all' && p.room_type !== bulkRoomType) return false;
@@ -510,12 +476,14 @@ export const QuickRateGrid = ({ onSyncQueueCount }: QuickRateGridProps) => {
     const newPending = new Map(pendingChanges);
     let count = 0;
 
-    for (const plan of targetPlans) {
-      const price = prices[plan.id];
-      for (const date of days) {
-        const dateStr = format(date, 'yyyy-MM-dd');
+    // Iterate over selected date range
+    let current = new Date(bulkDateFrom);
+    while (current <= bulkDateTo) {
+      for (const plan of targetPlans) {
+        const price = prices[plan.id];
+        const dateStr = format(current, 'yyyy-MM-dd');
         const key = getCellKey(plan.id, dateStr);
-        const weekend = isWeekendRate(date);
+        const weekend = isWeekendRate(current);
         const oldRate = price ? (weekend ? price.weekend_rate : price.weekday_rate) : 0;
 
         if (rate !== oldRate) {
@@ -531,12 +499,14 @@ export const QuickRateGrid = ({ onSyncQueueCount }: QuickRateGridProps) => {
           count++;
         }
       }
+      current = addDays(current, 1);
     }
 
     setPendingChanges(newPending);
-    if (count > 0) startCountdown();
     setBulkOpen(false);
     setBulkRate('');
+    setBulkDateFrom(undefined);
+    setBulkDateTo(undefined);
     toast.success(`${count} cell(s) updated`);
   };
 
@@ -613,15 +583,9 @@ export const QuickRateGrid = ({ onSyncQueueCount }: QuickRateGridProps) => {
               <Badge variant="secondary" className="gap-1 bg-yellow-100 text-yellow-800 dark:bg-yellow-900/30 dark:text-yellow-400 border-yellow-300">
                 {pendingChanges.size} pending
               </Badge>
-              {countdown !== null && (
-                <Badge variant="outline" className="gap-1 text-muted-foreground">
-                  <Clock className="h-3 w-3" />
-                  {countdown}s
-                </Badge>
-              )}
               <Button size="sm" onClick={syncNow} disabled={syncing} className="gap-1.5">
-                <Send className="h-3.5 w-3.5" />
-                {syncing ? 'Saving...' : 'Sync Now'}
+                <Save className="h-3.5 w-3.5" />
+                {syncing ? 'Saving...' : 'Save Changes'}
               </Button>
             </>
           )}
@@ -754,15 +718,12 @@ export const QuickRateGrid = ({ onSyncQueueCount }: QuickRateGridProps) => {
             <div className="flex items-center justify-between mb-2">
               <span className="text-sm font-medium">Pending Changes ({pendingChanges.size})</span>
               <div className="flex items-center gap-2">
-                {countdown !== null && (
-                  <span className="text-xs text-muted-foreground">Syncing in {countdown}s...</span>
-                )}
-                <Button variant="ghost" size="sm" onClick={() => { setPendingChanges(new Map()); if (countdownRef.current) { clearInterval(countdownRef.current); countdownRef.current = null; } setCountdown(null); }}>
+                <Button variant="ghost" size="sm" onClick={() => setPendingChanges(new Map())}>
                   <Trash2 className="h-3.5 w-3.5 mr-1" /> Clear All
                 </Button>
                 <Button size="sm" onClick={syncNow} disabled={syncing} className="gap-1">
-                  <Send className="h-3.5 w-3.5" />
-                  Sync Now
+                  <Save className="h-3.5 w-3.5" />
+                  {syncing ? 'Saving...' : 'Save Changes'}
                 </Button>
               </div>
             </div>
@@ -783,10 +744,40 @@ export const QuickRateGrid = ({ onSyncQueueCount }: QuickRateGridProps) => {
           <DialogHeader>
             <DialogTitle>Bulk Rate Edit</DialogTitle>
             <DialogDescription>
-              Apply a single rate to all visible dates for the selected room type and rate plan.
+              Apply a rate to a specific date range for the selected room type and rate plan.
             </DialogDescription>
           </DialogHeader>
           <div className="space-y-4">
+            <div className="flex gap-4">
+              <div className="space-y-2 flex-1">
+                <Label>From</Label>
+                <Popover>
+                  <PopoverTrigger asChild>
+                    <Button variant="outline" className={cn('w-full justify-start text-left font-normal', !bulkDateFrom && 'text-muted-foreground')}>
+                      <CalendarIcon className="mr-2 h-4 w-4" />
+                      {bulkDateFrom ? format(bulkDateFrom, 'MMM d, yyyy') : 'Select date'}
+                    </Button>
+                  </PopoverTrigger>
+                  <PopoverContent className="w-auto p-0" align="start">
+                    <Calendar mode="single" selected={bulkDateFrom} onSelect={setBulkDateFrom} initialFocus className={cn("p-3 pointer-events-auto")} />
+                  </PopoverContent>
+                </Popover>
+              </div>
+              <div className="space-y-2 flex-1">
+                <Label>To</Label>
+                <Popover>
+                  <PopoverTrigger asChild>
+                    <Button variant="outline" className={cn('w-full justify-start text-left font-normal', !bulkDateTo && 'text-muted-foreground')}>
+                      <CalendarIcon className="mr-2 h-4 w-4" />
+                      {bulkDateTo ? format(bulkDateTo, 'MMM d, yyyy') : 'Select date'}
+                    </Button>
+                  </PopoverTrigger>
+                  <PopoverContent className="w-auto p-0" align="start">
+                    <Calendar mode="single" selected={bulkDateTo} onSelect={setBulkDateTo} disabled={(date) => bulkDateFrom ? date < bulkDateFrom : false} initialFocus className={cn("p-3 pointer-events-auto")} />
+                  </PopoverContent>
+                </Popover>
+              </div>
+            </div>
             <div className="space-y-2">
               <Label>Room Type</Label>
               <Select value={bulkRoomType} onValueChange={setBulkRoomType}>
@@ -813,13 +804,15 @@ export const QuickRateGrid = ({ onSyncQueueCount }: QuickRateGridProps) => {
               <Label>New Rate ($ per night)</Label>
               <Input type="number" value={bulkRate} onChange={e => setBulkRate(e.target.value)} placeholder="e.g. 150" />
             </div>
-            <p className="text-xs text-muted-foreground">
-              This will update {days.length} dates × {ratePlans.filter(p => (bulkRoomType === 'all' || p.room_type === bulkRoomType) && (bulkRatePlan === 'all' || p.id === bulkRatePlan)).length} rate plan(s) = up to {days.length * ratePlans.filter(p => (bulkRoomType === 'all' || p.room_type === bulkRoomType) && (bulkRatePlan === 'all' || p.id === bulkRatePlan)).length} changes
-            </p>
+            {bulkDateFrom && bulkDateTo && (
+              <p className="text-xs text-muted-foreground">
+                {differenceInDays(bulkDateTo, bulkDateFrom) + 1} date(s) × {ratePlans.filter(p => (bulkRoomType === 'all' || p.room_type === bulkRoomType) && (bulkRatePlan === 'all' || p.id === bulkRatePlan)).length} rate plan(s)
+              </p>
+            )}
           </div>
           <DialogFooter>
             <Button variant="outline" onClick={() => setBulkOpen(false)}>Cancel</Button>
-            <Button onClick={applyBulkEdit}>Apply Changes</Button>
+            <Button onClick={applyBulkEdit} disabled={!bulkDateFrom || !bulkDateTo || !bulkRate}>Apply Changes</Button>
           </DialogFooter>
         </DialogContent>
       </Dialog>
