@@ -1,46 +1,44 @@
 
 
-## Migrate BookingFlow Pricing to rate_plan_prices (PMS/Prices as Source of Truth)
+## Update InteractivePropertyMap & PropertyDetailsModal to Use rate_plan_prices
 
 ### Problem
-BookingFlow currently reads `units.price_per_night` and `units.weekend_rate` directly from the units table for all pricing calculations. It should instead use the rate plan system (`rate_plans` + `rate_plan_prices`) managed via PMS/Prices.
+Both components display `units.price_per_night` directly. They should resolve pricing from the `rate_plans` + `rate_plan_prices` system (PMS/Prices as source of truth).
 
 ### Approach
-Use the existing `getActiveRate()` from `src/lib/rateResolver.ts` which already resolves the correct rate plan for a room type and date, with unit-specific override support.
+Both components are presentational — they receive data via props. The fix is to resolve rate plan pricing at the **call site** (parent pages) and pass the resolved price down, rather than adding Supabase calls inside these display components.
 
-### Changes — Single file: `src/pages/BookingFlow.tsx`
+### Changes
 
-**1. Add rate plan state and fetching**
-- Import `getActiveRate` from `@/lib/rateResolver.ts`
-- Add state: `ratePlanRate` storing `{ weekdayRate, weekendRate, minStay, ratePlanName, ratePlanId } | null`
-- When `selectedUnit` or `dateRange.from` changes, call `getActiveRate(unit.unit_type, dateRange.from, selectedUnit)` and store the result
-- If no rate plan found, fall back to `units.price_per_night` / `units.weekend_rate` for backward compatibility
+**1. `src/components/InteractivePropertyMap.tsx`**
+- Keep `price_per_night` in the `Property` interface (it will now be populated from rate plan data by the parent)
+- No internal logic changes needed — it just renders `${price_per_night}/night`
 
-**2. Update pricing calculations**
-- `calculateSubtotal()`: Use `ratePlanRate.weekdayRate` / `ratePlanRate.weekendRate` instead of `unit.price_per_night` / `unit.weekend_rate`
-- `getRateBreakdown()`: Same swap
-- `calculateThirdGuestFee()`: Fetch `extra_adult_rate` from the matched rate plan (default $50)
+**2. `src/components/PropertyDetailsModal.tsx`**
+- Same: keep `price_per_night` in the interface, rendered by parent with resolved rate plan data
+- Add optional `ratePlanName` prop to display which rate plan is active (e.g. "Summer Rate")
 
-**3. Update reservation insert**
-- `price_per_night` field: Use the resolved weekday rate from rate plan instead of `unit.price_per_night`
+**3. `src/pages/Locations.tsx`** (parent of InteractivePropertyMap)
+- After fetching units, resolve the default rate plan price for each unit's `unit_type` using `getActiveRate()` from `rateResolver.ts`
+- Override each unit's `price_per_night` with the resolved `weekdayRate` before passing to the map component
+- Fall back to `units.price_per_night` if no rate plan exists
 
-**4. Update UI display**
-- Suite type dropdown (line ~1118): Show rate plan weekday rate instead of `sample_unit.price_per_night`
-- Pricing card (lines ~1181-1219): Use resolved rates for display
-- Remove `price_per_night` and `weekend_rate` from the Unit interface and Supabase select queries (no longer needed for pricing; keep `tax_percentage`)
-
-**5. Minimum stay enforcement**
-- Use `ratePlanRate.minStay` to validate the selected date range meets minimum stay requirements
+**4. `src/pages/SelectionLanding.tsx`** (parent of PropertyDetailsModal)
+- When a unit is selected for the modal, call `getActiveRate(unit.unit_type, new Date(), unit.id)` to resolve the current rate
+- Override the `price_per_night` field on the property object passed to `PropertyDetailsModal`
+- Add `ratePlanName` to the modal display
 
 ### Data flow
 ```text
-User selects unit type + dates
-  → getActiveRate(unit_type, check_in_date, unit_id)
-    → Finds matching rate_plan (date-specific or default)
-    → Returns weekday_rate, weekend_rate, min_stay from rate_plan_prices
-  → BookingFlow uses these rates for all calculations
+Parent page fetches units
+  → For each unit, getActiveRate(unit_type, today)
+  → Overrides price_per_night with resolved weekdayRate
+  → Falls back to units.price_per_night if no rate plan
+  → Passes enriched data to component props
 ```
 
-### Backward compatibility
-If `getActiveRate` returns null (no rate plan configured for this room type), fall back to `units.price_per_night` / `units.weekend_rate` to avoid breaking existing bookings for room types not yet set up in PMS/Prices.
+### Files to edit
+- `src/pages/Locations.tsx` — resolve rate plan prices after fetching units
+- `src/pages/SelectionLanding.tsx` — resolve rate plan price when opening modal
+- `src/components/PropertyDetailsModal.tsx` — add optional `ratePlanName` display
 
