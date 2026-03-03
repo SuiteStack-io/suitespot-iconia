@@ -9,6 +9,7 @@ import { PublicFooter } from "@/components/PublicFooter";
 import InteractivePropertyMap from "@/components/InteractivePropertyMap";
 import northCoast from "@/assets/north-coast.webp";
 import { SEO } from "@/components/SEO";
+import { getActiveRate } from "@/lib/rateResolver";
 
 const lodgingBusinessJsonLd = {
   "@context": "https://schema.org",
@@ -71,7 +72,20 @@ const Locations = () => {
       .eq("location", "ICONIA")
       .order("name");
     
-    if (data) setProperties(data);
+    if (data) {
+      // Resolve rate plan prices for each unit
+      const enriched = await Promise.all(
+        data.map(async (unit) => {
+          if (!unit.unit_type) return unit;
+          const rate = await getActiveRate(unit.unit_type, new Date(), unit.id);
+          return {
+            ...unit,
+            price_per_night: rate ? rate.weekdayRate : unit.price_per_night,
+          };
+        })
+      );
+      setProperties(enriched);
+    }
   };
 
   return (
