@@ -1,24 +1,30 @@
 
 
-## Add Progress Bar During Channex Sync
+## Fix: Prices Page Shows All Rate Plans on Refresh
 
-### Changes in `src/pages/pms/Prices.tsx`
+### Problem
+The `useEffect` on line 144-146 has an empty dependency array `[]`, so `fetchData()` only runs once on mount — before `propertyId` may be resolved from the property context. It also never re-runs when the user switches properties.
 
-**1. Add `syncProgress` state** (0-100)
-- Set to 0 initially, then simulate progress: 10% after inserting to queue, 30% → 60% → 90% during edge function invocation, 100% on completion
-- Reset to 0 after a short delay when done
+### Fix in `src/pages/pms/Prices.tsx`
 
-**2. Show a blue `Progress` bar**
-- Import the existing `Progress` component from `@/components/ui/progress`
-- Render it below the header row (between the heading and the room type cards) when `syncing` is true or progress > 0
-- Animate it smoothly with intermediate steps using `setTimeout`
+**Change line 144-146:**
+```typescript
+useEffect(() => {
+  fetchData();
+}, []);
+```
+To:
+```typescript
+useEffect(() => {
+  if (propertyId) {
+    fetchData();
+  }
+}, [propertyId]);
+```
 
-**3. Update `syncRatesToChannex`**
-- `setSyncProgress(10)` after filtering plans
-- `setSyncProgress(40)` after inserting to queue
-- `setSyncProgress(70)` after invoking the edge function
-- `setSyncProgress(100)` on success
-- After 1.5s delay, reset progress to 0
+This ensures:
+1. Data is not fetched until the active property is resolved (preventing "show all" on refresh)
+2. Data re-fetches when the user switches properties
 
-### Single file: `src/pages/pms/Prices.tsx`
+Single line change in one file.
 
