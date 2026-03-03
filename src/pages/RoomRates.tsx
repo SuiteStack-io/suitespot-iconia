@@ -1,4 +1,6 @@
-import React, { useEffect, useState, useMemo } from 'react';
+import { useState, useEffect, useMemo } from 'react';
+import { format, addDays, startOfWeek, startOfMonth, endOfMonth, eachDayOfInterval, isFriday, isSaturday, isThursday, addMonths, subMonths } from 'date-fns';
+import { ChevronLeft, ChevronRight, Loader2 } from 'lucide-react';
 import { supabase } from '@/integrations/supabase/client';
 import { SlideMenu } from '@/components/SlideMenu';
 import { AdminBreadcrumb } from '@/components/AdminBreadcrumb';
@@ -6,35 +8,15 @@ import { useAuth } from '@/lib/auth';
 import { usePropertyId, withPropertyFilter } from '@/hooks/usePropertyFilter';
 import { useProperty } from '@/lib/propertyContext';
 import { Button } from '@/components/ui/button';
-import { Input } from '@/components/ui/input';
-import { Label } from '@/components/ui/label';
-import { Card, CardContent, CardHeader } from '@/components/ui/card';
-import { Badge } from '@/components/ui/badge';
-import { Loader2, Save, ChevronDown, ChevronRight } from 'lucide-react';
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
+import { ScrollArea, ScrollBar } from '@/components/ui/scroll-area';
+import { useIsMobile } from '@/hooks/use-mobile';
 import { toast } from 'sonner';
-import {
-  Collapsible,
-  CollapsibleContent,
-  CollapsibleTrigger,
-} from '@/components/ui/collapsible';
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from '@/components/ui/select';
 
 interface RatePlan {
   id: string;
   name: string;
-  is_default: boolean;
-  is_active: boolean;
   room_type: string | null;
-  currency: string;
-  sell_mode: string;
-  extra_adult_rate: number;
-  extra_child_rate: number;
 }
 
 interface RatePlanPrice {
@@ -44,168 +26,150 @@ interface RatePlanPrice {
   weekday_rate: number;
   weekend_rate: number;
   min_stay: number;
-  base_occupancy: number;
-  max_occupancy: number | null;
   unit_id: string | null;
 }
 
-interface EditedPrice {
-  weekday_rate: number;
-  weekend_rate: number;
-  min_stay: number;
-  base_occupancy: number;
-  max_occupancy: number | null;
-}
+// Thu/Fri/Sat use weekend_rate pricing
+const isWeekendRate = (date: Date) => isThursday(date) || isFriday(date) || isSaturday(date);
+// Thursday & Friday get visual weekend highlight
+const isWeekendHighlight = (date: Date) => {
+  const day = date.getDay();
+  return day === 4 || day === 5;
+};
 
-interface EditedPlan {
-  name: string;
-  sell_mode: string;
-}
+const getCellColor = (currentRate: number, baseRate: number, isWeekend: boolean): string => {
+  if (baseRate === 0) return isWeekend ? 'hsl(0 70% 97%)' : '';
+  const pct = ((currentRate - baseRate) / baseRate) * 100;
+  if (Math.abs(pct) < 1) return isWeekend ? 'hsl(0 70% 97%)' : '';
+  if (pct > 25) return '#A5D6A7';
+  if (pct > 10) return '#C8E6C9';
+  if (pct > 0) return '#E8F5E9';
+  if (pct < -25) return '#FFCC80';
+  if (pct < -10) return '#FFE0B2';
+  if (pct < 0) return '#FFF3E0';
+  return '';
+};
+
+const getVarianceArrow = (currentRate: number, baseRate: number): string => {
+  if (baseRate === 0) return '';
+  const pct = ((currentRate - baseRate) / baseRate) * 100;
+  if (pct > 1) return '▲';
+  if (pct < -1) return '▼';
+  return '';
+};
+
+const formatCurrency = (v: number) => `$${v.toLocaleString()}`;
 
 const RoomRates = () => {
   const { userRole } = useAuth();
   const propertyId = usePropertyId();
   const { activeProperty } = useProperty();
+  const isMobile = useIsMobile();
   const [loading, setLoading] = useState(true);
-  const [saving, setSaving] = useState(false);
   const [ratePlans, setRatePlans] = useState<RatePlan[]>([]);
   const [prices, setPrices] = useState<Record<string, RatePlanPrice>>({});
-  const [editedPrices, setEditedPrices] = useState<Record<string, EditedPrice>>({});
-  const [editedPlans, setEditedPlans] = useState<Record<string, EditedPlan>>({});
-  const [hasChanges, setHasChanges] = useState(false);
-  const [expandedRoomTypes, setExpandedRoomTypes] = useState<Set<string>>(new Set());
+  const [weekStart, setWeekStart] = useState(() => startOfWeek(new Date(), { weekStartsOn: 0 }));
+  const [filterRoomType, setFilterRoomType] = useState<string>('all');
+  const [filterRatePlan, setFilterRatePlan] = useState<string>('all');
+  const [viewMode, setViewMode] = useState<'14days' | 'month'>('14days');
+
+  const days = useMemo(() => {
+    if (viewMode === 'month') {
+      const start = startOfMonth(weekStart);
+      const end = endOfMonth(weekStart);
+      return eachDayOfInterval({ start, end });
+    }
+    const numDays = isMobile ? 3 : 14;
+    return Array.from({ length: numDays }, (_, i) => addDays(weekStart, i));
+  }, [weekStart, isMobile, viewMode]);
 
   useEffect(() => {
     fetchData();
   }, [propertyId]);
 
   const fetchData = async () => {
+    setLoading(true);
     try {
-      const { data: plans, error: plansError } = await withPropertyFilter(
-        supabase
-          .from('rate_plans')
-          .select('id, name, is_default, is_active, room_type, currency, sell_mode, extra_adult_rate, extra_child_rate')
-          .eq('is_active', true)
-          .order('room_type')
-          .order('name'),
-        propertyId
-      );
+      const [plansRes, pricesRes] = await Promise.all([
+        withPropertyFilter(
+          supabase.from('rate_plans').select('id, name, room_type').eq('is_active', true).order('room_type').order('name'),
+          propertyId
+        ),
+        supabase.from('rate_plan_prices').select('*').is('unit_id', null),
+      ]);
+      if (plansRes.error) throw plansRes.error;
+      if (pricesRes.error) throw pricesRes.error;
 
-      if (plansError) throw plansError;
+      setRatePlans((plansRes.data || []).filter(p => p.room_type));
 
-      // Fetch type-level prices for all plans
-      const planIds = (plans || []).map(p => p.id);
-      const { data: allPrices, error: pricesError } = await supabase
-        .from('rate_plan_prices')
-        .select('*')
-        .in('rate_plan_id', planIds)
-        .is('unit_id', null);
-
-      if (pricesError) throw pricesError;
-
-      setRatePlans(plans || []);
-
-      // Map prices by plan ID
       const priceMap: Record<string, RatePlanPrice> = {};
-      const editMap: Record<string, EditedPrice> = {};
-      const planEditMap: Record<string, EditedPlan> = {};
-      
-      (allPrices || []).forEach(p => {
+      (pricesRes.data || []).forEach(p => {
         priceMap[p.rate_plan_id] = p;
-        editMap[p.rate_plan_id] = {
-          weekday_rate: p.weekday_rate,
-          weekend_rate: p.weekend_rate,
-          min_stay: p.min_stay,
-          base_occupancy: p.base_occupancy ?? 2,
-          max_occupancy: p.max_occupancy,
-        };
       });
-
-      (plans || []).forEach(p => {
-        planEditMap[p.id] = { name: p.name, sell_mode: p.sell_mode };
-      });
-
       setPrices(priceMap);
-      setEditedPrices(editMap);
-      setEditedPlans(planEditMap);
-      setHasChanges(false);
-
-      // Expand all by default
-      const roomTypes = new Set((plans || []).map(p => p.room_type).filter(Boolean) as string[]);
-      setExpandedRoomTypes(roomTypes);
-    } catch (error) {
-      console.error('Error fetching data:', error);
-      toast.error('Failed to load rate plans');
+    } catch (err) {
+      console.error('Error fetching rate data:', err);
+      toast.error('Failed to load rate data');
     } finally {
       setLoading(false);
     }
   };
 
-  // Group plans by room type
-  const roomTypeGroups = useMemo(() => {
-    const groups: Record<string, RatePlan[]> = {};
-    ratePlans.forEach(plan => {
-      const rt = plan.room_type || 'Unassigned';
-      if (!groups[rt]) groups[rt] = [];
-      groups[rt].push(plan);
-    });
-    return groups;
+  const roomTypes = useMemo(() => {
+    const set = new Set(ratePlans.map(p => p.room_type).filter(Boolean) as string[]);
+    return Array.from(set).sort();
   }, [ratePlans]);
 
-  const handlePriceChange = (planId: string, field: keyof EditedPrice, value: number | null) => {
-    setEditedPrices(prev => ({
-      ...prev,
-      [planId]: { ...prev[planId], [field]: value },
+  const filteredPlans = useMemo(() => {
+    return ratePlans.filter(p => {
+      if (filterRoomType !== 'all' && p.room_type !== filterRoomType) return false;
+      if (filterRatePlan !== 'all' && p.id !== filterRatePlan) return false;
+      return true;
+    });
+  }, [ratePlans, filterRoomType, filterRatePlan]);
+
+  const rows = useMemo(() => {
+    return filteredPlans.map(plan => ({
+      plan,
+      price: prices[plan.id] || null,
     }));
-    setHasChanges(true);
+  }, [filteredPlans, prices]);
+
+  const getRate = (price: RatePlanPrice | null, date: Date): number => {
+    if (!price) return 0;
+    return isWeekendRate(date) ? price.weekend_rate : price.weekday_rate;
   };
 
-  const handlePlanChange = (planId: string, field: keyof EditedPlan, value: string) => {
-    setEditedPlans(prev => ({
-      ...prev,
-      [planId]: { ...prev[planId], [field]: value },
-    }));
-    setHasChanges(true);
+  const getBaseRate = (planId: string): number => {
+    const price = prices[planId];
+    return price ? price.weekday_rate : 0;
   };
 
-  const handleSave = async () => {
-    setSaving(true);
-    try {
-      for (const [planId, edited] of Object.entries(editedPlans)) {
-        await supabase.from('rate_plans').update({ name: edited.name, sell_mode: edited.sell_mode }).eq('id', planId);
-      }
-
-      for (const [planId, edited] of Object.entries(editedPrices)) {
-        const price = prices[planId];
-        if (!price) continue;
-        await supabase.from('rate_plan_prices').update({
-          weekday_rate: edited.weekday_rate,
-          weekend_rate: edited.weekend_rate,
-          min_stay: edited.min_stay,
-          base_occupancy: edited.base_occupancy,
-          max_occupancy: edited.max_occupancy,
-        }).eq('id', price.id);
-      }
-
-      toast.success('All changes saved');
-      
-      setHasChanges(false);
-      await fetchData();
-    } catch (error) {
-      console.error('Error saving:', error);
-      toast.error('Failed to save changes');
-    } finally {
-      setSaving(false);
+  const handlePrev = () => {
+    if (viewMode === 'month') {
+      setWeekStart(prev => subMonths(prev, 1));
+    } else {
+      setWeekStart(prev => addDays(prev, isMobile ? -3 : -14));
     }
   };
 
-  const toggleRoomType = (rt: string) => {
-    setExpandedRoomTypes(prev => {
-      const next = new Set(prev);
-      if (next.has(rt)) next.delete(rt); else next.add(rt);
-      return next;
-    });
+  const handleNext = () => {
+    if (viewMode === 'month') {
+      setWeekStart(prev => addMonths(prev, 1));
+    } else {
+      setWeekStart(prev => addDays(prev, isMobile ? 3 : 14));
+    }
   };
+
+  const handleToday = () => {
+    if (viewMode === 'month') {
+      setWeekStart(startOfMonth(new Date()));
+    } else {
+      setWeekStart(startOfWeek(new Date(), { weekStartsOn: 0 }));
+    }
+  };
+
+  const cellMinWidth = viewMode === 'month' ? 'min-w-[70px]' : 'min-w-[90px]';
 
   if (loading) {
     return (
@@ -223,99 +187,151 @@ const RoomRates = () => {
             <SlideMenu userRole={userRole} />
             <h1 className="text-xl font-semibold text-foreground">Room Rates</h1>
           </div>
-          <Button onClick={handleSave} disabled={!hasChanges || saving} className="gap-2">
-            {saving ? <Loader2 className="h-4 w-4 animate-spin" /> : <Save className="h-4 w-4" />}
-            Save Changes
-          </Button>
         </div>
         <div className="px-4 pb-3">
           <AdminBreadcrumb section={activeProperty?.name || 'Property'} currentPage="Room Rates" />
         </div>
       </header>
 
-      <main className="p-4 md:p-6 max-w-6xl mx-auto">
-        {ratePlans.length === 0 ? (
-          <div className="bg-card rounded-lg border shadow-sm p-8 text-center">
-            <p className="text-muted-foreground">No rate plans found. Create one in PMS → Prices.</p>
+      <main className="p-4 md:p-6 max-w-full mx-auto space-y-4">
+        {/* Filters */}
+        <div className="flex flex-wrap items-center gap-3">
+          <Select value={filterRoomType} onValueChange={setFilterRoomType}>
+            <SelectTrigger className="w-[180px]">
+              <SelectValue placeholder="Room Type" />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value="all">All Room Types</SelectItem>
+              {roomTypes.map(rt => (
+                <SelectItem key={rt} value={rt}>{rt}</SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
+
+          <Select value={filterRatePlan} onValueChange={setFilterRatePlan}>
+            <SelectTrigger className="w-[180px]">
+              <SelectValue placeholder="Rate Plan" />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value="all">All Rate Plans</SelectItem>
+              {ratePlans.map(rp => (
+                <SelectItem key={rp.id} value={rp.id}>{rp.room_type} / {rp.name}</SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
+        </div>
+
+        {/* Date nav + View toggle */}
+        <div className="flex items-center gap-2 flex-wrap">
+          <Button variant="ghost" size="icon" onClick={handlePrev}>
+            <ChevronLeft className="h-4 w-4" />
+          </Button>
+          <span className="text-sm font-medium">
+            {viewMode === 'month'
+              ? format(startOfMonth(weekStart), 'MMMM yyyy')
+              : `${format(days[0], 'MMM d')} – ${format(days[days.length - 1], 'MMM d, yyyy')}`
+            }
+          </span>
+          <Button variant="ghost" size="icon" onClick={handleNext}>
+            <ChevronRight className="h-4 w-4" />
+          </Button>
+          <Button variant="ghost" size="sm" className="text-xs" onClick={handleToday}>
+            {viewMode === 'month' ? 'This Month' : 'Today'}
+          </Button>
+
+          <div className="ml-auto flex items-center gap-1 border rounded-md p-0.5">
+            <Button
+              variant={viewMode === '14days' ? 'default' : 'ghost'}
+              size="sm"
+              className="text-xs h-7 px-3"
+              onClick={() => setViewMode('14days')}
+            >
+              14 Days
+            </Button>
+            <Button
+              variant={viewMode === 'month' ? 'default' : 'ghost'}
+              size="sm"
+              className="text-xs h-7 px-3"
+              onClick={() => {
+                setViewMode('month');
+                setWeekStart(startOfMonth(weekStart));
+              }}
+            >
+              Month
+            </Button>
           </div>
+        </div>
+
+        {/* Legend */}
+        <div className="flex items-center gap-4 text-[11px] text-muted-foreground">
+          <div className="flex items-center gap-1.5">
+            <span className="inline-block w-3 h-3 rounded-sm" style={{ backgroundColor: '#C8E6C9' }} />
+            <span>Above base rate</span>
+          </div>
+          <div className="flex items-center gap-1.5">
+            <span className="inline-block w-3 h-3 rounded-sm" style={{ backgroundColor: '#FFE0B2' }} />
+            <span>Below base rate</span>
+          </div>
+          <div className="flex items-center gap-1.5">
+            <span className="inline-block w-3 h-3 rounded-sm" style={{ backgroundColor: 'hsl(0 70% 97%)' }} />
+            <span>Weekend (Thu–Fri)</span>
+          </div>
+        </div>
+
+        {/* Grid */}
+        {rows.length === 0 ? (
+          <p className="text-center text-muted-foreground py-8">No rate plans found.</p>
         ) : (
-          <div className="space-y-4">
-            {Object.entries(roomTypeGroups).sort(([a], [b]) => a.localeCompare(b)).map(([roomType, plans]) => (
-              <Card key={roomType}>
-                <Collapsible open={expandedRoomTypes.has(roomType)} onOpenChange={() => toggleRoomType(roomType)}>
-                  <CollapsibleTrigger asChild>
-                    <CardHeader className="cursor-pointer hover:bg-muted/30 transition-colors pb-3">
-                      <div className="flex items-center gap-3">
-                        {expandedRoomTypes.has(roomType) ? <ChevronDown className="h-5 w-5 text-muted-foreground" /> : <ChevronRight className="h-5 w-5 text-muted-foreground" />}
-                        <h3 className="font-semibold text-lg">{roomType}</h3>
-                        <Badge variant="secondary">{plans.length} plan{plans.length !== 1 ? 's' : ''}</Badge>
-                      </div>
-                    </CardHeader>
-                  </CollapsibleTrigger>
-                  <CollapsibleContent>
-                    <CardContent className="pt-0 space-y-4">
-                      {plans.map(plan => {
-                        const edited = editedPrices[plan.id];
-                        const editedPlan = editedPlans[plan.id];
-                        if (!edited || !editedPlan) return null;
+          <ScrollArea className="w-full">
+            <table className="w-full border-collapse text-sm">
+              <thead>
+                <tr>
+                  <th className="text-left p-2 border-b bg-muted/50 sticky left-0 z-10 min-w-[160px]" style={{ boxShadow: '2px 0 4px rgba(0,0,0,0.1)' }}>Room / Plan</th>
+                  {days.map(d => (
+                    <th key={d.toISOString()} className={`text-center p-2 border-b ${cellMinWidth} ${isWeekendHighlight(d) ? 'bg-accent/30' : 'bg-muted/50'}`}>
+                      <div className="font-medium">{format(d, viewMode === 'month' ? 'd' : 'MMM d')}</div>
+                      <div className="text-[10px] text-muted-foreground font-normal">{format(d, 'EEE')}</div>
+                    </th>
+                  ))}
+                </tr>
+              </thead>
+              <tbody>
+                {rows.map(({ plan, price }) => {
+                  const baseRate = getBaseRate(plan.id);
+                  return (
+                    <tr key={plan.id} className="border-b hover:bg-muted/10">
+                      <td className="p-2 sticky left-0 bg-background z-10 border-r" style={{ boxShadow: '2px 0 4px rgba(0,0,0,0.1)' }}>
+                        <div className="font-medium text-xs leading-tight">{plan.room_type}</div>
+                        <div className="text-[10px] text-muted-foreground">{plan.name}</div>
+                      </td>
+                      {days.map(d => {
+                        const rate = getRate(price, d);
+                        const weekend = isWeekendHighlight(d);
+                        const varianceColor = rate > 0 ? getCellColor(rate, baseRate, weekend) : '';
+                        const arrow = rate > 0 ? getVarianceArrow(rate, baseRate) : '';
 
                         return (
-                          <div key={plan.id} className="border rounded-lg p-4 space-y-3">
-                            <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
-                              <div className="space-y-1">
-                                <Label className="text-xs text-muted-foreground">Plan Name</Label>
-                                <Input value={editedPlan.name} onChange={(e) => handlePlanChange(plan.id, 'name', e.target.value)} />
-                              </div>
-                              <div className="space-y-1">
-                                <Label className="text-xs text-muted-foreground">Sell Mode</Label>
-                                <Select value={editedPlan.sell_mode} onValueChange={(v) => handlePlanChange(plan.id, 'sell_mode', v)}>
-                                  <SelectTrigger><SelectValue /></SelectTrigger>
-                                  <SelectContent>
-                                    <SelectItem value="per_room">Per Room</SelectItem>
-                                    <SelectItem value="per_person">Per Person</SelectItem>
-                                  </SelectContent>
-                                </Select>
-                              </div>
-                              <div className="space-y-1">
-                                <Label className="text-xs text-muted-foreground">Currency</Label>
-                                <Input value="USD" disabled className="bg-muted" />
-                              </div>
+                          <td
+                            key={d.toISOString()}
+                            className={`text-center p-0.5 ${cellMinWidth}`}
+                            style={varianceColor ? { backgroundColor: varianceColor } : undefined}
+                          >
+                            <div className="h-8 flex items-center justify-center text-sm font-mono">
+                              <span>
+                                {rate > 0 ? formatCurrency(rate) : '—'}
+                                {arrow && <span className={`ml-0.5 text-[10px] ${arrow === '▲' ? 'text-green-600' : 'text-orange-600'}`}>{arrow}</span>}
+                              </span>
                             </div>
-                            <div className="grid grid-cols-2 md:grid-cols-5 gap-3">
-                              <div className="space-y-1">
-                                <Label className="text-xs text-muted-foreground">Weekday Rate</Label>
-                                <Input type="number" value={edited.weekday_rate} onChange={(e) => handlePriceChange(plan.id, 'weekday_rate', parseFloat(e.target.value) || 0)} min={0} />
-                              </div>
-                              <div className="space-y-1">
-                                <Label className="text-xs text-muted-foreground">Weekend Rate</Label>
-                                <Input type="number" value={edited.weekend_rate} onChange={(e) => handlePriceChange(plan.id, 'weekend_rate', parseFloat(e.target.value) || 0)} min={0} />
-                              </div>
-                              <div className="space-y-1">
-                                <Label className="text-xs text-muted-foreground">Min Stay</Label>
-                                <Input type="number" value={edited.min_stay} onChange={(e) => handlePriceChange(plan.id, 'min_stay', parseInt(e.target.value) || 1)} min={1} />
-                              </div>
-                              <div className="space-y-1">
-                                <Label className="text-xs text-muted-foreground">Base Occ</Label>
-                                <Input type="number" value={edited.base_occupancy} onChange={(e) => handlePriceChange(plan.id, 'base_occupancy', parseInt(e.target.value) || 1)} min={1} />
-                              </div>
-                              <div className="space-y-1">
-                                <Label className="text-xs text-muted-foreground">Max Occ</Label>
-                                <Input type="number" value={edited.max_occupancy ?? ''} onChange={(e) => handlePriceChange(plan.id, 'max_occupancy', e.target.value ? parseInt(e.target.value) : null)} min={1} placeholder="—" />
-                              </div>
-                            </div>
-                            <div className="flex items-center gap-4 text-xs text-muted-foreground">
-                              <span>Extra Adult: ${plan.extra_adult_rate}</span>
-                              <span>Extra Child: ${plan.extra_child_rate}</span>
-                            </div>
-                          </div>
+                          </td>
                         );
                       })}
-                    </CardContent>
-                  </CollapsibleContent>
-                </Collapsible>
-              </Card>
-            ))}
-          </div>
+                    </tr>
+                  );
+                })}
+              </tbody>
+            </table>
+            <ScrollBar orientation="horizontal" />
+          </ScrollArea>
         )}
       </main>
     </div>
