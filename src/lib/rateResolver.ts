@@ -59,7 +59,6 @@ export const getActiveRate = async (
     // Find matching rate plan for the date
     let matchingPlan: RatePlan | null = null;
     
-    // First, look for date-specific plans
     for (const plan of ratePlans) {
       if (plan.is_default) continue;
       const validFrom = plan.valid_from;
@@ -70,12 +69,19 @@ export const getActiveRate = async (
       }
     }
 
-    // If no date-specific plan found, use default plan
     if (!matchingPlan) {
       matchingPlan = ratePlans.find(p => p.is_default) || ratePlans[0] || null;
     }
 
     if (!matchingPlan) return null;
+
+    // Check for a date-specific override first
+    const { data: dateOverride } = await supabase
+      .from('rate_plan_date_overrides')
+      .select('rate')
+      .eq('rate_plan_id', matchingPlan.id)
+      .eq('override_date', dateStr)
+      .maybeSingle();
 
     // Try unit-specific price first
     if (unitId) {
@@ -90,9 +96,14 @@ export const getActiveRate = async (
       if (unitPriceError) throw unitPriceError;
       
       if (unitPrice) {
+        const baseWeekday = Number(unitPrice.weekday_rate);
+        const baseWeekend = Number(unitPrice.weekend_rate);
+        const day = checkInDate.getDay();
+        const isWeekend = day === 4 || day === 5 || day === 6; // Thu/Fri/Sat
+        const effectiveRate = dateOverride ? Number(dateOverride.rate) : (isWeekend ? baseWeekend : baseWeekday);
         return {
-          weekdayRate: Number(unitPrice.weekday_rate),
-          weekendRate: Number(unitPrice.weekend_rate),
+          weekdayRate: dateOverride ? Number(dateOverride.rate) : baseWeekday,
+          weekendRate: dateOverride ? Number(dateOverride.rate) : baseWeekend,
           minStay: unitPrice.min_stay,
           ratePlanName: matchingPlan.name,
           ratePlanId: matchingPlan.id,
@@ -112,9 +123,12 @@ export const getActiveRate = async (
     if (typePriceError) throw typePriceError;
     if (!typePrice) return null;
 
+    const baseWeekday = Number(typePrice.weekday_rate);
+    const baseWeekend = Number(typePrice.weekend_rate);
+
     return {
-      weekdayRate: Number(typePrice.weekday_rate),
-      weekendRate: Number(typePrice.weekend_rate),
+      weekdayRate: dateOverride ? Number(dateOverride.rate) : baseWeekday,
+      weekendRate: dateOverride ? Number(dateOverride.rate) : baseWeekend,
       minStay: typePrice.min_stay,
       ratePlanName: matchingPlan.name,
       ratePlanId: matchingPlan.id,

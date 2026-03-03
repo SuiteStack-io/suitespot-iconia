@@ -103,6 +103,7 @@ export const QuickRateGrid = ({ onSyncQueueCount }: QuickRateGridProps) => {
   const [loading, setLoading] = useState(true);
   const [ratePlans, setRatePlans] = useState<RatePlan[]>([]);
   const [prices, setPrices] = useState<Record<string, RatePlanPrice>>({});
+  const [dateOverrides, setDateOverrides] = useState<Record<string, number>>({});
   const [weekStart, setWeekStart] = useState(() => startOfWeek(new Date(), { weekStartsOn: 0 }));
   const [pendingChanges, setPendingChanges] = useState<Map<string, PendingChange>>(new Map());
   const [activeCell, setActiveCell] = useState<string | null>(null);
@@ -139,6 +140,42 @@ export const QuickRateGrid = ({ onSyncQueueCount }: QuickRateGridProps) => {
     fetchData();
   }, [propertyId]);
 
+  // Re-fetch date overrides when visible date range changes
+  useEffect(() => {
+    if (ratePlans.length > 0) {
+      fetchDateOverrides();
+    }
+  }, [weekStart, viewMode, ratePlans]);
+
+  const fetchDateOverrides = async () => {
+    try {
+      const visibleDays = viewMode === 'month'
+        ? eachDayOfInterval({ start: startOfMonth(weekStart), end: endOfMonth(weekStart) })
+        : Array.from({ length: isMobile ? 3 : 14 }, (_, i) => addDays(weekStart, i));
+      const startDate = format(visibleDays[0], 'yyyy-MM-dd');
+      const endDate = format(visibleDays[visibleDays.length - 1], 'yyyy-MM-dd');
+      const planIds = ratePlans.map(p => p.id);
+      if (planIds.length === 0) return;
+
+      const { data, error } = await supabase
+        .from('rate_plan_date_overrides')
+        .select('rate_plan_id, override_date, rate')
+        .in('rate_plan_id', planIds)
+        .gte('override_date', startDate)
+        .lte('override_date', endDate);
+
+      if (error) throw error;
+
+      const overrideMap: Record<string, number> = {};
+      (data || []).forEach(row => {
+        overrideMap[`${row.rate_plan_id}:${row.override_date}`] = Number(row.rate);
+      });
+      setDateOverrides(overrideMap);
+    } catch (err) {
+      console.error('Error fetching date overrides:', err);
+    }
+  };
+
   const fetchData = async () => {
     setLoading(true);
     try {
@@ -152,7 +189,8 @@ export const QuickRateGrid = ({ onSyncQueueCount }: QuickRateGridProps) => {
       if (plansRes.error) throw plansRes.error;
       if (pricesRes.error) throw pricesRes.error;
 
-      setRatePlans((plansRes.data || []).filter(p => p.room_type));
+      const plans = (plansRes.data || []).filter(p => p.room_type);
+      setRatePlans(plans);
 
       const priceMap: Record<string, RatePlanPrice> = {};
       (pricesRes.data || []).forEach(p => {
@@ -194,6 +232,9 @@ export const QuickRateGrid = ({ onSyncQueueCount }: QuickRateGridProps) => {
     const key = getCellKey(planId, dateStr);
     const pending = pendingChanges.get(key);
     if (pending) return pending.newRate;
+    // Check date-specific override before base rate
+    const override = dateOverrides[key];
+    if (override !== undefined) return override;
     if (!price) return 0;
     return isWeekendRate(date) ? price.weekend_rate : price.weekday_rate;
   };
@@ -323,7 +364,9 @@ export const QuickRateGrid = ({ onSyncQueueCount }: QuickRateGridProps) => {
 
     const date = new Date(dateStr + 'T00:00:00');
     const weekend = isWeekendRate(date);
-    const oldRate = price ? (weekend ? price.weekend_rate : price.weekday_rate) : 0;
+    const overrideKey = getCellKey(planId, dateStr);
+    const override = dateOverrides[overrideKey];
+    const oldRate = override !== undefined ? override : (price ? (weekend ? price.weekend_rate : price.weekday_rate) : 0);
     const colIdx = days.findIndex(d => format(d, 'yyyy-MM-dd') === dateStr);
 
     if (newRate === oldRate) {
@@ -472,43 +515,28 @@ export const QuickRateGrid = ({ onSyncQueueCount }: QuickRateGridProps) => {
 
       setSyncProgress(60);
 
-      // Step 1: Persist rate changes to rate_plan_prices table
-      const dbUpdates = new Map<string, { weekday_rate?: number; weekend_rate?: number; priceId: string }>();
-      pendingChanges.forEach(change => {
-        const existing = prices[change.ratePlanId];
-        if (!existing?.id) return;
-        const current = dbUpdates.get(change.ratePlanId) || { priceId: existing.id };
-        if (change.isWeekend) {
-          current.weekend_rate = change.newRate;
-        } else {
-          current.weekday_rate = change.newRate;
-        }
-        dbUpdates.set(change.ratePlanId, current);
-      });
+      // Step 1: Persist rate changes to rate_plan_date_overrides table (not base rates)
+      const overrideRows = Array.from(pendingChanges.values()).map(change => ({
+        rate_plan_id: change.ratePlanId,
+        override_date: change.date,
+        rate: change.newRate,
+        updated_at: new Date().toISOString(),
+      }));
 
-      for (const [, update] of dbUpdates) {
-        const payload: Record<string, number> = {};
-        if (update.weekday_rate !== undefined) payload.weekday_rate = update.weekday_rate;
-        if (update.weekend_rate !== undefined) payload.weekend_rate = update.weekend_rate;
-        if (Object.keys(payload).length > 0) {
-          await supabase.from('rate_plan_prices').update(payload).eq('id', update.priceId);
-        }
+      if (overrideRows.length > 0) {
+        const { error: upsertError } = await supabase
+          .from('rate_plan_date_overrides')
+          .upsert(overrideRows, { onConflict: 'rate_plan_id,override_date' });
+        if (upsertError) throw upsertError;
       }
 
       setSyncProgress(70);
 
-      // Step 2: Update local prices state so grid keeps showing new values
-      setPrices(prev => {
+      // Step 2: Update local dateOverrides state so grid keeps showing new values
+      setDateOverrides(prev => {
         const updated = { ...prev };
         pendingChanges.forEach(change => {
-          const existing = updated[change.ratePlanId];
-          if (!existing) return;
-          updated[change.ratePlanId] = {
-            ...existing,
-            ...(change.isWeekend
-              ? { weekend_rate: change.newRate }
-              : { weekday_rate: change.newRate }),
-          };
+          updated[`${change.ratePlanId}:${change.date}`] = change.newRate;
         });
         return updated;
       });
