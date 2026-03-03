@@ -30,7 +30,7 @@ serve(async (req: Request) => {
 
   try {
     // ── 0. Wait for concurrent trigger-fired items to accumulate ──
-    await new Promise(r => setTimeout(r, 3000));
+    await new Promise(r => setTimeout(r, 30000));
 
     // ── 1. Claim pending rows ──────────────────────────────────
     const { data: pending, error: fetchErr } = await supabase

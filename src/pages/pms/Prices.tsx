@@ -7,12 +7,14 @@ import { useAuth } from '@/lib/auth';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { Card, CardContent, CardHeader } from '@/components/ui/card';
+import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { supabase } from '@/integrations/supabase/client';
 import { toast } from 'sonner';
 import { usePropertyId, withPropertyFilter } from '@/hooks/usePropertyFilter';
 import { RatePlanDialog } from '@/components/pms/RatePlanDialog';
 import { BulkRatePlanDialog } from '@/components/pms/BulkRatePlanDialog';
 import { getCancellationPolicyLabel } from '@/components/pms/CancellationPolicyDialog';
+import { QuickRateGrid } from '@/components/pms/QuickRateGrid';
 import {
   AlertDialog,
   AlertDialogAction,
@@ -312,6 +314,17 @@ const PMSPrices = () => {
       </header>
 
       <div className="p-4 md:p-6 max-w-5xl mx-auto">
+        <Tabs defaultValue="quick-editor">
+          <TabsList className="mb-4">
+            <TabsTrigger value="quick-editor">Quick Editor</TabsTrigger>
+            <TabsTrigger value="rate-plans">Rate Plans</TabsTrigger>
+          </TabsList>
+
+          <TabsContent value="quick-editor">
+            <QuickRateGrid />
+          </TabsContent>
+
+          <TabsContent value="rate-plans">
         {Object.keys(roomTypeGroups).length === 0 ? (
           <div className="flex flex-col items-center justify-center text-center py-16">
             <div className="rounded-full bg-muted p-6 mb-4">
@@ -454,6 +467,8 @@ const PMSPrices = () => {
             ))}
           </div>
         )}
+          </TabsContent>
+        </Tabs>
       </div>
 
       <RatePlanDialog
