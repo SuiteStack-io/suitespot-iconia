@@ -1,31 +1,39 @@
 
 
-## Add Date Range to Bulk Edit & Remove Auto-Sync
+## Fix Stale Rates Display & Add Channex Sync Button to Rate Plans Tab
 
-### Changes in `src/components/pms/QuickRateGrid.tsx`
+### Issue: Wrong rates displayed ($444/$490)
+The database values are **correct** ($120 weekday / $135 weekend for all 4 plans). The screenshot shows stale cached data. This will resolve on page refresh. No code bug here.
 
-**1. Add date range state to Bulk Edit dialog**
-- Add `bulkDateFrom` and `bulkDateTo` state (Date | undefined)
-- Replace the current "all visible dates" behavior: instead of iterating over `days` (visible week), iterate over every date in the selected range
-- Add two date pickers (From / To) to the Bulk Edit dialog, similar to the ones in RatePlanDialog
-- Update the summary text to reflect the date range count
+### Feature: "Save Changes" button on Rate Plans tab
 
-**2. Update `applyBulkEdit()` logic**
-- Generate dates from `bulkDateFrom` to `bulkDateTo` using `addDays` loop
-- For each date in range, create pending changes as before
-- Require both dates to be set before allowing apply
+The Rate Plans tab currently has no Channex sync. When base rates are edited, they're saved to the database but never pushed to Channex. The user wants a single button that pushes all rate plans' base rates to Channex in one batch call.
 
-**3. Remove auto-sync countdown**
-- Remove `SYNC_DELAY`, `countdown` state, `countdownRef`, `startCountdown()` function
-- Remove the `useEffect` that auto-syncs when countdown reaches 0
-- Remove countdown badges/text from toolbar and pending panel
-- Remove `Ctrl+S` handler
-- Keep the manual "Sync Now" button and "Clear All" in the pending panel
-- Remove `startCountdown()` calls from `commitCell`, drag-to-fill, bulk edit, and shift+click
+### Changes in `src/pages/pms/Prices.tsx`
 
-**4. Replace "Sync Now" with "Save Changes"**
-- Rename the button label from "Sync Now" to "Save Changes"
-- Keep `syncNow()` as the handler (no preview modal per declined plan — just direct save on click)
+**1. Add "Save Changes" button**
+- Black button at the top of the Rate Plans tab content area (next to the heading)
+- On click, gather all rate plans with their base prices (where `unit_id` is null)
+- Call the existing `channex-push-rates` edge function with a batch `updates` array containing all rate plans
+- Each update uses the rate plan's `valid_from`/`valid_to` dates (or a default 500-day range if not set)
+- Show loading state while syncing, then success/error toast
 
-### Single file change: `src/components/pms/QuickRateGrid.tsx`
+**2. Batch payload structure**
+- The `channex-push-rates` function already supports a `updates` array
+- Each entry: `{ property_id, rate_plan_id, date_from, date_to, rate (weekday), min_stay_arrival }`
+- Weekend rates need separate entries or the edge function needs adjustment — checking the Channex API, rates are pushed per-day so the sync queue approach is actually better
+
+**3. Alternative: Use the sync queue**
+- Instead of calling `channex-push-rates` directly, insert entries into `channex_sync_queue` for each rate plan (type: `rate`, with the rate plan's date range)
+- The existing `channex-process-sync-queue` function handles weekday/weekend rate differentiation and 30-day chunking
+- This is more reliable and consistent with the existing architecture
+
+### Implementation
+- Add a `syncRatesToChannex` function that:
+  1. For each active rate plan with a base price, inserts a `channex_sync_queue` entry with `sync_type = 'rate'`, the plan's property_id, rate_plan_id, and date range
+  2. Shows progress via toast
+- Add a black "Save Changes" `<Button>` with `className="bg-black text-white hover:bg-black/90"` in the Rate Plans tab header area
+- Add `syncing` state to disable the button during operation
+
+### Single file change: `src/pages/pms/Prices.tsx`
 
