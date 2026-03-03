@@ -373,14 +373,14 @@ const PMSPrices = () => {
         </div>
       </header>
 
-      <div className="p-4 md:p-6 max-w-5xl mx-auto">
-        <Tabs defaultValue="quick-editor">
+      <div className="p-4 md:p-6">
+        <Tabs defaultValue="rate-plans">
           <TabsList className="mb-4">
-            <TabsTrigger value="quick-editor">Quick Editor</TabsTrigger>
             <TabsTrigger value="rate-plans">Rate Plans</TabsTrigger>
+            <TabsTrigger value="price-lab">Price Lab</TabsTrigger>
           </TabsList>
 
-          <TabsContent value="quick-editor">
+          <TabsContent value="price-lab">
             <QuickRateGrid />
           </TabsContent>
 

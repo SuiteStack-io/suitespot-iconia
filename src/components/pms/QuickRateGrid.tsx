@@ -1,5 +1,5 @@
 import { useState, useEffect, useRef, useCallback, useMemo } from 'react';
-import { format, addDays, startOfWeek, isFriday, isSaturday, isThursday, differenceInDays } from 'date-fns';
+import { format, addDays, startOfWeek, startOfMonth, endOfMonth, eachDayOfInterval, isFriday, isSaturday, isThursday, differenceInDays, addMonths, subMonths } from 'date-fns';
 import { ChevronLeft, ChevronRight, Send, Trash2, Pencil, GripVertical, Check, CalendarIcon, Save } from 'lucide-react';
 import { Calendar } from '@/components/ui/calendar';
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
@@ -53,12 +53,36 @@ interface PendingChange {
   isWeekend: boolean;
 }
 
-// Auto-sync removed — manual "Save Changes" only
-
 // Thu/Fri/Sat use weekend_rate pricing
 const isWeekendRate = (date: Date) => isThursday(date) || isFriday(date) || isSaturday(date);
-// Only Fri/Sat get visual weekend highlight
-const isWeekendHighlight = (date: Date) => isFriday(date) || isSaturday(date);
+// Thursday & Friday get visual weekend highlight (Egypt/Middle East convention)
+const isWeekendHighlight = (date: Date) => {
+  const day = date.getDay();
+  return day === 4 || day === 5; // Thursday & Friday
+};
+
+// Color-coded cells based on price variance from base rate
+const getCellColor = (currentRate: number, baseRate: number, isWeekend: boolean): string => {
+  if (baseRate === 0) return isWeekend ? 'hsl(0 70% 97%)' : '';
+  const pct = ((currentRate - baseRate) / baseRate) * 100;
+  if (Math.abs(pct) < 1) return isWeekend ? 'hsl(0 70% 97%)' : '';
+  if (pct > 25) return '#A5D6A7';
+  if (pct > 10) return '#C8E6C9';
+  if (pct > 0) return '#E8F5E9';
+  if (pct < -25) return '#FFCC80';
+  if (pct < -10) return '#FFE0B2';
+  if (pct < 0) return '#FFF3E0';
+  return '';
+};
+
+// Variance arrow indicator
+const getVarianceArrow = (currentRate: number, baseRate: number): string => {
+  if (baseRate === 0) return '';
+  const pct = ((currentRate - baseRate) / baseRate) * 100;
+  if (pct > 1) return '▲';
+  if (pct < -1) return '▼';
+  return '';
+};
 
 interface QuickRateGridProps {
   onSyncQueueCount?: (count: number) => void;
@@ -93,15 +117,21 @@ export const QuickRateGrid = ({ onSyncQueueCount }: QuickRateGridProps) => {
   const [bulkDateFrom, setBulkDateFrom] = useState<Date | undefined>();
   const [bulkDateTo, setBulkDateTo] = useState<Date | undefined>();
   const [lastCommittedCell, setLastCommittedCell] = useState<{ planId: string; colIdx: number; value: number } | null>(null);
+  const [viewMode, setViewMode] = useState<'14days' | 'month'>('14days');
   const inputRefs = useRef<Record<string, HTMLInputElement | null>>({});
 
   // Drag-to-fill state
   const [drag, setDrag] = useState<DragState>({ isDragging: false, planId: null, value: null, startColIdx: 0, currentColIdx: 0 });
 
   const days = useMemo(() => {
-    const numDays = isMobile ? 3 : 7;
+    if (viewMode === 'month') {
+      const start = startOfMonth(weekStart);
+      const end = endOfMonth(weekStart);
+      return eachDayOfInterval({ start, end });
+    }
+    const numDays = isMobile ? 3 : 14;
     return Array.from({ length: numDays }, (_, i) => addDays(weekStart, i));
-  }, [weekStart, isMobile]);
+  }, [weekStart, isMobile, viewMode]);
 
   useEffect(() => {
     fetchData();
@@ -166,7 +196,11 @@ export const QuickRateGrid = ({ onSyncQueueCount }: QuickRateGridProps) => {
     return isWeekendRate(date) ? price.weekend_rate : price.weekday_rate;
   };
 
-  // Auto-sync and countdown removed — manual save only
+  // Get base rate for a plan (weekday_rate from rate_plan_prices)
+  const getBaseRate = (planId: string): number => {
+    const price = prices[planId];
+    return price ? price.weekday_rate : 0;
+  };
 
   // Global mouseup for drag-to-fill
   useEffect(() => {
@@ -385,7 +419,6 @@ export const QuickRateGrid = ({ onSyncQueueCount }: QuickRateGridProps) => {
     setSyncing(true);
 
     try {
-      // Group changes by rate plan
       const byPlan = new Map<string, PendingChange[]>();
       pendingChanges.forEach(change => {
         const list = byPlan.get(change.ratePlanId) || [];
@@ -397,14 +430,8 @@ export const QuickRateGrid = ({ onSyncQueueCount }: QuickRateGridProps) => {
         const price = prices[planId];
         if (!price) continue;
 
-        // NOTE: We do NOT update rate_plan_prices here.
-        // The Quick Editor only pushes date-specific overrides to Channex.
-        // Base rates should only be changed via the Rate Plans tab (RatePlanDialog).
-
-        // Insert date-specific entries into channex_sync_queue for precise Channex pushes
         const sortedChanges = [...changes].sort((a, b) => a.date.localeCompare(b.date));
         
-        // Check if this rate plan is mapped to Channex
         const { data: mapping } = await supabase
           .from('channex_mappings')
           .select('local_id, channex_id')
@@ -414,7 +441,6 @@ export const QuickRateGrid = ({ onSyncQueueCount }: QuickRateGridProps) => {
           .maybeSingle();
 
         if (mapping) {
-          // Insert per-date sync queue entries
           for (const change of sortedChanges) {
             await supabase.from('channex_sync_queue').insert({
               sync_type: 'rate',
@@ -436,7 +462,6 @@ export const QuickRateGrid = ({ onSyncQueueCount }: QuickRateGridProps) => {
         }
       }
 
-      // Trigger sync queue processing
       try {
         await supabase.functions.invoke('channex-process-sync-queue', { body: {} });
       } catch {
@@ -476,7 +501,6 @@ export const QuickRateGrid = ({ onSyncQueueCount }: QuickRateGridProps) => {
     const newPending = new Map(pendingChanges);
     let count = 0;
 
-    // Iterate over selected date range
     let current = new Date(bulkDateFrom);
     while (current <= bulkDateTo) {
       for (const plan of targetPlans) {
@@ -533,6 +557,33 @@ export const QuickRateGrid = ({ onSyncQueueCount }: QuickRateGridProps) => {
   };
 
   const formatCurrency = (v: number) => `$${v.toLocaleString()}`;
+
+  // Navigation handlers
+  const handlePrev = () => {
+    if (viewMode === 'month') {
+      setWeekStart(prev => subMonths(prev, 1));
+    } else {
+      setWeekStart(prev => addDays(prev, isMobile ? -3 : -14));
+    }
+  };
+
+  const handleNext = () => {
+    if (viewMode === 'month') {
+      setWeekStart(prev => addMonths(prev, 1));
+    } else {
+      setWeekStart(prev => addDays(prev, isMobile ? 3 : 14));
+    }
+  };
+
+  const handleToday = () => {
+    if (viewMode === 'month') {
+      setWeekStart(startOfMonth(new Date()));
+    } else {
+      setWeekStart(startOfWeek(new Date(), { weekStartsOn: 0 }));
+    }
+  };
+
+  const cellMinWidth = viewMode === 'month' ? 'min-w-[70px]' : 'min-w-[90px]';
 
   if (loading) {
     return <div className="flex items-center justify-center py-16 text-muted-foreground">Loading rates...</div>;
@@ -592,20 +643,61 @@ export const QuickRateGrid = ({ onSyncQueueCount }: QuickRateGridProps) => {
         </div>
       </div>
 
-      {/* Date nav */}
-      <div className="flex items-center gap-2">
-        <Button variant="ghost" size="icon" onClick={() => setWeekStart(prev => addDays(prev, isMobile ? -3 : -7))}>
+      {/* Date nav + View toggle */}
+      <div className="flex items-center gap-2 flex-wrap">
+        <Button variant="ghost" size="icon" onClick={handlePrev}>
           <ChevronLeft className="h-4 w-4" />
         </Button>
         <span className="text-sm font-medium">
-          {format(days[0], 'MMM d')} – {format(days[days.length - 1], 'MMM d, yyyy')}
+          {viewMode === 'month'
+            ? format(startOfMonth(weekStart), 'MMMM yyyy')
+            : `${format(days[0], 'MMM d')} – ${format(days[days.length - 1], 'MMM d, yyyy')}`
+          }
         </span>
-        <Button variant="ghost" size="icon" onClick={() => setWeekStart(prev => addDays(prev, isMobile ? 3 : 7))}>
+        <Button variant="ghost" size="icon" onClick={handleNext}>
           <ChevronRight className="h-4 w-4" />
         </Button>
-        <Button variant="ghost" size="sm" className="text-xs" onClick={() => setWeekStart(startOfWeek(new Date(), { weekStartsOn: 0 }))}>
-          Today
+        <Button variant="ghost" size="sm" className="text-xs" onClick={handleToday}>
+          {viewMode === 'month' ? 'This Month' : 'Today'}
         </Button>
+
+        <div className="ml-auto flex items-center gap-1 border rounded-md p-0.5">
+          <Button
+            variant={viewMode === '14days' ? 'default' : 'ghost'}
+            size="sm"
+            className="text-xs h-7 px-3"
+            onClick={() => setViewMode('14days')}
+          >
+            14 Days
+          </Button>
+          <Button
+            variant={viewMode === 'month' ? 'default' : 'ghost'}
+            size="sm"
+            className="text-xs h-7 px-3"
+            onClick={() => {
+              setViewMode('month');
+              setWeekStart(startOfMonth(weekStart));
+            }}
+          >
+            Month
+          </Button>
+        </div>
+      </div>
+
+      {/* Price variance legend */}
+      <div className="flex items-center gap-4 text-[11px] text-muted-foreground">
+        <div className="flex items-center gap-1.5">
+          <span className="inline-block w-3 h-3 rounded-sm" style={{ backgroundColor: '#C8E6C9' }} />
+          <span>Above base rate</span>
+        </div>
+        <div className="flex items-center gap-1.5">
+          <span className="inline-block w-3 h-3 rounded-sm" style={{ backgroundColor: '#FFE0B2' }} />
+          <span>Below base rate</span>
+        </div>
+        <div className="flex items-center gap-1.5">
+          <span className="inline-block w-3 h-3 rounded-sm" style={{ backgroundColor: 'hsl(0 70% 97%)' }} />
+          <span>Weekend (Thu–Fri)</span>
+        </div>
       </div>
 
       {/* Grid */}
@@ -616,19 +708,21 @@ export const QuickRateGrid = ({ onSyncQueueCount }: QuickRateGridProps) => {
           <table className="w-full border-collapse text-sm select-none">
             <thead>
               <tr>
-                <th className="text-left p-2 border-b bg-muted/50 sticky left-0 z-10 min-w-[160px]">Room / Plan</th>
+                <th className="text-left p-2 border-b bg-muted/50 sticky left-0 z-10 min-w-[160px]" style={{ boxShadow: '2px 0 4px rgba(0,0,0,0.1)' }}>Room / Plan</th>
                 {days.map((d, colIdx) => (
-                  <th key={d.toISOString()} className={`text-center p-2 border-b min-w-[90px] ${isWeekendHighlight(d) ? 'bg-accent/30' : 'bg-muted/50'}`}>
-                    <div className="font-medium">{format(d, 'MMM d')}</div>
+                  <th key={d.toISOString()} className={`text-center p-2 border-b ${cellMinWidth} ${isWeekendHighlight(d) ? 'bg-accent/30' : 'bg-muted/50'}`}>
+                    <div className="font-medium">{format(d, viewMode === 'month' ? 'd' : 'MMM d')}</div>
                     <div className="text-[10px] text-muted-foreground font-normal">{format(d, 'EEE')}</div>
                   </th>
                 ))}
               </tr>
             </thead>
             <tbody>
-              {rows.map(({ plan, price }) => (
+              {rows.map(({ plan, price }) => {
+                const baseRate = getBaseRate(plan.id);
+                return (
                 <tr key={plan.id} className="border-b hover:bg-muted/10">
-                  <td className="p-2 sticky left-0 bg-background z-10 border-r">
+                  <td className="p-2 sticky left-0 bg-background z-10 border-r" style={{ boxShadow: '2px 0 4px rgba(0,0,0,0.1)' }}>
                     <div className="font-medium text-xs leading-tight">{plan.room_type}</div>
                     <div className="text-[10px] text-muted-foreground">{plan.name}</div>
                   </td>
@@ -640,19 +734,20 @@ export const QuickRateGrid = ({ onSyncQueueCount }: QuickRateGridProps) => {
                     const isActive = activeCell === key;
                     const weekend = isWeekendHighlight(d);
                     const inDragRange = isCellInDragRange(plan.id, colIdx);
+                    const varianceColor = !isPending && !inDragRange && rate > 0 ? getCellColor(rate, baseRate, weekend) : '';
+                    const arrow = !isPending && rate > 0 ? getVarianceArrow(rate, baseRate) : '';
 
                     return (
                       <td
                         key={key}
-                        className={`text-center p-0.5 cursor-pointer transition-colors relative ${
+                        className={`text-center p-0.5 cursor-pointer transition-colors relative ${cellMinWidth} ${
                           inDragRange
                             ? 'border-2 border-dashed border-primary/60 bg-primary/10'
                             : isPending
                               ? 'bg-yellow-100 dark:bg-yellow-900/30'
-                              : weekend
-                                ? 'bg-accent/10'
-                                : ''
+                              : ''
                         }`}
+                        style={!inDragRange && !isPending && varianceColor ? { backgroundColor: varianceColor } : undefined}
                         onClick={(e) => !isActive && !drag.isDragging && handleCellClick(plan.id, d, price, colIdx, e.shiftKey)}
                         onMouseEnter={() => handleDragEnter(plan.id, colIdx)}
                       >
@@ -683,7 +778,10 @@ export const QuickRateGrid = ({ onSyncQueueCount }: QuickRateGridProps) => {
                           </div>
                         ) : (
                           <div className="h-8 flex items-center justify-center text-sm font-mono group relative">
-                            <span>{inDragRange && drag.value !== null ? formatCurrency(drag.value) : rate > 0 ? formatCurrency(rate) : '—'}</span>
+                            <span>
+                              {inDragRange && drag.value !== null ? formatCurrency(drag.value) : rate > 0 ? formatCurrency(rate) : '—'}
+                              {arrow && <span className={`ml-0.5 text-[10px] ${arrow === '▲' ? 'text-green-600' : 'text-orange-600'}`}>{arrow}</span>}
+                            </span>
                             {isPending && <span className="absolute top-0.5 right-0.5 w-1.5 h-1.5 rounded-full bg-yellow-500" />}
                             {/* Drag handle */}
                             {rate > 0 && !drag.isDragging && (
@@ -704,7 +802,7 @@ export const QuickRateGrid = ({ onSyncQueueCount }: QuickRateGridProps) => {
                     );
                   })}
                 </tr>
-              ))}
+              )})}
             </tbody>
           </table>
           <ScrollBar orientation="horizontal" />
