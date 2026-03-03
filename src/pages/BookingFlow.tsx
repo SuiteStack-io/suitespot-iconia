@@ -24,6 +24,7 @@ import visaLogo from "@/assets/visa-logo.png";
 import mastercardLogo from "@/assets/mastercard-logo.jpg";
 import type { DateRange } from "react-day-picker";
 import { PublicNav } from "@/components/PublicNav";
+import { getActiveRate } from "@/lib/rateResolver";
 
 const NATIONALITIES = [
   "Afghanistan", "Albania", "Algeria", "United States", "Andorra", "Angola", "Antigua and Barbuda", "Argentina", "Armenia", "Australia",
@@ -113,10 +114,17 @@ interface Unit {
   max_guests: number | null;
   unit_size: string | null;
   sofa_bed: boolean | null;
-  price_per_night: number | null;
-  weekend_rate: number | null;
   tax_percentage: number | null;
   photos: string[] | null;
+}
+
+interface RatePlanRateState {
+  weekdayRate: number;
+  weekendRate: number;
+  minStay: number;
+  ratePlanName: string;
+  ratePlanId: string;
+  extraAdultRate: number;
 }
 
 interface GroupedUnitType {
@@ -140,6 +148,7 @@ const BookingFlow = () => {
   const [preSelectedUnitId, setPreSelectedUnitId] = useState<string | null>(null);
   const [preSelectedUnitType, setPreSelectedUnitType] = useState<string | null>(null);
   const [selectedUnitType, setSelectedUnitType] = useState<string>("");
+  const [ratePlanRate, setRatePlanRate] = useState<RatePlanRateState | null>(null);
   
   // Booking data
   const [dateRange, setDateRange] = useState<DateRange | undefined>();
@@ -261,7 +270,7 @@ const BookingFlow = () => {
         if (preSelectedUnitId) {
           const { data: unit, error: unitError } = await supabase
             .from("units")
-            .select("id, name, booking_com_name, unit_type, unit_number, status, beds, baths, max_guests, unit_size, sofa_bed, price_per_night, weekend_rate, tax_percentage, photos")
+            .select("id, name, booking_com_name, unit_type, unit_number, status, beds, baths, max_guests, unit_size, sofa_bed, tax_percentage, photos")
             .eq("id", preSelectedUnitId)
             .eq("is_private", false)
             .eq("location", "ICONIA")
@@ -273,7 +282,7 @@ const BookingFlow = () => {
           // If a unit type is pre-selected, fetch all units of that type
           let query = supabase
             .from("units")
-            .select("id, name, booking_com_name, unit_type, unit_number, status, beds, baths, max_guests, unit_size, sofa_bed, price_per_night, weekend_rate, tax_percentage, photos")
+            .select("id, name, booking_com_name, unit_type, unit_number, status, beds, baths, max_guests, unit_size, sofa_bed, tax_percentage, photos")
             .eq("status", "available")
             .eq("unit_type", preSelectedUnitType)
             .eq("is_private", false)
@@ -339,7 +348,7 @@ const BookingFlow = () => {
           // Get all units if no pre-selection
           const { data: allUnits, error: unitsError } = await supabase
             .from("units")
-            .select("id, name, booking_com_name, unit_type, unit_number, status, beds, baths, max_guests, unit_size, sofa_bed, price_per_night, weekend_rate, tax_percentage, photos")
+            .select("id, name, booking_com_name, unit_type, unit_number, status, beds, baths, max_guests, unit_size, sofa_bed, tax_percentage, photos")
             .eq("status", "available")
             .eq("is_private", false)
             .eq("location", "ICONIA")
@@ -563,6 +572,43 @@ const BookingFlow = () => {
     fetchBookedDates();
   }, [preSelectedUnitId]);
 
+  // Fetch rate plan pricing when unit or dates change
+  useEffect(() => {
+    const fetchRate = async () => {
+      const unit = units.find(u => u.id === selectedUnit);
+      if (!unit?.unit_type || !dateRange?.from) {
+        setRatePlanRate(null);
+        return;
+      }
+      try {
+        const result = await getActiveRate(unit.unit_type, dateRange.from, selectedUnit);
+        if (result) {
+          // Also fetch the extra_adult_rate from the matched rate plan
+          const { data: plan } = await supabase
+            .from('rate_plans')
+            .select('extra_adult_rate')
+            .eq('id', result.ratePlanId)
+            .single();
+          
+          setRatePlanRate({
+            weekdayRate: result.weekdayRate,
+            weekendRate: result.weekendRate,
+            minStay: result.minStay,
+            ratePlanName: result.ratePlanName,
+            ratePlanId: result.ratePlanId,
+            extraAdultRate: plan?.extra_adult_rate ?? 50,
+          });
+        } else {
+          setRatePlanRate(null);
+        }
+      } catch (err) {
+        console.error('Error fetching rate plan:', err);
+        setRatePlanRate(null);
+      }
+    };
+    fetchRate();
+  }, [selectedUnit, dateRange?.from, units]);
+
   // Initialize single primary guest form (additional guest details collected at check-in)
   useEffect(() => {
     if (guestFirstNames.length === 0) {
@@ -648,25 +694,20 @@ const BookingFlow = () => {
   };
 
   const calculateSubtotal = () => {
-    const unit = units.find(u => u.id === selectedUnit);
-    if (!unit?.price_per_night || !dateRange?.from || !dateRange?.to) return 0;
+    if (!ratePlanRate || !dateRange?.from || !dateRange?.to) return 0;
     
     let subtotal = 0;
     const startDate = new Date(dateRange.from);
     const endDate = new Date(dateRange.to);
     
-    // Calculate price for each night based on day of week
     for (let d = new Date(startDate); d < endDate; d.setDate(d.getDate() + 1)) {
-      const rate = isWeekendDay(d) && unit.weekend_rate 
-        ? unit.weekend_rate 
-        : unit.price_per_night;
+      const rate = isWeekendDay(d) ? ratePlanRate.weekendRate : ratePlanRate.weekdayRate;
       subtotal += rate;
     }
     
-    // Add $50 per night for third adult guest
     const nights = calculateNights();
     if (adults === 3) {
-      subtotal += 50 * nights;
+      subtotal += (ratePlanRate.extraAdultRate || 50) * nights;
     }
     
     return subtotal;
@@ -675,15 +716,14 @@ const BookingFlow = () => {
   const calculateThirdGuestFee = () => {
     if (adults === 3) {
       const nights = calculateNights();
-      return 50 * nights;
+      return (ratePlanRate?.extraAdultRate || 50) * nights;
     }
     return 0;
   };
 
   // Get detailed breakdown of weekday vs weekend nights
   const getRateBreakdown = () => {
-    const unit = units.find(u => u.id === selectedUnit);
-    if (!unit?.price_per_night || !dateRange?.from || !dateRange?.to) {
+    if (!ratePlanRate || !dateRange?.from || !dateRange?.to) {
       return { weekdayNights: 0, weekendNights: 0, weekdayRate: 0, weekendRate: 0, dailyBreakdown: [] as { date: Date; isWeekend: boolean; rate: number }[] };
     }
 
@@ -693,9 +733,9 @@ const BookingFlow = () => {
 
     for (let d = new Date(dateRange.from); d < dateRange.to; d.setDate(d.getDate() + 1)) {
       const isWeekend = isWeekendDay(d);
-      const rate = isWeekend && unit.weekend_rate ? unit.weekend_rate : unit.price_per_night;
+      const rate = isWeekend ? ratePlanRate.weekendRate : ratePlanRate.weekdayRate;
       dailyBreakdown.push({ date: new Date(d), isWeekend, rate });
-      if (isWeekend && unit.weekend_rate) {
+      if (isWeekend && ratePlanRate.weekendRate !== ratePlanRate.weekdayRate) {
         weekendNights++;
       } else {
         weekdayNights++;
@@ -705,8 +745,8 @@ const BookingFlow = () => {
     return {
       weekdayNights,
       weekendNights,
-      weekdayRate: unit.price_per_night,
-      weekendRate: unit.weekend_rate || unit.price_per_night,
+      weekdayRate: ratePlanRate.weekdayRate,
+      weekendRate: ratePlanRate.weekendRate,
       dailyBreakdown
     };
   };
@@ -833,7 +873,7 @@ const BookingFlow = () => {
         source: "direct website",
         booking_reference: `WEB-${Date.now()}`,
         channel: "Direct Website",
-        price_per_night: units.find(u => u.id === selectedUnit)?.price_per_night || 0,
+        price_per_night: ratePlanRate?.weekdayRate || 0,
         total_price: calculateTotalPrice(),
         commission_rate: 0,
         commission_amount: 0,
@@ -1115,7 +1155,7 @@ const BookingFlow = () => {
                             ) : (
                               groupedUnitTypes.map((group) => (
                                 <SelectItem key={group.unit_type} value={group.unit_type}>
-                                  {group.name}{group.sample_unit.price_per_night ? ` - $${group.sample_unit.price_per_night}/night` : ''}
+                                  {group.name}{ratePlanRate ? ` - $${ratePlanRate.weekdayRate}/night` : ''}
                                 </SelectItem>
                               ))
                             )}
@@ -1178,21 +1218,21 @@ const BookingFlow = () => {
                 )}
 
                 {/* Pricing Information */}
-                {selectedUnit && units.find(u => u.id === selectedUnit)?.price_per_night && dateRange?.from && dateRange?.to && (
+                {selectedUnit && ratePlanRate && dateRange?.from && dateRange?.to && (
                   <div className="p-4 border rounded-lg bg-accent/5">
                     <div className="space-y-2">
                       <div className="flex justify-between items-center">
                         <span className="text-sm text-muted-foreground">Price per night:</span>
-                        <span className="text-lg font-semibold">${units.find(u => u.id === selectedUnit)?.price_per_night}</span>
+                        <span className="text-lg font-semibold">${ratePlanRate.weekdayRate}</span>
                       </div>
                       <div className="flex justify-between items-center">
                         <span className="text-sm text-muted-foreground">{calculateNights()} night{calculateNights() !== 1 ? "s" : ""}:</span>
-                        <span className="text-sm">${units.find(u => u.id === selectedUnit)?.price_per_night} × {calculateNights()}</span>
+                        <span className="text-sm">${ratePlanRate.weekdayRate} × {calculateNights()}</span>
                       </div>
                       {adults === 3 && (
                         <div className="flex justify-between items-center">
                           <span className="text-sm text-muted-foreground">Third guest fee:</span>
-                          <span className="text-sm">$50 × {calculateNights()}</span>
+                          <span className="text-sm">${ratePlanRate.extraAdultRate || 50} × {calculateNights()}</span>
                         </div>
                       )}
                       <div className="border-t pt-2 mt-2 space-y-1">
@@ -1210,7 +1250,7 @@ const BookingFlow = () => {
                         </div>
                         <div className="mt-3 pt-3 border-t">
                           <p className="text-xs text-foreground leading-relaxed text-center italic">
-                            All rates are based on double occupancy, with a maximum room capacity of 3 people. A third guest (age 18+) may stay in room, based on availability, for $50 USD (including taxes). Children are free of charge.
+                            All rates are based on double occupancy, with a maximum room capacity of 3 people. A third guest (age 18+) may stay in room, based on availability, for ${ratePlanRate.extraAdultRate || 50} USD (including taxes). Children are free of charge.
                           </p>
                         </div>
                       </div>
@@ -1632,11 +1672,11 @@ const BookingFlow = () => {
                         </div>
                         
                         {/* Price breakdown */}
-                        {units.find(u => u.id === selectedUnit)?.price_per_night && (
+                        {ratePlanRate && (
                           <>
                             <div className="border-t border-amber-400 pt-4 flex justify-between">
                               <span>Average nightly rate before tax</span>
-                              <span>US${units.find(u => u.id === selectedUnit)?.price_per_night}</span>
+                              <span>US${ratePlanRate.weekdayRate}</span>
                             </div>
                             
                             <div className="border-t border-amber-400 pt-4 flex justify-between font-medium">
@@ -1644,9 +1684,8 @@ const BookingFlow = () => {
                               <span>US${(() => {
                                 const unit = units.find(u => u.id === selectedUnit);
                                 const nights = calculateNights();
-                                const pricePerNight = unit?.price_per_night || 0;
+                                const subtotal = calculateSubtotal();
                                 const taxRate = unit?.tax_percentage || 0;
-                                const subtotal = pricePerNight * nights;
                                 return Math.round(subtotal * (1 + taxRate / 100));
                               })()}</span>
                             </div>
@@ -1689,10 +1728,9 @@ const BookingFlow = () => {
                     </div>
                   )}
 
-                  {units.find(u => u.id === selectedUnit)?.price_per_night && (() => {
-                    const unit = units.find(u => u.id === selectedUnit);
+                  {ratePlanRate && (() => {
                     const breakdown = getRateBreakdown();
-                    const hasWeekendRate = unit?.weekend_rate && breakdown.weekendNights > 0;
+                    const hasWeekendRate = ratePlanRate.weekendRate !== ratePlanRate.weekdayRate && breakdown.weekendNights > 0;
                     
                     return (
                       <div className="border-t pt-4">
@@ -1712,7 +1750,7 @@ const BookingFlow = () => {
                           ) : (
                             <div className="flex justify-between">
                               <span className="text-sm text-muted-foreground">Rate per night:</span>
-                              <span className="font-medium">${unit?.price_per_night}/night</span>
+                              <span className="font-medium">${ratePlanRate.weekdayRate}/night</span>
                             </div>
                           )}
 
@@ -1738,15 +1776,15 @@ const BookingFlow = () => {
                             </div>
                           ) : (
                             <div className="flex justify-between text-sm">
-                              <span className="text-muted-foreground">{calculateNights()} nights × ${unit?.price_per_night}</span>
-                              <span>${((unit?.price_per_night || 0) * calculateNights()).toFixed(2)}</span>
+                              <span className="text-muted-foreground">{calculateNights()} nights × ${ratePlanRate.weekdayRate}</span>
+                              <span>${(ratePlanRate.weekdayRate * calculateNights()).toFixed(2)}</span>
                             </div>
                           )}
 
                           {/* Third Guest Fee */}
                           {adults === 3 && (
                             <div className="flex justify-between text-sm">
-                              <span className="text-muted-foreground">Third guest fee ({calculateNights()} nights × $50)</span>
+                              <span className="text-muted-foreground">Third guest fee ({calculateNights()} nights × ${ratePlanRate.extraAdultRate || 50})</span>
                               <span>${calculateThirdGuestFee().toFixed(2)}</span>
                             </div>
                           )}
@@ -1758,7 +1796,7 @@ const BookingFlow = () => {
                               <span className="font-bold text-lg">${calculateSubtotal().toFixed(2)}</span>
                             </div>
                             <div className="flex justify-between items-center">
-                              <span className="font-bold uppercase">Tax ({unit?.tax_percentage || 14}%):</span>
+                              <span className="font-bold uppercase">Tax ({units.find(u => u.id === selectedUnit)?.tax_percentage || 14}%):</span>
                               <span className="font-bold text-lg">${calculateTax().toFixed(2)}</span>
                             </div>
                             <div className="flex justify-between items-center border-t pt-3 mt-2">
@@ -1767,7 +1805,7 @@ const BookingFlow = () => {
                             </div>
                             <div className="mt-3 pt-3 border-t">
                               <p className="text-xs text-foreground leading-relaxed text-center italic">
-                                All rates are based on double occupancy, with a maximum room capacity of 3 people. A third guest (age 18+) may stay in room, based on availability, for $50 USD (including taxes). Children are free of charge.
+                                All rates are based on double occupancy, with a maximum room capacity of 3 people. A third guest (age 18+) may stay in room, based on availability, for ${ratePlanRate?.extraAdultRate || 50} USD (including taxes). Children are free of charge.
                               </p>
                             </div>
                           </div>
