@@ -1,6 +1,6 @@
 import { useState, useEffect, useMemo } from 'react';
-import { format } from 'date-fns';
-import { Plus, DollarSign, Loader2, ChevronDown, ChevronRight, Pencil, Trash2, Layers } from 'lucide-react';
+import { format, addDays } from 'date-fns';
+import { Plus, DollarSign, Loader2, ChevronDown, ChevronRight, Pencil, Trash2, Layers, Save } from 'lucide-react';
 import { SlideMenu } from '@/components/SlideMenu';
 import { AdminBreadcrumb } from '@/components/AdminBreadcrumb';
 import { useAuth } from '@/lib/auth';
@@ -48,6 +48,7 @@ interface RatePlan {
   sell_mode?: string;
   extra_adult_rate?: number;
   extra_child_rate?: number;
+  property_id?: string | null;
 }
 
 interface RatePlanPrice {
@@ -82,6 +83,55 @@ const PMSPrices = () => {
   const [expandedRoomTypes, setExpandedRoomTypes] = useState<Set<string>>(new Set());
   const [channelMarkups, setChannelMarkups] = useState<Array<{ id: string; channel_name: string; markup_percentage: number }>>([]);
   const [derivedMappings, setDerivedMappings] = useState<Array<{ id: string; base_rate_plan_id: string; channel_markup_id: string; channel_name: string; markup_percentage: number; channex_derived_rate_plan_id: string }>>([]);
+  const [syncing, setSyncing] = useState(false);
+
+  const syncRatesToChannex = async () => {
+    setSyncing(true);
+    try {
+      const plansWithPrices = ratePlans
+        .filter(p => p.is_active && p.property_id)
+        .map(plan => {
+          const price = getPlanPrice(plan.id);
+          if (!price) return null;
+          const dateFrom = plan.valid_from || format(new Date(), 'yyyy-MM-dd');
+          const dateTo = plan.valid_to || format(addDays(new Date(), 500), 'yyyy-MM-dd');
+          return {
+            sync_type: 'rate' as const,
+            entity_id: plan.id,
+            property_id: plan.property_id,
+            date_from: dateFrom,
+            date_to: dateTo,
+            status: 'pending' as const,
+            payload: {
+              rate_plan_id: plan.id,
+              room_type: plan.room_type,
+              weekday_rate: price.weekday_rate,
+              weekend_rate: price.weekend_rate,
+              triggered_by: 'manual_save',
+            },
+          };
+        })
+        .filter(Boolean);
+
+      if (plansWithPrices.length === 0) {
+        toast.warning('No rate plans with base prices to sync');
+        return;
+      }
+
+      const { error } = await supabase.from('channex_sync_queue').insert(plansWithPrices as any[]);
+      if (error) throw error;
+
+      // Trigger the processor
+      await supabase.functions.invoke('channex-process-sync-queue');
+
+      toast.success(`Queued ${plansWithPrices.length} rate plan(s) for Channex sync`);
+    } catch (error) {
+      console.error('Error syncing rates:', error);
+      toast.error('Failed to sync rates to Channex');
+    } finally {
+      setSyncing(false);
+    }
+  };
 
   useEffect(() => {
     fetchData();
@@ -337,11 +387,21 @@ const PMSPrices = () => {
           </div>
         ) : (
           <div className="space-y-4">
-            <div className="mb-6">
-              <h2 className="text-xl font-semibold">Rate Plans by Room Type</h2>
-              <p className="text-sm text-muted-foreground">
-                Each rate plan applies to one room type. Add multiple rate plans per room type for seasonal pricing.
-              </p>
+            <div className="mb-6 flex items-start justify-between">
+              <div>
+                <h2 className="text-xl font-semibold">Rate Plans by Room Type</h2>
+                <p className="text-sm text-muted-foreground">
+                  Each rate plan applies to one room type. Add multiple rate plans per room type for seasonal pricing.
+                </p>
+              </div>
+              <Button
+                onClick={syncRatesToChannex}
+                disabled={syncing}
+                className="bg-black text-white hover:bg-black/90 gap-2 shrink-0"
+              >
+                {syncing ? <Loader2 className="h-4 w-4 animate-spin" /> : <Save className="h-4 w-4" />}
+                Save Changes
+              </Button>
             </div>
 
             {Object.entries(roomTypeGroups).map(([roomType, { plans, unitCount }]) => (
