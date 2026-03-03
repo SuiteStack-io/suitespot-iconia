@@ -68,6 +68,7 @@ const RoomRates = () => {
   const [loading, setLoading] = useState(true);
   const [ratePlans, setRatePlans] = useState<RatePlan[]>([]);
   const [prices, setPrices] = useState<Record<string, RatePlanPrice>>({});
+  const [dateOverrides, setDateOverrides] = useState<Record<string, number>>({});
   const [weekStart, setWeekStart] = useState(() => startOfWeek(new Date(), { weekStartsOn: 0 }));
   const [filterRoomType, setFilterRoomType] = useState<string>('all');
   const [filterRatePlan, setFilterRatePlan] = useState<string>('all');
@@ -86,6 +87,41 @@ const RoomRates = () => {
   useEffect(() => {
     fetchData();
   }, [propertyId]);
+
+  useEffect(() => {
+    if (ratePlans.length > 0) {
+      fetchDateOverrides();
+    }
+  }, [weekStart, viewMode, ratePlans]);
+
+  const fetchDateOverrides = async () => {
+    try {
+      const visibleDays = viewMode === 'month'
+        ? eachDayOfInterval({ start: startOfMonth(weekStart), end: endOfMonth(weekStart) })
+        : Array.from({ length: isMobile ? 3 : 14 }, (_, i) => addDays(weekStart, i));
+      const startDate = format(visibleDays[0], 'yyyy-MM-dd');
+      const endDate = format(visibleDays[visibleDays.length - 1], 'yyyy-MM-dd');
+      const planIds = ratePlans.map(p => p.id);
+      if (planIds.length === 0) return;
+
+      const { data, error } = await supabase
+        .from('rate_plan_date_overrides')
+        .select('rate_plan_id, override_date, rate')
+        .in('rate_plan_id', planIds)
+        .gte('override_date', startDate)
+        .lte('override_date', endDate);
+
+      if (error) throw error;
+
+      const overrideMap: Record<string, number> = {};
+      (data || []).forEach(row => {
+        overrideMap[`${row.rate_plan_id}:${row.override_date}`] = Number(row.rate);
+      });
+      setDateOverrides(overrideMap);
+    } catch (err) {
+      console.error('Error fetching date overrides:', err);
+    }
+  };
 
   const fetchData = async () => {
     setLoading(true);
@@ -135,7 +171,10 @@ const RoomRates = () => {
     }));
   }, [filteredPlans, prices]);
 
-  const getRate = (price: RatePlanPrice | null, date: Date): number => {
+  const getRate = (price: RatePlanPrice | null, date: Date, planId: string): number => {
+    const dateStr = format(date, 'yyyy-MM-dd');
+    const override = dateOverrides[`${planId}:${dateStr}`];
+    if (override !== undefined) return override;
     if (!price) return 0;
     return isWeekendRate(date) ? price.weekend_rate : price.weekday_rate;
   };
@@ -305,7 +344,7 @@ const RoomRates = () => {
                         <div className="text-[10px] text-muted-foreground">{plan.name}</div>
                       </td>
                       {days.map(d => {
-                        const rate = getRate(price, d);
+                        const rate = getRate(price, d, plan.id);
                         const weekend = isWeekendHighlight(d);
                         const varianceColor = rate > 0 ? getCellColor(rate, baseRate, weekend) : '';
                         const arrow = rate > 0 ? getVarianceArrow(rate, baseRate) : '';

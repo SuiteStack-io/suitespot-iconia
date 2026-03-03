@@ -1367,6 +1367,41 @@ export type Database = {
           },
         ]
       }
+      rate_plan_date_overrides: {
+        Row: {
+          created_at: string | null
+          id: string
+          override_date: string
+          rate: number
+          rate_plan_id: string
+          updated_at: string | null
+        }
+        Insert: {
+          created_at?: string | null
+          id?: string
+          override_date: string
+          rate: number
+          rate_plan_id: string
+          updated_at?: string | null
+        }
+        Update: {
+          created_at?: string | null
+          id?: string
+          override_date?: string
+          rate?: number
+          rate_plan_id?: string
+          updated_at?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "rate_plan_date_overrides_rate_plan_id_fkey"
+            columns: ["rate_plan_id"]
+            isOneToOne: false
+            referencedRelation: "rate_plans"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       rate_plan_prices: {
         Row: {
           base_occupancy: number | null
