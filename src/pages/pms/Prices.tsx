@@ -5,6 +5,7 @@ import { SlideMenu } from '@/components/SlideMenu';
 import { AdminBreadcrumb } from '@/components/AdminBreadcrumb';
 import { useAuth } from '@/lib/auth';
 import { Button } from '@/components/ui/button';
+import { Progress } from '@/components/ui/progress';
 import { Badge } from '@/components/ui/badge';
 import { Card, CardContent, CardHeader } from '@/components/ui/card';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
@@ -84,9 +85,11 @@ const PMSPrices = () => {
   const [channelMarkups, setChannelMarkups] = useState<Array<{ id: string; channel_name: string; markup_percentage: number }>>([]);
   const [derivedMappings, setDerivedMappings] = useState<Array<{ id: string; base_rate_plan_id: string; channel_markup_id: string; channel_name: string; markup_percentage: number; channex_derived_rate_plan_id: string }>>([]);
   const [syncing, setSyncing] = useState(false);
+  const [syncProgress, setSyncProgress] = useState(0);
 
   const syncRatesToChannex = async () => {
     setSyncing(true);
+    setSyncProgress(10);
     try {
       const plansWithPrices = ratePlans
         .filter(p => p.is_active && p.property_id)
@@ -115,19 +118,24 @@ const PMSPrices = () => {
 
       if (plansWithPrices.length === 0) {
         toast.warning('No rate plans with base prices to sync');
+        setSyncProgress(0);
         return;
       }
 
+      setSyncProgress(40);
       const { error } = await supabase.from('channex_sync_queue').insert(plansWithPrices as any[]);
       if (error) throw error;
 
-      // Trigger the processor
+      setSyncProgress(70);
       await supabase.functions.invoke('channex-process-sync-queue');
 
+      setSyncProgress(100);
       toast.success(`Queued ${plansWithPrices.length} rate plan(s) for Channex sync`);
+      setTimeout(() => setSyncProgress(0), 1500);
     } catch (error) {
       console.error('Error syncing rates:', error);
       toast.error('Failed to sync rates to Channex');
+      setSyncProgress(0);
     } finally {
       setSyncing(false);
     }
@@ -403,6 +411,10 @@ const PMSPrices = () => {
                 Save Changes
               </Button>
             </div>
+
+            {(syncing || syncProgress > 0) && (
+              <Progress value={syncProgress} className="h-2 mb-2" />
+            )}
 
             {Object.entries(roomTypeGroups).map(([roomType, { plans, unitCount }]) => (
               <Card key={roomType}>
