@@ -29,7 +29,8 @@ import {
   TableRow,
 } from '@/components/ui/table';
 import { cn } from '@/lib/utils';
-import { calculateWeekendRate } from '@/lib/rateResolver';
+import { calculateWeekendRate, calculateOffPeakRate } from '@/lib/rateResolver';
+import { useProperty } from '@/lib/propertyContext';
 
 interface Unit {
   id: string;
@@ -41,6 +42,7 @@ interface RatePlanPrice {
   room_type: string;
   weekday_rate: number;
   weekend_rate: number;
+  off_peak_rate?: number | null;
   min_stay: number;
   unit_id?: string | null;
 }
@@ -85,16 +87,23 @@ export function RatePlanDialog({
   onSave,
   isEditing,
 }: RatePlanDialogProps) {
+  const { activeProperty } = useProperty();
+  const DAY_NAMES = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
+  const weekendDays = (activeProperty as any)?.weekend_days ?? [4, 5];
+  const offPeakDays = (activeProperty as any)?.off_peak_days ?? [];
+
   const [name, setName] = useState('');
   const [bookingComId, setBookingComId] = useState('');
   const [validityType, setValidityType] = useState<'always' | 'dateRange'>('always');
   const [validFrom, setValidFrom] = useState<Date | undefined>();
   const [validTo, setValidTo] = useState<Date | undefined>();
   const [autoCalculateWeekend, setAutoCalculateWeekend] = useState(true);
+  const [autoCalculateOffPeak, setAutoCalculateOffPeak] = useState(false);
   
   // Single rate for this room type
   const [weekdayRate, setWeekdayRate] = useState(0);
   const [weekendRate, setWeekendRate] = useState(0);
+  const [offPeakRate, setOffPeakRate] = useState(0);
   const [minStay, setMinStay] = useState(1);
   
   // Unit-level overrides
@@ -110,15 +119,14 @@ export function RatePlanDialog({
         setValidFrom(ratePlan.valid_from ? new Date(ratePlan.valid_from) : undefined);
         setValidTo(ratePlan.valid_to ? new Date(ratePlan.valid_to) : undefined);
         
-        // Set the room-type-level price
         const typePrice = existingPrices.find(p => !p.unit_id);
         if (typePrice) {
           setWeekdayRate(typePrice.weekday_rate);
           setWeekendRate(typePrice.weekend_rate);
+          setOffPeakRate((typePrice as any).off_peak_rate ?? 0);
           setMinStay(typePrice.min_stay);
         }
         
-        // Set unit overrides
         const roomPriceMap: Record<string, RoomPriceState> = {};
         existingPrices.filter(p => p.unit_id).forEach(p => {
           roomPriceMap[p.unit_id!] = {
@@ -138,11 +146,13 @@ export function RatePlanDialog({
         setValidTo(undefined);
         setWeekdayRate(0);
         setWeekendRate(0);
+        setOffPeakRate(0);
         setMinStay(1);
         setRoomRates({});
         setShowUnitOverrides(false);
       }
       setAutoCalculateWeekend(true);
+      setAutoCalculateOffPeak(false);
     }
   }, [open, ratePlan, existingPrices]);
 
@@ -150,6 +160,9 @@ export function RatePlanDialog({
     setWeekdayRate(value);
     if (autoCalculateWeekend) {
       setWeekendRate(calculateWeekendRate(value));
+    }
+    if (autoCalculateOffPeak) {
+      setOffPeakRate(calculateOffPeakRate(value));
     }
   };
 
@@ -208,6 +221,7 @@ export function RatePlanDialog({
         room_type: roomType,
         weekday_rate: weekdayRate,
         weekend_rate: weekendRate,
+        off_peak_rate: offPeakDays.length > 0 && offPeakRate > 0 ? offPeakRate : null,
         min_stay: minStay,
         unit_id: null,
       });
@@ -296,13 +310,24 @@ export function RatePlanDialog({
           <div className="space-y-3">
             <div className="flex items-center justify-between">
               <Label>Pricing</Label>
-              <div className="flex items-center space-x-2">
-                <Checkbox id="autoCalc" checked={autoCalculateWeekend} onCheckedChange={handleAutoCalculateChange} />
-                <Label htmlFor="autoCalc" className="text-sm font-normal cursor-pointer">Auto weekend (+10%)</Label>
+              <div className="flex items-center gap-4">
+                <div className="flex items-center space-x-2">
+                  <Checkbox id="autoCalc" checked={autoCalculateWeekend} onCheckedChange={handleAutoCalculateChange} />
+                  <Label htmlFor="autoCalc" className="text-sm font-normal cursor-pointer">Auto weekend (+10%)</Label>
+                </div>
+                {offPeakDays.length > 0 && (
+                  <div className="flex items-center space-x-2">
+                    <Checkbox id="autoOffPeak" checked={autoCalculateOffPeak} onCheckedChange={(checked) => {
+                      setAutoCalculateOffPeak(!!checked);
+                      if (checked) setOffPeakRate(calculateOffPeakRate(weekdayRate));
+                    }} />
+                    <Label htmlFor="autoOffPeak" className="text-sm font-normal cursor-pointer">Auto off-peak (-15%)</Label>
+                  </div>
+                )}
               </div>
             </div>
 
-            <div className="grid grid-cols-3 gap-3">
+            <div className={`grid gap-3 ${offPeakDays.length > 0 ? 'grid-cols-4' : 'grid-cols-3'}`}>
               <div className="space-y-1">
                 <Label className="text-xs text-muted-foreground">Weekday ($)</Label>
                 <Input type="number" min="0" value={weekdayRate || ''} onChange={(e) => handleWeekdayChange(Number(e.target.value))} />
@@ -311,11 +336,24 @@ export function RatePlanDialog({
                 <Label className="text-xs text-muted-foreground">Weekend ($)</Label>
                 <Input type="number" min="0" value={weekendRate || ''} onChange={(e) => setWeekendRate(Number(e.target.value))} disabled={autoCalculateWeekend} className={cn(autoCalculateWeekend && 'bg-muted')} />
               </div>
+              {offPeakDays.length > 0 && (
+                <div className="space-y-1">
+                  <Label className="text-xs text-muted-foreground">Off-Peak ($)</Label>
+                  <Input type="number" min="0" value={offPeakRate || ''} onChange={(e) => setOffPeakRate(Number(e.target.value))} disabled={autoCalculateOffPeak} className={cn(autoCalculateOffPeak && 'bg-muted')} />
+                </div>
+              )}
               <div className="space-y-1">
                 <Label className="text-xs text-muted-foreground">Min Stay</Label>
                 <Input type="number" min="1" value={minStay} onChange={(e) => setMinStay(Number(e.target.value))} />
               </div>
             </div>
+
+            {(weekendDays.length > 0 || offPeakDays.length > 0) && (
+              <p className="text-[11px] text-muted-foreground">
+                Days based on Property Pricing Rules: Weekend: {weekendDays.map((d: number) => DAY_NAMES[d]).join(', ')}
+                {offPeakDays.length > 0 && ` · Off-Peak: ${offPeakDays.map((d: number) => DAY_NAMES[d]).join(', ')}`}
+              </p>
+            )}
           </div>
 
           {/* Unit Overrides */}

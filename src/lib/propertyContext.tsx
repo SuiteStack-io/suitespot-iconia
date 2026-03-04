@@ -43,6 +43,8 @@ export interface Property {
   updated_at: string;
   created_by: string | null;
   company_id: string | null;
+  weekend_days: number[] | null;
+  off_peak_days: number[] | null;
 }
 
 export type PropertyRole = 'owner' | 'admin' | 'manager' | 'staff' | 'viewer';
