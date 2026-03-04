@@ -1,69 +1,35 @@
 
 
-## Add Configurable Weekend & Off-Peak Days to Rate Plans
+## Fix Dual Save Buttons — Separate DB Save from Channex Sync
 
-### Overview
-Add property-level weekend/off-peak day configuration, add off-peak rate to rate plans, and fix the current bug where Saturday is incorrectly treated as a weekend day for pricing.
+### Current State
+- **Modal "Save Changes"**: Persists rate plan + prices to the database. Also creates derived rate plans via Channex for new plans. No direct rate sync call.
+- **Main "Save Changes"**: Calls `syncRatesToChannex()` which invokes `channex-sync-rates` edge function.
+- The confusion is both buttons say "Save Changes" and the modal's derived plan creation hits Channex unnecessarily on every edit.
 
-### Database Migration
+### Approach
+The modal must still persist to the database (rate plans need DB IDs for Channex mapping lookups). But it should NOT trigger any Channex API calls. The main button becomes the sole Channex sync trigger with a pending changes counter.
 
-**1. Add columns to `properties` table:**
-```sql
-ALTER TABLE properties ADD COLUMN weekend_days integer[] DEFAULT '{4,5}';
-ALTER TABLE properties ADD COLUMN off_peak_days integer[] DEFAULT '{}';
-```
+### Changes to `src/pages/pms/Prices.tsx`
 
-**2. Add off-peak rate to `rate_plan_prices`:**
-```sql
-ALTER TABLE rate_plan_prices ADD COLUMN off_peak_rate numeric DEFAULT NULL;
-```
+1. **Add pending changes state**: `pendingRatePlanIds` (Set of rate plan IDs modified since last sync)
+2. **`handleSave` (modal callback)**:
+   - Still persists to DB (insert/update rate_plans + rate_plan_prices)
+   - Remove the auto-create derived plans loop (or defer it to main save)
+   - Add the saved plan ID to `pendingRatePlanIds`
+   - Show info toast: "Changes saved locally. Click Save Changes to sync to channels."
+3. **Main "Save Changes" button**:
+   - Show count badge: `Save Changes (3)`
+   - Disabled when `pendingRatePlanIds.size === 0`
+   - `syncRatesToChannex()` filters to only pending plan IDs, then clears the set on success
+4. **Visual feedback**: Rate plan rows with pending changes get a yellow "Modified" badge
+5. **beforeunload warning** when pending changes exist
 
-Using `properties` directly (not a separate table) keeps it simple and aligns with the "properties as single source of truth" pattern.
+### Changes to `src/components/pms/RatePlanDialog.tsx`
 
-### Code Changes
+1. Change button text from `"Save Changes"` / `"Create Rate Plan"` to `"Confirm"` / `"Create"`
 
-#### 1. Property Interface & Settings (`src/lib/propertyContext.tsx`, `src/components/settings/PropertyForm.tsx`)
-- Add `weekend_days` and `off_peak_days` to the `Property` interface
-- Add a "Pricing Rules" card in PropertyForm with day-of-week toggle buttons for weekend and off-peak days
-- Validate no overlap between weekend and off-peak selections
-- Include region presets dropdown (Middle East: Thu-Fri weekend/Sat off-peak, Western: Fri-Sat weekend/Sun off-peak)
-
-#### 2. QuickRateGrid.tsx — Use property settings for day classification
-- Fetch active property's `weekend_days` and `off_peak_days` from context
-- Replace hardcoded `isWeekendRate()` and `isWeekendHighlight()` with property-aware functions:
-  - `isWeekendRate(date)` → checks `property.weekend_days.includes(date.getDay())`
-  - `isOffPeakRate(date)` → checks `property.off_peak_days.includes(date.getDay())`
-  - `isWeekendHighlight(date)` → same as `isWeekendRate`
-- Update `getEffectiveRate()` to return off-peak rate when applicable (priority: date override > off-peak rate > weekend rate > weekday rate)
-- Add off-peak column highlighting (light blue/purple)
-- Update legend to dynamically show configured day names: "Weekend (Thu-Fri) · Off-Peak (Sat)"
-
-#### 3. RoomRates.tsx — Same weekend/off-peak logic
-- Mirror the same changes from QuickRateGrid for the front-desk rate calendar view
-
-#### 4. RatePlanDialog.tsx — Add off-peak pricing field
-- Add "Off-Peak ($)" input field alongside Weekday and Weekend
-- Add "Auto off-peak (-15%)" checkbox similar to auto-weekend (+10%)
-- Show info text: "Days shown based on Property Pricing Rules: Weekend: Thu, Fri · Off-Peak: Sat"
-- Wire `off_peak_rate` into the save flow
-
-#### 5. rateResolver.ts — Property-aware rate resolution
-- Update `getActiveRate()` to accept optional `weekendDays`/`offPeakDays` arrays (with defaults `[4,5]`/`[]`)
-- Fix the current bug: remove Saturday (day 6) from weekend detection
-- Add off-peak rate logic: if date falls on an off-peak day and `off_peak_rate` exists, use it
-
-#### 6. calculateWeekendRate / calculateOffPeakRate helpers
-- Add `calculateOffPeakRate(weekdayRate)` helper in `rateResolver.ts` (default -15%, rounded to $5)
-
-### Files to edit
-- **Database migration**: Add `weekend_days`, `off_peak_days` to properties; add `off_peak_rate` to `rate_plan_prices`
-- **`src/lib/propertyContext.tsx`**: Add new fields to Property interface
-- **`src/components/settings/PropertyForm.tsx`**: Add Pricing Rules UI section
-- **`src/components/pms/QuickRateGrid.tsx`**: Property-aware weekend/off-peak logic + highlighting
-- **`src/pages/RoomRates.tsx`**: Same weekend/off-peak logic
-- **`src/components/pms/RatePlanDialog.tsx`**: Add off-peak rate field
-- **`src/lib/rateResolver.ts`**: Fix weekend bug, add off-peak support
-
-### Immediate bug fix included
-The current `isWeekendRate` includes Saturday (day 6) which is wrong for Egypt. This will be fixed as part of making it property-configurable, defaulting to Thu-Fri (4,5) only.
+### Files
+- `src/pages/pms/Prices.tsx` — pending state, modified handleSave, updated sync button
+- `src/components/pms/RatePlanDialog.tsx` — button text change
 
