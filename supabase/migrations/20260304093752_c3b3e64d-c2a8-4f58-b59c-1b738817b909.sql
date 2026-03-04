@@ -1,0 +1,1 @@
+DROP TRIGGER IF EXISTS trigger_channex_rate_change ON public.rate_plan_prices;

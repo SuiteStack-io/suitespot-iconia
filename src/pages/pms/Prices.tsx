@@ -123,14 +123,24 @@ const PMSPrices = () => {
       }
 
       setSyncProgress(40);
-      const { error } = await supabase.from('channex_sync_queue').insert(plansWithPrices as any[]);
+
+      // Build updates for direct Channex push
+      const updates = plansWithPrices.map((p: any) => ({
+        property_id: p.property_id,
+        rate_plan_id: p.entity_id,
+        date_from: p.date_from,
+        date_to: p.date_to,
+        rate: p.payload.weekday_rate,
+      }));
+
+      setSyncProgress(60);
+      const { error } = await supabase.functions.invoke('channex-sync-rates', {
+        body: { updates, propertyId },
+      });
       if (error) throw error;
 
-      setSyncProgress(70);
-      await supabase.functions.invoke('channex-process-sync-queue');
-
       setSyncProgress(100);
-      toast.success(`Queued ${plansWithPrices.length} rate plan(s) for Channex sync`);
+      toast.success(`Synced ${plansWithPrices.length} rate plan(s) to Channex`);
       setTimeout(() => setSyncProgress(0), 1500);
     } catch (error) {
       console.error('Error syncing rates:', error);

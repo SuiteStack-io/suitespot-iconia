@@ -84,3 +84,6 @@ verify_jwt = false
 
 [functions.channex-push-restrictions]
 verify_jwt = false
+
+[functions.channex-sync-rates]
+verify_jwt = false

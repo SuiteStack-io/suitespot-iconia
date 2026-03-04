@@ -140,6 +140,18 @@ export const QuickRateGrid = ({ onSyncQueueCount }: QuickRateGridProps) => {
     fetchData();
   }, [propertyId]);
 
+  // Warn on unsaved changes
+  useEffect(() => {
+    const handleBeforeUnload = (e: BeforeUnloadEvent) => {
+      if (pendingChanges.size > 0) {
+        e.preventDefault();
+        e.returnValue = 'You have unsaved rate changes';
+      }
+    };
+    window.addEventListener('beforeunload', handleBeforeUnload);
+    return () => window.removeEventListener('beforeunload', handleBeforeUnload);
+  }, [pendingChanges.size]);
+
   // Re-fetch date overrides when visible date range changes
   useEffect(() => {
     if (ratePlans.length > 0) {
@@ -472,50 +484,8 @@ export const QuickRateGrid = ({ onSyncQueueCount }: QuickRateGridProps) => {
         byPlan.set(change.ratePlanId, list);
       });
 
-      for (const [planId, changes] of byPlan) {
-        const price = prices[planId];
-        if (!price) continue;
-
-        const sortedChanges = [...changes].sort((a, b) => a.date.localeCompare(b.date));
-        
-        const { data: mapping } = await supabase
-          .from('channex_mappings')
-          .select('local_id, channex_id')
-          .eq('local_id', planId)
-          .eq('entity_type', 'rate_plan')
-          .eq('sync_status', 'synced')
-          .maybeSingle();
-
-        if (mapping) {
-          for (const change of sortedChanges) {
-            await supabase.from('channex_sync_queue').insert({
-              sync_type: 'rate',
-              entity_id: mapping.local_id,
-              date_from: change.date,
-              date_to: change.date,
-              property_id: propertyId || null,
-              payload: {
-                rate_plan_id: planId,
-                room_type: change.roomType,
-                weekday_rate: change.isWeekend ? price.weekday_rate : change.newRate,
-                weekend_rate: change.isWeekend ? change.newRate : price.weekend_rate,
-                triggered_by: 'quick_rate_editor',
-                specific_date: change.date,
-                specific_rate: change.newRate,
-              },
-            });
-          }
-        }
-      }
-
-      setSyncProgress(40);
-
-      // Fire-and-forget: don't await the 30s batching delay
-      supabase.functions.invoke('channex-process-sync-queue', { body: {} }).catch(() => {});
-
-      setSyncProgress(60);
-
       // Step 1: Persist rate changes to rate_plan_date_overrides table (not base rates)
+      setSyncProgress(30);
       const overrideRows = Array.from(pendingChanges.values()).map(change => ({
         rate_plan_id: change.ratePlanId,
         override_date: change.date,
@@ -530,9 +500,28 @@ export const QuickRateGrid = ({ onSyncQueueCount }: QuickRateGridProps) => {
         if (upsertError) throw upsertError;
       }
 
-      setSyncProgress(70);
+      setSyncProgress(50);
 
-      // Step 2: Update local dateOverrides state so grid keeps showing new values
+      // Step 2: Push to Channex directly (no queue, no timers)
+      const updates = Array.from(pendingChanges.values()).map(change => ({
+        property_id: propertyId,
+        rate_plan_id: change.ratePlanId,
+        date_from: change.date,
+        date_to: change.date,
+        rate: change.newRate,
+      }));
+
+      const { error: syncError } = await supabase.functions.invoke('channex-sync-rates', {
+        body: { updates, propertyId },
+      });
+      if (syncError) {
+        console.warn('Channex sync failed (rates saved locally):', syncError);
+        toast.warning('Rates saved but Channex sync failed');
+      }
+
+      setSyncProgress(80);
+
+      // Step 3: Update local dateOverrides state so grid keeps showing new values
       setDateOverrides(prev => {
         const updated = { ...prev };
         pendingChanges.forEach(change => {
@@ -541,7 +530,7 @@ export const QuickRateGrid = ({ onSyncQueueCount }: QuickRateGridProps) => {
         return updated;
       });
 
-      // Step 2: Clear pending changes
+      // Step 4: Clear pending changes
       const changeCount = pendingChanges.size;
       setPendingChanges(new Map());
 
@@ -549,7 +538,7 @@ export const QuickRateGrid = ({ onSyncQueueCount }: QuickRateGridProps) => {
       setSyncSuccess(true);
       setTimeout(() => setSyncSuccess(false), 3000);
       setTimeout(() => setSyncProgress(0), 1500);
-      toast.success(`${changeCount} rate change(s) saved & syncing`);
+      toast.success(`${changeCount} rate change(s) saved & synced`);
     } catch (err) {
       console.error('Sync error:', err);
       toast.error('Failed to save rate changes');
