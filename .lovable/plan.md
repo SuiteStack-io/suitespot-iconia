@@ -1,28 +1,46 @@
 
 
-## Improve Bulk Editor with Room Type → Rate Plan Hierarchy
+## Move "View Calendar for Rate Plan" Dropdown Inside Tabs
 
-### What's changing
-1. Add a **Room Type** dropdown to the Bulk Editor that filters the Rate Plan dropdown
-2. Make the Bulk Editor fully self-contained (independent from the page-level dropdown)
-3. Rename the page-level dropdown label to "View Calendar for Rate Plan" for clarity
-4. After applying restrictions, auto-switch the calendar view to show the affected rate plan
+### Problem
+The rate plan dropdown sits above the tab bar and is always visible, but it's only contextually relevant per tab.
 
-### Files to edit
-
-**`src/components/pms/BulkRestrictionEditor.tsx`**
-- Add `selectedRoomType` state (default `'all'`)
-- Derive unique room types from `ratePlans` prop: `const roomTypes = useMemo(() => [...new Set(ratePlans.map(p => p.room_type).filter(Boolean))], [ratePlans])`
-- Filter rate plans based on selected room type
-- Reset `selectedPlanId` to `'all'` when room type changes
-- Replace the single "Rate Plan" dropdown with a 2-column grid: Room Type + Rate Plan (filtered)
-- When `selectedRoomType === 'all'`, show room type suffix in rate plan options
-- Add optional `onRatePlanFocused?: (id: string) => void` prop — call after successful apply if a specific plan is selected
-- No other logic changes needed (validation, apply, clear, sync all stay the same)
+### Solution
+Remove the top-level dropdown (lines 212-228) and add rate plan selectors inside each tab that needs one:
 
 **`src/pages/pms/Restrictions.tsx`**
-- Rename the page-level dropdown label from "Select Rate Plan" to "View Calendar for Rate Plan"
-- Pass `onRatePlanFocused` callback to `BulkRestrictionEditor` that sets `selectedPlanId` (page-level) and switches tab to calendar
 
-### No database changes needed
+1. **Delete** the top-level dropdown block (lines 212-228)
+
+2. **Settings tab**: Add a rate plan selector at the top of the settings tab content (before the Card). This tab needs it to choose which plan to configure. Label: "Select Rate Plan"
+
+3. **Calendar tab**: Add the same dropdown inside the calendar tab content, before `RestrictionCalendarView`. Label: "Select Rate Plan"
+
+4. **Bulk Editor tab**: No dropdown needed (it has its own Room Type / Rate Plan selectors)
+
+The `selectedPlanId` state continues to drive both the Settings and Calendar tabs, so selecting a plan in one tab carries over when switching to the other.
+
+### Layout After
+
+```text
+[Rate Plan Settings]  [Restrictions Calendar]  [Bulk Editor]
+─────────────────────────────────────────────────────────────
+(Settings tab active:)
+  Select Rate Plan
+  [Bed & Breakfast Rate (Twin Room) ▼]
+  
+  [Rate Plan Configuration card...]
+
+(Calendar tab active:)
+  Select Rate Plan
+  [Bed & Breakfast Rate (Twin Room) ▼]
+  
+  [Calendar grid...]
+
+(Bulk Editor tab active:)
+  [Room Type ▼]  [Rate Plan ▼]   ← self-contained
+  ...
+```
+
+### Single file edit, no database changes
 
