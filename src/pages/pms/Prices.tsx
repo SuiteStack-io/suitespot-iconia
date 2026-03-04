@@ -16,6 +16,7 @@ import { RatePlanDialog } from '@/components/pms/RatePlanDialog';
 import { BulkRatePlanDialog } from '@/components/pms/BulkRatePlanDialog';
 import { getCancellationPolicyLabel } from '@/components/pms/CancellationPolicyDialog';
 import { QuickRateGrid } from '@/components/pms/QuickRateGrid';
+import { PricingRulesEditor } from '@/components/pms/PricingRulesEditor';
 import {
   AlertDialog,
   AlertDialogAction,
@@ -413,10 +414,15 @@ const PMSPrices = () => {
           <TabsList className="mb-4">
             <TabsTrigger value="rate-plans">Rate Plans</TabsTrigger>
             <TabsTrigger value="price-lab">Price Lab</TabsTrigger>
+            <TabsTrigger value="pricing-rules">Pricing Rules</TabsTrigger>
           </TabsList>
 
           <TabsContent value="price-lab">
             <QuickRateGrid />
+          </TabsContent>
+
+          <TabsContent value="pricing-rules">
+            <PricingRulesEditor />
           </TabsContent>
 
           <TabsContent value="rate-plans">
