@@ -62,7 +62,6 @@ interface RatePlan {
 interface RoomPriceState {
   weekday_rate: number;
   weekend_rate: number;
-  min_stay: number;
   isOverride?: boolean;
 }
 
@@ -104,7 +103,6 @@ export function RatePlanDialog({
   const [weekdayRate, setWeekdayRate] = useState(0);
   const [weekendRate, setWeekendRate] = useState(0);
   const [offPeakRate, setOffPeakRate] = useState(0);
-  const [minStay, setMinStay] = useState(1);
   
   // Unit-level overrides
   const [roomRates, setRoomRates] = useState<Record<string, RoomPriceState>>({});
@@ -124,7 +122,6 @@ export function RatePlanDialog({
           setWeekdayRate(typePrice.weekday_rate);
           setWeekendRate(typePrice.weekend_rate);
           setOffPeakRate((typePrice as any).off_peak_rate ?? 0);
-          setMinStay(typePrice.min_stay);
         }
         
         const roomPriceMap: Record<string, RoomPriceState> = {};
@@ -132,7 +129,6 @@ export function RatePlanDialog({
           roomPriceMap[p.unit_id!] = {
             weekday_rate: p.weekday_rate,
             weekend_rate: p.weekend_rate,
-            min_stay: p.min_stay,
             isOverride: true,
           };
         });
@@ -147,7 +143,6 @@ export function RatePlanDialog({
         setWeekdayRate(0);
         setWeekendRate(0);
         setOffPeakRate(0);
-        setMinStay(1);
         setRoomRates({});
         setShowUnitOverrides(false);
       }
@@ -182,9 +177,9 @@ export function RatePlanDialog({
     }
   };
 
-  const handleRoomRateChange = (unitId: string, field: 'weekday_rate' | 'weekend_rate' | 'min_stay', value: number) => {
+  const handleRoomRateChange = (unitId: string, field: 'weekday_rate' | 'weekend_rate', value: number) => {
     setRoomRates(prev => {
-      const existing = prev[unitId] || { weekday_rate: weekdayRate, weekend_rate: weekendRate, min_stay: minStay, isOverride: false };
+      const existing = prev[unitId] || { weekday_rate: weekdayRate, weekend_rate: weekendRate, isOverride: false };
       let updated = { ...existing, [field]: value, isOverride: true };
       if (field === 'weekday_rate' && autoCalculateWeekend) {
         updated.weekend_rate = calculateWeekendRate(value);
@@ -221,8 +216,8 @@ export function RatePlanDialog({
         room_type: roomType,
         weekday_rate: weekdayRate,
         weekend_rate: weekendRate,
-        off_peak_rate: offPeakDays.length > 0 && offPeakRate > 0 ? offPeakRate : null,
-        min_stay: minStay,
+        off_peak_rate: offPeakRate > 0 ? offPeakRate : null,
+        min_stay: 1,
         unit_id: null,
       });
     }
@@ -234,7 +229,7 @@ export function RatePlanDialog({
           room_type: roomType,
           weekday_rate: p.weekday_rate,
           weekend_rate: p.weekend_rate,
-          min_stay: p.min_stay,
+          min_stay: 1,
           unit_id: unitId,
         });
       }
@@ -315,19 +310,17 @@ export function RatePlanDialog({
                   <Checkbox id="autoCalc" checked={autoCalculateWeekend} onCheckedChange={handleAutoCalculateChange} />
                   <Label htmlFor="autoCalc" className="text-sm font-normal cursor-pointer">Auto weekend (+10%)</Label>
                 </div>
-                {offPeakDays.length > 0 && (
-                  <div className="flex items-center space-x-2">
-                    <Checkbox id="autoOffPeak" checked={autoCalculateOffPeak} onCheckedChange={(checked) => {
-                      setAutoCalculateOffPeak(!!checked);
-                      if (checked) setOffPeakRate(calculateOffPeakRate(weekdayRate));
-                    }} />
-                    <Label htmlFor="autoOffPeak" className="text-sm font-normal cursor-pointer">Auto off-peak (-15%)</Label>
-                  </div>
-                )}
+                <div className="flex items-center space-x-2">
+                  <Checkbox id="autoOffPeak" checked={autoCalculateOffPeak} onCheckedChange={(checked) => {
+                    setAutoCalculateOffPeak(!!checked);
+                    if (checked) setOffPeakRate(calculateOffPeakRate(weekdayRate));
+                  }} />
+                  <Label htmlFor="autoOffPeak" className="text-sm font-normal cursor-pointer">Auto off-peak (-15%)</Label>
+                </div>
               </div>
             </div>
 
-            <div className={`grid gap-3 ${offPeakDays.length > 0 ? 'grid-cols-4' : 'grid-cols-3'}`}>
+            <div className="grid gap-3 grid-cols-3">
               <div className="space-y-1">
                 <Label className="text-xs text-muted-foreground">Weekday ($)</Label>
                 <Input type="number" min="0" value={weekdayRate || ''} onChange={(e) => handleWeekdayChange(Number(e.target.value))} />
@@ -336,15 +329,9 @@ export function RatePlanDialog({
                 <Label className="text-xs text-muted-foreground">Weekend ($)</Label>
                 <Input type="number" min="0" value={weekendRate || ''} onChange={(e) => setWeekendRate(Number(e.target.value))} disabled={autoCalculateWeekend} className={cn(autoCalculateWeekend && 'bg-muted')} />
               </div>
-              {offPeakDays.length > 0 && (
-                <div className="space-y-1">
-                  <Label className="text-xs text-muted-foreground">Off-Peak ($)</Label>
-                  <Input type="number" min="0" value={offPeakRate || ''} onChange={(e) => setOffPeakRate(Number(e.target.value))} disabled={autoCalculateOffPeak} className={cn(autoCalculateOffPeak && 'bg-muted')} />
-                </div>
-              )}
               <div className="space-y-1">
-                <Label className="text-xs text-muted-foreground">Min Stay</Label>
-                <Input type="number" min="1" value={minStay} onChange={(e) => setMinStay(Number(e.target.value))} />
+                <Label className="text-xs text-muted-foreground">Off-Peak ($)</Label>
+                <Input type="number" min="0" value={offPeakRate || ''} onChange={(e) => setOffPeakRate(Number(e.target.value))} disabled={autoCalculateOffPeak} className={cn(autoCalculateOffPeak && 'bg-muted')} />
               </div>
             </div>
 
@@ -372,7 +359,6 @@ export function RatePlanDialog({
                         <TableHead>Room</TableHead>
                         <TableHead className="w-28">Weekday ($)</TableHead>
                         <TableHead className="w-28">Weekend ($)</TableHead>
-                        <TableHead className="w-24">Min Stay</TableHead>
                         <TableHead className="w-10"></TableHead>
                       </TableRow>
                     </TableHeader>
@@ -380,7 +366,7 @@ export function RatePlanDialog({
                       {units.sort((a, b) => (a.unit_number || '').localeCompare(b.unit_number || '')).map(unit => {
                         const override = roomRates[unit.id];
                         const hasOverride = override?.isOverride;
-                        const effective = hasOverride ? override : { weekday_rate: weekdayRate, weekend_rate: weekendRate, min_stay: minStay };
+                        const effective = hasOverride ? override : { weekday_rate: weekdayRate, weekend_rate: weekendRate };
 
                         return (
                           <TableRow key={unit.id} className={cn(hasOverride && 'bg-muted/10')}>
@@ -393,9 +379,6 @@ export function RatePlanDialog({
                             </TableCell>
                             <TableCell>
                               <Input type="number" min="0" value={effective.weekend_rate || ''} onChange={(e) => handleRoomRateChange(unit.id, 'weekend_rate', Number(e.target.value))} disabled={autoCalculateWeekend} className={cn('w-full', autoCalculateWeekend && 'bg-muted')} />
-                            </TableCell>
-                            <TableCell>
-                              <Input type="number" min="1" value={effective.min_stay} onChange={(e) => handleRoomRateChange(unit.id, 'min_stay', Number(e.target.value))} className="w-full" />
                             </TableCell>
                             <TableCell>
                               {hasOverride && (

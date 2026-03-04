@@ -59,6 +59,7 @@ interface RatePlanPrice {
   weekday_rate: number;
   weekend_rate: number;
   min_stay: number;
+  off_peak_rate?: number | null;
   unit_id?: string | null;
 }
 
@@ -513,7 +514,7 @@ const PMSPrices = () => {
                                   </div>
                                   {price && (
                                     <p className="text-sm text-muted-foreground">
-                                      Base: {formatCurrency(price.weekday_rate)} wkday / {formatCurrency(price.weekend_rate)} wknd · {price.min_stay} night min
+                                      Base: {formatCurrency(price.weekday_rate)} wkday / {formatCurrency(price.weekend_rate)} wknd{price.off_peak_rate ? ` / ${formatCurrency(price.off_peak_rate)} off-peak` : ''}
                                     </p>
                                   )}
                                 </div>
