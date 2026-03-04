@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback } from 'react';
+import { useState, useEffect, useCallback, useMemo } from 'react';
 import { format, addDays } from 'date-fns';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
@@ -29,15 +29,34 @@ interface RatePlanOption {
 interface BulkRestrictionEditorProps {
   ratePlans: RatePlanOption[];
   onSaved?: () => void;
+  onRatePlanFocused?: (id: string) => void;
 }
 
-export function BulkRestrictionEditor({ ratePlans, onSaved }: BulkRestrictionEditorProps) {
+export function BulkRestrictionEditor({ ratePlans, onSaved, onRatePlanFocused }: BulkRestrictionEditorProps) {
   const { toast } = useToast();
+  const [selectedRoomType, setSelectedRoomType] = useState<string>('all');
   const [selectedPlanId, setSelectedPlanId] = useState<string>('all');
   const [dateFrom, setDateFrom] = useState<Date>();
   const [dateTo, setDateTo] = useState<Date>();
   const [saving, setSaving] = useState(false);
   const [clearing, setClearing] = useState(false);
+
+  // Derived room types
+  const roomTypes = useMemo(
+    () => [...new Set(ratePlans.map((p) => p.room_type).filter(Boolean))] as string[],
+    [ratePlans]
+  );
+
+  // Filtered rate plans based on selected room type
+  const filteredRatePlans = useMemo(() => {
+    if (selectedRoomType === 'all') return ratePlans;
+    return ratePlans.filter((p) => p.room_type === selectedRoomType);
+  }, [ratePlans, selectedRoomType]);
+
+  // Reset rate plan when room type changes
+  useEffect(() => {
+    setSelectedPlanId('all');
+  }, [selectedRoomType]);
 
   // Restriction toggles
   const [enableMinStayArrival, setEnableMinStayArrival] = useState(false);
@@ -100,7 +119,7 @@ export function BulkRestrictionEditor({ ratePlans, onSaved }: BulkRestrictionEdi
   };
 
   const getTargetPlanIds = () => {
-    if (selectedPlanId === 'all') return ratePlans.map((p) => p.id);
+    if (selectedPlanId === 'all') return filteredRatePlans.map((p) => p.id);
     return [selectedPlanId];
   };
 
@@ -147,6 +166,11 @@ export function BulkRestrictionEditor({ ratePlans, onSaved }: BulkRestrictionEdi
       toast({ title: 'Success', description: `Restrictions applied to ${planIds.length} rate plan(s) — will sync in 5s` });
       fetchSyncStatus();
       onSaved?.();
+
+      // Focus calendar on the affected rate plan
+      if (selectedPlanId !== 'all' && onRatePlanFocused) {
+        onRatePlanFocused(selectedPlanId);
+      }
     } catch (err: any) {
       toast({ title: 'Error', description: err.message, variant: 'destructive' });
     } finally {
@@ -193,32 +217,59 @@ export function BulkRestrictionEditor({ ratePlans, onSaved }: BulkRestrictionEdi
     }
   };
 
+  // Get a friendly label for the "All" option in rate plan dropdown
+  const allRatePlansLabel = useMemo(() => {
+    if (selectedRoomType === 'all') return 'All Rate Plans';
+    return `All ${selectedRoomType} Rate Plans`;
+  }, [selectedRoomType]);
+
   return (
     <div className="space-y-4">
       <Card>
         <CardHeader>
           <CardTitle className="text-base">Bulk Restriction Editor</CardTitle>
           <p className="text-xs text-muted-foreground">
-            Apply or clear date-specific restrictions for one or all rate plans.
+            Apply or clear date-specific restrictions for one or multiple rate plans.
           </p>
         </CardHeader>
         <CardContent className="space-y-4">
-          {/* Rate Plan Selector */}
-          <div className="space-y-1.5">
-            <Label className="text-sm">Rate Plan</Label>
-            <Select value={selectedPlanId} onValueChange={setSelectedPlanId}>
-              <SelectTrigger>
-                <SelectValue />
-              </SelectTrigger>
-              <SelectContent>
-                <SelectItem value="all">All Rate Plans</SelectItem>
-                {ratePlans.map((p) => (
-                  <SelectItem key={p.id} value={p.id}>
-                    {p.name} {p.room_type && `(${p.room_type})`}
-                  </SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
+          {/* Room Type + Rate Plan Selectors */}
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+            <div className="space-y-1.5">
+              <Label className="text-sm">Room Type</Label>
+              <Select value={selectedRoomType} onValueChange={setSelectedRoomType}>
+                <SelectTrigger>
+                  <SelectValue placeholder="All Room Types" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="all">All Room Types</SelectItem>
+                  {roomTypes.map((rt) => (
+                    <SelectItem key={rt} value={rt}>
+                      {rt}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+
+            <div className="space-y-1.5">
+              <Label className="text-sm">Rate Plan</Label>
+              <Select value={selectedPlanId} onValueChange={setSelectedPlanId}>
+                <SelectTrigger>
+                  <SelectValue placeholder={allRatePlansLabel} />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="all">{allRatePlansLabel}</SelectItem>
+                  {filteredRatePlans.map((p) => (
+                    <SelectItem key={p.id} value={p.id}>
+                      {selectedRoomType === 'all'
+                        ? `${p.name}${p.room_type ? ` (${p.room_type})` : ''}`
+                        : p.name}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
           </div>
 
           {/* Date Range */}
