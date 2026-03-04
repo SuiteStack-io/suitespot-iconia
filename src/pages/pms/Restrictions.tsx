@@ -209,25 +209,7 @@ const PMSRestrictions = () => {
       </header>
 
       <div className="p-4 md:p-6 max-w-6xl mx-auto">
-        {/* Rate Plan Selector - above tabs */}
-        <div className="mt-4 mb-4">
-          <label className="block text-sm font-medium mb-2">View Calendar for Rate Plan</label>
-          <Select value={selectedPlanId} onValueChange={setSelectedPlanId}>
-            <SelectTrigger className="w-full md:w-96">
-              <SelectValue placeholder="Select a rate plan" />
-            </SelectTrigger>
-            <SelectContent>
-              {ratePlans.map((plan) => (
-                <SelectItem key={plan.id} value={plan.id}>
-                  {plan.name}
-                  {plan.room_type && <span className="text-muted-foreground ml-1">({plan.room_type})</span>}
-                </SelectItem>
-              ))}
-            </SelectContent>
-          </Select>
-        </div>
-
-        <Tabs value={activeTab} onValueChange={setActiveTab}>
+        <Tabs value={activeTab} onValueChange={setActiveTab} className="mt-4">
           <TabsList className="mb-4">
             <TabsTrigger value="settings">Rate Plan Settings</TabsTrigger>
             <TabsTrigger value="calendar">Restrictions Calendar</TabsTrigger>
@@ -236,6 +218,23 @@ const PMSRestrictions = () => {
 
           {/* Tab 1: Rate Plan Settings (existing + defaults) */}
           <TabsContent value="settings">
+            <div className="mb-4 space-y-2">
+              <label className="block text-sm font-medium">Select Rate Plan</label>
+              <Select value={selectedPlanId} onValueChange={setSelectedPlanId}>
+                <SelectTrigger className="w-full md:w-96">
+                  <SelectValue placeholder="Select a rate plan" />
+                </SelectTrigger>
+                <SelectContent>
+                  {ratePlans.map((plan) => (
+                    <SelectItem key={plan.id} value={plan.id}>
+                      {plan.name}
+                      {plan.room_type && <span className="text-muted-foreground ml-1">({plan.room_type})</span>}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+
             {selectedPlan && (
               <>
                 <Card>
@@ -311,6 +310,22 @@ const PMSRestrictions = () => {
 
           {/* Tab 2: Restrictions Calendar */}
           <TabsContent value="calendar">
+            <div className="mb-4 space-y-2">
+              <label className="block text-sm font-medium">Select Rate Plan</label>
+              <Select value={selectedPlanId} onValueChange={setSelectedPlanId}>
+                <SelectTrigger className="w-full md:w-96">
+                  <SelectValue placeholder="Select a rate plan" />
+                </SelectTrigger>
+                <SelectContent>
+                  {ratePlans.map((plan) => (
+                    <SelectItem key={plan.id} value={plan.id}>
+                      {plan.name}
+                      {plan.room_type && <span className="text-muted-foreground ml-1">({plan.room_type})</span>}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
             <RestrictionCalendarView key={calendarKey} ratePlans={ratePlans} />
           </TabsContent>
 
