@@ -1,36 +1,28 @@
 
 
-## Add "Pricing Rules" Tab to PMS/Prices Page
+## Improve Bulk Editor with Room Type → Rate Plan Hierarchy
 
 ### What's changing
-Add a third tab "Pricing Rules" next to "Rate Plans" and "Price Lab" on the PMS/Prices page. This tab will contain the Weekend Days / Off-Peak Days configuration UI (currently only in PropertyForm.tsx), allowing users to manage pricing rules directly from where they manage rates.
+1. Add a **Room Type** dropdown to the Bulk Editor that filters the Rate Plan dropdown
+2. Make the Bulk Editor fully self-contained (independent from the page-level dropdown)
+3. Rename the page-level dropdown label to "View Calendar for Rate Plan" for clarity
+4. After applying restrictions, auto-switch the calendar view to show the affected rate plan
 
-### Approach
-1. **Extract Pricing Rules into a standalone component** (`src/components/pms/PricingRulesEditor.tsx`) that:
-   - Reads `weekend_days` and `off_peak_days` from the active property
-   - Shows the same UI as PropertyForm's Pricing Rules section (region presets dropdown, day toggle buttons)
-   - Saves changes directly to the `properties` table via Supabase
-   - Refreshes the property context after saving so other components (RatePlanDialog, QuickRateGrid) pick up the changes immediately
+### Files to edit
 
-2. **Add the tab** in `Prices.tsx`:
-   - New `TabsTrigger value="pricing-rules"` after "Price Lab"
-   - New `TabsContent` rendering `<PricingRulesEditor />`
+**`src/components/pms/BulkRestrictionEditor.tsx`**
+- Add `selectedRoomType` state (default `'all'`)
+- Derive unique room types from `ratePlans` prop: `const roomTypes = useMemo(() => [...new Set(ratePlans.map(p => p.room_type).filter(Boolean))], [ratePlans])`
+- Filter rate plans based on selected room type
+- Reset `selectedPlanId` to `'all'` when room type changes
+- Replace the single "Rate Plan" dropdown with a 2-column grid: Room Type + Rate Plan (filtered)
+- When `selectedRoomType === 'all'`, show room type suffix in rate plan options
+- Add optional `onRatePlanFocused?: (id: string) => void` prop — call after successful apply if a specific plan is selected
+- No other logic changes needed (validation, apply, clear, sync all stay the same)
 
-### Files
-
-**New: `src/components/pms/PricingRulesEditor.tsx`**
-- Self-contained component using `useProperty()` from propertyContext
-- State: `weekendDays`, `offPeakDays`, `saving`
-- Region presets dropdown (Middle East, Western, Custom)
-- Day toggle buttons for weekend and off-peak (same styling as PropertyForm)
-- Off-peak days disabled when already selected as weekend
-- Save button that updates the `properties` table and calls `refreshProperties()`
-- Toast feedback on save
-
-**Edit: `src/pages/pms/Prices.tsx`**
-- Import `PricingRulesEditor`
-- Add third tab trigger and content
+**`src/pages/pms/Restrictions.tsx`**
+- Rename the page-level dropdown label from "Select Rate Plan" to "View Calendar for Rate Plan"
+- Pass `onRatePlanFocused` callback to `BulkRestrictionEditor` that sets `selectedPlanId` (page-level) and switches tab to calendar
 
 ### No database changes needed
-The `weekend_days` and `off_peak_days` columns already exist on the `properties` table.
 
