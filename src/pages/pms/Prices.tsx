@@ -86,13 +86,19 @@ const PMSPrices = () => {
   const [derivedMappings, setDerivedMappings] = useState<Array<{ id: string; base_rate_plan_id: string; channel_markup_id: string; channel_name: string; markup_percentage: number; channex_derived_rate_plan_id: string }>>([]);
   const [syncing, setSyncing] = useState(false);
   const [syncProgress, setSyncProgress] = useState(0);
+  const [pendingRatePlanIds, setPendingRatePlanIds] = useState<Set<string>>(new Set());
 
   const syncRatesToChannex = async () => {
+    if (pendingRatePlanIds.size === 0) {
+      toast.warning('No pending changes to sync');
+      return;
+    }
     setSyncing(true);
     setSyncProgress(10);
     try {
+      const pendingIds = Array.from(pendingRatePlanIds);
       const plansWithPrices = ratePlans
-        .filter(p => p.is_active && p.property_id)
+        .filter(p => p.is_active && p.property_id && pendingIds.includes(p.id))
         .map(plan => {
           const price = getPlanPrice(plan.id);
           if (!price) return null;
@@ -124,7 +130,6 @@ const PMSPrices = () => {
 
       setSyncProgress(40);
 
-      // Build updates for direct Channex push
       const updates = plansWithPrices.map((p: any) => ({
         property_id: p.property_id,
         rate_plan_id: p.entity_id,
@@ -139,6 +144,7 @@ const PMSPrices = () => {
       });
       if (error) throw error;
 
+      setPendingRatePlanIds(new Set());
       setSyncProgress(100);
       toast.success(`Synced ${plansWithPrices.length} rate plan(s) to Channex`);
       setTimeout(() => setSyncProgress(0), 1500);
@@ -150,6 +156,18 @@ const PMSPrices = () => {
       setSyncing(false);
     }
   };
+
+  // Warn on unload if pending changes
+  useEffect(() => {
+    const handler = (e: BeforeUnloadEvent) => {
+      if (pendingRatePlanIds.size > 0) {
+        e.preventDefault();
+        e.returnValue = 'You have unsaved changes that haven\'t been synced to channels.';
+      }
+    };
+    window.addEventListener('beforeunload', handler);
+    return () => window.removeEventListener('beforeunload', handler);
+  }, [pendingRatePlanIds.size]);
 
   useEffect(() => {
     if (propertyId) {
@@ -277,6 +295,8 @@ const PMSPrices = () => {
     prices: Array<{ room_type: string; weekday_rate: number; weekend_rate: number; min_stay: number; unit_id?: string | null }>
   ) => {
     try {
+      let savedPlanId: string;
+
       if (editingRatePlan) {
         const { error: updateError } = await supabase
           .from('rate_plans')
@@ -300,7 +320,7 @@ const PMSPrices = () => {
           if (insertError) throw insertError;
         }
 
-        toast.success('Rate plan updated');
+        savedPlanId = editingRatePlan.id;
       } else {
         const { data: newPlan, error: createError } = await supabase
           .from('rate_plans')
@@ -316,9 +336,9 @@ const PMSPrices = () => {
           if (insertError) throw insertError;
         }
 
-        toast.success('Rate plan created');
+        savedPlanId = newPlan.id;
 
-        // Auto-create derived plans for all active channel markups
+        // Auto-create derived plans for all active channel markups (new plans only)
         if (newPlan && channelMarkups.length > 0) {
           toast.info('Creating derived rate plans for channels...');
           for (const ch of channelMarkups) {
@@ -332,6 +352,10 @@ const PMSPrices = () => {
           }
         }
       }
+
+      // Track as pending for Channex sync
+      setPendingRatePlanIds(prev => new Set(prev).add(savedPlanId));
+      toast.info('Changes saved. Click "Save Changes" to sync to channels.');
 
       setDialogOpen(false);
       fetchData();
@@ -416,11 +440,11 @@ const PMSPrices = () => {
               </div>
               <Button
                 onClick={syncRatesToChannex}
-                disabled={syncing}
+                disabled={syncing || pendingRatePlanIds.size === 0}
                 className="bg-black text-white hover:bg-black/90 gap-2 shrink-0"
               >
                 {syncing ? <Loader2 className="h-4 w-4 animate-spin" /> : <Save className="h-4 w-4" />}
-                Save Changes
+                Save Changes{pendingRatePlanIds.size > 0 && ` (${pendingRatePlanIds.size})`}
               </Button>
             </div>
 
@@ -470,6 +494,9 @@ const PMSPrices = () => {
                                     <span className="font-medium">{plan.name}</span>
                                     {plan.is_default && (
                                       <Badge variant="secondary" className="text-xs">Default</Badge>
+                                    )}
+                                    {pendingRatePlanIds.has(plan.id) && (
+                                      <Badge className="text-xs bg-yellow-100 text-yellow-800 border-yellow-300 dark:bg-yellow-900 dark:text-yellow-200 dark:border-yellow-700">Modified</Badge>
                                     )}
                                     <Badge
                                       variant={plan.cancellation_policy === 'non_refundable' ? 'destructive' : 'outline'}
