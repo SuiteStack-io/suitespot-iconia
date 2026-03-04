@@ -310,22 +310,6 @@ const PMSRestrictions = () => {
 
           {/* Tab 2: Restrictions Calendar */}
           <TabsContent value="calendar">
-            <div className="mb-4 space-y-2">
-              <label className="block text-sm font-medium">Select Rate Plan</label>
-              <Select value={selectedPlanId} onValueChange={setSelectedPlanId}>
-                <SelectTrigger className="w-full md:w-96">
-                  <SelectValue placeholder="Select a rate plan" />
-                </SelectTrigger>
-                <SelectContent>
-                  {ratePlans.map((plan) => (
-                    <SelectItem key={plan.id} value={plan.id}>
-                      {plan.name}
-                      {plan.room_type && <span className="text-muted-foreground ml-1">({plan.room_type})</span>}
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-            </div>
             <RestrictionCalendarView key={calendarKey} ratePlans={ratePlans} />
           </TabsContent>
 
