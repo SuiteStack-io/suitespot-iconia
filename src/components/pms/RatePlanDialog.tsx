@@ -249,7 +249,7 @@ export function RatePlanDialog({
             <Label>Validity Period</Label>
             <RadioGroup value={validityType} onValueChange={(v: 'always' | 'dateRange') => setValidityType(v)} className="space-y-2">
               <div className="flex items-center space-x-2">
-                <RadioGroupItem value="always" id="always" disabled={isEditing && !ratePlan?.is_default} />
+                <RadioGroupItem value="always" id="always" />
                 <Label htmlFor="always" className="font-normal cursor-pointer">Always active (default rate)</Label>
               </div>
               <div className="flex items-center space-x-2">
