@@ -211,7 +211,7 @@ const PMSRestrictions = () => {
       <div className="p-4 md:p-6 max-w-6xl mx-auto">
         {/* Rate Plan Selector - above tabs */}
         <div className="mt-4 mb-4">
-          <label className="block text-sm font-medium mb-2">Select Rate Plan</label>
+          <label className="block text-sm font-medium mb-2">View Calendar for Rate Plan</label>
           <Select value={selectedPlanId} onValueChange={setSelectedPlanId}>
             <SelectTrigger className="w-full md:w-96">
               <SelectValue placeholder="Select a rate plan" />
@@ -319,6 +319,10 @@ const PMSRestrictions = () => {
             <BulkRestrictionEditor
               ratePlans={ratePlans}
               onSaved={() => setCalendarKey((k) => k + 1)}
+              onRatePlanFocused={(id) => {
+                setSelectedPlanId(id);
+                setActiveTab('calendar');
+              }}
             />
           </TabsContent>
         </Tabs>
