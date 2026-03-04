@@ -417,7 +417,7 @@ export function RatePlanDialog({
 
         <DialogFooter>
           <Button variant="outline" onClick={() => onOpenChange(false)}>Cancel</Button>
-          <Button onClick={handleSave} disabled={!name.trim() || weekdayRate <= 0}>{isEditing ? 'Save Changes' : 'Create Rate Plan'}</Button>
+          <Button onClick={handleSave} disabled={!name.trim() || weekdayRate <= 0}>{isEditing ? 'Confirm' : 'Create'}</Button>
         </DialogFooter>
       </DialogContent>
     </Dialog>
