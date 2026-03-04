@@ -1,6 +1,6 @@
 import { useState, useEffect, useCallback, useMemo } from 'react';
 import { format, addDays } from 'date-fns';
-import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
+import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
@@ -8,6 +8,7 @@ import { Switch } from '@/components/ui/switch';
 import { Checkbox } from '@/components/ui/checkbox';
 import { Calendar } from '@/components/ui/calendar';
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
+import { Badge } from '@/components/ui/badge';
 import {
   Select,
   SelectContent,
@@ -15,7 +16,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from '@/components/ui/select';
-import { CalendarIcon, Loader2, RefreshCw, CheckCircle2, AlertCircle } from 'lucide-react';
+import { CalendarIcon, Loader2, RefreshCw, CheckCircle2, AlertCircle, X, Save } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { supabase } from '@/integrations/supabase/client';
 import { useToast } from '@/hooks/use-toast';
@@ -24,6 +25,24 @@ interface RatePlanOption {
   id: string;
   name: string;
   room_type: string | null;
+}
+
+interface PendingRestriction {
+  id: string;
+  ratePlanId: string;
+  ratePlanName: string;
+  roomTypeName: string;
+  dateFrom: string;
+  dateTo: string;
+  restrictions: {
+    minStayArrival?: number;
+    minStayThrough?: number;
+    maxStay?: number;
+    stopSell?: boolean;
+    closedToArrival?: boolean;
+    closedToDeparture?: boolean;
+  };
+  addedAt: Date;
 }
 
 interface BulkRestrictionEditorProps {
@@ -38,8 +57,11 @@ export function BulkRestrictionEditor({ ratePlans, onSaved, onRatePlanFocused }:
   const [selectedPlanId, setSelectedPlanId] = useState<string>('all');
   const [dateFrom, setDateFrom] = useState<Date>();
   const [dateTo, setDateTo] = useState<Date>();
-  const [saving, setSaving] = useState(false);
   const [clearing, setClearing] = useState(false);
+
+  // Pending changes state
+  const [pendingRestrictions, setPendingRestrictions] = useState<PendingRestriction[]>([]);
+  const [isSaving, setIsSaving] = useState(false);
 
   // Derived room types
   const roomTypes = useMemo(
@@ -75,12 +97,24 @@ export function BulkRestrictionEditor({ ratePlans, onSaved, onRatePlanFocused }:
   const [closedToDeparture, setClosedToDeparture] = useState(false);
 
   // Sync status
-  const [pendingCount, setPendingCount] = useState(0);
+  const [pendingDbCount, setPendingDbCount] = useState(0);
   const [lastSyncTime, setLastSyncTime] = useState<string | null>(null);
   const [syncing, setSyncing] = useState(false);
 
   const today = new Date();
   today.setHours(0, 0, 0, 0);
+
+  // Warn on unsaved changes
+  useEffect(() => {
+    const handleBeforeUnload = (e: BeforeUnloadEvent) => {
+      if (pendingRestrictions.length > 0) {
+        e.preventDefault();
+        e.returnValue = 'You have unsaved restriction changes that will be lost.';
+      }
+    };
+    window.addEventListener('beforeunload', handleBeforeUnload);
+    return () => window.removeEventListener('beforeunload', handleBeforeUnload);
+  }, [pendingRestrictions.length]);
 
   const fetchSyncStatus = useCallback(async () => {
     const [{ count }, { data: lastLog }] = await Promise.all([
@@ -96,7 +130,7 @@ export function BulkRestrictionEditor({ ratePlans, onSaved, onRatePlanFocused }:
         .limit(1)
         .maybeSingle(),
     ]);
-    setPendingCount(count ?? 0);
+    setPendingDbCount(count ?? 0);
     setLastSyncTime(lastLog?.created_at ?? null);
   }, []);
 
@@ -118,12 +152,30 @@ export function BulkRestrictionEditor({ ratePlans, onSaved, onRatePlanFocused }:
     return null;
   };
 
-  const getTargetPlanIds = () => {
-    if (selectedPlanId === 'all') return filteredRatePlans.map((p) => p.id);
-    return [selectedPlanId];
+  const getTargetPlans = () => {
+    if (selectedPlanId === 'all') return filteredRatePlans;
+    const plan = ratePlans.find((p) => p.id === selectedPlanId);
+    return plan ? [plan] : [];
   };
 
-  const handleApply = async () => {
+  const resetForm = () => {
+    setDateFrom(undefined);
+    setDateTo(undefined);
+    setEnableMinStayArrival(false);
+    setEnableMinStayThrough(false);
+    setEnableMaxStay(false);
+    setEnableStopSell(false);
+    setEnableCTA(false);
+    setEnableCTD(false);
+    setMinStayArrival(2);
+    setMinStayThrough(2);
+    setMaxStay(30);
+    setStopSell(false);
+    setClosedToArrival(false);
+    setClosedToDeparture(false);
+  };
+
+  const handleApply = () => {
     const err = validate();
     if (err) {
       toast({ title: 'Validation Error', description: err, variant: 'destructive' });
@@ -134,47 +186,76 @@ export function BulkRestrictionEditor({ ratePlans, onSaved, onRatePlanFocused }:
       toast({ title: 'Warning', description: 'Stop Sell already blocks all arrivals — Closed to Arrival is redundant' });
     }
 
-    setSaving(true);
+    const targetPlans = getTargetPlans();
+    const restrictions: PendingRestriction['restrictions'] = {};
+    if (enableMinStayArrival) restrictions.minStayArrival = minStayArrival;
+    if (enableMinStayThrough) restrictions.minStayThrough = minStayThrough;
+    if (enableMaxStay) restrictions.maxStay = maxStay;
+    if (enableStopSell) restrictions.stopSell = stopSell;
+    if (enableCTA) restrictions.closedToArrival = closedToArrival;
+    if (enableCTD) restrictions.closedToDeparture = closedToDeparture;
+
+    const newPending: PendingRestriction[] = targetPlans.map((plan) => ({
+      id: crypto.randomUUID(),
+      ratePlanId: plan.id,
+      ratePlanName: plan.name,
+      roomTypeName: plan.room_type || 'All',
+      dateFrom: format(dateFrom!, 'yyyy-MM-dd'),
+      dateTo: format(dateTo!, 'yyyy-MM-dd'),
+      restrictions,
+      addedAt: new Date(),
+    }));
+
+    setPendingRestrictions((prev) => [...prev, ...newPending]);
+    resetForm();
+    toast({ title: 'Added', description: `${newPending.length} restriction(s) added to pending changes` });
+  };
+
+  const handleRemovePending = (id: string) => {
+    setPendingRestrictions((prev) => prev.filter((p) => p.id !== id));
+  };
+
+  const handleSaveAllChanges = async () => {
+    if (pendingRestrictions.length === 0) return;
+    setIsSaving(true);
     try {
-      const planIds = getTargetPlanIds();
-      const rows = planIds.map((rpId) => ({
-        rate_plan_id: rpId,
-        date_from: format(dateFrom!, 'yyyy-MM-dd'),
-        date_to: format(addDays(dateTo!, 1), 'yyyy-MM-dd'),
-        min_stay_arrival: enableMinStayArrival ? minStayArrival : 1,
-        min_stay_through: enableMinStayThrough ? minStayThrough : 1,
-        max_stay: enableMaxStay ? maxStay : null,
-        stop_sell: enableStopSell ? stopSell : false,
-        closed_to_arrival: enableCTA ? closedToArrival : false,
-        closed_to_departure: enableCTD ? closedToDeparture : false,
+      const rows = pendingRestrictions.map((p) => ({
+        rate_plan_id: p.ratePlanId,
+        date_from: p.dateFrom,
+        date_to: format(addDays(new Date(p.dateTo), 1), 'yyyy-MM-dd'),
+        min_stay_arrival: p.restrictions.minStayArrival ?? 1,
+        min_stay_through: p.restrictions.minStayThrough ?? 1,
+        max_stay: p.restrictions.maxStay ?? null,
+        stop_sell: p.restrictions.stopSell ?? false,
+        closed_to_arrival: p.restrictions.closedToArrival ?? false,
+        closed_to_departure: p.restrictions.closedToDeparture ?? false,
         synced_to_channex: false,
       }));
 
       const { error } = await supabase.from('rate_plan_restrictions').insert(rows);
       if (error) throw error;
 
-      // Auto-sync after 5 seconds
-      setTimeout(async () => {
-        try {
-          await supabase.functions.invoke('channex-push-restrictions', {
-            body: { rate_plan_ids: planIds },
-          });
-          fetchSyncStatus();
-        } catch { /* non-fatal */ }
-      }, 5000);
+      const uniquePlanIds = [...new Set(pendingRestrictions.map((p) => p.ratePlanId))];
 
-      toast({ title: 'Success', description: `Restrictions applied to ${planIds.length} rate plan(s) — will sync in 5s` });
+      // Single Channex sync call
+      try {
+        await supabase.functions.invoke('channex-push-restrictions', {
+          body: { rate_plan_ids: uniquePlanIds },
+        });
+      } catch { /* non-fatal */ }
+
+      toast({ title: 'Saved', description: `${rows.length} restriction(s) saved and synced` });
+      setPendingRestrictions([]);
       fetchSyncStatus();
       onSaved?.();
 
-      // Focus calendar on the affected rate plan
-      if (selectedPlanId !== 'all' && onRatePlanFocused) {
-        onRatePlanFocused(selectedPlanId);
+      if (uniquePlanIds.length === 1 && onRatePlanFocused) {
+        onRatePlanFocused(uniquePlanIds[0]);
       }
     } catch (err: any) {
       toast({ title: 'Error', description: err.message, variant: 'destructive' });
     } finally {
-      setSaving(false);
+      setIsSaving(false);
     }
   };
 
@@ -185,12 +266,12 @@ export function BulkRestrictionEditor({ ratePlans, onSaved, onRatePlanFocused }:
     }
     setClearing(true);
     try {
-      const planIds = getTargetPlanIds();
-      for (const rpId of planIds) {
+      const targetPlans = getTargetPlans();
+      for (const plan of targetPlans) {
         await supabase
           .from('rate_plan_restrictions')
           .delete()
-          .eq('rate_plan_id', rpId)
+          .eq('rate_plan_id', plan.id)
           .lte('date_from', format(dateTo!, 'yyyy-MM-dd'))
           .gte('date_to', format(dateFrom!, 'yyyy-MM-dd'));
       }
@@ -217,7 +298,6 @@ export function BulkRestrictionEditor({ ratePlans, onSaved, onRatePlanFocused }:
     }
   };
 
-  // Get a friendly label for the "All" option in rate plan dropdown
   const allRatePlansLabel = useMemo(() => {
     if (selectedRoomType === 'all') return 'All Rate Plans';
     return `All ${selectedRoomType} Rate Plans`;
@@ -225,6 +305,7 @@ export function BulkRestrictionEditor({ ratePlans, onSaved, onRatePlanFocused }:
 
   return (
     <div className="space-y-4">
+      {/* Editor Card */}
       <Card>
         <CardHeader>
           <CardTitle className="text-base">Bulk Restriction Editor</CardTitle>
@@ -244,14 +325,11 @@ export function BulkRestrictionEditor({ ratePlans, onSaved, onRatePlanFocused }:
                 <SelectContent>
                   <SelectItem value="all">All Room Types</SelectItem>
                   {roomTypes.map((rt) => (
-                    <SelectItem key={rt} value={rt}>
-                      {rt}
-                    </SelectItem>
+                    <SelectItem key={rt} value={rt}>{rt}</SelectItem>
                   ))}
                 </SelectContent>
               </Select>
             </div>
-
             <div className="space-y-1.5">
               <Label className="text-sm">Rate Plan</Label>
               <Select value={selectedPlanId} onValueChange={setSelectedPlanId}>
@@ -368,8 +446,7 @@ export function BulkRestrictionEditor({ ratePlans, onSaved, onRatePlanFocused }:
 
           {/* Actions */}
           <div className="flex flex-wrap gap-2">
-            <Button onClick={handleApply} disabled={saving}>
-              {saving && <Loader2 className="h-4 w-4 mr-2 animate-spin" />}
+            <Button onClick={handleApply}>
               Apply Restrictions
             </Button>
             <Button variant="outline" onClick={handleClear} disabled={clearing}>
@@ -380,19 +457,102 @@ export function BulkRestrictionEditor({ ratePlans, onSaved, onRatePlanFocused }:
         </CardContent>
       </Card>
 
+      {/* Pending Changes Panel */}
+      {pendingRestrictions.length > 0 && (
+        <Card>
+          <CardHeader className="pb-3">
+            <div className="flex items-center justify-between">
+              <div>
+                <CardTitle className="text-base">Pending Changes</CardTitle>
+                <CardDescription>
+                  {pendingRestrictions.length} restriction change(s) ready to sync
+                </CardDescription>
+              </div>
+              <Button onClick={handleSaveAllChanges} disabled={isSaving}>
+                {isSaving ? (
+                  <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                ) : (
+                  <Save className="mr-2 h-4 w-4" />
+                )}
+                Save Changes ({pendingRestrictions.length})
+              </Button>
+            </div>
+          </CardHeader>
+          <CardContent>
+            <div className="space-y-3">
+              {pendingRestrictions.map((pending) => (
+                <div
+                  key={pending.id}
+                  className="flex items-start justify-between p-3 bg-muted/50 rounded-lg"
+                >
+                  <div className="space-y-1">
+                    <div className="font-medium text-sm">
+                      {pending.ratePlanName}
+                      <span className="text-muted-foreground font-normal ml-2">
+                        ({pending.roomTypeName})
+                      </span>
+                    </div>
+                    <div className="text-sm text-muted-foreground">
+                      {format(new Date(pending.dateFrom + 'T00:00:00'), 'MMM d, yyyy')}
+                      {pending.dateFrom !== pending.dateTo && (
+                        <> → {format(new Date(pending.dateTo + 'T00:00:00'), 'MMM d, yyyy')}</>
+                      )}
+                    </div>
+                    <div className="flex flex-wrap gap-1.5 mt-1.5">
+                      {pending.restrictions.minStayArrival && (
+                        <Badge variant="secondary" className="text-[10px]">
+                          Min Stay Arrival: {pending.restrictions.minStayArrival}
+                        </Badge>
+                      )}
+                      {pending.restrictions.minStayThrough && (
+                        <Badge variant="secondary" className="text-[10px]">
+                          Min Stay Through: {pending.restrictions.minStayThrough}
+                        </Badge>
+                      )}
+                      {pending.restrictions.maxStay && (
+                        <Badge variant="secondary" className="text-[10px]">
+                          Max Stay: {pending.restrictions.maxStay}
+                        </Badge>
+                      )}
+                      {pending.restrictions.stopSell && (
+                        <Badge variant="destructive" className="text-[10px]">Stop Sell</Badge>
+                      )}
+                      {pending.restrictions.closedToArrival && (
+                        <Badge variant="outline" className="text-[10px]">Closed to Arrival</Badge>
+                      )}
+                      {pending.restrictions.closedToDeparture && (
+                        <Badge variant="outline" className="text-[10px]">Closed to Departure</Badge>
+                      )}
+                    </div>
+                  </div>
+                  <Button
+                    variant="ghost"
+                    size="sm"
+                    className="h-7 w-7 p-0 shrink-0"
+                    onClick={() => handleRemovePending(pending.id)}
+                  >
+                    <X className="h-4 w-4" />
+                  </Button>
+                </div>
+              ))}
+            </div>
+          </CardContent>
+        </Card>
+      )}
+
       {/* Sync Status */}
       <Card>
         <CardContent className="py-3 px-4">
           <div className="flex items-center justify-between flex-wrap gap-2">
             <div className="flex items-center gap-4 text-sm">
               <div className="flex items-center gap-1.5">
-                {pendingCount > 0 ? (
+                {pendingDbCount > 0 ? (
                   <AlertCircle className="h-4 w-4 text-orange-500" />
                 ) : (
                   <CheckCircle2 className="h-4 w-4 text-green-500" />
                 )}
                 <span>
-                  {pendingCount > 0 ? `${pendingCount} pending` : 'All synced'}
+                  {pendingDbCount > 0 ? `${pendingDbCount} pending` : 'All synced'}
                 </span>
               </div>
               {lastSyncTime && (
@@ -401,7 +561,7 @@ export function BulkRestrictionEditor({ ratePlans, onSaved, onRatePlanFocused }:
                 </span>
               )}
             </div>
-            <Button variant="outline" size="sm" onClick={handleSyncNow} disabled={syncing || pendingCount === 0}>
+            <Button variant="outline" size="sm" onClick={handleSyncNow} disabled={syncing || pendingDbCount === 0}>
               {syncing ? <Loader2 className="h-3.5 w-3.5 mr-1.5 animate-spin" /> : <RefreshCw className="h-3.5 w-3.5 mr-1.5" />}
               Sync Now
             </Button>
