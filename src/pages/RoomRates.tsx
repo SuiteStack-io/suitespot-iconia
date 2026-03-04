@@ -1,5 +1,5 @@
-import { useState, useEffect, useMemo } from 'react';
-import { format, addDays, startOfWeek, startOfMonth, endOfMonth, eachDayOfInterval, isFriday, isSaturday, isThursday, addMonths, subMonths } from 'date-fns';
+import { useState, useEffect, useMemo, useCallback } from 'react';
+import { format, addDays, startOfWeek, startOfMonth, endOfMonth, eachDayOfInterval, addMonths, subMonths } from 'date-fns';
 import { ChevronLeft, ChevronRight, Loader2 } from 'lucide-react';
 import { supabase } from '@/integrations/supabase/client';
 import { SlideMenu } from '@/components/SlideMenu';
@@ -25,22 +25,23 @@ interface RatePlanPrice {
   room_type: string;
   weekday_rate: number;
   weekend_rate: number;
+  off_peak_rate: number | null;
   min_stay: number;
   unit_id: string | null;
 }
 
-// Thu/Fri/Sat use weekend_rate pricing
-const isWeekendRate = (date: Date) => isThursday(date) || isFriday(date) || isSaturday(date);
-// Thursday & Friday get visual weekend highlight
-const isWeekendHighlight = (date: Date) => {
-  const day = date.getDay();
-  return day === 4 || day === 5;
-};
+const DAY_NAMES = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
 
-const getCellColor = (currentRate: number, baseRate: number, isWeekend: boolean): string => {
-  if (baseRate === 0) return isWeekend ? 'hsl(0 70% 97%)' : '';
+const getCellColor = (currentRate: number, baseRate: number, isWeekend: boolean, isOffPeak: boolean): string => {
+  if (baseRate === 0) {
+    if (isOffPeak) return '#E3F2FD';
+    return isWeekend ? 'hsl(0 70% 97%)' : '';
+  }
   const pct = ((currentRate - baseRate) / baseRate) * 100;
-  if (Math.abs(pct) < 1) return isWeekend ? 'hsl(0 70% 97%)' : '';
+  if (Math.abs(pct) < 1) {
+    if (isOffPeak) return '#E3F2FD';
+    return isWeekend ? 'hsl(0 70% 97%)' : '';
+  }
   if (pct > 25) return '#A5D6A7';
   if (pct > 10) return '#C8E6C9';
   if (pct > 0) return '#E8F5E9';
@@ -65,6 +66,14 @@ const RoomRates = () => {
   const propertyId = usePropertyId();
   const { activeProperty } = useProperty();
   const isMobile = useIsMobile();
+
+  // Property-aware day classification
+  const weekendDays = useMemo(() => (activeProperty as any)?.weekend_days ?? [4, 5], [activeProperty]);
+  const offPeakDays = useMemo(() => (activeProperty as any)?.off_peak_days ?? [], [activeProperty]);
+  const isWeekendRate = useCallback((date: Date) => weekendDays.includes(date.getDay()), [weekendDays]);
+  const isOffPeakDay = useCallback((date: Date) => offPeakDays.includes(date.getDay()), [offPeakDays]);
+  const isWeekendHighlight = useCallback((date: Date) => weekendDays.includes(date.getDay()), [weekendDays]);
+
   const [loading, setLoading] = useState(true);
   const [ratePlans, setRatePlans] = useState<RatePlan[]>([]);
   const [prices, setPrices] = useState<Record<string, RatePlanPrice>>({});
@@ -176,6 +185,7 @@ const RoomRates = () => {
     const override = dateOverrides[`${planId}:${dateStr}`];
     if (override !== undefined) return override;
     if (!price) return 0;
+    if (isOffPeakDay(date) && price.off_peak_rate != null) return price.off_peak_rate;
     return isWeekendRate(date) ? price.weekend_rate : price.weekday_rate;
   };
 
@@ -302,7 +312,7 @@ const RoomRates = () => {
         </div>
 
         {/* Legend */}
-        <div className="flex items-center gap-4 text-[11px] text-muted-foreground">
+        <div className="flex items-center gap-4 text-[11px] text-muted-foreground flex-wrap">
           <div className="flex items-center gap-1.5">
             <span className="inline-block w-3 h-3 rounded-sm" style={{ backgroundColor: '#C8E6C9' }} />
             <span>Above base rate</span>
@@ -313,8 +323,14 @@ const RoomRates = () => {
           </div>
           <div className="flex items-center gap-1.5">
             <span className="inline-block w-3 h-3 rounded-sm" style={{ backgroundColor: 'hsl(0 70% 97%)' }} />
-            <span>Weekend (Thu–Fri)</span>
+            <span>Weekend ({weekendDays.map(d => DAY_NAMES[d]).join('–')})</span>
           </div>
+          {offPeakDays.length > 0 && (
+            <div className="flex items-center gap-1.5">
+              <span className="inline-block w-3 h-3 rounded-sm" style={{ backgroundColor: '#E3F2FD' }} />
+              <span>Off-Peak ({offPeakDays.map(d => DAY_NAMES[d]).join('–')})</span>
+            </div>
+          )}
         </div>
 
         {/* Grid */}
@@ -327,7 +343,7 @@ const RoomRates = () => {
                 <tr>
                   <th className="text-left p-2 border-b bg-muted/50 sticky left-0 z-10 min-w-[160px]" style={{ boxShadow: '2px 0 4px rgba(0,0,0,0.1)' }}>Room / Plan</th>
                   {days.map(d => (
-                    <th key={d.toISOString()} className={`text-center p-2 border-b ${cellMinWidth} ${isWeekendHighlight(d) ? 'bg-accent/30' : 'bg-muted/50'}`}>
+                    <th key={d.toISOString()} className={`text-center p-2 border-b ${cellMinWidth} ${isWeekendHighlight(d) ? 'bg-accent/30' : isOffPeakDay(d) ? 'bg-blue-50 dark:bg-blue-900/20' : 'bg-muted/50'}`}>
                       <div className="font-medium">{format(d, viewMode === 'month' ? 'd' : 'MMM d')}</div>
                       <div className="text-[10px] text-muted-foreground font-normal">{format(d, 'EEE')}</div>
                     </th>
@@ -346,7 +362,8 @@ const RoomRates = () => {
                       {days.map(d => {
                         const rate = getRate(price, d, plan.id);
                         const weekend = isWeekendHighlight(d);
-                        const varianceColor = rate > 0 ? getCellColor(rate, baseRate, weekend) : '';
+                        const offPeak = isOffPeakDay(d);
+                        const varianceColor = rate > 0 ? getCellColor(rate, baseRate, weekend, offPeak) : '';
                         const arrow = rate > 0 ? getVarianceArrow(rate, baseRate) : '';
 
                         return (

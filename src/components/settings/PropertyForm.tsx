@@ -43,6 +43,14 @@ export function PropertyForm({ property, open, onClose, onSaved }: PropertyFormP
 
   const [step, setStep] = useState(1);
   const [createdPropertyId, setCreatedPropertyId] = useState<string | null>(null);
+
+  const DAY_NAMES = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
+  const REGION_PRESETS: Record<string, { weekend_days: number[]; off_peak_days: number[] }> = {
+    middle_east: { weekend_days: [4, 5], off_peak_days: [6] },
+    western: { weekend_days: [5, 6], off_peak_days: [0] },
+    custom: { weekend_days: [], off_peak_days: [] },
+  };
+
   const [form, setForm] = useState({
     name: property?.name || '',
     legal_name: property?.legal_name || '',
@@ -63,6 +71,8 @@ export function PropertyForm({ property, open, onClose, onSaved }: PropertyFormP
     currency: property?.currency || 'USD',
     default_checkin_time: property?.default_checkin_time || '15:00',
     default_checkout_time: property?.default_checkout_time || '11:00',
+    weekend_days: (property as any)?.weekend_days ?? [4, 5],
+    off_peak_days: (property as any)?.off_peak_days ?? [],
   });
   const [saving, setSaving] = useState(false);
 
@@ -99,6 +109,8 @@ export function PropertyForm({ property, open, onClose, onSaved }: PropertyFormP
         currency: form.currency,
         default_checkin_time: form.default_checkin_time,
         default_checkout_time: form.default_checkout_time,
+        weekend_days: form.weekend_days,
+        off_peak_days: form.off_peak_days,
       };
 
       if (isEdit) {
@@ -248,7 +260,7 @@ export function PropertyForm({ property, open, onClose, onSaved }: PropertyFormP
 
         {/* STEP 2: Operations */}
         {step === 2 && (
-          <div className="space-y-4 py-2">
+          <div className="space-y-4 py-2 max-h-[60vh] overflow-y-auto pr-2">
             <p className="text-sm text-muted-foreground">Configure operational defaults for this property.</p>
             <div className="grid gap-4 sm:grid-cols-2">
               <div>
@@ -266,6 +278,101 @@ export function PropertyForm({ property, open, onClose, onSaved }: PropertyFormP
                 <div><Label>Phone</Label><PhoneInput value={form.phone} onChange={v => update('phone', v)} placeholder="Optional" /></div>
               </div>
             )}
+
+            {/* Pricing Rules */}
+            <div className="border rounded-lg p-4 space-y-4">
+              <div className="flex items-center justify-between">
+                <h3 className="text-sm font-semibold">Pricing Rules</h3>
+                <Select
+                  value="custom"
+                  onValueChange={(preset) => {
+                    const p = REGION_PRESETS[preset];
+                    if (p) {
+                      setForm(prev => ({ ...prev, weekend_days: p.weekend_days, off_peak_days: p.off_peak_days }));
+                    }
+                  }}
+                >
+                  <SelectTrigger className="w-[160px] h-8 text-xs">
+                    <SelectValue placeholder="Region preset" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="middle_east">Middle East</SelectItem>
+                    <SelectItem value="western">Western</SelectItem>
+                    <SelectItem value="custom">Custom</SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
+
+              <div>
+                <Label className="text-xs text-muted-foreground mb-2 block">Weekend Days (Premium Rates)</Label>
+                <div className="flex flex-wrap gap-1.5">
+                  {DAY_NAMES.map((name, idx) => {
+                    const isSelected = form.weekend_days.includes(idx);
+                    const isConflict = form.off_peak_days.includes(idx);
+                    return (
+                      <button
+                        key={idx}
+                        type="button"
+                        className={`px-3 py-1.5 text-xs rounded-md border transition-colors ${
+                          isSelected
+                            ? 'bg-primary text-primary-foreground border-primary'
+                            : 'bg-background border-input hover:bg-accent'
+                        }`}
+                        onClick={() => {
+                          setForm(prev => ({
+                            ...prev,
+                            weekend_days: isSelected
+                              ? prev.weekend_days.filter((d: number) => d !== idx)
+                              : [...prev.weekend_days, idx],
+                          }));
+                        }}
+                      >
+                        {name}
+                      </button>
+                    );
+                  })}
+                </div>
+              </div>
+
+              <div>
+                <Label className="text-xs text-muted-foreground mb-2 block">Off-Peak Days (Discounted Rates)</Label>
+                <div className="flex flex-wrap gap-1.5">
+                  {DAY_NAMES.map((name, idx) => {
+                    const isSelected = form.off_peak_days.includes(idx);
+                    const isConflict = form.weekend_days.includes(idx);
+                    return (
+                      <button
+                        key={idx}
+                        type="button"
+                        className={`px-3 py-1.5 text-xs rounded-md border transition-colors ${
+                          isSelected
+                            ? 'bg-blue-600 text-white border-blue-600'
+                            : isConflict
+                              ? 'bg-muted text-muted-foreground border-input cursor-not-allowed opacity-50'
+                              : 'bg-background border-input hover:bg-accent'
+                        }`}
+                        disabled={isConflict}
+                        onClick={() => {
+                          if (isConflict) return;
+                          setForm(prev => ({
+                            ...prev,
+                            off_peak_days: isSelected
+                              ? prev.off_peak_days.filter((d: number) => d !== idx)
+                              : [...prev.off_peak_days, idx],
+                          }));
+                        }}
+                      >
+                        {name}
+                      </button>
+                    );
+                  })}
+                </div>
+                {form.off_peak_days.some((d: number) => form.weekend_days.includes(d)) && (
+                  <p className="text-xs text-destructive mt-1">Weekend and off-peak days cannot overlap.</p>
+                )}
+              </div>
+            </div>
+
             <p className="text-xs text-muted-foreground">VAT rate is inherited from your company settings.</p>
           </div>
         )}

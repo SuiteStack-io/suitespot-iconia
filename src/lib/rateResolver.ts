@@ -6,6 +6,7 @@ interface RatePlanPrice {
   room_type: string;
   weekday_rate: number;
   weekend_rate: number;
+  off_peak_rate: number | null;
   min_stay: number;
   unit_id: string | null;
 }
@@ -24,6 +25,7 @@ interface RatePlan {
 interface RateResult {
   weekdayRate: number;
   weekendRate: number;
+  offPeakRate: number | null;
   minStay: number;
   ratePlanName: string;
   ratePlanId: string;
@@ -40,7 +42,9 @@ interface RateResult {
 export const getActiveRate = async (
   roomType: string,
   checkInDate: Date,
-  unitId?: string
+  unitId?: string,
+  weekendDays: number[] = [4, 5],
+  offPeakDays: number[] = []
 ): Promise<RateResult | null> => {
   try {
     const dateStr = checkInDate.toISOString().split('T')[0];
@@ -83,6 +87,25 @@ export const getActiveRate = async (
       .eq('override_date', dateStr)
       .maybeSingle();
 
+    const day = checkInDate.getDay();
+    const isWeekend = weekendDays.includes(day);
+    const isOffPeak = offPeakDays.includes(day);
+
+    const buildResult = (price: RatePlanPrice): RateResult => {
+      const baseWeekday = Number(price.weekday_rate);
+      const baseWeekend = Number(price.weekend_rate);
+      const baseOffPeak = price.off_peak_rate != null ? Number(price.off_peak_rate) : null;
+
+      return {
+        weekdayRate: dateOverride ? Number(dateOverride.rate) : baseWeekday,
+        weekendRate: dateOverride ? Number(dateOverride.rate) : baseWeekend,
+        offPeakRate: dateOverride ? Number(dateOverride.rate) : baseOffPeak,
+        minStay: price.min_stay,
+        ratePlanName: matchingPlan!.name,
+        ratePlanId: matchingPlan!.id,
+      };
+    };
+
     // Try unit-specific price first
     if (unitId) {
       const { data: unitPrice, error: unitPriceError } = await supabase
@@ -94,21 +117,7 @@ export const getActiveRate = async (
         .maybeSingle();
 
       if (unitPriceError) throw unitPriceError;
-      
-      if (unitPrice) {
-        const baseWeekday = Number(unitPrice.weekday_rate);
-        const baseWeekend = Number(unitPrice.weekend_rate);
-        const day = checkInDate.getDay();
-        const isWeekend = day === 4 || day === 5 || day === 6; // Thu/Fri/Sat
-        const effectiveRate = dateOverride ? Number(dateOverride.rate) : (isWeekend ? baseWeekend : baseWeekday);
-        return {
-          weekdayRate: dateOverride ? Number(dateOverride.rate) : baseWeekday,
-          weekendRate: dateOverride ? Number(dateOverride.rate) : baseWeekend,
-          minStay: unitPrice.min_stay,
-          ratePlanName: matchingPlan.name,
-          ratePlanId: matchingPlan.id,
-        };
-      }
+      if (unitPrice) return buildResult(unitPrice as RatePlanPrice);
     }
 
     // Fall back to room type price (unit_id is null)
@@ -123,16 +132,7 @@ export const getActiveRate = async (
     if (typePriceError) throw typePriceError;
     if (!typePrice) return null;
 
-    const baseWeekday = Number(typePrice.weekday_rate);
-    const baseWeekend = Number(typePrice.weekend_rate);
-
-    return {
-      weekdayRate: dateOverride ? Number(dateOverride.rate) : baseWeekday,
-      weekendRate: dateOverride ? Number(dateOverride.rate) : baseWeekend,
-      minStay: typePrice.min_stay,
-      ratePlanName: matchingPlan.name,
-      ratePlanId: matchingPlan.id,
-    };
+    return buildResult(typePrice as RatePlanPrice);
   } catch (error) {
     console.error('Error fetching active rate:', error);
     return null;
@@ -171,4 +171,12 @@ export const getAllRatePlans = async (): Promise<RatePlan[]> => {
 export const calculateWeekendRate = (weekdayRate: number): number => {
   if (!weekdayRate || weekdayRate <= 0) return 0;
   return Math.ceil((weekdayRate * 1.10) / 5) * 5;
+};
+
+/**
+ * Calculate off-peak rate (15% lower, rounded to nearest $5)
+ */
+export const calculateOffPeakRate = (weekdayRate: number): number => {
+  if (!weekdayRate || weekdayRate <= 0) return 0;
+  return Math.round((weekdayRate * 0.85) / 5) * 5;
 };

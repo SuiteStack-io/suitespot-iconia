@@ -1,5 +1,5 @@
 import { useState, useEffect, useRef, useCallback, useMemo } from 'react';
-import { format, addDays, startOfWeek, startOfMonth, endOfMonth, eachDayOfInterval, isFriday, isSaturday, isThursday, differenceInDays, addMonths, subMonths } from 'date-fns';
+import { format, addDays, startOfWeek, startOfMonth, endOfMonth, eachDayOfInterval, differenceInDays, addMonths, subMonths } from 'date-fns';
 import { ChevronLeft, ChevronRight, Send, Trash2, Pencil, GripVertical, Check, CalendarIcon, Save } from 'lucide-react';
 import { Progress } from '@/components/ui/progress';
 import { Calendar } from '@/components/ui/calendar';
@@ -24,6 +24,7 @@ import { toast } from 'sonner';
 import { usePropertyId, withPropertyFilter } from '@/hooks/usePropertyFilter';
 import { useIsMobile } from '@/hooks/use-mobile';
 import { ScrollArea, ScrollBar } from '@/components/ui/scroll-area';
+import { useProperty } from '@/lib/propertyContext';
 
 interface RatePlan {
   id: string;
@@ -40,6 +41,7 @@ interface RatePlanPrice {
   room_type: string;
   weekday_rate: number;
   weekend_rate: number;
+  off_peak_rate: number | null;
   min_stay: number;
   unit_id: string | null;
 }
@@ -54,19 +56,19 @@ interface PendingChange {
   isWeekend: boolean;
 }
 
-// Thu/Fri/Sat use weekend_rate pricing
-const isWeekendRate = (date: Date) => isThursday(date) || isFriday(date) || isSaturday(date);
-// Thursday & Friday get visual weekend highlight (Egypt/Middle East convention)
-const isWeekendHighlight = (date: Date) => {
-  const day = date.getDay();
-  return day === 4 || day === 5; // Thursday & Friday
-};
+const DAY_NAMES = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
 
 // Color-coded cells based on price variance from base rate
-const getCellColor = (currentRate: number, baseRate: number, isWeekend: boolean): string => {
-  if (baseRate === 0) return isWeekend ? 'hsl(0 70% 97%)' : '';
+const getCellColor = (currentRate: number, baseRate: number, isWeekend: boolean, isOffPeak: boolean): string => {
+  if (baseRate === 0) {
+    if (isOffPeak) return '#E3F2FD';
+    return isWeekend ? 'hsl(0 70% 97%)' : '';
+  }
   const pct = ((currentRate - baseRate) / baseRate) * 100;
-  if (Math.abs(pct) < 1) return isWeekend ? 'hsl(0 70% 97%)' : '';
+  if (Math.abs(pct) < 1) {
+    if (isOffPeak) return '#E3F2FD';
+    return isWeekend ? 'hsl(0 70% 97%)' : '';
+  }
   if (pct > 25) return '#A5D6A7';
   if (pct > 10) return '#C8E6C9';
   if (pct > 0) return '#E8F5E9';
@@ -99,7 +101,15 @@ interface DragState {
 
 export const QuickRateGrid = ({ onSyncQueueCount }: QuickRateGridProps) => {
   const propertyId = usePropertyId();
+  const { activeProperty } = useProperty();
   const isMobile = useIsMobile();
+
+  // Property-aware day classification
+  const weekendDays = useMemo(() => (activeProperty as any)?.weekend_days ?? [4, 5], [activeProperty]);
+  const offPeakDays = useMemo(() => (activeProperty as any)?.off_peak_days ?? [], [activeProperty]);
+  const isWeekendRate = useCallback((date: Date) => weekendDays.includes(date.getDay()), [weekendDays]);
+  const isOffPeakDay = useCallback((date: Date) => offPeakDays.includes(date.getDay()), [offPeakDays]);
+  const isWeekendHighlight = useCallback((date: Date) => weekendDays.includes(date.getDay()), [weekendDays]);
   const [loading, setLoading] = useState(true);
   const [ratePlans, setRatePlans] = useState<RatePlan[]>([]);
   const [prices, setPrices] = useState<Record<string, RatePlanPrice>>({});
@@ -248,7 +258,10 @@ export const QuickRateGrid = ({ onSyncQueueCount }: QuickRateGridProps) => {
     const override = dateOverrides[key];
     if (override !== undefined) return override;
     if (!price) return 0;
-    return isWeekendRate(date) ? price.weekend_rate : price.weekday_rate;
+    // Priority: off-peak > weekend > weekday
+    if (isOffPeakDay(date) && price.off_peak_rate != null) return price.off_peak_rate;
+    if (isWeekendRate(date)) return price.weekend_rate;
+    return price.weekday_rate;
   };
 
   // Get base rate for a plan (weekday_rate from rate_plan_prices)
@@ -757,7 +770,7 @@ export const QuickRateGrid = ({ onSyncQueueCount }: QuickRateGridProps) => {
       </div>
 
       {/* Price variance legend */}
-      <div className="flex items-center gap-4 text-[11px] text-muted-foreground">
+      <div className="flex items-center gap-4 text-[11px] text-muted-foreground flex-wrap">
         <div className="flex items-center gap-1.5">
           <span className="inline-block w-3 h-3 rounded-sm" style={{ backgroundColor: '#C8E6C9' }} />
           <span>Above base rate</span>
@@ -768,8 +781,14 @@ export const QuickRateGrid = ({ onSyncQueueCount }: QuickRateGridProps) => {
         </div>
         <div className="flex items-center gap-1.5">
           <span className="inline-block w-3 h-3 rounded-sm" style={{ backgroundColor: 'hsl(0 70% 97%)' }} />
-          <span>Weekend (Thu–Fri)</span>
+          <span>Weekend ({weekendDays.map(d => DAY_NAMES[d]).join('–')})</span>
         </div>
+        {offPeakDays.length > 0 && (
+          <div className="flex items-center gap-1.5">
+            <span className="inline-block w-3 h-3 rounded-sm" style={{ backgroundColor: '#E3F2FD' }} />
+            <span>Off-Peak ({offPeakDays.map(d => DAY_NAMES[d]).join('–')})</span>
+          </div>
+        )}
       </div>
 
       {/* Grid */}
@@ -782,7 +801,7 @@ export const QuickRateGrid = ({ onSyncQueueCount }: QuickRateGridProps) => {
               <tr>
                 <th className="text-left p-2 border-b bg-muted/50 sticky left-0 z-10 min-w-[160px]" style={{ boxShadow: '2px 0 4px rgba(0,0,0,0.1)' }}>Room / Plan</th>
                 {days.map((d, colIdx) => (
-                  <th key={d.toISOString()} className={`text-center p-2 border-b ${cellMinWidth} ${isWeekendHighlight(d) ? 'bg-accent/30' : 'bg-muted/50'}`}>
+                  <th key={d.toISOString()} className={`text-center p-2 border-b ${cellMinWidth} ${isWeekendHighlight(d) ? 'bg-accent/30' : isOffPeakDay(d) ? 'bg-blue-50 dark:bg-blue-900/20' : 'bg-muted/50'}`}>
                     <div className="font-medium">{format(d, viewMode === 'month' ? 'd' : 'MMM d')}</div>
                     <div className="text-[10px] text-muted-foreground font-normal">{format(d, 'EEE')}</div>
                   </th>
@@ -806,7 +825,8 @@ export const QuickRateGrid = ({ onSyncQueueCount }: QuickRateGridProps) => {
                     const isActive = activeCell === key;
                     const weekend = isWeekendHighlight(d);
                     const inDragRange = isCellInDragRange(plan.id, colIdx);
-                    const varianceColor = !isPending && !inDragRange && rate > 0 ? getCellColor(rate, baseRate, weekend) : '';
+                    const offPeak = isOffPeakDay(d);
+                    const varianceColor = !isPending && !inDragRange && rate > 0 ? getCellColor(rate, baseRate, weekend, offPeak) : '';
                     const arrow = !isPending && rate > 0 ? getVarianceArrow(rate, baseRate) : '';
 
                     return (

@@ -1239,12 +1239,14 @@ export type Database = {
           legal_name: string | null
           longitude: number | null
           name: string
+          off_peak_days: number[] | null
           phone: string | null
           property_type: string | null
           state: string | null
           timezone: string
           updated_at: string | null
           website: string | null
+          weekend_days: number[] | null
           zip_code: string | null
         }
         Insert: {
@@ -1270,12 +1272,14 @@ export type Database = {
           legal_name?: string | null
           longitude?: number | null
           name: string
+          off_peak_days?: number[] | null
           phone?: string | null
           property_type?: string | null
           state?: string | null
           timezone?: string
           updated_at?: string | null
           website?: string | null
+          weekend_days?: number[] | null
           zip_code?: string | null
         }
         Update: {
@@ -1301,12 +1305,14 @@ export type Database = {
           legal_name?: string | null
           longitude?: number | null
           name?: string
+          off_peak_days?: number[] | null
           phone?: string | null
           property_type?: string | null
           state?: string | null
           timezone?: string
           updated_at?: string | null
           website?: string | null
+          weekend_days?: number[] | null
           zip_code?: string | null
         }
         Relationships: [
@@ -1409,6 +1415,7 @@ export type Database = {
           id: string
           max_occupancy: number | null
           min_stay: number
+          off_peak_rate: number | null
           rate_plan_id: string
           room_type: string
           unit_id: string | null
@@ -1421,6 +1428,7 @@ export type Database = {
           id?: string
           max_occupancy?: number | null
           min_stay?: number
+          off_peak_rate?: number | null
           rate_plan_id: string
           room_type: string
           unit_id?: string | null
@@ -1433,6 +1441,7 @@ export type Database = {
           id?: string
           max_occupancy?: number | null
           min_stay?: number
+          off_peak_rate?: number | null
           rate_plan_id?: string
           room_type?: string
           unit_id?: string | null
