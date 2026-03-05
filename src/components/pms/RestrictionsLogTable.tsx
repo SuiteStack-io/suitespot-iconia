@@ -1,5 +1,5 @@
 import { useState, useEffect, useCallback } from 'react';
-import { format } from 'date-fns';
+import { format, subDays } from 'date-fns';
 import { supabase } from '@/integrations/supabase/client';
 import { useToast } from '@/hooks/use-toast';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
@@ -134,23 +134,26 @@ export function RestrictionsLogTable({ ratePlans, refreshKey }: RestrictionsLogT
                     {r.roomType || '—'}
                   </TableCell>
                   <TableCell className="text-sm">
-                    {format(new Date(r.date_from + 'T00:00:00'), 'MMM d, yyyy')}
-                    {r.date_from !== r.date_to && (
-                      <> → {format(new Date(r.date_to + 'T00:00:00'), 'MMM d, yyyy')}</>
-                    )}
+                    {(() => {
+                      const displayDateTo = subDays(new Date(r.date_to + 'T00:00:00'), 1);
+                      const isSingleDay = r.date_from === format(displayDateTo, 'yyyy-MM-dd');
+                      return isSingleDay
+                        ? format(new Date(r.date_from + 'T00:00:00'), 'MMM d, yyyy')
+                        : <>{format(new Date(r.date_from + 'T00:00:00'), 'MMM d, yyyy')} → {format(displayDateTo, 'MMM d, yyyy')}</>;
+                    })()}
                   </TableCell>
                   <TableCell>
                     <div className="flex flex-wrap gap-1">
-                      {r.stop_sell && <Badge variant="destructive" className="text-[10px]">Stop Sell</Badge>}
+                      {r.stop_sell && <Badge variant="destructive">Stop Sell</Badge>}
                       {(r.min_stay_arrival ?? 0) > 1 && (
-                        <Badge variant="secondary" className="text-[10px]">A:{r.min_stay_arrival}</Badge>
+                        <Badge variant="secondary">Min Stay Arrival: {r.min_stay_arrival} nights</Badge>
                       )}
                       {(r.min_stay_through ?? 0) > 1 && (
-                        <Badge variant="secondary" className="text-[10px]">T:{r.min_stay_through}</Badge>
+                        <Badge variant="secondary">Min Stay Through: {r.min_stay_through} nights</Badge>
                       )}
-                      {r.max_stay && <Badge variant="secondary" className="text-[10px]">Max:{r.max_stay}</Badge>}
-                      {r.closed_to_arrival && <Badge variant="outline" className="text-[10px]">CTA</Badge>}
-                      {r.closed_to_departure && <Badge variant="outline" className="text-[10px]">CTD</Badge>}
+                      {r.max_stay && <Badge variant="secondary">Max Stay: {r.max_stay} {r.max_stay === 1 ? 'night' : 'nights'}</Badge>}
+                      {r.closed_to_arrival && <Badge variant="outline">Closed to Arrival</Badge>}
+                      {r.closed_to_departure && <Badge variant="outline">Closed to Departure</Badge>}
                     </div>
                   </TableCell>
                   <TableCell>
