@@ -1,4 +1,5 @@
 import { useState, useEffect, useCallback } from 'react';
+import { RestrictionsLogTable } from './RestrictionsLogTable';
 import { format, addDays } from 'date-fns';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
@@ -40,9 +41,10 @@ interface Restriction {
 
 interface RestrictionCalendarViewProps {
   ratePlans: RatePlanOption[];
+  onRestrictionsChanged?: () => void;
 }
 
-export function RestrictionCalendarView({ ratePlans }: RestrictionCalendarViewProps) {
+export function RestrictionCalendarView({ ratePlans, onRestrictionsChanged }: RestrictionCalendarViewProps) {
   const { toast } = useToast();
   const [restrictions, setRestrictions] = useState<Restriction[]>([]);
   const [loading, setLoading] = useState(true);
@@ -186,6 +188,8 @@ export function RestrictionCalendarView({ ratePlans }: RestrictionCalendarViewPr
       toast({ title: 'Saved', description: 'Restriction updated — will sync in 5s' });
       setEditOpen(false);
       fetchRestrictions();
+      onRestrictionsChanged?.();
+      setLogRefreshKey((k) => k + 1);
     } catch (err: any) {
       toast({ title: 'Error', description: err.message, variant: 'destructive' });
     } finally {
@@ -205,6 +209,8 @@ export function RestrictionCalendarView({ ratePlans }: RestrictionCalendarViewPr
       setSyncing(false);
     }
   };
+
+  const [logRefreshKey, setLogRefreshKey] = useState(0);
 
   return (
     <>
@@ -345,6 +351,8 @@ export function RestrictionCalendarView({ ratePlans }: RestrictionCalendarViewPr
           </div>
         </CardContent>
       </Card>
+
+      <RestrictionsLogTable ratePlans={ratePlans} refreshKey={logRefreshKey} />
 
       {/* Cell Edit Dialog */}
       <Dialog open={editOpen} onOpenChange={setEditOpen}>
