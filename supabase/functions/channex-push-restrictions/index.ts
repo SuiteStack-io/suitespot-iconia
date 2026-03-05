@@ -90,6 +90,7 @@ serve(async (req: Request) => {
         rate_plan_id: channexRpId,
         date_from: r.date_from,
         date_to: inclusiveDateTo,
+        ...(r.rate ? { rate: r.rate } : {}),
         min_stay_arrival: r.min_stay_arrival || 1,
         min_stay_through: r.min_stay_through || 1,
         ...(r.max_stay ? { max_stay: r.max_stay } : {}),

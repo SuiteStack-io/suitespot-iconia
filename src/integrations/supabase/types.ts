@@ -1477,6 +1477,7 @@ export type Database = {
           max_stay: number | null
           min_stay_arrival: number | null
           min_stay_through: number | null
+          rate: number | null
           rate_plan_id: string
           stop_sell: boolean | null
           synced_to_channex: boolean | null
@@ -1493,6 +1494,7 @@ export type Database = {
           max_stay?: number | null
           min_stay_arrival?: number | null
           min_stay_through?: number | null
+          rate?: number | null
           rate_plan_id: string
           stop_sell?: boolean | null
           synced_to_channex?: boolean | null
@@ -1509,6 +1511,7 @@ export type Database = {
           max_stay?: number | null
           min_stay_arrival?: number | null
           min_stay_through?: number | null
+          rate?: number | null
           rate_plan_id?: string
           stop_sell?: boolean | null
           synced_to_channex?: boolean | null
