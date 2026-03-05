@@ -1,5 +1,6 @@
 import { serve } from "https://deno.land/std@0.190.0/http/server.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
+import { subDays, format } from "https://esm.sh/date-fns@3.6.0";
 import { channexRequest, logSync } from "../_shared/channex-client.ts";
 
 const corsHeaders = {
@@ -82,11 +83,13 @@ serve(async (req: Request) => {
         continue;
       }
 
+      const inclusiveDateTo = format(subDays(new Date(r.date_to), 1), 'yyyy-MM-dd');
+
       values.push({
         property_id: propMapping.channex_id,
         rate_plan_id: channexRpId,
         date_from: r.date_from,
-        date_to: r.date_to,
+        date_to: inclusiveDateTo,
         min_stay_arrival: r.min_stay_arrival || 1,
         min_stay_through: r.min_stay_through || 1,
         ...(r.max_stay ? { max_stay: r.max_stay } : {}),
