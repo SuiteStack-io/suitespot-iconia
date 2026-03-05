@@ -375,7 +375,7 @@ export function BulkRestrictionEditor({ ratePlans, onSaved, onRatePlanFocused, p
                   </Button>
                 </PopoverTrigger>
                 <PopoverContent className="w-auto p-0" align="start">
-                  <Calendar mode="single" selected={dateTo} onSelect={setDateTo} disabled={(d) => d < (dateFrom || today)} className="p-3 pointer-events-auto" />
+                  <Calendar mode="single" selected={dateTo} onSelect={setDateTo} defaultMonth={dateTo || dateFrom || today} disabled={(d) => d < (dateFrom || today)} className="p-3 pointer-events-auto" />
                 </PopoverContent>
               </Popover>
             </div>
