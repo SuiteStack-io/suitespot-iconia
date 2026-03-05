@@ -76,6 +76,8 @@ serve(async (req: Request) => {
       rate_plans_pushed: 0,
       errors: [] as string[],
     };
+    const availabilityResponses: any[] = [];
+    const ratesResponses: any[] = [];
 
     // ── AVAILABILITY ──────────────────────────────────────────
     const { data: roomTypeMappings } = await supabase
@@ -185,6 +187,7 @@ serve(async (req: Request) => {
           try {
             const resp = await rawChannexPost("/api/v1/availability", { values: batch });
             if (resp.taskId) result.availability_task_ids.push(resp.taskId);
+            availabilityResponses.push(resp.rawData);
           } catch (err: any) {
             result.errors.push(`Avail ${roomName} batch ${Math.floor(i / BATCH_SIZE)}: ${err.message}`);
           }
@@ -300,6 +303,7 @@ serve(async (req: Request) => {
           try {
             const resp = await rawChannexPost("/api/v1/restrictions", { values: batch });
             if (resp.taskId) result.rates_task_ids.push(resp.taskId);
+            ratesResponses.push(resp.rawData);
           } catch (err: any) {
             result.errors.push(`Rates ${ratePlan.name} batch ${Math.floor(i / BATCH_SIZE)}: ${err.message}`);
           }
@@ -325,12 +329,19 @@ serve(async (req: Request) => {
     await logSync(
       "channex-full-sync",
       "full-sync",
-      { propertyId, days: SYNC_DAYS },
+      {
+        propertyId,
+        days: SYNC_DAYS,
+        room_types: propertyRoomTypeMappings.map((m: any) => ({ local_id: m.local_id, channex_id: m.channex_id, name: m.booking_com_name })),
+        rate_plans: propertyRatePlanMappings.map((m: any) => ({ local_id: m.local_id, channex_id: m.channex_id })),
+      },
       {
         room_types_pushed: result.room_types_pushed,
         rate_plans_pushed: result.rate_plans_pushed,
         availability_task_ids: result.availability_task_ids,
         rates_task_ids: result.rates_task_ids,
+        availability_responses: availabilityResponses,
+        rates_responses: ratesResponses,
       },
       200,
       result.errors.length === 0,
@@ -353,7 +364,7 @@ serve(async (req: Request) => {
 });
 
 // Raw POST to Channex that captures task IDs from the response
-async function rawChannexPost(endpoint: string, body: object): Promise<{ taskId: string | null }> {
+async function rawChannexPost(endpoint: string, body: object): Promise<{ taskId: string | null; rawData: any }> {
   const url = `${CHANNEX_BASE_URL}${endpoint}`;
   const response = await fetch(url, {
     method: "POST",
@@ -372,7 +383,7 @@ async function rawChannexPost(endpoint: string, body: object): Promise<{ taskId:
   const data = await response.json();
   // Channex returns task IDs in data array or data.id
   const taskId = data?.data?.[0]?.id || data?.data?.id || data?.meta?.task_id || null;
-  return { taskId };
+  return { taskId, rawData: data };
 }
 
 function elapsed(start: number): number {
