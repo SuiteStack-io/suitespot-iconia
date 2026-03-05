@@ -103,7 +103,7 @@ serve(async (req: Request) => {
           // Look up the room type name from the unit
           const { data: unitData } = await supabase
             .from("units")
-            .select("booking_com_name, location")
+            .select("booking_com_name, location, property_id")
             .eq("id", item.entity_id)
             .maybeSingle();
 
@@ -112,14 +112,12 @@ serve(async (req: Request) => {
             continue;
           }
 
-          // Find property mapping via location
-          const { data: propUnit } = await supabase
-            .from("channex_mappings")
-            .select("channex_id, local_id")
-            .eq("entity_type", "property")
-            .maybeSingle();
+          // Resolve the unit's property to get the correct Channex property ID
+          const channexPropertyId = unitData.property_id
+            ? await resolve(unitData.property_id, "property")
+            : null;
 
-          if (!propUnit) {
+          if (!channexPropertyId) {
             await markFailed(supabase, item.id, "No property mapped to Channex");
             continue;
           }
@@ -133,7 +131,7 @@ serve(async (req: Request) => {
           );
 
           values.push({
-            property_id: propUnit.channex_id,
+            property_id: channexPropertyId,
             room_type_id: channexRoomTypeId,
             date_from: item.date_from,
             date_to: item.date_to,
