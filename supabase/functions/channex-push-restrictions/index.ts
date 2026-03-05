@@ -26,6 +26,7 @@ serve(async (req: Request) => {
     restrictions_pushed: 0,
     errors: [] as string[],
   };
+  const allResponses: any[] = [];
 
   try {
     const body = await req.json().catch(() => ({}));
@@ -100,6 +101,7 @@ serve(async (req: Request) => {
       const batch = values.slice(i, i + BATCH_SIZE);
       try {
         const result: any = await channexRequest("POST", "/api/v1/restrictions", { values: batch });
+        allResponses.push(result);
         summary.restrictions_pushed += batch.length;
 
         // Mark synced
@@ -109,7 +111,7 @@ serve(async (req: Request) => {
           .from("rate_plan_restrictions")
           .update({
             synced_to_channex: true,
-            channex_task_id: result?.data?.id || null,
+            channex_task_id: result?.data?.[0]?.id || result?.data?.id || null,
           })
           .in("id", ids);
       } catch (err: any) {
@@ -121,8 +123,8 @@ serve(async (req: Request) => {
     await logSync(
       "channex-push-restrictions",
       "/api/v1/restrictions",
-      { count: values.length },
-      { summary },
+      { values },
+      { summary, channex_responses: allResponses },
       200,
       summary.errors.length === 0,
       summary.errors.length > 0 ? summary.errors.join("; ") : null,
