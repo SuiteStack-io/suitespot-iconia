@@ -1,43 +1,52 @@
 
 
-## Improve Restrictions Log Table: Readable Labels and Date Display
+## Add Optional Rate Field to Bulk Restriction Editor
 
-### File: `src/components/pms/RestrictionsLogTable.tsx`
+### Overview
 
-**Two changes:**
+Add an optional "Rate" checkbox+input to the Bulk Editor form so rate and restrictions can be pushed to Channex in a single API call (required for certification Test 8).
 
-#### 1. Readable restriction badges (lines 144-153)
+### Database Change
 
-Replace abbreviated codes with full labels:
+Add a `rate` column to `rate_plan_restrictions`:
 
-| Current | New |
-|---------|-----|
-| `A:5` | `Min Stay Arrival: 5 nights` |
-| `T:3` | `Min Stay Through: 3 nights` |
-| `Max:14` | `Max Stay: 14 nights` |
-| `CTA` | `Closed to Arrival` |
-| `CTD` | `Closed to Departure` |
-| `Stop Sell` | (already readable, keep as-is) |
-
-Badge variants stay the same (destructive for Stop Sell, secondary for stay rules, outline for CTA/CTD). Remove the `text-[10px]` class since labels are now full words.
-
-#### 2. Fix date range display (lines 136-141)
-
-The DB stores exclusive `date_to`. Convert for display:
-
-```typescript
-import { subDays } from 'date-fns';
-
-const displayDateTo = subDays(new Date(r.date_to + 'T00:00:00'), 1);
-const isSingleDay = r.date_from === format(displayDateTo, 'yyyy-MM-dd');
-
-// Render:
-isSingleDay ? "Nov 15, 2026" : "Nov 15 → Nov 17, 2026"
+```sql
+ALTER TABLE rate_plan_restrictions ADD COLUMN rate integer NULL;
 ```
 
-Add `subDays` to the existing `date-fns` import.
+This stores the rate in **cents** (matching Channex convention). NULL means "no rate override for this date range."
+
+### File Changes
+
+**1. `src/components/pms/BulkRestrictionEditor.tsx`**
+
+- Add `rate?: number` to `PendingRestriction.restrictions` interface
+- Add state: `enableRate` (boolean), `rate` (number, default 100)
+- Add Rate checkbox+input row at the top of the restrictions section (before Min Stay Arrival)
+- Update `validate()`: allow rate-only submissions (rate OR at least one restriction enabled)
+- Update `handleApply()`: include `rate` in restrictions object if enabled
+- Update `resetForm()`: reset rate state
+- Update `handleSaveAllChanges()`: include `rate` (converted to cents) in DB insert rows
+- Update pending changes display: show `Rate: $X` badge when present
+
+**2. `supabase/functions/channex-push-restrictions/index.ts`**
+
+- In the values loop, include `rate` from the restriction row if present:
+  ```typescript
+  ...(r.rate ? { rate: r.rate } : {}),
+  ```
+
+**3. `src/components/pms/RestrictionsLogTable.tsx`**
+
+- Show rate badge in the restrictions column if `r.rate` exists:
+  ```tsx
+  {r.rate && <Badge variant="secondary">Rate: ${(r.rate / 100).toFixed(2)}</Badge>}
+  ```
 
 ### Summary
 
-Single file change. Two sections updated: badges (lines 144-153) and date display (lines 136-141).
+- 1 migration (add `rate` column)
+- 3 files modified
+- Rate stored in cents, displayed in dollars
+- Fully optional — existing restriction-only workflow unchanged
 
