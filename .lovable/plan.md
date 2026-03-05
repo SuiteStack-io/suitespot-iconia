@@ -1,29 +1,17 @@
 
 
-## Fix: Use date-fns for Channex Restriction Date Conversion
+## Fix: Date To Calendar Opens to Correct Month
 
 ### Change
 
-In `supabase/functions/channex-push-restrictions/index.ts`, convert the exclusive `date_to` from the database to an inclusive date for Channex using `subDays` and `format` from `date-fns`.
+**File:** `src/components/pms/BulkRestrictionEditor.tsx` (line 378)
 
-**File:** `supabase/functions/channex-push-restrictions/index.ts`
+Add `defaultMonth` prop to the Date To Calendar component:
 
-Add import at top:
-```typescript
-import { subDays, format } from "https://esm.sh/date-fns@3.6.0";
+```diff
+- <Calendar mode="single" selected={dateTo} onSelect={setDateTo} disabled={(d) => d < (dateFrom || today)} className="p-3 pointer-events-auto" />
++ <Calendar mode="single" selected={dateTo} onSelect={setDateTo} defaultMonth={dateTo || dateFrom || today} disabled={(d) => d < (dateFrom || today)} className="p-3 pointer-events-auto" />
 ```
 
-Update the values loop (line 85-96) to convert `date_to`:
-```typescript
-const inclusiveDateTo = format(subDays(new Date(r.date_to), 1), 'yyyy-MM-dd');
-
-values.push({
-  ...
-  date_from: r.date_from,
-  date_to: inclusiveDateTo,  // was: r.date_to
-  ...
-});
-```
-
-Single file, two-line change.
+This makes the calendar open to November 2026 (the auto-filled date's month) instead of the current month.
 
