@@ -27,7 +27,7 @@ interface RatePlanOption {
   room_type: string | null;
 }
 
-interface PendingRestriction {
+export interface PendingRestriction {
   id: string;
   ratePlanId: string;
   ratePlanName: string;
@@ -49,18 +49,17 @@ interface BulkRestrictionEditorProps {
   ratePlans: RatePlanOption[];
   onSaved?: () => void;
   onRatePlanFocused?: (id: string) => void;
+  pendingRestrictions: PendingRestriction[];
+  setPendingRestrictions: React.Dispatch<React.SetStateAction<PendingRestriction[]>>;
 }
 
-export function BulkRestrictionEditor({ ratePlans, onSaved, onRatePlanFocused }: BulkRestrictionEditorProps) {
+export function BulkRestrictionEditor({ ratePlans, onSaved, onRatePlanFocused, pendingRestrictions, setPendingRestrictions }: BulkRestrictionEditorProps) {
   const { toast } = useToast();
   const [selectedRoomType, setSelectedRoomType] = useState<string>('all');
   const [selectedPlanId, setSelectedPlanId] = useState<string>('all');
   const [dateFrom, setDateFrom] = useState<Date>();
   const [dateTo, setDateTo] = useState<Date>();
   const [clearing, setClearing] = useState(false);
-
-  // Pending changes state
-  const [pendingRestrictions, setPendingRestrictions] = useState<PendingRestriction[]>([]);
   const [isSaving, setIsSaving] = useState(false);
 
   // Derived room types
@@ -362,7 +361,7 @@ export function BulkRestrictionEditor({ ratePlans, onSaved, onRatePlanFocused }:
                   </Button>
                 </PopoverTrigger>
                 <PopoverContent className="w-auto p-0" align="start">
-                  <Calendar mode="single" selected={dateFrom} onSelect={setDateFrom} disabled={(d) => d < today} className="p-3 pointer-events-auto" />
+                  <Calendar mode="single" selected={dateFrom} onSelect={(date) => { setDateFrom(date); if (date && (!dateTo || dateTo < date)) setDateTo(date); }} disabled={(d) => d < today} className="p-3 pointer-events-auto" />
                 </PopoverContent>
               </Popover>
             </div>

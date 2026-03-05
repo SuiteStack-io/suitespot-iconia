@@ -9,6 +9,7 @@ import { useToast } from '@/hooks/use-toast';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
+import type { PendingRestriction } from '@/components/pms/BulkRestrictionEditor';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import {
   Select,
@@ -72,6 +73,7 @@ const PMSRestrictions = () => {
   const [hasChanges, setHasChanges] = useState(false);
   const [activeTab, setActiveTab] = useState('settings');
   const [calendarKey, setCalendarKey] = useState(0);
+  const [pendingRestrictions, setPendingRestrictions] = useState<PendingRestriction[]>([]);
 
   // Dialog states
   const [nameDialogOpen, setNameDialogOpen] = useState(false);
@@ -213,7 +215,14 @@ const PMSRestrictions = () => {
           <TabsList className="mb-4">
             <TabsTrigger value="settings">Rate Plan Settings</TabsTrigger>
             <TabsTrigger value="calendar">Restrictions Calendar</TabsTrigger>
-            <TabsTrigger value="bulk">Bulk Editor</TabsTrigger>
+            <TabsTrigger value="bulk" className="gap-1.5">
+              Bulk Editor
+              {pendingRestrictions.length > 0 && (
+                <Badge variant="secondary" className="ml-1 h-5 min-w-5 px-1.5 text-[10px]">
+                  {pendingRestrictions.length}
+                </Badge>
+              )}
+            </TabsTrigger>
           </TabsList>
 
           {/* Tab 1: Rate Plan Settings (existing + defaults) */}
@@ -317,6 +326,8 @@ const PMSRestrictions = () => {
           <TabsContent value="bulk">
             <BulkRestrictionEditor
               ratePlans={ratePlans}
+              pendingRestrictions={pendingRestrictions}
+              setPendingRestrictions={setPendingRestrictions}
               onSaved={() => setCalendarKey((k) => k + 1)}
               onRatePlanFocused={(id) => {
                 setSelectedPlanId(id);
