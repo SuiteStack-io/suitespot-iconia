@@ -1,34 +1,54 @@
 
 
-## Fix Channex Sync Logs: Full Request Payload and Raw Response with Task IDs
+## Fix Three UX Issues in Restrictions Bulk Editor
 
-### Analysis
+### Issue 1: Lift Pending Changes State to Parent
 
-After reviewing all Channex sync edge functions, I found two functions with incomplete logging:
+**Files:** `src/pages/pms/Restrictions.tsx`, `src/components/pms/BulkRestrictionEditor.tsx`
 
-1. **`channex-push-restrictions`** — The main offender. Logs `{ count: values.length }` as request payload and `{ summary }` as response. Both lose critical data.
+- Export the `PendingRestriction` interface from `BulkRestrictionEditor.tsx`
+- Add `pendingRestrictions` and `setPendingRestrictions` to the component props interface; remove the internal `useState` for it
+- In `Restrictions.tsx`, create the state: `const [pendingRestrictions, setPendingRestrictions] = useState<PendingRestriction[]>([])`
+- Pass both as props to `<BulkRestrictionEditor>`
+- Add a badge on the "Bulk Editor" tab trigger showing the pending count when > 0
 
-2. **`channex-full-sync`** — Its `rawChannexPost` helper discards the full Channex response, only extracting the task ID. The log records a summary object instead of raw responses.
+### Issue 2: Auto-Fill Date To When Date From Is Selected
 
-The other functions (`channex-push-rates`, `channex-push-availability`, `channex-sync-rates`, `channex-process-sync-queue`) already log the full `channexPayload` and raw `response` correctly.
+**File:** `src/components/pms/BulkRestrictionEditor.tsx`
 
-### Changes
+- Replace `onSelect={setDateFrom}` (line 365) with a handler:
+  ```typescript
+  const handleDateFromChange = (date: Date | undefined) => {
+    setDateFrom(date);
+    if (date && (!dateTo || dateTo < date)) {
+      setDateTo(date);
+    }
+  };
+  ```
+- Use this handler in the Date From calendar's `onSelect`
 
-#### 1. `supabase/functions/channex-push-restrictions/index.ts`
+### Issue 3: Restrictions Log Table Below Calendar
 
-- Collect all batch responses into an array (`allResponses`)
-- Store each raw Channex response from `channexRequest` into `allResponses`
-- Change `logSync` call (line 121-130):
-  - `request_payload`: from `{ count: values.length }` → `{ values }` (full payload)
-  - `response_payload`: from `{ summary }` → `{ summary, channex_responses: allResponses }` (raw responses with task IDs + summary)
+**Files:** `src/components/pms/RestrictionsLogTable.tsx` (new), `src/components/pms/RestrictionCalendarView.tsx`
 
-#### 2. `supabase/functions/channex-full-sync/index.ts`
+Create a new `RestrictionsLogTable` component that:
+- Takes `ratePlans` as prop (to filter by the property's rate plans)
+- Queries `rate_plan_restrictions` for all restrictions matching those rate plan IDs
+- Joins with `rate_plans` to show rate plan name and room type
+- Displays a table with columns: Rate Plan, Room Type, Date Range, Restrictions (badges), Synced status, Delete button
+- Supports deleting individual restrictions with confirmation
+- Re-fetches after deletion
 
-- Update `rawChannexPost` helper to return the full raw response data alongside the task ID
-- Accumulate all raw responses per sync type (availability + rates)
-- Change `logSync` call (lines 325-339):
-  - `request_payload`: add `{ propertyId, days: SYNC_DAYS, room_types: [...], rate_plans: [...] }` (list of what was synced)
-  - `response_payload`: include the raw Channex responses alongside the existing task ID arrays
+Add it below the calendar in `RestrictionCalendarView.tsx`:
+- Import and render `<RestrictionsLogTable>` after the Sync Status card
+- Pass `ratePlans` prop and a refresh callback
 
-### No database or frontend changes needed
+### Summary of Changes
+
+| File | Change |
+|------|--------|
+| `src/pages/pms/Restrictions.tsx` | Lift `pendingRestrictions` state, add badge to tab |
+| `src/components/pms/BulkRestrictionEditor.tsx` | Export interface, accept props for pending state, auto-fill dateTo |
+| `src/components/pms/RestrictionsLogTable.tsx` | New component — restrictions log table |
+| `src/components/pms/RestrictionCalendarView.tsx` | Render RestrictionsLogTable below calendar |
 
