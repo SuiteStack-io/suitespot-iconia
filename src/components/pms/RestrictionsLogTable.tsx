@@ -25,6 +25,7 @@ interface RestrictionRow {
   rate_plan_id: string;
   date_from: string;
   date_to: string;
+  rate: number | null;
   min_stay_arrival: number | null;
   min_stay_through: number | null;
   max_stay: number | null;
@@ -144,6 +145,7 @@ export function RestrictionsLogTable({ ratePlans, refreshKey }: RestrictionsLogT
                   </TableCell>
                   <TableCell>
                     <div className="flex flex-wrap gap-1">
+                      {r.rate && <Badge variant="secondary">Rate: ${(r.rate / 100).toFixed(2)}</Badge>}
                       {r.stop_sell && <Badge variant="destructive">Stop Sell</Badge>}
                       {(r.min_stay_arrival ?? 0) > 1 && (
                         <Badge variant="secondary">Min Stay Arrival: {r.min_stay_arrival} nights</Badge>

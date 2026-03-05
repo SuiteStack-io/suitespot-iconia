@@ -1,0 +1,1 @@
+ALTER TABLE rate_plan_restrictions ADD COLUMN IF NOT EXISTS rate integer NULL;

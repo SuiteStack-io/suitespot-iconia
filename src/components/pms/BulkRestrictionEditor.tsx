@@ -35,6 +35,7 @@ export interface PendingRestriction {
   dateFrom: string;
   dateTo: string;
   restrictions: {
+    rate?: number;
     minStayArrival?: number;
     minStayThrough?: number;
     maxStay?: number;
@@ -80,6 +81,7 @@ export function BulkRestrictionEditor({ ratePlans, onSaved, onRatePlanFocused, p
   }, [selectedRoomType]);
 
   // Restriction toggles
+  const [enableRate, setEnableRate] = useState(false);
   const [enableMinStayArrival, setEnableMinStayArrival] = useState(false);
   const [enableMinStayThrough, setEnableMinStayThrough] = useState(false);
   const [enableMaxStay, setEnableMaxStay] = useState(false);
@@ -88,6 +90,7 @@ export function BulkRestrictionEditor({ ratePlans, onSaved, onRatePlanFocused, p
   const [enableCTD, setEnableCTD] = useState(false);
 
   // Values
+  const [rate, setRate] = useState(100);
   const [minStayArrival, setMinStayArrival] = useState(2);
   const [minStayThrough, setMinStayThrough] = useState(2);
   const [maxStay, setMaxStay] = useState(30);
@@ -142,8 +145,9 @@ export function BulkRestrictionEditor({ ratePlans, onSaved, onRatePlanFocused, p
     if (!dateTo) return 'Please select an end date';
     if (dateFrom < today) return 'Start date must be today or future';
     if (dateTo < dateFrom) return 'End date must be after start date';
-    if (!enableMinStayArrival && !enableMinStayThrough && !enableMaxStay && !enableStopSell && !enableCTA && !enableCTD)
-      return 'Please enable at least one restriction';
+    if (!enableRate && !enableMinStayArrival && !enableMinStayThrough && !enableMaxStay && !enableStopSell && !enableCTA && !enableCTD)
+      return 'Please enable at least one restriction or rate';
+    if (enableRate && rate <= 0) return 'Rate must be greater than 0';
     if (enableMinStayArrival && minStayArrival < 1) return 'Min Stay Arrival must be at least 1';
     if (enableMinStayThrough && minStayThrough < 1) return 'Min Stay Through must be at least 1';
     if (enableMaxStay && enableMinStayArrival && maxStay < minStayArrival) return 'Max stay must be >= Min Stay Arrival';
@@ -160,12 +164,14 @@ export function BulkRestrictionEditor({ ratePlans, onSaved, onRatePlanFocused, p
   const resetForm = () => {
     setDateFrom(undefined);
     setDateTo(undefined);
+    setEnableRate(false);
     setEnableMinStayArrival(false);
     setEnableMinStayThrough(false);
     setEnableMaxStay(false);
     setEnableStopSell(false);
     setEnableCTA(false);
     setEnableCTD(false);
+    setRate(100);
     setMinStayArrival(2);
     setMinStayThrough(2);
     setMaxStay(30);
@@ -187,6 +193,7 @@ export function BulkRestrictionEditor({ ratePlans, onSaved, onRatePlanFocused, p
 
     const targetPlans = getTargetPlans();
     const restrictions: PendingRestriction['restrictions'] = {};
+    if (enableRate) restrictions.rate = rate;
     if (enableMinStayArrival) restrictions.minStayArrival = minStayArrival;
     if (enableMinStayThrough) restrictions.minStayThrough = minStayThrough;
     if (enableMaxStay) restrictions.maxStay = maxStay;
@@ -222,6 +229,7 @@ export function BulkRestrictionEditor({ ratePlans, onSaved, onRatePlanFocused, p
         rate_plan_id: p.ratePlanId,
         date_from: p.dateFrom,
         date_to: format(addDays(new Date(p.dateTo), 1), 'yyyy-MM-dd'),
+        rate: p.restrictions.rate ? Math.round(p.restrictions.rate * 100) : null,
         min_stay_arrival: p.restrictions.minStayArrival ?? 1,
         min_stay_through: p.restrictions.minStayThrough ?? 1,
         max_stay: p.restrictions.maxStay ?? null,
@@ -383,7 +391,21 @@ export function BulkRestrictionEditor({ ratePlans, onSaved, onRatePlanFocused, p
 
           {/* Restriction Options */}
           <div className="space-y-3 border rounded-md p-4">
-            <p className="text-sm font-medium">Restrictions</p>
+            <p className="text-sm font-medium">Rate & Restrictions</p>
+
+            <div className="flex items-center gap-3">
+              <Checkbox checked={enableRate} onCheckedChange={(v) => setEnableRate(!!v)} />
+              <Label className="text-sm flex-1">
+                Rate
+                <span className="block text-[10px] text-muted-foreground font-normal">Set the nightly rate for this date range</span>
+              </Label>
+              {enableRate && (
+                <>
+                  <span className="text-sm text-muted-foreground">$</span>
+                  <Input type="number" min={0} step={0.01} value={rate} onChange={(e) => setRate(parseFloat(e.target.value) || 0)} className="w-24" />
+                </>
+              )}
+            </div>
 
             <div className="flex items-center gap-3">
               <Checkbox checked={enableMinStayArrival} onCheckedChange={(v) => setEnableMinStayArrival(!!v)} />
@@ -498,6 +520,11 @@ export function BulkRestrictionEditor({ ratePlans, onSaved, onRatePlanFocused, p
                       )}
                     </div>
                     <div className="flex flex-wrap gap-1.5 mt-1.5">
+                      {pending.restrictions.rate && (
+                        <Badge variant="secondary" className="text-[10px]">
+                          Rate: ${pending.restrictions.rate}
+                        </Badge>
+                      )}
                       {pending.restrictions.minStayArrival && (
                         <Badge variant="secondary" className="text-[10px]">
                           Min Stay Arrival: {pending.restrictions.minStayArrival}
