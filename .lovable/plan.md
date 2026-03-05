@@ -1,49 +1,34 @@
 
 
-## Two-Step Save Flow for Bulk Restriction Editor
+## Fix Channex Sync Logs: Full Request Payload and Raw Response with Task IDs
 
-### What's changing
-Replace the current "Apply → immediate API call" behavior with a two-step flow:
-1. **"Apply Restrictions"** adds to a local pending list (no DB write, no Channex call)
-2. **"Save Changes"** button saves all pending items to DB and syncs to Channex in one batch
+### Analysis
 
-### File: `src/components/pms/BulkRestrictionEditor.tsx`
+After reviewing all Channex sync edge functions, I found two functions with incomplete logging:
 
-**New state and types:**
-- Add `PendingRestriction` interface with id, ratePlanId, ratePlanName, roomTypeName, dateFrom, dateTo, restrictions object, addedAt
-- Add `pendingRestrictions` state array and `isSaving` boolean
-- Rename existing `pendingCount` to `pendingDbCount` (to distinguish from local pending)
-- Add `beforeunload` listener that warns when `pendingRestrictions.length > 0`
+1. **`channex-push-restrictions`** — The main offender. Logs `{ count: values.length }` as request payload and `{ summary }` as response. Both lose critical data.
 
-**Modified `handleApply`:**
-- Remove `async`, no DB insert, no `setTimeout` Channex call
-- Instead: validate, build restriction object from enabled fields, map target plans to `PendingRestriction[]`, append to `pendingRestrictions`
-- Call `resetForm()` to clear the form for the next entry
-- Show toast: "X restriction(s) added to pending changes"
+2. **`channex-full-sync`** — Its `rawChannexPost` helper discards the full Channex response, only extracting the task ID. The log records a summary object instead of raw responses.
 
-**New `resetForm` function:**
-- Clears dateFrom, dateTo, all enable flags, and resets values to defaults
+The other functions (`channex-push-rates`, `channex-push-availability`, `channex-sync-rates`, `channex-process-sync-queue`) already log the full `channexPayload` and raw `response` correctly.
 
-**New `handleRemovePending(id)`:**
-- Filters out one pending item by id
+### Changes
 
-**New `handleSaveAllChanges`:**
-- Builds DB rows from all pending items (same shape as current `handleApply` insert)
-- Single `supabase.from('rate_plan_restrictions').insert(rows)`
-- Then one `channex-push-restrictions` call with all unique rate plan IDs
-- On success: clear `pendingRestrictions`, call `fetchSyncStatus()` and `onSaved()`
-- If only one unique rate plan affected, call `onRatePlanFocused`
+#### 1. `supabase/functions/channex-push-restrictions/index.ts`
 
-**New UI section — Pending Changes panel (between editor card and sync status card):**
-- Only renders when `pendingRestrictions.length > 0`
-- Card header: "Pending Changes" title + "Save Changes (N)" button with Save icon
-- Each pending item rendered as a row with:
-  - Rate plan name + room type
-  - Date range
-  - Badges for each restriction (Min Stay Arrival: X, Stop Sell, etc.)
-  - X button to remove individual item
+- Collect all batch responses into an array (`allResponses`)
+- Store each raw Channex response from `channexRequest` into `allResponses`
+- Change `logSync` call (line 121-130):
+  - `request_payload`: from `{ count: values.length }` → `{ values }` (full payload)
+  - `response_payload`: from `{ summary }` → `{ summary, channex_responses: allResponses }` (raw responses with task IDs + summary)
 
-**Import additions:** `Badge`, `X`, `Save` from lucide-react
+#### 2. `supabase/functions/channex-full-sync/index.ts`
 
-### No changes to `Restrictions.tsx` or database schema
+- Update `rawChannexPost` helper to return the full raw response data alongside the task ID
+- Accumulate all raw responses per sync type (availability + rates)
+- Change `logSync` call (lines 325-339):
+  - `request_payload`: add `{ propertyId, days: SYNC_DAYS, room_types: [...], rate_plans: [...] }` (list of what was synced)
+  - `response_payload`: include the raw Channex responses alongside the existing task ID arrays
+
+### No database or frontend changes needed
 
