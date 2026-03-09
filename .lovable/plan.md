@@ -1,52 +1,118 @@
 
 
-## Add Optional Rate Field to Bulk Restriction Editor
+## Fix: Filter Blocked Dates by Active Property
 
-### Overview
+### Problem
+`fetchBlockedDates()` fetches ALL blocked dates across all properties. `fetchUnits()` correctly filters by `propertyId`, but blocked dates does not.
 
-Add an optional "Rate" checkbox+input to the Bulk Editor form so rate and restrictions can be pushed to Channex in a single API call (required for certification Test 8).
+### File: `src/components/BlockedDatesManager.tsx`
 
-### Database Change
+**1. Filter `fetchBlockedDates` by property (lines 101-121)**
 
-Add a `rate` column to `rate_plan_restrictions`:
+The `blocked_dates` table references `units` via `unit_id`. Filter by joining through units that belong to the active property:
 
-```sql
-ALTER TABLE rate_plan_restrictions ADD COLUMN rate integer NULL;
+```typescript
+const fetchBlockedDates = async () => {
+  try {
+    let query = supabase
+      .from("blocked_dates")
+      .select(`
+        *,
+        units (
+          name,
+          unit_number,
+          booking_com_name
+        )
+      `)
+      .order("blocked_date", { ascending: true });
+
+    // Filter to only show blocked dates for units belonging to the active property
+    if (propertyId) {
+      query = query.eq('units.property_id', propertyId);
+    }
+
+    const { data, error } = await query;
+    if (error) throw error;
+
+    // Remove entries where the unit was filtered out (unit doesn't belong to property)
+    const filtered = (data || []).filter(d => d.unit_id === null || d.units !== null);
+    setBlockedDates(filtered);
+  } catch (error: any) {
+    console.error("Error fetching blocked dates:", error);
+    toast.error("Failed to fetch blocked dates");
+  }
+};
 ```
 
-This stores the rate in **cents** (matching Channex convention). NULL means "no rate override for this date range."
+However, `blocked_dates` rows with `unit_id = null` (meaning "all rooms") have no unit join to filter on. We need a different approach — filter blocked dates whose `unit_id` is either null OR belongs to a unit in the active property. The cleanest way: use the unit IDs we already fetch.
 
-### File Changes
+**Better approach — filter client-side using fetched units:**
 
-**1. `src/components/pms/BulkRestrictionEditor.tsx`**
+Since `fetchUnits` already returns only units for the active property, filter blocked dates to only include those whose `unit_id` is null or matches a fetched unit.
 
-- Add `rate?: number` to `PendingRestriction.restrictions` interface
-- Add state: `enableRate` (boolean), `rate` (number, default 100)
-- Add Rate checkbox+input row at the top of the restrictions section (before Min Stay Arrival)
-- Update `validate()`: allow rate-only submissions (rate OR at least one restriction enabled)
-- Update `handleApply()`: include `rate` in restrictions object if enabled
-- Update `resetForm()`: reset rate state
-- Update `handleSaveAllChanges()`: include `rate` (converted to cents) in DB insert rows
-- Update pending changes display: show `Rate: $X` badge when present
+Actually, the simplest and most reliable fix: add `property_id` awareness to the query. Since `blocked_dates` has a `unit_id` FK to `units`, and `units` has `property_id`, we can filter via an inner join or use an `in` filter with the property's unit IDs.
 
-**2. `supabase/functions/channex-push-restrictions/index.ts`**
+**Revised approach — fetch unit IDs first, then filter:**
 
-- In the values loop, include `rate` from the restriction row if present:
-  ```typescript
-  ...(r.rate ? { rate: r.rate } : {}),
-  ```
+```typescript
+// In useEffect, ensure both refetch when propertyId changes
+useEffect(() => {
+  fetchUnits();
+  fetchBlockedDates();
+}, [propertyId]);
+```
 
-**3. `src/components/pms/RestrictionsLogTable.tsx`**
+In `fetchBlockedDates`, after fetching units (or independently):
+- Query units for the active property to get their IDs
+- Filter blocked_dates where `unit_id` is in that list
 
-- Show rate badge in the restrictions column if `r.rate` exists:
-  ```tsx
-  {r.rate && <Badge variant="secondary">Rate: ${(r.rate / 100).toFixed(2)}</Badge>}
-  ```
+**Simplest implementation:**
+
+1. **Change useEffect (line 80-83)** to depend on `propertyId`
+2. **Update `fetchBlockedDates`** to filter by property's unit IDs
+
+```typescript
+const fetchBlockedDates = async () => {
+  try {
+    // First get unit IDs for the active property
+    let unitIds: string[] = [];
+    if (propertyId) {
+      const { data: propUnits } = await supabase
+        .from("units")
+        .select("id")
+        .eq("property_id", propertyId);
+      unitIds = (propUnits || []).map(u => u.id);
+    }
+
+    let query = supabase
+      .from("blocked_dates")
+      .select(`*, units (name, unit_number, booking_com_name)`)
+      .order("blocked_date", { ascending: true });
+
+    if (propertyId && unitIds.length > 0) {
+      // Only show blocked dates for this property's units
+      query = query.in("unit_id", unitIds);
+    } else if (propertyId && unitIds.length === 0) {
+      // Property has no units, show nothing
+      setBlockedDates([]);
+      return;
+    }
+
+    const { data, error } = await query;
+    if (error) throw error;
+    setBlockedDates(data || []);
+  } catch (error: any) {
+    console.error("Error fetching blocked dates:", error);
+    toast.error("Failed to fetch blocked dates");
+  }
+};
+```
+
+3. **Update useEffect** (line 80-83): add `propertyId` to dependency array
 
 ### Summary
-
-- 1 migration (add `rate` column)
-- 3 files modified
-- Rate stored in cents, displayed in dollars
-- Fully optional — existing restriction-only workflow unchanged
+- 1 file changed: `src/components/BlockedDatesManager.tsx`
+- `fetchBlockedDates` filters by active property's unit IDs
+- Re-fetches when property switches
+- Blocked dates with `unit_id = null` (all-rooms blocks) won't show unless we decide they should — this matches the expectation that blocks are property-scoped
 
