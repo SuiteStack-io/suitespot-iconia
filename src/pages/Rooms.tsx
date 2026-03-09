@@ -635,8 +635,9 @@ const Rooms = () => {
         unit_number: newRoomNumber,
         unit_type: roomToClone.unit_type,
         unit_size: roomToClone.unit_size,
-        status: 'available', // New cloned rooms are available by default
-        booking_com_id: null, // Don't clone booking.com Room ID
+        status: 'available',
+        booking_com_id: null,
+        booking_com_name: roomToClone.booking_com_name,
         comments: roomToClone.comments,
         beds: roomToClone.beds,
         baths: roomToClone.baths,
@@ -647,6 +648,15 @@ const Rooms = () => {
         tax_percentage: roomToClone.tax_percentage,
         photos: roomToClone.photos || [],
         view: roomToClone.view,
+        property_id: propertyId || (roomToClone as any).property_id,
+        count_of_rooms: roomToClone.count_of_rooms,
+        default_occupancy: roomToClone.default_occupancy,
+        max_children: roomToClone.max_children,
+        max_infants: roomToClone.max_infants,
+        room_kind: roomToClone.room_kind,
+        location: roomToClone.location,
+        features: roomToClone.features || [],
+        min_stay: roomToClone.min_stay,
       };
       
       console.log('Inserting cloned data:', clonedData);
