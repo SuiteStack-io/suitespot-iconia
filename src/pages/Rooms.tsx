@@ -1227,27 +1227,56 @@ const Rooms = () => {
           <DialogHeader>
             <DialogTitle>Clone Room</DialogTitle>
             <DialogDescription>
-              Create a copy of this room with all its specifications.
+              Create copies of this room with all its specifications.
             </DialogDescription>
           </DialogHeader>
           <div className="py-4 space-y-4">
-            <div className="space-y-2 text-sm bg-muted p-4 rounded-lg">
-              <p><strong>Room Name:</strong> {roomToClone?.name}</p>
-              <p><strong>Current Room #:</strong> {roomToClone?.unit_number || 'N/A'}</p>
-              <p><strong>Type:</strong> {roomToClone?.unit_type || 'N/A'}</p>
-              <p><strong>Price:</strong> ${roomToClone?.price_per_night || 'N/A'}/night</p>
+            <div className="space-y-1 text-sm bg-muted p-4 rounded-lg">
+              <p><span className="font-medium">Room Name:</span> {roomToClone?.name}</p>
+              <p><span className="font-medium">Current Room #:</span> {roomToClone?.unit_number || 'N/A'}</p>
+              <p><span className="font-medium">Type:</span> {roomToClone?.unit_type || 'N/A'}</p>
             </div>
             <div className="space-y-2">
-              <Label htmlFor="cloneRoomNumber">
-                New Room Number <span className="text-destructive">*</span>
+              <Label htmlFor="cloneCount">
+                Number of Rooms to Clone <span className="text-destructive">*</span>
               </Label>
               <Input
-                id="cloneRoomNumber"
-                value={cloneRoomNumber}
-                onChange={(e) => setCloneRoomNumber(e.target.value)}
-                placeholder="Enter room number (e.g., 509)"
-                autoFocus
+                id="cloneCount"
+                type="number"
+                min={1}
+                max={50}
+                value={cloneCount}
+                onChange={(e) => handleCloneCountChange(parseInt(e.target.value) || 1)}
               />
+            </div>
+            <div className="space-y-2">
+              <div className="flex items-center justify-between">
+                <Label>
+                  New Room Numbers <span className="text-destructive">*</span>
+                </Label>
+                <Button variant="ghost" size="sm" onClick={handleAutoFillNumbers} className="text-xs h-7">
+                  <Wand2 className="h-3 w-3 mr-1" /> Auto-Fill
+                </Button>
+              </div>
+              <div className="space-y-2 max-h-48 overflow-y-auto pr-2">
+                {cloneRoomNumbers.map((num, index) => (
+                  <div key={index} className="flex items-center gap-3">
+                    <Label className="w-16 text-sm text-muted-foreground shrink-0">
+                      Room {index + 1}:
+                    </Label>
+                    <Input
+                      type="text"
+                      value={num}
+                      onChange={(e) => {
+                        const newNumbers = [...cloneRoomNumbers];
+                        newNumbers[index] = e.target.value;
+                        setCloneRoomNumbers(newNumbers);
+                      }}
+                      placeholder="e.g., 103"
+                    />
+                  </div>
+                ))}
+              </div>
             </div>
           </div>
           <DialogFooter>
@@ -1256,15 +1285,12 @@ const Rooms = () => {
               onClick={() => {
                 setCloneDialogOpen(false);
                 setRoomToClone(null);
-                setCloneRoomNumber('');
               }}
             >
               Cancel
             </Button>
-            <Button
-              onClick={handleConfirmClone}
-            >
-              Clone Room
+            <Button onClick={handleConfirmClone}>
+              Clone {cloneCount} Room{cloneCount > 1 ? 's' : ''}
             </Button>
           </DialogFooter>
         </DialogContent>
