@@ -1,49 +1,118 @@
 
 
-## Fix: Availability Sync Sends 0 Instead of Actual Unit Count
+## Fix: Filter Blocked Dates by Active Property
 
-### Root Cause
+### Problem
+`fetchBlockedDates()` fetches ALL blocked dates across all properties. `fetchUnits()` correctly filters by `propertyId`, but blocked dates does not.
 
-`addToPendingAvailabilitySync` uses `setUnits(currentUnits => { ... return currentUnits })` to read the latest units. But `fetchUnits()` also calls `setUnits(data)`. Since both are batched by React, `currentUnits` inside the callback still holds the **old** state (before the new units were inserted). The count is therefore wrong — likely 0 or the old count.
+### File: `src/components/BlockedDatesManager.tsx`
 
-### Fix
+**1. Filter `fetchBlockedDates` by property (lines 101-121)**
 
-Replace the `setUnits` trick with a direct database query to count units. This guarantees we read the committed data after insert.
-
-**File: `src/pages/Rooms.tsx`** — rewrite `addToPendingAvailabilitySync`:
+The `blocked_dates` table references `units` via `unit_id`. Filter by joining through units that belong to the active property:
 
 ```typescript
-const addToPendingAvailabilitySync = async (bookingComName: string) => {
-  if (!propertyId) return;
+const fetchBlockedDates = async () => {
+  try {
+    let query = supabase
+      .from("blocked_dates")
+      .select(`
+        *,
+        units (
+          name,
+          unit_number,
+          booking_com_name
+        )
+      `)
+      .order("blocked_date", { ascending: true });
 
-  // Query DB directly for accurate count (units were just inserted)
-  const { data: matchingUnits } = await supabase
-    .from('units')
-    .select('id')
-    .eq('property_id', propertyId)
-    .eq('booking_com_name', bookingComName)
-    .neq('status', 'maintenance');
+    // Filter to only show blocked dates for units belonging to the active property
+    if (propertyId) {
+      query = query.eq('units.property_id', propertyId);
+    }
 
-  const newCount = matchingUnits?.length || 0;
-  const anyUnitId = matchingUnits?.[0]?.id;
+    const { data, error } = await query;
+    if (error) throw error;
 
-  if (anyUnitId) {
-    setPendingAvailabilitySync(prev => {
-      const filtered = prev.filter(p => p.bookingComName !== bookingComName);
-      return [...filtered, {
-        id: crypto.randomUUID(),
-        bookingComName,
-        unitId: anyUnitId,
-        newCount,
-      }];
-    });
+    // Remove entries where the unit was filtered out (unit doesn't belong to property)
+    const filtered = (data || []).filter(d => d.unit_id === null || d.units !== null);
+    setBlockedDates(filtered);
+  } catch (error: any) {
+    console.error("Error fetching blocked dates:", error);
+    toast.error("Failed to fetch blocked dates");
   }
 };
 ```
 
-Also update the two call sites to `await` the now-async function:
-- Line ~632: `await addToPendingAvailabilitySync(addedBookingComName);`
-- Line ~757: `await addToPendingAvailabilitySync(clonedBookingComName);`
+However, `blocked_dates` rows with `unit_id = null` (meaning "all rooms") have no unit join to filter on. We need a different approach — filter blocked dates whose `unit_id` is either null OR belongs to a unit in the active property. The cleanest way: use the unit IDs we already fetch.
 
-No other files need changes. The sync payload builder (`handleSyncAvailability`) already correctly uses `p.newCount` — the only problem was that `newCount` was being calculated from stale React state.
+**Better approach — filter client-side using fetched units:**
+
+Since `fetchUnits` already returns only units for the active property, filter blocked dates to only include those whose `unit_id` is null or matches a fetched unit.
+
+Actually, the simplest and most reliable fix: add `property_id` awareness to the query. Since `blocked_dates` has a `unit_id` FK to `units`, and `units` has `property_id`, we can filter via an inner join or use an `in` filter with the property's unit IDs.
+
+**Revised approach — fetch unit IDs first, then filter:**
+
+```typescript
+// In useEffect, ensure both refetch when propertyId changes
+useEffect(() => {
+  fetchUnits();
+  fetchBlockedDates();
+}, [propertyId]);
+```
+
+In `fetchBlockedDates`, after fetching units (or independently):
+- Query units for the active property to get their IDs
+- Filter blocked_dates where `unit_id` is in that list
+
+**Simplest implementation:**
+
+1. **Change useEffect (line 80-83)** to depend on `propertyId`
+2. **Update `fetchBlockedDates`** to filter by property's unit IDs
+
+```typescript
+const fetchBlockedDates = async () => {
+  try {
+    // First get unit IDs for the active property
+    let unitIds: string[] = [];
+    if (propertyId) {
+      const { data: propUnits } = await supabase
+        .from("units")
+        .select("id")
+        .eq("property_id", propertyId);
+      unitIds = (propUnits || []).map(u => u.id);
+    }
+
+    let query = supabase
+      .from("blocked_dates")
+      .select(`*, units (name, unit_number, booking_com_name)`)
+      .order("blocked_date", { ascending: true });
+
+    if (propertyId && unitIds.length > 0) {
+      // Only show blocked dates for this property's units
+      query = query.in("unit_id", unitIds);
+    } else if (propertyId && unitIds.length === 0) {
+      // Property has no units, show nothing
+      setBlockedDates([]);
+      return;
+    }
+
+    const { data, error } = await query;
+    if (error) throw error;
+    setBlockedDates(data || []);
+  } catch (error: any) {
+    console.error("Error fetching blocked dates:", error);
+    toast.error("Failed to fetch blocked dates");
+  }
+};
+```
+
+3. **Update useEffect** (line 80-83): add `propertyId` to dependency array
+
+### Summary
+- 1 file changed: `src/components/BlockedDatesManager.tsx`
+- `fetchBlockedDates` filters by active property's unit IDs
+- Re-fetches when property switches
+- Blocked dates with `unit_id = null` (all-rooms blocks) won't show unless we decide they should — this matches the expectation that blocks are property-scoped
 

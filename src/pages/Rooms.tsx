@@ -629,7 +629,7 @@ const Rooms = () => {
     await fetchUnits();
 
     if (addedBookingComName) {
-      addToPendingAvailabilitySync(addedBookingComName);
+      await addToPendingAvailabilitySync(addedBookingComName);
     }
   };
 
@@ -754,7 +754,7 @@ const Rooms = () => {
       await fetchUnits();
 
       if (clonedBookingComName) {
-        addToPendingAvailabilitySync(clonedBookingComName);
+        await addToPendingAvailabilitySync(clonedBookingComName);
       }
     } catch (error: any) {
       console.error('Failed to clone room:', error);
@@ -871,30 +871,31 @@ const Rooms = () => {
   };
 
   // Helper: add/update pending availability sync for a booking_com_name
-  const addToPendingAvailabilitySync = (bookingComName: string) => {
-    // Recalculate from latest units state (fetchUnits already called)
-    // We use a callback to get the latest units
-    setUnits(currentUnits => {
-      const matchingUnits = currentUnits.filter(
-        u => u.booking_com_name === bookingComName && u.status !== 'maintenance'
-      );
-      const newCount = matchingUnits.length;
-      const anyUnitId = matchingUnits[0]?.id;
+  const addToPendingAvailabilitySync = async (bookingComName: string) => {
+    if (!propertyId) return;
 
-      if (anyUnitId) {
-        setPendingAvailabilitySync(prev => {
-          // Deduplicate: replace existing entry for same bookingComName
-          const filtered = prev.filter(p => p.bookingComName !== bookingComName);
-          return [...filtered, {
-            id: crypto.randomUUID(),
-            bookingComName,
-            unitId: anyUnitId,
-            newCount,
-          }];
-        });
-      }
-      return currentUnits; // don't mutate
-    });
+    // Query DB directly for accurate count (units were just inserted, React state may be stale)
+    const { data: matchingUnits } = await supabase
+      .from('units')
+      .select('id')
+      .eq('property_id', propertyId)
+      .eq('booking_com_name', bookingComName)
+      .neq('status', 'maintenance');
+
+    const newCount = matchingUnits?.length || 0;
+    const anyUnitId = matchingUnits?.[0]?.id;
+
+    if (anyUnitId) {
+      setPendingAvailabilitySync(prev => {
+        const filtered = prev.filter(p => p.bookingComName !== bookingComName);
+        return [...filtered, {
+          id: crypto.randomUUID(),
+          bookingComName,
+          unitId: anyUnitId,
+          newCount,
+        }];
+      });
+    }
   };
 
   // Warn on unsaved availability sync
