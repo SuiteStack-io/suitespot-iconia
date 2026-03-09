@@ -14,11 +14,12 @@ import {
   SelectTrigger,
   SelectValue,
 } from '@/components/ui/select';
-import { CalendarIcon, Loader2, X, Save } from 'lucide-react';
+import { CalendarIcon, Loader2, X, Save, ArrowRight } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { supabase } from '@/integrations/supabase/client';
 import { useToast } from '@/hooks/use-toast';
 import { usePropertyId } from '@/hooks/usePropertyFilter';
+import { Skeleton } from '@/components/ui/skeleton';
 
 export interface PendingAvailability {
   id: string;
@@ -52,6 +53,8 @@ export function BulkAvailabilityEditor({ pendingAvailability, setPendingAvailabi
   const [isSaving, setIsSaving] = useState(false);
   const [dateFromOpen, setDateFromOpen] = useState(false);
   const [dateToOpen, setDateToOpen] = useState(false);
+  const [currentAvailability, setCurrentAvailability] = useState<number | null>(null);
+  const [isLoadingAvailability, setIsLoadingAvailability] = useState(false);
 
   const today = new Date();
   today.setHours(0, 0, 0, 0);
@@ -99,6 +102,38 @@ export function BulkAvailabilityEditor({ pendingAvailability, setPendingAvailabi
     return () => window.removeEventListener('beforeunload', handleBeforeUnload);
   }, [pendingAvailability.length]);
 
+  // Auto-fetch current availability when room type or date changes
+  useEffect(() => {
+    if (!selectedRoomType || !dateFrom || !propertyId) {
+      setCurrentAvailability(null);
+      return;
+    }
+
+    let cancelled = false;
+    const fetchCurrent = async () => {
+      setIsLoadingAvailability(true);
+      try {
+        const { data } = await supabase
+          .from('units')
+          .select('id')
+          .eq('property_id', propertyId)
+          .eq('booking_com_name', selectedRoomType)
+          .neq('status', 'maintenance');
+
+        if (cancelled) return;
+        const count = data?.length || 0;
+        setCurrentAvailability(count);
+        setAvailability(count);
+      } catch {
+        if (!cancelled) setCurrentAvailability(null);
+      } finally {
+        if (!cancelled) setIsLoadingAvailability(false);
+      }
+    };
+    fetchCurrent();
+    return () => { cancelled = true; };
+  }, [selectedRoomType, dateFrom, propertyId]);
+
   const selectedRoomTypeOption = useMemo(
     () => roomTypes.find(r => r.name === selectedRoomType),
     [roomTypes, selectedRoomType]
@@ -108,6 +143,7 @@ export function BulkAvailabilityEditor({ pendingAvailability, setPendingAvailabi
     setDateFrom(undefined);
     setDateTo(undefined);
     setAvailability(0);
+    setCurrentAvailability(null);
   };
 
   const handleApply = () => {
@@ -290,7 +326,16 @@ export function BulkAvailabilityEditor({ pendingAvailability, setPendingAvailabi
 
           {/* Available Rooms */}
           <div className="space-y-2">
-            <Label>Available Rooms</Label>
+            <div className="flex items-center justify-between">
+              <Label>Available Rooms</Label>
+              {isLoadingAvailability ? (
+                <Skeleton className="h-4 w-24" />
+              ) : currentAvailability !== null ? (
+                <span className="text-sm text-muted-foreground">
+                  Current: {currentAvailability} room{currentAvailability !== 1 ? 's' : ''}
+                </span>
+              ) : null}
+            </div>
             <div className="flex items-center gap-2">
               <Input
                 type="number"
@@ -301,6 +346,18 @@ export function BulkAvailabilityEditor({ pendingAvailability, setPendingAvailabi
               />
               <span className="text-sm text-muted-foreground">rooms</span>
             </div>
+            {currentAvailability !== null && availability !== currentAvailability && (
+              <div className="flex items-center gap-1 text-sm">
+                <span className="text-muted-foreground">{currentAvailability}</span>
+                <ArrowRight className="h-3 w-3 text-muted-foreground" />
+                <span className={availability < currentAvailability ? 'text-orange-600' : 'text-green-600'}>
+                  {availability}
+                </span>
+                <span className="text-muted-foreground">
+                  ({availability > currentAvailability ? '+' : ''}{availability - currentAvailability})
+                </span>
+              </div>
+            )}
           </div>
 
           {/* Apply Button */}
