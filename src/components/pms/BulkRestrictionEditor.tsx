@@ -400,10 +400,10 @@ export function BulkRestrictionEditor({ ratePlans, onSaved, onRatePlanFocused, p
                 <span className="block text-[10px] text-muted-foreground font-normal">Set the nightly rate for this date range</span>
               </Label>
               {enableRate && (
-                <>
-                  <span className="text-sm text-muted-foreground">$</span>
-                  <Input type="number" min={0} step={0.01} value={rate} onChange={(e) => setRate(parseFloat(e.target.value) || 0)} className="w-24" />
-                </>
+                <div className="flex items-center gap-2">
+                  <Input type="number" min={0} step={0.01} value={rate} onChange={(e) => setRate(parseFloat(e.target.value) || 0)} className="w-24 h-9 text-right" />
+                  <span className="text-sm text-muted-foreground w-12">USD</span>
+                </div>
               )}
             </div>
 
@@ -414,10 +414,10 @@ export function BulkRestrictionEditor({ ratePlans, onSaved, onRatePlanFocused, p
                 <span className="block text-[10px] text-muted-foreground font-normal">Guest arriving on this date must stay at least X nights</span>
               </Label>
               {enableMinStayArrival && (
-                <>
-                  <Input type="number" min={1} max={30} value={minStayArrival} onChange={(e) => setMinStayArrival(parseInt(e.target.value) || 1)} className="w-20" />
-                  <span className="text-xs text-muted-foreground">nights</span>
-                </>
+                <div className="flex items-center gap-2">
+                  <Input type="number" min={1} max={30} value={minStayArrival} onChange={(e) => setMinStayArrival(parseInt(e.target.value) || 1)} className="w-24 h-9 text-right" />
+                  <span className="text-sm text-muted-foreground w-12">nights</span>
+                </div>
               )}
             </div>
 
@@ -428,10 +428,10 @@ export function BulkRestrictionEditor({ ratePlans, onSaved, onRatePlanFocused, p
                 <span className="block text-[10px] text-muted-foreground font-normal">Any booking including this date must be at least X nights</span>
               </Label>
               {enableMinStayThrough && (
-                <>
-                  <Input type="number" min={1} max={30} value={minStayThrough} onChange={(e) => setMinStayThrough(parseInt(e.target.value) || 1)} className="w-20" />
-                  <span className="text-xs text-muted-foreground">nights</span>
-                </>
+                <div className="flex items-center gap-2">
+                  <Input type="number" min={1} max={30} value={minStayThrough} onChange={(e) => setMinStayThrough(parseInt(e.target.value) || 1)} className="w-24 h-9 text-right" />
+                  <span className="text-sm text-muted-foreground w-12">nights</span>
+                </div>
               )}
             </div>
 
@@ -439,10 +439,10 @@ export function BulkRestrictionEditor({ ratePlans, onSaved, onRatePlanFocused, p
               <Checkbox checked={enableMaxStay} onCheckedChange={(v) => setEnableMaxStay(!!v)} />
               <Label className="text-sm flex-1">Max Stay</Label>
               {enableMaxStay && (
-                <>
-                  <Input type="number" min={1} max={365} value={maxStay} onChange={(e) => setMaxStay(parseInt(e.target.value) || 30)} className="w-20" />
-                  <span className="text-xs text-muted-foreground">nights</span>
-                </>
+                <div className="flex items-center gap-2">
+                  <Input type="number" min={1} max={365} value={maxStay} onChange={(e) => setMaxStay(parseInt(e.target.value) || 30)} className="w-24 h-9 text-right" />
+                  <span className="text-sm text-muted-foreground w-12">nights</span>
+                </div>
               )}
             </div>
 
