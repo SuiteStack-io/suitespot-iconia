@@ -617,9 +617,29 @@ const Rooms = () => {
     fetchUnits();
   };
 
+  const getNextAvailableNumbers = (startFrom: number, count: number, existingNumbers: number[]): string[] => {
+    const suggestions: string[] = [];
+    let current = startFrom;
+    while (suggestions.length < count) {
+      current++;
+      if (!existingNumbers.includes(current)) {
+        suggestions.push(String(current));
+      }
+    }
+    return suggestions;
+  };
+
+  const getExistingUnitNumbers = (): number[] => {
+    return units.map(u => parseInt(u.unit_number || '0')).filter(n => !isNaN(n));
+  };
+
   const handleCloneClick = (unit: Unit) => {
     setRoomToClone(unit);
-    setCloneRoomNumber('');
+    const existingNumbers = getExistingUnitNumbers();
+    const currentNum = parseInt(unit.unit_number || '0') || 0;
+    const suggestions = getNextAvailableNumbers(currentNum, 1, existingNumbers);
+    setCloneCount(1);
+    setCloneRoomNumbers(suggestions);
     setCloneDialogOpen(true);
   };
 
