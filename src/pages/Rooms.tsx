@@ -922,12 +922,12 @@ const Rooms = () => {
                 const currentUnit = isBulkEdit ? bulkEditUnits[unit.id] : editedUnit;
                 
                 return (
-                  <TableRow key={unit.id}>
-                    <TableCell className="min-w-[50px] text-muted-foreground font-medium sticky left-0 z-[5] bg-background">{index + 1}</TableCell>
-                    <TableCell className="min-w-[200px] sticky left-[50px] z-[5] bg-background">
+                  <TableRow key={unit.id} className="h-11 hover:bg-muted/50 even:bg-muted/20">
+                    <TableCell className="px-3 py-2 text-sm text-muted-foreground sticky left-0 z-[5] bg-background">{index + 1}</TableCell>
+                    <TableCell className="px-3 py-2 text-sm font-medium sticky left-[40px] z-[5] bg-background">
                       {isEditing ? (
                         <Input
-                          className="w-full min-w-[180px]"
+                          className="w-full h-8 text-sm"
                           value={isBulkEdit ? (bulkEditUnits[unit.id]?.booking_com_name || '') : (editedUnit.booking_com_name || '')}
                           onChange={(e) => 
                             isBulkEdit 
@@ -939,10 +939,10 @@ const Rooms = () => {
                         unit.booking_com_name || unit.name
                       )}
                     </TableCell>
-                    <TableCell className="min-w-[100px] sticky left-[250px] z-[5] bg-background border-r">
+                    <TableCell className="px-3 py-2 text-sm sticky left-[200px] z-[5] bg-background border-r">
                       {isEditing ? (
                         <Input
-                          className="w-full min-w-[80px]"
+                          className="w-full h-8 text-sm"
                           value={isBulkEdit ? (bulkEditUnits[unit.id]?.unit_number || '') : (editedUnit.unit_number || '')}
                           onChange={(e) =>
                             isBulkEdit
@@ -951,7 +951,7 @@ const Rooms = () => {
                           }
                         />
                       ) : (
-                        unit.unit_number || '-'
+                        unit.unit_number || '—'
                       )}
                     </TableCell>
                     <TableCell className="min-w-[140px]">
