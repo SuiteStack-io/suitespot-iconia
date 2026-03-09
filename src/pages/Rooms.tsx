@@ -72,11 +72,6 @@ interface Reservation {
 
 const STATUS_OPTIONS = ['available', 'occupied', 'maintenance', 'reserved'];
 
-// Calculate weekend rate: 10% higher than weekday rate, rounded up to nearest $5
-const calculateWeekendRate = (weekdayRate: number | null): number | null => {
-  if (!weekdayRate || weekdayRate <= 0) return null;
-  return Math.ceil((weekdayRate * 1.10) / 5) * 5;
-};
 
 const Rooms = () => {
   const { user, loading, userRole } = useAuth();
@@ -926,12 +921,9 @@ const Rooms = () => {
                   <th className="h-10 px-2 text-left align-middle font-medium text-muted-foreground min-w-[80px] bg-background">Baths</th>
                   <th className="h-10 px-2 text-left align-middle font-medium text-muted-foreground min-w-[100px] bg-background">Max Guests</th>
                   <th className="h-10 px-2 text-left align-middle font-medium text-muted-foreground min-w-[100px] bg-background">Sofa Bed</th>
-                  <th className="h-10 px-2 text-left align-middle font-medium text-muted-foreground min-w-[110px] bg-background">Weekday Rate</th>
-                  <th className="h-10 px-2 text-left align-middle font-medium text-muted-foreground min-w-[110px] bg-background">Weekend Rate</th>
-                  <th className="h-10 px-2 text-left align-middle font-medium text-muted-foreground min-w-[80px] bg-background">Tax %</th>
                   <th className="h-10 px-2 text-left align-middle font-medium text-muted-foreground min-w-[160px] bg-background">Photos</th>
                   <th className="h-10 px-2 text-left align-middle font-medium text-muted-foreground min-w-[120px] bg-background">Status</th>
-                  <th className="h-10 px-2 text-left align-middle font-medium text-muted-foreground min-w-[140px] bg-background">Booking.com Room ID</th>
+                  
                   <th className="h-10 px-2 text-left align-middle font-medium text-muted-foreground min-w-[130px] bg-background">Next Reservation</th>
                   {isAdmin && !isBulkEdit && <th className="h-10 px-2 text-left align-middle font-medium text-muted-foreground min-w-[100px] bg-background">Actions</th>}
                 </tr>
@@ -1153,74 +1145,6 @@ const Rooms = () => {
                         unit.sofa_bed ? 'Yes' : 'No'
                       )}
                     </TableCell>
-                    <TableCell className="min-w-[110px]">
-                      {isEditing ? (
-                        <Input
-                          className="w-full min-w-[90px]"
-                          type="number"
-                          step="0.01"
-                          value={isBulkEdit ? (bulkEditUnits[unit.id]?.price_per_night ?? '') : (editedUnit.price_per_night ?? '')}
-                          onChange={(e) => {
-                            const weekdayRate = e.target.value ? parseFloat(e.target.value) : null;
-                            if (isBulkEdit) {
-                              handleBulkEditChange(unit.id, 'price_per_night', weekdayRate);
-                              handleBulkEditChange(unit.id, 'weekend_rate', calculateWeekendRate(weekdayRate));
-                            } else {
-                              setEditedUnit({ 
-                                ...editedUnit, 
-                                price_per_night: weekdayRate,
-                                weekend_rate: calculateWeekendRate(weekdayRate)
-                              });
-                            }
-                          }}
-                          placeholder="Weekday"
-                        />
-                      ) : (
-                        unit.price_per_night ? `$${unit.price_per_night}` : '-'
-                      )}
-                    </TableCell>
-                    <TableCell className="min-w-[110px]">
-                      {isEditing ? (
-                        <Input
-                          className="w-full min-w-[90px]"
-                          type="number"
-                          step="0.01"
-                          value={isBulkEdit ? (bulkEditUnits[unit.id]?.weekend_rate ?? '') : (editedUnit.weekend_rate ?? '')}
-                          onChange={(e) =>
-                            isBulkEdit
-                              ? handleBulkEditChange(unit.id, 'weekend_rate', e.target.value ? parseFloat(e.target.value) : null)
-                              : setEditedUnit({ ...editedUnit, weekend_rate: e.target.value ? parseFloat(e.target.value) : null })
-                          }
-                          placeholder="Weekend"
-                        />
-                      ) : (
-                        unit.weekend_rate 
-                          ? `$${unit.weekend_rate}` 
-                          : unit.price_per_night 
-                            ? <span className="text-muted-foreground italic">${calculateWeekendRate(unit.price_per_night)} <span className="text-xs">(auto)</span></span>
-                            : '-'
-                      )}
-                    </TableCell>
-                    <TableCell className="min-w-[80px]">
-                      {isEditing ? (
-                        <Input
-                          className="w-full min-w-[60px]"
-                          type="number"
-                          step="0.01"
-                          min="0"
-                          max="100"
-                          value={isBulkEdit ? (bulkEditUnits[unit.id]?.tax_percentage ?? '') : (editedUnit.tax_percentage ?? '')}
-                          onChange={(e) =>
-                            isBulkEdit
-                              ? handleBulkEditChange(unit.id, 'tax_percentage', e.target.value ? parseFloat(e.target.value) : null)
-                              : setEditedUnit({ ...editedUnit, tax_percentage: e.target.value ? parseFloat(e.target.value) : null })
-                          }
-                          placeholder="14"
-                        />
-                      ) : (
-                        unit.tax_percentage ? `${unit.tax_percentage}%` : '14%'
-                      )}
-                    </TableCell>
                     <TableCell className="min-w-[160px]">
                       {isEditing ? (
                         <div className="text-muted-foreground text-sm whitespace-normal">Use upload button in Actions column</div>
@@ -1295,22 +1219,6 @@ const Rooms = () => {
                         </Select>
                       ) : (
                         <span className="capitalize">{unit.status}</span>
-                      )}
-                    </TableCell>
-                    <TableCell className="min-w-[140px]">
-                      {isEditing ? (
-                        <Input
-                          className="w-full min-w-[120px]"
-                          value={isBulkEdit ? (bulkEditUnits[unit.id]?.booking_com_id || '') : (editedUnit.booking_com_id || '')}
-                          onChange={(e) =>
-                            isBulkEdit
-                              ? handleBulkEditChange(unit.id, 'booking_com_id', e.target.value)
-                              : setEditedUnit({ ...editedUnit, booking_com_id: e.target.value })
-                          }
-                          placeholder="Enter Booking.com Room ID"
-                        />
-                      ) : (
-                        <span className="font-mono text-sm">{unit.booking_com_id || '-'}</span>
                       )}
                     </TableCell>
                     <TableCell className="min-w-[130px]">
