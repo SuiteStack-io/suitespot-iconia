@@ -1112,14 +1112,18 @@ const Rooms = () => {
                                             <X className="h-3.5 w-3.5" />
                                           </Button>
                                         </div>
-                                      ) : !isBulkEdit ? (
+                                      ) : (
                                         <div className="flex items-center gap-1">
-                                          <Button variant="ghost" size="icon" className="h-7 w-7" onClick={() => handleEdit(unit)}>
-                                            <Pencil className="h-3.5 w-3.5" />
-                                          </Button>
-                                          <Button variant="ghost" size="icon" className="h-7 w-7" onClick={() => navigate(`/property-media/${unit.id}`)} title="Photos">
-                                            <ImageIcon className="h-3.5 w-3.5" />
-                                          </Button>
+                                          {!isBulkEdit && (
+                                            <>
+                                              <Button variant="ghost" size="icon" className="h-7 w-7" onClick={() => handleEdit(unit)}>
+                                                <Pencil className="h-3.5 w-3.5" />
+                                              </Button>
+                                              <Button variant="ghost" size="icon" className="h-7 w-7" onClick={() => navigate(`/property-media/${unit.id}`)} title="Photos">
+                                                <ImageIcon className="h-3.5 w-3.5" />
+                                              </Button>
+                                            </>
+                                          )}
                                           <Button variant="ghost" size="icon" className="h-7 w-7" onClick={() => handleCloneClick(unit)} title="Clone">
                                             <Copy className="h-3.5 w-3.5" />
                                           </Button>
@@ -1127,7 +1131,7 @@ const Rooms = () => {
                                             <Trash2 className="h-3.5 w-3.5" />
                                           </Button>
                                         </div>
-                                      ) : null}
+                                      )}
                                     </TableCell>
                                   )}
                                 </TableRow>
