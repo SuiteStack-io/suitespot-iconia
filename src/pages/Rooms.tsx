@@ -741,6 +741,8 @@ const Rooms = () => {
       const { error } = await supabase.from('units').insert(clonedUnits).select();
       if (error) throw error;
 
+      const clonedBookingComName = roomToClone.booking_com_name;
+
       setCloneDialogOpen(false);
       setRoomToClone(null);
 
@@ -749,7 +751,11 @@ const Rooms = () => {
         description: `Created ${trimmed.length} room${trimmed.length > 1 ? 's' : ''} successfully`,
       });
 
-      fetchUnits();
+      await fetchUnits();
+
+      if (clonedBookingComName) {
+        addToPendingAvailabilitySync(clonedBookingComName);
+      }
     } catch (error: any) {
       console.error('Failed to clone room:', error);
       toast({ variant: 'destructive', title: 'Error', description: error.message || 'Failed to clone room' });
