@@ -1540,10 +1540,6 @@ const Rooms = () => {
                 </SelectContent>
               </Select>
             </div>
-            <div className="space-y-2">
-              <Label htmlFor="add-bcom-id">Booking.com Room ID</Label>
-              <Input id="add-bcom-id" value={newUnit.booking_com_id || ''} onChange={(e) => setNewUnit({ ...newUnit, booking_com_id: e.target.value })} placeholder="Room ID" />
-            </div>
             <div className="space-y-2 sm:col-span-2 lg:col-span-3">
               <Label htmlFor="add-comments">Comments</Label>
               <Textarea id="add-comments" value={newUnit.comments || ''} onChange={(e) => setNewUnit({ ...newUnit, comments: e.target.value })} placeholder="Any additional notes..." rows={3} />
