@@ -1476,7 +1476,7 @@ const Rooms = () => {
           </DialogHeader>
           <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4 py-4">
             <div className="space-y-2">
-              <Label htmlFor="add-name">Room Name *</Label>
+              <Label htmlFor="add-name">Room Name <span className="text-destructive">*</span></Label>
               <Input id="add-name" value={newUnit.name} onChange={(e) => setNewUnit({ ...newUnit, name: e.target.value })} placeholder="e.g. Deluxe Suite" />
             </div>
             <div className="space-y-2">
