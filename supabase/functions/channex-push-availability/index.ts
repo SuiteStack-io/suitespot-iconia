@@ -115,17 +115,51 @@ serve(async (req: Request) => {
 
     const mappingCache: Record<string, string> = {};
 
-    async function resolveChannexId(localId: string, entityType: string): Promise<string | null> {
-      const key = `${entityType}:${localId}`;
+    async function resolveChannexPropertyId(localId: string): Promise<string | null> {
+      const key = `property:${localId}`;
       if (mappingCache[key]) return mappingCache[key];
       const { data } = await serviceSupabase
         .from("channex_mappings")
         .select("channex_id")
         .eq("local_id", localId)
-        .eq("entity_type", entityType)
+        .eq("entity_type", "property")
         .maybeSingle();
       if (data) mappingCache[key] = data.channex_id;
       return data?.channex_id || null;
+    }
+
+    // Resolve room type via booking_com_name to handle unit ID mismatches
+    async function resolveChannexRoomTypeId(unitId: string): Promise<string | null> {
+      const cacheKey = `room_type:${unitId}`;
+      if (mappingCache[cacheKey]) return mappingCache[cacheKey];
+
+      // Step 1: Get booking_com_name from the provided unit ID
+      const { data: unit } = await serviceSupabase
+        .from("units")
+        .select("booking_com_name, property_id")
+        .eq("id", unitId)
+        .maybeSingle();
+
+      if (!unit?.booking_com_name) return null;
+
+      // Step 2: Find any unit with that booking_com_name that has a channex mapping
+      const { data: mapping } = await serviceSupabase
+        .from("channex_mappings")
+        .select("channex_id, local_id")
+        .eq("entity_type", "room_type")
+        .in(
+          "local_id",
+          (await serviceSupabase
+            .from("units")
+            .select("id")
+            .eq("booking_com_name", unit.booking_com_name)
+            .eq("property_id", unit.property_id)
+          ).data?.map((u: { id: string }) => u.id) || []
+        )
+        .maybeSingle();
+
+      if (mapping) mappingCache[cacheKey] = mapping.channex_id;
+      return mapping?.channex_id || null;
     }
 
     const values: object[] = [];
@@ -133,12 +167,12 @@ serve(async (req: Request) => {
 
     for (let i = 0; i < updates.length; i++) {
       const u = updates[i];
-      const channexPropertyId = await resolveChannexId(u.property_id, "property");
+      const channexPropertyId = await resolveChannexPropertyId(u.property_id);
       if (!channexPropertyId) {
         errors.push({ index: i, error: "Property not synced to Channex", property_id: u.property_id });
         continue;
       }
-      const channexRoomTypeId = await resolveChannexId(u.room_type_id, "room_type");
+      const channexRoomTypeId = await resolveChannexRoomTypeId(u.room_type_id);
       if (!channexRoomTypeId) {
         errors.push({ index: i, error: "Room type not synced to Channex", room_type_id: u.room_type_id });
         continue;

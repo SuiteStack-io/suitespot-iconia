@@ -1,42 +1,118 @@
 
 
-## Fix channex-push-availability Mapping Resolution
+## Fix: Filter Blocked Dates by Active Property
 
-### Analysis
+### Problem
+`fetchBlockedDates()` fetches ALL blocked dates across all properties. `fetchUnits()` correctly filters by `propertyId`, but blocked dates does not.
 
-There is **no `room_types` table** in the database. The system uses the `units` table with `booking_com_name` as the grouping key. The `channex_mappings` table stores `entity_type = 'room_type'` with `local_id` set to a specific unit ID (the first unit of each booking_com_name group, chosen during Channex property sync).
+### File: `src/components/BlockedDatesManager.tsx`
 
-The problem: the frontend picks "the first unit per booking_com_name" at query time, but this may not match the unit ID stored in `channex_mappings` (which was chosen during the original Channex sync). If units are added/deleted, the "first" unit can change.
+**1. Filter `fetchBlockedDates` by property (lines 101-121)**
 
-### Plan
+The `blocked_dates` table references `units` via `unit_id`. Filter by joining through units that belong to the active property:
 
-**1. Fix the edge function's room type resolution** (`supabase/functions/channex-push-availability/index.ts`)
+```typescript
+const fetchBlockedDates = async () => {
+  try {
+    let query = supabase
+      .from("blocked_dates")
+      .select(`
+        *,
+        units (
+          name,
+          unit_number,
+          booking_com_name
+        )
+      `)
+      .order("blocked_date", { ascending: true });
 
-Instead of looking up `channex_mappings` by exact unit ID, resolve via the unit's `booking_com_name` — find ANY unit with that name that has a channex mapping:
+    // Filter to only show blocked dates for units belonging to the active property
+    if (propertyId) {
+      query = query.eq('units.property_id', propertyId);
+    }
 
+    const { data, error } = await query;
+    if (error) throw error;
+
+    // Remove entries where the unit was filtered out (unit doesn't belong to property)
+    const filtered = (data || []).filter(d => d.unit_id === null || d.units !== null);
+    setBlockedDates(filtered);
+  } catch (error: any) {
+    console.error("Error fetching blocked dates:", error);
+    toast.error("Failed to fetch blocked dates");
+  }
+};
 ```
-// Instead of direct local_id lookup:
-//   .eq("local_id", u.room_type_id).eq("entity_type", "room_type")
-// 
-// Do: get the unit's booking_com_name, then find the channex mapping
-// for any unit with that same booking_com_name
+
+However, `blocked_dates` rows with `unit_id = null` (meaning "all rooms") have no unit join to filter on. We need a different approach — filter blocked dates whose `unit_id` is either null OR belongs to a unit in the active property. The cleanest way: use the unit IDs we already fetch.
+
+**Better approach — filter client-side using fetched units:**
+
+Since `fetchUnits` already returns only units for the active property, filter blocked dates to only include those whose `unit_id` is null or matches a fetched unit.
+
+Actually, the simplest and most reliable fix: add `property_id` awareness to the query. Since `blocked_dates` has a `unit_id` FK to `units`, and `units` has `property_id`, we can filter via an inner join or use an `in` filter with the property's unit IDs.
+
+**Revised approach — fetch unit IDs first, then filter:**
+
+```typescript
+// In useEffect, ensure both refetch when propertyId changes
+useEffect(() => {
+  fetchUnits();
+  fetchBlockedDates();
+}, [propertyId]);
 ```
 
-This makes the edge function resilient to which specific unit ID the frontend sends.
+In `fetchBlockedDates`, after fetching units (or independently):
+- Query units for the active property to get their IDs
+- Filter blocked_dates where `unit_id` is in that list
 
-**2. Update the frontend to be explicit** (`src/components/pms/BulkAvailabilityEditor.tsx`)
+**Simplest implementation:**
 
-No changes needed to the frontend — it already sends a unit ID grouped by `booking_com_name`, and the edge function will resolve it via the name-based lookup.
+1. **Change useEffect (line 80-83)** to depend on `propertyId`
+2. **Update `fetchBlockedDates`** to filter by property's unit IDs
 
-### Technical Detail — Edge Function Change
+```typescript
+const fetchBlockedDates = async () => {
+  try {
+    // First get unit IDs for the active property
+    let unitIds: string[] = [];
+    if (propertyId) {
+      const { data: propUnits } = await supabase
+        .from("units")
+        .select("id")
+        .eq("property_id", propertyId);
+      unitIds = (propUnits || []).map(u => u.id);
+    }
 
-In `channex-push-availability/index.ts`, replace the direct `resolveChannexId(u.room_type_id, "room_type")` call with a two-step lookup:
+    let query = supabase
+      .from("blocked_dates")
+      .select(`*, units (name, unit_number, booking_com_name)`)
+      .order("blocked_date", { ascending: true });
 
-1. Get `booking_com_name` from `units` table using the provided `room_type_id` (unit ID)
-2. Find the `channex_mappings` entry for any unit with that `booking_com_name` and `entity_type = 'room_type'`
+    if (propertyId && unitIds.length > 0) {
+      // Only show blocked dates for this property's units
+      query = query.in("unit_id", unitIds);
+    } else if (propertyId && unitIds.length === 0) {
+      // Property has no units, show nothing
+      setBlockedDates([]);
+      return;
+    }
 
-This is ~15 lines changed in the mapping resolution section (lines 131-153).
+    const { data, error } = await query;
+    if (error) throw error;
+    setBlockedDates(data || []);
+  } catch (error: any) {
+    console.error("Error fetching blocked dates:", error);
+    toast.error("Failed to fetch blocked dates");
+  }
+};
+```
 
-### Files
-- `supabase/functions/channex-push-availability/index.ts` — resilient room type mapping lookup
+3. **Update useEffect** (line 80-83): add `propertyId` to dependency array
+
+### Summary
+- 1 file changed: `src/components/BlockedDatesManager.tsx`
+- `fetchBlockedDates` filters by active property's unit IDs
+- Re-fetches when property switches
+- Blocked dates with `unit_id = null` (all-rooms blocks) won't show unless we decide they should — this matches the expectation that blocks are property-scoped
 
