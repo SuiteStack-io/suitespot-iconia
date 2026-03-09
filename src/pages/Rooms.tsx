@@ -601,6 +601,9 @@ const Rooms = () => {
       description: 'Room added successfully',
     });
 
+    // Queue availability sync if room has a booking_com_name
+    const addedBookingComName = newUnit.booking_com_name;
+
     setAddDialogOpen(false);
     setNewUnit({
       name: '',
@@ -623,7 +626,11 @@ const Rooms = () => {
       count_of_rooms: 1,
       default_occupancy: 2,
     });
-    fetchUnits();
+    await fetchUnits();
+
+    if (addedBookingComName) {
+      addToPendingAvailabilitySync(addedBookingComName);
+    }
   };
 
   const getNextAvailableNumbers = (startFrom: number, count: number, existingNumbers: number[]): string[] => {
