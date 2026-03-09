@@ -1046,6 +1046,58 @@ const Rooms = () => {
       </header>
 
       <main className="container mx-auto px-4 py-6">
+        {/* Pending Availability Sync Card */}
+        {pendingAvailabilitySync.length > 0 && (
+          <Card className="mb-4 border-primary/30 bg-primary/5">
+            <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-4">
+              <div>
+                <CardTitle className="text-base flex items-center gap-2">
+                  <CloudUpload className="h-4 w-4" />
+                  Pending Availability Sync
+                  <Badge variant="secondary" className="text-xs">{pendingAvailabilitySync.length}</Badge>
+                </CardTitle>
+                <CardDescription>New room counts need to be synced to Channex</CardDescription>
+              </div>
+              <Button onClick={handleSyncAvailability} disabled={isSyncingAvailability} size="sm">
+                {isSyncingAvailability ? (
+                  <>
+                    <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                    Syncing...
+                  </>
+                ) : (
+                  <>
+                    <Save className="mr-2 h-4 w-4" />
+                    Save Changes ({pendingAvailabilitySync.length})
+                  </>
+                )}
+              </Button>
+            </CardHeader>
+            <CardContent className="space-y-2">
+              {pendingAvailabilitySync.map(p => (
+                <div
+                  key={p.id}
+                  className="flex items-center justify-between rounded-lg border bg-card p-3"
+                >
+                  <div className="space-y-1">
+                    <div className="font-medium text-sm">{p.bookingComName}</div>
+                    <Badge variant="secondary" className="text-xs">
+                      Availability: {p.newCount} room{p.newCount !== 1 ? 's' : ''}
+                    </Badge>
+                  </div>
+                  <Button
+                    variant="ghost"
+                    size="icon"
+                    onClick={() => setPendingAvailabilitySync(prev => prev.filter(x => x.id !== p.id))}
+                    className="h-8 w-8 shrink-0"
+                  >
+                    <X className="h-4 w-4" />
+                  </Button>
+                </div>
+              ))}
+            </CardContent>
+          </Card>
+        )}
+
         {isBulkEdit && (
           <div className="mb-4 p-4 bg-primary/10 border border-primary/20 rounded-lg">
             <p className="text-sm font-medium">
