@@ -560,7 +560,7 @@ const Rooms = () => {
       toast({
         variant: 'destructive',
         title: 'Error',
-        description: 'Failed to add room',
+        description: error.message || 'Failed to add room',
       });
       return;
     }
