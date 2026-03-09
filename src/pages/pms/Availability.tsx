@@ -1,4 +1,4 @@
-import { useEffect } from 'react';
+import { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useAuth } from '@/lib/auth';
 import { RoomCalendar } from '@/components/RoomCalendar';
@@ -8,11 +8,15 @@ import { useIsMobile } from '@/hooks/use-mobile';
 import suitespotLogo from '@/assets/suitespot-logo.png';
 import { SlideMenu } from '@/components/SlideMenu';
 import { AdminBreadcrumb } from '@/components/AdminBreadcrumb';
+import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
+import { Badge } from '@/components/ui/badge';
+import { BulkAvailabilityEditor, type PendingAvailability } from '@/components/pms/BulkAvailabilityEditor';
 
 const PMSAvailability = () => {
   const { user, loading, userRole } = useAuth();
   const navigate = useNavigate();
   const isMobile = useIsMobile();
+  const [pendingAvailability, setPendingAvailability] = useState<PendingAvailability[]>([]);
 
   useEffect(() => {
     if (!loading && !user) {
@@ -48,15 +52,38 @@ const PMSAvailability = () => {
         </div>
       </header>
 
-      <main className="container mx-auto px-4 py-8 space-y-8">
-        {isMobile ? (
-          <MobileCalendarView />
-        ) : (
-          <>
-            <RoomCalendar />
-            <BlockedDatesManager />
-          </>
-        )}
+      <main className="container mx-auto px-4 py-8">
+        <Tabs defaultValue="calendar">
+          <TabsList className="mb-6">
+            <TabsTrigger value="calendar">Room Calendar</TabsTrigger>
+            <TabsTrigger value="bulk" className="flex items-center gap-2">
+              Bulk Editor
+              {pendingAvailability.length > 0 && (
+                <Badge variant="destructive" className="h-5 min-w-[20px] px-1.5 text-xs">
+                  {pendingAvailability.length}
+                </Badge>
+              )}
+            </TabsTrigger>
+          </TabsList>
+
+          <TabsContent value="calendar" className="space-y-8">
+            {isMobile ? (
+              <MobileCalendarView />
+            ) : (
+              <>
+                <RoomCalendar />
+                <BlockedDatesManager />
+              </>
+            )}
+          </TabsContent>
+
+          <TabsContent value="bulk">
+            <BulkAvailabilityEditor
+              pendingAvailability={pendingAvailability}
+              setPendingAvailability={setPendingAvailability}
+            />
+          </TabsContent>
+        </Tabs>
       </main>
     </div>
   );
