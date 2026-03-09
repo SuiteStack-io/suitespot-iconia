@@ -323,7 +323,16 @@ export function BulkAvailabilityEditor({ pendingAvailability, setPendingAvailabi
 
           {/* Available Rooms */}
           <div className="space-y-2">
-            <Label>Available Rooms</Label>
+            <div className="flex items-center justify-between">
+              <Label>Available Rooms</Label>
+              {isLoadingAvailability ? (
+                <Skeleton className="h-4 w-24" />
+              ) : currentAvailability !== null ? (
+                <span className="text-sm text-muted-foreground">
+                  Current: {currentAvailability} room{currentAvailability !== 1 ? 's' : ''}
+                </span>
+              ) : null}
+            </div>
             <div className="flex items-center gap-2">
               <Input
                 type="number"
@@ -334,6 +343,18 @@ export function BulkAvailabilityEditor({ pendingAvailability, setPendingAvailabi
               />
               <span className="text-sm text-muted-foreground">rooms</span>
             </div>
+            {currentAvailability !== null && availability !== currentAvailability && (
+              <div className="flex items-center gap-1 text-sm">
+                <span className="text-muted-foreground">{currentAvailability}</span>
+                <ArrowRight className="h-3 w-3 text-muted-foreground" />
+                <span className={availability < currentAvailability ? 'text-orange-600' : 'text-green-600'}>
+                  {availability}
+                </span>
+                <span className="text-muted-foreground">
+                  ({availability > currentAvailability ? '+' : ''}{availability - currentAvailability})
+                </span>
+              </div>
+            )}
           </div>
 
           {/* Apply Button */}
