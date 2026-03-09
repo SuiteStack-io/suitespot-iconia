@@ -643,38 +643,59 @@ const Rooms = () => {
     setCloneDialogOpen(true);
   };
 
+  const handleCloneCountChange = (newCount: number) => {
+    const count = Math.max(1, Math.min(50, newCount));
+    setCloneCount(count);
+    setCloneRoomNumbers(prev => {
+      const existingNumbers = getExistingUnitNumbers();
+      if (count > prev.length) {
+        const lastNum = parseInt(prev[prev.length - 1]) || parseInt(roomToClone?.unit_number || '0') || 0;
+        const allUsed = [...existingNumbers, ...prev.map(n => parseInt(n)).filter(n => !isNaN(n))];
+        const additions = getNextAvailableNumbers(lastNum, count - prev.length, allUsed);
+        return [...prev, ...additions];
+      }
+      return prev.slice(0, count);
+    });
+  };
+
+  const handleAutoFillNumbers = () => {
+    if (!roomToClone) return;
+    const existingNumbers = getExistingUnitNumbers();
+    const currentNum = parseInt(roomToClone.unit_number || '0') || 0;
+    const suggestions = getNextAvailableNumbers(currentNum, cloneCount, existingNumbers);
+    setCloneRoomNumbers(suggestions);
+  };
+
   const handleConfirmClone = async () => {
     if (!roomToClone) return;
 
-    const newRoomNumber = cloneRoomNumber.trim();
-    
-    if (!newRoomNumber) {
-      toast({
-        variant: 'destructive',
-        title: 'Error',
-        description: 'Please enter a room number',
-      });
+    const trimmed = cloneRoomNumbers.map(n => n.trim());
+
+    // Validate all filled
+    const emptyIdx = trimmed.findIndex(n => !n);
+    if (emptyIdx !== -1) {
+      toast({ variant: 'destructive', title: 'Error', description: `Room ${emptyIdx + 1} number is required` });
       return;
     }
 
-    // Check if room number already exists
-    const existingRoom = units.find(u => u.unit_number === newRoomNumber);
-    if (existingRoom) {
-      toast({
-        variant: 'destructive',
-        title: 'Error',
-        description: 'A room with this number already exists',
-      });
+    // Check duplicates within form
+    const dupes = trimmed.filter((n, i) => trimmed.indexOf(n) !== i);
+    if (dupes.length > 0) {
+      toast({ variant: 'destructive', title: 'Error', description: `Duplicate room number: ${dupes[0]}` });
+      return;
+    }
+
+    // Check against existing units
+    const conflict = trimmed.find(n => units.some(u => u.unit_number === n));
+    if (conflict) {
+      toast({ variant: 'destructive', title: 'Error', description: `Room number ${conflict} already exists` });
       return;
     }
 
     try {
-      console.log('Cloning room with source data:', roomToClone);
-      
-      // Clone the room with all specifications except id and unit_number
-      const clonedData = {
+      const clonedUnits = trimmed.map(num => ({
         name: roomToClone.name,
-        unit_number: newRoomNumber,
+        unit_number: num,
         unit_type: roomToClone.unit_type,
         unit_size: roomToClone.unit_size,
         status: 'available',
@@ -699,36 +720,23 @@ const Rooms = () => {
         location: roomToClone.location,
         features: roomToClone.features || [],
         min_stay: roomToClone.min_stay,
-      };
-      
-      console.log('Inserting cloned data:', clonedData);
-      
-      const { error, data } = await supabase.from('units').insert([clonedData]).select();
+      }));
 
-      if (error) {
-        console.error('Clone error details:', error);
-        throw error;
-      }
-
-      console.log('Clone successful:', data);
+      const { error } = await supabase.from('units').insert(clonedUnits).select();
+      if (error) throw error;
 
       setCloneDialogOpen(false);
       setRoomToClone(null);
-      setCloneRoomNumber('');
 
       toast({
         title: 'Success',
-        description: `Room ${newRoomNumber} created successfully`,
+        description: `Created ${trimmed.length} room${trimmed.length > 1 ? 's' : ''} successfully`,
       });
 
       fetchUnits();
     } catch (error: any) {
       console.error('Failed to clone room:', error);
-      toast({
-        variant: 'destructive',
-        title: 'Error',
-        description: error.message || 'Failed to clone room',
-      });
+      toast({ variant: 'destructive', title: 'Error', description: error.message || 'Failed to clone room' });
     }
   };
 
