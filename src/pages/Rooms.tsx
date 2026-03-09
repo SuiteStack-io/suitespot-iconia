@@ -7,7 +7,7 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Textarea } from '@/components/ui/textarea';
-import { Save, Plus, Pencil, X, Upload, Trash2, Eye, ChevronDown, ChevronRight, ChevronsDown, ChevronsUp, Copy, Image as ImageIcon, GripVertical, ArrowLeft, BedDouble, MoreVertical, Wand2 } from 'lucide-react';
+import { Save, Plus, Pencil, X, Upload, Trash2, Eye, ChevronDown, ChevronRight, ChevronsDown, ChevronsUp, Copy, Image as ImageIcon, GripVertical, ArrowLeft, BedDouble, MoreVertical, Wand2, Loader2, CloudUpload } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
 import { Progress } from '@/components/ui/progress';
 import { Card, CardHeader, CardTitle, CardDescription, CardContent } from '@/components/ui/card';
@@ -37,7 +37,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from '@/components/ui/select';
-import { format } from 'date-fns';
+import { format, addDays } from 'date-fns';
 import {
   DndContext,
   closestCenter,
@@ -66,6 +66,13 @@ interface Reservation {
   check_in_date: string;
   check_out_date: string;
   status: string;
+}
+
+interface PendingAvailabilitySync {
+  id: string;
+  bookingComName: string;
+  unitId: string; // any unit ID with that booking_com_name for channex mapping
+  newCount: number;
 }
 
 const STATUS_OPTIONS = ['available', 'occupied', 'maintenance', 'reserved'];
@@ -117,6 +124,8 @@ const Rooms = () => {
   const [sortField, setSortField] = useState<'unit_number' | 'unit_type' | 'view' | 'booking_com_name' | null>(null);
   const [sortDirection, setSortDirection] = useState<'asc' | 'desc'>('asc');
   const [expandedTypes, setExpandedTypes] = useState<Set<string>>(new Set());
+  const [pendingAvailabilitySync, setPendingAvailabilitySync] = useState<PendingAvailabilitySync[]>([]);
+  const [isSyncingAvailability, setIsSyncingAvailability] = useState(false);
 
   const sensors = useSensors(
     useSensor(PointerSensor),
@@ -592,6 +601,9 @@ const Rooms = () => {
       description: 'Room added successfully',
     });
 
+    // Queue availability sync if room has a booking_com_name
+    const addedBookingComName = newUnit.booking_com_name;
+
     setAddDialogOpen(false);
     setNewUnit({
       name: '',
@@ -614,7 +626,11 @@ const Rooms = () => {
       count_of_rooms: 1,
       default_occupancy: 2,
     });
-    fetchUnits();
+    await fetchUnits();
+
+    if (addedBookingComName) {
+      addToPendingAvailabilitySync(addedBookingComName);
+    }
   };
 
   const getNextAvailableNumbers = (startFrom: number, count: number, existingNumbers: number[]): string[] => {
@@ -725,6 +741,8 @@ const Rooms = () => {
       const { error } = await supabase.from('units').insert(clonedUnits).select();
       if (error) throw error;
 
+      const clonedBookingComName = roomToClone.booking_com_name;
+
       setCloneDialogOpen(false);
       setRoomToClone(null);
 
@@ -733,7 +751,11 @@ const Rooms = () => {
         description: `Created ${trimmed.length} room${trimmed.length > 1 ? 's' : ''} successfully`,
       });
 
-      fetchUnits();
+      await fetchUnits();
+
+      if (clonedBookingComName) {
+        addToPendingAvailabilitySync(clonedBookingComName);
+      }
     } catch (error: any) {
       console.error('Failed to clone room:', error);
       toast({ variant: 'destructive', title: 'Error', description: error.message || 'Failed to clone room' });
@@ -848,6 +870,97 @@ const Rooms = () => {
     }
   };
 
+  // Helper: add/update pending availability sync for a booking_com_name
+  const addToPendingAvailabilitySync = (bookingComName: string) => {
+    // Recalculate from latest units state (fetchUnits already called)
+    // We use a callback to get the latest units
+    setUnits(currentUnits => {
+      const matchingUnits = currentUnits.filter(
+        u => u.booking_com_name === bookingComName && u.status !== 'maintenance'
+      );
+      const newCount = matchingUnits.length;
+      const anyUnitId = matchingUnits[0]?.id;
+
+      if (anyUnitId) {
+        setPendingAvailabilitySync(prev => {
+          // Deduplicate: replace existing entry for same bookingComName
+          const filtered = prev.filter(p => p.bookingComName !== bookingComName);
+          return [...filtered, {
+            id: crypto.randomUUID(),
+            bookingComName,
+            unitId: anyUnitId,
+            newCount,
+          }];
+        });
+      }
+      return currentUnits; // don't mutate
+    });
+  };
+
+  // Warn on unsaved availability sync
+  useEffect(() => {
+    const handleBeforeUnload = (e: BeforeUnloadEvent) => {
+      if (pendingAvailabilitySync.length > 0) {
+        e.preventDefault();
+        e.returnValue = 'You have unsaved availability changes that will be lost.';
+      }
+    };
+    window.addEventListener('beforeunload', handleBeforeUnload);
+    return () => window.removeEventListener('beforeunload', handleBeforeUnload);
+  }, [pendingAvailabilitySync.length]);
+
+  const handleSyncAvailability = async () => {
+    if (pendingAvailabilitySync.length === 0 || !propertyId) return;
+    setIsSyncingAvailability(true);
+    try {
+      const today = format(new Date(), 'yyyy-MM-dd');
+      const futureDate = format(addDays(new Date(), 500), 'yyyy-MM-dd');
+
+      const updates = pendingAvailabilitySync.map(p => ({
+        property_id: propertyId,
+        room_type_id: p.unitId,
+        date_from: today,
+        date_to: futureDate,
+        availability: p.newCount,
+      }));
+
+      const { data, error } = await supabase.functions.invoke('channex-push-availability', {
+        body: { updates },
+      });
+
+      if (error) throw error;
+
+      if (data?.success === false) {
+        toast({
+          title: 'Sync Failed',
+          description: data.error || data.message || 'Failed to push availability',
+          variant: 'destructive',
+        });
+        return;
+      }
+
+      setPendingAvailabilitySync([]);
+      toast({
+        title: 'Success',
+        description: `Availability synced to Channex (${updates.length} room type${updates.length > 1 ? 's' : ''})`,
+      });
+    } catch (err: any) {
+      console.error('Error syncing availability:', err);
+      let errorMessage = 'Failed to sync availability';
+      if (err.context?.body) {
+        try {
+          const body = JSON.parse(err.context.body);
+          if (body.error) errorMessage = body.error;
+        } catch { /* ignore */ }
+      } else if (err.message) {
+        errorMessage = err.message;
+      }
+      toast({ title: 'Error', description: errorMessage, variant: 'destructive' });
+    } finally {
+      setIsSyncingAvailability(false);
+    }
+  };
+
   if (loading) {
     return (
       <div className="flex min-h-screen items-center justify-center">
@@ -933,6 +1046,58 @@ const Rooms = () => {
       </header>
 
       <main className="container mx-auto px-4 py-6">
+        {/* Pending Availability Sync Card */}
+        {pendingAvailabilitySync.length > 0 && (
+          <Card className="mb-4 border-primary/30 bg-primary/5">
+            <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-4">
+              <div>
+                <CardTitle className="text-base flex items-center gap-2">
+                  <CloudUpload className="h-4 w-4" />
+                  Pending Availability Sync
+                  <Badge variant="secondary" className="text-xs">{pendingAvailabilitySync.length}</Badge>
+                </CardTitle>
+                <CardDescription>New room counts need to be synced to Channex</CardDescription>
+              </div>
+              <Button onClick={handleSyncAvailability} disabled={isSyncingAvailability} size="sm">
+                {isSyncingAvailability ? (
+                  <>
+                    <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                    Syncing...
+                  </>
+                ) : (
+                  <>
+                    <Save className="mr-2 h-4 w-4" />
+                    Save Changes ({pendingAvailabilitySync.length})
+                  </>
+                )}
+              </Button>
+            </CardHeader>
+            <CardContent className="space-y-2">
+              {pendingAvailabilitySync.map(p => (
+                <div
+                  key={p.id}
+                  className="flex items-center justify-between rounded-lg border bg-card p-3"
+                >
+                  <div className="space-y-1">
+                    <div className="font-medium text-sm">{p.bookingComName}</div>
+                    <Badge variant="secondary" className="text-xs">
+                      Availability: {p.newCount} room{p.newCount !== 1 ? 's' : ''}
+                    </Badge>
+                  </div>
+                  <Button
+                    variant="ghost"
+                    size="icon"
+                    onClick={() => setPendingAvailabilitySync(prev => prev.filter(x => x.id !== p.id))}
+                    className="h-8 w-8 shrink-0"
+                  >
+                    <X className="h-4 w-4" />
+                  </Button>
+                </div>
+              ))}
+            </CardContent>
+          </Card>
+        )}
+
         {isBulkEdit && (
           <div className="mb-4 p-4 bg-primary/10 border border-primary/20 rounded-lg">
             <p className="text-sm font-medium">
