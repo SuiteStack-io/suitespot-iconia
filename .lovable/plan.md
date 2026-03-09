@@ -1,39 +1,118 @@
 
 
-## Fix: Channex Availability Not Reflecting Unit Count
+## Fix: Filter Blocked Dates by Active Property
 
-### Root Cause
+### Problem
+`fetchBlockedDates()` fetches ALL blocked dates across all properties. `fetchUnits()` correctly filters by `propertyId`, but blocked dates does not.
 
-Two issues are preventing the correct availability (10) from reaching Channex:
+### File: `src/components/BlockedDatesManager.tsx`
 
-1. **`channex-full-sync` missing from `config.toml`** — Without an explicit `verify_jwt = false` entry, the function defaults to `verify_jwt = true`. While `supabase.functions.invoke()` sends a JWT, this is likely causing silent failures since no sync logs exist after March 2nd (before units were cloned). Adding it to config ensures consistent behavior.
+**1. Filter `fetchBlockedDates` by property (lines 101-121)**
 
-2. **`calculateAvailability` in `channex-process-sync-queue` has a broken `.in()` call** — Lines 486-493 and 496-501 pass a Supabase query builder object to `.in("unit_id", unitSubquery)`. The `.in()` method expects an `Array`, not a query builder. This silently fails, likely returning 0 for both `reservedCount` and `blockedCount`. While this accidentally gives the right total for empty calendars, it will produce wrong results when reservations exist. The fix: execute the unit subquery first to get an array of IDs, then pass that array to `.in()`.
+The `blocked_dates` table references `units` via `unit_id`. Filter by joining through units that belong to the active property:
 
-3. **No automatic sync trigger when units are added/cloned** — The database triggers only fire on reservation and blocked_date changes, not when new units are created. After cloning 10 units, no sync is triggered. A full sync must be manually run.
+```typescript
+const fetchBlockedDates = async () => {
+  try {
+    let query = supabase
+      .from("blocked_dates")
+      .select(`
+        *,
+        units (
+          name,
+          unit_number,
+          booking_com_name
+        )
+      `)
+      .order("blocked_date", { ascending: true });
 
-### Changes
+    // Filter to only show blocked dates for units belonging to the active property
+    if (propertyId) {
+      query = query.eq('units.property_id', propertyId);
+    }
 
-**File: `supabase/config.toml`**
-- Add `[functions.channex-full-sync]` with `verify_jwt = false` to ensure the function is properly deployed and accessible.
+    const { data, error } = await query;
+    if (error) throw error;
 
-**File: `supabase/functions/channex-process-sync-queue/index.ts`**
-- Fix `calculateAvailability` (lines 479-501): Execute the unit IDs query first to get an array, then use that array in `.in()` calls for reservations and blocked_dates queries.
-
-```text
-// Before (broken):
-let unitSubquery = supabase.from("units").select("id")...
-.in("unit_id", unitSubquery)  // ← query builder, not array
-
-// After (fixed):
-const { data: unitRows } = await supabase.from("units").select("id")...
-const unitIds = (unitRows || []).map(u => u.id);
-.in("unit_id", unitIds)       // ← actual array
+    // Remove entries where the unit was filtered out (unit doesn't belong to property)
+    const filtered = (data || []).filter(d => d.unit_id === null || d.units !== null);
+    setBlockedDates(filtered);
+  } catch (error: any) {
+    console.error("Error fetching blocked dates:", error);
+    toast.error("Failed to fetch blocked dates");
+  }
+};
 ```
 
-These two fixes ensure:
-- Full sync can be triggered and deploys correctly
-- Automated availability calculations return accurate counts when reservations exist
+However, `blocked_dates` rows with `unit_id = null` (meaning "all rooms") have no unit join to filter on. We need a different approach — filter blocked dates whose `unit_id` is either null OR belongs to a unit in the active property. The cleanest way: use the unit IDs we already fetch.
 
-After deployment, running "Full Sync (500 days)" from the Channex admin page will push AVL=10 for both Twin Room and Double Room.
+**Better approach — filter client-side using fetched units:**
+
+Since `fetchUnits` already returns only units for the active property, filter blocked dates to only include those whose `unit_id` is null or matches a fetched unit.
+
+Actually, the simplest and most reliable fix: add `property_id` awareness to the query. Since `blocked_dates` has a `unit_id` FK to `units`, and `units` has `property_id`, we can filter via an inner join or use an `in` filter with the property's unit IDs.
+
+**Revised approach — fetch unit IDs first, then filter:**
+
+```typescript
+// In useEffect, ensure both refetch when propertyId changes
+useEffect(() => {
+  fetchUnits();
+  fetchBlockedDates();
+}, [propertyId]);
+```
+
+In `fetchBlockedDates`, after fetching units (or independently):
+- Query units for the active property to get their IDs
+- Filter blocked_dates where `unit_id` is in that list
+
+**Simplest implementation:**
+
+1. **Change useEffect (line 80-83)** to depend on `propertyId`
+2. **Update `fetchBlockedDates`** to filter by property's unit IDs
+
+```typescript
+const fetchBlockedDates = async () => {
+  try {
+    // First get unit IDs for the active property
+    let unitIds: string[] = [];
+    if (propertyId) {
+      const { data: propUnits } = await supabase
+        .from("units")
+        .select("id")
+        .eq("property_id", propertyId);
+      unitIds = (propUnits || []).map(u => u.id);
+    }
+
+    let query = supabase
+      .from("blocked_dates")
+      .select(`*, units (name, unit_number, booking_com_name)`)
+      .order("blocked_date", { ascending: true });
+
+    if (propertyId && unitIds.length > 0) {
+      // Only show blocked dates for this property's units
+      query = query.in("unit_id", unitIds);
+    } else if (propertyId && unitIds.length === 0) {
+      // Property has no units, show nothing
+      setBlockedDates([]);
+      return;
+    }
+
+    const { data, error } = await query;
+    if (error) throw error;
+    setBlockedDates(data || []);
+  } catch (error: any) {
+    console.error("Error fetching blocked dates:", error);
+    toast.error("Failed to fetch blocked dates");
+  }
+};
+```
+
+3. **Update useEffect** (line 80-83): add `propertyId` to dependency array
+
+### Summary
+- 1 file changed: `src/components/BlockedDatesManager.tsx`
+- `fetchBlockedDates` filters by active property's unit IDs
+- Re-fetches when property switches
+- Blocked dates with `unit_id = null` (all-rooms blocks) won't show unless we decide they should — this matches the expectation that blocks are property-scoped
 

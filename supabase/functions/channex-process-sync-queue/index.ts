@@ -475,12 +475,19 @@ async function calculateAvailability(
   if (propertyId) unitsQuery = unitsQuery.eq("property_id", propertyId);
   const { count: totalUnits } = await unitsQuery;
 
-  // Build scoped unit subquery for reservations and blocked dates
-  let unitSubquery = supabase
+  // Fetch unit IDs as an array (not a query builder) for use in .in() calls
+  let unitIdQuery = supabase
     .from("units")
     .select("id")
     .eq("booking_com_name", roomTypeName);
-  if (propertyId) unitSubquery = unitSubquery.eq("property_id", propertyId);
+  if (propertyId) unitIdQuery = unitIdQuery.eq("property_id", propertyId);
+  const { data: unitRows } = await unitIdQuery;
+  const unitIds = (unitRows || []).map((u: any) => u.id);
+
+  if (unitIds.length === 0) {
+    console.log(`[process-sync-queue] No units found for ${roomTypeName} @ property ${propertyId || 'all'}`);
+    return 0;
+  }
 
   // Count reservations that overlap this date range
   const { count: reservedCount } = await supabase
@@ -490,7 +497,7 @@ async function calculateAvailability(
     .lt("check_in_date", dateTo)
     .gt("check_out_date", dateFrom)
     .not("unit_id", "is", null)
-    .in("unit_id", unitSubquery);
+    .in("unit_id", unitIds);
 
   // Count blocked dates in range
   const { count: blockedCount } = await supabase
@@ -498,7 +505,7 @@ async function calculateAvailability(
     .select("id", { count: "exact", head: true })
     .gte("blocked_date", dateFrom)
     .lt("blocked_date", dateTo)
-    .in("unit_id", unitSubquery);
+    .in("unit_id", unitIds);
 
   const available = Math.max(0, (totalUnits || 0) - (reservedCount || 0) - (blockedCount || 0));
   console.log(`[process-sync-queue] Availability for ${roomTypeName} @ property ${propertyId || 'all'} (${dateFrom}-${dateTo}): ${available}/${totalUnits}`);
