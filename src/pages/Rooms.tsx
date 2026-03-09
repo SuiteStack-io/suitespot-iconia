@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useMemo } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useAuth } from '@/lib/auth';
 import { supabase } from '@/integrations/supabase/client';
@@ -7,9 +7,13 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Textarea } from '@/components/ui/textarea';
-import { Save, Plus, Pencil, X, Upload, Trash2, Eye, ChevronDown, Copy, Image as ImageIcon, GripVertical, ArrowLeft } from 'lucide-react';
+import { Save, Plus, Pencil, X, Upload, Trash2, Eye, ChevronDown, ChevronRight, ChevronsDown, ChevronsUp, Copy, Image as ImageIcon, GripVertical, ArrowLeft, BedDouble, MoreVertical } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
 import { Progress } from '@/components/ui/progress';
+import { Card, CardHeader, CardTitle, CardDescription, CardContent } from '@/components/ui/card';
+import { Collapsible, CollapsibleTrigger, CollapsibleContent } from '@/components/ui/collapsible';
+import { Badge } from '@/components/ui/badge';
+import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from '@/components/ui/dropdown-menu';
 import {
   Dialog,
   DialogContent,
@@ -111,6 +115,7 @@ const Rooms = () => {
   const [currentUnitPhotos, setCurrentUnitPhotos] = useState<{ id: string; photos: string[] } | null>(null);
   const [sortField, setSortField] = useState<'unit_number' | 'unit_type' | 'view' | 'booking_com_name' | null>(null);
   const [sortDirection, setSortDirection] = useState<'asc' | 'desc'>('asc');
+  const [expandedTypes, setExpandedTypes] = useState<Set<string>>(new Set());
 
   const sensors = useSensors(
     useSensor(PointerSensor),
@@ -135,6 +140,43 @@ const Rooms = () => {
     const comparison = aVal.toString().localeCompare(bVal.toString(), undefined, { numeric: true });
     return sortDirection === 'asc' ? comparison : -comparison;
   });
+
+  // Group units by booking_com_name (room type)
+  const roomTypeGroups = useMemo(() => {
+    const groups = new Map<string, { units: Unit[]; representative: Unit }>();
+    sortedUnits.forEach((unit) => {
+      const key = unit.booking_com_name || unit.name || 'Ungrouped';
+      if (!groups.has(key)) {
+        groups.set(key, { units: [], representative: unit });
+      }
+      groups.get(key)!.units.push(unit);
+    });
+    return groups;
+  }, [sortedUnits]);
+
+  // Initialize expanded types when groups change
+  useEffect(() => {
+    if (expandedTypes.size === 0 && roomTypeGroups.size > 0) {
+      setExpandedTypes(new Set(roomTypeGroups.keys()));
+    }
+  }, [roomTypeGroups.size]);
+
+  const toggleType = (key: string) => {
+    setExpandedTypes((prev) => {
+      const next = new Set(prev);
+      if (next.has(key)) next.delete(key);
+      else next.add(key);
+      return next;
+    });
+  };
+
+  const setAllExpanded = (expanded: boolean) => {
+    if (expanded) {
+      setExpandedTypes(new Set(roomTypeGroups.keys()));
+    } else {
+      setExpandedTypes(new Set());
+    }
+  };
 
   useEffect(() => {
     if (!loading && !user) {
@@ -791,6 +833,23 @@ const Rooms = () => {
 
   const isAdmin = userRole === 'admin';
 
+  const StatusBadge = ({ status }: { status: string }) => {
+    const config: Record<string, { color: string; label: string }> = {
+      available: { color: 'bg-[hsl(var(--success))]', label: 'Available' },
+      maintenance: { color: 'bg-[hsl(var(--warning))]', label: 'Maintenance' },
+      blocked: { color: 'bg-destructive', label: 'Blocked' },
+      occupied: { color: 'bg-[hsl(var(--info))]', label: 'Occupied' },
+      reserved: { color: 'bg-[hsl(var(--status-upcoming))]', label: 'Reserved' },
+    };
+    const c = config[status] || { color: 'bg-muted-foreground', label: status };
+    return (
+      <div className="flex items-center gap-1.5">
+        <span className={`h-2 w-2 rounded-full ${c.color}`} />
+        <span className="text-sm capitalize">{c.label}</span>
+      </div>
+    );
+  };
+
   return (
     <div className="min-h-screen bg-background">
       <header className="border-b bg-card sticky top-0 z-10">
@@ -799,28 +858,19 @@ const Rooms = () => {
           <div className="flex items-center justify-between">
             <div className="flex items-center gap-4">
               <SlideMenu userRole={userRole} />
-              
-              {/* Mobile back button - icon only */}
-              <Button 
-                variant="ghost" 
-                onClick={() => navigate('/admin')}
-                className="md:hidden"
-                size="icon"
-              >
+              <Button variant="ghost" onClick={() => navigate('/admin')} className="md:hidden" size="icon">
                 <ArrowLeft className="h-5 w-5" />
               </Button>
-              
-              {/* Desktop back button with text */}
-              <Button 
-                variant="ghost" 
-                onClick={() => navigate('/admin')}
-                className="hidden md:flex items-center gap-2"
-              >
+              <Button variant="ghost" onClick={() => navigate('/admin')} className="hidden md:flex items-center gap-2">
                 <ArrowLeft className="h-4 w-4" />
                 Back
               </Button>
-              
-              <h1 className="text-2xl font-bold">Rooms Management</h1>
+              <div>
+                <h1 className="text-2xl font-bold">Rooms Management</h1>
+                <p className="text-sm text-muted-foreground">
+                  {roomTypeGroups.size} room type{roomTypeGroups.size !== 1 ? 's' : ''} · {units.length} total unit{units.length !== 1 ? 's' : ''}
+                </p>
+              </div>
             </div>
             {isAdmin && (
               <div className="flex gap-2">
@@ -837,11 +887,11 @@ const Rooms = () => {
                   </>
                 ) : (
                   <>
-                    <Button onClick={handleBulkEdit} variant="outline">
+                    <Button onClick={handleBulkEdit} variant="outline" size="sm" className="hidden md:flex">
                       <Pencil className="h-4 w-4 mr-2" />
                       Bulk Edit
                     </Button>
-                    <Button onClick={() => setAddDialogOpen(true)}>
+                    <Button onClick={() => setAddDialogOpen(true)} size="sm">
                       <Plus className="h-4 w-4 mr-2" />
                       Add Room
                     </Button>
@@ -853,339 +903,288 @@ const Rooms = () => {
         </div>
       </header>
 
-      <main className="container mx-auto px-4 py-8">
+      <main className="container mx-auto px-4 py-6">
         {isBulkEdit && (
           <div className="mb-4 p-4 bg-primary/10 border border-primary/20 rounded-lg">
             <p className="text-sm font-medium">
-              💡 Bulk Edit Mode: The table can be scrolled horizontally to see all fields. All changes will be saved when you click "Save All".
+              💡 Bulk Edit Mode: All changes will be saved when you click "Save All".
             </p>
           </div>
         )}
-        <div className="rounded-lg border overflow-hidden" style={{ height: 'calc(100vh - 220px)' }}>
-          <div className="overflow-auto h-full">
-            <table className="w-full caption-bottom text-sm">
-              <thead className="sticky top-0 z-20 bg-muted/50 shadow-[0_1px_0_hsl(var(--border))] [&_tr]:border-b">
-                <tr className="border-b hover:bg-transparent">
-                  <th className="h-9 px-3 py-2 text-left align-middle text-xs font-medium uppercase tracking-wider text-muted-foreground sticky left-0 z-10 bg-muted/50 w-10">#</th>
-                  <th className="h-9 px-3 py-2 text-left align-middle text-xs font-medium uppercase tracking-wider text-muted-foreground sticky left-[40px] z-10 bg-muted/50">Room Name</th>
-                  <th className="h-9 px-3 py-2 text-left align-middle text-xs font-medium uppercase tracking-wider text-muted-foreground sticky left-[200px] z-10 bg-muted/50 border-r cursor-pointer hover:text-foreground" onClick={() => handleSort('unit_number')}>
-                    <div className="flex items-center gap-1">
-                      Room #
-                      {sortField === 'unit_number' && (
-                        <ChevronDown className={`h-3 w-3 transition-transform ${sortDirection === 'desc' ? 'rotate-180' : ''}`} />
-                      )}
-                    </div>
-                  </th>
-                  <th className="h-9 px-3 py-2 text-left align-middle text-xs font-medium uppercase tracking-wider text-muted-foreground cursor-pointer hover:text-foreground" onClick={() => handleSort('unit_type')}>
-                    <div className="flex items-center gap-1">
-                      Type
-                      {sortField === 'unit_type' && (
-                        <ChevronDown className={`h-3 w-3 transition-transform ${sortDirection === 'desc' ? 'rotate-180' : ''}`} />
-                      )}
-                    </div>
-                  </th>
-                  <th className="h-9 px-3 py-2 text-left align-middle text-xs font-medium uppercase tracking-wider text-muted-foreground cursor-pointer hover:text-foreground" onClick={() => handleSort('view')}>
-                    <div className="flex items-center gap-1">
-                      View
-                      {sortField === 'view' && (
-                        <ChevronDown className={`h-3 w-3 transition-transform ${sortDirection === 'desc' ? 'rotate-180' : ''}`} />
-                      )}
-                    </div>
-                  </th>
-                  <th className="h-9 px-3 py-2 text-left align-middle text-xs font-medium uppercase tracking-wider text-muted-foreground cursor-pointer hover:text-foreground" onClick={() => handleSort('booking_com_name')}>
-                    <div className="flex items-center gap-1">
-                      Booking.com
-                      {sortField === 'booking_com_name' && (
-                        <ChevronDown className={`h-3 w-3 transition-transform ${sortDirection === 'desc' ? 'rotate-180' : ''}`} />
-                      )}
-                    </div>
-                  </th>
-                  <th className="h-9 px-3 py-2 text-right align-middle text-xs font-medium uppercase tracking-wider text-muted-foreground">Size</th>
-                  <th className="h-9 px-3 py-2 text-right align-middle text-xs font-medium uppercase tracking-wider text-muted-foreground">Beds</th>
-                  <th className="h-9 px-3 py-2 text-right align-middle text-xs font-medium uppercase tracking-wider text-muted-foreground">Baths</th>
-                  <th className="h-9 px-3 py-2 text-right align-middle text-xs font-medium uppercase tracking-wider text-muted-foreground">Guests</th>
-                  <th className="h-9 px-3 py-2 text-center align-middle text-xs font-medium uppercase tracking-wider text-muted-foreground">Sofa</th>
-                  <th className="h-9 px-3 py-2 text-center align-middle text-xs font-medium uppercase tracking-wider text-muted-foreground">Photos</th>
-                  <th className="h-9 px-3 py-2 text-left align-middle text-xs font-medium uppercase tracking-wider text-muted-foreground">Status</th>
-                  {isAdmin && !isBulkEdit && <th className="h-9 px-3 py-2 text-left align-middle text-xs font-medium uppercase tracking-wider text-muted-foreground">Actions</th>}
-                </tr>
-              </thead>
-              <TableBody>
-              {sortedUnits.map((unit, index) => {
-                const isEditing = isBulkEdit || editingId === unit.id;
-                const currentUnit = isBulkEdit ? bulkEditUnits[unit.id] : editedUnit;
-                
-                return (
-                  <TableRow key={unit.id} className="h-11 hover:bg-muted/50 even:bg-muted/20">
-                    <TableCell className="px-3 py-2 text-sm text-muted-foreground sticky left-0 z-[5] bg-background">{index + 1}</TableCell>
-                    <TableCell className="px-3 py-2 text-sm font-medium sticky left-[40px] z-[5] bg-background">
-                      {isEditing ? (
-                        <Input
-                          className="w-full h-8 text-sm"
-                          value={isBulkEdit ? (bulkEditUnits[unit.id]?.booking_com_name || '') : (editedUnit.booking_com_name || '')}
-                          onChange={(e) => 
-                            isBulkEdit 
-                              ? handleBulkEditChange(unit.id, 'booking_com_name', e.target.value)
-                              : setEditedUnit({ ...editedUnit, booking_com_name: e.target.value })
-                          }
-                        />
-                      ) : (
-                        unit.booking_com_name || unit.name
-                      )}
-                    </TableCell>
-                    <TableCell className="px-3 py-2 text-sm sticky left-[200px] z-[5] bg-background border-r">
-                      {isEditing ? (
-                        <Input
-                          className="w-full h-8 text-sm"
-                          value={isBulkEdit ? (bulkEditUnits[unit.id]?.unit_number || '') : (editedUnit.unit_number || '')}
-                          onChange={(e) =>
-                            isBulkEdit
-                              ? handleBulkEditChange(unit.id, 'unit_number', e.target.value)
-                              : setEditedUnit({ ...editedUnit, unit_number: e.target.value })
-                          }
-                        />
-                      ) : (
-                        unit.unit_number || '—'
-                      )}
-                    </TableCell>
-                    <TableCell className="px-3 py-2 text-sm">
-                      {isEditing ? (
-                        <Input
-                          className="w-full h-8 text-sm"
-                          value={isBulkEdit ? (bulkEditUnits[unit.id]?.unit_type || '') : (editedUnit.unit_type || '')}
-                          onChange={(e) =>
-                            isBulkEdit
-                              ? handleBulkEditChange(unit.id, 'unit_type', e.target.value)
-                              : setEditedUnit({ ...editedUnit, unit_type: e.target.value })
-                          }
-                        />
-                      ) : (
-                        unit.unit_type || '—'
-                      )}
-                    </TableCell>
-                    <TableCell className="px-3 py-2 text-sm text-muted-foreground">
-                      {isEditing ? (
-                        <Input
-                          className="w-full h-8 text-sm"
-                          value={isBulkEdit ? (bulkEditUnits[unit.id]?.view || '') : (editedUnit.view || '')}
-                          onChange={(e) =>
-                            isBulkEdit
-                              ? handleBulkEditChange(unit.id, 'view', e.target.value)
-                              : setEditedUnit({ ...editedUnit, view: e.target.value })
-                          }
-                          placeholder="e.g. City View"
-                        />
-                      ) : (
-                        unit.view || '—'
-                      )}
-                    </TableCell>
-                    <TableCell className="px-3 py-2 text-sm">
-                      {isEditing ? (
-                        <Input
-                          className="w-full h-8 text-sm"
-                          value={isBulkEdit ? (bulkEditUnits[unit.id]?.booking_com_name || '') : (editedUnit.booking_com_name || '')}
-                          onChange={(e) =>
-                            isBulkEdit
-                              ? handleBulkEditChange(unit.id, 'booking_com_name', e.target.value)
-                              : setEditedUnit({ ...editedUnit, booking_com_name: e.target.value })
-                          }
-                          placeholder="Booking.com Name"
-                        />
-                      ) : (
-                        <span>{unit.booking_com_name || '—'}</span>
-                      )}
-                    </TableCell>
-                    <TableCell className="px-3 py-2 text-sm text-right tabular-nums">
-                      {isEditing ? (
-                        <Input
-                          className="w-full h-8 text-sm"
-                          value={isBulkEdit ? (bulkEditUnits[unit.id]?.unit_size || '') : (editedUnit.unit_size || '')}
-                          onChange={(e) =>
-                            isBulkEdit
-                              ? handleBulkEditChange(unit.id, 'unit_size', e.target.value)
-                              : setEditedUnit({ ...editedUnit, unit_size: e.target.value })
-                          }
-                        />
-                      ) : (
-                        unit.unit_size || '—'
-                      )}
-                    </TableCell>
-                    <TableCell className="px-3 py-2 text-sm text-right tabular-nums">
-                      {isEditing ? (
-                        <Input
-                          className="w-full h-8 text-sm"
-                          type="number"
-                          value={isBulkEdit ? (bulkEditUnits[unit.id]?.beds ?? '') : (editedUnit.beds ?? '')}
-                          onChange={(e) =>
-                            isBulkEdit
-                              ? handleBulkEditChange(unit.id, 'beds', e.target.value ? parseInt(e.target.value) : null)
-                              : setEditedUnit({ ...editedUnit, beds: e.target.value ? parseInt(e.target.value) : null })
-                          }
-                        />
-                      ) : (
-                        unit.beds || '—'
-                      )}
-                    </TableCell>
-                    <TableCell className="px-3 py-2 text-sm text-right tabular-nums">
-                      {isEditing ? (
-                        <Input
-                          className="w-full h-8 text-sm"
-                          type="number"
-                          value={isBulkEdit ? (bulkEditUnits[unit.id]?.baths ?? '') : (editedUnit.baths ?? '')}
-                          onChange={(e) =>
-                            isBulkEdit
-                              ? handleBulkEditChange(unit.id, 'baths', e.target.value ? parseInt(e.target.value) : null)
-                              : setEditedUnit({ ...editedUnit, baths: e.target.value ? parseInt(e.target.value) : null })
-                          }
-                        />
-                      ) : (
-                        unit.baths || '—'
-                      )}
-                    </TableCell>
-                    <TableCell className="px-3 py-2 text-sm text-right tabular-nums">
-                      {isEditing ? (
-                        <Input
-                          className="w-full h-8 text-sm"
-                          type="number"
-                          value={isBulkEdit ? (bulkEditUnits[unit.id]?.max_guests ?? '') : (editedUnit.max_guests ?? '')}
-                          onChange={(e) =>
-                            isBulkEdit
-                              ? handleBulkEditChange(unit.id, 'max_guests', e.target.value ? parseInt(e.target.value) : null)
-                              : setEditedUnit({ ...editedUnit, max_guests: e.target.value ? parseInt(e.target.value) : null })
-                          }
-                        />
-                      ) : (
-                        unit.max_guests || '—'
-                      )}
-                    </TableCell>
-                    <TableCell className="px-3 py-2 text-sm text-center">
-                      {isEditing ? (
-                        <Select
-                          value={isBulkEdit ? (bulkEditUnits[unit.id]?.sofa_bed ? 'true' : 'false') : (editedUnit.sofa_bed ? 'true' : 'false')}
-                          onValueChange={(value) =>
-                            isBulkEdit
-                              ? handleBulkEditChange(unit.id, 'sofa_bed', value === 'true')
-                              : setEditedUnit({ ...editedUnit, sofa_bed: value === 'true' })
-                          }
-                        >
-                          <SelectTrigger className="w-full h-8 text-sm">
-                            <SelectValue />
-                          </SelectTrigger>
-                          <SelectContent>
-                            <SelectItem value="true">Yes</SelectItem>
-                            <SelectItem value="false">No</SelectItem>
-                          </SelectContent>
-                        </Select>
-                      ) : (
-                        <span className="text-muted-foreground">{unit.sofa_bed ? 'Yes' : 'No'}</span>
-                      )}
-                    </TableCell>
-                    <TableCell className="px-3 py-2 text-center">
-                      {isEditing ? (
-                        <span className="text-xs text-muted-foreground">Edit via Actions</span>
-                      ) : (
-                        <div className="flex items-center justify-center gap-1">
-                          <input
-                            type="file"
-                            id={`photo-upload-${unit.id}`}
-                            multiple
-                            accept="image/*"
-                            className="hidden"
-                            onChange={(e) => {
-                              if (e.target.files && e.target.files.length > 0) {
-                                handlePhotoUpload(unit.id, e.target.files);
-                              }
-                            }}
-                          />
-                          <span className="text-sm tabular-nums text-muted-foreground">{unit.photos?.length || 0}</span>
-                          {uploadingPhotos === unit.id && uploadProgress[unit.id] !== undefined && (
-                            <Progress value={uploadProgress[unit.id]} className="h-1.5 w-12 [&>div]:bg-primary" />
-                          )}
-                          {unit.photos && unit.photos.length > 0 && (
-                            <Button
-                              variant="ghost"
-                              size="icon"
-                              className="h-7 w-7"
-                              onClick={() => {
-                                setCurrentUnitPhotos({ id: unit.id, photos: unit.photos || [] });
-                                setPhotoGalleryOpen(true);
-                              }}
-                            >
-                              <Eye className="h-3.5 w-3.5" />
-                            </Button>
-                          )}
-                        </div>
-                      )}
-                    </TableCell>
-                    <TableCell className="px-3 py-2">
-                      {isEditing ? (
-                        <Select
-                          value={isBulkEdit ? bulkEditUnits[unit.id]?.status : editedUnit.status}
-                          onValueChange={(value) =>
-                            isBulkEdit
-                              ? handleBulkEditChange(unit.id, 'status', value)
-                              : setEditedUnit({ ...editedUnit, status: value })
-                          }
-                        >
-                          <SelectTrigger className="w-full h-8 text-sm">
-                            <SelectValue />
-                          </SelectTrigger>
-                          <SelectContent>
-                            {STATUS_OPTIONS.map((status) => (
-                              <SelectItem key={status} value={status}>
-                                {status.charAt(0).toUpperCase() + status.slice(1)}
-                              </SelectItem>
-                            ))}
-                          </SelectContent>
-                        </Select>
-                      ) : (
-                        <div className="flex items-center gap-1.5">
-                          <span className={`h-2 w-2 rounded-full ${
-                            unit.status === 'available' ? 'bg-[hsl(var(--success))]' :
-                            unit.status === 'maintenance' ? 'bg-[hsl(var(--warning))]' :
-                            unit.status === 'occupied' ? 'bg-[hsl(var(--info))]' :
-                            unit.status === 'reserved' ? 'bg-[hsl(var(--status-upcoming))]' :
-                            'bg-muted-foreground'
-                          }`} />
-                          <span className="text-sm capitalize">{unit.status}</span>
-                        </div>
-                      )}
-                    </TableCell>
-                    {isAdmin && !isBulkEdit && (
-                      <TableCell className="px-3 py-2">
-                        {editingId === unit.id ? (
-                          <div className="flex items-center gap-1">
-                            <Button variant="ghost" size="icon" className="h-7 w-7" onClick={handleSaveEdit}>
-                              <Save className="h-3.5 w-3.5" />
-                            </Button>
-                            <Button variant="ghost" size="icon" className="h-7 w-7" onClick={handleCancelEdit}>
-                              <X className="h-3.5 w-3.5" />
-                            </Button>
-                          </div>
-                        ) : (
-                          <div className="flex items-center gap-1">
-                            <Button variant="ghost" size="icon" className="h-7 w-7" onClick={() => handleEdit(unit)}>
-                              <Pencil className="h-3.5 w-3.5" />
-                            </Button>
-                            <Button variant="ghost" size="icon" className="h-7 w-7" onClick={() => navigate(`/property-media/${unit.id}`)} title="Photos">
-                              <ImageIcon className="h-3.5 w-3.5" />
-                            </Button>
-                            <Button variant="ghost" size="icon" className="h-7 w-7" onClick={() => handleCloneClick(unit)} title="Clone">
-                              <Copy className="h-3.5 w-3.5" />
-                            </Button>
-                            <Button variant="ghost" size="icon" className="h-7 w-7 text-destructive hover:text-destructive" onClick={() => handleDeleteClick(unit)} title="Delete">
-                              <Trash2 className="h-3.5 w-3.5" />
-                            </Button>
-                          </div>
-                        )}
-                      </TableCell>
-                    )}
-                  </TableRow>
-                );
-              })}
-            </TableBody>
-          </table>
+
+        {/* Expand/Collapse controls */}
+        {roomTypeGroups.size > 0 && !isBulkEdit && (
+          <div className="flex gap-2 mb-4">
+            <Button variant="ghost" size="sm" onClick={() => setAllExpanded(true)}>
+              <ChevronsDown className="h-4 w-4 mr-1" /> Expand All
+            </Button>
+            <Button variant="ghost" size="sm" onClick={() => setAllExpanded(false)}>
+              <ChevronsUp className="h-4 w-4 mr-1" /> Collapse All
+            </Button>
           </div>
+        )}
+
+        {/* Empty state */}
+        {units.length === 0 && (
+          <Card className="p-12 text-center">
+            <div className="flex flex-col items-center gap-4">
+              <div className="h-12 w-12 rounded-full bg-muted flex items-center justify-center">
+                <BedDouble className="h-6 w-6 text-muted-foreground" />
+              </div>
+              <div>
+                <h3 className="font-semibold">No Room Types Yet</h3>
+                <p className="text-sm text-muted-foreground mt-1">
+                  Create your first room type to start managing your inventory
+                </p>
+              </div>
+              <Button onClick={() => setAddDialogOpen(true)}>
+                <Plus className="h-4 w-4 mr-2" /> Add Room
+              </Button>
+            </div>
+          </Card>
+        )}
+
+        {/* Room Type Cards */}
+        <div className="space-y-4">
+          {Array.from(roomTypeGroups.entries()).map(([typeName, { units: typeUnits, representative }]) => {
+            const isExpanded = expandedTypes.has(typeName);
+            return (
+              <Card key={typeName}>
+                <Collapsible open={isExpanded} onOpenChange={() => toggleType(typeName)}>
+                  <CollapsibleTrigger asChild>
+                    <CardHeader className="cursor-pointer hover:bg-muted/50 transition-colors py-4">
+                      <div className="flex items-center justify-between">
+                        <div className="flex items-center gap-3">
+                          <ChevronRight className={`h-5 w-5 text-muted-foreground transition-transform ${isExpanded ? 'rotate-90' : ''}`} />
+                          <div>
+                            <CardTitle className="text-lg">{typeName}</CardTitle>
+                            <CardDescription className="text-sm mt-0.5">
+                              {[
+                                representative.unit_size ? `${representative.unit_size}` : null,
+                                representative.beds ? `${representative.beds} bed${representative.beds > 1 ? 's' : ''}` : null,
+                                representative.baths ? `${representative.baths} bath${representative.baths > 1 ? 's' : ''}` : null,
+                                representative.max_guests ? `${representative.max_guests} guests max` : null,
+                              ].filter(Boolean).join(' · ') || 'No details set'}
+                            </CardDescription>
+                          </div>
+                        </div>
+                        <div className="flex items-center gap-2">
+                          <Badge variant="secondary">{typeUnits.length} unit{typeUnits.length !== 1 ? 's' : ''}</Badge>
+                          {representative.unit_type && <Badge variant="outline">{representative.unit_type}</Badge>}
+                        </div>
+                      </div>
+                    </CardHeader>
+                  </CollapsibleTrigger>
+
+                  <CollapsibleContent>
+                    <CardContent className="pt-0">
+                      {/* Desktop table */}
+                      <div className="hidden md:block rounded-lg border overflow-hidden">
+                        <Table>
+                          <TableHeader>
+                            <TableRow className="hover:bg-transparent">
+                              <TableHead className="w-10 px-3 py-2 text-xs font-medium uppercase tracking-wider text-muted-foreground">#</TableHead>
+                              <TableHead className="px-3 py-2 text-xs font-medium uppercase tracking-wider text-muted-foreground">Unit Name</TableHead>
+                              <TableHead className="px-3 py-2 text-xs font-medium uppercase tracking-wider text-muted-foreground">Room #</TableHead>
+                              <TableHead className="px-3 py-2 text-xs font-medium uppercase tracking-wider text-muted-foreground">View</TableHead>
+                              <TableHead className="px-3 py-2 text-xs font-medium uppercase tracking-wider text-muted-foreground text-center">Photos</TableHead>
+                              <TableHead className="px-3 py-2 text-xs font-medium uppercase tracking-wider text-muted-foreground">Status</TableHead>
+                              {isAdmin && <TableHead className="w-28 px-3 py-2 text-xs font-medium uppercase tracking-wider text-muted-foreground">Actions</TableHead>}
+                            </TableRow>
+                          </TableHeader>
+                          <TableBody>
+                            {typeUnits.map((unit, index) => {
+                              const isEditing = isBulkEdit || editingId === unit.id;
+                              return (
+                                <TableRow key={unit.id} className="h-10 hover:bg-muted/50 even:bg-muted/20">
+                                  <TableCell className="px-3 py-2 text-sm text-muted-foreground">{index + 1}</TableCell>
+                                  <TableCell className="px-3 py-2 text-sm font-medium">
+                                    {isEditing ? (
+                                      <Input
+                                        className="w-full h-8 text-sm"
+                                        value={isBulkEdit ? (bulkEditUnits[unit.id]?.name || '') : (editedUnit.name || '')}
+                                        onChange={(e) =>
+                                          isBulkEdit
+                                            ? handleBulkEditChange(unit.id, 'name', e.target.value)
+                                            : setEditedUnit({ ...editedUnit, name: e.target.value })
+                                        }
+                                      />
+                                    ) : (
+                                      unit.name
+                                    )}
+                                  </TableCell>
+                                  <TableCell className="px-3 py-2 text-sm">
+                                    {isEditing ? (
+                                      <Input
+                                        className="w-full h-8 text-sm"
+                                        value={isBulkEdit ? (bulkEditUnits[unit.id]?.unit_number || '') : (editedUnit.unit_number || '')}
+                                        onChange={(e) =>
+                                          isBulkEdit
+                                            ? handleBulkEditChange(unit.id, 'unit_number', e.target.value)
+                                            : setEditedUnit({ ...editedUnit, unit_number: e.target.value })
+                                        }
+                                      />
+                                    ) : (
+                                      unit.unit_number || '—'
+                                    )}
+                                  </TableCell>
+                                  <TableCell className="px-3 py-2 text-sm text-muted-foreground">
+                                    {isEditing ? (
+                                      <Input
+                                        className="w-full h-8 text-sm"
+                                        value={isBulkEdit ? (bulkEditUnits[unit.id]?.view || '') : (editedUnit.view || '')}
+                                        onChange={(e) =>
+                                          isBulkEdit
+                                            ? handleBulkEditChange(unit.id, 'view', e.target.value)
+                                            : setEditedUnit({ ...editedUnit, view: e.target.value })
+                                        }
+                                      />
+                                    ) : (
+                                      unit.view || '—'
+                                    )}
+                                  </TableCell>
+                                  <TableCell className="px-3 py-2 text-center">
+                                    <div className="flex items-center justify-center gap-1">
+                                      <input
+                                        type="file"
+                                        id={`photo-upload-${unit.id}`}
+                                        multiple
+                                        accept="image/*"
+                                        className="hidden"
+                                        onChange={(e) => {
+                                          if (e.target.files && e.target.files.length > 0) {
+                                            handlePhotoUpload(unit.id, e.target.files);
+                                          }
+                                        }}
+                                      />
+                                      <span className="text-sm tabular-nums text-muted-foreground">{unit.photos?.length || 0}</span>
+                                      {uploadingPhotos === unit.id && uploadProgress[unit.id] !== undefined && (
+                                        <Progress value={uploadProgress[unit.id]} className="h-1.5 w-12 [&>div]:bg-primary" />
+                                      )}
+                                      {unit.photos && unit.photos.length > 0 && (
+                                        <Button
+                                          variant="ghost"
+                                          size="icon"
+                                          className="h-7 w-7"
+                                          onClick={() => {
+                                            setCurrentUnitPhotos({ id: unit.id, photos: unit.photos || [] });
+                                            setPhotoGalleryOpen(true);
+                                          }}
+                                        >
+                                          <Eye className="h-3.5 w-3.5" />
+                                        </Button>
+                                      )}
+                                    </div>
+                                  </TableCell>
+                                  <TableCell className="px-3 py-2">
+                                    {isEditing ? (
+                                      <Select
+                                        value={isBulkEdit ? bulkEditUnits[unit.id]?.status : editedUnit.status}
+                                        onValueChange={(value) =>
+                                          isBulkEdit
+                                            ? handleBulkEditChange(unit.id, 'status', value)
+                                            : setEditedUnit({ ...editedUnit, status: value })
+                                        }
+                                      >
+                                        <SelectTrigger className="w-full h-8 text-sm">
+                                          <SelectValue />
+                                        </SelectTrigger>
+                                        <SelectContent>
+                                          {STATUS_OPTIONS.map((status) => (
+                                            <SelectItem key={status} value={status}>
+                                              {status.charAt(0).toUpperCase() + status.slice(1)}
+                                            </SelectItem>
+                                          ))}
+                                        </SelectContent>
+                                      </Select>
+                                    ) : (
+                                      <StatusBadge status={unit.status} />
+                                    )}
+                                  </TableCell>
+                                  {isAdmin && (
+                                    <TableCell className="px-3 py-2">
+                                      {editingId === unit.id ? (
+                                        <div className="flex items-center gap-1">
+                                          <Button variant="ghost" size="icon" className="h-7 w-7" onClick={handleSaveEdit}>
+                                            <Save className="h-3.5 w-3.5" />
+                                          </Button>
+                                          <Button variant="ghost" size="icon" className="h-7 w-7" onClick={handleCancelEdit}>
+                                            <X className="h-3.5 w-3.5" />
+                                          </Button>
+                                        </div>
+                                      ) : !isBulkEdit ? (
+                                        <div className="flex items-center gap-1">
+                                          <Button variant="ghost" size="icon" className="h-7 w-7" onClick={() => handleEdit(unit)}>
+                                            <Pencil className="h-3.5 w-3.5" />
+                                          </Button>
+                                          <Button variant="ghost" size="icon" className="h-7 w-7" onClick={() => navigate(`/property-media/${unit.id}`)} title="Photos">
+                                            <ImageIcon className="h-3.5 w-3.5" />
+                                          </Button>
+                                          <Button variant="ghost" size="icon" className="h-7 w-7" onClick={() => handleCloneClick(unit)} title="Clone">
+                                            <Copy className="h-3.5 w-3.5" />
+                                          </Button>
+                                          <Button variant="ghost" size="icon" className="h-7 w-7 text-destructive hover:text-destructive" onClick={() => handleDeleteClick(unit)} title="Delete">
+                                            <Trash2 className="h-3.5 w-3.5" />
+                                          </Button>
+                                        </div>
+                                      ) : null}
+                                    </TableCell>
+                                  )}
+                                </TableRow>
+                              );
+                            })}
+                          </TableBody>
+                        </Table>
+                      </div>
+
+                      {/* Mobile card list */}
+                      <div className="md:hidden space-y-2">
+                        {typeUnits.map((unit) => (
+                          <div key={unit.id} className="flex items-center justify-between p-3 bg-muted/50 rounded-lg">
+                            <div>
+                              <div className="font-medium text-sm">{unit.name}</div>
+                              <div className="text-xs text-muted-foreground">
+                                #{unit.unit_number || '—'} · {unit.view || 'No view set'}
+                              </div>
+                            </div>
+                            <div className="flex items-center gap-2">
+                              <StatusBadge status={unit.status} />
+                              {isAdmin && (
+                                <DropdownMenu>
+                                  <DropdownMenuTrigger asChild>
+                                    <Button variant="ghost" size="icon" className="h-8 w-8">
+                                      <MoreVertical className="h-4 w-4" />
+                                    </Button>
+                                  </DropdownMenuTrigger>
+                                  <DropdownMenuContent align="end">
+                                    <DropdownMenuItem onClick={() => handleEdit(unit)}>Edit</DropdownMenuItem>
+                                    <DropdownMenuItem onClick={() => navigate(`/property-media/${unit.id}`)}>Photos</DropdownMenuItem>
+                                    <DropdownMenuItem onClick={() => handleCloneClick(unit)}>Clone</DropdownMenuItem>
+                                    <DropdownMenuItem className="text-destructive" onClick={() => handleDeleteClick(unit)}>Delete</DropdownMenuItem>
+                                  </DropdownMenuContent>
+                                </DropdownMenu>
+                              )}
+                            </div>
+                          </div>
+                        ))}
+                      </div>
+
+                      {/* Room type footer actions */}
+                      {isAdmin && !isBulkEdit && (
+                        <div className="flex gap-2 mt-4 pt-4 border-t">
+                          <Button variant="outline" size="sm" onClick={() => {
+                            handleCloneClick(representative);
+                          }}>
+                            <Plus className="h-4 w-4 mr-1" /> Add Unit
+                          </Button>
+                        </div>
+                      )}
+                    </CardContent>
+                  </CollapsibleContent>
+                </Collapsible>
+              </Card>
+            );
+          })}
         </div>
       </main>
 

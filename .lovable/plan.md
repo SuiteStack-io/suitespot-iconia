@@ -1,49 +1,118 @@
 
 
-## Overhaul Rooms Management — Grouped by Room Type with Collapsible Cards
+## Fix: Filter Blocked Dates by Active Property
 
-### Overview
-Replace the flat table with collapsible cards grouped by `booking_com_name`. Each card shows room-type-level info (size, beds, baths, guests) in the header, and a compact unit table inside with only unit-specific columns.
+### Problem
+`fetchBlockedDates()` fetches ALL blocked dates across all properties. `fetchUnits()` correctly filters by `propertyId`, but blocked dates does not.
 
-### Changes in `src/pages/Rooms.tsx` (full rewrite of the render section)
+### File: `src/components/BlockedDatesManager.tsx`
 
-**1. Group units by room type**
-- Add a `useMemo` that groups `units` by `booking_com_name || name` into a `Map<string, { units: Unit[], representative: Unit }>` structure
-- The representative unit provides type-level data (size, beds, baths, max_guests, unit_type)
+**1. Filter `fetchBlockedDates` by property (lines 101-121)**
 
-**2. Replace header** (lines 796–854)
-- Cleaner header with summary stats: `{roomTypes.length} room types · {units.length} total units`
-- Keep Bulk Edit and Add Room buttons
-- Add Expand All / Collapse All ghost buttons
+The `blocked_dates` table references `units` via `unit_id`. Filter by joining through units that belong to the active property:
 
-**3. Replace main content** (lines 856–1189)
-- Delete the entire flat table
-- Replace with collapsible `Card` components per room type using `Collapsible` / `CollapsibleTrigger` / `CollapsibleContent`
-- Each card header: room type name, description line (`50 sqm · 1 bed · 1 bath · 2 guests max`), badges for unit count and type
-- Each card content: compact table with columns: #, Unit Name, Room #, View, Status, Photos, Actions
-- Room type footer actions: Add Units (clone), Edit Type, Delete Type
+```typescript
+const fetchBlockedDates = async () => {
+  try {
+    let query = supabase
+      .from("blocked_dates")
+      .select(`
+        *,
+        units (
+          name,
+          unit_number,
+          booking_com_name
+        )
+      `)
+      .order("blocked_date", { ascending: true });
 
-**4. State for expand/collapse**
-- `expandedTypes: Set<string>` state to track which room types are expanded
-- `setAllExpanded(true/false)` toggles all
+    // Filter to only show blocked dates for units belonging to the active property
+    if (propertyId) {
+      query = query.eq('units.property_id', propertyId);
+    }
 
-**5. StatusBadge inline component**
-- Colored dot + text, reusing existing color logic (green/orange/red/blue/gray)
+    const { data, error } = await query;
+    if (error) throw error;
 
-**6. Mobile responsive**
-- On `md:hidden`, render unit cards instead of table rows with `MoreVertical` dropdown for actions
+    // Remove entries where the unit was filtered out (unit doesn't belong to property)
+    const filtered = (data || []).filter(d => d.unit_id === null || d.units !== null);
+    setBlockedDates(filtered);
+  } catch (error: any) {
+    console.error("Error fetching blocked dates:", error);
+    toast.error("Failed to fetch blocked dates");
+  }
+};
+```
 
-**7. Empty state**
-- When no units exist, show centered empty state with icon and "Add Room" CTA
+However, `blocked_dates` rows with `unit_id = null` (meaning "all rooms") have no unit join to filter on. We need a different approach — filter blocked dates whose `unit_id` is either null OR belongs to a unit in the active property. The cleanest way: use the unit IDs we already fetch.
 
-**8. Keep all existing functionality**
-- All dialogs (Add Room, Clone, Delete, Photo Gallery) remain unchanged
-- Edit/clone/delete handlers stay the same
-- Bulk edit mode works within each expanded card's table
-- Photo upload inline stays in the unit rows
+**Better approach — filter client-side using fetched units:**
 
-### Files Modified
-- `src/pages/Rooms.tsx`: Complete rewrite of the render/layout section (~lines 794–1189), add grouping logic, expand/collapse state, and mobile cards
+Since `fetchUnits` already returns only units for the active property, filter blocked dates to only include those whose `unit_id` is null or matches a fetched unit.
 
-### No database changes needed
+Actually, the simplest and most reliable fix: add `property_id` awareness to the query. Since `blocked_dates` has a `unit_id` FK to `units`, and `units` has `property_id`, we can filter via an inner join or use an `in` filter with the property's unit IDs.
+
+**Revised approach — fetch unit IDs first, then filter:**
+
+```typescript
+// In useEffect, ensure both refetch when propertyId changes
+useEffect(() => {
+  fetchUnits();
+  fetchBlockedDates();
+}, [propertyId]);
+```
+
+In `fetchBlockedDates`, after fetching units (or independently):
+- Query units for the active property to get their IDs
+- Filter blocked_dates where `unit_id` is in that list
+
+**Simplest implementation:**
+
+1. **Change useEffect (line 80-83)** to depend on `propertyId`
+2. **Update `fetchBlockedDates`** to filter by property's unit IDs
+
+```typescript
+const fetchBlockedDates = async () => {
+  try {
+    // First get unit IDs for the active property
+    let unitIds: string[] = [];
+    if (propertyId) {
+      const { data: propUnits } = await supabase
+        .from("units")
+        .select("id")
+        .eq("property_id", propertyId);
+      unitIds = (propUnits || []).map(u => u.id);
+    }
+
+    let query = supabase
+      .from("blocked_dates")
+      .select(`*, units (name, unit_number, booking_com_name)`)
+      .order("blocked_date", { ascending: true });
+
+    if (propertyId && unitIds.length > 0) {
+      // Only show blocked dates for this property's units
+      query = query.in("unit_id", unitIds);
+    } else if (propertyId && unitIds.length === 0) {
+      // Property has no units, show nothing
+      setBlockedDates([]);
+      return;
+    }
+
+    const { data, error } = await query;
+    if (error) throw error;
+    setBlockedDates(data || []);
+  } catch (error: any) {
+    console.error("Error fetching blocked dates:", error);
+    toast.error("Failed to fetch blocked dates");
+  }
+};
+```
+
+3. **Update useEffect** (line 80-83): add `propertyId` to dependency array
+
+### Summary
+- 1 file changed: `src/components/BlockedDatesManager.tsx`
+- `fetchBlockedDates` filters by active property's unit IDs
+- Re-fetches when property switches
+- Blocked dates with `unit_id = null` (all-rooms blocks) won't show unless we decide they should — this matches the expectation that blocks are property-scoped
 
