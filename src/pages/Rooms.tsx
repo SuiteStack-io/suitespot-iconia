@@ -115,6 +115,7 @@ const Rooms = () => {
   const [currentUnitPhotos, setCurrentUnitPhotos] = useState<{ id: string; photos: string[] } | null>(null);
   const [sortField, setSortField] = useState<'unit_number' | 'unit_type' | 'view' | 'booking_com_name' | null>(null);
   const [sortDirection, setSortDirection] = useState<'asc' | 'desc'>('asc');
+  const [expandedTypes, setExpandedTypes] = useState<Set<string>>(new Set());
 
   const sensors = useSensors(
     useSensor(PointerSensor),
@@ -139,6 +140,43 @@ const Rooms = () => {
     const comparison = aVal.toString().localeCompare(bVal.toString(), undefined, { numeric: true });
     return sortDirection === 'asc' ? comparison : -comparison;
   });
+
+  // Group units by booking_com_name (room type)
+  const roomTypeGroups = useMemo(() => {
+    const groups = new Map<string, { units: Unit[]; representative: Unit }>();
+    sortedUnits.forEach((unit) => {
+      const key = unit.booking_com_name || unit.name || 'Ungrouped';
+      if (!groups.has(key)) {
+        groups.set(key, { units: [], representative: unit });
+      }
+      groups.get(key)!.units.push(unit);
+    });
+    return groups;
+  }, [sortedUnits]);
+
+  // Initialize expanded types when groups change
+  useEffect(() => {
+    if (expandedTypes.size === 0 && roomTypeGroups.size > 0) {
+      setExpandedTypes(new Set(roomTypeGroups.keys()));
+    }
+  }, [roomTypeGroups.size]);
+
+  const toggleType = (key: string) => {
+    setExpandedTypes((prev) => {
+      const next = new Set(prev);
+      if (next.has(key)) next.delete(key);
+      else next.add(key);
+      return next;
+    });
+  };
+
+  const setAllExpanded = (expanded: boolean) => {
+    if (expanded) {
+      setExpandedTypes(new Set(roomTypeGroups.keys()));
+    } else {
+      setExpandedTypes(new Set());
+    }
+  };
 
   useEffect(() => {
     if (!loading && !user) {
