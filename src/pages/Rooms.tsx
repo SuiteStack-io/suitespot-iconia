@@ -68,6 +68,13 @@ interface Reservation {
   status: string;
 }
 
+interface PendingAvailabilitySync {
+  id: string;
+  bookingComName: string;
+  unitId: string; // any unit ID with that booking_com_name for channex mapping
+  newCount: number;
+}
+
 const STATUS_OPTIONS = ['available', 'occupied', 'maintenance', 'reserved'];
 
 
