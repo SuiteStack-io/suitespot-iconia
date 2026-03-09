@@ -1,118 +1,63 @@
 
 
-## Fix: Filter Blocked Dates by Active Property
+## Add Bulk Availability Editor to PMS Availability Page
 
-### Problem
-`fetchBlockedDates()` fetches ALL blocked dates across all properties. `fetchUnits()` correctly filters by `propertyId`, but blocked dates does not.
+### Overview
+Add a tabbed interface to the Availability page with a "Bulk Editor" tab for setting availability overrides and syncing to Channex. The existing `channex-push-availability` edge function already handles the API call — this is purely a frontend feature.
 
-### File: `src/components/BlockedDatesManager.tsx`
+### Architecture
+- No new database table needed — availability is pushed directly to Channex (same as restrictions pattern)
+- The edge function `channex-push-availability` already exists and accepts `updates[]` with `property_id`, `room_type_id`, `date_from`, `date_to`, `availability`
+- Room types are derived from `units.booking_com_name` grouping (same as `RoomTypes.tsx` pattern)
+- `room_type_id` for Channex mapping = the first unit ID of that room type group (matches `channex_mappings.local_id`)
 
-**1. Filter `fetchBlockedDates` by property (lines 101-121)**
+### File Changes
 
-The `blocked_dates` table references `units` via `unit_id`. Filter by joining through units that belong to the active property:
+**1. Create `src/components/pms/BulkAvailabilityEditor.tsx`**
 
+New component following the same two-step Apply/Save pattern as `BulkRestrictionEditor`:
+
+- **Room Type selector**: dropdown populated from distinct `booking_com_name` values of property units
+- **Date From / Date To**: calendar pickers (Date To auto-fills from Date From)
+- **Available Rooms**: numeric input with "rooms" unit label (using same `w-24 h-9 text-right` styling)
+- **Apply Availability**: adds to pending changes list
+- **Pending Changes**: displays pending items with remove button
+- **Save Changes**: calls `channex-push-availability` edge function with all pending items
+
+Props:
 ```typescript
-const fetchBlockedDates = async () => {
-  try {
-    let query = supabase
-      .from("blocked_dates")
-      .select(`
-        *,
-        units (
-          name,
-          unit_number,
-          booking_com_name
-        )
-      `)
-      .order("blocked_date", { ascending: true });
+interface PendingAvailability {
+  id: string;
+  roomTypeName: string;
+  roomTypeUnitId: string; // first unit ID for channex mapping lookup
+  dateFrom: string;
+  dateTo: string;
+  availability: number;
+  addedAt: Date;
+}
 
-    // Filter to only show blocked dates for units belonging to the active property
-    if (propertyId) {
-      query = query.eq('units.property_id', propertyId);
-    }
-
-    const { data, error } = await query;
-    if (error) throw error;
-
-    // Remove entries where the unit was filtered out (unit doesn't belong to property)
-    const filtered = (data || []).filter(d => d.unit_id === null || d.units !== null);
-    setBlockedDates(filtered);
-  } catch (error: any) {
-    console.error("Error fetching blocked dates:", error);
-    toast.error("Failed to fetch blocked dates");
-  }
-};
+interface BulkAvailabilityEditorProps {
+  pendingAvailability: PendingAvailability[];
+  setPendingAvailability: React.Dispatch<React.SetStateAction<PendingAvailability[]>>;
+}
 ```
 
-However, `blocked_dates` rows with `unit_id = null` (meaning "all rooms") have no unit join to filter on. We need a different approach — filter blocked dates whose `unit_id` is either null OR belongs to a unit in the active property. The cleanest way: use the unit IDs we already fetch.
+Save handler:
+- Builds `updates[]` array with `property_id` (from `usePropertyId()`), `room_type_id` (the unit ID used in channex_mappings), `date_from`, `date_to`, `availability`
+- Calls `supabase.functions.invoke('channex-push-availability', { body: { updates } })`
+- Clears pending on success
 
-**Better approach — filter client-side using fetched units:**
+**2. Update `src/pages/pms/Availability.tsx`**
 
-Since `fetchUnits` already returns only units for the active property, filter blocked dates to only include those whose `unit_id` is null or matches a fetched unit.
-
-Actually, the simplest and most reliable fix: add `property_id` awareness to the query. Since `blocked_dates` has a `unit_id` FK to `units`, and `units` has `property_id`, we can filter via an inner join or use an `in` filter with the property's unit IDs.
-
-**Revised approach — fetch unit IDs first, then filter:**
-
-```typescript
-// In useEffect, ensure both refetch when propertyId changes
-useEffect(() => {
-  fetchUnits();
-  fetchBlockedDates();
-}, [propertyId]);
-```
-
-In `fetchBlockedDates`, after fetching units (or independently):
-- Query units for the active property to get their IDs
-- Filter blocked_dates where `unit_id` is in that list
-
-**Simplest implementation:**
-
-1. **Change useEffect (line 80-83)** to depend on `propertyId`
-2. **Update `fetchBlockedDates`** to filter by property's unit IDs
-
-```typescript
-const fetchBlockedDates = async () => {
-  try {
-    // First get unit IDs for the active property
-    let unitIds: string[] = [];
-    if (propertyId) {
-      const { data: propUnits } = await supabase
-        .from("units")
-        .select("id")
-        .eq("property_id", propertyId);
-      unitIds = (propUnits || []).map(u => u.id);
-    }
-
-    let query = supabase
-      .from("blocked_dates")
-      .select(`*, units (name, unit_number, booking_com_name)`)
-      .order("blocked_date", { ascending: true });
-
-    if (propertyId && unitIds.length > 0) {
-      // Only show blocked dates for this property's units
-      query = query.in("unit_id", unitIds);
-    } else if (propertyId && unitIds.length === 0) {
-      // Property has no units, show nothing
-      setBlockedDates([]);
-      return;
-    }
-
-    const { data, error } = await query;
-    if (error) throw error;
-    setBlockedDates(data || []);
-  } catch (error: any) {
-    console.error("Error fetching blocked dates:", error);
-    toast.error("Failed to fetch blocked dates");
-  }
-};
-```
-
-3. **Update useEffect** (line 80-83): add `propertyId` to dependency array
+- Add `Tabs` with "Calendar" and "Bulk Editor" tabs (same pattern as Restrictions page)
+- Hold `pendingAvailability` state in the page component so it survives tab switches
+- Show badge count on Bulk Editor tab when pending items exist
+- Desktop: Calendar tab shows `RoomCalendar` + `BlockedDatesManager`; Bulk Editor tab shows `BulkAvailabilityEditor`
+- Mobile: keep existing `MobileCalendarView` in Calendar tab
 
 ### Summary
-- 1 file changed: `src/components/BlockedDatesManager.tsx`
-- `fetchBlockedDates` filters by active property's unit IDs
-- Re-fetches when property switches
-- Blocked dates with `unit_id = null` (all-rooms blocks) won't show unless we decide they should — this matches the expectation that blocks are property-scoped
+- 1 new file: `BulkAvailabilityEditor.tsx`
+- 1 modified file: `Availability.tsx` (add tabs + state)
+- 0 database changes
+- 0 edge function changes (existing one is sufficient)
 
