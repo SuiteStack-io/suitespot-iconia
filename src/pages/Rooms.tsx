@@ -108,7 +108,8 @@ const Rooms = () => {
   const [uploadProgress, setUploadProgress] = useState<{ [key: string]: number }>({});
   const [cloneDialogOpen, setCloneDialogOpen] = useState(false);
   const [roomToClone, setRoomToClone] = useState<Unit | null>(null);
-  const [cloneRoomNumber, setCloneRoomNumber] = useState<string>('');
+  const [cloneCount, setCloneCount] = useState(1);
+  const [cloneRoomNumbers, setCloneRoomNumbers] = useState<string[]>(['']);
   const [deleteDialogOpen, setDeleteDialogOpen] = useState(false);
   const [roomToDelete, setRoomToDelete] = useState<Unit | null>(null);
   const [photoGalleryOpen, setPhotoGalleryOpen] = useState(false);
