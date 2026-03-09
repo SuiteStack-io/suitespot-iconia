@@ -53,6 +53,8 @@ export function BulkAvailabilityEditor({ pendingAvailability, setPendingAvailabi
   const [isSaving, setIsSaving] = useState(false);
   const [dateFromOpen, setDateFromOpen] = useState(false);
   const [dateToOpen, setDateToOpen] = useState(false);
+  const [currentAvailability, setCurrentAvailability] = useState<number | null>(null);
+  const [isLoadingAvailability, setIsLoadingAvailability] = useState(false);
 
   const today = new Date();
   today.setHours(0, 0, 0, 0);
