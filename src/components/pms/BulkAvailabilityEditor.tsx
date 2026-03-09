@@ -186,7 +186,16 @@ export function BulkAvailabilityEditor({ pendingAvailability, setPendingAvailabi
       toast({ title: 'Success', description: `Availability synced to Channex (${updates.length} update${updates.length > 1 ? 's' : ''})` });
     } catch (err: any) {
       console.error('Error saving availability:', err);
-      toast({ title: 'Error', description: err.message || 'Failed to save availability', variant: 'destructive' });
+      let errorMessage = 'Failed to save availability';
+      if (err.context?.body) {
+        try {
+          const body = JSON.parse(err.context.body);
+          if (body.error) errorMessage = body.error;
+        } catch { /* ignore parse errors */ }
+      } else if (err.message) {
+        errorMessage = err.message;
+      }
+      toast({ title: 'Error', description: errorMessage, variant: 'destructive' });
     } finally {
       setIsSaving(false);
     }
