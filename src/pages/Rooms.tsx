@@ -954,10 +954,10 @@ const Rooms = () => {
                         unit.unit_number || '—'
                       )}
                     </TableCell>
-                    <TableCell className="min-w-[140px]">
+                    <TableCell className="px-3 py-2 text-sm">
                       {isEditing ? (
                         <Input
-                          className="w-full min-w-[120px]"
+                          className="w-full h-8 text-sm"
                           value={isBulkEdit ? (bulkEditUnits[unit.id]?.unit_type || '') : (editedUnit.unit_type || '')}
                           onChange={(e) =>
                             isBulkEdit
@@ -966,89 +966,45 @@ const Rooms = () => {
                           }
                         />
                       ) : (
-                        unit.unit_type || '-'
+                        unit.unit_type || '—'
                       )}
                     </TableCell>
-                    <TableCell className="min-w-[140px]">
-                      <DropdownMenu>
-                        <DropdownMenuTrigger asChild>
-                          <Button 
-                            size="sm" 
-                            variant="ghost"
-                          >
-                            <Eye className="h-4 w-4 mr-1" />
-                            <span className="text-xs">{unit.view || 'Select'}</span>
-                            <ChevronDown className="h-3 w-3 ml-1" />
-                          </Button>
-                        </DropdownMenuTrigger>
-                        <DropdownMenuContent align="end">
-                          <DropdownMenuItem onClick={async () => {
-                            const { error } = await supabase
-                              .from('units')
-                              .update({ view: 'Main street' })
-                              .eq('id', unit.id);
-                            
-                            if (error) {
-                              toast({
-                                variant: 'destructive',
-                                title: 'Error',
-                                description: 'Failed to update room view',
-                              });
-                            } else {
-                              fetchUnits();
-                              toast({
-                                title: 'Success',
-                                description: 'Room view updated',
-                              });
-                            }
-                          }}>
-                            Main street
-                          </DropdownMenuItem>
-                          <DropdownMenuItem onClick={async () => {
-                            const { error } = await supabase
-                              .from('units')
-                              .update({ view: 'Courtyard' })
-                              .eq('id', unit.id);
-                            
-                            if (error) {
-                              toast({
-                                variant: 'destructive',
-                                title: 'Error',
-                                description: 'Failed to update room view',
-                              });
-                            } else {
-                              fetchUnits();
-                              toast({
-                                title: 'Success',
-                                description: 'Room view updated',
-                              });
-                            }
-                          }}>
-                            Courtyard
-                          </DropdownMenuItem>
-                        </DropdownMenuContent>
-                      </DropdownMenu>
-                    </TableCell>
-                    <TableCell className="min-w-[160px]">
+                    <TableCell className="px-3 py-2 text-sm text-muted-foreground">
                       {isEditing ? (
                         <Input
-                          className="w-full min-w-[140px]"
+                          className="w-full h-8 text-sm"
+                          value={isBulkEdit ? (bulkEditUnits[unit.id]?.view || '') : (editedUnit.view || '')}
+                          onChange={(e) =>
+                            isBulkEdit
+                              ? handleBulkEditChange(unit.id, 'view', e.target.value)
+                              : setEditedUnit({ ...editedUnit, view: e.target.value })
+                          }
+                          placeholder="e.g. City View"
+                        />
+                      ) : (
+                        unit.view || '—'
+                      )}
+                    </TableCell>
+                    <TableCell className="px-3 py-2 text-sm">
+                      {isEditing ? (
+                        <Input
+                          className="w-full h-8 text-sm"
                           value={isBulkEdit ? (bulkEditUnits[unit.id]?.booking_com_name || '') : (editedUnit.booking_com_name || '')}
                           onChange={(e) =>
                             isBulkEdit
                               ? handleBulkEditChange(unit.id, 'booking_com_name', e.target.value)
                               : setEditedUnit({ ...editedUnit, booking_com_name: e.target.value })
                           }
-                          placeholder="Enter Booking.com Name"
+                          placeholder="Booking.com Name"
                         />
                       ) : (
-                        <span className="text-sm">{unit.booking_com_name || '-'}</span>
+                        <span>{unit.booking_com_name || '—'}</span>
                       )}
                     </TableCell>
-                    <TableCell className="min-w-[120px]">
+                    <TableCell className="px-3 py-2 text-sm text-right tabular-nums">
                       {isEditing ? (
                         <Input
-                          className="w-full min-w-[100px]"
+                          className="w-full h-8 text-sm"
                           value={isBulkEdit ? (bulkEditUnits[unit.id]?.unit_size || '') : (editedUnit.unit_size || '')}
                           onChange={(e) =>
                             isBulkEdit
@@ -1057,13 +1013,13 @@ const Rooms = () => {
                           }
                         />
                       ) : (
-                        unit.unit_size || '-'
+                        unit.unit_size || '—'
                       )}
                     </TableCell>
-                    <TableCell className="min-w-[80px]">
+                    <TableCell className="px-3 py-2 text-sm text-right tabular-nums">
                       {isEditing ? (
                         <Input
-                          className="w-full min-w-[60px]"
+                          className="w-full h-8 text-sm"
                           type="number"
                           value={isBulkEdit ? (bulkEditUnits[unit.id]?.beds ?? '') : (editedUnit.beds ?? '')}
                           onChange={(e) =>
@@ -1071,16 +1027,15 @@ const Rooms = () => {
                               ? handleBulkEditChange(unit.id, 'beds', e.target.value ? parseInt(e.target.value) : null)
                               : setEditedUnit({ ...editedUnit, beds: e.target.value ? parseInt(e.target.value) : null })
                           }
-                          placeholder="Beds"
                         />
                       ) : (
-                        unit.beds || '-'
+                        unit.beds || '—'
                       )}
                     </TableCell>
-                    <TableCell className="min-w-[80px]">
+                    <TableCell className="px-3 py-2 text-sm text-right tabular-nums">
                       {isEditing ? (
                         <Input
-                          className="w-full min-w-[60px]"
+                          className="w-full h-8 text-sm"
                           type="number"
                           value={isBulkEdit ? (bulkEditUnits[unit.id]?.baths ?? '') : (editedUnit.baths ?? '')}
                           onChange={(e) =>
@@ -1088,16 +1043,15 @@ const Rooms = () => {
                               ? handleBulkEditChange(unit.id, 'baths', e.target.value ? parseInt(e.target.value) : null)
                               : setEditedUnit({ ...editedUnit, baths: e.target.value ? parseInt(e.target.value) : null })
                           }
-                          placeholder="Baths"
                         />
                       ) : (
-                        unit.baths || '-'
+                        unit.baths || '—'
                       )}
                     </TableCell>
-                    <TableCell className="min-w-[100px]">
+                    <TableCell className="px-3 py-2 text-sm text-right tabular-nums">
                       {isEditing ? (
                         <Input
-                          className="w-full min-w-[80px]"
+                          className="w-full h-8 text-sm"
                           type="number"
                           value={isBulkEdit ? (bulkEditUnits[unit.id]?.max_guests ?? '') : (editedUnit.max_guests ?? '')}
                           onChange={(e) =>
@@ -1105,13 +1059,12 @@ const Rooms = () => {
                               ? handleBulkEditChange(unit.id, 'max_guests', e.target.value ? parseInt(e.target.value) : null)
                               : setEditedUnit({ ...editedUnit, max_guests: e.target.value ? parseInt(e.target.value) : null })
                           }
-                          placeholder="Max"
                         />
                       ) : (
-                        unit.max_guests || '-'
+                        unit.max_guests || '—'
                       )}
                     </TableCell>
-                    <TableCell className="min-w-[100px]">
+                    <TableCell className="px-3 py-2 text-sm text-center">
                       {isEditing ? (
                         <Select
                           value={isBulkEdit ? (bulkEditUnits[unit.id]?.sofa_bed ? 'true' : 'false') : (editedUnit.sofa_bed ? 'true' : 'false')}
@@ -1121,7 +1074,7 @@ const Rooms = () => {
                               : setEditedUnit({ ...editedUnit, sofa_bed: value === 'true' })
                           }
                         >
-                          <SelectTrigger className="w-full min-w-[80px]">
+                          <SelectTrigger className="w-full h-8 text-sm">
                             <SelectValue />
                           </SelectTrigger>
                           <SelectContent>
@@ -1130,61 +1083,47 @@ const Rooms = () => {
                           </SelectContent>
                         </Select>
                       ) : (
-                        unit.sofa_bed ? 'Yes' : 'No'
+                        <span className="text-muted-foreground">{unit.sofa_bed ? 'Yes' : 'No'}</span>
                       )}
                     </TableCell>
-                    <TableCell className="min-w-[160px]">
+                    <TableCell className="px-3 py-2 text-center">
                       {isEditing ? (
-                        <div className="text-muted-foreground text-sm whitespace-normal">Use upload button in Actions column</div>
+                        <span className="text-xs text-muted-foreground">Edit via Actions</span>
                       ) : (
-                        <div className="space-y-2">
-                          <div className="flex items-center gap-2">
-                            <span className="text-sm font-medium">{unit.photos?.length || 0} photo(s)</span>
-                            <input
-                              type="file"
-                              id={`photo-upload-${unit.id}`}
-                              multiple
-                              accept="image/*"
-                              className="hidden"
-                              onChange={(e) => {
-                                if (e.target.files && e.target.files.length > 0) {
-                                  handlePhotoUpload(unit.id, e.target.files);
-                                }
-                              }}
-                            />
-                            <Button
-                              size="sm"
-                              variant="outline"
-                              onClick={() => document.getElementById(`photo-upload-${unit.id}`)?.click()}
-                              disabled={uploadingPhotos === unit.id}
-                            >
-                              <Upload className="h-3 w-3 mr-1" />
-                              {uploadingPhotos === unit.id ? 'Uploading...' : 'Upload'}
-                            </Button>
-                          </div>
+                        <div className="flex items-center justify-center gap-1">
+                          <input
+                            type="file"
+                            id={`photo-upload-${unit.id}`}
+                            multiple
+                            accept="image/*"
+                            className="hidden"
+                            onChange={(e) => {
+                              if (e.target.files && e.target.files.length > 0) {
+                                handlePhotoUpload(unit.id, e.target.files);
+                              }
+                            }}
+                          />
+                          <span className="text-sm tabular-nums text-muted-foreground">{unit.photos?.length || 0}</span>
                           {uploadingPhotos === unit.id && uploadProgress[unit.id] !== undefined && (
-                            <div className="space-y-1">
-                              <Progress value={uploadProgress[unit.id]} className="h-2 [&>div]:bg-blue-500" />
-                              <p className="text-xs text-muted-foreground text-center">{uploadProgress[unit.id]}%</p>
-                            </div>
+                            <Progress value={uploadProgress[unit.id]} className="h-1.5 w-12 [&>div]:bg-primary" />
                           )}
                           {unit.photos && unit.photos.length > 0 && (
                             <Button
-                              size="sm"
-                              variant="outline"
+                              variant="ghost"
+                              size="icon"
+                              className="h-7 w-7"
                               onClick={() => {
                                 setCurrentUnitPhotos({ id: unit.id, photos: unit.photos || [] });
                                 setPhotoGalleryOpen(true);
                               }}
                             >
-                              <Eye className="h-3 w-3 mr-1" />
-                              View ({unit.photos.length})
+                              <Eye className="h-3.5 w-3.5" />
                             </Button>
                           )}
                         </div>
                       )}
                     </TableCell>
-                    <TableCell className="min-w-[120px]">
+                    <TableCell className="px-3 py-2">
                       {isEditing ? (
                         <Select
                           value={isBulkEdit ? bulkEditUnits[unit.id]?.status : editedUnit.status}
@@ -1194,7 +1133,7 @@ const Rooms = () => {
                               : setEditedUnit({ ...editedUnit, status: value })
                           }
                         >
-                          <SelectTrigger className="w-full min-w-[100px]">
+                          <SelectTrigger className="w-full h-8 text-sm">
                             <SelectValue />
                           </SelectTrigger>
                           <SelectContent>
@@ -1206,49 +1145,42 @@ const Rooms = () => {
                           </SelectContent>
                         </Select>
                       ) : (
-                        <span className="capitalize">{unit.status}</span>
+                        <div className="flex items-center gap-1.5">
+                          <span className={`h-2 w-2 rounded-full ${
+                            unit.status === 'available' ? 'bg-[hsl(var(--success))]' :
+                            unit.status === 'maintenance' ? 'bg-[hsl(var(--warning))]' :
+                            unit.status === 'occupied' ? 'bg-[hsl(var(--info))]' :
+                            unit.status === 'reserved' ? 'bg-[hsl(var(--status-upcoming))]' :
+                            'bg-muted-foreground'
+                          }`} />
+                          <span className="text-sm capitalize">{unit.status}</span>
+                        </div>
                       )}
                     </TableCell>
                     {isAdmin && !isBulkEdit && (
-                      <TableCell>
+                      <TableCell className="px-3 py-2">
                         {editingId === unit.id ? (
-                          <div className="flex gap-2">
-                            <Button size="sm" onClick={handleSaveEdit}>
-                              <Save className="h-4 w-4" />
+                          <div className="flex items-center gap-1">
+                            <Button variant="ghost" size="icon" className="h-7 w-7" onClick={handleSaveEdit}>
+                              <Save className="h-3.5 w-3.5" />
                             </Button>
-                            <Button size="sm" variant="ghost" onClick={handleCancelEdit}>
-                              <X className="h-4 w-4" />
+                            <Button variant="ghost" size="icon" className="h-7 w-7" onClick={handleCancelEdit}>
+                              <X className="h-3.5 w-3.5" />
                             </Button>
                           </div>
                         ) : (
-                          <div className="flex gap-2">
-                            <Button size="sm" variant="ghost" onClick={() => handleEdit(unit)}>
-                              <Pencil className="h-4 w-4" />
+                          <div className="flex items-center gap-1">
+                            <Button variant="ghost" size="icon" className="h-7 w-7" onClick={() => handleEdit(unit)}>
+                              <Pencil className="h-3.5 w-3.5" />
                             </Button>
-                            <Button 
-                              size="sm" 
-                              variant="ghost" 
-                              onClick={() => navigate(`/property-media/${unit.id}`)}
-                              title="Manage photos"
-                            >
-                              <ImageIcon className="h-4 w-4" />
+                            <Button variant="ghost" size="icon" className="h-7 w-7" onClick={() => navigate(`/property-media/${unit.id}`)} title="Photos">
+                              <ImageIcon className="h-3.5 w-3.5" />
                             </Button>
-                            <Button 
-                              size="sm" 
-                              variant="ghost" 
-                              onClick={() => handleCloneClick(unit)}
-                              title="Clone this room"
-                            >
-                              <Copy className="h-4 w-4" />
+                            <Button variant="ghost" size="icon" className="h-7 w-7" onClick={() => handleCloneClick(unit)} title="Clone">
+                              <Copy className="h-3.5 w-3.5" />
                             </Button>
-                            <Button 
-                              size="sm" 
-                              variant="ghost" 
-                              onClick={() => handleDeleteClick(unit)}
-                              title="Delete room"
-                              className="hover:bg-destructive/10"
-                            >
-                              <Trash2 className="h-4 w-4 text-destructive" />
+                            <Button variant="ghost" size="icon" className="h-7 w-7 text-destructive hover:text-destructive" onClick={() => handleDeleteClick(unit)} title="Delete">
+                              <Trash2 className="h-3.5 w-3.5" />
                             </Button>
                           </div>
                         )}
