@@ -124,6 +124,8 @@ const Rooms = () => {
   const [sortField, setSortField] = useState<'unit_number' | 'unit_type' | 'view' | 'booking_com_name' | null>(null);
   const [sortDirection, setSortDirection] = useState<'asc' | 'desc'>('asc');
   const [expandedTypes, setExpandedTypes] = useState<Set<string>>(new Set());
+  const [pendingAvailabilitySync, setPendingAvailabilitySync] = useState<PendingAvailabilitySync[]>([]);
+  const [isSyncingAvailability, setIsSyncingAvailability] = useState(false);
 
   const sensors = useSensors(
     useSensor(PointerSensor),
