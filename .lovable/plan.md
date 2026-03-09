@@ -1,118 +1,46 @@
 
 
-## Fix: Filter Blocked Dates by Active Property
+## Modernize Rooms Table — Compact, Data-Dense Design
 
-### Problem
-`fetchBlockedDates()` fetches ALL blocked dates across all properties. `fetchUnits()` correctly filters by `propertyId`, but blocked dates does not.
+### Changes in `src/pages/Rooms.tsx`
 
-### File: `src/components/BlockedDatesManager.tsx`
+**1. Table container** (lines 870-872): Add `rounded-lg border overflow-hidden` wrapper, keep sticky header with max-height scroll. Remove `min-w-[1800px]` — aim for no horizontal scroll.
 
-**1. Filter `fetchBlockedDates` by property (lines 101-121)**
+**2. Table headers** (lines 873-919): Restyle all `<th>` elements:
+- Use `text-xs font-medium uppercase tracking-wider` instead of current style
+- Reduce padding to `px-3 py-2`
+- Remove all `min-w-` constraints, use tighter widths
+- Right-align numeric columns (Size, Beds, Baths, Max Guests)
+- Add subtle `bg-muted/50` background for header row
+- Keep sticky behavior and sort functionality
 
-The `blocked_dates` table references `units` via `unit_id`. Filter by joining through units that belong to the active property:
+**3. Table rows** (line 927+): Add compact styling:
+- `h-11 hover:bg-muted/50 even:bg-muted/20` on each `<TableRow>`
+- Reduce all `<TableCell>` padding to `px-3 py-2`
+- Remove `min-w-` constraints from cells
+- Add `text-sm` to all data cells
 
-```typescript
-const fetchBlockedDates = async () => {
-  try {
-    let query = supabase
-      .from("blocked_dates")
-      .select(`
-        *,
-        units (
-          name,
-          unit_number,
-          booking_com_name
-        )
-      `)
-      .order("blocked_date", { ascending: true });
+**4. Room View column** (lines 974-1033): Replace the full dropdown menu with plain text display:
+- Show `unit.view` as `text-sm text-muted-foreground` or `—` if empty
+- Keep the dropdown only in edit mode
+- Remove the inline Supabase update calls from the dropdown (editing happens via the edit row flow)
 
-    // Filter to only show blocked dates for units belonging to the active property
-    if (propertyId) {
-      query = query.eq('units.property_id', propertyId);
-    }
+**5. Status column** (lines 1189-1213): Replace plain text with colored dot + text:
+- Green dot for "available"
+- Orange dot for "maintenance"  
+- Red dot for "blocked"
+- Gray dot for other statuses
 
-    const { data, error } = await query;
-    if (error) throw error;
+**6. Actions column** (lines 1214-1258): Make icon buttons smaller:
+- Use `h-7 w-7` icon buttons with `h-3.5 w-3.5` icons
+- Tighter `gap-1` spacing
 
-    // Remove entries where the unit was filtered out (unit doesn't belong to property)
-    const filtered = (data || []).filter(d => d.unit_id === null || d.units !== null);
-    setBlockedDates(filtered);
-  } catch (error: any) {
-    console.error("Error fetching blocked dates:", error);
-    toast.error("Failed to fetch blocked dates");
-  }
-};
-```
+**7. Numeric columns** (Size, Beds, Baths, Max Guests): Right-align with `text-right tabular-nums`
 
-However, `blocked_dates` rows with `unit_id = null` (meaning "all rooms") have no unit join to filter on. We need a different approach — filter blocked dates whose `unit_id` is either null OR belongs to a unit in the active property. The cleanest way: use the unit IDs we already fetch.
+**8. Photos column** (lines 1138-1187): Compact — show just count and small icon buttons instead of full upload UI inline
 
-**Better approach — filter client-side using fetched units:**
+**9. Nr and sticky columns** (lines 928-958): Reduce padding, keep sticky behavior
 
-Since `fetchUnits` already returns only units for the active property, filter blocked dates to only include those whose `unit_id` is null or matches a fetched unit.
-
-Actually, the simplest and most reliable fix: add `property_id` awareness to the query. Since `blocked_dates` has a `unit_id` FK to `units`, and `units` has `property_id`, we can filter via an inner join or use an `in` filter with the property's unit IDs.
-
-**Revised approach — fetch unit IDs first, then filter:**
-
-```typescript
-// In useEffect, ensure both refetch when propertyId changes
-useEffect(() => {
-  fetchUnits();
-  fetchBlockedDates();
-}, [propertyId]);
-```
-
-In `fetchBlockedDates`, after fetching units (or independently):
-- Query units for the active property to get their IDs
-- Filter blocked_dates where `unit_id` is in that list
-
-**Simplest implementation:**
-
-1. **Change useEffect (line 80-83)** to depend on `propertyId`
-2. **Update `fetchBlockedDates`** to filter by property's unit IDs
-
-```typescript
-const fetchBlockedDates = async () => {
-  try {
-    // First get unit IDs for the active property
-    let unitIds: string[] = [];
-    if (propertyId) {
-      const { data: propUnits } = await supabase
-        .from("units")
-        .select("id")
-        .eq("property_id", propertyId);
-      unitIds = (propUnits || []).map(u => u.id);
-    }
-
-    let query = supabase
-      .from("blocked_dates")
-      .select(`*, units (name, unit_number, booking_com_name)`)
-      .order("blocked_date", { ascending: true });
-
-    if (propertyId && unitIds.length > 0) {
-      // Only show blocked dates for this property's units
-      query = query.in("unit_id", unitIds);
-    } else if (propertyId && unitIds.length === 0) {
-      // Property has no units, show nothing
-      setBlockedDates([]);
-      return;
-    }
-
-    const { data, error } = await query;
-    if (error) throw error;
-    setBlockedDates(data || []);
-  } catch (error: any) {
-    console.error("Error fetching blocked dates:", error);
-    toast.error("Failed to fetch blocked dates");
-  }
-};
-```
-
-3. **Update useEffect** (line 80-83): add `propertyId` to dependency array
-
-### Summary
-- 1 file changed: `src/components/BlockedDatesManager.tsx`
-- `fetchBlockedDates` filters by active property's unit IDs
-- Re-fetches when property switches
-- Blocked dates with `unit_id = null` (all-rooms blocks) won't show unless we decide they should — this matches the expectation that blocks are property-scoped
+### Files
+- `src/pages/Rooms.tsx`: Restyle table headers, cells, rows, view column, status column, actions, and photos display
 
