@@ -870,6 +870,97 @@ const Rooms = () => {
     }
   };
 
+  // Helper: add/update pending availability sync for a booking_com_name
+  const addToPendingAvailabilitySync = (bookingComName: string) => {
+    // Recalculate from latest units state (fetchUnits already called)
+    // We use a callback to get the latest units
+    setUnits(currentUnits => {
+      const matchingUnits = currentUnits.filter(
+        u => u.booking_com_name === bookingComName && u.status !== 'maintenance'
+      );
+      const newCount = matchingUnits.length;
+      const anyUnitId = matchingUnits[0]?.id;
+
+      if (anyUnitId) {
+        setPendingAvailabilitySync(prev => {
+          // Deduplicate: replace existing entry for same bookingComName
+          const filtered = prev.filter(p => p.bookingComName !== bookingComName);
+          return [...filtered, {
+            id: crypto.randomUUID(),
+            bookingComName,
+            unitId: anyUnitId,
+            newCount,
+          }];
+        });
+      }
+      return currentUnits; // don't mutate
+    });
+  };
+
+  // Warn on unsaved availability sync
+  useEffect(() => {
+    const handleBeforeUnload = (e: BeforeUnloadEvent) => {
+      if (pendingAvailabilitySync.length > 0) {
+        e.preventDefault();
+        e.returnValue = 'You have unsaved availability changes that will be lost.';
+      }
+    };
+    window.addEventListener('beforeunload', handleBeforeUnload);
+    return () => window.removeEventListener('beforeunload', handleBeforeUnload);
+  }, [pendingAvailabilitySync.length]);
+
+  const handleSyncAvailability = async () => {
+    if (pendingAvailabilitySync.length === 0 || !propertyId) return;
+    setIsSyncingAvailability(true);
+    try {
+      const today = format(new Date(), 'yyyy-MM-dd');
+      const futureDate = format(addDays(new Date(), 500), 'yyyy-MM-dd');
+
+      const updates = pendingAvailabilitySync.map(p => ({
+        property_id: propertyId,
+        room_type_id: p.unitId,
+        date_from: today,
+        date_to: futureDate,
+        availability: p.newCount,
+      }));
+
+      const { data, error } = await supabase.functions.invoke('channex-push-availability', {
+        body: { updates },
+      });
+
+      if (error) throw error;
+
+      if (data?.success === false) {
+        toast({
+          title: 'Sync Failed',
+          description: data.error || data.message || 'Failed to push availability',
+          variant: 'destructive',
+        });
+        return;
+      }
+
+      setPendingAvailabilitySync([]);
+      toast({
+        title: 'Success',
+        description: `Availability synced to Channex (${updates.length} room type${updates.length > 1 ? 's' : ''})`,
+      });
+    } catch (err: any) {
+      console.error('Error syncing availability:', err);
+      let errorMessage = 'Failed to sync availability';
+      if (err.context?.body) {
+        try {
+          const body = JSON.parse(err.context.body);
+          if (body.error) errorMessage = body.error;
+        } catch { /* ignore */ }
+      } else if (err.message) {
+        errorMessage = err.message;
+      }
+      toast({ title: 'Error', description: errorMessage, variant: 'destructive' });
+    } finally {
+      setIsSyncingAvailability(false);
+    }
+  };
+
   if (loading) {
     return (
       <div className="flex min-h-screen items-center justify-center">
