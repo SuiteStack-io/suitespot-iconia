@@ -80,7 +80,7 @@ export const BlockedDatesManager = () => {
   useEffect(() => {
     fetchBlockedDates();
     fetchUnits();
-  }, []);
+  }, [propertyId]);
 
   const fetchUnits = async () => {
     try {
@@ -100,7 +100,17 @@ export const BlockedDatesManager = () => {
 
   const fetchBlockedDates = async () => {
     try {
-      const { data, error } = await supabase
+      // First get unit IDs for the active property
+      let unitIds: string[] = [];
+      if (propertyId) {
+        const { data: propUnits } = await supabase
+          .from("units")
+          .select("id")
+          .eq("property_id", propertyId);
+        unitIds = (propUnits || []).map(u => u.id);
+      }
+
+      let query = supabase
         .from("blocked_dates")
         .select(`
           *,
@@ -112,6 +122,14 @@ export const BlockedDatesManager = () => {
         `)
         .order("blocked_date", { ascending: true });
 
+      if (propertyId && unitIds.length > 0) {
+        query = query.in("unit_id", unitIds);
+      } else if (propertyId && unitIds.length === 0) {
+        setBlockedDates([]);
+        return;
+      }
+
+      const { data, error } = await query;
       if (error) throw error;
       setBlockedDates(data || []);
     } catch (error: any) {
