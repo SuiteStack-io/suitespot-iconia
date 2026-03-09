@@ -127,7 +127,8 @@ serve(async (req: Request) => {
             supabase,
             unitData.booking_com_name,
             item.date_from,
-            item.date_to
+            item.date_to,
+            unitData.property_id
           );
 
           values.push({
