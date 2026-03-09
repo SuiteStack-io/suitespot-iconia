@@ -754,7 +754,7 @@ const Rooms = () => {
       await fetchUnits();
 
       if (clonedBookingComName) {
-        addToPendingAvailabilitySync(clonedBookingComName);
+        await addToPendingAvailabilitySync(clonedBookingComName);
       }
     } catch (error: any) {
       console.error('Failed to clone room:', error);
