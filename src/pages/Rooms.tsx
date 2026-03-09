@@ -1174,7 +1174,7 @@ const Rooms = () => {
                       </div>
 
                       {/* Room type footer actions */}
-                      {isAdmin && !isBulkEdit && (
+                      {isAdmin && (
                         <div className="flex gap-2 mt-4 pt-4 border-t">
                           <Button variant="outline" size="sm" onClick={() => {
                             handleCloneClick(representative);
