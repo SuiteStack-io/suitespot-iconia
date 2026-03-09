@@ -370,16 +370,6 @@ const Rooms = () => {
     }
   };
 
-  const getNextReservation = (unitId: string): string | null => {
-    const unitReservations = reservations.filter(
-      (res) => res.unit_id === unitId
-    );
-    
-    if (unitReservations.length === 0) return null;
-    
-    const nextRes = unitReservations[0];
-    return format(new Date(nextRes.check_in_date), 'MMM dd, yyyy');
-  };
 
   const handleEdit = (unit: Unit) => {
     setEditingId(unit.id);
@@ -924,7 +914,7 @@ const Rooms = () => {
                   <th className="h-10 px-2 text-left align-middle font-medium text-muted-foreground min-w-[160px] bg-background">Photos</th>
                   <th className="h-10 px-2 text-left align-middle font-medium text-muted-foreground min-w-[120px] bg-background">Status</th>
                   
-                  <th className="h-10 px-2 text-left align-middle font-medium text-muted-foreground min-w-[130px] bg-background">Next Reservation</th>
+                  
                   {isAdmin && !isBulkEdit && <th className="h-10 px-2 text-left align-middle font-medium text-muted-foreground min-w-[100px] bg-background">Actions</th>}
                 </tr>
               </thead>
@@ -1220,11 +1210,6 @@ const Rooms = () => {
                       ) : (
                         <span className="capitalize">{unit.status}</span>
                       )}
-                    </TableCell>
-                    <TableCell className="min-w-[130px]">
-                      <span className="text-sm">
-                        {getNextReservation(unit.id) || '-'}
-                      </span>
                     </TableCell>
                     {isAdmin && !isBulkEdit && (
                       <TableCell>
