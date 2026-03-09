@@ -7,7 +7,7 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Textarea } from '@/components/ui/textarea';
-import { Save, Plus, Pencil, X, Upload, Trash2, Eye, ChevronDown, ChevronRight, ChevronsDown, ChevronsUp, Copy, Image as ImageIcon, GripVertical, ArrowLeft, BedDouble, MoreVertical } from 'lucide-react';
+import { Save, Plus, Pencil, X, Upload, Trash2, Eye, ChevronDown, ChevronRight, ChevronsDown, ChevronsUp, Copy, Image as ImageIcon, GripVertical, ArrowLeft, BedDouble, MoreVertical, Wand2 } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
 import { Progress } from '@/components/ui/progress';
 import { Card, CardHeader, CardTitle, CardDescription, CardContent } from '@/components/ui/card';
@@ -108,7 +108,8 @@ const Rooms = () => {
   const [uploadProgress, setUploadProgress] = useState<{ [key: string]: number }>({});
   const [cloneDialogOpen, setCloneDialogOpen] = useState(false);
   const [roomToClone, setRoomToClone] = useState<Unit | null>(null);
-  const [cloneRoomNumber, setCloneRoomNumber] = useState<string>('');
+  const [cloneCount, setCloneCount] = useState(1);
+  const [cloneRoomNumbers, setCloneRoomNumbers] = useState<string[]>(['']);
   const [deleteDialogOpen, setDeleteDialogOpen] = useState(false);
   const [roomToDelete, setRoomToDelete] = useState<Unit | null>(null);
   const [photoGalleryOpen, setPhotoGalleryOpen] = useState(false);
@@ -616,44 +617,85 @@ const Rooms = () => {
     fetchUnits();
   };
 
+  const getNextAvailableNumbers = (startFrom: number, count: number, existingNumbers: number[]): string[] => {
+    const suggestions: string[] = [];
+    let current = startFrom;
+    while (suggestions.length < count) {
+      current++;
+      if (!existingNumbers.includes(current)) {
+        suggestions.push(String(current));
+      }
+    }
+    return suggestions;
+  };
+
+  const getExistingUnitNumbers = (): number[] => {
+    return units.map(u => parseInt(u.unit_number || '0')).filter(n => !isNaN(n));
+  };
+
   const handleCloneClick = (unit: Unit) => {
     setRoomToClone(unit);
-    setCloneRoomNumber('');
+    const existingNumbers = getExistingUnitNumbers();
+    const currentNum = parseInt(unit.unit_number || '0') || 0;
+    const suggestions = getNextAvailableNumbers(currentNum, 1, existingNumbers);
+    setCloneCount(1);
+    setCloneRoomNumbers(suggestions);
     setCloneDialogOpen(true);
+  };
+
+  const handleCloneCountChange = (newCount: number) => {
+    const count = Math.max(1, Math.min(50, newCount));
+    setCloneCount(count);
+    setCloneRoomNumbers(prev => {
+      const existingNumbers = getExistingUnitNumbers();
+      if (count > prev.length) {
+        const lastNum = parseInt(prev[prev.length - 1]) || parseInt(roomToClone?.unit_number || '0') || 0;
+        const allUsed = [...existingNumbers, ...prev.map(n => parseInt(n)).filter(n => !isNaN(n))];
+        const additions = getNextAvailableNumbers(lastNum, count - prev.length, allUsed);
+        return [...prev, ...additions];
+      }
+      return prev.slice(0, count);
+    });
+  };
+
+  const handleAutoFillNumbers = () => {
+    if (!roomToClone) return;
+    const existingNumbers = getExistingUnitNumbers();
+    const currentNum = parseInt(roomToClone.unit_number || '0') || 0;
+    const suggestions = getNextAvailableNumbers(currentNum, cloneCount, existingNumbers);
+    setCloneRoomNumbers(suggestions);
   };
 
   const handleConfirmClone = async () => {
     if (!roomToClone) return;
 
-    const newRoomNumber = cloneRoomNumber.trim();
-    
-    if (!newRoomNumber) {
-      toast({
-        variant: 'destructive',
-        title: 'Error',
-        description: 'Please enter a room number',
-      });
+    const trimmed = cloneRoomNumbers.map(n => n.trim());
+
+    // Validate all filled
+    const emptyIdx = trimmed.findIndex(n => !n);
+    if (emptyIdx !== -1) {
+      toast({ variant: 'destructive', title: 'Error', description: `Room ${emptyIdx + 1} number is required` });
       return;
     }
 
-    // Check if room number already exists
-    const existingRoom = units.find(u => u.unit_number === newRoomNumber);
-    if (existingRoom) {
-      toast({
-        variant: 'destructive',
-        title: 'Error',
-        description: 'A room with this number already exists',
-      });
+    // Check duplicates within form
+    const dupes = trimmed.filter((n, i) => trimmed.indexOf(n) !== i);
+    if (dupes.length > 0) {
+      toast({ variant: 'destructive', title: 'Error', description: `Duplicate room number: ${dupes[0]}` });
+      return;
+    }
+
+    // Check against existing units
+    const conflict = trimmed.find(n => units.some(u => u.unit_number === n));
+    if (conflict) {
+      toast({ variant: 'destructive', title: 'Error', description: `Room number ${conflict} already exists` });
       return;
     }
 
     try {
-      console.log('Cloning room with source data:', roomToClone);
-      
-      // Clone the room with all specifications except id and unit_number
-      const clonedData = {
+      const clonedUnits = trimmed.map(num => ({
         name: roomToClone.name,
-        unit_number: newRoomNumber,
+        unit_number: num,
         unit_type: roomToClone.unit_type,
         unit_size: roomToClone.unit_size,
         status: 'available',
@@ -678,36 +720,23 @@ const Rooms = () => {
         location: roomToClone.location,
         features: roomToClone.features || [],
         min_stay: roomToClone.min_stay,
-      };
-      
-      console.log('Inserting cloned data:', clonedData);
-      
-      const { error, data } = await supabase.from('units').insert([clonedData]).select();
+      }));
 
-      if (error) {
-        console.error('Clone error details:', error);
-        throw error;
-      }
-
-      console.log('Clone successful:', data);
+      const { error } = await supabase.from('units').insert(clonedUnits).select();
+      if (error) throw error;
 
       setCloneDialogOpen(false);
       setRoomToClone(null);
-      setCloneRoomNumber('');
 
       toast({
         title: 'Success',
-        description: `Room ${newRoomNumber} created successfully`,
+        description: `Created ${trimmed.length} room${trimmed.length > 1 ? 's' : ''} successfully`,
       });
 
       fetchUnits();
     } catch (error: any) {
       console.error('Failed to clone room:', error);
-      toast({
-        variant: 'destructive',
-        title: 'Error',
-        description: error.message || 'Failed to clone room',
-      });
+      toast({ variant: 'destructive', title: 'Error', description: error.message || 'Failed to clone room' });
     }
   };
 
@@ -1198,27 +1227,56 @@ const Rooms = () => {
           <DialogHeader>
             <DialogTitle>Clone Room</DialogTitle>
             <DialogDescription>
-              Create a copy of this room with all its specifications.
+              Create copies of this room with all its specifications.
             </DialogDescription>
           </DialogHeader>
           <div className="py-4 space-y-4">
-            <div className="space-y-2 text-sm bg-muted p-4 rounded-lg">
-              <p><strong>Room Name:</strong> {roomToClone?.name}</p>
-              <p><strong>Current Room #:</strong> {roomToClone?.unit_number || 'N/A'}</p>
-              <p><strong>Type:</strong> {roomToClone?.unit_type || 'N/A'}</p>
-              <p><strong>Price:</strong> ${roomToClone?.price_per_night || 'N/A'}/night</p>
+            <div className="space-y-1 text-sm bg-muted p-4 rounded-lg">
+              <p><span className="font-medium">Room Name:</span> {roomToClone?.name}</p>
+              <p><span className="font-medium">Current Room #:</span> {roomToClone?.unit_number || 'N/A'}</p>
+              <p><span className="font-medium">Type:</span> {roomToClone?.unit_type || 'N/A'}</p>
             </div>
             <div className="space-y-2">
-              <Label htmlFor="cloneRoomNumber">
-                New Room Number <span className="text-destructive">*</span>
+              <Label htmlFor="cloneCount">
+                Number of Rooms to Clone <span className="text-destructive">*</span>
               </Label>
               <Input
-                id="cloneRoomNumber"
-                value={cloneRoomNumber}
-                onChange={(e) => setCloneRoomNumber(e.target.value)}
-                placeholder="Enter room number (e.g., 509)"
-                autoFocus
+                id="cloneCount"
+                type="number"
+                min={1}
+                max={50}
+                value={cloneCount}
+                onChange={(e) => handleCloneCountChange(parseInt(e.target.value) || 1)}
               />
+            </div>
+            <div className="space-y-2">
+              <div className="flex items-center justify-between">
+                <Label>
+                  New Room Numbers <span className="text-destructive">*</span>
+                </Label>
+                <Button variant="ghost" size="sm" onClick={handleAutoFillNumbers} className="text-xs h-7">
+                  <Wand2 className="h-3 w-3 mr-1" /> Auto-Fill
+                </Button>
+              </div>
+              <div className="space-y-2 max-h-48 overflow-y-auto pr-2">
+                {cloneRoomNumbers.map((num, index) => (
+                  <div key={index} className="flex items-center gap-3">
+                    <Label className="w-16 text-sm text-muted-foreground shrink-0">
+                      Room {index + 1}:
+                    </Label>
+                    <Input
+                      type="text"
+                      value={num}
+                      onChange={(e) => {
+                        const newNumbers = [...cloneRoomNumbers];
+                        newNumbers[index] = e.target.value;
+                        setCloneRoomNumbers(newNumbers);
+                      }}
+                      placeholder="e.g., 103"
+                    />
+                  </div>
+                ))}
+              </div>
             </div>
           </div>
           <DialogFooter>
@@ -1227,15 +1285,12 @@ const Rooms = () => {
               onClick={() => {
                 setCloneDialogOpen(false);
                 setRoomToClone(null);
-                setCloneRoomNumber('');
               }}
             >
               Cancel
             </Button>
-            <Button
-              onClick={handleConfirmClone}
-            >
-              Clone Room
+            <Button onClick={handleConfirmClone}>
+              Clone {cloneCount} Room{cloneCount > 1 ? 's' : ''}
             </Button>
           </DialogFooter>
         </DialogContent>

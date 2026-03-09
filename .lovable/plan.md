@@ -1,33 +1,118 @@
 
 
-## Improve Clone Room Modal — Multi-Room Cloning
+## Fix: Filter Blocked Dates by Active Property
 
-### Changes in `src/pages/Rooms.tsx`
+### Problem
+`fetchBlockedDates()` fetches ALL blocked dates across all properties. `fetchUnits()` correctly filters by `propertyId`, but blocked dates does not.
 
-**1. Replace state variables** (lines 109-111)
-- Replace `cloneRoomNumber: string` with `cloneCount: number` (default 1) and `cloneRoomNumbers: string[]` (default `['']`)
+### File: `src/components/BlockedDatesManager.tsx`
 
-**2. Update `handleCloneClick`** (lines 619-623)
-- Auto-calculate next available room numbers based on existing units
-- Set `cloneCount` to 1 and `cloneRoomNumbers` to `[nextAvailableNumber]`
+**1. Filter `fetchBlockedDates` by property (lines 101-121)**
 
-**3. Add helper function `getNextAvailableNumbers`**
-- Takes a starting number, count, and list of existing unit numbers
-- Returns an array of sequential numbers that don't conflict with existing ones
+The `blocked_dates` table references `units` via `unit_id`. Filter by joining through units that belong to the active property:
 
-**4. Update `handleConfirmClone`** (lines 625-711)
-- Loop through `cloneRoomNumbers` array
-- Validate: all filled, no duplicates within form, no conflicts with existing units
-- Batch insert all cloned units in a single `.insert()` call
-- Toast: "Created X room(s) successfully"
+```typescript
+const fetchBlockedDates = async () => {
+  try {
+    let query = supabase
+      .from("blocked_dates")
+      .select(`
+        *,
+        units (
+          name,
+          unit_number,
+          booking_com_name
+        )
+      `)
+      .order("blocked_date", { ascending: true });
 
-**5. Replace the clone dialog UI** (lines 1195-1242)
-- Remove Price line from the summary
-- Add "Number of Rooms to Clone" number input that controls `cloneCount`
-- When `cloneCount` changes, dynamically grow/shrink `cloneRoomNumbers` array with auto-suggested sequential numbers
-- Render labeled room number inputs in a scrollable container (`max-h-48 overflow-y-auto`)
-- Add "Auto-Fill" ghost button (using `Wand2` icon) that recalculates all numbers sequentially
-- Button text: `Clone {cloneCount} Room{cloneCount > 1 ? 's' : ''}`
+    // Filter to only show blocked dates for units belonging to the active property
+    if (propertyId) {
+      query = query.eq('units.property_id', propertyId);
+    }
 
-### No new files or database changes needed
+    const { data, error } = await query;
+    if (error) throw error;
+
+    // Remove entries where the unit was filtered out (unit doesn't belong to property)
+    const filtered = (data || []).filter(d => d.unit_id === null || d.units !== null);
+    setBlockedDates(filtered);
+  } catch (error: any) {
+    console.error("Error fetching blocked dates:", error);
+    toast.error("Failed to fetch blocked dates");
+  }
+};
+```
+
+However, `blocked_dates` rows with `unit_id = null` (meaning "all rooms") have no unit join to filter on. We need a different approach — filter blocked dates whose `unit_id` is either null OR belongs to a unit in the active property. The cleanest way: use the unit IDs we already fetch.
+
+**Better approach — filter client-side using fetched units:**
+
+Since `fetchUnits` already returns only units for the active property, filter blocked dates to only include those whose `unit_id` is null or matches a fetched unit.
+
+Actually, the simplest and most reliable fix: add `property_id` awareness to the query. Since `blocked_dates` has a `unit_id` FK to `units`, and `units` has `property_id`, we can filter via an inner join or use an `in` filter with the property's unit IDs.
+
+**Revised approach — fetch unit IDs first, then filter:**
+
+```typescript
+// In useEffect, ensure both refetch when propertyId changes
+useEffect(() => {
+  fetchUnits();
+  fetchBlockedDates();
+}, [propertyId]);
+```
+
+In `fetchBlockedDates`, after fetching units (or independently):
+- Query units for the active property to get their IDs
+- Filter blocked_dates where `unit_id` is in that list
+
+**Simplest implementation:**
+
+1. **Change useEffect (line 80-83)** to depend on `propertyId`
+2. **Update `fetchBlockedDates`** to filter by property's unit IDs
+
+```typescript
+const fetchBlockedDates = async () => {
+  try {
+    // First get unit IDs for the active property
+    let unitIds: string[] = [];
+    if (propertyId) {
+      const { data: propUnits } = await supabase
+        .from("units")
+        .select("id")
+        .eq("property_id", propertyId);
+      unitIds = (propUnits || []).map(u => u.id);
+    }
+
+    let query = supabase
+      .from("blocked_dates")
+      .select(`*, units (name, unit_number, booking_com_name)`)
+      .order("blocked_date", { ascending: true });
+
+    if (propertyId && unitIds.length > 0) {
+      // Only show blocked dates for this property's units
+      query = query.in("unit_id", unitIds);
+    } else if (propertyId && unitIds.length === 0) {
+      // Property has no units, show nothing
+      setBlockedDates([]);
+      return;
+    }
+
+    const { data, error } = await query;
+    if (error) throw error;
+    setBlockedDates(data || []);
+  } catch (error: any) {
+    console.error("Error fetching blocked dates:", error);
+    toast.error("Failed to fetch blocked dates");
+  }
+};
+```
+
+3. **Update useEffect** (line 80-83): add `propertyId` to dependency array
+
+### Summary
+- 1 file changed: `src/components/BlockedDatesManager.tsx`
+- `fetchBlockedDates` filters by active property's unit IDs
+- Re-fetches when property switches
+- Blocked dates with `unit_id = null` (all-rooms blocks) won't show unless we decide they should — this matches the expectation that blocks are property-scoped
 
