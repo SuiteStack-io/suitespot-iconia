@@ -629,7 +629,7 @@ const Rooms = () => {
     await fetchUnits();
 
     if (addedBookingComName) {
-      addToPendingAvailabilitySync(addedBookingComName);
+      await addToPendingAvailabilitySync(addedBookingComName);
     }
   };
 
