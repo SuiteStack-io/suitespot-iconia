@@ -127,7 +127,8 @@ serve(async (req: Request) => {
             supabase,
             unitData.booking_com_name,
             item.date_from,
-            item.date_to
+            item.date_to,
+            unitData.property_id
           );
 
           values.push({
@@ -462,14 +463,24 @@ async function calculateAvailability(
   supabase: any,
   roomTypeName: string,
   dateFrom: string,
-  dateTo: string
+  dateTo: string,
+  propertyId?: string
 ): Promise<number> {
-  // Count total units of this room type
-  const { count: totalUnits } = await supabase
+  // Count total units of this room type, scoped by property
+  let unitsQuery = supabase
     .from("units")
     .select("id", { count: "exact", head: true })
     .eq("booking_com_name", roomTypeName)
     .neq("status", "maintenance");
+  if (propertyId) unitsQuery = unitsQuery.eq("property_id", propertyId);
+  const { count: totalUnits } = await unitsQuery;
+
+  // Build scoped unit subquery for reservations and blocked dates
+  let unitSubquery = supabase
+    .from("units")
+    .select("id")
+    .eq("booking_com_name", roomTypeName);
+  if (propertyId) unitSubquery = unitSubquery.eq("property_id", propertyId);
 
   // Count reservations that overlap this date range
   const { count: reservedCount } = await supabase
@@ -479,13 +490,7 @@ async function calculateAvailability(
     .lt("check_in_date", dateTo)
     .gt("check_out_date", dateFrom)
     .not("unit_id", "is", null)
-    .in(
-      "unit_id",
-      supabase
-        .from("units")
-        .select("id")
-        .eq("booking_com_name", roomTypeName)
-    );
+    .in("unit_id", unitSubquery);
 
   // Count blocked dates in range
   const { count: blockedCount } = await supabase
@@ -493,16 +498,10 @@ async function calculateAvailability(
     .select("id", { count: "exact", head: true })
     .gte("blocked_date", dateFrom)
     .lt("blocked_date", dateTo)
-    .in(
-      "unit_id",
-      supabase
-        .from("units")
-        .select("id")
-        .eq("booking_com_name", roomTypeName)
-    );
+    .in("unit_id", unitSubquery);
 
   const available = Math.max(0, (totalUnits || 0) - (reservedCount || 0) - (blockedCount || 0));
-  console.log(`[process-sync-queue] Availability for ${roomTypeName} (${dateFrom}-${dateTo}): ${available}/${totalUnits}`);
+  console.log(`[process-sync-queue] Availability for ${roomTypeName} @ property ${propertyId || 'all'} (${dateFrom}-${dateTo}): ${available}/${totalUnits}`);
   return available;
 }
 
