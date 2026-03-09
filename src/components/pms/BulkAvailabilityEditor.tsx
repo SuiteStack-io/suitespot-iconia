@@ -99,6 +99,38 @@ export function BulkAvailabilityEditor({ pendingAvailability, setPendingAvailabi
     return () => window.removeEventListener('beforeunload', handleBeforeUnload);
   }, [pendingAvailability.length]);
 
+  // Auto-fetch current availability when room type or date changes
+  useEffect(() => {
+    if (!selectedRoomType || !dateFrom || !propertyId) {
+      setCurrentAvailability(null);
+      return;
+    }
+
+    let cancelled = false;
+    const fetchCurrent = async () => {
+      setIsLoadingAvailability(true);
+      try {
+        const { data } = await supabase
+          .from('units')
+          .select('id')
+          .eq('property_id', propertyId)
+          .eq('booking_com_name', selectedRoomType)
+          .neq('status', 'maintenance');
+
+        if (cancelled) return;
+        const count = data?.length || 0;
+        setCurrentAvailability(count);
+        setAvailability(count);
+      } catch {
+        if (!cancelled) setCurrentAvailability(null);
+      } finally {
+        if (!cancelled) setIsLoadingAvailability(false);
+      }
+    };
+    fetchCurrent();
+    return () => { cancelled = true; };
+  }, [selectedRoomType, dateFrom, propertyId]);
+
   const selectedRoomTypeOption = useMemo(
     () => roomTypes.find(r => r.name === selectedRoomType),
     [roomTypes, selectedRoomType]
@@ -108,6 +140,7 @@ export function BulkAvailabilityEditor({ pendingAvailability, setPendingAvailabi
     setDateFrom(undefined);
     setDateTo(undefined);
     setAvailability(0);
+    setCurrentAvailability(null);
   };
 
   const handleApply = () => {
