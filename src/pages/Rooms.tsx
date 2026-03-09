@@ -1530,21 +1530,6 @@ const Rooms = () => {
               </Select>
             </div>
             <div className="space-y-2">
-              <Label htmlFor="add-weekday">Weekday Rate</Label>
-              <Input id="add-weekday" type="number" step="0.01" value={newUnit.price_per_night || ''} onChange={(e) => {
-                const rate = e.target.value ? parseFloat(e.target.value) : null;
-                setNewUnit({ ...newUnit, price_per_night: rate, weekend_rate: calculateWeekendRate(rate) });
-              }} placeholder="0.00" />
-            </div>
-            <div className="space-y-2">
-              <Label htmlFor="add-weekend">Weekend Rate</Label>
-              <Input id="add-weekend" type="number" step="0.01" value={newUnit.weekend_rate || ''} onChange={(e) => setNewUnit({ ...newUnit, weekend_rate: e.target.value ? parseFloat(e.target.value) : null })} placeholder="Auto-calculated" />
-            </div>
-            <div className="space-y-2">
-              <Label htmlFor="add-tax">Tax %</Label>
-              <Input id="add-tax" type="number" step="0.01" min="0" max="100" value={newUnit.tax_percentage ?? ''} onChange={(e) => setNewUnit({ ...newUnit, tax_percentage: e.target.value ? parseFloat(e.target.value) : null })} placeholder="14" />
-            </div>
-            <div className="space-y-2">
               <Label>Status</Label>
               <Select value={newUnit.status} onValueChange={(v) => setNewUnit({ ...newUnit, status: v })}>
                 <SelectTrigger><SelectValue placeholder="Select status" /></SelectTrigger>
