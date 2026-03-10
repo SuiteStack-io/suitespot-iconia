@@ -109,7 +109,7 @@ export default function GuestForms() {
   const [loading, setLoading] = useState(true);
   const [searchQuery, setSearchQuery] = useState('');
   const [activeFilter, setActiveFilter] = useState<FilterType>('all');
-  const [dateFilter, setDateFilter] = useState<DateFilterType>('all');
+  const [dateFilter, setDateFilter] = useState<DateFilterType>('month');
   const [emailModalOpen, setEmailModalOpen] = useState(false);
   const [copiedEmail, setCopiedEmail] = useState<string | null>(null);
   const [downloadingId, setDownloadingId] = useState<string | null>(null);
@@ -642,6 +642,13 @@ export default function GuestForms() {
                 ? `YTD ${format(new Date(), 'yyyy')}`
                 : 'Year to Date'
               }
+            </Button>
+            <Button
+              variant={dateFilter === 'all' ? 'default' : 'outline'}
+              size="sm"
+              onClick={() => setDateFilter('all')}
+            >
+              All Time
             </Button>
             {activeFilter !== 'all' && (
               <Badge variant="secondary" className="cursor-pointer" onClick={() => setActiveFilter('all')}>
