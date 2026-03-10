@@ -1610,6 +1610,12 @@ Thank you for choosing SuiteSpot!`;
                   <Label className="text-muted-foreground">Channel</Label>
                   <p className="mt-1 font-medium">{reservation.channel}</p>
                 </div>
+                {reservation.channex_booking_id && (
+                  <div>
+                    <Label className="text-muted-foreground">Channex ID</Label>
+                    <p className="mt-1 font-medium">{reservation.channex_booking_id}</p>
+                  </div>
+                )}
                 <div>
                   <Label className="text-muted-foreground">Currency</Label>
                   <p className="mt-1 font-medium">{reservation.currency || 'USD'}</p>
