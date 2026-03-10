@@ -106,6 +106,7 @@ interface Reservation {
   group_id: string | null;
   units: { name: string; unit_number: string | null; booking_com_name: string | null; tax_percentage: number | null } | null;
   vat_exempt: boolean | null;
+  channex_booking_id: string | null;
 }
 
 interface Unit {
