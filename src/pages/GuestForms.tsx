@@ -342,13 +342,14 @@ export default function GuestForms() {
       ? filteredData.filter(d => selectedRows.has(d.reservation.id))
       : filteredData;
 
-    const headers = ['Room', 'Guest Name', 'Check-In', 'Check-Out', 'Booking Ref', 'Check-In Status', 'Form Status', 'Form Name', 'Form Email', 'Form Phone', 'Signed At', 'Nationality', 'Age'];
+    const headers = ['Room', 'Guest Name', 'Check-In', 'Check-Out', 'Booking Ref', 'Reservation Status', 'Check-In Status', 'Form Status', 'Form Name', 'Form Email', 'Form Phone', 'Signed At', 'Nationality', 'Age'];
     const rows = dataToExport.map(d => [
       d.reservation.units?.unit_number || d.reservation.units?.name || '',
       d.reservation.guest_names?.[0] || '',
       d.reservation.check_in_date,
       d.reservation.check_out_date,
       d.reservation.booking_reference || '',
+      d.reservation.status === 'confirmed' ? 'Confirmed' : d.reservation.status === 'checked-in' ? 'Checked In' : 'Completed',
       d.reservation.status || '',
       d.hasForm ? 'Completed' : 'Pending',
       d.agreement?.guest_full_name || '',
