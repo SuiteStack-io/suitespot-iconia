@@ -177,9 +177,8 @@ export default function GuestForms() {
 
   // Compute statistics
   const stats = useMemo(() => {
-    const checkedInReservations = reservations.filter(r => r.status === 'checked-in');
-    const withForm = checkedInReservations.filter(r => agreementsMap.has(r.id));
-    const withoutForm = checkedInReservations.filter(r => !agreementsMap.has(r.id));
+    const withForm = reservations.filter(r => agreementsMap.has(r.id));
+    const withoutForm = reservations.filter(r => !agreementsMap.has(r.id));
     const uniqueEmails = new Set(
       agreements.map(a => a.guest_email?.toLowerCase()).filter(Boolean)
     );
