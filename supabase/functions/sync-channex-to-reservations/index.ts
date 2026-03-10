@@ -123,7 +123,6 @@ Deno.serve(async (req: Request) => {
           }
         }
 
-        const nights = calculateNights(arrival_date, departure_date);
         const numberOfGuests = (parseInt(adults) || 1) + (parseInt(children) || 0);
 
         const { error: insertErr } = await supabase
