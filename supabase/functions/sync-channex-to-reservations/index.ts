@@ -123,7 +123,6 @@ Deno.serve(async (req: Request) => {
           }
         }
 
-        const nights = calculateNights(arrival_date, departure_date);
         const numberOfGuests = (parseInt(adults) || 1) + (parseInt(children) || 0);
 
         const { error: insertErr } = await supabase
@@ -147,7 +146,6 @@ Deno.serve(async (req: Request) => {
             number_of_guests: numberOfGuests,
             adults: parseInt(adults) || 1,
             children: parseInt(children) || 0,
-            nights,
             skip_channex_sync: true,
           });
 
@@ -179,13 +177,3 @@ Deno.serve(async (req: Request) => {
   }
 });
 
-function calculateNights(arrival: string, departure: string): number {
-  try {
-    const a = new Date(arrival);
-    const d = new Date(departure);
-    const diff = Math.round((d.getTime() - a.getTime()) / (1000 * 60 * 60 * 24));
-    return diff > 0 ? diff : 1;
-  } catch {
-    return 1;
-  }
-}
