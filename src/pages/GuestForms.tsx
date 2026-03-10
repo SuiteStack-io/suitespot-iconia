@@ -149,7 +149,7 @@ export default function GuestForms() {
         `)
         .in('status', ['checked-in', 'checked-out', 'confirmed'])
         .lte('check_in_date', today)
-        .order('check_in_date', { ascending: false });
+        .order('check_in_date', { ascending: false }), propertyId);
 
       if (reservationsError) throw reservationsError;
 
