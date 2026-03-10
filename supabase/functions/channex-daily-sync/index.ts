@@ -33,7 +33,7 @@ function addDays(d: Date, n: number): Date {
 
 const delay = (ms: number) => new Promise((r) => setTimeout(r, ms));
 
-serve(async (req: Request) => {
+Deno.serve(async (req: Request) => {
   if (req.method === "OPTIONS") {
     return new Response(null, { headers: corsHeaders });
   }

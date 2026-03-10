@@ -23,7 +23,7 @@ interface RateUpdate {
   stop_sell?: boolean;
 }
 
-serve(async (req: Request) => {
+Deno.serve(async (req: Request) => {
   if (req.method === "OPTIONS") {
     return new Response(null, { headers: corsHeaders });
   }
