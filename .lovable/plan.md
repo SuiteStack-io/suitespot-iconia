@@ -1,32 +1,118 @@
 
 
-## Fix "All Time" Filter to Show All Guest Forms
+## Fix: Filter Blocked Dates by Active Property
 
-### Root Cause
+### Problem
+`fetchBlockedDates()` fetches ALL blocked dates across all properties. `fetchUnits()` correctly filters by `propertyId`, but blocked dates does not.
 
-The database query on line 167 filters reservations to only `checked-in`, `checked-out`, and `confirmed` statuses. Reservations that have been completed (status `completed`) are excluded at the query level, so they never appear regardless of the date filter selected.
+### File: `src/components/BlockedDatesManager.tsx`
 
-### Change — `src/pages/GuestForms.tsx`
+**1. Filter `fetchBlockedDates` by property (lines 101-121)**
 
-**1. Include `completed` status in the query** (line 167):
+The `blocked_dates` table references `units` via `unit_id`. Filter by joining through units that belong to the active property:
 
-Change:
 ```typescript
-.in('status', ['checked-in', 'checked-out', 'confirmed'])
+const fetchBlockedDates = async () => {
+  try {
+    let query = supabase
+      .from("blocked_dates")
+      .select(`
+        *,
+        units (
+          name,
+          unit_number,
+          booking_com_name
+        )
+      `)
+      .order("blocked_date", { ascending: true });
+
+    // Filter to only show blocked dates for units belonging to the active property
+    if (propertyId) {
+      query = query.eq('units.property_id', propertyId);
+    }
+
+    const { data, error } = await query;
+    if (error) throw error;
+
+    // Remove entries where the unit was filtered out (unit doesn't belong to property)
+    const filtered = (data || []).filter(d => d.unit_id === null || d.units !== null);
+    setBlockedDates(filtered);
+  } catch (error: any) {
+    console.error("Error fetching blocked dates:", error);
+    toast.error("Failed to fetch blocked dates");
+  }
+};
 ```
-To:
+
+However, `blocked_dates` rows with `unit_id = null` (meaning "all rooms") have no unit join to filter on. We need a different approach — filter blocked dates whose `unit_id` is either null OR belongs to a unit in the active property. The cleanest way: use the unit IDs we already fetch.
+
+**Better approach — filter client-side using fetched units:**
+
+Since `fetchUnits` already returns only units for the active property, filter blocked dates to only include those whose `unit_id` is null or matches a fetched unit.
+
+Actually, the simplest and most reliable fix: add `property_id` awareness to the query. Since `blocked_dates` has a `unit_id` FK to `units`, and `units` has `property_id`, we can filter via an inner join or use an `in` filter with the property's unit IDs.
+
+**Revised approach — fetch unit IDs first, then filter:**
+
 ```typescript
-.in('status', ['checked-in', 'checked-out', 'confirmed', 'completed'])
+// In useEffect, ensure both refetch when propertyId changes
+useEffect(() => {
+  fetchUnits();
+  fetchBlockedDates();
+}, [propertyId]);
 ```
 
-**2. Remove the `.lte('check_in_date', today)` filter** (line 168):
+In `fetchBlockedDates`, after fetching units (or independently):
+- Query units for the active property to get their IDs
+- Filter blocked_dates where `unit_id` is in that list
 
-This server-side date filter prevents future confirmed reservations from appearing, which is fine — but it also clips historical data unnecessarily when combined with the "All Time" client-side filter. Since the client-side date filter already handles date ranges, removing this server-side constraint lets "All Time" fetch everything.
+**Simplest implementation:**
 
-Alternatively, only remove the `.lte` when "All Time" is selected — but since the client-side filter already handles week/month/ytd filtering, removing it entirely is simpler and the client filter handles the rest.
+1. **Change useEffect (line 80-83)** to depend on `propertyId`
+2. **Update `fetchBlockedDates`** to filter by property's unit IDs
 
-**3. Handle the 1000-row query limit**: Add `.limit(5000)` or use pagination if needed to ensure all 46+ forms are returned (default Supabase limit is 1000, so 46 should be fine without changes).
+```typescript
+const fetchBlockedDates = async () => {
+  try {
+    // First get unit IDs for the active property
+    let unitIds: string[] = [];
+    if (propertyId) {
+      const { data: propUnits } = await supabase
+        .from("units")
+        .select("id")
+        .eq("property_id", propertyId);
+      unitIds = (propUnits || []).map(u => u.id);
+    }
 
-### File
-- `src/pages/GuestForms.tsx`
+    let query = supabase
+      .from("blocked_dates")
+      .select(`*, units (name, unit_number, booking_com_name)`)
+      .order("blocked_date", { ascending: true });
+
+    if (propertyId && unitIds.length > 0) {
+      // Only show blocked dates for this property's units
+      query = query.in("unit_id", unitIds);
+    } else if (propertyId && unitIds.length === 0) {
+      // Property has no units, show nothing
+      setBlockedDates([]);
+      return;
+    }
+
+    const { data, error } = await query;
+    if (error) throw error;
+    setBlockedDates(data || []);
+  } catch (error: any) {
+    console.error("Error fetching blocked dates:", error);
+    toast.error("Failed to fetch blocked dates");
+  }
+};
+```
+
+3. **Update useEffect** (line 80-83): add `propertyId` to dependency array
+
+### Summary
+- 1 file changed: `src/components/BlockedDatesManager.tsx`
+- `fetchBlockedDates` filters by active property's unit IDs
+- Re-fetches when property switches
+- Blocked dates with `unit_id = null` (all-rooms blocks) won't show unless we decide they should — this matches the expectation that blocks are property-scoped
 

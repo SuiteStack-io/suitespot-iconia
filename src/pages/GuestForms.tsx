@@ -164,8 +164,7 @@ export default function GuestForms() {
           checked_in_at,
           units!unit_id (name, unit_number)
         `)
-        .in('status', ['checked-in', 'checked-out', 'confirmed'])
-        .lte('check_in_date', today)
+        .in('status', ['checked-in', 'checked-out', 'confirmed', 'completed'])
         .order('check_in_date', { ascending: false }), propertyId);
 
       if (reservationsError) throw reservationsError;
