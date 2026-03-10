@@ -298,6 +298,41 @@ export default function GuestForms() {
     return data;
   }, [tableData, activeFilter, searchQuery, dateFilter, sortField, sortOrder]);
 
+  const handleExportCSV = () => {
+    const escapeCSV = (val: string) => {
+      if (val.includes(',') || val.includes('"') || val.includes('\n')) {
+        return `"${val.replace(/"/g, '""')}"`;
+      }
+      return val;
+    };
+
+    const headers = ['Room', 'Guest Name', 'Check-In', 'Check-Out', 'Booking Ref', 'Check-In Status', 'Form Status', 'Form Name', 'Form Email', 'Form Phone', 'Signed At', 'Nationality', 'Age'];
+    const rows = filteredData.map(d => [
+      d.reservation.units?.unit_number || d.reservation.units?.name || '',
+      d.reservation.guest_names?.[0] || '',
+      d.reservation.check_in_date,
+      d.reservation.check_out_date,
+      d.reservation.booking_reference || '',
+      d.reservation.status || '',
+      d.hasForm ? 'Completed' : 'Pending',
+      d.agreement?.guest_full_name || '',
+      d.agreement?.guest_email || '',
+      d.agreement?.guest_phone || '',
+      d.agreement?.signed_at ? format(new Date(d.agreement.signed_at), 'yyyy-MM-dd HH:mm') : '',
+      d.agreement?.guest_nationality || '',
+      d.agreement?.guest_date_of_birth || '',
+    ].map(v => escapeCSV(String(v))));
+
+    const csv = [headers.join(','), ...rows.map(r => r.join(','))].join('\n');
+    const blob = new Blob([csv], { type: 'text/csv;charset=utf-8;' });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = `guest-forms-export-${format(new Date(), 'yyyy-MM-dd')}.csv`;
+    a.click();
+    URL.revokeObjectURL(url);
+  };
+
   const handleDownloadPDF = async (reservation: Reservation, agreement: CheckInAgreement) => {
     setDownloadingId(reservation.id);
     try {
@@ -577,6 +612,17 @@ export default function GuestForms() {
               </Badge>
             )}
           </div>
+        </div>
+
+        {/* Count bar + Export */}
+        <div className="flex items-center justify-between">
+          <span className="text-sm text-muted-foreground">
+            Showing {filteredData.length} of {tableData.length} guests
+          </span>
+          <Button variant="outline" size="sm" onClick={handleExportCSV} disabled={filteredData.length === 0}>
+            <Download className="h-4 w-4 mr-2" />
+            Export CSV
+          </Button>
         </div>
 
         {/* Table */}
