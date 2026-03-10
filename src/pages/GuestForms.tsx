@@ -1,4 +1,4 @@
-import { useState, useEffect, useMemo } from 'react';
+import { useState, useEffect, useMemo, useCallback } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/lib/auth';
@@ -56,6 +56,7 @@ import {
   ArrowDown,
 } from 'lucide-react';
 import { PassportUploadDialog } from '@/components/PassportUploadDialog';
+import { Checkbox } from '@/components/ui/checkbox';
 import { toast } from 'sonner';
 import { usePropertyId, withPropertyFilter } from '@/hooks/usePropertyFilter';
 
@@ -116,6 +117,22 @@ export default function GuestForms() {
   const [sortOrder, setSortOrder] = useState<SortOrder>('asc');
   const [passportDialogOpen, setPassportDialogOpen] = useState(false);
   const [passportReservation, setPassportReservation] = useState<{ id: string; guestName: string } | null>(null);
+  const [selectedRows, setSelectedRows] = useState<Set<string>>(new Set());
+
+  // Clear selection when filters change
+  useEffect(() => {
+    setSelectedRows(new Set());
+  }, [activeFilter, dateFilter, searchQuery]);
+
+  const toggleRow = useCallback((id: string) => {
+    setSelectedRows(prev => {
+      const next = new Set(prev);
+      if (next.has(id)) next.delete(id);
+      else next.add(id);
+      return next;
+    });
+  }, []);
+
 
   useEffect(() => {
     if (!authLoading && !user) {
@@ -305,6 +322,15 @@ export default function GuestForms() {
     return data;
   }, [tableData, activeFilter, searchQuery, dateFilter, sortField, sortOrder]);
 
+  const toggleAll = useCallback(() => {
+    setSelectedRows(prev => {
+      if (prev.size === filteredData.length && filteredData.length > 0) {
+        return new Set();
+      }
+      return new Set(filteredData.map(d => d.reservation.id));
+    });
+  }, [filteredData]);
+
   const handleExportCSV = () => {
     const escapeCSV = (val: string) => {
       if (val.includes(',') || val.includes('"') || val.includes('\n')) {
@@ -313,8 +339,12 @@ export default function GuestForms() {
       return val;
     };
 
+    const dataToExport = selectedRows.size > 0
+      ? filteredData.filter(d => selectedRows.has(d.reservation.id))
+      : filteredData;
+
     const headers = ['Room', 'Guest Name', 'Check-In', 'Check-Out', 'Booking Ref', 'Check-In Status', 'Form Status', 'Form Name', 'Form Email', 'Form Phone', 'Signed At', 'Nationality', 'Age'];
-    const rows = filteredData.map(d => [
+    const rows = dataToExport.map(d => [
       d.reservation.units?.unit_number || d.reservation.units?.name || '',
       d.reservation.guest_names?.[0] || '',
       d.reservation.check_in_date,
@@ -624,11 +654,12 @@ export default function GuestForms() {
         {/* Count bar + Export */}
         <div className="flex items-center justify-between">
           <span className="text-sm text-muted-foreground">
+            {selectedRows.size > 0 && `${selectedRows.size} selected · `}
             Showing {filteredData.length} of {tableData.length} guests
           </span>
           <Button variant="outline" size="sm" onClick={handleExportCSV} disabled={filteredData.length === 0}>
             <Download className="h-4 w-4 mr-2" />
-            Export CSV
+            {selectedRows.size > 0 ? `Export Selected (${selectedRows.size})` : 'Export CSV'}
           </Button>
         </div>
 
@@ -638,6 +669,20 @@ export default function GuestForms() {
             <Table>
               <TableHeader>
               <TableRow>
+                <TableHead className="w-[60px]">
+                  <div className="flex items-center gap-2">
+                    <Checkbox
+                      checked={filteredData.length > 0 && selectedRows.size === filteredData.length}
+                      ref={(el) => {
+                        if (el) {
+                          (el as any).indeterminate = selectedRows.size > 0 && selectedRows.size < filteredData.length;
+                        }
+                      }}
+                      onCheckedChange={toggleAll}
+                    />
+                    <span>#</span>
+                  </div>
+                </TableHead>
                 <TableHead>Room</TableHead>
                 <TableHead>Guest Name</TableHead>
                 <TableHead>Check-In</TableHead>
@@ -681,18 +726,28 @@ export default function GuestForms() {
               <TableBody>
                 {filteredData.length === 0 ? (
                   <TableRow>
-                    <TableCell colSpan={14} className="text-center py-8 text-muted-foreground">
+                    <TableCell colSpan={15} className="text-center py-8 text-muted-foreground">
                       No guest forms found
                     </TableCell>
                   </TableRow>
                 ) : (
-                  filteredData.map(({ reservation, agreement, hasForm }) => {
+                  filteredData.map(({ reservation, agreement, hasForm }, index) => {
                     const isPending = !hasForm && reservation.status === 'checked-in';
                     return (
                       <TableRow
                         key={reservation.id}
                         className={cn(isPending && 'bg-destructive/5')}
+                        data-state={selectedRows.has(reservation.id) ? 'selected' : undefined}
                       >
+                        <TableCell>
+                          <div className="flex items-center gap-2">
+                            <Checkbox
+                              checked={selectedRows.has(reservation.id)}
+                              onCheckedChange={() => toggleRow(reservation.id)}
+                            />
+                            <span className="text-xs text-muted-foreground">{index + 1}</span>
+                          </div>
+                        </TableCell>
                         <TableCell className="font-medium">
                           {reservation.units?.unit_number || reservation.units?.name || '-'}
                         </TableCell>
