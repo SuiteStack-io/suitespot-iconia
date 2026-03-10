@@ -725,7 +725,7 @@ export default function GuestForms() {
               <TableBody>
                 {filteredData.length === 0 ? (
                   <TableRow>
-                    <TableCell colSpan={14} className="text-center py-8 text-muted-foreground">
+                    <TableCell colSpan={15} className="text-center py-8 text-muted-foreground">
                       No guest forms found
                     </TableCell>
                   </TableRow>
