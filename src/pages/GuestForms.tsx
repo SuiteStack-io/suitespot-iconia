@@ -342,13 +342,14 @@ export default function GuestForms() {
       ? filteredData.filter(d => selectedRows.has(d.reservation.id))
       : filteredData;
 
-    const headers = ['Room', 'Guest Name', 'Check-In', 'Check-Out', 'Booking Ref', 'Check-In Status', 'Form Status', 'Form Name', 'Form Email', 'Form Phone', 'Signed At', 'Nationality', 'Age'];
+    const headers = ['Room', 'Guest Name', 'Check-In', 'Check-Out', 'Booking Ref', 'Reservation Status', 'Check-In Status', 'Form Status', 'Form Name', 'Form Email', 'Form Phone', 'Signed At', 'Nationality', 'Age'];
     const rows = dataToExport.map(d => [
       d.reservation.units?.unit_number || d.reservation.units?.name || '',
       d.reservation.guest_names?.[0] || '',
       d.reservation.check_in_date,
       d.reservation.check_out_date,
       d.reservation.booking_reference || '',
+      d.reservation.status === 'confirmed' ? 'Confirmed' : d.reservation.status === 'checked-in' ? 'Checked In' : 'Completed',
       d.reservation.status || '',
       d.hasForm ? 'Completed' : 'Pending',
       d.agreement?.guest_full_name || '',
@@ -694,6 +695,7 @@ export default function GuestForms() {
                 <TableHead>Check-In</TableHead>
                 <TableHead>Check-Out</TableHead>
                 <TableHead>Booking Ref</TableHead>
+                <TableHead>Reservation Status</TableHead>
                 <TableHead 
                   className="cursor-pointer hover:bg-muted/50 select-none transition-colors"
                   onClick={() => handleSort('check_in_status')}
@@ -732,7 +734,7 @@ export default function GuestForms() {
               <TableBody>
                 {filteredData.length === 0 ? (
                   <TableRow>
-                    <TableCell colSpan={15} className="text-center py-8 text-muted-foreground">
+                    <TableCell colSpan={16} className="text-center py-8 text-muted-foreground">
                       No guest forms found
                     </TableCell>
                   </TableRow>
@@ -773,6 +775,16 @@ export default function GuestForms() {
                             {reservation.booking_reference}
                             <ExternalLink className="h-3 w-3 ml-1" />
                           </Button>
+                        </TableCell>
+                        <TableCell>
+                          <Badge className={cn(
+                            reservation.status === 'confirmed' && 'bg-blue-100 text-blue-800 border-blue-200 hover:bg-blue-100',
+                            reservation.status === 'checked-in' && 'bg-amber-100 text-amber-800 border-amber-200 hover:bg-amber-100',
+                            (reservation.status === 'checked-out' || reservation.status === 'completed') && 'bg-green-100 text-green-800 border-green-200 hover:bg-green-100'
+                          )}>
+                            {reservation.status === 'confirmed' ? 'Confirmed' : 
+                             reservation.status === 'checked-in' ? 'Checked In' : 'Completed'}
+                          </Badge>
                         </TableCell>
                         <TableCell>
                           {reservation.status === 'checked-in' 
