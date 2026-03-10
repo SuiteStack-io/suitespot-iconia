@@ -351,7 +351,7 @@ export default function GuestForms() {
       d.reservation.booking_reference || '',
       d.reservation.status === 'confirmed' ? 'Confirmed' : d.reservation.status === 'checked-in' ? 'Checked In' : 'Completed',
       d.reservation.status || '',
-      d.hasForm ? 'Completed' : 'Pending',
+      d.hasForm ? 'Completed' : (d.reservation.status === 'checked-out' || d.reservation.status === 'completed') ? 'Missing' : 'Pending',
       d.agreement?.guest_full_name || '',
       d.agreement?.guest_email || '',
       d.agreement?.guest_phone || '',
@@ -797,6 +797,10 @@ export default function GuestForms() {
                           {hasForm ? (
                             <Badge variant="default" className="bg-green-600">
                               Completed
+                            </Badge>
+                          ) : (reservation.status === 'checked-out' || reservation.status === 'completed') ? (
+                            <Badge variant="destructive" className="bg-red-600 text-white">
+                              Missing
                             </Badge>
                           ) : (
                             <Badge 
