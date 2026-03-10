@@ -363,6 +363,7 @@ Deno.serve(async (req: Request) => {
               number_of_guests: numberOfGuests,
               adults: parseInt(adults) || 1,
               children: parseInt(children) || 0,
+              arrival_time: arrival_hour,
               skip_channex_sync: true,
             };
 
