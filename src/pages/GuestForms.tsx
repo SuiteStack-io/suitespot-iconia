@@ -798,6 +798,10 @@ export default function GuestForms() {
                             <Badge variant="default" className="bg-green-600">
                               Completed
                             </Badge>
+                          ) : (reservation.status === 'checked-out' || reservation.status === 'completed') ? (
+                            <Badge variant="destructive" className="bg-red-600 text-white">
+                              Missing
+                            </Badge>
                           ) : (
                             <Badge 
                               variant="outline"
