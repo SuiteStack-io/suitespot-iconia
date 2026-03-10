@@ -124,7 +124,11 @@ Deno.serve(async (req: Request) => {
     const amount = enrichedData.amount || enrichedData.total_amount || bookingData.amount || bookingData.total_amount;
     const currency = enrichedData.currency || bookingData.currency;
 
-    console.log("[channex-booking-webhook] Extracted dates:", { arrival_date, departure_date });
+    const arrival_hour =
+      enrichedData.arrival_hour || enrichedData.arrivalHour ||
+      enrichedData.check_in_time || bookingData.arrival_hour || null;
+
+    console.log("[channex-booking-webhook] Extracted dates:", { arrival_date, departure_date, arrival_hour });
 
     // --- Resolve local property ID ---
     let localPropertyId: string | null = null;
@@ -280,6 +284,7 @@ Deno.serve(async (req: Request) => {
                 number_of_guests: numberOfGuests,
                 adults: parseInt(adults) || 1,
                 children: parseInt(children) || 0,
+                arrival_time: arrival_hour,
                 skip_channex_sync: true,
               })
               .eq("id", existing.id);
@@ -358,6 +363,7 @@ Deno.serve(async (req: Request) => {
               number_of_guests: numberOfGuests,
               adults: parseInt(adults) || 1,
               children: parseInt(children) || 0,
+              arrival_time: arrival_hour,
               skip_channex_sync: true,
             };
 
