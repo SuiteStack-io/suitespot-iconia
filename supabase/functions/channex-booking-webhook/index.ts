@@ -29,13 +29,12 @@ serve(async (req: Request) => {
 
     const event = body.event;
 
-    // --- Create supabase client early so we can log immediately ---
     const supabase = createClient(
       Deno.env.get("SUPABASE_URL")!,
       Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!
     );
 
-    // --- Log EVERY incoming request immediately ---
+    // Log every incoming request immediately
     const { error: immediateLogError } = await supabase
       .from("channex_sync_logs")
       .insert({
@@ -70,8 +69,6 @@ serve(async (req: Request) => {
     const booking_id = bookingData.booking_id || bookingData.id || rawPayload.booking_id;
     const revisionId = bookingData.revision_id || rawPayload.revision_id || bookingData.id;
 
-    console.log("[channex-booking-webhook] Raw payload keys:", Object.keys(rawPayload));
-    console.log("[channex-booking-webhook] BookingData keys:", Object.keys(bookingData));
     console.log("[channex-booking-webhook] booking_id:", booking_id, "revisionId:", revisionId);
 
     // --- Detect test payloads ---
@@ -98,22 +95,14 @@ serve(async (req: Request) => {
     const ota_reservation_code = enrichedData.ota_reservation_code || bookingData.ota_reservation_code;
 
     const arrival_date =
-      enrichedData.arrival_date ||
-      enrichedData.arrivalDate ||
-      enrichedData.check_in ||
-      enrichedData.checkin ||
-      enrichedData.checkin_date ||
-      rawPayload.arrival_date ||
-      null;
+      enrichedData.arrival_date || enrichedData.arrivalDate ||
+      enrichedData.check_in || enrichedData.checkin ||
+      enrichedData.checkin_date || rawPayload.arrival_date || null;
 
     const departure_date =
-      enrichedData.departure_date ||
-      enrichedData.departureDate ||
-      enrichedData.check_out ||
-      enrichedData.checkout ||
-      enrichedData.checkout_date ||
-      rawPayload.departure_date ||
-      null;
+      enrichedData.departure_date || enrichedData.departureDate ||
+      enrichedData.check_out || enrichedData.checkout ||
+      enrichedData.checkout_date || rawPayload.departure_date || null;
 
     const customer = enrichedData.customer || bookingData.customer;
     const rooms = enrichedData.rooms || bookingData.rooms;
@@ -171,8 +160,14 @@ serve(async (req: Request) => {
     const guestName = [customer?.name, customer?.surname].filter(Boolean).join(" ") || "Unknown Guest";
     const guestEmail = customer?.email || customer?.mail || "unknown@unknown.com";
     const guestPhone = customer?.phone || null;
+    const guestCountry = customer?.country || enrichedData.guest_country || null;
 
-    // --- Execute DB operation ---
+    // --- Guest counts ---
+    const adults = enrichedData.adults || enrichedData.occupancy?.adults || bookingData.adults || 1;
+    const children = enrichedData.children || enrichedData.occupancy?.children || bookingData.children || 0;
+    const numberOfGuests = (parseInt(adults) || 1) + (parseInt(children) || 0);
+
+    // --- Execute DB operation on channex_bookings ---
     let dbError: string | null = null;
 
     if (status === "cancelled") {
@@ -194,12 +189,15 @@ serve(async (req: Request) => {
         guest_name: guestName,
         guest_email: guestEmail,
         guest_phone: guestPhone,
+        guest_country: guestCountry,
         arrival_date,
         departure_date,
         total_amount: parseFloat(amount) || 0,
         currency: currency || "USD",
         booking_data: body,
         acknowledged: false,
+        adults: parseInt(adults) || 1,
+        children: parseInt(children) || 0,
       };
 
       const { error } = await supabase
@@ -213,6 +211,181 @@ serve(async (req: Request) => {
       await logSync("channex-booking-webhook", "webhook", body, null, null, false, dbError, localPropertyId);
       await createAlert('webhook_error', `Failed to save booking ${booking_id}: ${dbError}`, localPropertyId);
       return ok({ success: false, error: dbError });
+    }
+
+    // ================================================================
+    // CREATE/UPDATE RESERVATION IN reservations TABLE
+    // ================================================================
+    let reservationResult: string | null = null;
+
+    if (arrival_date && departure_date && booking_id) {
+      try {
+        if (status === "cancelled") {
+          // Cancel existing reservation
+          const { data: updated, error: cancelErr } = await supabase
+            .from("reservations")
+            .update({
+              status: "cancelled",
+              cancelled_at: new Date().toISOString(),
+              skip_channex_sync: true,
+            })
+            .eq("channex_booking_id", booking_id)
+            .select("id")
+            .maybeSingle();
+
+          if (cancelErr) {
+            console.error("[channex-booking-webhook] Cancel reservation error:", cancelErr.message);
+          } else if (updated) {
+            reservationResult = `cancelled:${updated.id}`;
+            console.log("[channex-booking-webhook] Reservation cancelled:", updated.id);
+          } else {
+            console.log("[channex-booking-webhook] No reservation found to cancel for:", booking_id);
+          }
+        } else {
+          // Check if reservation already exists (idempotency)
+          const { data: existing } = await supabase
+            .from("reservations")
+            .select("id")
+            .eq("channex_booking_id", booking_id)
+            .maybeSingle();
+
+          if (existing) {
+            // Update existing reservation
+            const { error: updateErr } = await supabase
+              .from("reservations")
+              .update({
+                check_in_date: arrival_date,
+                check_out_date: departure_date,
+                guest_names: [guestName],
+                contact_email: guestEmail !== "unknown@unknown.com" ? guestEmail : null,
+                contact_phone: guestPhone,
+                guest_nationality: guestCountry,
+                total_price: parseFloat(amount) || null,
+                currency: currency || "USD",
+                number_of_guests: numberOfGuests,
+                adults: parseInt(adults) || 1,
+                children: parseInt(children) || 0,
+                nights: calculateNights(arrival_date, departure_date),
+                skip_channex_sync: true,
+              })
+              .eq("id", existing.id);
+
+            if (updateErr) {
+              console.error("[channex-booking-webhook] Update reservation error:", updateErr.message);
+            } else {
+              reservationResult = `updated:${existing.id}`;
+              console.log("[channex-booking-webhook] Reservation updated:", existing.id);
+            }
+          } else {
+            // Allocate a unit
+            let allocatedUnitId: string | null = null;
+
+            if (roomTypeId) {
+              // roomTypeId from channex_mappings points to a unit; get its booking_com_name
+              const { data: mappedUnit } = await supabase
+                .from("units")
+                .select("booking_com_name, property_id")
+                .eq("id", roomTypeId)
+                .maybeSingle();
+
+              if (mappedUnit?.booking_com_name) {
+                // Find all units of this room type in this property
+                let unitsQuery = supabase
+                  .from("units")
+                  .select("id")
+                  .eq("booking_com_name", mappedUnit.booking_com_name)
+                  .neq("status", "maintenance");
+
+                if (localPropertyId) {
+                  unitsQuery = unitsQuery.eq("property_id", localPropertyId);
+                }
+
+                const { data: candidateUnits } = await unitsQuery;
+
+                if (candidateUnits && candidateUnits.length > 0) {
+                  // Try each unit for availability using RPC
+                  for (const candidate of candidateUnits) {
+                    const { data: availResult } = await supabase.rpc(
+                      "check_and_lock_unit_availability",
+                      {
+                        p_unit_id: candidate.id,
+                        p_check_in_date: arrival_date,
+                        p_check_out_date: departure_date,
+                      }
+                    );
+
+                    if (availResult && availResult.length > 0 && availResult[0].is_available) {
+                      allocatedUnitId = candidate.id;
+                      break;
+                    }
+                  }
+                }
+              }
+            }
+
+            const nights = calculateNights(arrival_date, departure_date);
+            const bookingRef = ota_reservation_code || booking_id;
+
+            const reservationRecord = {
+              channex_booking_id: booking_id,
+              booking_reference: bookingRef,
+              check_in_date: arrival_date,
+              check_out_date: departure_date,
+              guest_names: [guestName],
+              contact_email: guestEmail !== "unknown@unknown.com" ? guestEmail : null,
+              contact_phone: guestPhone,
+              guest_nationality: guestCountry,
+              status: allocatedUnitId ? "confirmed" : "confirmed",
+              channel: "Channex",
+              source: ota_name || "Channex",
+              property_id: localPropertyId,
+              unit_id: allocatedUnitId,
+              total_price: parseFloat(amount) || null,
+              currency: currency || "USD",
+              number_of_guests: numberOfGuests,
+              adults: parseInt(adults) || 1,
+              children: parseInt(children) || 0,
+              nights,
+              skip_channex_sync: true,
+            };
+
+            const { data: newRes, error: insertErr } = await supabase
+              .from("reservations")
+              .insert(reservationRecord)
+              .select("id")
+              .maybeSingle();
+
+            if (insertErr) {
+              console.error("[channex-booking-webhook] Insert reservation error:", insertErr.message);
+              await createAlert(
+                "webhook_error",
+                `Failed to create reservation for Channex booking ${booking_id}: ${insertErr.message}`,
+                localPropertyId
+              );
+            } else if (newRes) {
+              reservationResult = `created:${newRes.id}`;
+              console.log("[channex-booking-webhook] Reservation created:", newRes.id, "unit:", allocatedUnitId || "none");
+
+              if (!allocatedUnitId) {
+                await createAlert(
+                  "booking_unassigned",
+                  `Channex booking ${bookingRef} (${guestName}) has no unit assigned. Please assign manually.`,
+                  localPropertyId
+                );
+              }
+            }
+          }
+        }
+      } catch (resErr: any) {
+        console.error("[channex-booking-webhook] Reservation creation error:", resErr.message);
+        await createAlert(
+          "webhook_error",
+          `Exception creating reservation for ${booking_id}: ${resErr.message}`,
+          localPropertyId
+        );
+      }
+    } else {
+      console.warn("[channex-booking-webhook] Missing dates or booking_id, skipping reservation creation");
     }
 
     // --- ACK the revision ---
@@ -233,9 +406,9 @@ serve(async (req: Request) => {
       }
     }
 
-    await logSync("channex-booking-webhook", "webhook", body, { status, booking_id, ack: ackSuccess }, 200, true, null, localPropertyId);
+    await logSync("channex-booking-webhook", "webhook", body, { status, booking_id, ack: ackSuccess, reservation: reservationResult }, 200, true, null, localPropertyId);
 
-    return ok({ success: true, booking_id, status, acknowledged: ackSuccess });
+    return ok({ success: true, booking_id, status, acknowledged: ackSuccess, reservation: reservationResult });
   } catch (err: any) {
     console.error("[channex-booking-webhook] Error:", err);
     try {
@@ -244,3 +417,14 @@ serve(async (req: Request) => {
     return ok({ success: false, error: err.message });
   }
 });
+
+function calculateNights(arrival: string, departure: string): number {
+  try {
+    const a = new Date(arrival);
+    const d = new Date(departure);
+    const diff = Math.round((d.getTime() - a.getTime()) / (1000 * 60 * 60 * 24));
+    return diff > 0 ? diff : 1;
+  } catch {
+    return 1;
+  }
+}
