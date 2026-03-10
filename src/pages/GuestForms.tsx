@@ -331,6 +331,7 @@ export default function GuestForms() {
     });
   }, [filteredData]);
 
+  const handleExportCSV = () => {
     const escapeCSV = (val: string) => {
       if (val.includes(',') || val.includes('"') || val.includes('\n')) {
         return `"${val.replace(/"/g, '""')}"`;
