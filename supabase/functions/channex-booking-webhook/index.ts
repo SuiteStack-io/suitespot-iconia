@@ -342,7 +342,6 @@ Deno.serve(async (req: Request) => {
               number_of_guests: numberOfGuests,
               adults: parseInt(adults) || 1,
               children: parseInt(children) || 0,
-              nights,
               skip_channex_sync: true,
             };
 
