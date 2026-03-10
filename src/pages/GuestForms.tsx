@@ -135,7 +135,7 @@ export default function GuestForms() {
       // Fetch reservations with checked-in, checked-out, or confirmed status (where check-in date is today or earlier)
       const today = format(new Date(), 'yyyy-MM-dd');
       const { data: reservationsData, error: reservationsError } = await withPropertyFilter(supabase
-        .from('reservations'), propertyId)
+        .from('reservations')
         .select(`
           id,
           booking_reference,
