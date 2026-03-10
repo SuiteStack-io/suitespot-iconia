@@ -177,13 +177,3 @@ Deno.serve(async (req: Request) => {
   }
 });
 
-function calculateNights(arrival: string, departure: string): number {
-  try {
-    const a = new Date(arrival);
-    const d = new Date(departure);
-    const diff = Math.round((d.getTime() - a.getTime()) / (1000 * 60 * 60 * 24));
-    return diff > 0 ? diff : 1;
-  } catch {
-    return 1;
-  }
-}
