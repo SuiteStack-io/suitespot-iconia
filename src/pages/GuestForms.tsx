@@ -668,6 +668,20 @@ export default function GuestForms() {
             <Table>
               <TableHeader>
               <TableRow>
+                <TableHead className="w-[60px]">
+                  <div className="flex items-center gap-2">
+                    <Checkbox
+                      checked={filteredData.length > 0 && selectedRows.size === filteredData.length}
+                      ref={(el) => {
+                        if (el) {
+                          (el as any).indeterminate = selectedRows.size > 0 && selectedRows.size < filteredData.length;
+                        }
+                      }}
+                      onCheckedChange={toggleAll}
+                    />
+                    <span>#</span>
+                  </div>
+                </TableHead>
                 <TableHead>Room</TableHead>
                 <TableHead>Guest Name</TableHead>
                 <TableHead>Check-In</TableHead>
