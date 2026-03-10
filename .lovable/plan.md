@@ -1,118 +1,27 @@
 
 
-## Fix: Filter Blocked Dates by Active Property
+## Fix: Backfill fails due to invalid `property_id` in `channex_bookings`
 
-### Problem
-`fetchBlockedDates()` fetches ALL blocked dates across all properties. `fetchUnits()` correctly filters by `propertyId`, but blocked dates does not.
+### Root Cause
+The failing booking (`f0d1b35f...`, guest "ramy khorshed") has `property_id = e30ad118-...` in the `channex_bookings` table, but that UUID doesn't exist in the `properties` table. This causes a foreign key violation when inserting into `reservations`.
 
-### File: `src/components/BlockedDatesManager.tsx`
+The `room_type_id` on that booking (`ab59a9b4...`) points to a unit in property `c98a2256...` (ICONIA Zamalek), which is the correct property.
 
-**1. Filter `fetchBlockedDates` by property (lines 101-121)**
+### Fix in `sync-channex-to-reservations/index.ts`
 
-The `blocked_dates` table references `units` via `unit_id`. Filter by joining through units that belong to the active property:
+Before inserting into `reservations`, resolve the correct `property_id` by:
+1. If `room_type_id` exists, look up the unit and use its `property_id`
+2. Fall back to the `property_id` from `channex_bookings` only if it exists in the `properties` table
+3. If neither works, set `property_id` to `null` (the reservations table allows it)
 
-```typescript
-const fetchBlockedDates = async () => {
-  try {
-    let query = supabase
-      .from("blocked_dates")
-      .select(`
-        *,
-        units (
-          name,
-          unit_number,
-          booking_com_name
-        )
-      `)
-      .order("blocked_date", { ascending: true });
+### Changes
 
-    // Filter to only show blocked dates for units belonging to the active property
-    if (propertyId) {
-      query = query.eq('units.property_id', propertyId);
-    }
+**File: `supabase/functions/sync-channex-to-reservations/index.ts`**
+- After the unit allocation block (~line 124), add validation:
+  - If `allocatedUnitId` was found, use its property from the unit lookup
+  - If `room_type_id` resolved a unit, use that unit's `property_id`
+  - Otherwise, validate `localPropertyId` exists in `properties` table before using it
+- Replace `property_id: localPropertyId` in the insert with the resolved value
 
-    const { data, error } = await query;
-    if (error) throw error;
-
-    // Remove entries where the unit was filtered out (unit doesn't belong to property)
-    const filtered = (data || []).filter(d => d.unit_id === null || d.units !== null);
-    setBlockedDates(filtered);
-  } catch (error: any) {
-    console.error("Error fetching blocked dates:", error);
-    toast.error("Failed to fetch blocked dates");
-  }
-};
-```
-
-However, `blocked_dates` rows with `unit_id = null` (meaning "all rooms") have no unit join to filter on. We need a different approach — filter blocked dates whose `unit_id` is either null OR belongs to a unit in the active property. The cleanest way: use the unit IDs we already fetch.
-
-**Better approach — filter client-side using fetched units:**
-
-Since `fetchUnits` already returns only units for the active property, filter blocked dates to only include those whose `unit_id` is null or matches a fetched unit.
-
-Actually, the simplest and most reliable fix: add `property_id` awareness to the query. Since `blocked_dates` has a `unit_id` FK to `units`, and `units` has `property_id`, we can filter via an inner join or use an `in` filter with the property's unit IDs.
-
-**Revised approach — fetch unit IDs first, then filter:**
-
-```typescript
-// In useEffect, ensure both refetch when propertyId changes
-useEffect(() => {
-  fetchUnits();
-  fetchBlockedDates();
-}, [propertyId]);
-```
-
-In `fetchBlockedDates`, after fetching units (or independently):
-- Query units for the active property to get their IDs
-- Filter blocked_dates where `unit_id` is in that list
-
-**Simplest implementation:**
-
-1. **Change useEffect (line 80-83)** to depend on `propertyId`
-2. **Update `fetchBlockedDates`** to filter by property's unit IDs
-
-```typescript
-const fetchBlockedDates = async () => {
-  try {
-    // First get unit IDs for the active property
-    let unitIds: string[] = [];
-    if (propertyId) {
-      const { data: propUnits } = await supabase
-        .from("units")
-        .select("id")
-        .eq("property_id", propertyId);
-      unitIds = (propUnits || []).map(u => u.id);
-    }
-
-    let query = supabase
-      .from("blocked_dates")
-      .select(`*, units (name, unit_number, booking_com_name)`)
-      .order("blocked_date", { ascending: true });
-
-    if (propertyId && unitIds.length > 0) {
-      // Only show blocked dates for this property's units
-      query = query.in("unit_id", unitIds);
-    } else if (propertyId && unitIds.length === 0) {
-      // Property has no units, show nothing
-      setBlockedDates([]);
-      return;
-    }
-
-    const { data, error } = await query;
-    if (error) throw error;
-    setBlockedDates(data || []);
-  } catch (error: any) {
-    console.error("Error fetching blocked dates:", error);
-    toast.error("Failed to fetch blocked dates");
-  }
-};
-```
-
-3. **Update useEffect** (line 80-83): add `propertyId` to dependency array
-
-### Summary
-- 1 file changed: `src/components/BlockedDatesManager.tsx`
-- `fetchBlockedDates` filters by active property's unit IDs
-- Re-fetches when property switches
-- Blocked dates with `unit_id = null` (all-rooms blocks) won't show unless we decide they should — this matches the expectation that blocks are property-scoped
+This is a ~10-line addition to the existing function. No other files need changes.
 
