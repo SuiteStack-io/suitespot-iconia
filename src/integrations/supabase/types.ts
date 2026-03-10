@@ -1697,6 +1697,7 @@ export type Database = {
           cancelled_at: string | null
           cancelled_by: string | null
           channel: string
+          channex_booking_id: string | null
           check_in_date: string
           check_out_date: string
           checked_in_at: string | null
@@ -1757,6 +1758,7 @@ export type Database = {
           cancelled_at?: string | null
           cancelled_by?: string | null
           channel?: string
+          channex_booking_id?: string | null
           check_in_date: string
           check_out_date: string
           checked_in_at?: string | null
@@ -1817,6 +1819,7 @@ export type Database = {
           cancelled_at?: string | null
           cancelled_by?: string | null
           channel?: string
+          channex_booking_id?: string | null
           check_in_date?: string
           check_out_date?: string
           checked_in_at?: string | null
