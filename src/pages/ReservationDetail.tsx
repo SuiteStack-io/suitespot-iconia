@@ -928,6 +928,9 @@ Thank you for choosing SuiteSpot!`;
             <div>
               <h1 className="text-3xl font-bold">Reservation Details</h1>
               <p className="text-muted-foreground">Booking Reference: {reservation.booking_reference}</p>
+              {reservation.channex_booking_id && (
+                <p className="text-xs text-muted-foreground">Channex ID: {reservation.channex_booking_id}</p>
+              )}
             </div>
           </div>
           {canEdit && !isEditMode && (
