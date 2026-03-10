@@ -109,7 +109,7 @@ export default function GuestForms() {
   const [loading, setLoading] = useState(true);
   const [searchQuery, setSearchQuery] = useState('');
   const [activeFilter, setActiveFilter] = useState<FilterType>('all');
-  const [dateFilter, setDateFilter] = useState<DateFilterType>('all');
+  const [dateFilter, setDateFilter] = useState<DateFilterType>('month');
   const [emailModalOpen, setEmailModalOpen] = useState(false);
   const [copiedEmail, setCopiedEmail] = useState<string | null>(null);
   const [downloadingId, setDownloadingId] = useState<string | null>(null);
