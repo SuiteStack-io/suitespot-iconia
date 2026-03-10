@@ -614,6 +614,17 @@ export default function GuestForms() {
           </div>
         </div>
 
+        {/* Count bar + Export */}
+        <div className="flex items-center justify-between">
+          <span className="text-sm text-muted-foreground">
+            Showing {filteredData.length} of {tableData.length} guests
+          </span>
+          <Button variant="outline" size="sm" onClick={handleExportCSV} disabled={filteredData.length === 0}>
+            <Download className="h-4 w-4 mr-2" />
+            Export CSV
+          </Button>
+        </div>
+
         {/* Table */}
         <Card>
           <div className="rounded-md border">
