@@ -387,6 +387,10 @@ export function ConnectionStatus() {
               {testing ? <Loader2 className="h-4 w-4 animate-spin" /> : <FlaskConical className="h-4 w-4" />}
               Test Webhook
             </Button>
+            <Button variant="outline" onClick={syncMissingBookings} disabled={backfilling} className="gap-2">
+              {backfilling ? <Loader2 className="h-4 w-4 animate-spin" /> : <Database className="h-4 w-4" />}
+              Sync Missing Bookings
+            </Button>
           </div>
         </CardContent>
       </Card>
