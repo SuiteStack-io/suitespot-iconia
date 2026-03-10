@@ -1,118 +1,43 @@
 
 
-## Fix: Filter Blocked Dates by Active Property
+## Fix: Add revision-based idempotency check to prevent duplicate webhook processing
 
 ### Problem
-`fetchBlockedDates()` fetches ALL blocked dates across all properties. `fetchUnits()` correctly filters by `propertyId`, but blocked dates does not.
+The screenshot shows two log entries at the same timestamp (Mar 10, 14:28) for the same booking. Channex sometimes fires the webhook twice for the same revision, causing duplicate processing.
 
-### File: `src/components/BlockedDatesManager.tsx`
+### Root Cause
+The webhook logs every incoming request immediately (line 37-48) before any dedup check, then processes the full booking. There is no guard against processing the same `revision_id` twice.
 
-**1. Filter `fetchBlockedDates` by property (lines 101-121)**
+### Fix in `supabase/functions/channex-booking-webhook/index.ts`
 
-The `blocked_dates` table references `units` via `unit_id`. Filter by joining through units that belong to the active property:
+After extracting `revisionId` (line 69) and before the test payload detection (line 73), add:
 
 ```typescript
-const fetchBlockedDates = async () => {
-  try {
-    let query = supabase
-      .from("blocked_dates")
-      .select(`
-        *,
-        units (
-          name,
-          unit_number,
-          booking_com_name
-        )
-      `)
-      .order("blocked_date", { ascending: true });
+// Idempotency: skip if this revision was already processed
+if (revisionId && !String(revisionId).startsWith('test-')) {
+  const { data: alreadyProcessed } = await supabase
+    .from("channex_bookings")
+    .select("id")
+    .eq("channex_revision_id", revisionId)
+    .eq("acknowledged", true)
+    .maybeSingle();
 
-    // Filter to only show blocked dates for units belonging to the active property
-    if (propertyId) {
-      query = query.eq('units.property_id', propertyId);
-    }
-
-    const { data, error } = await query;
-    if (error) throw error;
-
-    // Remove entries where the unit was filtered out (unit doesn't belong to property)
-    const filtered = (data || []).filter(d => d.unit_id === null || d.units !== null);
-    setBlockedDates(filtered);
-  } catch (error: any) {
-    console.error("Error fetching blocked dates:", error);
-    toast.error("Failed to fetch blocked dates");
+  if (alreadyProcessed) {
+    console.log("[channex-booking-webhook] Revision already processed:", revisionId);
+    return ok({ success: true, booking_id, status: "already_processed", revision_id: revisionId });
   }
-};
+}
 ```
 
-However, `blocked_dates` rows with `unit_id = null` (meaning "all rooms") have no unit join to filter on. We need a different approach — filter blocked dates whose `unit_id` is either null OR belongs to a unit in the active property. The cleanest way: use the unit IDs we already fetch.
+**Why `channex_bookings` instead of `channex_sync_logs`?**
+- The `channex_bookings` table already stores `channex_revision_id` and `acknowledged` flag
+- Checking `acknowledged = true` means we only skip if the previous call fully completed (including ACK)
+- Using `channex_sync_logs` with `contains` on JSONB would be slower and less reliable
 
-**Better approach — filter client-side using fetched units:**
+**Also**: Move the immediate log insert to **after** the idempotency check so duplicate calls don't create duplicate log entries either. The log insert at lines 37-48 should be moved to after the dedup guard (but before the main processing logic).
 
-Since `fetchUnits` already returns only units for the active property, filter blocked dates to only include those whose `unit_id` is null or matches a fetched unit.
-
-Actually, the simplest and most reliable fix: add `property_id` awareness to the query. Since `blocked_dates` has a `unit_id` FK to `units`, and `units` has `property_id`, we can filter via an inner join or use an `in` filter with the property's unit IDs.
-
-**Revised approach — fetch unit IDs first, then filter:**
-
-```typescript
-// In useEffect, ensure both refetch when propertyId changes
-useEffect(() => {
-  fetchUnits();
-  fetchBlockedDates();
-}, [propertyId]);
-```
-
-In `fetchBlockedDates`, after fetching units (or independently):
-- Query units for the active property to get their IDs
-- Filter blocked_dates where `unit_id` is in that list
-
-**Simplest implementation:**
-
-1. **Change useEffect (line 80-83)** to depend on `propertyId`
-2. **Update `fetchBlockedDates`** to filter by property's unit IDs
-
-```typescript
-const fetchBlockedDates = async () => {
-  try {
-    // First get unit IDs for the active property
-    let unitIds: string[] = [];
-    if (propertyId) {
-      const { data: propUnits } = await supabase
-        .from("units")
-        .select("id")
-        .eq("property_id", propertyId);
-      unitIds = (propUnits || []).map(u => u.id);
-    }
-
-    let query = supabase
-      .from("blocked_dates")
-      .select(`*, units (name, unit_number, booking_com_name)`)
-      .order("blocked_date", { ascending: true });
-
-    if (propertyId && unitIds.length > 0) {
-      // Only show blocked dates for this property's units
-      query = query.in("unit_id", unitIds);
-    } else if (propertyId && unitIds.length === 0) {
-      // Property has no units, show nothing
-      setBlockedDates([]);
-      return;
-    }
-
-    const { data, error } = await query;
-    if (error) throw error;
-    setBlockedDates(data || []);
-  } catch (error: any) {
-    console.error("Error fetching blocked dates:", error);
-    toast.error("Failed to fetch blocked dates");
-  }
-};
-```
-
-3. **Update useEffect** (line 80-83): add `propertyId` to dependency array
-
-### Summary
-- 1 file changed: `src/components/BlockedDatesManager.tsx`
-- `fetchBlockedDates` filters by active property's unit IDs
-- Re-fetches when property switches
-- Blocked dates with `unit_id = null` (all-rooms blocks) won't show unless we decide they should — this matches the expectation that blocks are property-scoped
+### Changes
+- **File**: `supabase/functions/channex-booking-webhook/index.ts`
+  - Add revision idempotency check after line 71
+  - Move the immediate log insert (lines 37-48) to after the idempotency check for booking events (keep it before for non-booking events)
 
