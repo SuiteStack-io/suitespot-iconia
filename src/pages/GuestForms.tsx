@@ -117,6 +117,30 @@ export default function GuestForms() {
   const [sortOrder, setSortOrder] = useState<SortOrder>('asc');
   const [passportDialogOpen, setPassportDialogOpen] = useState(false);
   const [passportReservation, setPassportReservation] = useState<{ id: string; guestName: string } | null>(null);
+  const [selectedRows, setSelectedRows] = useState<Set<string>>(new Set());
+
+  // Clear selection when filters change
+  useEffect(() => {
+    setSelectedRows(new Set());
+  }, [activeFilter, dateFilter, searchQuery]);
+
+  const toggleRow = useCallback((id: string) => {
+    setSelectedRows(prev => {
+      const next = new Set(prev);
+      if (next.has(id)) next.delete(id);
+      else next.add(id);
+      return next;
+    });
+  }, []);
+
+  const toggleAll = useCallback(() => {
+    setSelectedRows(prev => {
+      if (prev.size === filteredData.length && filteredData.length > 0) {
+        return new Set();
+      }
+      return new Set(filteredData.map(d => d.reservation.id));
+    });
+  }, [filteredData]);
 
   useEffect(() => {
     if (!authLoading && !user) {
