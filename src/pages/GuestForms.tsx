@@ -160,7 +160,10 @@ export default function GuestForms() {
 
       if (agreementsError) throw agreementsError;
 
-      setReservations(reservationsData || []);
+      const filtered = (reservationsData || []).filter(
+        r => !r.booking_reference?.includes('-EXT')
+      );
+      setReservations(filtered);
       setAgreements(agreementsData || []);
     } catch (error) {
       console.error('Error fetching data:', error);
