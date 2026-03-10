@@ -351,7 +351,7 @@ export default function GuestForms() {
       d.reservation.booking_reference || '',
       d.reservation.status === 'confirmed' ? 'Confirmed' : d.reservation.status === 'checked-in' ? 'Checked In' : 'Completed',
       d.reservation.status || '',
-      d.hasForm ? 'Completed' : 'Pending',
+      d.hasForm ? 'Completed' : (d.reservation.status === 'checked-out' || d.reservation.status === 'completed') ? 'Missing' : 'Pending',
       d.agreement?.guest_full_name || '',
       d.agreement?.guest_email || '',
       d.agreement?.guest_phone || '',
