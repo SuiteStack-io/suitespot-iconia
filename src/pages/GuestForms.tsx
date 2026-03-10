@@ -643,6 +643,13 @@ export default function GuestForms() {
                 : 'Year to Date'
               }
             </Button>
+            <Button
+              variant={dateFilter === 'all' ? 'default' : 'outline'}
+              size="sm"
+              onClick={() => setDateFilter('all')}
+            >
+              All Time
+            </Button>
             {activeFilter !== 'all' && (
               <Badge variant="secondary" className="cursor-pointer" onClick={() => setActiveFilter('all')}>
                 {activeFilter === 'completed' ? 'Forms Completed' : 'Forms Pending'} ✕
