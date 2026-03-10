@@ -82,6 +82,7 @@ export function ConnectionStatus() {
   const [queueItems, setQueueItems] = useState<QueueItem[]>([]);
   const [loadingQueueItems, setLoadingQueueItems] = useState(false);
   const [clearing, setClearing] = useState(false);
+  const [backfilling, setBackfilling] = useState(false);
 
   useEffect(() => {
     fetchLastSync();
