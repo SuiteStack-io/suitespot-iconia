@@ -82,6 +82,7 @@ export function ConnectionStatus() {
   const [queueItems, setQueueItems] = useState<QueueItem[]>([]);
   const [loadingQueueItems, setLoadingQueueItems] = useState(false);
   const [clearing, setClearing] = useState(false);
+  const [backfilling, setBackfilling] = useState(false);
 
   useEffect(() => {
     fetchLastSync();
@@ -250,6 +251,30 @@ export function ConnectionStatus() {
     }
   };
 
+  const syncMissingBookings = async () => {
+    setBackfilling(true);
+    try {
+      const { data, error } = await supabase.functions.invoke('sync-channex-to-reservations');
+      if (error) throw error;
+      if (data?.success) {
+        const msg = `${data.created} created, ${data.skipped} already synced, ${data.failed} failed`;
+        if (data.failed > 0) {
+          toast.warning(`Sync complete: ${msg}`);
+        } else if (data.created > 0) {
+          toast.success(`Sync complete: ${msg}`);
+        } else {
+          toast.info(data.message || 'All bookings already synced');
+        }
+      } else {
+        toast.error(`Sync failed: ${data?.error || 'Unknown error'}`);
+      }
+    } catch (err: any) {
+      toast.error(`Sync failed: ${err.message}`);
+    } finally {
+      setBackfilling(false);
+    }
+  };
+
   const testWebhook = async () => {
     setTesting(true);
     const testId = `test-booking-${Date.now()}`;
@@ -385,6 +410,10 @@ export function ConnectionStatus() {
             <Button variant="outline" onClick={testWebhook} disabled={testing} className="gap-2">
               {testing ? <Loader2 className="h-4 w-4 animate-spin" /> : <FlaskConical className="h-4 w-4" />}
               Test Webhook
+            </Button>
+            <Button variant="outline" onClick={syncMissingBookings} disabled={backfilling} className="gap-2">
+              {backfilling ? <Loader2 className="h-4 w-4 animate-spin" /> : <Database className="h-4 w-4" />}
+              Sync Missing Bookings
             </Button>
           </div>
         </CardContent>
