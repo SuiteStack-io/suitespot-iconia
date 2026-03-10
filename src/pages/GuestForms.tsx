@@ -484,7 +484,7 @@ export default function GuestForms() {
                     {stats.checkedInWithoutForm}
                   </div>
                   <p className="text-sm text-muted-foreground">Forms Pending</p>
-                  <p className="text-xs text-muted-foreground">(Checked-in guests)</p>
+                  <p className="text-xs text-muted-foreground">(In date range)</p>
                 </div>
                 <FileX className="h-8 w-8 text-muted-foreground opacity-80" />
               </div>
