@@ -231,8 +231,8 @@ export default function GuestForms() {
       }
       
       data = data.filter(d => 
-        isAfter(parseISO(d.reservation.check_in_date), startDate) ||
-        isAfter(parseISO(d.reservation.check_out_date), startDate)
+        parseISO(d.reservation.check_in_date) >= startDate ||
+        parseISO(d.reservation.check_out_date) >= startDate
       );
     }
 
