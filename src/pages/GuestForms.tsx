@@ -596,8 +596,8 @@ export default function GuestForms() {
               onClick={() => setDateFilter(dateFilter === 'month' ? 'all' : 'month')}
             >
               {dateFilter === 'month' 
-                ? format(new Date(), 'MMMM yyyy')
-                : 'Month'
+                ? `${format(new Date(), 'MMM')} to Date`
+                : 'Month to Date'
               }
             </Button>
             <Button
