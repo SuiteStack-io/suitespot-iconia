@@ -321,7 +321,6 @@ Deno.serve(async (req: Request) => {
               }
             }
 
-            const nights = calculateNights(arrival_date, departure_date);
             const bookingRef = ota_reservation_code || booking_id;
 
             const reservationRecord = {
