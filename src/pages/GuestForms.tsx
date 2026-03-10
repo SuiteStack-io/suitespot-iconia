@@ -56,6 +56,7 @@ import {
   ArrowDown,
 } from 'lucide-react';
 import { PassportUploadDialog } from '@/components/PassportUploadDialog';
+import { Checkbox } from '@/components/ui/checkbox';
 import { toast } from 'sonner';
 import { usePropertyId, withPropertyFilter } from '@/hooks/usePropertyFilter';
 
