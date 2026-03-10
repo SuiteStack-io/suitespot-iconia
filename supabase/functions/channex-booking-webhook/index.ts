@@ -33,24 +33,23 @@ Deno.serve(async (req: Request) => {
       Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!
     );
 
-    // Log every incoming request immediately
-    const { error: immediateLogError } = await supabase
-      .from("channex_sync_logs")
-      .insert({
-        function_name: "channex-booking-webhook",
-        endpoint: "webhook",
-        request_payload: body,
-        response_payload: { event: event || "unknown" },
-        status_code: 200,
-        success: true,
-        error_message: null,
-        property_id: (body.property_id && /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(body.property_id)) ? body.property_id : null,
-      });
-    if (immediateLogError) {
-      console.error("[channex-booking-webhook] Failed to write immediate log:", immediateLogError);
-    }
-
+    // For non-booking events, log immediately and return
     if (event !== "booking") {
+      const { error: immediateLogError } = await supabase
+        .from("channex_sync_logs")
+        .insert({
+          function_name: "channex-booking-webhook",
+          endpoint: "webhook",
+          request_payload: body,
+          response_payload: { event: event || "unknown" },
+          status_code: 200,
+          success: true,
+          error_message: null,
+          property_id: (body.property_id && /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(body.property_id)) ? body.property_id : null,
+        });
+      if (immediateLogError) {
+        console.error("[channex-booking-webhook] Failed to write immediate log:", immediateLogError);
+      }
       console.log(`[channex-booking-webhook] Non-booking event: ${event}, logged and returning`);
       return ok({ success: true, message: `Logged and ignored event: ${event}` });
     }
@@ -69,6 +68,38 @@ Deno.serve(async (req: Request) => {
     const revisionId = bookingData.revision_id || rawPayload.revision_id || bookingData.id;
 
     console.log("[channex-booking-webhook] booking_id:", booking_id, "revisionId:", revisionId);
+
+    // --- Idempotency: skip if this revision was already fully processed ---
+    if (revisionId && !String(revisionId).startsWith('test-')) {
+      const { data: alreadyProcessed } = await supabase
+        .from("channex_bookings")
+        .select("id")
+        .eq("channex_revision_id", revisionId)
+        .eq("acknowledged", true)
+        .maybeSingle();
+
+      if (alreadyProcessed) {
+        console.log("[channex-booking-webhook] Revision already processed:", revisionId);
+        return ok({ success: true, booking_id, status: "already_processed", revision_id: revisionId });
+      }
+    }
+
+    // --- Log incoming booking event (after dedup check) ---
+    const { error: immediateLogError } = await supabase
+      .from("channex_sync_logs")
+      .insert({
+        function_name: "channex-booking-webhook",
+        endpoint: "webhook",
+        request_payload: body,
+        response_payload: { event: "booking" },
+        status_code: 200,
+        success: true,
+        error_message: null,
+        property_id: (body.property_id && /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(body.property_id)) ? body.property_id : null,
+      });
+    if (immediateLogError) {
+      console.error("[channex-booking-webhook] Failed to write immediate log:", immediateLogError);
+    }
 
     // --- Detect test payloads ---
     const isTestProperty = !channexPropertyId || channexPropertyId.startsWith('test-') || channexPropertyId === 'test-property-id';
