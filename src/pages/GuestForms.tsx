@@ -133,14 +133,6 @@ export default function GuestForms() {
     });
   }, []);
 
-  const toggleAll = useCallback(() => {
-    setSelectedRows(prev => {
-      if (prev.size === filteredData.length && filteredData.length > 0) {
-        return new Set();
-      }
-      return new Set(filteredData.map(d => d.reservation.id));
-    });
-  }, [filteredData]);
 
   useEffect(() => {
     if (!authLoading && !user) {
