@@ -69,13 +69,14 @@ Deno.serve(async (req: Request) => {
 
     console.log("[channex-booking-webhook] booking_id:", booking_id, "revisionId:", revisionId);
 
-    // --- Idempotency: skip if this revision was already fully processed ---
+    // --- Idempotency: skip if this revision was already processed ---
     if (revisionId && !String(revisionId).startsWith('test-')) {
       const { data: alreadyProcessed } = await supabase
-        .from("channex_bookings")
+        .from("channex_sync_logs")
         .select("id")
-        .eq("channex_revision_id", revisionId)
-        .eq("acknowledged", true)
+        .eq("function_name", "channex-booking-webhook")
+        .filter("request_payload->payload->>revision_id", "eq", revisionId)
+        .limit(1)
         .maybeSingle();
 
       if (alreadyProcessed) {
