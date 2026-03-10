@@ -123,6 +123,39 @@ Deno.serve(async (req: Request) => {
           }
         }
 
+        // Resolve correct property_id to avoid FK violations
+        let resolvedPropertyId: string | null = null;
+
+        // 1. If we found an allocated unit, use its property
+        if (allocatedUnitId && room_type_id) {
+          const { data: unitData } = await supabase
+            .from("units")
+            .select("property_id")
+            .eq("id", allocatedUnitId)
+            .maybeSingle();
+          if (unitData?.property_id) resolvedPropertyId = unitData.property_id;
+        }
+
+        // 2. If no resolved property yet, try the room_type_id's unit property
+        if (!resolvedPropertyId && room_type_id) {
+          const { data: rtUnit } = await supabase
+            .from("units")
+            .select("property_id")
+            .eq("id", room_type_id)
+            .maybeSingle();
+          if (rtUnit?.property_id) resolvedPropertyId = rtUnit.property_id;
+        }
+
+        // 3. Fall back to channex_bookings.property_id only if it exists in properties
+        if (!resolvedPropertyId && localPropertyId) {
+          const { data: propCheck } = await supabase
+            .from("properties")
+            .select("id")
+            .eq("id", localPropertyId)
+            .maybeSingle();
+          if (propCheck) resolvedPropertyId = localPropertyId;
+        }
+
         const numberOfGuests = (parseInt(adults) || 1) + (parseInt(children) || 0);
 
         const { error: insertErr } = await supabase
@@ -139,7 +172,7 @@ Deno.serve(async (req: Request) => {
             status: "confirmed",
             channel: "Channex",
             source: ota_name || "Channex",
-            property_id: localPropertyId,
+            property_id: resolvedPropertyId,
             unit_id: allocatedUnitId,
             total_price: total_amount || null,
             currency: currency || "USD",
