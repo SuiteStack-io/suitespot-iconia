@@ -177,9 +177,8 @@ export default function GuestForms() {
 
   // Compute statistics
   const stats = useMemo(() => {
-    const checkedInReservations = reservations.filter(r => r.status === 'checked-in');
-    const withForm = checkedInReservations.filter(r => agreementsMap.has(r.id));
-    const withoutForm = checkedInReservations.filter(r => !agreementsMap.has(r.id));
+    const withForm = reservations.filter(r => agreementsMap.has(r.id));
+    const withoutForm = reservations.filter(r => !agreementsMap.has(r.id));
     const uniqueEmails = new Set(
       agreements.map(a => a.guest_email?.toLowerCase()).filter(Boolean)
     );
@@ -232,16 +231,16 @@ export default function GuestForms() {
       }
       
       data = data.filter(d => 
-        isAfter(parseISO(d.reservation.check_in_date), startDate) ||
-        isAfter(parseISO(d.reservation.check_out_date), startDate)
+        parseISO(d.reservation.check_in_date) >= startDate ||
+        parseISO(d.reservation.check_out_date) >= startDate
       );
     }
 
     // Apply card filter
     if (activeFilter === 'completed') {
-      data = data.filter(d => d.hasForm && d.reservation.status === 'checked-in');
+      data = data.filter(d => d.hasForm);
     } else if (activeFilter === 'pending') {
-      data = data.filter(d => !d.hasForm && d.reservation.status === 'checked-in');
+      data = data.filter(d => !d.hasForm);
     }
 
     // Apply search
@@ -464,7 +463,7 @@ export default function GuestForms() {
                     {stats.checkedInWithForm}
                   </div>
                   <p className="text-sm text-muted-foreground">Forms Completed</p>
-                  <p className="text-xs text-muted-foreground">(Checked-in guests)</p>
+                   <p className="text-xs text-muted-foreground">(In date range)</p>
                 </div>
                 <FileCheck className="h-8 w-8 text-muted-foreground opacity-80" />
               </div>
@@ -485,7 +484,7 @@ export default function GuestForms() {
                     {stats.checkedInWithoutForm}
                   </div>
                   <p className="text-sm text-muted-foreground">Forms Pending</p>
-                  <p className="text-xs text-muted-foreground">(Checked-in guests)</p>
+                  <p className="text-xs text-muted-foreground">(In date range)</p>
                 </div>
                 <FileX className="h-8 w-8 text-muted-foreground opacity-80" />
               </div>
