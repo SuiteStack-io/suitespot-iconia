@@ -724,8 +724,8 @@ export default function GuestForms() {
                             </Badge>
                           ) : (
                             <Badge 
-                              variant="destructive"
-                              className="cursor-pointer hover:bg-destructive/80 transition-colors"
+                              variant="outline"
+                              className="cursor-pointer bg-yellow-100 text-yellow-800 border-yellow-300 hover:bg-yellow-200 transition-colors"
                               onClick={() => window.open(`/guest-checkin/${reservation.id}`, '_blank')}
                             >
                               Pending
