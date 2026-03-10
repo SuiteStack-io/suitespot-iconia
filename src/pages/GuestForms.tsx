@@ -229,11 +229,15 @@ export default function GuestForms() {
         default:
           startDate = new Date(0);
       }
+      const endDate = now;
       
-      data = data.filter(d => 
-        parseISO(d.reservation.check_in_date) >= startDate ||
-        parseISO(d.reservation.check_out_date) >= startDate
-      );
+      data = data.filter(d => {
+        const checkIn = parseISO(d.reservation.check_in_date);
+        const checkOut = parseISO(d.reservation.check_out_date);
+        return (checkIn >= startDate && checkIn <= endDate) ||
+               (checkOut >= startDate && checkOut <= endDate) ||
+               (checkIn <= startDate && checkOut >= endDate);
+      });
     }
 
     // Apply card filter
@@ -592,8 +596,8 @@ export default function GuestForms() {
               onClick={() => setDateFilter(dateFilter === 'month' ? 'all' : 'month')}
             >
               {dateFilter === 'month' 
-                ? format(new Date(), 'MMMM yyyy')
-                : 'Month'
+                ? `${format(new Date(), 'MMM')} to Date`
+                : 'Month to Date'
               }
             </Button>
             <Button
