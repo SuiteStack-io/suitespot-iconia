@@ -776,6 +776,16 @@ export default function GuestForms() {
                           </Button>
                         </TableCell>
                         <TableCell>
+                          <Badge className={cn(
+                            reservation.status === 'confirmed' && 'bg-blue-100 text-blue-800 border-blue-200 hover:bg-blue-100',
+                            reservation.status === 'checked-in' && 'bg-amber-100 text-amber-800 border-amber-200 hover:bg-amber-100',
+                            (reservation.status === 'checked-out' || reservation.status === 'completed') && 'bg-green-100 text-green-800 border-green-200 hover:bg-green-100'
+                          )}>
+                            {reservation.status === 'confirmed' ? 'Confirmed' : 
+                             reservation.status === 'checked-in' ? 'Checked In' : 'Completed'}
+                          </Badge>
+                        </TableCell>
+                        <TableCell>
                           {reservation.status === 'checked-in' 
                             ? 'Checked In' 
                             : reservation.status === 'checked-out' 
