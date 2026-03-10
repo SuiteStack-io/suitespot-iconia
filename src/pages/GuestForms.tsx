@@ -338,8 +338,12 @@ export default function GuestForms() {
       return val;
     };
 
+    const dataToExport = selectedRows.size > 0
+      ? filteredData.filter(d => selectedRows.has(d.reservation.id))
+      : filteredData;
+
     const headers = ['Room', 'Guest Name', 'Check-In', 'Check-Out', 'Booking Ref', 'Check-In Status', 'Form Status', 'Form Name', 'Form Email', 'Form Phone', 'Signed At', 'Nationality', 'Age'];
-    const rows = filteredData.map(d => [
+    const rows = dataToExport.map(d => [
       d.reservation.units?.unit_number || d.reservation.units?.name || '',
       d.reservation.guest_names?.[0] || '',
       d.reservation.check_in_date,
