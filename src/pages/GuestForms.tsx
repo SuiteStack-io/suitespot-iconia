@@ -238,9 +238,9 @@ export default function GuestForms() {
 
     // Apply card filter
     if (activeFilter === 'completed') {
-      data = data.filter(d => d.hasForm && d.reservation.status === 'checked-in');
+      data = data.filter(d => d.hasForm);
     } else if (activeFilter === 'pending') {
-      data = data.filter(d => !d.hasForm && d.reservation.status === 'checked-in');
+      data = data.filter(d => !d.hasForm);
     }
 
     // Apply search
