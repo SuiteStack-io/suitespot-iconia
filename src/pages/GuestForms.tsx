@@ -730,13 +730,23 @@ export default function GuestForms() {
                     </TableCell>
                   </TableRow>
                 ) : (
-                  filteredData.map(({ reservation, agreement, hasForm }) => {
+                  filteredData.map(({ reservation, agreement, hasForm }, index) => {
                     const isPending = !hasForm && reservation.status === 'checked-in';
                     return (
                       <TableRow
                         key={reservation.id}
                         className={cn(isPending && 'bg-destructive/5')}
+                        data-state={selectedRows.has(reservation.id) ? 'selected' : undefined}
                       >
+                        <TableCell>
+                          <div className="flex items-center gap-2">
+                            <Checkbox
+                              checked={selectedRows.has(reservation.id)}
+                              onCheckedChange={() => toggleRow(reservation.id)}
+                            />
+                            <span className="text-xs text-muted-foreground">{index + 1}</span>
+                          </div>
+                        </TableCell>
                         <TableCell className="font-medium">
                           {reservation.units?.unit_number || reservation.units?.name || '-'}
                         </TableCell>
