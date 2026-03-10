@@ -463,7 +463,7 @@ export default function GuestForms() {
                     {stats.checkedInWithForm}
                   </div>
                   <p className="text-sm text-muted-foreground">Forms Completed</p>
-                  <p className="text-xs text-muted-foreground">(Checked-in guests)</p>
+                   <p className="text-xs text-muted-foreground">(In date range)</p>
                 </div>
                 <FileCheck className="h-8 w-8 text-muted-foreground opacity-80" />
               </div>
