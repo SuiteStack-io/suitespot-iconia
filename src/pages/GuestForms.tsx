@@ -694,6 +694,7 @@ export default function GuestForms() {
                 <TableHead>Check-In</TableHead>
                 <TableHead>Check-Out</TableHead>
                 <TableHead>Booking Ref</TableHead>
+                <TableHead>Reservation Status</TableHead>
                 <TableHead 
                   className="cursor-pointer hover:bg-muted/50 select-none transition-colors"
                   onClick={() => handleSort('check_in_status')}
