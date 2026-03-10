@@ -1,29 +1,18 @@
 
 
-## Analysis: All 4 Bugs Are Already Fixed
+## Fix: Display Channex Booking ID and OTA Reference on Reservation Detail
 
-After reviewing the current code, **all 4 issues are already addressed** in the existing implementation:
+### Problem
+The webhook already correctly saves `channex_booking_id` and uses `ota_reservation_code || booking_id` as `booking_reference` (line 355). The issue is the Reservation Detail page doesn't fetch or display `channex_booking_id`, so for Channex bookings there's no way to see the OTA confirmation code vs the Channex ID separately.
 
-### Bug 1: Duplicate webhook processing — Already Fixed
-Lines 72-85 of `channex-booking-webhook/index.ts` already have the idempotency check using `channex_revision_id` + `acknowledged = true` on `channex_bookings`. The log insert (lines 87-102) was already moved after this check so duplicates don't create extra log entries.
+### Changes
 
-### Bug 2: Modifications create duplicates — Already Fixed
-Lines 275-307 already check for an existing reservation via `channex_booking_id` before creating. If found, it updates the existing record with new dates, guest info, and pricing. Only if no match exists does it proceed to create a new reservation (line 308+).
+**1. `src/pages/ReservationDetail.tsx`**
+- Add `channex_booking_id` to the `Reservation` interface
+- In the reservation detail display section (around line 929), show the `channex_booking_id` when the channel is "Channex":
+  - **Booking Reference**: shows `booking_reference` (which is `ota_reservation_code` or `booking_id`)
+  - **Channex ID**: shows `channex_booking_id` (only for Channex bookings)
+- The `select('*')` query already fetches all columns including `channex_booking_id`, so no query change needed
 
-### Bug 3: Inconsistent response format — Already Fixed
-The `ok()` helper (lines 15-19) ensures all responses use `Content-Type: application/json` with proper structure. The final return at line 437 returns `{ success: true, booking_id, status, acknowledged, reservation }`. Error paths also use `ok()`.
-
-### Bug 4: Property name in Sync Logs — Already Fixed
-`SyncLogs.tsx` lines 67-71 already resolve the property name:
-```typescript
-const propertyName = (id: string | null) => {
-  if (!id) return '—';
-  const p = properties.find((p) => p.id === id);
-  return p?.name || id.slice(0, 8);
-};
-```
-Properties are fetched on line 47. If a property UUID doesn't match (e.g., a stale/invalid ID), it falls back to showing the first 8 chars — which is the behavior you observed. This is correct fallback behavior for orphaned property IDs.
-
-### Conclusion
-No code changes are needed. All requested fixes are already in place from previous iterations.
+This is a UI-only change — ~5 lines added to the interface and ~8 lines added to the display section.
 
