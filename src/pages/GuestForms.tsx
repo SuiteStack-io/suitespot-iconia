@@ -653,11 +653,12 @@ export default function GuestForms() {
         {/* Count bar + Export */}
         <div className="flex items-center justify-between">
           <span className="text-sm text-muted-foreground">
+            {selectedRows.size > 0 && `${selectedRows.size} selected · `}
             Showing {filteredData.length} of {tableData.length} guests
           </span>
           <Button variant="outline" size="sm" onClick={handleExportCSV} disabled={filteredData.length === 0}>
             <Download className="h-4 w-4 mr-2" />
-            Export CSV
+            {selectedRows.size > 0 ? `Export Selected (${selectedRows.size})` : 'Export CSV'}
           </Button>
         </div>
 
