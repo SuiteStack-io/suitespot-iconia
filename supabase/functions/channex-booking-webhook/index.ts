@@ -84,22 +84,6 @@ Deno.serve(async (req: Request) => {
       }
     }
 
-    // --- Log incoming booking event (after dedup check) ---
-    const { error: immediateLogError } = await supabase
-      .from("channex_sync_logs")
-      .insert({
-        function_name: "channex-booking-webhook",
-        endpoint: "webhook",
-        request_payload: body,
-        response_payload: { event: "booking" },
-        status_code: 200,
-        success: true,
-        error_message: null,
-        property_id: (body.property_id && /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(body.property_id)) ? body.property_id : null,
-      });
-    if (immediateLogError) {
-      console.error("[channex-booking-webhook] Failed to write immediate log:", immediateLogError);
-    }
 
     // --- Detect test payloads ---
     const isTestProperty = !channexPropertyId || channexPropertyId.startsWith('test-') || channexPropertyId === 'test-property-id';
