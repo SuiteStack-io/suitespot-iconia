@@ -322,7 +322,15 @@ export default function GuestForms() {
     return data;
   }, [tableData, activeFilter, searchQuery, dateFilter, sortField, sortOrder]);
 
-  const handleExportCSV = () => {
+  const toggleAll = useCallback(() => {
+    setSelectedRows(prev => {
+      if (prev.size === filteredData.length && filteredData.length > 0) {
+        return new Set();
+      }
+      return new Set(filteredData.map(d => d.reservation.id));
+    });
+  }, [filteredData]);
+
     const escapeCSV = (val: string) => {
       if (val.includes(',') || val.includes('"') || val.includes('\n')) {
         return `"${val.replace(/"/g, '""')}"`;
