@@ -90,17 +90,19 @@ Deno.serve(async (req: Request) => {
     const isTestProperty = !channexPropertyId || channexPropertyId.startsWith('test-') || channexPropertyId === 'test-property-id';
     const isTestBooking = !booking_id || String(booking_id).startsWith('test-');
 
-    // --- Enrich thin payloads by fetching full booking from Channex API ---
+    // --- Enrich thin payloads by fetching revision from Channex API ---
     let enrichedData = bookingData;
-    if (!bookingData.arrival_date && !bookingData.check_in && booking_id && !isTestBooking) {
-      console.log("[channex-booking-webhook] Thin payload detected, fetching full booking from API...");
+    const isTestRevision = !revisionId || String(revisionId).startsWith('test-');
+    if (!bookingData.arrival_date && !bookingData.check_in && revisionId && !isTestRevision) {
+      console.log("[channex-booking-webhook] Thin payload detected, fetching revision from API...");
       try {
-        const fullBooking: any = await channexRequest("GET", `/api/v1/bookings/${booking_id}`);
-        const fetchedData = fullBooking?.data?.attributes || fullBooking?.data || fullBooking;
-        enrichedData = { ...bookingData, ...fetchedData };
-        console.log("[channex-booking-webhook] Enriched from API, keys:", Object.keys(enrichedData));
+        const revisionResponse: any = await channexRequest("GET", `/api/v1/booking_revisions/${revisionId}`);
+        const revisionData = revisionResponse?.data?.attributes || revisionResponse?.data || revisionResponse;
+        const bookingFromRevision = revisionData?.booking || revisionData;
+        enrichedData = { ...bookingData, ...bookingFromRevision };
+        console.log("[channex-booking-webhook] Enriched from revision API, keys:", Object.keys(enrichedData));
       } catch (fetchErr: any) {
-        console.warn("[channex-booking-webhook] Could not fetch full booking:", fetchErr.message);
+        console.warn("[channex-booking-webhook] Could not fetch booking revision:", fetchErr.message);
       }
     }
 
