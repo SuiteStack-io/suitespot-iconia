@@ -92,6 +92,7 @@ export function EditPermissionsDialog({
   const { toast } = useToast();
   const [loading, setLoading] = useState(false);
   const [saving, setSaving] = useState(false);
+  const [notifSaveTrigger, setNotifSaveTrigger] = useState(0);
   const [permissions, setPermissions] = useState<UserPermissions>({
     can_check_in: false,
     can_check_out: false,
