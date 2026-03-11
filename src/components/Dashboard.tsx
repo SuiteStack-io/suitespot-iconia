@@ -825,7 +825,7 @@ export const Dashboard = () => {
         : undefined,
     },
     {
-      title: 'Recent Cancellations (24h)',
+      title: 'Cancellations (24h)',
       value: stats.recentCancellations,
       icon: XCircle,
       color: 'text-red-600',
