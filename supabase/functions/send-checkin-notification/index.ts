@@ -227,7 +227,7 @@ Deno.serve(async (req) => {
       JSON.stringify({
         message: 'Check-in notifications sent',
         sent: successCount,
-        total: admins.length,
+        total: filteredAdmins.length,
         results
       }),
       {
