@@ -71,6 +71,7 @@ import ChannexDebug from "./pages/ChannexDebug";
 import ShuffleHistory from "./pages/ShuffleHistory";
 import FrontDeskRoomRates from "./pages/front-desk/RoomRates";
 import ChannelMarkup from "./pages/pms/ChannelMarkup";
+import MyNotifications from "./pages/MyNotifications";
 const queryClient = new QueryClient();
 
 const App = () => (
