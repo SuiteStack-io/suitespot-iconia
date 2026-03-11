@@ -1,118 +1,101 @@
 
 
-## Fix: Filter Blocked Dates by Active Property
+## Add Notification Preferences System
 
-### Problem
-`fetchBlockedDates()` fetches ALL blocked dates across all properties. `fetchUnits()` correctly filters by `propertyId`, but blocked dates does not.
+### Overview
+Create a `user_notification_settings` table and integrate it into the permissions UI and all email-sending edge functions. Users without settings rows default to all-enabled.
 
-### File: `src/components/BlockedDatesManager.tsx`
+### 1. Database Migration
 
-**1. Filter `fetchBlockedDates` by property (lines 101-121)**
+Create `user_notification_settings` table:
+```sql
+CREATE TABLE user_notification_settings (
+  id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
+  user_id uuid NOT NULL UNIQUE REFERENCES auth.users(id) ON DELETE CASCADE,
+  checkin_email boolean NOT NULL DEFAULT true,
+  checkout_email boolean NOT NULL DEFAULT true,
+  new_booking_email boolean NOT NULL DEFAULT true,
+  cancelled_booking_email boolean NOT NULL DEFAULT true,
+  room_shuffle_email boolean NOT NULL DEFAULT true,
+  daily_summary_email boolean NOT NULL DEFAULT true,
+  created_at timestamptz NOT NULL DEFAULT now(),
+  updated_at timestamptz NOT NULL DEFAULT now()
+);
 
-The `blocked_dates` table references `units` via `unit_id`. Filter by joining through units that belong to the active property:
+ALTER TABLE user_notification_settings ENABLE ROW LEVEL SECURITY;
 
-```typescript
-const fetchBlockedDates = async () => {
-  try {
-    let query = supabase
-      .from("blocked_dates")
-      .select(`
-        *,
-        units (
-          name,
-          unit_number,
-          booking_com_name
-        )
-      `)
-      .order("blocked_date", { ascending: true });
+-- Admins can manage all settings
+CREATE POLICY "Admins can manage all notification settings"
+  ON user_notification_settings FOR ALL TO authenticated
+  USING (has_role(auth.uid(), 'admin'::app_role));
 
-    // Filter to only show blocked dates for units belonging to the active property
-    if (propertyId) {
-      query = query.eq('units.property_id', propertyId);
-    }
+-- Users can view and update their own settings
+CREATE POLICY "Users can view own notification settings"
+  ON user_notification_settings FOR SELECT TO authenticated
+  USING (user_id = auth.uid());
 
-    const { data, error } = await query;
-    if (error) throw error;
+CREATE POLICY "Users can update own notification settings"
+  ON user_notification_settings FOR UPDATE TO authenticated
+  USING (user_id = auth.uid());
 
-    // Remove entries where the unit was filtered out (unit doesn't belong to property)
-    const filtered = (data || []).filter(d => d.unit_id === null || d.units !== null);
-    setBlockedDates(filtered);
-  } catch (error: any) {
-    console.error("Error fetching blocked dates:", error);
-    toast.error("Failed to fetch blocked dates");
-  }
-};
+CREATE POLICY "Users can insert own notification settings"
+  ON user_notification_settings FOR INSERT TO authenticated
+  WITH CHECK (user_id = auth.uid());
 ```
 
-However, `blocked_dates` rows with `unit_id = null` (meaning "all rooms") have no unit join to filter on. We need a different approach — filter blocked dates whose `unit_id` is either null OR belongs to a unit in the active property. The cleanest way: use the unit IDs we already fetch.
+### 2. UI: Add Notification Toggles to EditPermissionsDialog
 
-**Better approach — filter client-side using fetched units:**
+**File:** `src/components/EditPermissionsDialog.tsx`
 
-Since `fetchUnits` already returns only units for the active property, filter blocked dates to only include those whose `unit_id` is null or matches a fetched unit.
+Add a new "Email Notifications" section below the PropertyAccessSection. It will:
+- Fetch `user_notification_settings` for the selected user (or show all-enabled defaults if no row exists)
+- Show 6 toggles: checkin_email, checkout_email, new_booking_email, cancelled_booking_email, room_shuffle_email, daily_summary_email
+- Include "Enable All" / "Disable All" buttons
+- Save via upsert on the existing Save button click (alongside permissions)
 
-Actually, the simplest and most reliable fix: add `property_id` awareness to the query. Since `blocked_dates` has a `unit_id` FK to `units`, and `units` has `property_id`, we can filter via an inner join or use an `in` filter with the property's unit IDs.
+### 3. UI: "My Notifications" Page
 
-**Revised approach — fetch unit IDs first, then filter:**
+**New file:** `src/pages/MyNotifications.tsx`
 
-```typescript
-// In useEffect, ensure both refetch when propertyId changes
-useEffect(() => {
-  fetchUnits();
-  fetchBlockedDates();
-}, [propertyId]);
-```
+A simple page accessible to all authenticated users showing the same 6 toggles for their own settings. Add a route `/admin/my-notifications` in App.tsx behind ProtectedRoute. Add a "My Notifications" link in the SlideMenu under the user's profile area or as a new nav item.
 
-In `fetchBlockedDates`, after fetching units (or independently):
-- Query units for the active property to get their IDs
-- Filter blocked_dates where `unit_id` is in that list
+### 4. Update Edge Functions (5 functions)
 
-**Simplest implementation:**
-
-1. **Change useEffect (line 80-83)** to depend on `propertyId`
-2. **Update `fetchBlockedDates`** to filter by property's unit IDs
+Each function already fetches admin/staff users, then loops to send emails. Add a query to `user_notification_settings` and filter recipients. The pattern for each:
 
 ```typescript
-const fetchBlockedDates = async () => {
-  try {
-    // First get unit IDs for the active property
-    let unitIds: string[] = [];
-    if (propertyId) {
-      const { data: propUnits } = await supabase
-        .from("units")
-        .select("id")
-        .eq("property_id", propertyId);
-      unitIds = (propUnits || []).map(u => u.id);
-    }
+// After fetching admin user list, before sending emails:
+const { data: notifSettings } = await supabase
+  .from('user_notification_settings')
+  .select('user_id, checkin_email')  // use appropriate column
+  .in('user_id', userIds);
 
-    let query = supabase
-      .from("blocked_dates")
-      .select(`*, units (name, unit_number, booking_com_name)`)
-      .order("blocked_date", { ascending: true });
-
-    if (propertyId && unitIds.length > 0) {
-      // Only show blocked dates for this property's units
-      query = query.in("unit_id", unitIds);
-    } else if (propertyId && unitIds.length === 0) {
-      // Property has no units, show nothing
-      setBlockedDates([]);
-      return;
-    }
-
-    const { data, error } = await query;
-    if (error) throw error;
-    setBlockedDates(data || []);
-  } catch (error: any) {
-    console.error("Error fetching blocked dates:", error);
-    toast.error("Failed to fetch blocked dates");
-  }
-};
+// Filter: keep user if no settings row (default=enabled) or column is true
+const filteredAdmins = admins.filter(admin => {
+  const settings = notifSettings?.find(s => s.user_id === admin.user_id);
+  if (!settings) return true; // no row = all enabled
+  return settings.checkin_email; // check appropriate column
+});
 ```
 
-3. **Update useEffect** (line 80-83): add `propertyId` to dependency array
+Functions to update and their setting columns:
 
-### Summary
-- 1 file changed: `src/components/BlockedDatesManager.tsx`
-- `fetchBlockedDates` filters by active property's unit IDs
-- Re-fetches when property switches
-- Blocked dates with `unit_id = null` (all-rooms blocks) won't show unless we decide they should — this matches the expectation that blocks are property-scoped
+| Function | Column |
+|---|---|
+| `send-checkin-notification` | `checkin_email` |
+| `send-checkout-notification` | `checkout_email` |
+| `send-reservation-notification` | `new_booking_email` |
+| `send-cancellation-notification` | `cancelled_booking_email` |
+| `auto-shuffle-rooms` | `room_shuffle_email` |
+
+Log skipped users: `console.log("Skipped [email] — notifications disabled")`
+
+### 5. Files Changed Summary
+
+- **Migration**: 1 new table with RLS
+- **EditPermissionsDialog.tsx**: Add notification toggles section
+- **New page**: `src/pages/MyNotifications.tsx`
+- **App.tsx**: Add route
+- **SlideMenu.tsx**: Add "My Notifications" nav item
+- **5 edge functions**: Add notification preference filtering
 
