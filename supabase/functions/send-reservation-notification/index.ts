@@ -465,9 +465,25 @@ const handler = async (req: Request): Promise<Response> => {
         console.log(`User ${u.user_id} filtered out - no email found`);
       }
       return hasEmail;
-    }); // Only include users with emails
+    });
 
-    console.log("Final users to notify:", users.map((u: any) => ({ email: u.email, name: u.full_name })));
+    // Filter by notification preferences
+    const staffUserIds = users.map((u: any) => u.user_id);
+    const { data: notifSettings } = await supabaseClient
+      .from('user_notification_settings')
+      .select('user_id, new_booking_email')
+      .in('user_id', staffUserIds);
+
+    const filteredUsers = users.filter((u: any) => {
+      const settings = notifSettings?.find((s: any) => s.user_id === u.user_id);
+      if (settings && !settings.new_booking_email) {
+        console.log(`Skipped ${u.email} — new booking notifications disabled`);
+        return false;
+      }
+      return true;
+    });
+
+    console.log("Final users to notify:", filteredUsers.map((u: any) => ({ email: u.email, name: u.full_name })));
 
     if (!users || users.length === 0) {
       console.log("No users found to notify");
