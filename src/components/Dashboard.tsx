@@ -851,7 +851,7 @@ export const Dashboard = () => {
           return (
             <Card 
               key={stat.title} 
-              className="cursor-pointer hover:bg-accent/50 transition-colors"
+              className="cursor-pointer hover:bg-accent/50 transition-colors min-h-[100px] sm:min-h-[120px]"
               onClick={() => handleCardClick(stat.type)}
             >
               <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-1 sm:pb-2 p-3 sm:p-6">
