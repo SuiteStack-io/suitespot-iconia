@@ -59,6 +59,8 @@ interface NotificationSettingsSectionProps {
   onSettingsChange?: (settings: NotificationSettings) => void;
   /** Parent triggers save */
   triggerSave?: number;
+  /** Use two-column grid layout for toggles on desktop */
+  twoColumn?: boolean;
 }
 
 export function NotificationSettingsSection({
