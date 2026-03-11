@@ -123,6 +123,7 @@ const handler = async (req: Request): Promise<Response> => {
       });
       
       return {
+        user_id: userId,
         email: authUser?.email,
         name: profile?.full_name || "Admin",
       };
@@ -134,17 +135,32 @@ const handler = async (req: Request): Promise<Response> => {
       return hasEmail;
     });
 
-    console.log("Final admins to notify:", adminEmails.map((u: any) => ({ email: u.email, name: u.name })));
+    // Filter by notification preferences
+    const { data: notifSettings } = await supabase
+      .from('user_notification_settings')
+      .select('user_id, cancelled_booking_email')
+      .in('user_id', adminEmails.map((a: any) => a.user_id));
 
-    if (adminEmails.length === 0) {
-      console.log("No admin emails found");
+    const filteredAdminEmails = adminEmails.filter((admin: any) => {
+      const settings = notifSettings?.find((s: any) => s.user_id === admin.user_id);
+      if (settings && !settings.cancelled_booking_email) {
+        console.log(`Skipped ${admin.email} — cancellation notifications disabled`);
+        return false;
+      }
+      return true;
+    });
+
+    console.log("Final admins to notify:", filteredAdminEmails.map((u: any) => ({ email: u.email, name: u.name })));
+
+    if (filteredAdminEmails.length === 0) {
+      console.log("No admin emails found after filtering");
       return new Response(
-        JSON.stringify({ success: true, message: "No admin emails found" }),
+        JSON.stringify({ success: true, message: "No admin emails to notify" }),
         { headers: { ...corsHeaders, "Content-Type": "application/json" } }
       );
     }
 
-    console.log(`Sending cancellation notification to ${adminEmails.length} admin(s)`);
+    console.log(`Sending cancellation notification to ${filteredAdminEmails.length} admin(s)`);
 
     // Format dates
     const checkInShort = new Date(check_in_date).toLocaleDateString("en-US", { month: "short", day: "numeric" });
