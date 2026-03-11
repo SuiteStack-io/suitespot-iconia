@@ -303,7 +303,7 @@ export function EditPermissionsDialog({
             <Separator />
             <PropertyAccessSection userId={user.id} isAdmin={isAdmin} />
             <Separator />
-            <NotificationSettingsSection userId={user.id} />
+            <NotificationSettingsSection userId={user.id} triggerSave={notifSaveTrigger} />
           </>
         )}
 
