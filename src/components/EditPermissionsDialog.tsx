@@ -181,6 +181,8 @@ export function EditPermissionsDialog({
 
       if (error) throw error;
 
+      // Trigger notification settings save
+      setNotifSaveTrigger(prev => prev + 1);
       toast({
         title: 'Success',
         description: `Permissions updated for ${user.full_name || user.email}`,
