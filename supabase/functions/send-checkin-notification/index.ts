@@ -128,9 +128,9 @@ Deno.serve(async (req) => {
     let successCount = 0;
     let failedCount = 0;
 
-    console.log(`Starting to send check-in notification emails to ${admins.length} admins`);
+    console.log(`Starting to send check-in notification emails to ${filteredAdmins.length} admins`);
 
-    for (const admin of admins) {
+    for (const admin of filteredAdmins) {
       try {
         console.log(`Attempting to send check-in email to: ${admin.email}`);
         
