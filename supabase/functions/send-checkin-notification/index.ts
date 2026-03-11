@@ -80,7 +80,23 @@ Deno.serve(async (req) => {
       })
       .filter((u: any) => u.email && ['admin', 'front_desk'].includes(u.role));
 
-    console.log(`Found ${admins.length} admin users`);
+    // Filter by notification preferences
+    const adminUserIds = admins.map((a: any) => a.user_id);
+    const { data: notifSettings } = await supabase
+      .from('user_notification_settings')
+      .select('user_id, checkin_email')
+      .in('user_id', adminUserIds);
+
+    const filteredAdmins = admins.filter((admin: any) => {
+      const settings = notifSettings?.find((s: any) => s.user_id === admin.user_id);
+      if (settings && !settings.checkin_email) {
+        console.log(`Skipped ${admin.email} — checkin notifications disabled`);
+        return false;
+      }
+      return true; // No row = default enabled
+    });
+
+    console.log(`Found ${admins.length} admin users, ${filteredAdmins.length} after notification preferences`);
 
     if (admins.length === 0) {
       console.log('No admin users found, skipping email notification');
