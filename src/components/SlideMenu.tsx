@@ -97,6 +97,7 @@ export function SlideMenu({ userRole }: SlideMenuProps) {
         { title: 'Tickets', url: '/guest-tickets', icon: Ticket },
         { title: 'App Accounts', url: '/guest-accounts', icon: Shield },
         { title: 'My Commissions', url: '/my-commissions', icon: Wallet, showFor: ['manager', 'admin'] },
+        { title: 'My Notifications', url: '/my-notifications', icon: Settings },
       ],
     },
     {
