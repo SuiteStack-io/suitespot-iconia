@@ -200,23 +200,25 @@ export function NotificationSettingsSection({
         </div>
       </div>
 
-      {(Object.keys(NOTIFICATION_LABELS) as Array<keyof NotificationSettings>).map((key) => (
-        <div key={key} className="flex items-center justify-between py-2 border-b last:border-0">
-          <div className="space-y-0.5 pr-4">
-            <Label htmlFor={`notif-${key}`} className="font-medium cursor-pointer text-sm">
-              📩 {NOTIFICATION_LABELS[key].label}
-            </Label>
-            <p className="text-xs text-muted-foreground">
-              {NOTIFICATION_LABELS[key].description}
-            </p>
+      <div className={twoColumn ? "grid grid-cols-1 md:grid-cols-2 gap-x-6 gap-y-2" : "space-y-0"}>
+        {(Object.keys(NOTIFICATION_LABELS) as Array<keyof NotificationSettings>).map((key) => (
+          <div key={key} className="flex items-center justify-between py-2 border-b">
+            <div className="space-y-0.5 pr-4">
+              <Label htmlFor={`notif-${key}`} className="font-medium cursor-pointer text-sm">
+                📩 {NOTIFICATION_LABELS[key].label}
+              </Label>
+              <p className="text-xs text-muted-foreground">
+                {NOTIFICATION_LABELS[key].description}
+              </p>
+            </div>
+            <Switch
+              id={`notif-${key}`}
+              checked={settings[key]}
+              onCheckedChange={() => handleToggle(key)}
+            />
           </div>
-          <Switch
-            id={`notif-${key}`}
-            checked={settings[key]}
-            onCheckedChange={() => handleToggle(key)}
-          />
-        </div>
-      ))}
+        ))}
+      </div>
 
       {standalone && (
         <Button onClick={saveSettings} disabled={saving} className="w-full">
