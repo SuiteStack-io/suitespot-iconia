@@ -259,42 +259,44 @@ export function EditPermissionsDialog({
           </div>
         ) : (
           <div className="space-y-4 py-4">
-            {/* Select All toggle row */}
-            <div className="flex items-center justify-between py-2 border-b">
-              <div className="space-y-0.5 pr-4">
-                <Label htmlFor="select-all" className="font-medium cursor-pointer">
+            <div className="flex items-center justify-between">
+              <h3 className="text-sm font-semibold flex items-center gap-2">
+                <Shield className="h-4 w-4 text-muted-foreground" />
+                Permissions
+              </h3>
+              <div className="flex items-center gap-2">
+                <Label htmlFor="select-all" className="text-xs text-muted-foreground cursor-pointer">
                   Select All
                 </Label>
-                <p className="text-xs text-muted-foreground">
-                  Toggle all permissions at once
-                </p>
-              </div>
-              <Switch
-                id="select-all"
-                checked={allPermissionsEnabled}
-                onCheckedChange={handleToggleAll}
-              />
-            </div>
-            {(Object.keys(PERMISSION_LABELS) as Array<keyof UserPermissions>).map((key) => (
-              <div
-                key={key}
-                className="flex items-center justify-between py-2 border-b last:border-0"
-              >
-                <div className="space-y-0.5 pr-4">
-                  <Label htmlFor={key} className="font-medium cursor-pointer">
-                    {PERMISSION_LABELS[key].label}
-                  </Label>
-                  <p className="text-xs text-muted-foreground">
-                    {PERMISSION_LABELS[key].description}
-                  </p>
-                </div>
                 <Switch
-                  id={key}
-                  checked={permissions[key]}
-                  onCheckedChange={() => handleToggle(key)}
+                  id="select-all"
+                  checked={allPermissionsEnabled}
+                  onCheckedChange={handleToggleAll}
                 />
               </div>
-            ))}
+            </div>
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-x-6 gap-y-2">
+              {(Object.keys(PERMISSION_LABELS) as Array<keyof UserPermissions>).map((key) => (
+                <div
+                  key={key}
+                  className="flex items-center justify-between py-2 border-b"
+                >
+                  <div className="space-y-0.5 pr-4">
+                    <Label htmlFor={key} className="font-medium cursor-pointer text-sm">
+                      {PERMISSION_LABELS[key].label}
+                    </Label>
+                    <p className="text-xs text-muted-foreground">
+                      {PERMISSION_LABELS[key].description}
+                    </p>
+                  </div>
+                  <Switch
+                    id={key}
+                    checked={permissions[key]}
+                    onCheckedChange={() => handleToggle(key)}
+                  />
+                </div>
+              ))}
+            </div>
           </div>
         )}
 
