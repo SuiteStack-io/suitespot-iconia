@@ -1,57 +1,118 @@
 
 
-## Fix: Only Send Changed Fields to Channex
+## Fix: Filter Blocked Dates by Active Property
 
 ### Problem
-Both the frontend (BulkRestrictionEditor) and the edge function (channex-push-restrictions) add default values for fields the user didn't change, causing full-snapshot pushes to Channex instead of delta-only updates.
+`fetchBlockedDates()` fetches ALL blocked dates across all properties. `fetchUnits()` correctly filters by `propertyId`, but blocked dates does not.
 
-### Changes
+### File: `src/components/BlockedDatesManager.tsx`
 
-**File 1: `src/components/pms/BulkRestrictionEditor.tsx` (lines 228-240)**
+**1. Filter `fetchBlockedDates` by property (lines 101-121)**
 
-Replace the row-building logic in `handleSaveAllChanges` to only include fields the user explicitly enabled:
-
-```typescript
-const rows = pendingRestrictions.map((p) => {
-  const row: any = {
-    rate_plan_id: p.ratePlanId,
-    date_from: p.dateFrom,
-    date_to: format(addDays(new Date(p.dateTo), 1), 'yyyy-MM-dd'),
-    synced_to_channex: false,
-  };
-  if (p.restrictions.rate !== undefined) row.rate = Math.round(p.restrictions.rate * 100);
-  if (p.restrictions.minStayArrival !== undefined) row.min_stay_arrival = p.restrictions.minStayArrival;
-  if (p.restrictions.minStayThrough !== undefined) row.min_stay_through = p.restrictions.minStayThrough;
-  if (p.restrictions.maxStay !== undefined) row.max_stay = p.restrictions.maxStay;
-  if (p.restrictions.stopSell !== undefined) row.stop_sell = p.restrictions.stopSell;
-  if (p.restrictions.closedToArrival !== undefined) row.closed_to_arrival = p.restrictions.closedToArrival;
-  if (p.restrictions.closedToDeparture !== undefined) row.closed_to_departure = p.restrictions.closedToDeparture;
-  return row;
-});
-```
-
-The `PendingRestriction.restrictions` object already only contains enabled fields (lines 195-202 use conditionals). The problem is the `?? defaultValue` fallbacks on lines 233-238 that re-add defaults. Removing those is the fix.
-
-**File 2: `supabase/functions/channex-push-restrictions/index.ts` (lines 88-100)**
-
-Replace the value-building block to only pass through fields that are non-null in the DB row:
+The `blocked_dates` table references `units` via `unit_id`. Filter by joining through units that belong to the active property:
 
 ```typescript
-const value: any = {
-  property_id: propMapping.channex_id,
-  rate_plan_id: channexRpId,
-  date_from: r.date_from,
-  date_to: inclusiveDateTo,
+const fetchBlockedDates = async () => {
+  try {
+    let query = supabase
+      .from("blocked_dates")
+      .select(`
+        *,
+        units (
+          name,
+          unit_number,
+          booking_com_name
+        )
+      `)
+      .order("blocked_date", { ascending: true });
+
+    // Filter to only show blocked dates for units belonging to the active property
+    if (propertyId) {
+      query = query.eq('units.property_id', propertyId);
+    }
+
+    const { data, error } = await query;
+    if (error) throw error;
+
+    // Remove entries where the unit was filtered out (unit doesn't belong to property)
+    const filtered = (data || []).filter(d => d.unit_id === null || d.units !== null);
+    setBlockedDates(filtered);
+  } catch (error: any) {
+    console.error("Error fetching blocked dates:", error);
+    toast.error("Failed to fetch blocked dates");
+  }
 };
-if (r.rate != null) value.rate = r.rate;
-if (r.min_stay_arrival != null) value.min_stay_arrival = r.min_stay_arrival;
-if (r.min_stay_through != null) value.min_stay_through = r.min_stay_through;
-if (r.max_stay != null) value.max_stay = r.max_stay;
-if (r.stop_sell != null) value.stop_sell = r.stop_sell;
-if (r.closed_to_arrival != null) value.closed_to_arrival = r.closed_to_arrival;
-if (r.closed_to_departure != null) value.closed_to_departure = r.closed_to_departure;
-values.push(value);
 ```
 
-Two edits, two files. No data/logic changes — just stops injecting defaults for unchanged fields.
+However, `blocked_dates` rows with `unit_id = null` (meaning "all rooms") have no unit join to filter on. We need a different approach — filter blocked dates whose `unit_id` is either null OR belongs to a unit in the active property. The cleanest way: use the unit IDs we already fetch.
+
+**Better approach — filter client-side using fetched units:**
+
+Since `fetchUnits` already returns only units for the active property, filter blocked dates to only include those whose `unit_id` is null or matches a fetched unit.
+
+Actually, the simplest and most reliable fix: add `property_id` awareness to the query. Since `blocked_dates` has a `unit_id` FK to `units`, and `units` has `property_id`, we can filter via an inner join or use an `in` filter with the property's unit IDs.
+
+**Revised approach — fetch unit IDs first, then filter:**
+
+```typescript
+// In useEffect, ensure both refetch when propertyId changes
+useEffect(() => {
+  fetchUnits();
+  fetchBlockedDates();
+}, [propertyId]);
+```
+
+In `fetchBlockedDates`, after fetching units (or independently):
+- Query units for the active property to get their IDs
+- Filter blocked_dates where `unit_id` is in that list
+
+**Simplest implementation:**
+
+1. **Change useEffect (line 80-83)** to depend on `propertyId`
+2. **Update `fetchBlockedDates`** to filter by property's unit IDs
+
+```typescript
+const fetchBlockedDates = async () => {
+  try {
+    // First get unit IDs for the active property
+    let unitIds: string[] = [];
+    if (propertyId) {
+      const { data: propUnits } = await supabase
+        .from("units")
+        .select("id")
+        .eq("property_id", propertyId);
+      unitIds = (propUnits || []).map(u => u.id);
+    }
+
+    let query = supabase
+      .from("blocked_dates")
+      .select(`*, units (name, unit_number, booking_com_name)`)
+      .order("blocked_date", { ascending: true });
+
+    if (propertyId && unitIds.length > 0) {
+      // Only show blocked dates for this property's units
+      query = query.in("unit_id", unitIds);
+    } else if (propertyId && unitIds.length === 0) {
+      // Property has no units, show nothing
+      setBlockedDates([]);
+      return;
+    }
+
+    const { data, error } = await query;
+    if (error) throw error;
+    setBlockedDates(data || []);
+  } catch (error: any) {
+    console.error("Error fetching blocked dates:", error);
+    toast.error("Failed to fetch blocked dates");
+  }
+};
+```
+
+3. **Update useEffect** (line 80-83): add `propertyId` to dependency array
+
+### Summary
+- 1 file changed: `src/components/BlockedDatesManager.tsx`
+- `fetchBlockedDates` filters by active property's unit IDs
+- Re-fetches when property switches
+- Blocked dates with `unit_id = null` (all-rooms blocks) won't show unless we decide they should — this matches the expectation that blocks are property-scoped
 

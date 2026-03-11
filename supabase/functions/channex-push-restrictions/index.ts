@@ -85,19 +85,20 @@ Deno.serve(async (req: Request) => {
 
       const inclusiveDateTo = format(subDays(new Date(r.date_to), 1), 'yyyy-MM-dd');
 
-      values.push({
+      const value: any = {
         property_id: propMapping.channex_id,
         rate_plan_id: channexRpId,
         date_from: r.date_from,
         date_to: inclusiveDateTo,
-        ...(r.rate ? { rate: r.rate } : {}),
-        min_stay_arrival: r.min_stay_arrival || 1,
-        min_stay_through: r.min_stay_through || 1,
-        ...(r.max_stay ? { max_stay: r.max_stay } : {}),
-        stop_sell: r.stop_sell || false,
-        closed_to_arrival: r.closed_to_arrival || false,
-        closed_to_departure: r.closed_to_departure || false,
-      });
+      };
+      if (r.rate != null) value.rate = r.rate;
+      if (r.min_stay_arrival != null) value.min_stay_arrival = r.min_stay_arrival;
+      if (r.min_stay_through != null) value.min_stay_through = r.min_stay_through;
+      if (r.max_stay != null) value.max_stay = r.max_stay;
+      if (r.stop_sell != null) value.stop_sell = r.stop_sell;
+      if (r.closed_to_arrival != null) value.closed_to_arrival = r.closed_to_arrival;
+      if (r.closed_to_departure != null) value.closed_to_departure = r.closed_to_departure;
+      values.push(value);
     }
 
     // Push in batches
