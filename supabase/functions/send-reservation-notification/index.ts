@@ -485,7 +485,7 @@ const handler = async (req: Request): Promise<Response> => {
 
     console.log("Final users to notify:", filteredUsers.map((u: any) => ({ email: u.email, name: u.full_name })));
 
-    if (!users || users.length === 0) {
+    if (!filteredUsers || filteredUsers.length === 0) {
       console.log("No users found to notify");
       return new Response(
         JSON.stringify({ message: "No users to notify" }),
@@ -496,12 +496,12 @@ const handler = async (req: Request): Promise<Response> => {
       );
     }
 
-    console.log(`Sending internal notifications to ${users.length} team members`);
+    console.log(`Sending internal notifications to ${filteredUsers.length} team members`);
 
     // Send internal notification emails to all users with rate limiting (max 2 per second for Resend free tier)
     const results = [];
-    for (let i = 0; i < users.length; i++) {
-      const user = users[i];
+    for (let i = 0; i < filteredUsers.length; i++) {
+      const user = filteredUsers[i];
       if (!user.email) continue; // Skip if no email (should not happen due to filter above)
       
       console.log(`Attempting to send email to: ${user.email}`);
