@@ -145,7 +145,6 @@ export function SlideMenu({ userRole }: SlideMenuProps) {
       items: [
         { title: 'Settings', url: '/settings', icon: Settings },
         { title: 'Users', url: '/users', icon: Users },
-        { title: 'My Notifications', url: '/my-notifications', icon: Settings },
         { title: 'Guest Login', url: '/guest/login', icon: UserCircle },
       ],
       showFor: ['admin'],
