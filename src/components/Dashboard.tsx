@@ -825,7 +825,7 @@ export const Dashboard = () => {
         : undefined,
     },
     {
-      title: 'Recent Cancellations (24h)',
+      title: 'Cancellations (24h)',
       value: stats.recentCancellations,
       icon: XCircle,
       color: 'text-red-600',
@@ -851,7 +851,7 @@ export const Dashboard = () => {
           return (
             <Card 
               key={stat.title} 
-              className="cursor-pointer hover:bg-accent/50 transition-colors"
+              className="cursor-pointer hover:bg-accent/50 transition-colors min-h-[100px] sm:min-h-[120px]"
               onClick={() => handleCardClick(stat.type)}
             >
               <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-1 sm:pb-2 p-3 sm:p-6">
@@ -859,16 +859,14 @@ export const Dashboard = () => {
                 <Icon className={`h-3 w-3 sm:h-4 sm:w-4 ${stat.color}`} />
               </CardHeader>
               <CardContent className="p-3 pt-0 sm:p-6 sm:pt-0">
-                <div className="flex items-baseline justify-between">
-                  <div className="text-xl sm:text-2xl font-bold">
-                    {stat.isRevenue ? `$${stat.value.toFixed(2)}` : stat.value}
-                  </div>
-                  {stat.subtitle && (
-                    <span className="text-xs text-muted-foreground">
-                      {stat.subtitle}
-                    </span>
-                  )}
+                <div className="text-xl sm:text-2xl font-bold">
+                  {stat.isRevenue ? `$${stat.value.toFixed(2)}` : stat.value}
                 </div>
+                {stat.subtitle && (
+                  <p className="text-xs text-muted-foreground mt-1 truncate">
+                    {stat.subtitle}
+                  </p>
+                )}
               </CardContent>
             </Card>
           );
