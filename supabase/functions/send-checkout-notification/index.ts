@@ -46,7 +46,7 @@ Deno.serve(async (req) => {
     // Get reservation details including checkout timestamp
     const { data: reservation, error: reservationError } = await supabase
       .from('reservations')
-      .select('*, units(name, booking_com_name, unit_number, estimated_cleaning_minutes)')
+      .select('*, units!reservations_unit_id_fkey(name, booking_com_name, unit_number, estimated_cleaning_minutes)')
       .eq('id', reservationId)
       .single();
 
