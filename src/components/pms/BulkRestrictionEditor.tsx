@@ -225,19 +225,22 @@ export function BulkRestrictionEditor({ ratePlans, onSaved, onRatePlanFocused, p
     if (pendingRestrictions.length === 0) return;
     setIsSaving(true);
     try {
-      const rows = pendingRestrictions.map((p) => ({
-        rate_plan_id: p.ratePlanId,
-        date_from: p.dateFrom,
-        date_to: format(addDays(new Date(p.dateTo), 1), 'yyyy-MM-dd'),
-        rate: p.restrictions.rate ? Math.round(p.restrictions.rate * 100) : null,
-        min_stay_arrival: p.restrictions.minStayArrival ?? 1,
-        min_stay_through: p.restrictions.minStayThrough ?? 1,
-        max_stay: p.restrictions.maxStay ?? null,
-        stop_sell: p.restrictions.stopSell ?? false,
-        closed_to_arrival: p.restrictions.closedToArrival ?? false,
-        closed_to_departure: p.restrictions.closedToDeparture ?? false,
-        synced_to_channex: false,
-      }));
+      const rows = pendingRestrictions.map((p) => {
+        const row: any = {
+          rate_plan_id: p.ratePlanId,
+          date_from: p.dateFrom,
+          date_to: format(addDays(new Date(p.dateTo), 1), 'yyyy-MM-dd'),
+          synced_to_channex: false,
+        };
+        if (p.restrictions.rate !== undefined) row.rate = Math.round(p.restrictions.rate * 100);
+        if (p.restrictions.minStayArrival !== undefined) row.min_stay_arrival = p.restrictions.minStayArrival;
+        if (p.restrictions.minStayThrough !== undefined) row.min_stay_through = p.restrictions.minStayThrough;
+        if (p.restrictions.maxStay !== undefined) row.max_stay = p.restrictions.maxStay;
+        if (p.restrictions.stopSell !== undefined) row.stop_sell = p.restrictions.stopSell;
+        if (p.restrictions.closedToArrival !== undefined) row.closed_to_arrival = p.restrictions.closedToArrival;
+        if (p.restrictions.closedToDeparture !== undefined) row.closed_to_departure = p.restrictions.closedToDeparture;
+        return row;
+      });
 
       const { error } = await supabase.from('rate_plan_restrictions').insert(rows);
       if (error) throw error;
