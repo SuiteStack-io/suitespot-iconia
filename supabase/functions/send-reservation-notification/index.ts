@@ -821,7 +821,7 @@ const handler = async (req: Request): Promise<Response> => {
       }
       
       // Add delay between emails to respect rate limit (2 emails/second = 500ms delay)
-      if (i < users.length - 1) {
+      if (i < filteredUsers.length - 1) {
         await new Promise(resolve => setTimeout(resolve, 600));
       }
     }

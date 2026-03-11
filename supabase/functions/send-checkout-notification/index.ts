@@ -102,11 +102,28 @@ Deno.serve(async (req) => {
     const housekeepingStaff = userData.filter((user: any) => user.role === 'housekeeping');
     console.log(`Found ${housekeepingStaff.length} housekeeping staff`);
 
-    // Combine both groups for notification
-    const allRecipients = [...admins, ...housekeepingStaff];
+    // Filter admins by notification preferences
+    const allStaffIds = [...admins, ...housekeepingStaff].map((u: any) => u.user_id);
+    const { data: notifSettings } = await supabase
+      .from('user_notification_settings')
+      .select('user_id, checkout_email')
+      .in('user_id', allStaffIds);
+
+    const filterByPref = (list: any[]) => list.filter((staff: any) => {
+      const settings = notifSettings?.find((s: any) => s.user_id === staff.user_id);
+      if (settings && !settings.checkout_email) {
+        console.log(`Skipped ${staff.email} — checkout notifications disabled`);
+        return false;
+      }
+      return true;
+    });
+
+    const filteredAdmins = filterByPref(admins);
+    const filteredHousekeeping = filterByPref(housekeepingStaff);
+    const allRecipients = [...filteredAdmins, ...filteredHousekeeping];
 
     if (allRecipients.length === 0) {
-      console.log('No staff found, skipping email notification');
+      console.log('No staff to notify (all disabled or none found)');
       return new Response(
         JSON.stringify({ message: 'No staff to notify' }),
         { headers: { ...corsHeaders, 'Content-Type': 'application/json' }, status: 200 }

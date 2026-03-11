@@ -307,7 +307,7 @@ const handler = async (req: Request): Promise<Response> => {
     let successful = 0;
     let failed = 0;
 
-    for (const admin of adminEmails) {
+    for (const admin of filteredAdminEmails) {
       try {
         console.log(`Attempting to send cancellation email to: ${admin.email}`);
         
