@@ -410,7 +410,6 @@ Deno.serve(async (req: Request) => {
 
     // --- ACK the revision ---
     let ackSuccess = false;
-    const isTestRevision = !revisionId || String(revisionId).startsWith('test-');
     if (isTestRevision) {
       ackSuccess = true;
     } else {
