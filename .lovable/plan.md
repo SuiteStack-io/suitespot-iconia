@@ -1,118 +1,43 @@
 
 
-## Fix: Filter Blocked Dates by Active Property
+## Diagnosis: Check-in/Check-out Emails Broken
 
-### Problem
-`fetchBlockedDates()` fetches ALL blocked dates across all properties. `fetchUnits()` correctly filters by `propertyId`, but blocked dates does not.
+### Root Cause
+The edge function logs show a **PGRST201 error** — PostgREST cannot disambiguate the `units` relationship because the `reservations` table now has **two foreign keys** to `units`:
+- `unit_id` (the actual room)
+- `shuffled_from_unit_id` (added for room shuffle tracking)
 
-### File: `src/components/BlockedDatesManager.tsx`
-
-**1. Filter `fetchBlockedDates` by property (lines 101-121)**
-
-The `blocked_dates` table references `units` via `unit_id`. Filter by joining through units that belong to the active property:
-
+Both `send-checkin-notification` and `send-checkout-notification` use:
 ```typescript
-const fetchBlockedDates = async () => {
-  try {
-    let query = supabase
-      .from("blocked_dates")
-      .select(`
-        *,
-        units (
-          name,
-          unit_number,
-          booking_com_name
-        )
-      `)
-      .order("blocked_date", { ascending: true });
+.select('*, units(name, booking_com_name, unit_number)')
+```
+This is ambiguous and fails with: *"Could not embed because more than one relationship was found for 'reservations' and 'units'"*
 
-    // Filter to only show blocked dates for units belonging to the active property
-    if (propertyId) {
-      query = query.eq('units.property_id', propertyId);
-    }
+### Fix
+Disambiguate the join by specifying the foreign key:
 
-    const { data, error } = await query;
-    if (error) throw error;
-
-    // Remove entries where the unit was filtered out (unit doesn't belong to property)
-    const filtered = (data || []).filter(d => d.unit_id === null || d.units !== null);
-    setBlockedDates(filtered);
-  } catch (error: any) {
-    console.error("Error fetching blocked dates:", error);
-    toast.error("Failed to fetch blocked dates");
-  }
-};
+**File 1:** `supabase/functions/send-checkin-notification/index.ts` (line 33)
+```typescript
+// Before:
+.select('*, units(name, booking_com_name, unit_number)')
+// After:
+.select('*, units!reservations_unit_id_fkey(name, booking_com_name, unit_number)')
 ```
 
-However, `blocked_dates` rows with `unit_id = null` (meaning "all rooms") have no unit join to filter on. We need a different approach — filter blocked dates whose `unit_id` is either null OR belongs to a unit in the active property. The cleanest way: use the unit IDs we already fetch.
-
-**Better approach — filter client-side using fetched units:**
-
-Since `fetchUnits` already returns only units for the active property, filter blocked dates to only include those whose `unit_id` is null or matches a fetched unit.
-
-Actually, the simplest and most reliable fix: add `property_id` awareness to the query. Since `blocked_dates` has a `unit_id` FK to `units`, and `units` has `property_id`, we can filter via an inner join or use an `in` filter with the property's unit IDs.
-
-**Revised approach — fetch unit IDs first, then filter:**
-
+**File 2:** `supabase/functions/send-checkout-notification/index.ts` (line 49)
 ```typescript
-// In useEffect, ensure both refetch when propertyId changes
-useEffect(() => {
-  fetchUnits();
-  fetchBlockedDates();
-}, [propertyId]);
+// Before:
+.select('*, units(name, booking_com_name, unit_number, estimated_cleaning_minutes)')
+// After:
+.select('*, units!reservations_unit_id_fkey(name, booking_com_name, unit_number, estimated_cleaning_minutes)')
 ```
 
-In `fetchBlockedDates`, after fetching units (or independently):
-- Query units for the active property to get their IDs
-- Filter blocked_dates where `unit_id` is in that list
+### Other findings
+- Edge functions are deployed and active (logs show boot events)
+- RESEND_API_KEY secret is configured
+- Email templates and logic are intact
+- The functions are called from client code (not database triggers), so no trigger issue
+- No other changes needed — just the two `.select()` lines
 
-**Simplest implementation:**
-
-1. **Change useEffect (line 80-83)** to depend on `propertyId`
-2. **Update `fetchBlockedDates`** to filter by property's unit IDs
-
-```typescript
-const fetchBlockedDates = async () => {
-  try {
-    // First get unit IDs for the active property
-    let unitIds: string[] = [];
-    if (propertyId) {
-      const { data: propUnits } = await supabase
-        .from("units")
-        .select("id")
-        .eq("property_id", propertyId);
-      unitIds = (propUnits || []).map(u => u.id);
-    }
-
-    let query = supabase
-      .from("blocked_dates")
-      .select(`*, units (name, unit_number, booking_com_name)`)
-      .order("blocked_date", { ascending: true });
-
-    if (propertyId && unitIds.length > 0) {
-      // Only show blocked dates for this property's units
-      query = query.in("unit_id", unitIds);
-    } else if (propertyId && unitIds.length === 0) {
-      // Property has no units, show nothing
-      setBlockedDates([]);
-      return;
-    }
-
-    const { data, error } = await query;
-    if (error) throw error;
-    setBlockedDates(data || []);
-  } catch (error: any) {
-    console.error("Error fetching blocked dates:", error);
-    toast.error("Failed to fetch blocked dates");
-  }
-};
-```
-
-3. **Update useEffect** (line 80-83): add `propertyId` to dependency array
-
-### Summary
-- 1 file changed: `src/components/BlockedDatesManager.tsx`
-- `fetchBlockedDates` filters by active property's unit IDs
-- Re-fetches when property switches
-- Blocked dates with `unit_id = null` (all-rooms blocks) won't show unless we decide they should — this matches the expectation that blocks are property-scoped
+Two line changes, two files.
 
