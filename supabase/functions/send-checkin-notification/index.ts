@@ -221,7 +221,7 @@ Deno.serve(async (req) => {
       }
     }
 
-    console.log(`Check-in notification emails completed: ${successCount} sent, ${failedCount} failed out of ${admins.length}`);
+    console.log(`Check-in notification emails completed: ${successCount} sent, ${failedCount} failed out of ${filteredAdmins.length}`);
 
     return new Response(
       JSON.stringify({
