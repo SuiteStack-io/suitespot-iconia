@@ -68,6 +68,7 @@ export function NotificationSettingsSection({
   standalone = false,
   onSettingsChange,
   triggerSave,
+  twoColumn = false,
 }: NotificationSettingsSectionProps) {
   const { toast } = useToast();
   const [loading, setLoading] = useState(true);
