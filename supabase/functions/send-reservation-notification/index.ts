@@ -465,11 +465,27 @@ const handler = async (req: Request): Promise<Response> => {
         console.log(`User ${u.user_id} filtered out - no email found`);
       }
       return hasEmail;
-    }); // Only include users with emails
+    });
 
-    console.log("Final users to notify:", users.map((u: any) => ({ email: u.email, name: u.full_name })));
+    // Filter by notification preferences
+    const staffUserIds = users.map((u: any) => u.user_id);
+    const { data: notifSettings } = await supabaseClient
+      .from('user_notification_settings')
+      .select('user_id, new_booking_email')
+      .in('user_id', staffUserIds);
 
-    if (!users || users.length === 0) {
+    const filteredUsers = users.filter((u: any) => {
+      const settings = notifSettings?.find((s: any) => s.user_id === u.user_id);
+      if (settings && !settings.new_booking_email) {
+        console.log(`Skipped ${u.email} — new booking notifications disabled`);
+        return false;
+      }
+      return true;
+    });
+
+    console.log("Final users to notify:", filteredUsers.map((u: any) => ({ email: u.email, name: u.full_name })));
+
+    if (!filteredUsers || filteredUsers.length === 0) {
       console.log("No users found to notify");
       return new Response(
         JSON.stringify({ message: "No users to notify" }),
@@ -480,12 +496,12 @@ const handler = async (req: Request): Promise<Response> => {
       );
     }
 
-    console.log(`Sending internal notifications to ${users.length} team members`);
+    console.log(`Sending internal notifications to ${filteredUsers.length} team members`);
 
     // Send internal notification emails to all users with rate limiting (max 2 per second for Resend free tier)
     const results = [];
-    for (let i = 0; i < users.length; i++) {
-      const user = users[i];
+    for (let i = 0; i < filteredUsers.length; i++) {
+      const user = filteredUsers[i];
       if (!user.email) continue; // Skip if no email (should not happen due to filter above)
       
       console.log(`Attempting to send email to: ${user.email}`);
@@ -805,7 +821,7 @@ const handler = async (req: Request): Promise<Response> => {
       }
       
       // Add delay between emails to respect rate limit (2 emails/second = 500ms delay)
-      if (i < users.length - 1) {
+      if (i < filteredUsers.length - 1) {
         await new Promise(resolve => setTimeout(resolve, 600));
       }
     }

@@ -2353,6 +2353,45 @@ export type Database = {
           },
         ]
       }
+      user_notification_settings: {
+        Row: {
+          cancelled_booking_email: boolean
+          checkin_email: boolean
+          checkout_email: boolean
+          created_at: string
+          daily_summary_email: boolean
+          id: string
+          new_booking_email: boolean
+          room_shuffle_email: boolean
+          updated_at: string
+          user_id: string
+        }
+        Insert: {
+          cancelled_booking_email?: boolean
+          checkin_email?: boolean
+          checkout_email?: boolean
+          created_at?: string
+          daily_summary_email?: boolean
+          id?: string
+          new_booking_email?: boolean
+          room_shuffle_email?: boolean
+          updated_at?: string
+          user_id: string
+        }
+        Update: {
+          cancelled_booking_email?: boolean
+          checkin_email?: boolean
+          checkout_email?: boolean
+          created_at?: string
+          daily_summary_email?: boolean
+          id?: string
+          new_booking_email?: boolean
+          room_shuffle_email?: boolean
+          updated_at?: string
+          user_id?: string
+        }
+        Relationships: []
+      }
       user_permissions: {
         Row: {
           can_access_front_desk: boolean

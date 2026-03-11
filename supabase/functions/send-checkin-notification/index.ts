@@ -80,10 +80,26 @@ Deno.serve(async (req) => {
       })
       .filter((u: any) => u.email && ['admin', 'front_desk'].includes(u.role));
 
-    console.log(`Found ${admins.length} admin users`);
+    // Filter by notification preferences
+    const adminUserIds = admins.map((a: any) => a.user_id);
+    const { data: notifSettings } = await supabase
+      .from('user_notification_settings')
+      .select('user_id, checkin_email')
+      .in('user_id', adminUserIds);
 
-    if (admins.length === 0) {
-      console.log('No admin users found, skipping email notification');
+    const filteredAdmins = admins.filter((admin: any) => {
+      const settings = notifSettings?.find((s: any) => s.user_id === admin.user_id);
+      if (settings && !settings.checkin_email) {
+        console.log(`Skipped ${admin.email} — checkin notifications disabled`);
+        return false;
+      }
+      return true; // No row = default enabled
+    });
+
+    console.log(`Found ${admins.length} admin users, ${filteredAdmins.length} after notification preferences`);
+
+    if (filteredAdmins.length === 0) {
+      console.log('No admin users to notify (all disabled or none found)');
       return new Response(
         JSON.stringify({ message: 'No admins to notify' }),
         { headers: { ...corsHeaders, 'Content-Type': 'application/json' }, status: 200 }
@@ -112,9 +128,9 @@ Deno.serve(async (req) => {
     let successCount = 0;
     let failedCount = 0;
 
-    console.log(`Starting to send check-in notification emails to ${admins.length} admins`);
+    console.log(`Starting to send check-in notification emails to ${filteredAdmins.length} admins`);
 
-    for (const admin of admins) {
+    for (const admin of filteredAdmins) {
       try {
         console.log(`Attempting to send check-in email to: ${admin.email}`);
         
@@ -205,13 +221,13 @@ Deno.serve(async (req) => {
       }
     }
 
-    console.log(`Check-in notification emails completed: ${successCount} sent, ${failedCount} failed out of ${admins.length}`);
+    console.log(`Check-in notification emails completed: ${successCount} sent, ${failedCount} failed out of ${filteredAdmins.length}`);
 
     return new Response(
       JSON.stringify({
         message: 'Check-in notifications sent',
         sent: successCount,
-        total: admins.length,
+        total: filteredAdmins.length,
         results
       }),
       {

@@ -324,7 +324,22 @@ Deno.serve(async (req) => {
 
         const { data: authUsers } = await supabase.auth.admin.listUsers();
 
+        // Filter by notification preferences
+        const { data: notifSettings } = await supabase
+          .from('user_notification_settings')
+          .select('user_id, room_shuffle_email')
+          .in('user_id', adminUserIds);
+
         const adminEmails = adminUserIds
+          .filter((uid: string) => {
+            const settings = notifSettings?.find((s: any) => s.user_id === uid);
+            if (settings && !settings.room_shuffle_email) {
+              const authUser = authUsers?.users?.find((u: any) => u.id === uid);
+              console.log(`Skipped ${authUser?.email || uid} — room shuffle notifications disabled`);
+              return false;
+            }
+            return true;
+          })
           .map((uid: string) => {
             const authUser = authUsers?.users?.find((u: any) => u.id === uid);
             return authUser?.email;
