@@ -16,6 +16,7 @@ import { useToast } from '@/hooks/use-toast';
 import { Loader2, Shield } from 'lucide-react';
 import { PropertyAccessSection } from './PropertyAccessSection';
 import { Separator } from '@/components/ui/separator';
+import { NotificationSettingsSection } from './NotificationSettingsSection';
 
 interface User {
   id: string;
