@@ -98,8 +98,8 @@ Deno.serve(async (req) => {
 
     console.log(`Found ${admins.length} admin users, ${filteredAdmins.length} after notification preferences`);
 
-    if (admins.length === 0) {
-      console.log('No admin users found, skipping email notification');
+    if (filteredAdmins.length === 0) {
+      console.log('No admin users to notify (all disabled or none found)');
       return new Response(
         JSON.stringify({ message: 'No admins to notify' }),
         { headers: { ...corsHeaders, 'Content-Type': 'application/json' }, status: 200 }
