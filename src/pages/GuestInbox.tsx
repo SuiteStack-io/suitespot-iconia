@@ -54,6 +54,7 @@ export default function GuestInbox() {
   const navigate = useNavigate();
   const { userRole } = useAuth();
   const isMobile = useIsMobile();
+  const propertyId = usePropertyId();
   const [threads, setThreads] = useState<MessageThread[]>([]);
   const [loading, setLoading] = useState(true);
   const [activeTab, setActiveTab] = useState("all");
