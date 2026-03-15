@@ -1,5 +1,6 @@
 import { useState, useEffect, useCallback } from "react";
 import { useNavigate } from "react-router-dom";
+import { usePropertyId } from "@/hooks/usePropertyFilter";
 import { supabase } from "@/integrations/supabase/client";
 import { Badge } from "@/components/ui/badge";
 import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
@@ -53,39 +54,47 @@ export default function GuestInbox() {
   const navigate = useNavigate();
   const { userRole } = useAuth();
   const isMobile = useIsMobile();
+  const propertyId = usePropertyId();
   const [threads, setThreads] = useState<MessageThread[]>([]);
   const [loading, setLoading] = useState(true);
   const [activeTab, setActiveTab] = useState("all");
   const [selectedThreadId, setSelectedThreadId] = useState<string | null>(null);
 
   const fetchThreads = useCallback(async () => {
-    const { data, error } = await supabase
+    let query = supabase
       .from("message_threads")
       .select("*")
       .order("last_message_at", { ascending: false });
+
+    if (propertyId) {
+      query = query.eq("property_id", propertyId);
+    }
+
+    const { data, error } = await query;
 
     if (!error && data) {
       setThreads(data as MessageThread[]);
     }
     setLoading(false);
-  }, []);
+  }, [propertyId]);
 
   useEffect(() => {
     fetchThreads();
 
+    const channelConfig: any = { event: "*", schema: "public", table: "message_threads" };
+    if (propertyId) {
+      channelConfig.filter = `property_id=eq.${propertyId}`;
+    }
+
     const channel = supabase
-      .channel("inbox-threads")
-      .on(
-        "postgres_changes",
-        { event: "*", schema: "public", table: "message_threads" },
-        () => fetchThreads()
-      )
+      .channel(`inbox-threads-${propertyId || "all"}`)
+      .on("postgres_changes", channelConfig, () => fetchThreads())
       .subscribe();
 
     return () => {
       supabase.removeChannel(channel);
     };
-  }, [fetchThreads]);
+  }, [fetchThreads, propertyId]);
 
   const unreadCount = threads.filter((t) => !t.is_read).length;
 
