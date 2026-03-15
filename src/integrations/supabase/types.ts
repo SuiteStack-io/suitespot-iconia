@@ -1055,6 +1055,116 @@ export type Database = {
           },
         ]
       }
+      message_threads: {
+        Row: {
+          channex_booking_id: string | null
+          channex_thread_id: string
+          created_at: string | null
+          id: string
+          is_closed: boolean | null
+          is_read: boolean | null
+          last_message_at: string | null
+          last_message_sender: string | null
+          last_message_text: string | null
+          message_count: number | null
+          property_id: string | null
+          provider: string
+          reservation_id: string | null
+          title: string | null
+          updated_at: string | null
+        }
+        Insert: {
+          channex_booking_id?: string | null
+          channex_thread_id: string
+          created_at?: string | null
+          id?: string
+          is_closed?: boolean | null
+          is_read?: boolean | null
+          last_message_at?: string | null
+          last_message_sender?: string | null
+          last_message_text?: string | null
+          message_count?: number | null
+          property_id?: string | null
+          provider: string
+          reservation_id?: string | null
+          title?: string | null
+          updated_at?: string | null
+        }
+        Update: {
+          channex_booking_id?: string | null
+          channex_thread_id?: string
+          created_at?: string | null
+          id?: string
+          is_closed?: boolean | null
+          is_read?: boolean | null
+          last_message_at?: string | null
+          last_message_sender?: string | null
+          last_message_text?: string | null
+          message_count?: number | null
+          property_id?: string | null
+          provider?: string
+          reservation_id?: string | null
+          title?: string | null
+          updated_at?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "message_threads_property_id_fkey"
+            columns: ["property_id"]
+            isOneToOne: false
+            referencedRelation: "properties"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "message_threads_reservation_id_fkey"
+            columns: ["reservation_id"]
+            isOneToOne: false
+            referencedRelation: "reservations"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      messages: {
+        Row: {
+          attachments: Json | null
+          channex_message_id: string | null
+          channex_sent_at: string | null
+          created_at: string | null
+          id: string
+          message: string | null
+          sender: string
+          thread_id: string
+        }
+        Insert: {
+          attachments?: Json | null
+          channex_message_id?: string | null
+          channex_sent_at?: string | null
+          created_at?: string | null
+          id?: string
+          message?: string | null
+          sender: string
+          thread_id: string
+        }
+        Update: {
+          attachments?: Json | null
+          channex_message_id?: string | null
+          channex_sent_at?: string | null
+          created_at?: string | null
+          id?: string
+          message?: string | null
+          sender?: string
+          thread_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "messages_thread_id_fkey"
+            columns: ["thread_id"]
+            isOneToOne: false
+            referencedRelation: "message_threads"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       nearby_amenities: {
         Row: {
           address: string | null
