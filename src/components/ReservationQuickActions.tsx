@@ -430,8 +430,9 @@ export const ReservationQuickActions = ({
       // Send notifications for check-in/check-out
       if (newStatus === 'checked-in') {
         try {
+          const { data: { user } } = await supabase.auth.getUser();
           await supabase.functions.invoke('send-checkin-notification', {
-            body: { reservationId: reservation.id }
+            body: { reservationId: reservation.id, userId: user?.id }
           });
         } catch (notifError) {
           console.error('Failed to send check-in notification:', notifError);

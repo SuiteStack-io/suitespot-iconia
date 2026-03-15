@@ -312,7 +312,7 @@ const GuestCheckIn = () => {
       try {
         const { error: notifyError } = await supabase.functions.invoke(
           'send-checkin-notification',
-          { body: { reservationId } }
+          { body: { reservationId, userId: null } }
         );
         
         if (notifyError) {

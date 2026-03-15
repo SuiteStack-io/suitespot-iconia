@@ -599,8 +599,9 @@ export const Dashboard = () => {
 
       // Send check-in notification
       try {
+        const { data: { user } } = await supabase.auth.getUser();
         await supabase.functions.invoke('send-checkin-notification', {
-          body: { reservationId }
+          body: { reservationId, userId: user?.id }
         });
       } catch (notifError) {
         console.error('Failed to send check-in notification:', notifError);

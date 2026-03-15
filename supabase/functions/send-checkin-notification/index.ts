@@ -178,6 +178,10 @@ Deno.serve(async (req) => {
                     <td style="padding: 8px; color: #166534; font-size: 14px; font-weight: 600;">Checked In At:</td>
                     <td style="padding: 8px; color: #166534; font-size: 14px; font-weight: 600;">${checkedInAt}</td>
                   </tr>
+                  <tr style="background: #dcfce7;">
+                    <td style="padding: 8px; color: #166534; font-size: 14px; font-weight: 600;">Checked In By:</td>
+                    <td style="padding: 8px; color: #166534; font-size: 14px; font-weight: 600;">${performedByName}</td>
+                  </tr>
                   <tr>
                     <td style="padding: 8px 0; color: #6b7280; font-size: 14px;">Check-in Date:</td>
                     <td style="padding: 8px 0; color: #1f2937; font-size: 14px;">${reservation.check_in_date}</td>
