@@ -42,6 +42,7 @@ import {
   Radio,
   ArrowLeftRight,
   Tag,
+  MessageCircle,
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { useAuth } from '@/lib/auth';
@@ -97,6 +98,7 @@ export function SlideMenu({ userRole }: SlideMenuProps) {
         { title: 'Tickets', url: '/guest-tickets', icon: Ticket },
         { title: 'App Accounts', url: '/guest-accounts', icon: Shield },
         { title: 'My Commissions', url: '/my-commissions', icon: Wallet, showFor: ['manager', 'admin'] },
+        { title: 'Guest Inbox', url: '/admin/inbox', icon: MessageCircle },
         { title: 'My Notifications', url: '/my-notifications', icon: Settings },
       ],
     },
