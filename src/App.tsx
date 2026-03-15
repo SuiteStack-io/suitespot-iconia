@@ -171,6 +171,7 @@ const App = () => (
         <Route path="/shuffle-history" element={<ProtectedRoute><ShuffleHistory /></ProtectedRoute>} />
         <Route path="/front-desk/room-rates" element={<ProtectedRoute><FrontDeskRoomRates /></ProtectedRoute>} />
         <Route path="/my-notifications" element={<ProtectedRoute><MyNotifications /></ProtectedRoute>} />
+        <Route path="/admin/inbox" element={<ProtectedRoute><GuestInbox /></ProtectedRoute>} />
               
               {/* ADD ALL CUSTOM ROUTES ABOVE THE CATCH-ALL "*" ROUTE */}
               <Route path="*" element={<NotFound />} />
