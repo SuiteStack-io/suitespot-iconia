@@ -72,6 +72,7 @@ import ShuffleHistory from "./pages/ShuffleHistory";
 import FrontDeskRoomRates from "./pages/front-desk/RoomRates";
 import ChannelMarkup from "./pages/pms/ChannelMarkup";
 import MyNotifications from "./pages/MyNotifications";
+import GuestInbox from "./pages/GuestInbox";
 const queryClient = new QueryClient();
 
 const App = () => (
