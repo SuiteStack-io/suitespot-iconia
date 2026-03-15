@@ -61,16 +61,22 @@ export default function GuestInbox() {
   const [selectedThreadId, setSelectedThreadId] = useState<string | null>(null);
 
   const fetchThreads = useCallback(async () => {
-    const { data, error } = await supabase
+    let query = supabase
       .from("message_threads")
       .select("*")
       .order("last_message_at", { ascending: false });
+
+    if (propertyId) {
+      query = query.eq("property_id", propertyId);
+    }
+
+    const { data, error } = await query;
 
     if (!error && data) {
       setThreads(data as MessageThread[]);
     }
     setLoading(false);
-  }, []);
+  }, [propertyId]);
 
   useEffect(() => {
     fetchThreads();
