@@ -194,8 +194,9 @@ const CheckInOut = () => {
 
       // Send check-in notification to all admins
       try {
+        const { data: { user } } = await supabase.auth.getUser();
         await supabase.functions.invoke('send-checkin-notification', {
-          body: { reservationId }
+          body: { reservationId, userId: user?.id }
         });
       } catch (notifError) {
         console.error('Failed to send check-in notification:', notifError);
@@ -278,9 +279,10 @@ const CheckInOut = () => {
       await Promise.all(updates);
 
       // Send check-in notifications for all checked-in guests
+      const { data: { user: bulkUser } } = await supabase.auth.getUser();
       const notificationPromises = Array.from(selectedArrivals).map(reservationId =>
         supabase.functions.invoke('send-checkin-notification', {
-          body: { reservationId }
+          body: { reservationId, userId: bulkUser?.id }
         }).catch(err => console.error('Failed to send check-in notification:', err))
       );
       

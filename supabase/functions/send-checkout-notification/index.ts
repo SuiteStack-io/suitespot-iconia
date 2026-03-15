@@ -161,14 +161,13 @@ Deno.serve(async (req) => {
         console.log(`Attempting to send check-out email to: ${staff.email}`);
         
         const result = await resend.emails.send({
-          from: "SuiteSpot Housekeeping <housekeeping@bookings.suitespoteg.com>",
+          from: "SuiteSpot Front Desk <frontdesk@bookings.suitespoteg.com>",
           to: [staff.email!],
           subject: `Guest Checked Out - ${guestName} - Room #${roomNumber}`,
           html: `
             <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto;">
               <h2 style="color: #ea580c;">Guest Checked Out - Room Ready for Cleaning</h2>
               <p style="color: #374151; font-size: 16px;">A guest has checked out and the room is ready for cleaning.</p>
-              <p style="color: #6b7280; font-size: 14px; font-style: italic;">Checked out by: ${performedByName}</p>
               
               <div style="background: #fef3c7; padding: 16px; border-radius: 8px; margin: 16px 0; border-left: 4px solid #f59e0b;">
                 <h3 style="margin: 0 0 12px 0; font-size: 16px; color: #92400e;">Room Details</h3>
@@ -184,6 +183,10 @@ Deno.serve(async (req) => {
                   <tr style="background: #fde68a;">
                     <td style="padding: 8px; color: #92400e; font-size: 14px; font-weight: 600;">Checked Out At:</td>
                     <td style="padding: 8px; color: #92400e; font-size: 14px; font-weight: 600;">${checkedOutAt}</td>
+                  </tr>
+                  <tr style="background: #fde68a;">
+                    <td style="padding: 8px; color: #92400e; font-size: 14px; font-weight: 600;">Checked Out By:</td>
+                    <td style="padding: 8px; color: #92400e; font-size: 14px; font-weight: 600;">${performedByName}</td>
                   </tr>
                   <tr>
                     <td style="padding: 8px 0; color: #78350f; font-size: 14px;">Check-out Date:</td>

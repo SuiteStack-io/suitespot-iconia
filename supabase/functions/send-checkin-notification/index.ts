@@ -11,6 +11,7 @@ const corsHeaders = {
 
 interface CheckInNotificationRequest {
   reservationId: string;
+  userId?: string;
 }
 
 Deno.serve(async (req) => {
@@ -23,9 +24,24 @@ Deno.serve(async (req) => {
     const supabaseServiceKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!;
     const supabase = createClient(supabaseUrl, supabaseServiceKey);
 
-    const { reservationId }: CheckInNotificationRequest = await req.json();
+    const { reservationId, userId }: CheckInNotificationRequest = await req.json();
 
     console.log('Sending check-in notification for reservation:', reservationId);
+
+    // Look up who performed the check-in
+    let performedByName = 'System';
+    if (userId) {
+      const { data: userData } = await supabase
+        .from('profiles')
+        .select('full_name')
+        .eq('id', userId)
+        .single();
+      if (userData?.full_name) {
+        performedByName = userData.full_name;
+      }
+    } else {
+      performedByName = 'Guest (Self Check-In)';
+    }
 
     // Get reservation details including check-in timestamp
     const { data: reservation, error: reservationError } = await supabase
@@ -135,7 +151,7 @@ Deno.serve(async (req) => {
         console.log(`Attempting to send check-in email to: ${admin.email}`);
         
         const result = await resend.emails.send({
-          from: "SuiteSpot Reservations <reservations@bookings.suitespoteg.com>",
+          from: "SuiteSpot Front Desk <frontdesk@bookings.suitespoteg.com>",
           to: [admin.email!],
           subject: `New Guest Checked In - ${guestName} - Room #${roomNumber}`,
           html: `
@@ -161,6 +177,10 @@ Deno.serve(async (req) => {
                   <tr style="background: #dcfce7;">
                     <td style="padding: 8px; color: #166534; font-size: 14px; font-weight: 600;">Checked In At:</td>
                     <td style="padding: 8px; color: #166534; font-size: 14px; font-weight: 600;">${checkedInAt}</td>
+                  </tr>
+                  <tr style="background: #dcfce7;">
+                    <td style="padding: 8px; color: #166534; font-size: 14px; font-weight: 600;">Checked In By:</td>
+                    <td style="padding: 8px; color: #166534; font-size: 14px; font-weight: 600;">${performedByName}</td>
                   </tr>
                   <tr>
                     <td style="padding: 8px 0; color: #6b7280; font-size: 14px;">Check-in Date:</td>
