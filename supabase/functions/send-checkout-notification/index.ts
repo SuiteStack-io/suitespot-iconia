@@ -168,7 +168,6 @@ Deno.serve(async (req) => {
             <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto;">
               <h2 style="color: #ea580c;">Guest Checked Out - Room Ready for Cleaning</h2>
               <p style="color: #374151; font-size: 16px;">A guest has checked out and the room is ready for cleaning.</p>
-              <p style="color: #6b7280; font-size: 14px; font-style: italic;">Checked out by: ${performedByName}</p>
               
               <div style="background: #fef3c7; padding: 16px; border-radius: 8px; margin: 16px 0; border-left: 4px solid #f59e0b;">
                 <h3 style="margin: 0 0 12px 0; font-size: 16px; color: #92400e;">Room Details</h3>
