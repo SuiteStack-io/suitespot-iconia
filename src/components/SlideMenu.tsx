@@ -107,6 +107,7 @@ export function SlideMenu({ userRole }: SlideMenuProps) {
         { title: 'Room Rates', url: '/front-desk/room-rates', icon: Tag },
         { title: 'Guests', url: '/guests', icon: Users },
         { title: 'Guest Forms', url: '/guest-forms', icon: FileSignature },
+        { title: 'Guest Inbox', url: '/admin/inbox', icon: MessageCircle },
       ],
       showFor: userRole === 'admin' || hasPermission('can_access_front_desk') ? undefined : [],
     },
