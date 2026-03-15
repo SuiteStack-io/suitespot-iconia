@@ -42,6 +42,7 @@ import {
   Radio,
   ArrowLeftRight,
   Tag,
+  MessageCircle,
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { useAuth } from '@/lib/auth';
