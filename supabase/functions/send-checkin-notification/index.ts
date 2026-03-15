@@ -11,6 +11,7 @@ const corsHeaders = {
 
 interface CheckInNotificationRequest {
   reservationId: string;
+  userId?: string;
 }
 
 Deno.serve(async (req) => {
