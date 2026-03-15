@@ -116,10 +116,8 @@ export default function GuestInbox() {
         </div>
         <div className="mt-2">
           <AdminBreadcrumb
-            items={[
-              { label: "Dashboard", href: "/admin" },
-              { label: "Guest Inbox" },
-            ]}
+            section="ICONIA"
+            currentPage="Guest Inbox"
           />
         </div>
       </header>
