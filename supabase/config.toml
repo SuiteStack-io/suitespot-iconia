@@ -94,5 +94,8 @@ verify_jwt = false
 [functions.channex-message-webhook]
 verify_jwt = false
 
+[functions.channex-send-message]
+verify_jwt = false
+
 [functions.sync-channex-to-reservations]
 verify_jwt = false
