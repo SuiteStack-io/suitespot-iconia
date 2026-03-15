@@ -151,7 +151,7 @@ Deno.serve(async (req) => {
         console.log(`Attempting to send check-in email to: ${admin.email}`);
         
         const result = await resend.emails.send({
-          from: "SuiteSpot Reservations <reservations@bookings.suitespoteg.com>",
+          from: "SuiteSpot Front Desk <frontdesk@bookings.suitespoteg.com>",
           to: [admin.email!],
           subject: `New Guest Checked In - ${guestName} - Room #${roomNumber}`,
           html: `
