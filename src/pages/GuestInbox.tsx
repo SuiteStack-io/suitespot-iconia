@@ -81,19 +81,20 @@ export default function GuestInbox() {
   useEffect(() => {
     fetchThreads();
 
+    const channelConfig: any = { event: "*", schema: "public", table: "message_threads" };
+    if (propertyId) {
+      channelConfig.filter = `property_id=eq.${propertyId}`;
+    }
+
     const channel = supabase
-      .channel("inbox-threads")
-      .on(
-        "postgres_changes",
-        { event: "*", schema: "public", table: "message_threads" },
-        () => fetchThreads()
-      )
+      .channel(`inbox-threads-${propertyId || "all"}`)
+      .on("postgres_changes", channelConfig, () => fetchThreads())
       .subscribe();
 
     return () => {
       supabase.removeChannel(channel);
     };
-  }, [fetchThreads]);
+  }, [fetchThreads, propertyId]);
 
   const unreadCount = threads.filter((t) => !t.is_read).length;
 
