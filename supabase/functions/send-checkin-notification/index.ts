@@ -24,9 +24,24 @@ Deno.serve(async (req) => {
     const supabaseServiceKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!;
     const supabase = createClient(supabaseUrl, supabaseServiceKey);
 
-    const { reservationId }: CheckInNotificationRequest = await req.json();
+    const { reservationId, userId }: CheckInNotificationRequest = await req.json();
 
     console.log('Sending check-in notification for reservation:', reservationId);
+
+    // Look up who performed the check-in
+    let performedByName = 'System';
+    if (userId) {
+      const { data: userData } = await supabase
+        .from('profiles')
+        .select('full_name')
+        .eq('id', userId)
+        .single();
+      if (userData?.full_name) {
+        performedByName = userData.full_name;
+      }
+    } else {
+      performedByName = 'Guest (Self Check-In)';
+    }
 
     // Get reservation details including check-in timestamp
     const { data: reservation, error: reservationError } = await supabase
