@@ -473,20 +473,33 @@ const ReservationDetail = () => {
         }
       }
 
+      // Calculate VAT
+      const subtotal = totalPrice;
+      const unit = units.find(u => u.id === formData.unit_id);
+      const taxPercentage = unit?.tax_percentage ?? 14;
+      const isVatExempt = formData.vat_exempt === true;
+      const taxAmount = isVatExempt ? 0 : subtotal * (taxPercentage / 100);
+      const finalTotal = subtotal + taxAmount;
+
+      setPriceSubtotal(subtotal);
+
       // Build breakdown string
       const parts: string[] = [];
       if (weekdayCount > 0) parts.push(`${weekdayCount} weekday night${weekdayCount > 1 ? 's' : ''} × ${formData.currency} ${weekdayRate.toFixed(2)}`);
       if (weekendCount > 0) parts.push(`${weekendCount} weekend night${weekendCount > 1 ? 's' : ''} × ${formData.currency} ${weekendRate.toFixed(2)}`);
-      const breakdownStr = parts.join(' + ') + ` = ${formData.currency} ${totalPrice.toFixed(2)}`;
+      let breakdownStr = parts.join(' + ') + ` = ${formData.currency} ${subtotal.toFixed(2)}`;
+      if (!isVatExempt) {
+        breakdownStr += ` + ${taxPercentage}% VAT ${formData.currency} ${taxAmount.toFixed(2)} = ${formData.currency} ${finalTotal.toFixed(2)}`;
+      }
       setPriceBreakdown(breakdownStr);
 
-      const pricePerNight = Number((totalPrice / nights).toFixed(2));
-      const commission = (totalPrice * formData.commission_rate) / 100;
-      const net = totalPrice - commission;
+      const pricePerNight = Number((subtotal / nights).toFixed(2));
+      const commission = (finalTotal * formData.commission_rate) / 100;
+      const net = finalTotal - commission;
 
       setFormData(prev => ({
         ...prev,
-        total_price: totalPrice,
+        total_price: finalTotal,
         price_per_night: pricePerNight,
         commission_amount: commission,
         net_revenue: net,
