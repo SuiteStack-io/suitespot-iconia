@@ -1,118 +1,111 @@
 
 
-## Fix: Filter Blocked Dates by Active Property
+## Fix: Dynamic Property Name in All Email Notifications
 
-### Problem
-`fetchBlockedDates()` fetches ALL blocked dates across all properties. `fetchUnits()` correctly filters by `propertyId`, but blocked dates does not.
+### Summary of Audit
 
-### File: `src/components/BlockedDatesManager.tsx`
+**Functions with hardcoded property names (MUST FIX):**
+1. **`send-reservation-notification`** — 7 instances of "ICONIA Zamalek - Boutique Stay & Wellness Residences" (lines 159, 245, 253, 315, 349, 683 in subject, body header, body text, location, footer, admin header)
+2. **`send-cancellation-notification`** — 1 instance in footer (line 281)
 
-**1. Filter `fetchBlockedDates` by property (lines 101-121)**
+**Functions with NO property name in subject/body (SHOULD ADD for consistency):**
+3. **`send-checkin-notification`** — subject: "New Guest Checked In - [Guest] - Room #[N]" → add property name
+4. **`send-checkout-notification`** — subject: "Guest Checked Out - [Guest] - Room #[N]" → add property name
+5. **`send-modification-notification`** — subject: "Reservation Modified - [Guest] - Room #[N]" → add property name
+6. **`send-extension-notification`** — subject: "Stay Extended - [Room] - [Guest]" → add property name
+7. **`send-room-change-notification`** — subject: "Room Change - [Guest] ([Ref])" → no change needed (no property name used)
+8. **`auto-shuffle-rooms`** — subject: "Room Shuffle Alert - [Guest] ([Ref])" → add property name
+9. **`send-late-checkout-notification`** — subject: "Late Checkout Added - [Room] - [Guest]" → add property name
 
-The `blocked_dates` table references `units` via `unit_id`. Filter by joining through units that belong to the active property:
+**Functions already using dynamic property names (NO FIX NEEDED):**
+- `generate-daily-summary` — uses `property.name` ✓
+- `generate-weekly-summary` — uses `property.name` ✓
+- `generate-monthly-summary` — uses `property.name` ✓
 
-```typescript
-const fetchBlockedDates = async () => {
-  try {
-    let query = supabase
-      .from("blocked_dates")
-      .select(`
-        *,
-        units (
-          name,
-          unit_number,
-          booking_com_name
-        )
-      `)
-      .order("blocked_date", { ascending: true });
+**Functions that don't reference property names (NO FIX NEEDED):**
+- `send-admin-notification` — generic alert, no property context
+- `send-ticket-notification` — guest-facing ticket status
+- `send-checkout-surveys` — guest-facing survey
+- `send-survey-notification` — guest-facing survey
 
-    // Filter to only show blocked dates for units belonging to the active property
-    if (propertyId) {
-      query = query.eq('units.property_id', propertyId);
-    }
+---
 
-    const { data, error } = await query;
-    if (error) throw error;
+### Implementation Plan
 
-    // Remove entries where the unit was filtered out (unit doesn't belong to property)
-    const filtered = (data || []).filter(d => d.unit_id === null || d.units !== null);
-    setBlockedDates(filtered);
-  } catch (error: any) {
-    console.error("Error fetching blocked dates:", error);
-    toast.error("Failed to fetch blocked dates");
-  }
-};
-```
-
-However, `blocked_dates` rows with `unit_id = null` (meaning "all rooms") have no unit join to filter on. We need a different approach — filter blocked dates whose `unit_id` is either null OR belongs to a unit in the active property. The cleanest way: use the unit IDs we already fetch.
-
-**Better approach — filter client-side using fetched units:**
-
-Since `fetchUnits` already returns only units for the active property, filter blocked dates to only include those whose `unit_id` is null or matches a fetched unit.
-
-Actually, the simplest and most reliable fix: add `property_id` awareness to the query. Since `blocked_dates` has a `unit_id` FK to `units`, and `units` has `property_id`, we can filter via an inner join or use an `in` filter with the property's unit IDs.
-
-**Revised approach — fetch unit IDs first, then filter:**
+#### Step 1: Create shared helper `_shared/property-utils.ts`
 
 ```typescript
-// In useEffect, ensure both refetch when propertyId changes
-useEffect(() => {
-  fetchUnits();
-  fetchBlockedDates();
-}, [propertyId]);
+export async function getPropertyName(supabase: any, propertyId: string | null): Promise<string> {
+  if (!propertyId) return 'SuiteSpot';
+  const { data } = await supabase
+    .from('properties')
+    .select('name')
+    .eq('id', propertyId)
+    .maybeSingle();
+  return data?.name || 'SuiteSpot';
+}
 ```
 
-In `fetchBlockedDates`, after fetching units (or independently):
-- Query units for the active property to get their IDs
-- Filter blocked_dates where `unit_id` is in that list
+#### Step 2: Fix `send-reservation-notification`
 
-**Simplest implementation:**
+- Import `getPropertyName` from shared utils
+- After `unitId` lookup (line 98-110), also fetch `property_id` from the unit and call `getPropertyName`
+- Replace all 7 hardcoded "ICONIA Zamalek..." strings with the dynamic `propertyName` variable
+- Update subject formats:
+  - Customer: `Booking Confirmation - ${unitName} at ${propertyName}`
+  - Admin: `New Reservation at ${propertyName}`
 
-1. **Change useEffect (line 80-83)** to depend on `propertyId`
-2. **Update `fetchBlockedDates`** to filter by property's unit IDs
+#### Step 3: Fix `send-cancellation-notification`
 
-```typescript
-const fetchBlockedDates = async () => {
-  try {
-    // First get unit IDs for the active property
-    let unitIds: string[] = [];
-    if (propertyId) {
-      const { data: propUnits } = await supabase
-        .from("units")
-        .select("id")
-        .eq("property_id", propertyId);
-      unitIds = (propUnits || []).map(u => u.id);
-    }
+- Import `getPropertyName`
+- After resolving `propertyId` (line 74-82), call `getPropertyName`
+- Replace footer hardcoded string (line 281) with `SuiteSpot • ${propertyName}`
+- Update subject to include property: `Cancelled Booking - ${guest_names[0]} - ${checkInShort} to ${checkOutShort}${unit_number ? ` - Room #${unit_number}` : ''} at ${propertyName}`
 
-    let query = supabase
-      .from("blocked_dates")
-      .select(`*, units (name, unit_number, booking_com_name)`)
-      .order("blocked_date", { ascending: true });
+#### Step 4: Add property name to `send-checkin-notification`
 
-    if (propertyId && unitIds.length > 0) {
-      // Only show blocked dates for this property's units
-      query = query.in("unit_id", unitIds);
-    } else if (propertyId && unitIds.length === 0) {
-      // Property has no units, show nothing
-      setBlockedDates([]);
-      return;
-    }
+- Already has `propertyId` from reservation (line 58)
+- Add `getPropertyName` call
+- Update subject: `Guest Checked In - ${guestName} - Room #${roomNumber} at ${propertyName}`
 
-    const { data, error } = await query;
-    if (error) throw error;
-    setBlockedDates(data || []);
-  } catch (error: any) {
-    console.error("Error fetching blocked dates:", error);
-    toast.error("Failed to fetch blocked dates");
-  }
-};
-```
+#### Step 5: Add property name to `send-checkout-notification`
 
-3. **Update useEffect** (line 80-83): add `propertyId` to dependency array
+- Already has `propertyId` from reservation (line 58)
+- Add `getPropertyName` call
+- Update subject: `Guest Checked Out - ${guestName} - Room #${roomNumber} at ${propertyName}`
 
-### Summary
-- 1 file changed: `src/components/BlockedDatesManager.tsx`
-- `fetchBlockedDates` filters by active property's unit IDs
-- Re-fetches when property switches
-- Blocked dates with `unit_id = null` (all-rooms blocks) won't show unless we decide they should — this matches the expectation that blocks are property-scoped
+#### Step 6: Add property name to `send-modification-notification`
+
+- Already receives `property_id` in request body (line 24)
+- Add `getPropertyName` call
+- Update subject: `Reservation Modified - ${guest_names[0]} - Room #${room_number} at ${propertyName}`
+
+#### Step 7: Add property name to `send-extension-notification`
+
+- Fetch `property_id` from reservation
+- Add `getPropertyName` call
+- Update subject: `Stay Extended - ${roomInfo} - ${guestName} at ${propertyName}`
+
+#### Step 8: Add property name to `auto-shuffle-rooms`
+
+- Already has property context in the shuffle logic
+- Update subject: `Room Shuffle Alert - ${propertyName}`
+
+#### Step 9: Add property name to `send-late-checkout-notification`
+
+- Fetch `property_id` from reservation
+- Add `getPropertyName` call
+- Update subject: `Late Checkout Added - ${roomInfo} - ${guestName} at ${propertyName}`
+
+#### Step 10: Deploy all modified edge functions
+
+---
+
+### What will NOT change
+- Email layouts, colors, or design
+- Sender email addresses
+- Notification toggle / recipient logic
+- WhatsApp messages
+- Booking/reservation logic
+- Summary report functions (already dynamic)
 
