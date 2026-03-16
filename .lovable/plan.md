@@ -1,118 +1,51 @@
 
 
-## Fix: Filter Blocked Dates by Active Property
+## Fix Price per Night Flickering & Rate-Plan-Based Recalculation
 
 ### Problem
-`fetchBlockedDates()` fetches ALL blocked dates across all properties. `fetchUnits()` correctly filters by `propertyId`, but blocked dates does not.
+Two `useEffect` hooks at lines 412-416 and 419-432 create a circular loop: changing `price_per_night` triggers `calculateTotals()` which sets `total_price`, which triggers the second effect that sets `price_per_night`, ad infinitum.
 
-### File: `src/components/BlockedDatesManager.tsx`
+### Solution — Single file change: `src/pages/ReservationDetail.tsx`
 
-**1. Filter `fetchBlockedDates` by property (lines 101-121)**
+**1. Remove both circular useEffects (lines 412-432)**
 
-The `blocked_dates` table references `units` via `unit_id`. Filter by joining through units that belong to the active property:
+Delete:
+- The effect that calls `calculateTotals()` on `price_per_night` change (lines 412-416)
+- The effect that derives `price_per_night` from `total_price` (lines 419-432)
 
-```typescript
-const fetchBlockedDates = async () => {
-  try {
-    let query = supabase
-      .from("blocked_dates")
-      .select(`
-        *,
-        units (
-          name,
-          unit_number,
-          booking_com_name
-        )
-      `)
-      .order("blocked_date", { ascending: true });
+**2. Add a single date-change effect that fetches rates from the rate plan**
 
-    // Filter to only show blocked dates for units belonging to the active property
-    if (propertyId) {
-      query = query.eq('units.property_id', propertyId);
-    }
+When `check_in_date` or `check_out_date` changes in edit mode:
+- Get the unit's `unit_type` from the `units` array using `formData.unit_id`
+- Call `getActiveRate()` (from `src/lib/rateResolver.ts`) for the room type to get `weekdayRate` and `weekendRate`
+- Loop through each night in the range, classify as weekday or weekend using the property's `weekend_days` (default `[4, 5]`), sum up the total
+- Set `total_price`, `price_per_night` (total / nights, rounded to 2dp), `commission_amount`, and `net_revenue` in ONE `setFormData` call — no cascading
+- Track a breakdown string like `"5 weekday × $100 + 2 weekend × $120 = $740"` in new state `priceBreakdown`
 
-    const { data, error } = await query;
-    if (error) throw error;
+**3. Make Price per Night and Total Price display-only in edit mode (lines 1371-1392)**
 
-    // Remove entries where the unit was filtered out (unit doesn't belong to property)
-    const filtered = (data || []).filter(d => d.unit_id === null || d.units !== null);
-    setBlockedDates(filtered);
-  } catch (error: any) {
-    console.error("Error fetching blocked dates:", error);
-    toast.error("Failed to fetch blocked dates");
-  }
-};
+Replace both `<Input>` elements with read-only styled divs:
+```tsx
+<div className="mt-2 h-10 flex items-center px-3 bg-muted/50 rounded-md text-sm font-medium">
+  ${(formData.total_price / calculateNights()).toFixed(2)}
+</div>
+```
+Same pattern for Total Price.
+
+**4. Show price breakdown below Total Price**
+
+Display the `priceBreakdown` string as a small muted text line:
+```tsx
+{priceBreakdown && (
+  <p className="text-xs text-muted-foreground mt-1">{priceBreakdown}</p>
+)}
 ```
 
-However, `blocked_dates` rows with `unit_id = null` (meaning "all rooms") have no unit join to filter on. We need a different approach — filter blocked dates whose `unit_id` is either null OR belongs to a unit in the active property. The cleanest way: use the unit IDs we already fetch.
+**5. Update `handleSave` (lines 526-529)**
 
-**Better approach — filter client-side using fetched units:**
+Use `formData.total_price` directly instead of recalculating `total = price_per_night * nights`. Derive `price_per_night` for DB storage as `formData.total_price / nights` rounded to 2dp.
 
-Since `fetchUnits` already returns only units for the active property, filter blocked dates to only include those whose `unit_id` is null or matches a fetched unit.
+**6. Import `getActiveRate` from `@/lib/rateResolver`**
 
-Actually, the simplest and most reliable fix: add `property_id` awareness to the query. Since `blocked_dates` has a `unit_id` FK to `units`, and `units` has `property_id`, we can filter via an inner join or use an `in` filter with the property's unit IDs.
-
-**Revised approach — fetch unit IDs first, then filter:**
-
-```typescript
-// In useEffect, ensure both refetch when propertyId changes
-useEffect(() => {
-  fetchUnits();
-  fetchBlockedDates();
-}, [propertyId]);
-```
-
-In `fetchBlockedDates`, after fetching units (or independently):
-- Query units for the active property to get their IDs
-- Filter blocked_dates where `unit_id` is in that list
-
-**Simplest implementation:**
-
-1. **Change useEffect (line 80-83)** to depend on `propertyId`
-2. **Update `fetchBlockedDates`** to filter by property's unit IDs
-
-```typescript
-const fetchBlockedDates = async () => {
-  try {
-    // First get unit IDs for the active property
-    let unitIds: string[] = [];
-    if (propertyId) {
-      const { data: propUnits } = await supabase
-        .from("units")
-        .select("id")
-        .eq("property_id", propertyId);
-      unitIds = (propUnits || []).map(u => u.id);
-    }
-
-    let query = supabase
-      .from("blocked_dates")
-      .select(`*, units (name, unit_number, booking_com_name)`)
-      .order("blocked_date", { ascending: true });
-
-    if (propertyId && unitIds.length > 0) {
-      // Only show blocked dates for this property's units
-      query = query.in("unit_id", unitIds);
-    } else if (propertyId && unitIds.length === 0) {
-      // Property has no units, show nothing
-      setBlockedDates([]);
-      return;
-    }
-
-    const { data, error } = await query;
-    if (error) throw error;
-    setBlockedDates(data || []);
-  } catch (error: any) {
-    console.error("Error fetching blocked dates:", error);
-    toast.error("Failed to fetch blocked dates");
-  }
-};
-```
-
-3. **Update useEffect** (line 80-83): add `propertyId` to dependency array
-
-### Summary
-- 1 file changed: `src/components/BlockedDatesManager.tsx`
-- `fetchBlockedDates` filters by active property's unit IDs
-- Re-fetches when property switches
-- Blocked dates with `unit_id = null` (all-rooms blocks) won't show unless we decide they should — this matches the expectation that blocks are property-scoped
+### No changes to edge functions or rate plan logic.
 
