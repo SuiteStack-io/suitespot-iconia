@@ -1,118 +1,33 @@
 
 
-## Fix: Filter Blocked Dates by Active Property
+## Build Conversation/Chat View for Guest Inbox
 
-### Problem
-`fetchBlockedDates()` fetches ALL blocked dates across all properties. `fetchUnits()` correctly filters by `propertyId`, but blocked dates does not.
+### Overview
+Add a conversation panel to the right side of the inbox that displays messages in chat-bubble style with a reply composer, replacing the current placeholder.
 
-### File: `src/components/BlockedDatesManager.tsx`
+### Changes
 
-**1. Filter `fetchBlockedDates` by property (lines 101-121)**
+**1. Create `src/components/inbox/ConversationPanel.tsx`**
 
-The `blocked_dates` table references `units` via `unit_id`. Filter by joining through units that belong to the active property:
+New component receiving `thread: MessageThread` as prop. Three sections:
 
-```typescript
-const fetchBlockedDates = async () => {
-  try {
-    let query = supabase
-      .from("blocked_dates")
-      .select(`
-        *,
-        units (
-          name,
-          unit_number,
-          booking_com_name
-        )
-      `)
-      .order("blocked_date", { ascending: true });
+- **Header bar**: Guest name, OTA colored pill, "View Reservation" link (if `reservation_id`), Open/Closed badge
+- **Message area**: `ScrollArea` filling remaining height. Chat bubbles — guest messages left-aligned (gray bg), property messages right-aligned (primary bg, white text). Each bubble: message text, formatted timestamp ("Mar 11, 2:30 PM"), sender label on guest messages ("Guest via Airbnb"). Attachments rendered as clickable links/image thumbnails if present.
+- **Reply input**: `Textarea` (max 4 rows) + Send button. Enter sends, Shift+Enter newline. Disabled when `is_closed` or sending. Shows status banner if closed or messaging unsupported.
 
-    // Filter to only show blocked dates for units belonging to the active property
-    if (propertyId) {
-      query = query.eq('units.property_id', propertyId);
-    }
+**Key logic:**
+- `useEffect` on `thread.id`: fetch messages from `messages` table where `thread_id = thread.id`, order by `created_at ASC`. Auto-scroll to bottom via `scrollIntoView`.
+- Mark thread read: `supabase.from("message_threads").update({ is_read: true }).eq("id", thread.id)` on mount.
+- Realtime: subscribe to `postgres_changes` on `messages` table filtered by `thread_id=eq.${thread.id}`. Append new messages and scroll down.
+- Send: call `supabase.functions.invoke("channex-send-message", { body: { booking_id: thread.channex_booking_id, message } })`. Optimistic insert with `status: "sending"`, update to `"sent"` on success or `"failed"` on error (with toast + retry).
 
-    const { data, error } = await query;
-    if (error) throw error;
+**2. Update `src/pages/GuestInbox.tsx`**
 
-    // Remove entries where the unit was filtered out (unit doesn't belong to property)
-    const filtered = (data || []).filter(d => d.unit_id === null || d.units !== null);
-    setBlockedDates(filtered);
-  } catch (error: any) {
-    console.error("Error fetching blocked dates:", error);
-    toast.error("Failed to fetch blocked dates");
-  }
-};
-```
+- Import `ConversationPanel`
+- Add `channex_booking_id` to the `MessageThread` interface
+- Replace the right-panel placeholder: if `selectedThreadId` exists, find the thread object and render `<ConversationPanel thread={selectedThread} />`, otherwise show existing placeholder
+- On mobile: when a thread is selected, show conversation full-width instead of thread list, with a back button to deselect
 
-However, `blocked_dates` rows with `unit_id = null` (meaning "all rooms") have no unit join to filter on. We need a different approach — filter blocked dates whose `unit_id` is either null OR belongs to a unit in the active property. The cleanest way: use the unit IDs we already fetch.
-
-**Better approach — filter client-side using fetched units:**
-
-Since `fetchUnits` already returns only units for the active property, filter blocked dates to only include those whose `unit_id` is null or matches a fetched unit.
-
-Actually, the simplest and most reliable fix: add `property_id` awareness to the query. Since `blocked_dates` has a `unit_id` FK to `units`, and `units` has `property_id`, we can filter via an inner join or use an `in` filter with the property's unit IDs.
-
-**Revised approach — fetch unit IDs first, then filter:**
-
-```typescript
-// In useEffect, ensure both refetch when propertyId changes
-useEffect(() => {
-  fetchUnits();
-  fetchBlockedDates();
-}, [propertyId]);
-```
-
-In `fetchBlockedDates`, after fetching units (or independently):
-- Query units for the active property to get their IDs
-- Filter blocked_dates where `unit_id` is in that list
-
-**Simplest implementation:**
-
-1. **Change useEffect (line 80-83)** to depend on `propertyId`
-2. **Update `fetchBlockedDates`** to filter by property's unit IDs
-
-```typescript
-const fetchBlockedDates = async () => {
-  try {
-    // First get unit IDs for the active property
-    let unitIds: string[] = [];
-    if (propertyId) {
-      const { data: propUnits } = await supabase
-        .from("units")
-        .select("id")
-        .eq("property_id", propertyId);
-      unitIds = (propUnits || []).map(u => u.id);
-    }
-
-    let query = supabase
-      .from("blocked_dates")
-      .select(`*, units (name, unit_number, booking_com_name)`)
-      .order("blocked_date", { ascending: true });
-
-    if (propertyId && unitIds.length > 0) {
-      // Only show blocked dates for this property's units
-      query = query.in("unit_id", unitIds);
-    } else if (propertyId && unitIds.length === 0) {
-      // Property has no units, show nothing
-      setBlockedDates([]);
-      return;
-    }
-
-    const { data, error } = await query;
-    if (error) throw error;
-    setBlockedDates(data || []);
-  } catch (error: any) {
-    console.error("Error fetching blocked dates:", error);
-    toast.error("Failed to fetch blocked dates");
-  }
-};
-```
-
-3. **Update useEffect** (line 80-83): add `propertyId` to dependency array
-
-### Summary
-- 1 file changed: `src/components/BlockedDatesManager.tsx`
-- `fetchBlockedDates` filters by active property's unit IDs
-- Re-fetches when property switches
-- Blocked dates with `unit_id = null` (all-rooms blocks) won't show unless we decide they should — this matches the expectation that blocks are property-scoped
+### No database or edge function changes needed
+All tables (`message_threads`, `messages`) and the `channex-send-message` function already exist with the required schema and RLS policies.
 
