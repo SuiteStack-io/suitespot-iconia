@@ -44,6 +44,8 @@ Deno.serve(async (req) => {
     const propertyId = extensionRes.property_id;
     console.log('Extension property_id:', propertyId);
 
+    const extPropertyName = await getPropertyName(supabase, propertyId);
+
     // Calculate nights
     const checkIn = new Date(extensionRes.check_in_date);
     const checkOut = new Date(extensionRes.check_out_date);
