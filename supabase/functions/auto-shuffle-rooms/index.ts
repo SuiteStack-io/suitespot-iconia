@@ -321,6 +321,8 @@ Deno.serve(async (req) => {
       }
       console.log('Shuffle property_id:', shufflePropertyId);
 
+      const shufflePropertyName = await getPropertyName(supabase, shufflePropertyId);
+
       // Fetch admin/front_desk emails
       const { data: adminRoles } = await supabase
         .from('user_roles')
