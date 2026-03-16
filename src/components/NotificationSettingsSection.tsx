@@ -150,16 +150,19 @@ export function NotificationSettingsSection({
   const allEnabled = Object.values(settings).every(Boolean);
   const allDisabled = Object.values(settings).every(v => !v);
 
-  const handleEnableAll = () => setSettings(DEFAULT_SETTINGS);
+  const handleEnableAll = () => setSettings(prev => ({
+    ...DEFAULT_SETTINGS,
+    daily_summary_email: prev.daily_summary_email, // Keep admin-controlled toggle unchanged
+  }));
   const handleDisableAll = () =>
-    setSettings({
+    setSettings(prev => ({
       checkin_email: false,
       checkout_email: false,
       new_booking_email: false,
       cancelled_booking_email: false,
       room_shuffle_email: false,
-      daily_summary_email: false,
-    });
+      daily_summary_email: prev.daily_summary_email, // Keep admin-controlled toggle unchanged
+    }));
 
   if (loading) {
     return (
