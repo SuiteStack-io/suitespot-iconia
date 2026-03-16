@@ -51,7 +51,10 @@ export function BulkAvailabilityEditor({ pendingAvailability, setPendingAvailabi
   const [dateTo, setDateTo] = useState<Date>();
   const [availability, setAvailability] = useState(0);
   const [isSaving, setIsSaving] = useState(false);
-  const [isSyncing, setIsSyncing] = useState(false);
+  const [syncStatus, setSyncStatus] = useState<'idle' | 'syncing' | 'success' | 'error'>('idle');
+  const [syncProgress, setSyncProgress] = useState(0);
+  const [syncStep, setSyncStep] = useState('');
+  const [syncError, setSyncError] = useState('');
   const [dateFromOpen, setDateFromOpen] = useState(false);
   const [dateToOpen, setDateToOpen] = useState(false);
   const [currentAvailability, setCurrentAvailability] = useState<number | null>(null);
