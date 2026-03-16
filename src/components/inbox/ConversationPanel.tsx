@@ -337,30 +337,29 @@ export function ConversationPanel({ thread, onBack }: ConversationPanelProps) {
       </ScrollArea>
 
       {/* Reply input */}
-      <div className="border-t border-border bg-card px-4 py-3 shrink-0">
+      <div className="border-t border-border bg-gray-100 px-4 py-3 shrink-0">
         {thread.is_closed ? (
           <p className="text-sm text-muted-foreground text-center py-1">This conversation is closed</p>
         ) : messagingUnsupported ? (
           <p className="text-sm text-muted-foreground text-center py-1">Messaging not supported for this OTA</p>
         ) : (
-          <div className="flex items-end gap-2">
+          <div className="flex items-center gap-2">
             <Textarea
               value={replyText}
               onChange={(e) => setReplyText(e.target.value)}
               onKeyDown={handleKeyDown}
               placeholder="Type a message…"
-              className="min-h-[40px] max-h-[120px] resize-none"
+              className="min-h-[40px] max-h-[40px] resize-none rounded-full border-gray-300 bg-white px-4 py-2 text-[15px]"
               rows={1}
               disabled={sending}
             />
-            <Button
-              size="icon"
+            <button
               onClick={handleSend}
               disabled={!replyText.trim() || sending}
-              className="shrink-0"
+              className="shrink-0 h-9 w-9 rounded-full bg-[#007AFF] text-white flex items-center justify-center disabled:opacity-40 hover:bg-[#0066DD] transition-colors"
             >
               <Send className="h-4 w-4" />
-            </Button>
+            </button>
           </div>
         )}
       </div>
