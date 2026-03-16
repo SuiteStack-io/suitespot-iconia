@@ -116,6 +116,7 @@ interface Unit {
   unit_number: string | null;
   unit_type: string | null;
   status: string;
+  tax_percentage: number | null;
 }
 
 interface UnitAvailability extends Unit {
