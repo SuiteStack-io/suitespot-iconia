@@ -90,6 +90,20 @@ Deno.serve(async (req: Request) => {
         }
       }
 
+      // Merge overlapping date ranges for the same entity_id
+      const entityMap = new Map<string, any>();
+      for (const item of deduped) {
+        const eid = item.entity_id;
+        if (!entityMap.has(eid)) {
+          entityMap.set(eid, { ...item });
+        } else {
+          const existing = entityMap.get(eid)!;
+          if (item.date_from < existing.date_from) existing.date_from = item.date_from;
+          if (item.date_to > existing.date_to) existing.date_to = item.date_to;
+        }
+      }
+      const merged = Array.from(entityMap.values());
+
       const values: object[] = [];
 
       for (const item of deduped) {
