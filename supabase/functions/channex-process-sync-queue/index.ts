@@ -122,8 +122,8 @@ Deno.serve(async (req: Request) => {
             continue;
           }
 
-          // Calculate actual availability for the date range
-          const availability = await calculateAvailability(
+          // Calculate day-by-day availability and collapse into ranges
+          const ranges = await calculateAvailabilityRanges(
             supabase,
             unitData.booking_com_name,
             item.date_from,
@@ -131,13 +131,15 @@ Deno.serve(async (req: Request) => {
             unitData.property_id
           );
 
-          values.push({
-            property_id: channexPropertyId,
-            room_type_id: channexRoomTypeId,
-            date_from: item.date_from,
-            date_to: item.date_to,
-            availability,
-          });
+          for (const range of ranges) {
+            values.push({
+              property_id: channexPropertyId,
+              room_type_id: channexRoomTypeId,
+              date_from: range.date_from,
+              date_to: range.date_to,
+              availability: range.availability,
+            });
+          }
 
           await markCompleted(supabase, item.id);
         } catch (err: any) {
