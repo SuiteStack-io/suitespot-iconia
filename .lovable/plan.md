@@ -1,118 +1,31 @@
 
 
-## Fix: Filter Blocked Dates by Active Property
+## Fix Availability Sync: Overlapping Ranges & Checkout Date
 
-### Problem
-`fetchBlockedDates()` fetches ALL blocked dates across all properties. `fetchUnits()` correctly filters by `propertyId`, but blocked dates does not.
+### Root Causes
 
-### File: `src/components/BlockedDatesManager.tsx`
+**Bug 1 — Checkout date as occupied**: `calculateAvailabilityRanges` collapses day-by-day results using `date_to = lastDate + 1` (exclusive convention). But Channex treats `date_to` as **inclusive** — so pushing `date_to: 2026-03-27` marks March 27 with reduced availability, even though it's the checkout day and should remain at full availability.
 
-**1. Filter `fetchBlockedDates` by property (lines 101-121)**
+**Bug 2 — Overlapping entries**: The trigger queues two items for date modifications (old range + new range). These are processed independently in the sync queue, each generating collapsed ranges. When old and new ranges overlap, the final payload contains duplicate/overlapping date ranges for the same room type.
 
-The `blocked_dates` table references `units` via `unit_id`. Filter by joining through units that belong to the active property:
+### Fix (single file: `channex-process-sync-queue/index.ts`)
 
-```typescript
-const fetchBlockedDates = async () => {
-  try {
-    let query = supabase
-      .from("blocked_dates")
-      .select(`
-        *,
-        units (
-          name,
-          unit_number,
-          booking_com_name
-        )
-      `)
-      .order("blocked_date", { ascending: true });
+**1. Merge overlapping queue items before processing**
 
-    // Filter to only show blocked dates for units belonging to the active property
-    if (propertyId) {
-      query = query.eq('units.property_id', propertyId);
-    }
+After deduplication (lines 82-91), add a merge step: group deduped items by `entity_id`, then merge overlapping date ranges into a single expanded range. For example, if two items cover March 18-25 and March 20-27 for the same entity, merge into one item covering March 18-27. This way `calculateAvailabilityRanges` is called once per entity with the full date span, producing clean non-overlapping output.
 
-    const { data, error } = await query;
-    if (error) throw error;
+**2. Use inclusive `date_to` in collapsed ranges**
 
-    // Remove entries where the unit was filtered out (unit doesn't belong to property)
-    const filtered = (data || []).filter(d => d.unit_id === null || d.units !== null);
-    setBlockedDates(filtered);
-  } catch (error: any) {
-    console.error("Error fetching blocked dates:", error);
-    toast.error("Failed to fetch blocked dates");
-  }
-};
+In `calculateAvailabilityRanges` (lines 560, 566), change:
+```
+date_to: formatDate(addDays(new Date(lastDate), 1))
+```
+to:
+```
+date_to: lastDate
 ```
 
-However, `blocked_dates` rows with `unit_id = null` (meaning "all rooms") have no unit join to filter on. We need a different approach — filter blocked dates whose `unit_id` is either null OR belongs to a unit in the active property. The cleanest way: use the unit IDs we already fetch.
+This makes `date_to` inclusive, matching Channex's API convention. The day-by-day loop (`d < endDate`) already correctly excludes the checkout date from availability calculation — this change only affects how the results are formatted for Channex.
 
-**Better approach — filter client-side using fetched units:**
-
-Since `fetchUnits` already returns only units for the active property, filter blocked dates to only include those whose `unit_id` is null or matches a fetched unit.
-
-Actually, the simplest and most reliable fix: add `property_id` awareness to the query. Since `blocked_dates` has a `unit_id` FK to `units`, and `units` has `property_id`, we can filter via an inner join or use an `in` filter with the property's unit IDs.
-
-**Revised approach — fetch unit IDs first, then filter:**
-
-```typescript
-// In useEffect, ensure both refetch when propertyId changes
-useEffect(() => {
-  fetchUnits();
-  fetchBlockedDates();
-}, [propertyId]);
-```
-
-In `fetchBlockedDates`, after fetching units (or independently):
-- Query units for the active property to get their IDs
-- Filter blocked_dates where `unit_id` is in that list
-
-**Simplest implementation:**
-
-1. **Change useEffect (line 80-83)** to depend on `propertyId`
-2. **Update `fetchBlockedDates`** to filter by property's unit IDs
-
-```typescript
-const fetchBlockedDates = async () => {
-  try {
-    // First get unit IDs for the active property
-    let unitIds: string[] = [];
-    if (propertyId) {
-      const { data: propUnits } = await supabase
-        .from("units")
-        .select("id")
-        .eq("property_id", propertyId);
-      unitIds = (propUnits || []).map(u => u.id);
-    }
-
-    let query = supabase
-      .from("blocked_dates")
-      .select(`*, units (name, unit_number, booking_com_name)`)
-      .order("blocked_date", { ascending: true });
-
-    if (propertyId && unitIds.length > 0) {
-      // Only show blocked dates for this property's units
-      query = query.in("unit_id", unitIds);
-    } else if (propertyId && unitIds.length === 0) {
-      // Property has no units, show nothing
-      setBlockedDates([]);
-      return;
-    }
-
-    const { data, error } = await query;
-    if (error) throw error;
-    setBlockedDates(data || []);
-  } catch (error: any) {
-    console.error("Error fetching blocked dates:", error);
-    toast.error("Failed to fetch blocked dates");
-  }
-};
-```
-
-3. **Update useEffect** (line 80-83): add `propertyId` to dependency array
-
-### Summary
-- 1 file changed: `src/components/BlockedDatesManager.tsx`
-- `fetchBlockedDates` filters by active property's unit IDs
-- Re-fetches when property switches
-- Blocked dates with `unit_id = null` (all-rooms blocks) won't show unless we decide they should — this matches the expectation that blocks are property-scoped
+No other files are modified. No variable re-declarations.
 
