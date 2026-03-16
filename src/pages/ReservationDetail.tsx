@@ -300,7 +300,7 @@ const ReservationDetail = () => {
   const fetchUnits = async () => {
     const { data } = await withPropertyFilter(supabase
       .from('units')
-      .select('id, name, unit_number, unit_type, status'), propertyId)
+      .select('id, name, unit_number, unit_type, status, tax_percentage'), propertyId)
       .order('name');
     
     if (data) {
