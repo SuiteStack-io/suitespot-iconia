@@ -249,7 +249,7 @@ const handler = async (req: Request): Promise<Response> => {
                 <div class="header">
                   <div class="check-icon">✓</div>
                   <h1>Booking Confirmed!</h1>
-                  <p style="margin-top: 10px; margin-bottom: 0; font-size: 16px;">Your reservation at ICONIA Zamalek - Boutique Stay & Wellness Residences</p>
+                  <p style="margin-top: 10px; margin-bottom: 0; font-size: 16px;">Your reservation at ${propertyName}</p>
                 </div>
                 
                 <div class="content">
