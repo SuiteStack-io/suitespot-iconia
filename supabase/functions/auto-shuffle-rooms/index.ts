@@ -567,7 +567,7 @@ Deno.serve(async (req) => {
               const result = await resend.emails.send({
                 from: 'SuiteSpot Reservations <reservations@bookings.suitespoteg.com>',
                 to: [email],
-                subject: `Room Shuffle Alert - ${guestNames[0] || 'Guest'} (${bookingReference})`,
+                subject: `Room Shuffle Alert - ${guestNames[0] || 'Guest'} (${bookingReference}) at ${shufflePropertyName}`,
                 html: emailHtml,
               });
               console.log(`Shuffle email sent to ${email}:`, JSON.stringify(result));

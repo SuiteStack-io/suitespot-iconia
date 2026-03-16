@@ -173,7 +173,7 @@ Deno.serve(async (req) => {
         const result = await resend.emails.send({
           from: "SuiteSpot Front Desk <frontdesk@bookings.suitespoteg.com>",
           to: [staff.email!],
-          subject: `Guest Checked Out - ${guestName} - Room #${roomNumber}`,
+          subject: `Guest Checked Out - ${guestName} - Room #${roomNumber} at ${checkoutPropertyName}`,
           html: `
             <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto;">
               <h2 style="color: #ea580c;">Guest Checked Out - Room Ready for Cleaning</h2>

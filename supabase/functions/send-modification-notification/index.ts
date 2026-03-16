@@ -323,7 +323,7 @@ const handler = async (req: Request): Promise<Response> => {
         const result = await resend.emails.send({
           from: "SuiteSpot Reservations <reservations@bookings.suitespoteg.com>",
           to: [admin.email as string],
-          subject: `Reservation Modified - ${guest_names?.[0] || "Guest"} - Room #${room_number}`,
+          subject: `Reservation Modified - ${guest_names?.[0] || "Guest"} - Room #${room_number} at ${modPropertyName}`,
           html: emailHtml,
         });
         

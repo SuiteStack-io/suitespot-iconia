@@ -687,7 +687,7 @@ const handler = async (req: Request): Promise<Response> => {
             </head>
             <body>
               <div class="header">
-                <h1>New Reservation in ICONIA Zamalek - Boutique Stay & Wellness Residences</h1>
+                <h1>New Reservation in ${propertyName}</h1>
                 <p style="margin-top: 0; margin-bottom: 0; font-size: 18px; font-weight: 400;">SuiteSpot Bookings</p>
               </div>
               

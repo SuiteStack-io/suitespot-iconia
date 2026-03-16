@@ -109,7 +109,7 @@ Deno.serve(async (req) => {
         const emailResponse = await resend.emails.send({
           from: "SuiteSpot Notifications <notifications@bookings.suitespoteg.com>",
           to: [admin.email],
-          subject: `⏰ Late Checkout Added - ${roomInfo} - ${guestName}`,
+          subject: `⏰ Late Checkout Added - ${roomInfo} - ${guestName} at ${latePropertyName}`,
           html: `
             <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto;">
               <div style="background: linear-gradient(135deg, #f59e0b, #d97706); padding: 20px; border-radius: 8px 8px 0 0;">
