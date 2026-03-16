@@ -1,0 +1,440 @@
+import { createClient } from "https://esm.sh/@supabase/supabase-js@2.39.3";
+import { Resend } from "https://esm.sh/resend@3.2.0";
+import jsPDF from "https://esm.sh/jspdf@2.5.2";
+
+const corsHeaders = {
+  "Access-Control-Allow-Origin": "*",
+  "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type",
+};
+
+function formatDate(date: Date): string {
+  return date.toLocaleDateString("en-US", { weekday: "short", month: "short", day: "numeric", year: "numeric" });
+}
+
+function isLastWorkingDayOfMonth(date: Date): boolean {
+  const year = date.getFullYear();
+  const month = date.getMonth();
+  const lastDay = new Date(year, month + 1, 0);
+  let lastWorkingDay = new Date(lastDay);
+  // Working days: Sun(0)-Thu(4). Fri=5, Sat=6
+  while (lastWorkingDay.getDay() === 5 || lastWorkingDay.getDay() === 6) {
+    lastWorkingDay.setDate(lastWorkingDay.getDate() - 1);
+  }
+  return date.getDate() === lastWorkingDay.getDate() && date.getMonth() === lastWorkingDay.getMonth();
+}
+
+async function getRecipients(supabase: any): Promise<{ email: string; name: string }[]> {
+  // Get users with daily_summary_email enabled
+  const { data: settings } = await supabase
+    .from("user_notification_settings")
+    .select("user_id")
+    .eq("daily_summary_email", true);
+
+  if (!settings || settings.length === 0) {
+    console.log("No recipients configured for summary reports");
+    return [];
+  }
+
+  const userIds = settings.map((s: any) => s.user_id);
+
+  // Get emails via service role admin API
+  const { data: { users }, error } = await supabase.auth.admin.listUsers({ perPage: 1000 });
+  if (error) {
+    console.error("Error fetching users:", error);
+    return [];
+  }
+
+  const { data: profiles } = await supabase
+    .from("profiles")
+    .select("id, full_name")
+    .in("id", userIds);
+
+  const profileMap = new Map((profiles || []).map((p: any) => [p.id, p.full_name]));
+  const recipients: { email: string; name: string }[] = [];
+
+  for (const uid of userIds) {
+    const user = users?.find((u: any) => u.id === uid);
+    if (user?.email) {
+      recipients.push({ email: user.email, name: profileMap.get(uid) || "Team Member" });
+    } else {
+      console.log(`Skipped — no email for user ${uid}`);
+    }
+  }
+
+  return recipients;
+}
+
+function generatePDF(
+  propertyName: string,
+  dateStr: string,
+  checkIns: any[],
+  checkOuts: any[],
+  occupancy: { occupied: number; vacant: number; total: number; rate: number }
+): Uint8Array {
+  const doc = new jsPDF();
+  let y = 20;
+
+  // Header
+  doc.setFontSize(20);
+  doc.setTextColor(14, 165, 233); // sky-500
+  doc.text("SuiteSpot", 14, y);
+  y += 8;
+  doc.setFontSize(14);
+  doc.setTextColor(0, 0, 0);
+  doc.text(`Daily Summary — ${propertyName}`, 14, y);
+  y += 7;
+  doc.setFontSize(10);
+  doc.setTextColor(100, 100, 100);
+  doc.text(dateStr, 14, y);
+  y += 12;
+
+  // Check-ins section
+  doc.setFontSize(13);
+  doc.setTextColor(0, 0, 0);
+  doc.text(`Today's Check-ins (${checkIns.length})`, 14, y);
+  y += 8;
+
+  if (checkIns.length > 0) {
+    // Table header
+    doc.setFontSize(9);
+    doc.setFillColor(14, 165, 233);
+    doc.setTextColor(255, 255, 255);
+    doc.rect(14, y - 4, 182, 7, "F");
+    doc.text("Guest Name", 16, y);
+    doc.text("Room", 80, y);
+    doc.text("Source", 140, y);
+    y += 6;
+
+    doc.setTextColor(0, 0, 0);
+    checkIns.forEach((ci, i) => {
+      if (i % 2 === 0) {
+        doc.setFillColor(249, 250, 251);
+        doc.rect(14, y - 4, 182, 7, "F");
+      }
+      doc.text((ci.guest_names?.[0] || "N/A").substring(0, 30), 16, y);
+      doc.text((ci.units?.name || "Unassigned").substring(0, 25), 80, y);
+      doc.text((ci.source || ci.channel || "N/A").substring(0, 20), 140, y);
+      y += 7;
+      if (y > 270) { doc.addPage(); y = 20; }
+    });
+  } else {
+    doc.setFontSize(10);
+    doc.text("No check-ins today", 16, y);
+    y += 7;
+  }
+
+  y += 6;
+
+  // Check-outs section
+  doc.setFontSize(13);
+  doc.text(`Today's Check-outs (${checkOuts.length})`, 14, y);
+  y += 8;
+
+  if (checkOuts.length > 0) {
+    doc.setFontSize(9);
+    doc.setFillColor(14, 165, 233);
+    doc.setTextColor(255, 255, 255);
+    doc.rect(14, y - 4, 182, 7, "F");
+    doc.text("Guest Name", 16, y);
+    doc.text("Room", 80, y);
+    doc.text("Source", 140, y);
+    y += 6;
+
+    doc.setTextColor(0, 0, 0);
+    checkOuts.forEach((co, i) => {
+      if (i % 2 === 0) {
+        doc.setFillColor(249, 250, 251);
+        doc.rect(14, y - 4, 182, 7, "F");
+      }
+      doc.text((co.guest_names?.[0] || "N/A").substring(0, 30), 16, y);
+      doc.text((co.units?.name || "Unassigned").substring(0, 25), 80, y);
+      doc.text((co.source || co.channel || "N/A").substring(0, 20), 140, y);
+      y += 7;
+      if (y > 270) { doc.addPage(); y = 20; }
+    });
+  } else {
+    doc.setFontSize(10);
+    doc.text("No check-outs today", 16, y);
+    y += 7;
+  }
+
+  y += 6;
+
+  // Occupancy section
+  doc.setFontSize(13);
+  doc.text("Today's Occupancy", 14, y);
+  y += 8;
+  doc.setFontSize(10);
+  doc.text(`Occupied: ${occupancy.occupied} rooms`, 16, y); y += 6;
+  doc.text(`Vacant: ${occupancy.vacant} rooms`, 16, y); y += 6;
+  doc.text(`Total: ${occupancy.total} rooms`, 16, y); y += 6;
+  doc.setFontSize(14);
+  doc.setTextColor(14, 165, 233);
+  doc.text(`Occupancy Rate: ${occupancy.rate.toFixed(1)}%`, 16, y);
+  y += 10;
+
+  // Footer
+  doc.setFontSize(8);
+  doc.setTextColor(150, 150, 150);
+  doc.text(`Generated automatically by SuiteSpot PMS — ${new Date().toISOString()}`, 14, 285);
+
+  return doc.output("arraybuffer");
+}
+
+function generateEmailHTML(
+  propertyName: string,
+  dateStr: string,
+  checkIns: any[],
+  checkOuts: any[],
+  occupancy: { occupied: number; vacant: number; total: number; rate: number }
+): string {
+  const tableStyle = 'style="width:100%;border-collapse:collapse;margin:8px 0 16px 0;"';
+  const thStyle = 'style="background:#0EA5E9;color:white;padding:8px 12px;text-align:left;font-size:13px;"';
+  const tdStyle = (i: number) => `style="padding:8px 12px;border-bottom:1px solid #eee;font-size:13px;background:${i % 2 === 0 ? '#f9fafb' : '#fff'};"`;
+
+  const checkInRows = checkIns.length > 0
+    ? checkIns.map((ci, i) => `<tr><td ${tdStyle(i)}>${ci.guest_names?.[0] || "N/A"}</td><td ${tdStyle(i)}>${ci.units?.name || "Unassigned"}</td><td ${tdStyle(i)}>${ci.source || ci.channel || "N/A"}</td></tr>`).join("")
+    : `<tr><td colspan="3" style="padding:12px;color:#888;">No check-ins today</td></tr>`;
+
+  const checkOutRows = checkOuts.length > 0
+    ? checkOuts.map((co, i) => `<tr><td ${tdStyle(i)}>${co.guest_names?.[0] || "N/A"}</td><td ${tdStyle(i)}>${co.units?.name || "Unassigned"}</td><td ${tdStyle(i)}>${co.source || co.channel || "N/A"}</td></tr>`).join("")
+    : `<tr><td colspan="3" style="padding:12px;color:#888;">No check-outs today</td></tr>`;
+
+  return `
+    <div style="font-family:Arial,sans-serif;max-width:650px;margin:0 auto;color:#222;">
+      <div style="background:#0EA5E9;padding:20px 24px;border-radius:8px 8px 0 0;">
+        <h1 style="color:white;margin:0;font-size:22px;">SuiteSpot Daily Summary</h1>
+        <p style="color:rgba(255,255,255,0.9);margin:4px 0 0;font-size:14px;">${propertyName} — ${dateStr}</p>
+      </div>
+      <div style="padding:24px;background:#fff;border:1px solid #e5e7eb;border-top:none;border-radius:0 0 8px 8px;">
+        <h2 style="font-size:16px;color:#0EA5E9;margin:0 0 8px;">📥 Today's Check-ins (${checkIns.length})</h2>
+        <table ${tableStyle}>
+          <tr><th ${thStyle}>Guest Name</th><th ${thStyle}>Room</th><th ${thStyle}>Source</th></tr>
+          ${checkInRows}
+        </table>
+
+        <h2 style="font-size:16px;color:#0EA5E9;margin:20px 0 8px;">📤 Today's Check-outs (${checkOuts.length})</h2>
+        <table ${tableStyle}>
+          <tr><th ${thStyle}>Guest Name</th><th ${thStyle}>Room</th><th ${thStyle}>Source</th></tr>
+          ${checkOutRows}
+        </table>
+
+        <h2 style="font-size:16px;color:#0EA5E9;margin:20px 0 8px;">🏠 Today's Occupancy</h2>
+        <div style="background:#f0f9ff;padding:16px;border-radius:8px;border:1px solid #bae6fd;">
+          <table style="width:100%;">
+            <tr><td style="padding:4px 0;font-size:14px;">Occupied</td><td style="text-align:right;font-weight:bold;font-size:14px;">${occupancy.occupied} rooms</td></tr>
+            <tr><td style="padding:4px 0;font-size:14px;">Vacant</td><td style="text-align:right;font-weight:bold;font-size:14px;">${occupancy.vacant} rooms</td></tr>
+            <tr><td style="padding:4px 0;font-size:14px;">Total</td><td style="text-align:right;font-weight:bold;font-size:14px;">${occupancy.total} rooms</td></tr>
+            <tr><td colspan="2" style="padding:8px 0 0;text-align:center;font-size:22px;font-weight:bold;color:#0EA5E9;">${occupancy.rate.toFixed(1)}% Occupancy</td></tr>
+          </table>
+        </div>
+
+        <p style="margin:24px 0 0;font-size:11px;color:#999;">Generated automatically by SuiteSpot PMS — ${new Date().toISOString()}</p>
+      </div>
+    </div>
+  `;
+}
+
+const handler = async (req: Request): Promise<Response> => {
+  if (req.method === "OPTIONS") {
+    return new Response(null, { headers: corsHeaders });
+  }
+
+  try {
+    const supabaseUrl = Deno.env.get("SUPABASE_URL")!;
+    const supabaseKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
+    const supabase = createClient(supabaseUrl, supabaseKey);
+    const resend = new Resend(Deno.env.get("RESEND_API_KEY"));
+
+    const today = new Date();
+    const todayStr = today.toISOString().split("T")[0];
+    const dateDisplay = formatDate(today);
+
+    // Get default property
+    const { data: property } = await supabase
+      .from("properties")
+      .select("id, name")
+      .eq("is_default", true)
+      .single();
+
+    if (!property) {
+      console.log("No default property found");
+      return new Response(JSON.stringify({ error: "No default property" }), {
+        status: 400,
+        headers: { ...corsHeaders, "Content-Type": "application/json" },
+      });
+    }
+
+    // Get recipients
+    const recipients = await getRecipients(supabase);
+    if (recipients.length === 0) {
+      // Log and return
+      await supabase.from("summary_report_log").insert({
+        report_type: "daily",
+        property_id: property.id,
+        report_date: todayStr,
+        status: "sent",
+        error_message: "No recipients configured",
+        sent_at: new Date().toISOString(),
+      });
+      console.log("No recipients configured, skipping daily summary");
+      // Still check for weekly/monthly
+      await triggerAdditionalReports(supabaseUrl, supabaseKey, today);
+      return new Response(JSON.stringify({ success: true, message: "No recipients" }), {
+        status: 200,
+        headers: { ...corsHeaders, "Content-Type": "application/json" },
+      });
+    }
+
+    // Fetch check-ins today
+    const { data: checkIns } = await supabase
+      .from("reservations")
+      .select("guest_names, source, channel, units!unit_id(name)")
+      .eq("check_in_date", todayStr)
+      .in("status", ["confirmed", "checked-in"])
+      .eq("property_id", property.id);
+
+    // Fetch check-outs today
+    const { data: checkOuts } = await supabase
+      .from("reservations")
+      .select("guest_names, source, channel, units!unit_id(name)")
+      .eq("check_out_date", todayStr)
+      .in("status", ["confirmed", "checked-in", "checked-out", "completed"])
+      .eq("property_id", property.id);
+
+    // Occupancy: count in-house guests
+    const { data: inHouse } = await supabase
+      .from("reservations")
+      .select("id", { count: "exact" })
+      .lte("check_in_date", todayStr)
+      .gt("check_out_date", todayStr)
+      .in("status", ["confirmed", "checked-in"])
+      .eq("property_id", property.id);
+
+    const occupied = inHouse?.length || 0;
+
+    // Total units for property
+    const { data: units } = await supabase
+      .from("units")
+      .select("id")
+      .eq("property_id", property.id);
+
+    const totalRooms = units?.length || 1;
+    const vacant = totalRooms - occupied;
+    const occupancyRate = (occupied / totalRooms) * 100;
+
+    const occupancy = { occupied, vacant, total: totalRooms, rate: occupancyRate };
+
+    // Generate PDF
+    const pdfBytes = generatePDF(property.name, dateDisplay, checkIns || [], checkOuts || [], occupancy);
+
+    // Upload PDF to storage
+    const pdfFilename = `Daily-Summary-${todayStr}.pdf`;
+    const { error: uploadError } = await supabase.storage
+      .from("reports")
+      .upload(pdfFilename, pdfBytes, { contentType: "application/pdf", upsert: true });
+
+    if (uploadError) console.error("PDF upload error:", uploadError);
+
+    // Generate email HTML
+    const emailHTML = generateEmailHTML(property.name, dateDisplay, checkIns || [], checkOuts || [], occupancy);
+
+    // Send emails with 600ms delay between recipients
+    const sentEmails: string[] = [];
+    let errorCount = 0;
+
+    // Convert PDF to base64 for attachment
+    const pdfBase64 = btoa(String.fromCharCode(...new Uint8Array(pdfBytes)));
+
+    for (const recipient of recipients) {
+      try {
+        const emailResponse = await resend.emails.send({
+          from: "SuiteSpot Reports <frontdesk@bookings.suitespoteg.com>",
+          to: [recipient.email],
+          subject: `Daily Summary — ${property.name} — ${dateDisplay}`,
+          html: emailHTML,
+          attachments: [{ filename: pdfFilename, content: pdfBase64 }],
+        });
+        console.log(`Email sent to ${recipient.email}:`, JSON.stringify(emailResponse));
+        sentEmails.push(recipient.email);
+      } catch (emailError) {
+        console.error(`Error sending to ${recipient.email}:`, emailError);
+        errorCount++;
+      }
+
+      // 600ms delay between recipients
+      if (recipients.indexOf(recipient) < recipients.length - 1) {
+        await new Promise(resolve => setTimeout(resolve, 600));
+      }
+    }
+
+    // Get PDF URL
+    const { data: urlData } = supabase.storage.from("reports").getPublicUrl(pdfFilename);
+
+    // Log result
+    await supabase.from("summary_report_log").insert({
+      report_type: "daily",
+      property_id: property.id,
+      report_date: todayStr,
+      recipients: sentEmails,
+      pdf_url: urlData?.publicUrl || null,
+      status: errorCount === 0 ? "sent" : errorCount < recipients.length ? "partial" : "failed",
+      error_message: errorCount > 0 ? `${errorCount} emails failed` : null,
+      sent_at: new Date().toISOString(),
+    });
+
+    // Trigger weekly/monthly if needed
+    await triggerAdditionalReports(supabaseUrl, supabaseKey, today);
+
+    return new Response(
+      JSON.stringify({ success: true, sent: sentEmails.length, errors: errorCount }),
+      { status: 200, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+    );
+  } catch (error: any) {
+    console.error("Error in generate-daily-summary:", error);
+    return new Response(
+      JSON.stringify({ error: error.message }),
+      { status: 500, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+    );
+  }
+};
+
+async function triggerAdditionalReports(supabaseUrl: string, serviceKey: string, today: Date) {
+  const dayOfWeek = today.getDay(); // 0=Sun, 4=Thu
+
+  // Thursday → trigger weekly
+  if (dayOfWeek === 4) {
+    console.log("Today is Thursday — triggering weekly summary");
+    try {
+      await fetch(`${supabaseUrl}/functions/v1/generate-weekly-summary`, {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          "Authorization": `Bearer ${serviceKey}`,
+        },
+        body: JSON.stringify({ triggered_by: "daily-orchestrator" }),
+      });
+    } catch (e) {
+      console.error("Error triggering weekly summary:", e);
+    }
+  }
+
+  // Last working day of month → trigger monthly
+  if (isLastWorkingDayOfMonth(today)) {
+    console.log("Today is last working day of month — triggering monthly summary");
+    try {
+      await fetch(`${supabaseUrl}/functions/v1/generate-monthly-summary`, {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          "Authorization": `Bearer ${serviceKey}`,
+        },
+        body: JSON.stringify({ triggered_by: "daily-orchestrator" }),
+      });
+    } catch (e) {
+      console.error("Error triggering monthly summary:", e);
+    }
+  }
+}
+
+Deno.serve(handler);

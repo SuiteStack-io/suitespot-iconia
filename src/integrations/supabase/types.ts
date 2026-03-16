@@ -2199,6 +2199,53 @@ export type Database = {
           },
         ]
       }
+      summary_report_log: {
+        Row: {
+          created_at: string | null
+          error_message: string | null
+          id: string
+          pdf_url: string | null
+          property_id: string | null
+          recipients: string[] | null
+          report_date: string
+          report_type: string
+          sent_at: string | null
+          status: string
+        }
+        Insert: {
+          created_at?: string | null
+          error_message?: string | null
+          id?: string
+          pdf_url?: string | null
+          property_id?: string | null
+          recipients?: string[] | null
+          report_date: string
+          report_type: string
+          sent_at?: string | null
+          status?: string
+        }
+        Update: {
+          created_at?: string | null
+          error_message?: string | null
+          id?: string
+          pdf_url?: string | null
+          property_id?: string | null
+          recipients?: string[] | null
+          report_date?: string
+          report_type?: string
+          sent_at?: string | null
+          status?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "summary_report_log_property_id_fkey"
+            columns: ["property_id"]
+            isOneToOne: false
+            referencedRelation: "properties"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       sync_logs: {
         Row: {
           bookings_created: number | null
