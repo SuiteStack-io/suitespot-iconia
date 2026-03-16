@@ -312,8 +312,8 @@ const handler = async (req: Request): Promise<Response> => {
       });
     }
 
-    // Get recipients
-    const recipients = await getRecipients(supabase);
+    // Get recipients filtered by property access
+    const recipients = await getRecipients(supabase, property.id);
     if (recipients.length === 0) {
       // Log and return
       await supabase.from("summary_report_log").insert({

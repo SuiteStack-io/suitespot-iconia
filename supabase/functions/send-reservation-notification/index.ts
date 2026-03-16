@@ -878,3 +878,46 @@ const handler = async (req: Request): Promise<Response> => {
 };
 
 Deno.serve(handler);
+
+async function filterByPropertyAccess(
+  supabase: any,
+  users: any[],
+  propertyId: string | null
+): Promise<any[]> {
+  if (!propertyId) {
+    console.log('No property_id — skipping property access filter');
+    return users;
+  }
+
+  const userIds = users.map((u: any) => u.user_id);
+  if (userIds.length === 0) return [];
+
+  const { data: allAccess } = await supabase
+    .from('user_property_access')
+    .select('user_id, property_id')
+    .in('user_id', userIds);
+
+  const accessList = allAccess || [];
+
+  const { data: propData } = await supabase
+    .from('properties')
+    .select('name')
+    .eq('id', propertyId)
+    .single();
+  const propertyName = propData?.name || propertyId;
+
+  return users.filter((user: any) => {
+    const userAccessEntries = accessList.filter((a: any) => a.user_id === user.user_id);
+
+    if (userAccessEntries.length === 0 && user.role === 'admin') {
+      console.log(`${user.email} — admin with global access (no property restrictions)`);
+      return true;
+    }
+
+    const hasAccess = userAccessEntries.some((a: any) => a.property_id === propertyId);
+    if (!hasAccess) {
+      console.log(`Skipped ${user.email} — no access to property "${propertyName}"`);
+    }
+    return hasAccess;
+  });
+}
