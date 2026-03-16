@@ -11,10 +11,12 @@ import { AdminBreadcrumb } from "@/components/AdminBreadcrumb";
 import { ArrowLeft, MessageCircle, ExternalLink } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { useIsMobile } from "@/hooks/use-mobile";
+import { ConversationPanel } from "@/components/inbox/ConversationPanel";
 
 interface MessageThread {
   id: string;
   channex_thread_id: string;
+  channex_booking_id: string | null;
   title: string | null;
   provider: string;
   is_read: boolean | null;
@@ -59,6 +61,8 @@ export default function GuestInbox() {
   const [loading, setLoading] = useState(true);
   const [activeTab, setActiveTab] = useState("all");
   const [selectedThreadId, setSelectedThreadId] = useState<string | null>(null);
+
+  const selectedThread = threads.find((t) => t.id === selectedThreadId) || null;
 
   const fetchThreads = useCallback(async () => {
     let query = supabase
@@ -153,119 +157,102 @@ export default function GuestInbox() {
 
       {/* Content */}
       <div className="flex h-[calc(100vh-140px)]">
-        {/* Thread List */}
-        <div
-          className={cn(
-            "border-r border-border overflow-y-auto",
-            isMobile ? "w-full" : "w-[40%]"
-          )}
-        >
-          {loading ? (
-            <div className="flex items-center justify-center py-12">
-              <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary" />
-            </div>
-          ) : filteredThreads.length === 0 ? (
-            <div className="flex flex-col items-center justify-center py-12 text-muted-foreground">
-              <MessageCircle className="h-10 w-10 mb-2" />
-              <p className="text-sm">No conversations found</p>
-            </div>
-          ) : (
-            filteredThreads.map((thread) => {
-              const ota = otaInfo(thread.provider);
-              const isUnread = !thread.is_read;
-              const isSelected = selectedThreadId === thread.id;
+        {/* Thread List - hidden on mobile when a thread is selected */}
+        {(!isMobile || !selectedThreadId) && (
+          <div
+            className={cn(
+              "border-r border-border overflow-y-auto",
+              isMobile ? "w-full" : "w-[40%]"
+            )}
+          >
+            {loading ? (
+              <div className="flex items-center justify-center py-12">
+                <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary" />
+              </div>
+            ) : filteredThreads.length === 0 ? (
+              <div className="flex flex-col items-center justify-center py-12 text-muted-foreground">
+                <MessageCircle className="h-10 w-10 mb-2" />
+                <p className="text-sm">No conversations found</p>
+              </div>
+            ) : (
+              filteredThreads.map((thread) => {
+                const ota = otaInfo(thread.provider);
+                const isUnread = !thread.is_read;
+                const isSelected = selectedThreadId === thread.id;
 
-              return (
-                <button
-                  key={thread.id}
-                  onClick={() => setSelectedThreadId(thread.id)}
-                  className={cn(
-                    "w-full text-left px-4 py-3 border-b border-border transition-colors hover:bg-accent/50",
-                    isSelected && "bg-accent",
-                    isUnread && "bg-primary/5"
-                  )}
-                >
-                  <div className="flex items-start gap-3">
-                    {/* Unread dot */}
-                    <div className="pt-1.5">
-                      {isUnread ? (
-                        <div className="h-2.5 w-2.5 rounded-full bg-primary" />
-                      ) : (
-                        <div className="h-2.5 w-2.5" />
-                      )}
-                    </div>
-
-                    <div className="flex-1 min-w-0">
-                      {/* Top row: OTA badge + time */}
-                      <div className="flex items-center justify-between gap-2 mb-1">
-                        <span
-                          className={cn(
-                            "text-[10px] font-semibold px-1.5 py-0.5 rounded",
-                            ota.bg,
-                            ota.color
-                          )}
-                        >
-                          {ota.label}
-                        </span>
-                        <span className="text-xs text-muted-foreground whitespace-nowrap">
-                          {getRelativeTime(thread.last_message_at)}
-                        </span>
+                return (
+                  <button
+                    key={thread.id}
+                    onClick={() => setSelectedThreadId(thread.id)}
+                    className={cn(
+                      "w-full text-left px-4 py-3 border-b border-border transition-colors hover:bg-accent/50",
+                      isSelected && "bg-accent",
+                      isUnread && "bg-primary/5"
+                    )}
+                  >
+                    <div className="flex items-start gap-3">
+                      <div className="pt-1.5">
+                        {isUnread ? (
+                          <div className="h-2.5 w-2.5 rounded-full bg-primary" />
+                        ) : (
+                          <div className="h-2.5 w-2.5" />
+                        )}
                       </div>
-
-                      {/* Guest name */}
-                      <p
-                        className={cn(
-                          "text-sm truncate",
-                          isUnread ? "font-semibold text-foreground" : "text-foreground"
+                      <div className="flex-1 min-w-0">
+                        <div className="flex items-center justify-between gap-2 mb-1">
+                          <span className={cn("text-[10px] font-semibold px-1.5 py-0.5 rounded", ota.bg, ota.color)}>
+                            {ota.label}
+                          </span>
+                          <span className="text-xs text-muted-foreground whitespace-nowrap">
+                            {getRelativeTime(thread.last_message_at)}
+                          </span>
+                        </div>
+                        <p className={cn("text-sm truncate", isUnread ? "font-semibold text-foreground" : "text-foreground")}>
+                          {thread.title || "Unknown Guest"}
+                        </p>
+                        <p className={cn("text-xs truncate mt-0.5", isUnread ? "font-medium text-foreground/80" : "text-muted-foreground")}>
+                          {thread.last_message_sender === "property" && "You: "}
+                          {thread.last_message_text
+                            ? thread.last_message_text.slice(0, 80) + (thread.last_message_text.length > 80 ? "…" : "")
+                            : "No messages yet"}
+                        </p>
+                        {thread.reservation_id && (
+                          <button
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              navigate(`/reservation/${thread.reservation_id}`);
+                            }}
+                            className="flex items-center gap-1 text-[11px] text-primary hover:underline mt-1"
+                          >
+                            <ExternalLink className="h-3 w-3" />
+                            View Reservation
+                          </button>
                         )}
-                      >
-                        {thread.title || "Unknown Guest"}
-                      </p>
-
-                      {/* Message preview */}
-                      <p
-                        className={cn(
-                          "text-xs truncate mt-0.5",
-                          isUnread
-                            ? "font-medium text-foreground/80"
-                            : "text-muted-foreground"
-                        )}
-                      >
-                        {thread.last_message_sender === "property" && "You: "}
-                        {thread.last_message_text
-                          ? thread.last_message_text.slice(0, 80) +
-                            (thread.last_message_text.length > 80 ? "…" : "")
-                          : "No messages yet"}
-                      </p>
-
-                      {/* Reservation link */}
-                      {thread.reservation_id && (
-                        <button
-                          onClick={(e) => {
-                            e.stopPropagation();
-                            navigate(`/reservation/${thread.reservation_id}`);
-                          }}
-                          className="flex items-center gap-1 text-[11px] text-primary hover:underline mt-1"
-                        >
-                          <ExternalLink className="h-3 w-3" />
-                          View Reservation
-                        </button>
-                      )}
+                      </div>
                     </div>
-                  </div>
-                </button>
-              );
-            })
-          )}
-        </div>
+                  </button>
+                );
+              })
+            )}
+          </div>
+        )}
 
-        {/* Right Panel - Conversation placeholder (desktop only) */}
-        {!isMobile && (
-          <div className="flex-1 flex items-center justify-center text-muted-foreground">
-            <div className="text-center">
-              <MessageCircle className="h-12 w-12 mx-auto mb-3 opacity-30" />
-              <p className="text-sm">Select a conversation to view messages</p>
-            </div>
+        {/* Right Panel - Conversation or placeholder */}
+        {(!isMobile || selectedThreadId) && (
+          <div className={cn("flex-1", isMobile && "w-full")}>
+            {selectedThread ? (
+              <ConversationPanel
+                thread={selectedThread}
+                onBack={() => setSelectedThreadId(null)}
+              />
+            ) : (
+              <div className="flex items-center justify-center h-full text-muted-foreground">
+                <div className="text-center">
+                  <MessageCircle className="h-12 w-12 mx-auto mb-3 opacity-30" />
+                  <p className="text-sm">Select a conversation to view messages</p>
+                </div>
+              </div>
+            )}
           </div>
         )}
       </div>
