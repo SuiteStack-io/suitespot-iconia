@@ -680,7 +680,7 @@ const ReservationDetail = () => {
               currency: formData.currency || reservation?.currency || 'USD',
               channel: reservation?.channel,
               source: formData.source,
-              property_id: reservation?.property_id,
+              property_id: propertyId,
             },
           });
         } catch (notifyErr) {
