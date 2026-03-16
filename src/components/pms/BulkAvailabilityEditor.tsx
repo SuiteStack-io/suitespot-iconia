@@ -319,12 +319,35 @@ export function BulkAvailabilityEditor({ pendingAvailability, setPendingAvailabi
 
   return (
     <div className="space-y-6">
-      {/* Sync to Channex button */}
-      <div className="flex justify-end">
-        <Button variant="outline" onClick={handleFullSync} disabled={isSyncing}>
-          <RefreshCw className={cn("h-4 w-4", isSyncing && "animate-spin")} />
-          {isSyncing ? "Syncing..." : "Sync to Channex"}
-        </Button>
+      {/* Sync to Channex button + progress */}
+      <div className="space-y-2">
+        <div className="flex justify-end">
+          <Button variant="outline" onClick={handleFullSync} disabled={isSyncing}>
+            <RefreshCw className={cn("h-4 w-4", isSyncing && "animate-spin")} />
+            {isSyncing ? "Syncing..." : "Sync to Channex"}
+          </Button>
+        </div>
+        {syncStatus !== 'idle' && (
+          <div className="space-y-1">
+            <div className="flex justify-between text-xs text-muted-foreground">
+              <span>{syncStep}</span>
+              <span>{syncProgress}%</span>
+            </div>
+            <div className="h-1.5 w-full rounded-full bg-secondary overflow-hidden">
+              <div
+                className={cn(
+                  "h-full rounded-full transition-all duration-500",
+                  syncStatus === 'error' ? 'bg-destructive' :
+                  syncStatus === 'success' ? 'bg-green-500' : 'bg-primary'
+                )}
+                style={{ width: `${syncProgress}%` }}
+              />
+            </div>
+            {syncStatus === 'error' && (
+              <p className="text-xs text-destructive">{syncError}</p>
+            )}
+          </div>
+        )}
       </div>
       {/* Editor Card */}
       <Card>
