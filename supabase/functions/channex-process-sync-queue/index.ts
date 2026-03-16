@@ -571,7 +571,7 @@ async function calculateAvailabilityRanges(
     if (dailyAvail[i].avail === currentAvail) {
       lastDate = dailyAvail[i].date;
     } else {
-      ranges.push({ date_from: rangeStart.date, date_to: formatDate(addDays(new Date(lastDate), 1)), availability: currentAvail });
+      ranges.push({ date_from: rangeStart.date, date_to: lastDate, availability: currentAvail });
       rangeStart = dailyAvail[i];
       currentAvail = rangeStart.avail;
       lastDate = rangeStart.date;
