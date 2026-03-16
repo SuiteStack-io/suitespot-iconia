@@ -353,7 +353,7 @@ const handler = async (req: Request): Promise<Response> => {
                 <div class="footer">
                   <p>SuiteSpot - Your Home Away From Home</p>
                   <p style="font-size: 12px; margin-top: 10px; color: #9ca3af;">
-                    ICONIA Zamalek - Boutique Stay & Wellness Residences, Cairo, Egypt
+                    ${propertyName}
                   </p>
                 </div>
               </body>
