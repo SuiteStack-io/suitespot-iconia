@@ -14,7 +14,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from '@/components/ui/select';
-import { CalendarIcon, Loader2, X, Save, ArrowRight } from 'lucide-react';
+import { CalendarIcon, Loader2, X, Save, ArrowRight, RefreshCw } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { supabase } from '@/integrations/supabase/client';
 import { useToast } from '@/hooks/use-toast';
@@ -51,6 +51,7 @@ export function BulkAvailabilityEditor({ pendingAvailability, setPendingAvailabi
   const [dateTo, setDateTo] = useState<Date>();
   const [availability, setAvailability] = useState(0);
   const [isSaving, setIsSaving] = useState(false);
+  const [isSyncing, setIsSyncing] = useState(false);
   const [dateFromOpen, setDateFromOpen] = useState(false);
   const [dateToOpen, setDateToOpen] = useState(false);
   const [currentAvailability, setCurrentAvailability] = useState<number | null>(null);
@@ -237,8 +238,36 @@ export function BulkAvailabilityEditor({ pendingAvailability, setPendingAvailabi
     }
   };
 
+  const handleFullSync = async () => {
+    if (!propertyId) return;
+    setIsSyncing(true);
+    try {
+      const { data, error } = await supabase.functions.invoke('channex-full-sync', {
+        body: { propertyId },
+      });
+      if (error) throw error;
+      if (data?.success === false) {
+        toast({ title: 'Sync Failed', description: data.error || 'Failed to sync', variant: 'destructive' });
+        return;
+      }
+      const roomTypeCount = data?.results?.length || 0;
+      toast({ title: 'Success', description: `Availability synced to Channex (${roomTypeCount} room type${roomTypeCount !== 1 ? 's' : ''} pushed)` });
+    } catch (err: any) {
+      toast({ title: 'Sync Error', description: err.message || 'Failed to sync to Channex', variant: 'destructive' });
+    } finally {
+      setIsSyncing(false);
+    }
+  };
+
   return (
     <div className="space-y-6">
+      {/* Sync to Channex button */}
+      <div className="flex justify-end">
+        <Button variant="outline" onClick={handleFullSync} disabled={isSyncing}>
+          <RefreshCw className={cn("h-4 w-4", isSyncing && "animate-spin")} />
+          {isSyncing ? "Syncing..." : "Sync to Channex"}
+        </Button>
+      </div>
       {/* Editor Card */}
       <Card>
         <CardHeader>
