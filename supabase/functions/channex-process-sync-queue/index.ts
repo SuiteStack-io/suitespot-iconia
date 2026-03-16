@@ -161,10 +161,10 @@ Deno.serve(async (req: Request) => {
         }
       }
 
-      // Mark deduplicated-out items as completed too
-      const dedupedIds = new Set(deduped.map((d: any) => d.id));
+      // Mark deduplicated/merged-out items as completed too
+      const mergedIds = new Set(merged.map((d: any) => d.id));
       for (const item of availabilityItems) {
-        if (!dedupedIds.has(item.id)) {
+        if (!mergedIds.has(item.id)) {
           await markCompleted(supabase, item.id);
         }
       }
