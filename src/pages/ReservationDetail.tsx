@@ -419,6 +419,8 @@ const ReservationDetail = () => {
   // Single date-change effect: fetch rates from rate plan and recalculate in one pass
   const recalculatePricing = useCallback(async () => {
     if (!isEditMode || !formData.unit_id) return;
+    // Skip for Channex/OTA reservations — their pricing is set by the channel
+    if (reservation?.channex_booking_id) return;
 
     const nights = calculateNights();
     if (nights <= 0) return;
@@ -1487,6 +1489,11 @@ Thank you for choosing SuiteSpot!`;
                   </div>
                   {priceBreakdown && (
                     <p className="text-xs text-muted-foreground mt-1">{priceBreakdown}</p>
+                  )}
+                  {reservation?.channex_booking_id && isEditMode && (
+                    <p className="text-xs text-muted-foreground mt-1">
+                      Pricing is managed by the booking channel and cannot be recalculated.
+                    </p>
                   )}
                 </div>
                 <div>
