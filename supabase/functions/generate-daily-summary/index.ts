@@ -23,7 +23,7 @@ function isLastWorkingDayOfMonth(date: Date): boolean {
   return date.getDate() === lastWorkingDay.getDate() && date.getMonth() === lastWorkingDay.getMonth();
 }
 
-async function getRecipients(supabase: any): Promise<{ email: string; name: string }[]> {
+async function getRecipients(supabase: any, propertyId?: string): Promise<{ email: string; name: string }[]> {
   // Get users with daily_summary_email enabled
   const { data: settings } = await supabase
     .from("user_notification_settings")
@@ -49,19 +49,66 @@ async function getRecipients(supabase: any): Promise<{ email: string; name: stri
     .select("id, full_name")
     .in("id", userIds);
 
+  // Get user roles for admin fallback logic
+  const { data: userRoles } = await supabase
+    .from("user_roles")
+    .select("user_id, role")
+    .in("user_id", userIds);
+
   const profileMap = new Map((profiles || []).map((p: any) => [p.id, p.full_name]));
-  const recipients: { email: string; name: string }[] = [];
+  const roleMap = new Map((userRoles || []).map((r: any) => [r.user_id, r.role]));
+
+  let candidates: { user_id: string; email: string; name: string; role: string }[] = [];
 
   for (const uid of userIds) {
     const user = users?.find((u: any) => u.id === uid);
     if (user?.email) {
-      recipients.push({ email: user.email, name: profileMap.get(uid) || "Team Member" });
+      candidates.push({
+        user_id: uid,
+        email: user.email,
+        name: profileMap.get(uid) || "Team Member",
+        role: roleMap.get(uid) || "user",
+      });
     } else {
       console.log(`Skipped — no email for user ${uid}`);
     }
   }
 
-  return recipients;
+  // Filter by property access if propertyId provided
+  if (propertyId && candidates.length > 0) {
+    const candidateIds = candidates.map(c => c.user_id);
+    const { data: allAccess } = await supabase
+      .from('user_property_access')
+      .select('user_id, property_id')
+      .in('user_id', candidateIds);
+
+    const accessList = allAccess || [];
+
+    const { data: propData } = await supabase
+      .from('properties')
+      .select('name')
+      .eq('id', propertyId)
+      .single();
+    const propertyName = propData?.name || propertyId;
+
+    candidates = candidates.filter(user => {
+      const userAccessEntries = accessList.filter((a: any) => a.user_id === user.user_id);
+
+      // Admin with no property access entries = global access
+      if (userAccessEntries.length === 0 && user.role === 'admin') {
+        console.log(`${user.email} — admin with global access for summary`);
+        return true;
+      }
+
+      const hasAccess = userAccessEntries.some((a: any) => a.property_id === propertyId);
+      if (!hasAccess) {
+        console.log(`Skipped ${user.email} — no access to property "${propertyName}" for summary`);
+      }
+      return hasAccess;
+    });
+  }
+
+  return candidates.map(c => ({ email: c.email, name: c.name }));
 }
 
 function generatePDF(
