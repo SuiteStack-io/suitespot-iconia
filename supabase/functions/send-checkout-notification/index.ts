@@ -59,6 +59,8 @@ Deno.serve(async (req) => {
     const propertyId = reservation.property_id;
     console.log('Reservation property_id:', propertyId);
 
+    const checkoutPropertyName = await getPropertyName(supabase, propertyId);
+
     // Get all users with emails
     const { data: profiles, error: profilesError } = await supabase
       .from('profiles')
