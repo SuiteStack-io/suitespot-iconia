@@ -510,19 +510,29 @@ export function BulkAvailabilityEditor({ pendingAvailability, setPendingAvailabi
               <CardTitle className="text-base">Pending Changes</CardTitle>
               <CardDescription>Review before syncing to Channex</CardDescription>
             </div>
-            <Button onClick={handleSaveAllChanges} disabled={isSaving} size="sm">
-              {isSaving ? (
-                <>
-                  <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                  Syncing...
-                </>
-              ) : (
-                <>
-                  <Save className="mr-2 h-4 w-4" />
-                  Save Changes ({pendingAvailability.length})
-                </>
-              )}
-            </Button>
+            <div className="flex items-center gap-2">
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={() => setPendingAvailability([])}
+                disabled={isSyncing}
+              >
+                Discard All
+              </Button>
+              <Button onClick={handleSaveAllChanges} disabled={isSyncing} size="sm">
+                {isSyncing ? (
+                  <>
+                    <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                    Syncing...
+                  </>
+                ) : (
+                  <>
+                    <Save className="mr-2 h-4 w-4" />
+                    Save Changes ({pendingAvailability.length})
+                  </>
+                )}
+              </Button>
+            </div>
           </CardHeader>
           <CardContent className="space-y-2">
             {pendingAvailability.map(p => (
@@ -536,20 +546,53 @@ export function BulkAvailabilityEditor({ pendingAvailability, setPendingAvailabi
                     {format(new Date(p.dateFrom + 'T00:00:00'), 'MMM d, yyyy')}
                     {p.dateFrom !== p.dateTo && ` → ${format(new Date(p.dateTo + 'T00:00:00'), 'MMM d, yyyy')}`}
                   </div>
-                  <Badge variant="secondary" className="text-xs">
-                    Availability: {p.availability} room{p.availability !== 1 ? 's' : ''}
-                  </Badge>
+                  <div className="flex items-center gap-2">
+                    <Badge variant="secondary" className="text-xs">Availability</Badge>
+                    <span className="text-xs text-muted-foreground">
+                      {p.previousAvailability !== null ? p.previousAvailability : '?'}
+                    </span>
+                    <ArrowRight className="h-3 w-3 text-muted-foreground" />
+                    <span className={cn("text-xs font-medium", 
+                      p.previousAvailability !== null && p.availability < p.previousAvailability ? 'text-orange-600' : 'text-green-600'
+                    )}>
+                      {p.availability}
+                    </span>
+                  </div>
                 </div>
                 <Button
                   variant="ghost"
                   size="icon"
                   onClick={() => handleRemovePending(p.id)}
                   className="h-8 w-8 shrink-0"
+                  disabled={isSyncing}
                 >
                   <X className="h-4 w-4" />
                 </Button>
               </div>
             ))}
+
+            {/* Progress bar for Save Changes */}
+            {syncStatus !== 'idle' && (
+              <div className="space-y-1 pt-2">
+                <div className="flex justify-between text-xs text-muted-foreground">
+                  <span>{syncStep}</span>
+                  <span>{syncProgress}%</span>
+                </div>
+                <div className="h-1.5 w-full rounded-full bg-secondary overflow-hidden">
+                  <div
+                    className={cn(
+                      "h-full rounded-full transition-all duration-500",
+                      syncStatus === 'error' ? 'bg-destructive' :
+                      syncStatus === 'success' ? 'bg-green-500' : 'bg-primary'
+                    )}
+                    style={{ width: `${syncProgress}%` }}
+                  />
+                </div>
+                {syncStatus === 'error' && (
+                  <p className="text-xs text-destructive">{syncError}</p>
+                )}
+              </div>
+            )}
           </CardContent>
         </Card>
       )}
