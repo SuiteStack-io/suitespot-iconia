@@ -577,7 +577,7 @@ async function calculateAvailabilityRanges(
       lastDate = rangeStart.date;
     }
   }
-  ranges.push({ date_from: rangeStart.date, date_to: formatDate(addDays(new Date(lastDate), 1)), availability: currentAvail });
+  ranges.push({ date_from: rangeStart.date, date_to: lastDate, availability: currentAvail });
 
   console.log(`[process-sync-queue] Availability for ${roomTypeName} @ property ${propertyId || 'all'} (${dateFrom}-${dateTo}): ${ranges.length} ranges`);
   return ranges;
