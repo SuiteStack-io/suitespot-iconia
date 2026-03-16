@@ -99,3 +99,6 @@ verify_jwt = false
 
 [functions.sync-channex-to-reservations]
 verify_jwt = false
+
+[functions.channex-sync-messages]
+verify_jwt = false
