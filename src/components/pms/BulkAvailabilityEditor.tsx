@@ -28,6 +28,7 @@ export interface PendingAvailability {
   dateFrom: string;
   dateTo: string;
   availability: number;
+  previousAvailability: number | null;
   addedAt: Date;
 }
 
@@ -50,7 +51,7 @@ export function BulkAvailabilityEditor({ pendingAvailability, setPendingAvailabi
   const [dateFrom, setDateFrom] = useState<Date>();
   const [dateTo, setDateTo] = useState<Date>();
   const [availability, setAvailability] = useState(0);
-  const [isSaving, setIsSaving] = useState(false);
+  
   const [syncStatus, setSyncStatus] = useState<'idle' | 'syncing' | 'success' | 'error'>('idle');
   const [syncProgress, setSyncProgress] = useState(0);
   const [syncStep, setSyncStep] = useState('');
@@ -183,6 +184,7 @@ export function BulkAvailabilityEditor({ pendingAvailability, setPendingAvailabi
       dateFrom: format(dateFrom, 'yyyy-MM-dd'),
       dateTo: format(dateTo, 'yyyy-MM-dd'),
       availability,
+      previousAvailability: currentAvailability,
       addedAt: new Date(),
     };
 
@@ -197,7 +199,13 @@ export function BulkAvailabilityEditor({ pendingAvailability, setPendingAvailabi
 
   const handleSaveAllChanges = async () => {
     if (pendingAvailability.length === 0 || !propertyId) return;
-    setIsSaving(true);
+    setSyncStatus('syncing');
+    setSyncProgress(0);
+    setSyncStep('Pushing availability...');
+    setSyncError('');
+
+    const progressPromise = animateProgress(0, 45, 2000);
+
     try {
       const updates = pendingAvailability.map(p => ({
         property_id: propertyId,
@@ -211,20 +219,38 @@ export function BulkAvailabilityEditor({ pendingAvailability, setPendingAvailabi
         body: { updates },
       });
 
+      await progressPromise;
+
       if (error) throw error;
 
       if (data?.success === false) {
-        toast({
-          title: 'Sync Failed',
-          description: data.error || data.message || 'Failed to push availability to Channex',
-          variant: 'destructive',
-        });
+        setSyncStatus('error');
+        setSyncError(data.error || data.message || 'Failed to push availability to Channex');
+        setSyncProgress(45);
+        toast({ title: 'Sync Failed', description: data.error || data.message || 'Failed to push availability to Channex', variant: 'destructive' });
         return;
       }
 
+      setSyncStep('Pushing rates & restrictions...');
+      await animateProgress(50, 85, 800);
+
+      setSyncStep('Finalizing...');
+      await animateProgress(90, 100, 400);
+
+      setSyncStatus('success');
+      setSyncProgress(100);
+      setSyncStep('Sync complete');
+
       setPendingAvailability([]);
       toast({ title: 'Success', description: `Availability synced to Channex (${updates.length} update${updates.length > 1 ? 's' : ''})` });
+
+      setTimeout(() => {
+        setSyncStatus('idle');
+        setSyncProgress(0);
+        setSyncStep('');
+      }, 2000);
     } catch (err: any) {
+      await progressPromise.catch(() => {});
       console.error('Error saving availability:', err);
       let errorMessage = 'Failed to save availability';
       if (err.context?.body) {
@@ -235,9 +261,9 @@ export function BulkAvailabilityEditor({ pendingAvailability, setPendingAvailabi
       } else if (err.message) {
         errorMessage = err.message;
       }
+      setSyncStatus('error');
+      setSyncError(errorMessage);
       toast({ title: 'Error', description: errorMessage, variant: 'destructive' });
-    } finally {
-      setIsSaving(false);
     }
   };
 
@@ -485,19 +511,29 @@ export function BulkAvailabilityEditor({ pendingAvailability, setPendingAvailabi
               <CardTitle className="text-base">Pending Changes</CardTitle>
               <CardDescription>Review before syncing to Channex</CardDescription>
             </div>
-            <Button onClick={handleSaveAllChanges} disabled={isSaving} size="sm">
-              {isSaving ? (
-                <>
-                  <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                  Syncing...
-                </>
-              ) : (
-                <>
-                  <Save className="mr-2 h-4 w-4" />
-                  Save Changes ({pendingAvailability.length})
-                </>
-              )}
-            </Button>
+            <div className="flex items-center gap-2">
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={() => setPendingAvailability([])}
+                disabled={isSyncing}
+              >
+                Discard All
+              </Button>
+              <Button onClick={handleSaveAllChanges} disabled={isSyncing} size="sm">
+                {isSyncing ? (
+                  <>
+                    <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                    Syncing...
+                  </>
+                ) : (
+                  <>
+                    <Save className="mr-2 h-4 w-4" />
+                    Save Changes ({pendingAvailability.length})
+                  </>
+                )}
+              </Button>
+            </div>
           </CardHeader>
           <CardContent className="space-y-2">
             {pendingAvailability.map(p => (
@@ -511,20 +547,53 @@ export function BulkAvailabilityEditor({ pendingAvailability, setPendingAvailabi
                     {format(new Date(p.dateFrom + 'T00:00:00'), 'MMM d, yyyy')}
                     {p.dateFrom !== p.dateTo && ` → ${format(new Date(p.dateTo + 'T00:00:00'), 'MMM d, yyyy')}`}
                   </div>
-                  <Badge variant="secondary" className="text-xs">
-                    Availability: {p.availability} room{p.availability !== 1 ? 's' : ''}
-                  </Badge>
+                  <div className="flex items-center gap-2">
+                    <Badge variant="secondary" className="text-xs">Availability</Badge>
+                    <span className="text-xs text-muted-foreground">
+                      {p.previousAvailability !== null ? p.previousAvailability : '?'}
+                    </span>
+                    <ArrowRight className="h-3 w-3 text-muted-foreground" />
+                    <span className={cn("text-xs font-medium", 
+                      p.previousAvailability !== null && p.availability < p.previousAvailability ? 'text-orange-600' : 'text-green-600'
+                    )}>
+                      {p.availability}
+                    </span>
+                  </div>
                 </div>
                 <Button
                   variant="ghost"
                   size="icon"
                   onClick={() => handleRemovePending(p.id)}
                   className="h-8 w-8 shrink-0"
+                  disabled={isSyncing}
                 >
                   <X className="h-4 w-4" />
                 </Button>
               </div>
             ))}
+
+            {/* Progress bar for Save Changes */}
+            {syncStatus !== 'idle' && (
+              <div className="space-y-1 pt-2">
+                <div className="flex justify-between text-xs text-muted-foreground">
+                  <span>{syncStep}</span>
+                  <span>{syncProgress}%</span>
+                </div>
+                <div className="h-1.5 w-full rounded-full bg-secondary overflow-hidden">
+                  <div
+                    className={cn(
+                      "h-full rounded-full transition-all duration-500",
+                      syncStatus === 'error' ? 'bg-destructive' :
+                      syncStatus === 'success' ? 'bg-green-500' : 'bg-primary'
+                    )}
+                    style={{ width: `${syncProgress}%` }}
+                  />
+                </div>
+                {syncStatus === 'error' && (
+                  <p className="text-xs text-destructive">{syncError}</p>
+                )}
+              </div>
+            )}
           </CardContent>
         </Card>
       )}

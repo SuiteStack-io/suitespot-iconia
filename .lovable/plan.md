@@ -1,25 +1,118 @@
 
 
-## Enhance Pending Changes UI in BulkAvailabilityEditor
+## Fix: Filter Blocked Dates by Active Property
 
-The editor already uses a two-step Apply→Save workflow. The main gaps vs the request are: no old→new value display, no "Discard All" button, and "Save Changes" uses a simple spinner instead of the progress bar.
+### Problem
+`fetchBlockedDates()` fetches ALL blocked dates across all properties. `fetchUnits()` correctly filters by `propertyId`, but blocked dates does not.
 
-### Changes in `src/components/pms/BulkAvailabilityEditor.tsx`
+### File: `src/components/BlockedDatesManager.tsx`
 
-1. **Add `previousAvailability` to `PendingAvailability` interface** — capture `currentAvailability` when applying, so old→new can be shown.
+**1. Filter `fetchBlockedDates` by property (lines 101-121)**
 
-2. **Update pending items display** to show:
-   - Room Type name
-   - Date range (from → to)
-   - Field: "Availability"
-   - Old value → New value (e.g., "3 → 1")
-   - Remove button (already exists)
+The `blocked_dates` table references `units` via `unit_id`. Filter by joining through units that belong to the active property:
 
-3. **Add "Discard All" button** next to "Save Changes" in the Pending Changes card header — `variant="outline"`, clears `pendingAvailability`.
+```typescript
+const fetchBlockedDates = async () => {
+  try {
+    let query = supabase
+      .from("blocked_dates")
+      .select(`
+        *,
+        units (
+          name,
+          unit_number,
+          booking_com_name
+        )
+      `)
+      .order("blocked_date", { ascending: true });
 
-4. **Wire "Save Changes" to use the progress bar** — replace the `isSaving` spinner with the existing `syncStatus`/`syncProgress`/`syncStep` state and `animateProgress` helper, so Save Changes shows the same stepped progress bar (Pushing availability 0-50%, rates 50-90%, finalizing 90-100%). On success: clear pending + toast. On error: keep pending, show red bar.
+    // Filter to only show blocked dates for units belonging to the active property
+    if (propertyId) {
+      query = query.eq('units.property_id', propertyId);
+    }
 
-5. **Disable both "Save Changes" and "Discard All"** while syncing.
+    const { data, error } = await query;
+    if (error) throw error;
 
-No edge function or sync logic changes.
+    // Remove entries where the unit was filtered out (unit doesn't belong to property)
+    const filtered = (data || []).filter(d => d.unit_id === null || d.units !== null);
+    setBlockedDates(filtered);
+  } catch (error: any) {
+    console.error("Error fetching blocked dates:", error);
+    toast.error("Failed to fetch blocked dates");
+  }
+};
+```
+
+However, `blocked_dates` rows with `unit_id = null` (meaning "all rooms") have no unit join to filter on. We need a different approach — filter blocked dates whose `unit_id` is either null OR belongs to a unit in the active property. The cleanest way: use the unit IDs we already fetch.
+
+**Better approach — filter client-side using fetched units:**
+
+Since `fetchUnits` already returns only units for the active property, filter blocked dates to only include those whose `unit_id` is null or matches a fetched unit.
+
+Actually, the simplest and most reliable fix: add `property_id` awareness to the query. Since `blocked_dates` has a `unit_id` FK to `units`, and `units` has `property_id`, we can filter via an inner join or use an `in` filter with the property's unit IDs.
+
+**Revised approach — fetch unit IDs first, then filter:**
+
+```typescript
+// In useEffect, ensure both refetch when propertyId changes
+useEffect(() => {
+  fetchUnits();
+  fetchBlockedDates();
+}, [propertyId]);
+```
+
+In `fetchBlockedDates`, after fetching units (or independently):
+- Query units for the active property to get their IDs
+- Filter blocked_dates where `unit_id` is in that list
+
+**Simplest implementation:**
+
+1. **Change useEffect (line 80-83)** to depend on `propertyId`
+2. **Update `fetchBlockedDates`** to filter by property's unit IDs
+
+```typescript
+const fetchBlockedDates = async () => {
+  try {
+    // First get unit IDs for the active property
+    let unitIds: string[] = [];
+    if (propertyId) {
+      const { data: propUnits } = await supabase
+        .from("units")
+        .select("id")
+        .eq("property_id", propertyId);
+      unitIds = (propUnits || []).map(u => u.id);
+    }
+
+    let query = supabase
+      .from("blocked_dates")
+      .select(`*, units (name, unit_number, booking_com_name)`)
+      .order("blocked_date", { ascending: true });
+
+    if (propertyId && unitIds.length > 0) {
+      // Only show blocked dates for this property's units
+      query = query.in("unit_id", unitIds);
+    } else if (propertyId && unitIds.length === 0) {
+      // Property has no units, show nothing
+      setBlockedDates([]);
+      return;
+    }
+
+    const { data, error } = await query;
+    if (error) throw error;
+    setBlockedDates(data || []);
+  } catch (error: any) {
+    console.error("Error fetching blocked dates:", error);
+    toast.error("Failed to fetch blocked dates");
+  }
+};
+```
+
+3. **Update useEffect** (line 80-83): add `propertyId` to dependency array
+
+### Summary
+- 1 file changed: `src/components/BlockedDatesManager.tsx`
+- `fetchBlockedDates` filters by active property's unit IDs
+- Re-fetches when property switches
+- Blocked dates with `unit_id = null` (all-rooms blocks) won't show unless we decide they should — this matches the expectation that blocks are property-scoped
 
