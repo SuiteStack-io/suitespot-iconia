@@ -1,4 +1,4 @@
-import { useEffect, useState, useRef } from 'react';
+import { useEffect, useState, useRef, useCallback } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/lib/auth';
@@ -35,6 +35,7 @@ import { CreateGuestAccountDialog } from '@/components/CreateGuestAccountDialog'
 import { SlideMenu } from '@/components/SlideMenu';
 import { RoomTransferDialog } from '@/components/RoomTransferDialog';
 import { usePropertyId, withPropertyFilter } from '@/hooks/usePropertyFilter';
+import { getActiveRate } from '@/lib/rateResolver';
 import {
   AlertDialog,
   AlertDialogAction,
@@ -178,6 +179,8 @@ const ReservationDetail = () => {
   const [downloadingConfirmation, setDownloadingConfirmation] = useState(false);
   const [showRoomTransferDialog, setShowRoomTransferDialog] = useState(false);
   const confirmationRef = useRef<HTMLDivElement>(null);
+  const [priceBreakdown, setPriceBreakdown] = useState<string>('');
+  const [recalculatingPrice, setRecalculatingPrice] = useState(false);
   
   // Document upload states
   const [idPassportUrl, setIdPassportUrl] = useState<string | null>(null);
@@ -409,27 +412,96 @@ const ReservationDetail = () => {
     }
   };
 
-  useEffect(() => {
-    if (isEditMode) {
-      calculateTotals();
-    }
-  }, [formData.price_per_night, formData.check_in_date, formData.check_out_date]);
+  // Single date-change effect: fetch rates from rate plan and recalculate in one pass
+  const recalculatePricing = useCallback(async () => {
+    if (!isEditMode || !formData.unit_id) return;
 
-  // Auto-calculate price per night when total price changes
-  useEffect(() => {
-    if (isEditMode && formData.total_price > 0) {
-      const nights = calculateNights();
-      if (nights > 0) {
-        const pricePerNight = formData.total_price / nights;
-        if (Math.abs(formData.price_per_night - pricePerNight) > 0.01) {
-          setFormData(prev => ({
-            ...prev,
-            price_per_night: pricePerNight,
-          }));
+    const nights = calculateNights();
+    if (nights <= 0) return;
+
+    setRecalculatingPrice(true);
+    try {
+      // Find the unit's room type
+      const unit = units.find(u => u.id === formData.unit_id);
+      const roomType = unit?.unit_type || '';
+
+      if (!roomType) {
+        setRecalculatingPrice(false);
+        return;
+      }
+
+      // Fetch the property's weekend_days
+      let weekendDays = [5, 6]; // default Fri=5, Sat=6
+      if (propertyId) {
+        const { data: propData } = await supabase
+          .from('properties')
+          .select('weekend_days')
+          .eq('id', propertyId)
+          .maybeSingle();
+        if (propData?.weekend_days) {
+          weekendDays = propData.weekend_days;
         }
       }
+
+      // Get rate for this room type
+      const rateResult = await getActiveRate(roomType, formData.check_in_date, formData.unit_id, weekendDays);
+
+      if (!rateResult) {
+        setRecalculatingPrice(false);
+        return;
+      }
+
+      // Calculate total by iterating each night
+      let totalPrice = 0;
+      let weekdayCount = 0;
+      let weekendCount = 0;
+      const weekdayRate = rateResult.weekdayRate;
+      const weekendRate = rateResult.weekendRate;
+
+      for (let i = 0; i < nights; i++) {
+        const nightDate = new Date(formData.check_in_date);
+        nightDate.setDate(nightDate.getDate() + i);
+        const dayOfWeek = nightDate.getDay();
+
+        if (weekendDays.includes(dayOfWeek)) {
+          totalPrice += weekendRate;
+          weekendCount++;
+        } else {
+          totalPrice += weekdayRate;
+          weekdayCount++;
+        }
+      }
+
+      // Build breakdown string
+      const parts: string[] = [];
+      if (weekdayCount > 0) parts.push(`${weekdayCount} weekday night${weekdayCount > 1 ? 's' : ''} × ${formData.currency} ${weekdayRate.toFixed(2)}`);
+      if (weekendCount > 0) parts.push(`${weekendCount} weekend night${weekendCount > 1 ? 's' : ''} × ${formData.currency} ${weekendRate.toFixed(2)}`);
+      const breakdownStr = parts.join(' + ') + ` = ${formData.currency} ${totalPrice.toFixed(2)}`;
+      setPriceBreakdown(breakdownStr);
+
+      const pricePerNight = Number((totalPrice / nights).toFixed(2));
+      const commission = (totalPrice * formData.commission_rate) / 100;
+      const net = totalPrice - commission;
+
+      setFormData(prev => ({
+        ...prev,
+        total_price: totalPrice,
+        price_per_night: pricePerNight,
+        commission_amount: commission,
+        net_revenue: net,
+      }));
+    } catch (error) {
+      console.error('Error recalculating pricing:', error);
+    } finally {
+      setRecalculatingPrice(false);
     }
-  }, [formData.total_price, formData.check_in_date, formData.check_out_date]);
+  }, [isEditMode, formData.unit_id, formData.check_in_date, formData.check_out_date, formData.commission_rate, units, propertyId]);
+
+  useEffect(() => {
+    if (isEditMode) {
+      recalculatePricing();
+    }
+  }, [formData.check_in_date, formData.check_out_date, isEditMode]);
 
   // Auto-set commission rate based on source
   useEffect(() => {
@@ -524,7 +596,8 @@ const ReservationDetail = () => {
     setSaving(true);
     
     const nights = calculateNights();
-    const total = formData.price_per_night * nights;
+    const total = formData.total_price;
+    const ppn = nights > 0 ? Number((total / nights).toFixed(2)) : 0;
     const commission = (total * formData.commission_rate) / 100;
     const net = total - commission;
 
@@ -542,7 +615,7 @@ const ReservationDetail = () => {
         guest_nationality: formData.guest_nationality,
         contact_email: formData.contact_email,
         contact_phone: formData.contact_phone,
-        price_per_night: formData.price_per_night,
+        price_per_night: ppn,
         total_price: total,
         commission_rate: formData.commission_rate,
         commission_amount: commission,
@@ -1369,26 +1442,21 @@ Thank you for choosing SuiteSpot!`;
                   <p className="mt-1 font-medium">{calculateNights()}</p>
                 </div>
                 <div>
-                  <Label>Price per Night</Label>
-                  <Input
-                    type="number"
-                    min="0"
-                    step="0.01"
-                    value={formData.price_per_night}
-                    onChange={(e) => setFormData(prev => ({ ...prev, price_per_night: parseFloat(e.target.value) || 0 }))}
-                    className="mt-2"
-                  />
+                  <Label className="text-muted-foreground">Price per Night</Label>
+                  <div className="mt-2 h-10 flex items-center px-3 bg-muted/50 rounded-md border border-input text-sm font-medium">
+                    {formData.currency} {(calculateNights() > 0 ? formData.total_price / calculateNights() : 0).toFixed(2)}
+                    {recalculatingPrice && <Loader2 className="ml-2 h-3 w-3 animate-spin" />}
+                  </div>
                 </div>
                 <div>
-                  <Label>Total Price</Label>
-                  <Input
-                    type="number"
-                    min="0"
-                    step="0.01"
-                    value={formData.total_price}
-                    onChange={(e) => setFormData(prev => ({ ...prev, total_price: parseFloat(e.target.value) || 0 }))}
-                    className="mt-2"
-                  />
+                  <Label className="text-muted-foreground">Total Price</Label>
+                  <div className="mt-2 h-10 flex items-center px-3 bg-muted/50 rounded-md border border-input text-sm font-medium">
+                    {formData.currency} {formData.total_price.toFixed(2)}
+                    {recalculatingPrice && <Loader2 className="ml-2 h-3 w-3 animate-spin" />}
+                  </div>
+                  {priceBreakdown && (
+                    <p className="text-xs text-muted-foreground mt-1">{priceBreakdown}</p>
+                  )}
                 </div>
                 <div>
                   <Label>Commission Amount</Label>
