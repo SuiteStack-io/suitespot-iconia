@@ -1442,26 +1442,21 @@ Thank you for choosing SuiteSpot!`;
                   <p className="mt-1 font-medium">{calculateNights()}</p>
                 </div>
                 <div>
-                  <Label>Price per Night</Label>
-                  <Input
-                    type="number"
-                    min="0"
-                    step="0.01"
-                    value={formData.price_per_night}
-                    onChange={(e) => setFormData(prev => ({ ...prev, price_per_night: parseFloat(e.target.value) || 0 }))}
-                    className="mt-2"
-                  />
+                  <Label className="text-muted-foreground">Price per Night</Label>
+                  <div className="mt-2 h-10 flex items-center px-3 bg-muted/50 rounded-md border border-input text-sm font-medium">
+                    {formData.currency} {(calculateNights() > 0 ? formData.total_price / calculateNights() : 0).toFixed(2)}
+                    {recalculatingPrice && <Loader2 className="ml-2 h-3 w-3 animate-spin" />}
+                  </div>
                 </div>
                 <div>
-                  <Label>Total Price</Label>
-                  <Input
-                    type="number"
-                    min="0"
-                    step="0.01"
-                    value={formData.total_price}
-                    onChange={(e) => setFormData(prev => ({ ...prev, total_price: parseFloat(e.target.value) || 0 }))}
-                    className="mt-2"
-                  />
+                  <Label className="text-muted-foreground">Total Price</Label>
+                  <div className="mt-2 h-10 flex items-center px-3 bg-muted/50 rounded-md border border-input text-sm font-medium">
+                    {formData.currency} {formData.total_price.toFixed(2)}
+                    {recalculatingPrice && <Loader2 className="ml-2 h-3 w-3 animate-spin" />}
+                  </div>
+                  {priceBreakdown && (
+                    <p className="text-xs text-muted-foreground mt-1">{priceBreakdown}</p>
+                  )}
                 </div>
                 <div>
                   <Label>Commission Amount</Label>
