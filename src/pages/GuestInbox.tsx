@@ -15,6 +15,7 @@ import { useIsMobile } from "@/hooks/use-mobile";
 interface MessageThread {
   id: string;
   channex_thread_id: string;
+  channex_booking_id: string | null;
   title: string | null;
   provider: string;
   is_read: boolean | null;
