@@ -1,118 +1,36 @@
 
 
-## Fix: Filter Blocked Dates by Active Property
+## Verify & Update Notification Settings for Summary Reports
 
-### Problem
-`fetchBlockedDates()` fetches ALL blocked dates across all properties. `fetchUnits()` correctly filters by `propertyId`, but blocked dates does not.
+### Current State
+- `user_notification_settings` table **exists** with `daily_summary_email` column (boolean, default `true`)
+- No rows exist yet in the table
+- The `NotificationSettingsSection` component labels it "Daily Summary" with description "Receive a daily summary email with occupancy and arrivals"
+- The `DEFAULT_SETTINGS` in code defaults `daily_summary_email` to `true`
 
-### File: `src/components/BlockedDatesManager.tsx`
+### Changes Required
 
-**1. Filter `fetchBlockedDates` by property (lines 101-121)**
+**1. Database Migration — Change column default to `false`**
+```sql
+ALTER TABLE user_notification_settings 
+  ALTER COLUMN daily_summary_email SET DEFAULT false;
 
-The `blocked_dates` table references `units` via `unit_id`. Filter by joining through units that belong to the active property:
-
-```typescript
-const fetchBlockedDates = async () => {
-  try {
-    let query = supabase
-      .from("blocked_dates")
-      .select(`
-        *,
-        units (
-          name,
-          unit_number,
-          booking_com_name
-        )
-      `)
-      .order("blocked_date", { ascending: true });
-
-    // Filter to only show blocked dates for units belonging to the active property
-    if (propertyId) {
-      query = query.eq('units.property_id', propertyId);
-    }
-
-    const { data, error } = await query;
-    if (error) throw error;
-
-    // Remove entries where the unit was filtered out (unit doesn't belong to property)
-    const filtered = (data || []).filter(d => d.unit_id === null || d.units !== null);
-    setBlockedDates(filtered);
-  } catch (error: any) {
-    console.error("Error fetching blocked dates:", error);
-    toast.error("Failed to fetch blocked dates");
-  }
-};
+UPDATE user_notification_settings SET daily_summary_email = false;
 ```
 
-However, `blocked_dates` rows with `unit_id = null` (meaning "all rooms") have no unit join to filter on. We need a different approach — filter blocked dates whose `unit_id` is either null OR belongs to a unit in the active property. The cleanest way: use the unit IDs we already fetch.
+**2. Update `NotificationSettingsSection.tsx`**
+- Change `DEFAULT_SETTINGS.daily_summary_email` from `true` to `false`
+- Change `NOTIFICATION_LABELS.daily_summary_email`:
+  - Label: `"Summary Reports (Daily, Weekly, Monthly)"`
+  - Description: `"Receive automated daily, weekly, and monthly summary reports by email"`
+- Update `fetchSettings` fallback to use `false` for `daily_summary_email`
+- Update `handleEnableAll` / `handleDisableAll` to keep `daily_summary_email` at its current value (don't bulk-toggle it with the others, since it's admin-controlled)
 
-**Better approach — filter client-side using fetched units:**
+**3. No edge function changes yet** — the summary edge functions don't exist yet. When they are created, they will query `user_notification_settings WHERE daily_summary_email = true` and check for valid email. This plan just prepares the toggle.
 
-Since `fetchUnits` already returns only units for the active property, filter blocked dates to only include those whose `unit_id` is null or matches a fetched unit.
-
-Actually, the simplest and most reliable fix: add `property_id` awareness to the query. Since `blocked_dates` has a `unit_id` FK to `units`, and `units` has `property_id`, we can filter via an inner join or use an `in` filter with the property's unit IDs.
-
-**Revised approach — fetch unit IDs first, then filter:**
-
-```typescript
-// In useEffect, ensure both refetch when propertyId changes
-useEffect(() => {
-  fetchUnits();
-  fetchBlockedDates();
-}, [propertyId]);
-```
-
-In `fetchBlockedDates`, after fetching units (or independently):
-- Query units for the active property to get their IDs
-- Filter blocked_dates where `unit_id` is in that list
-
-**Simplest implementation:**
-
-1. **Change useEffect (line 80-83)** to depend on `propertyId`
-2. **Update `fetchBlockedDates`** to filter by property's unit IDs
-
-```typescript
-const fetchBlockedDates = async () => {
-  try {
-    // First get unit IDs for the active property
-    let unitIds: string[] = [];
-    if (propertyId) {
-      const { data: propUnits } = await supabase
-        .from("units")
-        .select("id")
-        .eq("property_id", propertyId);
-      unitIds = (propUnits || []).map(u => u.id);
-    }
-
-    let query = supabase
-      .from("blocked_dates")
-      .select(`*, units (name, unit_number, booking_com_name)`)
-      .order("blocked_date", { ascending: true });
-
-    if (propertyId && unitIds.length > 0) {
-      // Only show blocked dates for this property's units
-      query = query.in("unit_id", unitIds);
-    } else if (propertyId && unitIds.length === 0) {
-      // Property has no units, show nothing
-      setBlockedDates([]);
-      return;
-    }
-
-    const { data, error } = await query;
-    if (error) throw error;
-    setBlockedDates(data || []);
-  } catch (error: any) {
-    console.error("Error fetching blocked dates:", error);
-    toast.error("Failed to fetch blocked dates");
-  }
-};
-```
-
-3. **Update useEffect** (line 80-83): add `propertyId` to dependency array
-
-### Summary
-- 1 file changed: `src/components/BlockedDatesManager.tsx`
-- `fetchBlockedDates` filters by active property's unit IDs
-- Re-fetches when property switches
-- Blocked dates with `unit_id = null` (all-rooms blocks) won't show unless we decide they should — this matches the expectation that blocks are property-scoped
+### Files Modified
+| File | Change |
+|------|--------|
+| Migration SQL | Change default to `false`, update existing rows |
+| `src/components/NotificationSettingsSection.tsx` | Rename label, update default, adjust description |
 
