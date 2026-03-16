@@ -292,6 +292,7 @@ const ReservationDetail = () => {
         currency: data.currency || 'USD',
         payment_method: data.payment_method || '',
         arrival_time: (data as any).arrival_time || '',
+        vat_exempt: data.vat_exempt === true,
       });
     }
   };
