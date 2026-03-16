@@ -331,7 +331,7 @@ const handler = async (req: Request): Promise<Response> => {
     for (const recipient of recipients) {
       try {
         const resp = await resend.emails.send({
-          from: "SuiteSpot Reports <frontdesk@bookings.suitespoteg.com>",
+          from: "Mia — SuiteSpot AI <ai-assistant@bookings.suitespoteg.com>",
           to: [recipient.email],
           subject: `Monthly Summary — ${property.name} — ${monthName}`,
           html: emailHTML,
