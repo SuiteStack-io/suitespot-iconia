@@ -179,6 +179,8 @@ const ReservationDetail = () => {
   const [downloadingConfirmation, setDownloadingConfirmation] = useState(false);
   const [showRoomTransferDialog, setShowRoomTransferDialog] = useState(false);
   const confirmationRef = useRef<HTMLDivElement>(null);
+  const [priceBreakdown, setPriceBreakdown] = useState<string>('');
+  const [recalculatingPrice, setRecalculatingPrice] = useState(false);
   
   // Document upload states
   const [idPassportUrl, setIdPassportUrl] = useState<string | null>(null);
