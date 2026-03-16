@@ -37,8 +37,8 @@ const NOTIFICATION_LABELS: Record<keyof NotificationSettings, { label: string; d
     description: 'Receive an email when rooms are auto-shuffled',
   },
   daily_summary_email: {
-    label: 'Daily Summary',
-    description: 'Receive a daily summary email with occupancy and arrivals',
+    label: 'Summary Reports (Daily, Weekly, Monthly)',
+    description: 'Receive automated daily, weekly, and monthly summary reports by email',
   },
 };
 
