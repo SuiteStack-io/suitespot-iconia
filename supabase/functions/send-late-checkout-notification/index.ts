@@ -44,6 +44,8 @@ Deno.serve(async (req) => {
     const propertyId = lateCheckoutRes.property_id;
     console.log('Late checkout property_id:', propertyId);
 
+    const latePropertyName = await getPropertyName(supabase, propertyId);
+
     // Get all admin users
     const { data: profiles, error: profilesError } = await supabase
       .from('profiles')
