@@ -1,118 +1,50 @@
 
 
-## Fix: Filter Blocked Dates by Active Property
+## Add progress bar to "Sync to Channex" button in BulkAvailabilityEditor
 
-### Problem
-`fetchBlockedDates()` fetches ALL blocked dates across all properties. `fetchUnits()` correctly filters by `propertyId`, but blocked dates does not.
+### What changes
 
-### File: `src/components/BlockedDatesManager.tsx`
+**File: `src/components/pms/BulkAvailabilityEditor.tsx`**
 
-**1. Filter `fetchBlockedDates` by property (lines 101-121)**
+1. **New state**: `syncProgress` (number 0-100), `syncStep` (string), `syncStatus` ('idle' | 'syncing' | 'success' | 'error'), `syncError` (string)
 
-The `blocked_dates` table references `units` via `unit_id`. Filter by joining through units that belong to the active property:
+2. **Update `handleFullSync`** to simulate stepped progress since the edge function is a single call:
+   - Set status to `'syncing'`, step to `"Pushing availability..."`, animate progress 0→45% over ~2s using `setInterval`
+   - After the function returns, jump to `"Pushing rates & restrictions..."` 50→85%, then `"Finalizing..."` 90→100%
+   - On success: set status `'success'`, progress 100%, green bar, fade out after 2s, show toast with room type count
+   - On error: set status `'error'`, bar turns red, show error text, stays visible
 
-```typescript
-const fetchBlockedDates = async () => {
-  try {
-    let query = supabase
-      .from("blocked_dates")
-      .select(`
-        *,
-        units (
-          name,
-          unit_number,
-          booking_com_name
-        )
-      `)
-      .order("blocked_date", { ascending: true });
+3. **Progress bar UI** — placed directly below the Sync button row:
+   ```tsx
+   {syncStatus !== 'idle' && (
+     <div className="space-y-1">
+       <div className="flex justify-between text-xs text-muted-foreground">
+         <span>{syncStep}</span>
+         <span>{syncProgress}%</span>
+       </div>
+       <div className="h-1.5 w-full rounded-full bg-secondary overflow-hidden">
+         <div
+           className={cn(
+             "h-full rounded-full transition-all duration-500",
+             syncStatus === 'error' ? 'bg-red-500' :
+             syncStatus === 'success' ? 'bg-green-500' : 'bg-blue-600'
+           )}
+           style={{ width: `${syncProgress}%` }}
+         />
+       </div>
+       {syncStatus === 'error' && (
+         <p className="text-xs text-red-500">{syncError}</p>
+       )}
+     </div>
+   )}
+   ```
 
-    // Filter to only show blocked dates for units belonging to the active property
-    if (propertyId) {
-      query = query.eq('units.property_id', propertyId);
-    }
+4. **Button disabled** when `syncStatus === 'syncing'` (already covered by existing `isSyncing` — will unify with `syncStatus`)
 
-    const { data, error } = await query;
-    if (error) throw error;
+5. **Cleanup**: remove separate `isSyncing` state, derive disabled from `syncStatus === 'syncing'`
 
-    // Remove entries where the unit was filtered out (unit doesn't belong to property)
-    const filtered = (data || []).filter(d => d.unit_id === null || d.units !== null);
-    setBlockedDates(filtered);
-  } catch (error: any) {
-    console.error("Error fetching blocked dates:", error);
-    toast.error("Failed to fetch blocked dates");
-  }
-};
-```
+### Import addition
+- `Progress` component is NOT used — using a custom thin div-based bar for the 1.5px height and color control
 
-However, `blocked_dates` rows with `unit_id = null` (meaning "all rooms") have no unit join to filter on. We need a different approach — filter blocked dates whose `unit_id` is either null OR belongs to a unit in the active property. The cleanest way: use the unit IDs we already fetch.
-
-**Better approach — filter client-side using fetched units:**
-
-Since `fetchUnits` already returns only units for the active property, filter blocked dates to only include those whose `unit_id` is null or matches a fetched unit.
-
-Actually, the simplest and most reliable fix: add `property_id` awareness to the query. Since `blocked_dates` has a `unit_id` FK to `units`, and `units` has `property_id`, we can filter via an inner join or use an `in` filter with the property's unit IDs.
-
-**Revised approach — fetch unit IDs first, then filter:**
-
-```typescript
-// In useEffect, ensure both refetch when propertyId changes
-useEffect(() => {
-  fetchUnits();
-  fetchBlockedDates();
-}, [propertyId]);
-```
-
-In `fetchBlockedDates`, after fetching units (or independently):
-- Query units for the active property to get their IDs
-- Filter blocked_dates where `unit_id` is in that list
-
-**Simplest implementation:**
-
-1. **Change useEffect (line 80-83)** to depend on `propertyId`
-2. **Update `fetchBlockedDates`** to filter by property's unit IDs
-
-```typescript
-const fetchBlockedDates = async () => {
-  try {
-    // First get unit IDs for the active property
-    let unitIds: string[] = [];
-    if (propertyId) {
-      const { data: propUnits } = await supabase
-        .from("units")
-        .select("id")
-        .eq("property_id", propertyId);
-      unitIds = (propUnits || []).map(u => u.id);
-    }
-
-    let query = supabase
-      .from("blocked_dates")
-      .select(`*, units (name, unit_number, booking_com_name)`)
-      .order("blocked_date", { ascending: true });
-
-    if (propertyId && unitIds.length > 0) {
-      // Only show blocked dates for this property's units
-      query = query.in("unit_id", unitIds);
-    } else if (propertyId && unitIds.length === 0) {
-      // Property has no units, show nothing
-      setBlockedDates([]);
-      return;
-    }
-
-    const { data, error } = await query;
-    if (error) throw error;
-    setBlockedDates(data || []);
-  } catch (error: any) {
-    console.error("Error fetching blocked dates:", error);
-    toast.error("Failed to fetch blocked dates");
-  }
-};
-```
-
-3. **Update useEffect** (line 80-83): add `propertyId` to dependency array
-
-### Summary
-- 1 file changed: `src/components/BlockedDatesManager.tsx`
-- `fetchBlockedDates` filters by active property's unit IDs
-- Re-fetches when property switches
-- Blocked dates with `unit_id = null` (all-rooms blocks) won't show unless we decide they should — this matches the expectation that blocks are property-scoped
+### No edge function or sync logic changes.
 
