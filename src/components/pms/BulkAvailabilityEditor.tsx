@@ -184,6 +184,7 @@ export function BulkAvailabilityEditor({ pendingAvailability, setPendingAvailabi
       dateFrom: format(dateFrom, 'yyyy-MM-dd'),
       dateTo: format(dateTo, 'yyyy-MM-dd'),
       availability,
+      previousAvailability: currentAvailability,
       addedAt: new Date(),
     };
 
