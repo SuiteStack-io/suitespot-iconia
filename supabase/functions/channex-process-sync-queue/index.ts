@@ -106,7 +106,7 @@ Deno.serve(async (req: Request) => {
 
       const values: object[] = [];
 
-      for (const item of deduped) {
+      for (const item of merged) {
         try {
           const channexRoomTypeId = await resolve(item.entity_id, "room_type");
           if (!channexRoomTypeId) {
