@@ -395,6 +395,18 @@ const handler = async (req: Request): Promise<Response> => {
       await new Promise(resolve => setTimeout(resolve, 600));
     }
 
+    // Determine property_id from unitId or reservation
+    let notifPropertyId: string | null = null;
+    if (unitId) {
+      const { data: unitProp } = await supabaseClient
+        .from('units')
+        .select('property_id')
+        .eq('id', unitId)
+        .single();
+      notifPropertyId = unitProp?.property_id || null;
+    }
+    console.log('Reservation notification property_id:', notifPropertyId);
+
     // Fetch all admin and manager users directly using service role
     const { data: userRoles, error: rolesError } = await supabaseClient
       .from("user_roles")
