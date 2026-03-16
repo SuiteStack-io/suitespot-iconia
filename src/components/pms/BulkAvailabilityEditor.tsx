@@ -198,7 +198,13 @@ export function BulkAvailabilityEditor({ pendingAvailability, setPendingAvailabi
 
   const handleSaveAllChanges = async () => {
     if (pendingAvailability.length === 0 || !propertyId) return;
-    setIsSaving(true);
+    setSyncStatus('syncing');
+    setSyncProgress(0);
+    setSyncStep('Pushing availability...');
+    setSyncError('');
+
+    const progressPromise = animateProgress(0, 45, 2000);
+
     try {
       const updates = pendingAvailability.map(p => ({
         property_id: propertyId,
@@ -212,20 +218,38 @@ export function BulkAvailabilityEditor({ pendingAvailability, setPendingAvailabi
         body: { updates },
       });
 
+      await progressPromise;
+
       if (error) throw error;
 
       if (data?.success === false) {
-        toast({
-          title: 'Sync Failed',
-          description: data.error || data.message || 'Failed to push availability to Channex',
-          variant: 'destructive',
-        });
+        setSyncStatus('error');
+        setSyncError(data.error || data.message || 'Failed to push availability to Channex');
+        setSyncProgress(45);
+        toast({ title: 'Sync Failed', description: data.error || data.message || 'Failed to push availability to Channex', variant: 'destructive' });
         return;
       }
 
+      setSyncStep('Pushing rates & restrictions...');
+      await animateProgress(50, 85, 800);
+
+      setSyncStep('Finalizing...');
+      await animateProgress(90, 100, 400);
+
+      setSyncStatus('success');
+      setSyncProgress(100);
+      setSyncStep('Sync complete');
+
       setPendingAvailability([]);
       toast({ title: 'Success', description: `Availability synced to Channex (${updates.length} update${updates.length > 1 ? 's' : ''})` });
+
+      setTimeout(() => {
+        setSyncStatus('idle');
+        setSyncProgress(0);
+        setSyncStep('');
+      }, 2000);
     } catch (err: any) {
+      await progressPromise.catch(() => {});
       console.error('Error saving availability:', err);
       let errorMessage = 'Failed to save availability';
       if (err.context?.body) {
@@ -236,9 +260,9 @@ export function BulkAvailabilityEditor({ pendingAvailability, setPendingAvailabi
       } else if (err.message) {
         errorMessage = err.message;
       }
+      setSyncStatus('error');
+      setSyncError(errorMessage);
       toast({ title: 'Error', description: errorMessage, variant: 'destructive' });
-    } finally {
-      setIsSaving(false);
     }
   };
 
