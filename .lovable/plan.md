@@ -1,46 +1,118 @@
 
 
-## iMessage-Style Chat Bubbles for ConversationPanel
+## Fix: Filter Blocked Dates by Active Property
 
-Update `src/components/inbox/ConversationPanel.tsx` to match the iMessage reference design. No changes to thread list or other files.
+### Problem
+`fetchBlockedDates()` fetches ALL blocked dates across all properties. `fetchUnits()` correctly filters by `propertyId`, but blocked dates does not.
 
-### Bubble Styling
+### File: `src/components/BlockedDatesManager.tsx`
 
-**Operator (right-aligned):**
-- `bg-[#007AFF]`, white text, `rounded-[18px]` with `rounded-br-[6px]` for tail effect
-- `max-w-[75%]`, padding `py-[10px] px-[16px]`
-- `shadow-sm` (0 1px 2px rgba(0,0,0,0.1))
+**1. Filter `fetchBlockedDates` by property (lines 101-121)**
 
-**Guest (left-aligned):**
-- `bg-[#2C2C2E]`, white text, `rounded-[18px]` with `rounded-bl-[6px]` for tail effect
-- Same max-width, padding, shadow
+The `blocked_dates` table references `units` via `unit_id`. Filter by joining through units that belong to the active property:
 
-### Timestamps
-- Move outside the bubble, below it, centered under the bubble
-- `text-[11px] text-gray-400`, with status indicators inline
+```typescript
+const fetchBlockedDates = async () => {
+  try {
+    let query = supabase
+      .from("blocked_dates")
+      .select(`
+        *,
+        units (
+          name,
+          unit_number,
+          booking_com_name
+        )
+      `)
+      .order("blocked_date", { ascending: true });
 
-### "Guest via OTA" Label
-- Show only when the previous message was from a different sender (first in a sequence)
-- Small muted text above the bubble
+    // Filter to only show blocked dates for units belonging to the active property
+    if (propertyId) {
+      query = query.eq('units.property_id', propertyId);
+    }
 
-### Spacing
-- Same-sender consecutive messages: `mt-1` (4px)
-- Different-sender messages: `mt-3` (12px)
-- Determine by comparing `messages[i].sender` with `messages[i-1].sender`
+    const { data, error } = await query;
+    if (error) throw error;
 
-### Chat Area Background
-- White background on the messages scroll area: `bg-white`
+    // Remove entries where the unit was filtered out (unit doesn't belong to property)
+    const filtered = (data || []).filter(d => d.unit_id === null || d.units !== null);
+    setBlockedDates(filtered);
+  } catch (error: any) {
+    console.error("Error fetching blocked dates:", error);
+    toast.error("Failed to fetch blocked dates");
+  }
+};
+```
 
-### Reply Input
-- Light gray background bar: `bg-gray-100`
-- Rounded input field with `rounded-full` styling
-- Blue send button matching `bg-[#007AFF]` with white arrow icon, circular shape
+However, `blocked_dates` rows with `unit_id = null` (meaning "all rooms") have no unit join to filter on. We need a different approach — filter blocked dates whose `unit_id` is either null OR belongs to a unit in the active property. The cleanest way: use the unit IDs we already fetch.
 
-### Message Text
-- `text-[15px]` font size, normal weight
+**Better approach — filter client-side using fetched units:**
 
-### Implementation
-- Iterate messages with index to access previous message for grouping logic
-- Replace current `space-y-3` with manual margin classes based on sender grouping
-- Attachment links: white text for both bubble types (both have dark/blue backgrounds now)
+Since `fetchUnits` already returns only units for the active property, filter blocked dates to only include those whose `unit_id` is null or matches a fetched unit.
+
+Actually, the simplest and most reliable fix: add `property_id` awareness to the query. Since `blocked_dates` has a `unit_id` FK to `units`, and `units` has `property_id`, we can filter via an inner join or use an `in` filter with the property's unit IDs.
+
+**Revised approach — fetch unit IDs first, then filter:**
+
+```typescript
+// In useEffect, ensure both refetch when propertyId changes
+useEffect(() => {
+  fetchUnits();
+  fetchBlockedDates();
+}, [propertyId]);
+```
+
+In `fetchBlockedDates`, after fetching units (or independently):
+- Query units for the active property to get their IDs
+- Filter blocked_dates where `unit_id` is in that list
+
+**Simplest implementation:**
+
+1. **Change useEffect (line 80-83)** to depend on `propertyId`
+2. **Update `fetchBlockedDates`** to filter by property's unit IDs
+
+```typescript
+const fetchBlockedDates = async () => {
+  try {
+    // First get unit IDs for the active property
+    let unitIds: string[] = [];
+    if (propertyId) {
+      const { data: propUnits } = await supabase
+        .from("units")
+        .select("id")
+        .eq("property_id", propertyId);
+      unitIds = (propUnits || []).map(u => u.id);
+    }
+
+    let query = supabase
+      .from("blocked_dates")
+      .select(`*, units (name, unit_number, booking_com_name)`)
+      .order("blocked_date", { ascending: true });
+
+    if (propertyId && unitIds.length > 0) {
+      // Only show blocked dates for this property's units
+      query = query.in("unit_id", unitIds);
+    } else if (propertyId && unitIds.length === 0) {
+      // Property has no units, show nothing
+      setBlockedDates([]);
+      return;
+    }
+
+    const { data, error } = await query;
+    if (error) throw error;
+    setBlockedDates(data || []);
+  } catch (error: any) {
+    console.error("Error fetching blocked dates:", error);
+    toast.error("Failed to fetch blocked dates");
+  }
+};
+```
+
+3. **Update useEffect** (line 80-83): add `propertyId` to dependency array
+
+### Summary
+- 1 file changed: `src/components/BlockedDatesManager.tsx`
+- `fetchBlockedDates` filters by active property's unit IDs
+- Re-fetches when property switches
+- Blocked dates with `unit_id = null` (all-rooms blocks) won't show unless we decide they should — this matches the expectation that blocks are property-scoped
 

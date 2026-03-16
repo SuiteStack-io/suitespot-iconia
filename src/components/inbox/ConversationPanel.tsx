@@ -250,8 +250,8 @@ export function ConversationPanel({ thread, onBack }: ConversationPanelProps) {
       </div>
 
       {/* Messages */}
-      <ScrollArea className="flex-1">
-        <div className="p-4 space-y-3">
+      <ScrollArea className="flex-1 bg-white">
+        <div className="p-4">
           {loading ? (
             <div className="flex items-center justify-center py-12">
               <div className="animate-spin rounded-full h-6 w-6 border-b-2 border-primary" />
@@ -259,19 +259,37 @@ export function ConversationPanel({ thread, onBack }: ConversationPanelProps) {
           ) : messages.length === 0 ? (
             <p className="text-center text-sm text-muted-foreground py-8">No messages yet</p>
           ) : (
-            messages.map((msg) => {
+            messages.map((msg, idx) => {
               const isProperty = msg.sender === "property";
               const attachments = parseAttachments(msg.attachments);
+              const prevMsg = idx > 0 ? messages[idx - 1] : null;
+              const isSameSender = prevMsg?.sender === msg.sender;
+              const showOtaLabel = !isProperty && (!prevMsg || prevMsg.sender !== msg.sender);
 
               return (
-                <div key={msg._tempId || msg.id} className={cn("flex", isProperty ? "justify-end" : "justify-start")}>
-                  <div className={cn("max-w-[80%] rounded-lg px-3 py-2", isProperty ? "bg-primary text-primary-foreground" : "bg-muted text-foreground")}>
-                    {!isProperty && (
-                      <p className="text-[10px] font-medium opacity-70 mb-0.5">
-                        Guest via {ota.label}
-                      </p>
+                <div
+                  key={msg._tempId || msg.id}
+                  className={cn(
+                    "flex flex-col",
+                    isProperty ? "items-end" : "items-start",
+                    isSameSender ? "mt-1" : idx === 0 ? "" : "mt-3"
+                  )}
+                >
+                  {showOtaLabel && (
+                    <p className="text-[11px] text-gray-400 mb-1 px-2">
+                      Guest via {ota.label}
+                    </p>
+                  )}
+                  <div
+                    className={cn(
+                      "max-w-[75%] py-[10px] px-[16px] text-[15px] text-white",
+                      isProperty
+                        ? "bg-[#007AFF] rounded-[18px] rounded-br-[6px]"
+                        : "bg-[#2C2C2E] rounded-[18px] rounded-bl-[6px]"
                     )}
-                    <p className="text-sm whitespace-pre-wrap break-words">{msg.message}</p>
+                    style={{ boxShadow: "0 1px 2px rgba(0,0,0,0.1)" }}
+                  >
+                    <p className="whitespace-pre-wrap break-words">{msg.message}</p>
 
                     {attachments.length > 0 && (
                       <div className="mt-2 space-y-1">
@@ -283,10 +301,7 @@ export function ConversationPanel({ thread, onBack }: ConversationPanelProps) {
                               href={att.url}
                               target="_blank"
                               rel="noopener noreferrer"
-                              className={cn(
-                                "flex items-center gap-1.5 text-xs underline",
-                                isProperty ? "text-primary-foreground/80" : "text-primary"
-                              )}
+                              className="flex items-center gap-1.5 text-xs text-white/80 underline"
                             >
                               {isImage ? <ImageIcon className="h-3 w-3" /> : <FileText className="h-3 w-3" />}
                               {att.file_name || "Attachment"}
@@ -295,23 +310,23 @@ export function ConversationPanel({ thread, onBack }: ConversationPanelProps) {
                         })}
                       </div>
                     )}
+                  </div>
 
-                    <div className={cn("flex items-center gap-1.5 mt-1", isProperty ? "justify-end" : "justify-start")}>
-                      <span className={cn("text-[10px]", isProperty ? "text-primary-foreground/60" : "text-muted-foreground")}>
-                        {formatTimestamp(msg.channex_sent_at || msg.created_at)}
-                      </span>
-                      {msg._status === "sending" && (
-                        <span className="text-[10px] italic opacity-60">Sending…</span>
-                      )}
-                      {msg._status === "failed" && (
-                        <button
-                          onClick={() => msg._tempId && handleRetry(msg._tempId)}
-                          className="flex items-center gap-0.5 text-[10px] text-destructive hover:underline"
-                        >
-                          <RefreshCw className="h-2.5 w-2.5" /> Retry
-                        </button>
-                      )}
-                    </div>
+                  <div className={cn("flex items-center gap-1.5 mt-0.5 px-2", isProperty ? "justify-end" : "justify-start")}>
+                    <span className="text-[11px] text-gray-400">
+                      {formatTimestamp(msg.channex_sent_at || msg.created_at)}
+                    </span>
+                    {msg._status === "sending" && (
+                      <span className="text-[11px] italic text-gray-400">Sending…</span>
+                    )}
+                    {msg._status === "failed" && (
+                      <button
+                        onClick={() => msg._tempId && handleRetry(msg._tempId)}
+                        className="flex items-center gap-0.5 text-[11px] text-destructive hover:underline"
+                      >
+                        <RefreshCw className="h-2.5 w-2.5" /> Retry
+                      </button>
+                    )}
                   </div>
                 </div>
               );
@@ -322,30 +337,29 @@ export function ConversationPanel({ thread, onBack }: ConversationPanelProps) {
       </ScrollArea>
 
       {/* Reply input */}
-      <div className="border-t border-border bg-card px-4 py-3 shrink-0">
+      <div className="border-t border-border bg-gray-100 px-4 py-3 shrink-0">
         {thread.is_closed ? (
           <p className="text-sm text-muted-foreground text-center py-1">This conversation is closed</p>
         ) : messagingUnsupported ? (
           <p className="text-sm text-muted-foreground text-center py-1">Messaging not supported for this OTA</p>
         ) : (
-          <div className="flex items-end gap-2">
+          <div className="flex items-center gap-2">
             <Textarea
               value={replyText}
               onChange={(e) => setReplyText(e.target.value)}
               onKeyDown={handleKeyDown}
               placeholder="Type a message…"
-              className="min-h-[40px] max-h-[120px] resize-none"
+              className="min-h-[40px] max-h-[40px] resize-none rounded-full border-gray-300 bg-white px-4 py-2 text-[15px]"
               rows={1}
               disabled={sending}
             />
-            <Button
-              size="icon"
+            <button
               onClick={handleSend}
               disabled={!replyText.trim() || sending}
-              className="shrink-0"
+              className="shrink-0 h-9 w-9 rounded-full bg-[#007AFF] text-white flex items-center justify-center disabled:opacity-40 hover:bg-[#0066DD] transition-colors"
             >
               <Send className="h-4 w-4" />
-            </Button>
+            </button>
           </div>
         )}
       </div>
