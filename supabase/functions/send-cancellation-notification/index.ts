@@ -22,6 +22,7 @@ interface CancellationRequest {
   source: string;
   unit_name?: string;
   unit_number?: string;
+  property_id?: string;
 }
 
 const getCancellationSource = (channel: string, source: string): string => {
@@ -43,7 +44,6 @@ const getCancellationSource = (channel: string, source: string): string => {
 const handler = async (req: Request): Promise<Response> => {
   console.log("send-cancellation-notification function called");
 
-  // Handle CORS preflight requests
   if (req.method === "OPTIONS") {
     return new Response(null, { headers: corsHeaders });
   }
@@ -53,6 +53,7 @@ const handler = async (req: Request): Promise<Response> => {
     console.log("Received cancellation data:", JSON.stringify(data, null, 2));
 
     const {
+      reservation_id,
       booking_reference,
       guest_names,
       check_in_date,
@@ -66,15 +67,26 @@ const handler = async (req: Request): Promise<Response> => {
       unit_number,
     } = data;
 
-    // Initialize Supabase client
     const supabaseUrl = Deno.env.get("SUPABASE_URL")!;
     const supabaseServiceKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
     const supabase = createClient(supabaseUrl, supabaseServiceKey);
 
+    // Determine property_id - from payload or look it up from reservation
+    let propertyId = data.property_id || null;
+    if (!propertyId && reservation_id) {
+      const { data: resData } = await supabase
+        .from('reservations')
+        .select('property_id')
+        .eq('id', reservation_id)
+        .single();
+      propertyId = resData?.property_id || null;
+    }
+    console.log('Cancellation property_id:', propertyId);
+
     // Fetch admin users
     const { data: userRoles, error: rolesError } = await supabase
       .from("user_roles")
-      .select("user_id")
+      .select("user_id, role")
       .in("role", ["admin", "manager", "front_desk"]);
 
     if (rolesError) {
@@ -90,16 +102,13 @@ const handler = async (req: Request): Promise<Response> => {
       );
     }
 
-    // Get admin/manager user IDs
-    const userIds = userRoles.map((ur) => ur.user_id);
+    const userIds = userRoles.map((ur: any) => ur.user_id);
 
-    // Get profiles for names
     const { data: profiles } = await supabase
       .from("profiles")
       .select("id, full_name")
       .in("id", userIds);
 
-    // Get emails from auth.users using service role - listUsers() gets all at once
     const { data: authUsers, error: authError } = await supabase.auth.admin.listUsers();
 
     if (authError) {
@@ -107,33 +116,17 @@ const handler = async (req: Request): Promise<Response> => {
       throw authError;
     }
 
-    console.log("Total auth users fetched:", authUsers.users.length);
-    console.log("User IDs we need emails for:", userIds);
-
-    // Combine the data - match by user ID
-    const adminEmails = userIds.map((userId) => {
-      const profile = profiles?.find((p: any) => p.id === userId);
-      const authUser = authUsers.users.find((u: any) => u.id === userId);
-      
-      console.log(`Processing user ${userId}:`, {
-        hasProfile: !!profile,
-        hasAuthUser: !!authUser,
-        email: authUser?.email,
-        full_name: profile?.full_name
-      });
-      
+    // Combine data
+    const adminEmails = userRoles.map((ur: any) => {
+      const profile = profiles?.find((p: any) => p.id === ur.user_id);
+      const authUser = authUsers.users.find((u: any) => u.id === ur.user_id);
       return {
-        user_id: userId,
+        user_id: ur.user_id,
         email: authUser?.email,
         name: profile?.full_name || "Admin",
+        role: ur.role,
       };
-    }).filter((u: any) => {
-      const hasEmail = !!u.email;
-      if (!hasEmail) {
-        console.log(`User filtered out - no email found`);
-      }
-      return hasEmail;
-    });
+    }).filter((u: any) => !!u.email);
 
     // Filter by notification preferences
     const { data: notifSettings } = await supabase
@@ -141,7 +134,7 @@ const handler = async (req: Request): Promise<Response> => {
       .select('user_id, cancelled_booking_email')
       .in('user_id', adminEmails.map((a: any) => a.user_id));
 
-    const filteredAdminEmails = adminEmails.filter((admin: any) => {
+    const prefFiltered = adminEmails.filter((admin: any) => {
       const settings = notifSettings?.find((s: any) => s.user_id === admin.user_id);
       if (settings && !settings.cancelled_booking_email) {
         console.log(`Skipped ${admin.email} — cancellation notifications disabled`);
@@ -149,6 +142,9 @@ const handler = async (req: Request): Promise<Response> => {
       }
       return true;
     });
+
+    // Filter by property access
+    const filteredAdminEmails = await filterByPropertyAccess(supabase, prefFiltered, propertyId);
 
     console.log("Final admins to notify:", filteredAdminEmails.map((u: any) => ({ email: u.email, name: u.name })));
 
@@ -178,10 +174,9 @@ const handler = async (req: Request): Promise<Response> => {
       day: "numeric",
     });
 
-    // Get cancellation source
     const cancellationSource = getCancellationSource(channel, source);
 
-    // Build email HTML
+    // Build email HTML (same as before)
     const emailHtml = `
 <!DOCTYPE html>
 <html>
@@ -193,7 +188,6 @@ const handler = async (req: Request): Promise<Response> => {
   <div style="max-width: 600px; margin: 0 auto; padding: 20px;">
     <div style="background-color: #ffffff; border-radius: 12px; overflow: hidden; box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);">
       
-      <!-- Header -->
       <div style="background-color: #dc2626; padding: 30px; text-align: center;">
         <div style="font-size: 48px; margin-bottom: 10px;">🚫</div>
         <h1 style="color: #ffffff; margin: 0; font-size: 24px; font-weight: 600;">
@@ -201,7 +195,6 @@ const handler = async (req: Request): Promise<Response> => {
         </h1>
       </div>
 
-      <!-- Cancellation Source Banner -->
       <div style="background-color: #fef2f2; border-left: 4px solid #dc2626; padding: 16px 24px; margin: 0;">
         <p style="margin: 0; color: #991b1b; font-size: 14px; font-weight: 500;">
           Cancellation Source
@@ -211,10 +204,8 @@ const handler = async (req: Request): Promise<Response> => {
         </p>
       </div>
 
-      <!-- Content -->
       <div style="padding: 30px;">
         
-        <!-- Booking Reference -->
         <div style="background-color: #f9fafb; border-radius: 8px; padding: 16px; margin-bottom: 24px; text-align: center;">
           <p style="margin: 0; color: #6b7280; font-size: 12px; text-transform: uppercase; letter-spacing: 0.5px;">
             Booking Reference
@@ -224,7 +215,6 @@ const handler = async (req: Request): Promise<Response> => {
           </p>
         </div>
 
-        <!-- Guest Info -->
         <div style="margin-bottom: 24px;">
           <h3 style="color: #374151; font-size: 14px; font-weight: 600; margin: 0 0 12px 0; text-transform: uppercase; letter-spacing: 0.5px;">
             Guest Details
@@ -236,7 +226,6 @@ const handler = async (req: Request): Promise<Response> => {
           </div>
         </div>
 
-        <!-- Accommodation -->
         <div style="margin-bottom: 24px;">
           <h3 style="color: #374151; font-size: 14px; font-weight: 600; margin: 0 0 12px 0; text-transform: uppercase; letter-spacing: 0.5px;">
             Accommodation
@@ -253,7 +242,6 @@ const handler = async (req: Request): Promise<Response> => {
           </div>
         </div>
 
-        <!-- Stay Details -->
         <div style="margin-bottom: 24px;">
           <h3 style="color: #374151; font-size: 14px; font-weight: 600; margin: 0 0 12px 0; text-transform: uppercase; letter-spacing: 0.5px;">
             Stay Details
@@ -271,7 +259,6 @@ const handler = async (req: Request): Promise<Response> => {
           </div>
         </div>
 
-        <!-- Total -->
         <div style="background-color: #fef2f2; border-radius: 8px; padding: 16px; text-align: center; margin-bottom: 24px;">
           <p style="margin: 0; color: #991b1b; font-size: 12px; text-transform: uppercase; letter-spacing: 0.5px;">
             Lost Revenue
@@ -281,7 +268,6 @@ const handler = async (req: Request): Promise<Response> => {
           </p>
         </div>
 
-        <!-- Footer Note -->
         <div style="border-top: 1px solid #e5e7eb; padding-top: 20px;">
           <p style="margin: 0; color: #6b7280; font-size: 14px; text-align: center;">
             These dates are now available for new bookings.
@@ -290,7 +276,6 @@ const handler = async (req: Request): Promise<Response> => {
 
       </div>
 
-      <!-- Footer -->
       <div style="background-color: #f9fafb; padding: 20px; text-align: center; border-top: 1px solid #e5e7eb;">
         <p style="margin: 0; color: #9ca3af; font-size: 12px;">
           SuiteSpot • ICONIA Zamalek - Boutique Stay & Wellness Residences
@@ -303,7 +288,7 @@ const handler = async (req: Request): Promise<Response> => {
 </html>
     `;
 
-    // Send emails to all admins sequentially with detailed logging
+    // Send emails to all admins sequentially
     let successful = 0;
     let failed = 0;
 
@@ -328,7 +313,6 @@ const handler = async (req: Request): Promise<Response> => {
           successful++;
         }
         
-        // Add delay between emails (600ms) for rate limiting
         await new Promise(resolve => setTimeout(resolve, 600));
       } catch (err: any) {
         console.error(`Exception sending email to ${admin.email}:`, err.message || err);
@@ -363,3 +347,46 @@ const handler = async (req: Request): Promise<Response> => {
 };
 
 Deno.serve(handler);
+
+async function filterByPropertyAccess(
+  supabase: any,
+  users: any[],
+  propertyId: string | null
+): Promise<any[]> {
+  if (!propertyId) {
+    console.log('No property_id — skipping property access filter');
+    return users;
+  }
+
+  const userIds = users.map((u: any) => u.user_id);
+  if (userIds.length === 0) return [];
+
+  const { data: allAccess } = await supabase
+    .from('user_property_access')
+    .select('user_id, property_id')
+    .in('user_id', userIds);
+
+  const accessList = allAccess || [];
+
+  const { data: propData } = await supabase
+    .from('properties')
+    .select('name')
+    .eq('id', propertyId)
+    .single();
+  const propertyName = propData?.name || propertyId;
+
+  return users.filter((user: any) => {
+    const userAccessEntries = accessList.filter((a: any) => a.user_id === user.user_id);
+
+    if (userAccessEntries.length === 0 && user.role === 'admin') {
+      console.log(`${user.email} — admin with global access (no property restrictions)`);
+      return true;
+    }
+
+    const hasAccess = userAccessEntries.some((a: any) => a.property_id === propertyId);
+    if (!hasAccess) {
+      console.log(`Skipped ${user.email} — no access to property "${propertyName}"`);
+    }
+    return hasAccess;
+  });
+}

@@ -20,12 +20,12 @@ interface RoomChangeRequest {
   nights: number;
   channel?: string;
   source?: string;
+  property_id?: string;
 }
 
 const handler = async (req: Request): Promise<Response> => {
   console.log("send-room-change-notification function called");
 
-  // Handle CORS preflight requests
   if (req.method === "OPTIONS") {
     return new Response(null, { headers: corsHeaders });
   }
@@ -49,7 +49,6 @@ const handler = async (req: Request): Promise<Response> => {
       source,
     } = roomChangeData;
 
-    // Initialize Supabase client with service role
     const supabaseUrl = Deno.env.get("SUPABASE_URL")!;
     const supabaseServiceKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
     const resendApiKey = Deno.env.get("RESEND_API_KEY")!;
@@ -57,19 +56,27 @@ const handler = async (req: Request): Promise<Response> => {
     const supabase = createClient(supabaseUrl, supabaseServiceKey);
     const resend = new Resend(resendApiKey);
 
+    // Determine property_id
+    let propertyId = roomChangeData.property_id || null;
+    if (!propertyId && reservation_id) {
+      const { data: resData } = await supabase
+        .from('reservations')
+        .select('property_id')
+        .eq('id', reservation_id)
+        .single();
+      propertyId = resData?.property_id || null;
+    }
+    console.log('Room change property_id:', propertyId);
+
     // Get all admin/manager users
     const { data: adminRoles, error: rolesError } = await supabase
       .from("user_roles")
-      .select("user_id")
+      .select("user_id, role")
       .in("role", ["admin", "manager", "front_desk"]);
 
-    if (rolesError) {
-      console.error("Error fetching admin roles:", rolesError);
-      throw rolesError;
-    }
+    if (rolesError) throw rolesError;
 
     if (!adminRoles || adminRoles.length === 0) {
-      console.log("No admin/manager users found");
       return new Response(
         JSON.stringify({ success: true, message: "No admins to notify" }),
         { status: 200, headers: { ...corsHeaders, "Content-Type": "application/json" } }
@@ -77,76 +84,48 @@ const handler = async (req: Request): Promise<Response> => {
     }
 
     const userIds = adminRoles.map((r: any) => r.user_id);
-    console.log("Admin user IDs found:", userIds);
 
-    // Get profiles for names
     const { data: profiles } = await supabase
       .from("profiles")
       .select("id, full_name")
       .in("id", userIds);
 
-    // Get emails from auth.users using service role - listUsers() gets all at once
     const { data: authUsers, error: authError } = await supabase.auth.admin.listUsers();
 
-    if (authError) {
-      console.error("Error fetching auth users:", authError);
-      throw authError;
-    }
+    if (authError) throw authError;
 
-    console.log("Total auth users fetched:", authUsers.users.length);
-    console.log("User IDs we need emails for:", userIds);
-
-    // Combine the data - match by user ID
-    const adminEmails = userIds.map((userId: string) => {
-      const profile = profiles?.find((p: any) => p.id === userId);
-      const authUser = authUsers.users.find((u: any) => u.id === userId);
-      
-      console.log(`Processing user ${userId}:`, {
-        hasProfile: !!profile,
-        hasAuthUser: !!authUser,
-        email: authUser?.email,
-        full_name: profile?.full_name
-      });
-      
+    // Combine data
+    const adminEmailsList = adminRoles.map((ur: any) => {
+      const profile = profiles?.find((p: any) => p.id === ur.user_id);
+      const authUser = authUsers.users.find((u: any) => u.id === ur.user_id);
       return {
+        user_id: ur.user_id,
         email: authUser?.email,
         name: profile?.full_name || "Admin",
+        role: ur.role,
       };
-    }).filter((u: any) => {
-      const hasEmail = !!u.email;
-      if (!hasEmail) {
-        console.log(`User filtered out - no email found`);
-      }
-      return hasEmail;
-    });
+    }).filter((u: any) => !!u.email);
+
+    // Filter by property access
+    const adminEmails = await filterByPropertyAccess(supabase, adminEmailsList, propertyId);
 
     console.log("Final admins to notify:", adminEmails.map((u: any) => ({ email: u.email, name: u.name })));
 
     if (adminEmails.length === 0) {
-      console.log("No admin emails found");
       return new Response(
         JSON.stringify({ success: true, message: "No admin emails found" }),
         { status: 200, headers: { ...corsHeaders, "Content-Type": "application/json" } }
       );
     }
 
-    console.log(`Sending room change notification to ${adminEmails.length} admin(s)`);
-
     // Format dates
     const checkInFormatted = new Date(check_in_date).toLocaleDateString("en-US", {
-      weekday: "short",
-      year: "numeric",
-      month: "short",
-      day: "numeric",
+      weekday: "short", year: "numeric", month: "short", day: "numeric",
     });
     const checkOutFormatted = new Date(check_out_date).toLocaleDateString("en-US", {
-      weekday: "short",
-      year: "numeric",
-      month: "short",
-      day: "numeric",
+      weekday: "short", year: "numeric", month: "short", day: "numeric",
     });
 
-    // Determine booking source for display
     const getBookingSource = (channel?: string, source?: string): string => {
       if (channel) {
         if (channel.toLowerCase().includes("booking")) return "Booking.com";
@@ -165,7 +144,6 @@ const handler = async (req: Request): Promise<Response> => {
 
     const bookingSource = getBookingSource(channel, source);
 
-    // Create email HTML
     const emailHtml = `
 <!DOCTYPE html>
 <html>
@@ -180,16 +158,14 @@ const handler = async (req: Request): Promise<Response> => {
       <td align="center" style="padding: 40px 20px;">
         <table role="presentation" style="width: 100%; max-width: 600px; border-collapse: collapse; background-color: #ffffff; border-radius: 16px; overflow: hidden; box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);">
           
-          <!-- Header -->
           <tr>
             <td style="background: linear-gradient(135deg, #f59e0b 0%, #d97706 100%); padding: 32px 40px; text-align: center;">
               <div style="font-size: 48px; margin-bottom: 12px;">🔄</div>
-              <h1 style="margin: 0; color: #ffffff; font-size: 28px; font-weight: 700; letter-spacing: -0.5px;">Room Change</h1>
+              <h1 style="margin: 0; color: #ffffff; font-size: 28px; font-weight: 700;">Room Change</h1>
               <p style="margin: 8px 0 0 0; color: rgba(255, 255, 255, 0.9); font-size: 16px;">A reservation has been moved to a different room</p>
             </td>
           </tr>
 
-          <!-- Booking Reference -->
           <tr>
             <td style="padding: 24px 40px 0 40px;">
               <div style="background-color: #fffbeb; border: 1px solid #fbbf24; border-radius: 12px; padding: 16px; text-align: center;">
@@ -199,14 +175,13 @@ const handler = async (req: Request): Promise<Response> => {
             </td>
           </tr>
 
-          <!-- Room Change Details -->
           <tr>
             <td style="padding: 24px 40px;">
               <div style="background-color: #fef3c7; border-radius: 12px; padding: 20px;">
                 <table role="presentation" style="width: 100%; border-collapse: collapse;">
                   <tr>
                     <td style="width: 45%; text-align: center; padding: 12px;">
-                      <p style="margin: 0 0 4px 0; color: #92400e; font-size: 11px; text-transform: uppercase; letter-spacing: 0.5px;">Previous Room</p>
+                      <p style="margin: 0 0 4px 0; color: #92400e; font-size: 11px; text-transform: uppercase;">Previous Room</p>
                       <p style="margin: 0; color: #78350f; font-size: 18px; font-weight: 600;">${old_unit_name || "Unknown"}</p>
                       <p style="margin: 4px 0 0 0; color: #92400e; font-size: 24px; font-weight: 700;">#${old_unit_number || "N/A"}</p>
                     </td>
@@ -214,7 +189,7 @@ const handler = async (req: Request): Promise<Response> => {
                       <div style="font-size: 32px; color: #d97706;">→</div>
                     </td>
                     <td style="width: 45%; text-align: center; padding: 12px;">
-                      <p style="margin: 0 0 4px 0; color: #15803d; font-size: 11px; text-transform: uppercase; letter-spacing: 0.5px;">New Room</p>
+                      <p style="margin: 0 0 4px 0; color: #15803d; font-size: 11px; text-transform: uppercase;">New Room</p>
                       <p style="margin: 0; color: #166534; font-size: 18px; font-weight: 600;">${new_unit_name || "Unknown"}</p>
                       <p style="margin: 4px 0 0 0; color: #15803d; font-size: 24px; font-weight: 700;">#${new_unit_number || "N/A"}</p>
                     </td>
@@ -224,101 +199,58 @@ const handler = async (req: Request): Promise<Response> => {
             </td>
           </tr>
 
-          <!-- Guest & Booking Details -->
           <tr>
             <td style="padding: 0 40px 24px 40px;">
               <table role="presentation" style="width: 100%; border-collapse: collapse;">
-                
-                <!-- Guest -->
-                <tr>
-                  <td style="padding: 16px 0; border-bottom: 1px solid #e2e8f0;">
-                    <table role="presentation" style="width: 100%;">
-                      <tr>
-                        <td style="width: 40px; vertical-align: top;">
-                          <div style="font-size: 20px;">👤</div>
-                        </td>
-                        <td>
-                          <p style="margin: 0 0 2px 0; color: #64748b; font-size: 12px; text-transform: uppercase; letter-spacing: 0.5px;">Guest</p>
-                          <p style="margin: 0; color: #1e293b; font-size: 16px; font-weight: 600;">${guest_names?.join(", ") || "Guest"}</p>
-                        </td>
-                      </tr>
-                    </table>
-                  </td>
-                </tr>
-
-                <!-- Check-in -->
-                <tr>
-                  <td style="padding: 16px 0; border-bottom: 1px solid #e2e8f0;">
-                    <table role="presentation" style="width: 100%;">
-                      <tr>
-                        <td style="width: 40px; vertical-align: top;">
-                          <div style="font-size: 20px;">📅</div>
-                        </td>
-                        <td>
-                          <p style="margin: 0 0 2px 0; color: #64748b; font-size: 12px; text-transform: uppercase; letter-spacing: 0.5px;">Check-in</p>
-                          <p style="margin: 0; color: #1e293b; font-size: 16px; font-weight: 600;">${checkInFormatted}</p>
-                        </td>
-                      </tr>
-                    </table>
-                  </td>
-                </tr>
-
-                <!-- Check-out -->
-                <tr>
-                  <td style="padding: 16px 0; border-bottom: 1px solid #e2e8f0;">
-                    <table role="presentation" style="width: 100%;">
-                      <tr>
-                        <td style="width: 40px; vertical-align: top;">
-                          <div style="font-size: 20px;">📅</div>
-                        </td>
-                        <td>
-                          <p style="margin: 0 0 2px 0; color: #64748b; font-size: 12px; text-transform: uppercase; letter-spacing: 0.5px;">Check-out</p>
-                          <p style="margin: 0; color: #1e293b; font-size: 16px; font-weight: 600;">${checkOutFormatted}</p>
-                        </td>
-                      </tr>
-                    </table>
-                  </td>
-                </tr>
-
-                <!-- Duration -->
-                <tr>
-                  <td style="padding: 16px 0; border-bottom: 1px solid #e2e8f0;">
-                    <table role="presentation" style="width: 100%;">
-                      <tr>
-                        <td style="width: 40px; vertical-align: top;">
-                          <div style="font-size: 20px;">🌙</div>
-                        </td>
-                        <td>
-                          <p style="margin: 0 0 2px 0; color: #64748b; font-size: 12px; text-transform: uppercase; letter-spacing: 0.5px;">Duration</p>
-                          <p style="margin: 0; color: #1e293b; font-size: 16px; font-weight: 600;">${nights || 0} night${nights !== 1 ? "s" : ""}</p>
-                        </td>
-                      </tr>
-                    </table>
-                  </td>
-                </tr>
-
-                <!-- Source -->
-                <tr>
-                  <td style="padding: 16px 0;">
-                    <table role="presentation" style="width: 100%;">
-                      <tr>
-                        <td style="width: 40px; vertical-align: top;">
-                          <div style="font-size: 20px;">🏷️</div>
-                        </td>
-                        <td>
-                          <p style="margin: 0 0 2px 0; color: #64748b; font-size: 12px; text-transform: uppercase; letter-spacing: 0.5px;">Booking Source</p>
-                          <p style="margin: 0; color: #1e293b; font-size: 16px; font-weight: 600;">${bookingSource}</p>
-                        </td>
-                      </tr>
-                    </table>
-                  </td>
-                </tr>
-
+                <tr><td style="padding: 16px 0; border-bottom: 1px solid #e2e8f0;">
+                  <table role="presentation" style="width: 100%;"><tr>
+                    <td style="width: 40px; vertical-align: top;"><div style="font-size: 20px;">👤</div></td>
+                    <td>
+                      <p style="margin: 0 0 2px 0; color: #64748b; font-size: 12px; text-transform: uppercase;">Guest</p>
+                      <p style="margin: 0; color: #1e293b; font-size: 16px; font-weight: 600;">${guest_names?.join(", ") || "Guest"}</p>
+                    </td>
+                  </tr></table>
+                </td></tr>
+                <tr><td style="padding: 16px 0; border-bottom: 1px solid #e2e8f0;">
+                  <table role="presentation" style="width: 100%;"><tr>
+                    <td style="width: 40px; vertical-align: top;"><div style="font-size: 20px;">📅</div></td>
+                    <td>
+                      <p style="margin: 0 0 2px 0; color: #64748b; font-size: 12px; text-transform: uppercase;">Check-in</p>
+                      <p style="margin: 0; color: #1e293b; font-size: 16px; font-weight: 600;">${checkInFormatted}</p>
+                    </td>
+                  </tr></table>
+                </td></tr>
+                <tr><td style="padding: 16px 0; border-bottom: 1px solid #e2e8f0;">
+                  <table role="presentation" style="width: 100%;"><tr>
+                    <td style="width: 40px; vertical-align: top;"><div style="font-size: 20px;">📅</div></td>
+                    <td>
+                      <p style="margin: 0 0 2px 0; color: #64748b; font-size: 12px; text-transform: uppercase;">Check-out</p>
+                      <p style="margin: 0; color: #1e293b; font-size: 16px; font-weight: 600;">${checkOutFormatted}</p>
+                    </td>
+                  </tr></table>
+                </td></tr>
+                <tr><td style="padding: 16px 0; border-bottom: 1px solid #e2e8f0;">
+                  <table role="presentation" style="width: 100%;"><tr>
+                    <td style="width: 40px; vertical-align: top;"><div style="font-size: 20px;">🌙</div></td>
+                    <td>
+                      <p style="margin: 0 0 2px 0; color: #64748b; font-size: 12px; text-transform: uppercase;">Duration</p>
+                      <p style="margin: 0; color: #1e293b; font-size: 16px; font-weight: 600;">${nights || 0} night${nights !== 1 ? "s" : ""}</p>
+                    </td>
+                  </tr></table>
+                </td></tr>
+                <tr><td style="padding: 16px 0;">
+                  <table role="presentation" style="width: 100%;"><tr>
+                    <td style="width: 40px; vertical-align: top;"><div style="font-size: 20px;">🏷️</div></td>
+                    <td>
+                      <p style="margin: 0 0 2px 0; color: #64748b; font-size: 12px; text-transform: uppercase;">Booking Source</p>
+                      <p style="margin: 0; color: #1e293b; font-size: 16px; font-weight: 600;">${bookingSource}</p>
+                    </td>
+                  </tr></table>
+                </td></tr>
               </table>
             </td>
           </tr>
 
-          <!-- Action Required Notice -->
           <tr>
             <td style="padding: 0 40px 32px 40px;">
               <div style="background-color: #fff7ed; border: 1px solid #fed7aa; border-radius: 12px; padding: 16px; text-align: center;">
@@ -329,7 +261,6 @@ const handler = async (req: Request): Promise<Response> => {
             </td>
           </tr>
 
-          <!-- Footer -->
           <tr>
             <td style="background-color: #f8fafc; padding: 24px 40px; text-align: center; border-top: 1px solid #e2e8f0;">
               <p style="margin: 0 0 8px 0; color: #64748b; font-size: 14px;">SuiteSpot Reservation System</p>
@@ -345,22 +276,17 @@ const handler = async (req: Request): Promise<Response> => {
 </html>
     `;
 
-    // Send emails to all admins sequentially with detailed logging
     let successful = 0;
     let failed = 0;
 
     for (const admin of adminEmails) {
       try {
-        console.log(`Attempting to send room change email to: ${admin.email}`);
-        
         const result = await resend.emails.send({
           from: "SuiteSpot Reservations <reservations@bookings.suitespoteg.com>",
           to: [admin.email as string],
           subject: `Room Change - ${guest_names?.[0] || "Guest"} (${booking_reference})`,
           html: emailHtml,
         });
-        
-        console.log(`Email result for ${admin.email}:`, JSON.stringify(result));
         
         if (result.error) {
           console.error(`Resend error for ${admin.email}:`, JSON.stringify(result.error));
@@ -370,7 +296,6 @@ const handler = async (req: Request): Promise<Response> => {
           successful++;
         }
         
-        // Add delay between emails (600ms) for rate limiting
         await new Promise(resolve => setTimeout(resolve, 600));
       } catch (err: any) {
         console.error(`Exception sending email to ${admin.email}:`, err.message || err);
@@ -384,8 +309,7 @@ const handler = async (req: Request): Promise<Response> => {
       JSON.stringify({ 
         success: true, 
         message: `Room change notification sent to ${successful} admin(s)`,
-        successful,
-        failed
+        successful, failed
       }),
       { status: 200, headers: { ...corsHeaders, "Content-Type": "application/json" } }
     );
@@ -399,3 +323,46 @@ const handler = async (req: Request): Promise<Response> => {
 };
 
 Deno.serve(handler);
+
+async function filterByPropertyAccess(
+  supabase: any,
+  users: any[],
+  propertyId: string | null
+): Promise<any[]> {
+  if (!propertyId) {
+    console.log('No property_id — skipping property access filter');
+    return users;
+  }
+
+  const userIds = users.map((u: any) => u.user_id);
+  if (userIds.length === 0) return [];
+
+  const { data: allAccess } = await supabase
+    .from('user_property_access')
+    .select('user_id, property_id')
+    .in('user_id', userIds);
+
+  const accessList = allAccess || [];
+
+  const { data: propData } = await supabase
+    .from('properties')
+    .select('name')
+    .eq('id', propertyId)
+    .single();
+  const propertyName = propData?.name || propertyId;
+
+  return users.filter((user: any) => {
+    const userAccessEntries = accessList.filter((a: any) => a.user_id === user.user_id);
+
+    if (userAccessEntries.length === 0 && user.role === 'admin') {
+      console.log(`${user.email} — admin with global access (no property restrictions)`);
+      return true;
+    }
+
+    const hasAccess = userAccessEntries.some((a: any) => a.property_id === propertyId);
+    if (!hasAccess) {
+      console.log(`Skipped ${user.email} — no access to property "${propertyName}"`);
+    }
+    return hasAccess;
+  });
+}
