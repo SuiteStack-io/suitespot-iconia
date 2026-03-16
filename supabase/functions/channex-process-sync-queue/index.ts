@@ -461,57 +461,112 @@ Deno.serve(async (req: Request) => {
 
 // ── Helpers ──────────────────────────────────────────────────────
 
-async function calculateAvailability(
+function formatDate(d: Date): string {
+  return d.toISOString().split("T")[0];
+}
+
+function addDays(d: Date, n: number): Date {
+  const r = new Date(d);
+  r.setDate(r.getDate() + n);
+  return r;
+}
+
+async function calculateAvailabilityRanges(
   supabase: any,
   roomTypeName: string,
   dateFrom: string,
   dateTo: string,
   propertyId?: string
-): Promise<number> {
-  // Count total units of this room type, scoped by property
-  let unitsQuery = supabase
-    .from("units")
-    .select("id", { count: "exact", head: true })
-    .eq("booking_com_name", roomTypeName)
-    .neq("status", "maintenance");
-  if (propertyId) unitsQuery = unitsQuery.eq("property_id", propertyId);
-  const { count: totalUnits } = await unitsQuery;
-
-  // Fetch unit IDs as an array (not a query builder) for use in .in() calls
+): Promise<{ date_from: string; date_to: string; availability: number }[]> {
+  // Get all units of this room type for the property
   let unitIdQuery = supabase
     .from("units")
     .select("id")
-    .eq("booking_com_name", roomTypeName);
+    .eq("booking_com_name", roomTypeName)
+    .neq("status", "maintenance");
   if (propertyId) unitIdQuery = unitIdQuery.eq("property_id", propertyId);
   const { data: unitRows } = await unitIdQuery;
   const unitIds = (unitRows || []).map((u: any) => u.id);
+  const totalUnits = unitIds.length;
 
-  if (unitIds.length === 0) {
+  if (totalUnits === 0) {
     console.log(`[process-sync-queue] No units found for ${roomTypeName} @ property ${propertyId || 'all'}`);
-    return 0;
+    return [{ date_from: dateFrom, date_to: dateTo, availability: 0 }];
   }
 
-  // Count reservations that overlap this date range
-  const { count: reservedCount } = await supabase
+  // Fetch all overlapping reservations (check_in <= last_day AND check_out > first_day)
+  const { data: reservations } = await supabase
     .from("reservations")
-    .select("id", { count: "exact", head: true })
+    .select("unit_id, check_in_date, check_out_date")
     .in("status", ["confirmed", "checked-in"])
-    .lt("check_in_date", dateTo)
-    .gt("check_out_date", dateFrom)
     .not("unit_id", "is", null)
-    .in("unit_id", unitIds);
+    .in("unit_id", unitIds)
+    .lt("check_in_date", dateTo)
+    .gt("check_out_date", dateFrom);
 
-  // Count blocked dates in range
-  const { count: blockedCount } = await supabase
+  // Fetch all blocked dates in range
+  const { data: blockedDates } = await supabase
     .from("blocked_dates")
-    .select("id", { count: "exact", head: true })
+    .select("unit_id, blocked_date")
+    .in("unit_id", unitIds)
     .gte("blocked_date", dateFrom)
-    .lt("blocked_date", dateTo)
-    .in("unit_id", unitIds);
+    .lt("blocked_date", dateTo);
 
-  const available = Math.max(0, (totalUnits || 0) - (reservedCount || 0) - (blockedCount || 0));
-  console.log(`[process-sync-queue] Availability for ${roomTypeName} @ property ${propertyId || 'all'} (${dateFrom}-${dateTo}): ${available}/${totalUnits}`);
-  return available;
+  // Day-by-day calculation
+  const startDate = new Date(dateFrom);
+  const endDate = new Date(dateTo);
+  const dailyAvail: { date: string; avail: number }[] = [];
+
+  for (let d = new Date(startDate); d < endDate; d = addDays(d, 1)) {
+    const ds = formatDate(d);
+    const occupiedUnits = new Set<string>();
+
+    // A reservation occupies a day if check_in_date <= day AND check_out_date > day
+    // This correctly excludes the checkout date
+    if (reservations) {
+      for (const r of reservations) {
+        if (r.check_in_date <= ds && r.check_out_date > ds && r.unit_id) {
+          occupiedUnits.add(r.unit_id);
+        }
+      }
+    }
+
+    const blockedUnits = new Set<string>();
+    if (blockedDates) {
+      for (const b of blockedDates) {
+        if (b.blocked_date === ds && b.unit_id && !occupiedUnits.has(b.unit_id)) {
+          blockedUnits.add(b.unit_id);
+        }
+      }
+    }
+
+    dailyAvail.push({ date: ds, avail: Math.max(0, totalUnits - occupiedUnits.size - blockedUnits.size) });
+  }
+
+  if (dailyAvail.length === 0) {
+    return [{ date_from: dateFrom, date_to: dateTo, availability: totalUnits }];
+  }
+
+  // Collapse consecutive days with same availability into ranges
+  const ranges: { date_from: string; date_to: string; availability: number }[] = [];
+  let rangeStart = dailyAvail[0];
+  let currentAvail = rangeStart.avail;
+  let lastDate = rangeStart.date;
+
+  for (let i = 1; i < dailyAvail.length; i++) {
+    if (dailyAvail[i].avail === currentAvail) {
+      lastDate = dailyAvail[i].date;
+    } else {
+      ranges.push({ date_from: rangeStart.date, date_to: formatDate(addDays(new Date(lastDate), 1)), availability: currentAvail });
+      rangeStart = dailyAvail[i];
+      currentAvail = rangeStart.avail;
+      lastDate = rangeStart.date;
+    }
+  }
+  ranges.push({ date_from: rangeStart.date, date_to: formatDate(addDays(new Date(lastDate), 1)), availability: currentAvail });
+
+  console.log(`[process-sync-queue] Availability for ${roomTypeName} @ property ${propertyId || 'all'} (${dateFrom}-${dateTo}): ${ranges.length} ranges`);
+  return ranges;
 }
 
 async function markCompleted(supabase: any, id: string) {
