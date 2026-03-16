@@ -486,7 +486,7 @@ const handler = async (req: Request): Promise<Response> => {
       .select('user_id, new_booking_email')
       .in('user_id', staffUserIds);
 
-    const filteredUsers = users.filter((u: any) => {
+    const prefFilteredUsers = users.filter((u: any) => {
       const settings = notifSettings?.find((s: any) => s.user_id === u.user_id);
       if (settings && !settings.new_booking_email) {
         console.log(`Skipped ${u.email} — new booking notifications disabled`);
@@ -494,6 +494,9 @@ const handler = async (req: Request): Promise<Response> => {
       }
       return true;
     });
+
+    // Filter by property access
+    const filteredUsers = await filterByPropertyAccess(supabaseClient, prefFilteredUsers, notifPropertyId);
 
     console.log("Final users to notify:", filteredUsers.map((u: any) => ({ email: u.email, name: u.full_name })));
 
