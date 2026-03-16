@@ -1463,7 +1463,21 @@ Thank you for choosing SuiteSpot!`;
                   </div>
                 </div>
                 <div>
-                  <Label className="text-muted-foreground">Total Price</Label>
+                  <Label className="text-muted-foreground">Subtotal</Label>
+                  <div className="mt-2 h-10 flex items-center px-3 bg-muted/50 rounded-md border border-input text-sm font-medium">
+                    {formData.currency} {priceSubtotal.toFixed(2)}
+                  </div>
+                </div>
+                {formData.vat_exempt !== true && (
+                  <div>
+                    <Label className="text-muted-foreground">Taxes & Fees</Label>
+                    <div className="mt-2 h-10 flex items-center px-3 bg-muted/50 rounded-md border border-input text-sm font-medium">
+                      {formData.currency} {(formData.total_price - priceSubtotal).toFixed(2)}
+                    </div>
+                  </div>
+                )}
+                <div>
+                  <Label className="text-muted-foreground">Total Price (incl. VAT)</Label>
                   <div className="mt-2 h-10 flex items-center px-3 bg-muted/50 rounded-md border border-input text-sm font-medium">
                     {formData.currency} {formData.total_price.toFixed(2)}
                     {recalculatingPrice && <Loader2 className="ml-2 h-3 w-3 animate-spin" />}
