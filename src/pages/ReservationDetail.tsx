@@ -181,6 +181,7 @@ const ReservationDetail = () => {
   const confirmationRef = useRef<HTMLDivElement>(null);
   const [priceBreakdown, setPriceBreakdown] = useState<string>('');
   const [recalculatingPrice, setRecalculatingPrice] = useState(false);
+  const [priceSubtotal, setPriceSubtotal] = useState<number>(0);
   
   // Document upload states
   const [idPassportUrl, setIdPassportUrl] = useState<string | null>(null);
