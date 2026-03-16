@@ -308,10 +308,22 @@ Deno.serve(async (req) => {
       const resendApiKey = Deno.env.get('RESEND_API_KEY')!;
       const resend = new Resend(resendApiKey);
 
+      // Determine property_id from the first unit
+      let shufflePropertyId: string | null = null;
+      if (units.length > 0) {
+        const { data: unitProp } = await supabase
+          .from('units')
+          .select('property_id')
+          .eq('id', units[0].id)
+          .single();
+        shufflePropertyId = unitProp?.property_id || null;
+      }
+      console.log('Shuffle property_id:', shufflePropertyId);
+
       // Fetch admin/front_desk emails
       const { data: adminRoles } = await supabase
         .from('user_roles')
-        .select('user_id')
+        .select('user_id, role')
         .in('role', ['admin', 'front_desk']);
 
       const adminUserIds = (adminRoles || []).map((r: any) => r.user_id);
@@ -330,21 +342,24 @@ Deno.serve(async (req) => {
           .select('user_id, room_shuffle_email')
           .in('user_id', adminUserIds);
 
-        const adminEmails = adminUserIds
-          .filter((uid: string) => {
-            const settings = notifSettings?.find((s: any) => s.user_id === uid);
-            if (settings && !settings.room_shuffle_email) {
-              const authUser = authUsers?.users?.find((u: any) => u.id === uid);
-              console.log(`Skipped ${authUser?.email || uid} — room shuffle notifications disabled`);
-              return false;
-            }
-            return true;
-          })
+        // Build user objects with role info for property access filter
+        const adminUsersWithInfo = adminUserIds
           .map((uid: string) => {
             const authUser = authUsers?.users?.find((u: any) => u.id === uid);
-            return authUser?.email;
+            const roleRecord = adminRoles?.find((r: any) => r.user_id === uid);
+            const settings = notifSettings?.find((s: any) => s.user_id === uid);
+            return {
+              user_id: uid,
+              email: authUser?.email,
+              role: roleRecord?.role,
+              prefEnabled: !settings || settings.room_shuffle_email !== false,
+            };
           })
-          .filter(Boolean) as string[];
+          .filter((u: any) => u.email && u.prefEnabled);
+
+        // Filter by property access
+        const filteredAdminUsers = await filterByPropertyAccess(supabase, adminUsersWithInfo, shufflePropertyId);
+        const adminEmails = filteredAdminUsers.map((u: any) => u.email);
 
         if (adminEmails.length > 0) {
           // Format dates
@@ -583,3 +598,46 @@ Deno.serve(async (req) => {
     });
   }
 });
+
+async function filterByPropertyAccess(
+  supabase: any,
+  users: any[],
+  propertyId: string | null
+): Promise<any[]> {
+  if (!propertyId) {
+    console.log('No property_id — skipping property access filter');
+    return users;
+  }
+
+  const userIds = users.map((u: any) => u.user_id);
+  if (userIds.length === 0) return [];
+
+  const { data: allAccess } = await supabase
+    .from('user_property_access')
+    .select('user_id, property_id')
+    .in('user_id', userIds);
+
+  const accessList = allAccess || [];
+
+  const { data: propData } = await supabase
+    .from('properties')
+    .select('name')
+    .eq('id', propertyId)
+    .single();
+  const propertyName = propData?.name || propertyId;
+
+  return users.filter((user: any) => {
+    const userAccessEntries = accessList.filter((a: any) => a.user_id === user.user_id);
+
+    if (userAccessEntries.length === 0 && user.role === 'admin') {
+      console.log(`${user.email} — admin with global access (no property restrictions)`);
+      return true;
+    }
+
+    const hasAccess = userAccessEntries.some((a: any) => a.property_id === propertyId);
+    if (!hasAccess) {
+      console.log(`Skipped ${user.email} — no access to property "${propertyName}"`);
+    }
+    return hasAccess;
+  });
+}

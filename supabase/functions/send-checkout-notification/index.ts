@@ -55,7 +55,10 @@ Deno.serve(async (req) => {
       throw new Error('Failed to fetch reservation details');
     }
 
-    // Get all users with emails - query directly instead of using RPC (service role bypasses RLS)
+    const propertyId = reservation.property_id;
+    console.log('Reservation property_id:', propertyId);
+
+    // Get all users with emails
     const { data: profiles, error: profilesError } = await supabase
       .from('profiles')
       .select('id, full_name');
@@ -74,7 +77,6 @@ Deno.serve(async (req) => {
       throw new Error('Failed to fetch user roles');
     }
 
-    // We need auth.users emails - use admin API
     const { data: authUsers, error: authError } = await supabase.auth.admin.listUsers();
 
     if (authError) {
@@ -92,7 +94,7 @@ Deno.serve(async (req) => {
         full_name: profile.full_name,
         role: roleRecord?.role
       };
-    }).filter((u: any) => u.email); // Only users with emails
+    }).filter((u: any) => u.email);
 
     // Get admins and front desk for notification
     const admins = userData.filter((user: any) => ['admin', 'front_desk'].includes(user.role));
@@ -118,12 +120,18 @@ Deno.serve(async (req) => {
       return true;
     });
 
-    const filteredAdmins = filterByPref(admins);
-    const filteredHousekeeping = filterByPref(housekeepingStaff);
+    const prefFilteredAdmins = filterByPref(admins);
+    const prefFilteredHousekeeping = filterByPref(housekeepingStaff);
+
+    // Filter by property access
+    const filteredAdmins = await filterByPropertyAccess(supabase, prefFilteredAdmins, propertyId);
+    const filteredHousekeeping = await filterByPropertyAccess(supabase, prefFilteredHousekeeping, propertyId);
     const allRecipients = [...filteredAdmins, ...filteredHousekeeping];
 
+    console.log(`After property access filter: ${filteredAdmins.length} admins, ${filteredHousekeeping.length} housekeeping`);
+
     if (allRecipients.length === 0) {
-      console.log('No staff to notify (all disabled or none found)');
+      console.log('No staff to notify (all filtered out)');
       return new Response(
         JSON.stringify({ message: 'No staff to notify' }),
         { headers: { ...corsHeaders, 'Content-Type': 'application/json' }, status: 200 }
@@ -135,7 +143,6 @@ Deno.serve(async (req) => {
     const roomNumber = reservation.units?.unit_number || 'N/A';
     const estimatedMinutes = reservation.units?.estimated_cleaning_minutes || 45;
     
-    // Format check-out timestamp in Cairo time - use passed param first, then DB value
     const checkedOutTimestamp = checkedOutAtParam || reservation.checked_out_at;
     const checkedOutAt = checkedOutTimestamp 
       ? new Date(checkedOutTimestamp).toLocaleString('en-US', {
@@ -154,7 +161,7 @@ Deno.serve(async (req) => {
     let successCount = 0;
     let failedCount = 0;
 
-    console.log(`Starting to send check-out notification emails to ${allRecipients.length} recipients (${admins.length} admins, ${housekeepingStaff.length} housekeeping)`);
+    console.log(`Starting to send check-out notification emails to ${allRecipients.length} recipients`);
 
     for (const staff of allRecipients) {
       try {
@@ -244,7 +251,6 @@ Deno.serve(async (req) => {
           successCount++;
         }
         
-        // Add delay between emails (600ms) for rate limiting
         await new Promise(resolve => setTimeout(resolve, 600));
       } catch (error: any) {
         console.error(`Exception sending email to ${staff.email}:`, error.message || error);
@@ -260,8 +266,6 @@ Deno.serve(async (req) => {
         message: 'Check-out notifications sent to admins and housekeeping',
         sent: successCount,
         total: allRecipients.length,
-        admins: admins.length,
-        housekeeping: housekeepingStaff.length,
         results
       }),
       {
@@ -281,3 +285,46 @@ Deno.serve(async (req) => {
     );
   }
 });
+
+async function filterByPropertyAccess(
+  supabase: any,
+  users: any[],
+  propertyId: string | null
+): Promise<any[]> {
+  if (!propertyId) {
+    console.log('No property_id on reservation — skipping property access filter');
+    return users;
+  }
+
+  const userIds = users.map((u: any) => u.user_id);
+  if (userIds.length === 0) return [];
+
+  const { data: allAccess } = await supabase
+    .from('user_property_access')
+    .select('user_id, property_id')
+    .in('user_id', userIds);
+
+  const accessList = allAccess || [];
+
+  const { data: propData } = await supabase
+    .from('properties')
+    .select('name')
+    .eq('id', propertyId)
+    .single();
+  const propertyName = propData?.name || propertyId;
+
+  return users.filter((user: any) => {
+    const userAccessEntries = accessList.filter((a: any) => a.user_id === user.user_id);
+
+    if (userAccessEntries.length === 0 && user.role === 'admin') {
+      console.log(`${user.email} — admin with global access (no property restrictions)`);
+      return true;
+    }
+
+    const hasAccess = userAccessEntries.some((a: any) => a.property_id === propertyId);
+    if (!hasAccess) {
+      console.log(`Skipped ${user.email} — no access to property "${propertyName}"`);
+    }
+    return hasAccess;
+  });
+}

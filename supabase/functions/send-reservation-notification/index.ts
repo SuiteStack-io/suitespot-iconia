@@ -395,6 +395,18 @@ const handler = async (req: Request): Promise<Response> => {
       await new Promise(resolve => setTimeout(resolve, 600));
     }
 
+    // Determine property_id from unitId or reservation
+    let notifPropertyId: string | null = null;
+    if (unitId) {
+      const { data: unitProp } = await supabaseClient
+        .from('units')
+        .select('property_id')
+        .eq('id', unitId)
+        .single();
+      notifPropertyId = unitProp?.property_id || null;
+    }
+    console.log('Reservation notification property_id:', notifPropertyId);
+
     // Fetch all admin and manager users directly using service role
     const { data: userRoles, error: rolesError } = await supabaseClient
       .from("user_roles")
@@ -474,7 +486,7 @@ const handler = async (req: Request): Promise<Response> => {
       .select('user_id, new_booking_email')
       .in('user_id', staffUserIds);
 
-    const filteredUsers = users.filter((u: any) => {
+    const prefFilteredUsers = users.filter((u: any) => {
       const settings = notifSettings?.find((s: any) => s.user_id === u.user_id);
       if (settings && !settings.new_booking_email) {
         console.log(`Skipped ${u.email} — new booking notifications disabled`);
@@ -482,6 +494,9 @@ const handler = async (req: Request): Promise<Response> => {
       }
       return true;
     });
+
+    // Filter by property access
+    const filteredUsers = await filterByPropertyAccess(supabaseClient, prefFilteredUsers, notifPropertyId);
 
     console.log("Final users to notify:", filteredUsers.map((u: any) => ({ email: u.email, name: u.full_name })));
 
@@ -863,3 +878,46 @@ const handler = async (req: Request): Promise<Response> => {
 };
 
 Deno.serve(handler);
+
+async function filterByPropertyAccess(
+  supabase: any,
+  users: any[],
+  propertyId: string | null
+): Promise<any[]> {
+  if (!propertyId) {
+    console.log('No property_id — skipping property access filter');
+    return users;
+  }
+
+  const userIds = users.map((u: any) => u.user_id);
+  if (userIds.length === 0) return [];
+
+  const { data: allAccess } = await supabase
+    .from('user_property_access')
+    .select('user_id, property_id')
+    .in('user_id', userIds);
+
+  const accessList = allAccess || [];
+
+  const { data: propData } = await supabase
+    .from('properties')
+    .select('name')
+    .eq('id', propertyId)
+    .single();
+  const propertyName = propData?.name || propertyId;
+
+  return users.filter((user: any) => {
+    const userAccessEntries = accessList.filter((a: any) => a.user_id === user.user_id);
+
+    if (userAccessEntries.length === 0 && user.role === 'admin') {
+      console.log(`${user.email} — admin with global access (no property restrictions)`);
+      return true;
+    }
+
+    const hasAccess = userAccessEntries.some((a: any) => a.property_id === propertyId);
+    if (!hasAccess) {
+      console.log(`Skipped ${user.email} — no access to property "${propertyName}"`);
+    }
+    return hasAccess;
+  });
+}

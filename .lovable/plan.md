@@ -1,64 +1,118 @@
 
 
-## Fix: Email Notifications Must Respect Property Access
+## Fix: Filter Blocked Dates by Active Property
 
 ### Problem
-All notification edge functions (check-in, check-out, new booking, cancellation, room shuffle, daily summary) filter recipients only by role and notification toggle preference. They never check `user_property_access`, so users receive emails for properties they have no access to.
+`fetchBlockedDates()` fetches ALL blocked dates across all properties. `fetchUnits()` correctly filters by `propertyId`, but blocked dates does not.
 
-### The Fix Pattern
-Every notification function needs to:
-1. Determine the `property_id` of the reservation/event being notified about
-2. Query `user_property_access` to get which users have access to that property
-3. Intersect with notification preferences (existing logic)
-4. Log skipped users who lack property access
+### File: `src/components/BlockedDatesManager.tsx`
 
-### Functions to Update (6 total)
+**1. Filter `fetchBlockedDates` by property (lines 101-121)**
 
-**1. `send-checkin-notification`**
-- Already fetches reservation with unit join — add `reservation.property_id`
-- After building the admins list and filtering by `checkin_email`, also fetch `user_property_access` for the reservation's `property_id` and filter: only include users whose `user_id` appears in `user_property_access` for that property
-- Log skipped users: `"Skipped [name] — no access to property [property_id]"`
+The `blocked_dates` table references `units` via `unit_id`. Filter by joining through units that belong to the active property:
 
-**2. `send-checkout-notification`**
-- Same pattern: get `reservation.property_id`, fetch `user_property_access`, filter recipients
-- Applies to both admin and housekeeping recipients
+```typescript
+const fetchBlockedDates = async () => {
+  try {
+    let query = supabase
+      .from("blocked_dates")
+      .select(`
+        *,
+        units (
+          name,
+          unit_number,
+          booking_com_name
+        )
+      `)
+      .order("blocked_date", { ascending: true });
 
-**3. `send-reservation-notification`**
-- Currently receives `unitId` but not `property_id` — need to look up property_id from the reservation or unit
-- Add property access filter after the `new_booking_email` preference filter
-- The function also sends a customer confirmation email (to the guest) — that is NOT affected; only the internal staff notification loop needs the property filter
+    // Filter to only show blocked dates for units belonging to the active property
+    if (propertyId) {
+      query = query.eq('units.property_id', propertyId);
+    }
 
-**4. `send-cancellation-notification`**
-- Currently receives reservation data but no `property_id` — need to fetch it from the reservation record using `reservation_id`
-- Add property access filter after the `cancelled_booking_email` preference filter
+    const { data, error } = await query;
+    if (error) throw error;
 
-**5. `auto-shuffle-rooms` (room shuffle notification)**
-- The shuffle function already has the reservation context — extract `property_id` from the reservation being shuffled
-- Filter admin email recipients by `user_property_access`
+    // Remove entries where the unit was filtered out (unit doesn't belong to property)
+    const filtered = (data || []).filter(d => d.unit_id === null || d.units !== null);
+    setBlockedDates(filtered);
+  } catch (error: any) {
+    console.error("Error fetching blocked dates:", error);
+    toast.error("Failed to fetch blocked dates");
+  }
+};
+```
 
-**6. `generate-daily-summary`**
-- Currently sends to ALL users with `daily_summary_email = true` for only the default property
-- Change `getRecipients()` to accept a `property_id` parameter
-- Filter recipients: only users who have that property in `user_property_access`
-- This already runs per-property (uses default property), so the filter just needs to scope recipients
+However, `blocked_dates` rows with `unit_id = null` (meaning "all rooms") have no unit join to filter on. We need a different approach — filter blocked dates whose `unit_id` is either null OR belongs to a unit in the active property. The cleanest way: use the unit IDs we already fetch.
 
-### Admin Fallback Logic
-For each function, after filtering by `user_property_access`, also include admin-role users who have NO rows at all in `user_property_access` (they get global access by default). If an admin has specific entries in `user_property_access`, only send for those properties.
+**Better approach — filter client-side using fetched units:**
 
-The check: if `user_property_access` has zero rows for an admin user → include them (global access). If they have 1+ rows → only include them if the notification's property_id is among their rows.
+Since `fetchUnits` already returns only units for the active property, filter blocked dates to only include those whose `unit_id` is null or matches a fetched unit.
 
-### Callers — Pass property_id
-Some callers need to start passing `property_id` to the edge functions:
-- `CreateReservationDialog` → pass `property_id` from the reservation
-- `ReservationDetail` (cancellation) → pass `property_id`
-- `ReservationsList` (bulk cancel) → pass `property_id`
-- `BookingComReservations` → pass `property_id`
+Actually, the simplest and most reliable fix: add `property_id` awareness to the query. Since `blocked_dates` has a `unit_id` FK to `units`, and `units` has `property_id`, we can filter via an inner join or use an `in` filter with the property's unit IDs.
 
-### No Changes To
-- Edit Permissions modal UI
-- `user_property_access` table structure
-- `user_notification_settings` table structure
-- Email content/formatting
-- WhatsApp guest messages
-- Channex webhook handlers
+**Revised approach — fetch unit IDs first, then filter:**
+
+```typescript
+// In useEffect, ensure both refetch when propertyId changes
+useEffect(() => {
+  fetchUnits();
+  fetchBlockedDates();
+}, [propertyId]);
+```
+
+In `fetchBlockedDates`, after fetching units (or independently):
+- Query units for the active property to get their IDs
+- Filter blocked_dates where `unit_id` is in that list
+
+**Simplest implementation:**
+
+1. **Change useEffect (line 80-83)** to depend on `propertyId`
+2. **Update `fetchBlockedDates`** to filter by property's unit IDs
+
+```typescript
+const fetchBlockedDates = async () => {
+  try {
+    // First get unit IDs for the active property
+    let unitIds: string[] = [];
+    if (propertyId) {
+      const { data: propUnits } = await supabase
+        .from("units")
+        .select("id")
+        .eq("property_id", propertyId);
+      unitIds = (propUnits || []).map(u => u.id);
+    }
+
+    let query = supabase
+      .from("blocked_dates")
+      .select(`*, units (name, unit_number, booking_com_name)`)
+      .order("blocked_date", { ascending: true });
+
+    if (propertyId && unitIds.length > 0) {
+      // Only show blocked dates for this property's units
+      query = query.in("unit_id", unitIds);
+    } else if (propertyId && unitIds.length === 0) {
+      // Property has no units, show nothing
+      setBlockedDates([]);
+      return;
+    }
+
+    const { data, error } = await query;
+    if (error) throw error;
+    setBlockedDates(data || []);
+  } catch (error: any) {
+    console.error("Error fetching blocked dates:", error);
+    toast.error("Failed to fetch blocked dates");
+  }
+};
+```
+
+3. **Update useEffect** (line 80-83): add `propertyId` to dependency array
+
+### Summary
+- 1 file changed: `src/components/BlockedDatesManager.tsx`
+- `fetchBlockedDates` filters by active property's unit IDs
+- Re-fetches when property switches
+- Blocked dates with `unit_id = null` (all-rooms blocks) won't show unless we decide they should — this matches the expectation that blocks are property-scoped
 

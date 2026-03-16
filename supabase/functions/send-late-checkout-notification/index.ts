@@ -40,31 +40,25 @@ Deno.serve(async (req) => {
       throw new Error('Failed to fetch late checkout reservation');
     }
 
+    const propertyId = lateCheckoutRes.property_id;
+    console.log('Late checkout property_id:', propertyId);
+
     // Get all admin users
     const { data: profiles, error: profilesError } = await supabase
       .from('profiles')
       .select('id, full_name');
 
-    if (profilesError) {
-      console.error('Error fetching profiles:', profilesError);
-      throw new Error('Failed to fetch profiles');
-    }
+    if (profilesError) throw new Error('Failed to fetch profiles');
 
     const { data: userRoles, error: rolesError } = await supabase
       .from('user_roles')
       .select('user_id, role');
 
-    if (rolesError) {
-      console.error('Error fetching user roles:', rolesError);
-      throw new Error('Failed to fetch user roles');
-    }
+    if (rolesError) throw new Error('Failed to fetch user roles');
 
     const { data: authUsers, error: authError } = await supabase.auth.admin.listUsers();
 
-    if (authError) {
-      console.error('Error fetching auth users:', authError);
-      throw new Error('Failed to fetch auth users');
-    }
+    if (authError) throw new Error('Failed to fetch auth users');
 
     // Combine data to get admin users with emails
     const admins = (profiles || [])
@@ -80,10 +74,12 @@ Deno.serve(async (req) => {
       })
       .filter((u: any) => u.email && ['admin', 'front_desk'].includes(u.role));
 
-    console.log(`Found ${admins.length} admin users to notify`);
+    // Filter by property access
+    const filteredAdmins = await filterByPropertyAccess(supabase, admins, propertyId);
 
-    if (admins.length === 0) {
-      console.log('No admin users found, skipping email notification');
+    console.log(`Found ${admins.length} admin users, ${filteredAdmins.length} after property access filter`);
+
+    if (filteredAdmins.length === 0) {
       return new Response(
         JSON.stringify({ message: 'No admins to notify' }),
         { headers: { ...corsHeaders, 'Content-Type': 'application/json' }, status: 200 }
@@ -92,10 +88,7 @@ Deno.serve(async (req) => {
 
     // Format date
     const checkoutDateFormatted = new Date(lateCheckoutRes.check_out_date).toLocaleDateString('en-US', {
-      weekday: 'short',
-      month: 'short',
-      day: 'numeric',
-      year: 'numeric'
+      weekday: 'short', month: 'short', day: 'numeric', year: 'numeric'
     });
 
     const guestName = lateCheckoutRes.guest_names?.[0] || 'Unknown Guest';
@@ -103,13 +96,12 @@ Deno.serve(async (req) => {
     const unitNumber = lateCheckoutRes.units?.unit_number || '';
     const roomInfo = unitNumber ? `${unitName} - Room #${unitNumber}` : unitName;
 
-    // Calculate VAT breakdown
     const totalPrice = lateCheckoutRes.total_price || 0;
     const baseAmount = totalPrice / 1.14;
     const vatAmount = totalPrice - baseAmount;
 
-    // Send email to all admins
-    const emailPromises = admins.map(async (admin: any) => {
+    // Send email to all filtered admins
+    const emailPromises = filteredAdmins.map(async (admin: any) => {
       try {
         const emailResponse = await resend.emails.send({
           from: "SuiteSpot Notifications <notifications@bookings.suitespoteg.com>",
@@ -198,13 +190,13 @@ Deno.serve(async (req) => {
     const results = await Promise.all(emailPromises);
     const successCount = results.filter(r => r.success).length;
 
-    console.log(`Late checkout notification emails sent: ${successCount}/${admins.length}`);
+    console.log(`Late checkout notification emails sent: ${successCount}/${filteredAdmins.length}`);
 
     return new Response(
       JSON.stringify({
         message: 'Late checkout notifications sent',
         sent: successCount,
-        total: admins.length,
+        total: filteredAdmins.length,
         results
       }),
       {
@@ -224,3 +216,46 @@ Deno.serve(async (req) => {
     );
   }
 });
+
+async function filterByPropertyAccess(
+  supabase: any,
+  users: any[],
+  propertyId: string | null
+): Promise<any[]> {
+  if (!propertyId) {
+    console.log('No property_id — skipping property access filter');
+    return users;
+  }
+
+  const userIds = users.map((u: any) => u.user_id);
+  if (userIds.length === 0) return [];
+
+  const { data: allAccess } = await supabase
+    .from('user_property_access')
+    .select('user_id, property_id')
+    .in('user_id', userIds);
+
+  const accessList = allAccess || [];
+
+  const { data: propData } = await supabase
+    .from('properties')
+    .select('name')
+    .eq('id', propertyId)
+    .single();
+  const propertyName = propData?.name || propertyId;
+
+  return users.filter((user: any) => {
+    const userAccessEntries = accessList.filter((a: any) => a.user_id === user.user_id);
+
+    if (userAccessEntries.length === 0 && user.role === 'admin') {
+      console.log(`${user.email} — admin with global access (no property restrictions)`);
+      return true;
+    }
+
+    const hasAccess = userAccessEntries.some((a: any) => a.property_id === propertyId);
+    if (!hasAccess) {
+      console.log(`Skipped ${user.email} — no access to property "${propertyName}"`);
+    }
+    return hasAccess;
+  });
+}

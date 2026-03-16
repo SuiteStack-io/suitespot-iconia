@@ -43,7 +43,7 @@ Deno.serve(async (req) => {
       performedByName = 'Guest (Self Check-In)';
     }
 
-    // Get reservation details including check-in timestamp
+    // Get reservation details including check-in timestamp and property_id
     const { data: reservation, error: reservationError } = await supabase
       .from('reservations')
       .select('*, units!reservations_unit_id_fkey(name, booking_com_name, unit_number)')
@@ -55,7 +55,10 @@ Deno.serve(async (req) => {
       throw new Error('Failed to fetch reservation details');
     }
 
-    // Get all users with emails - query directly instead of using RPC (service role bypasses RLS)
+    const propertyId = reservation.property_id;
+    console.log('Reservation property_id:', propertyId);
+
+    // Get all users with emails
     const { data: profiles, error: profilesError } = await supabase
       .from('profiles')
       .select('id, full_name');
@@ -74,7 +77,6 @@ Deno.serve(async (req) => {
       throw new Error('Failed to fetch user roles');
     }
 
-    // We need auth.users emails - use admin API
     const { data: authUsers, error: authError } = await supabase.auth.admin.listUsers();
 
     if (authError) {
@@ -103,19 +105,22 @@ Deno.serve(async (req) => {
       .select('user_id, checkin_email')
       .in('user_id', adminUserIds);
 
-    const filteredAdmins = admins.filter((admin: any) => {
+    const prefFiltered = admins.filter((admin: any) => {
       const settings = notifSettings?.find((s: any) => s.user_id === admin.user_id);
       if (settings && !settings.checkin_email) {
         console.log(`Skipped ${admin.email} — checkin notifications disabled`);
         return false;
       }
-      return true; // No row = default enabled
+      return true;
     });
 
-    console.log(`Found ${admins.length} admin users, ${filteredAdmins.length} after notification preferences`);
+    // Filter by property access
+    const filteredAdmins = await filterByPropertyAccess(supabase, prefFiltered, propertyId);
+
+    console.log(`Found ${admins.length} admin users, ${prefFiltered.length} after prefs, ${filteredAdmins.length} after property access`);
 
     if (filteredAdmins.length === 0) {
-      console.log('No admin users to notify (all disabled or none found)');
+      console.log('No admin users to notify (all filtered out)');
       return new Response(
         JSON.stringify({ message: 'No admins to notify' }),
         { headers: { ...corsHeaders, 'Content-Type': 'application/json' }, status: 200 }
@@ -267,3 +272,56 @@ Deno.serve(async (req) => {
     );
   }
 });
+
+/**
+ * Filter users by property access.
+ * A user passes if:
+ *   1. They have a row in user_property_access for this property_id, OR
+ *   2. They are an admin with ZERO rows in user_property_access (global access)
+ */
+async function filterByPropertyAccess(
+  supabase: any,
+  users: any[],
+  propertyId: string | null
+): Promise<any[]> {
+  if (!propertyId) {
+    console.log('No property_id on reservation — skipping property access filter');
+    return users;
+  }
+
+  const userIds = users.map((u: any) => u.user_id);
+  if (userIds.length === 0) return [];
+
+  // Fetch all property access entries for these users
+  const { data: allAccess } = await supabase
+    .from('user_property_access')
+    .select('user_id, property_id')
+    .in('user_id', userIds);
+
+  const accessList = allAccess || [];
+
+  // Get property name for logging
+  const { data: propData } = await supabase
+    .from('properties')
+    .select('name')
+    .eq('id', propertyId)
+    .single();
+  const propertyName = propData?.name || propertyId;
+
+  return users.filter((user: any) => {
+    const userAccessEntries = accessList.filter((a: any) => a.user_id === user.user_id);
+
+    // Admin with no property access entries = global access
+    if (userAccessEntries.length === 0 && user.role === 'admin') {
+      console.log(`${user.email} — admin with global access (no property restrictions)`);
+      return true;
+    }
+
+    // Check if user has access to this specific property
+    const hasAccess = userAccessEntries.some((a: any) => a.property_id === propertyId);
+    if (!hasAccess) {
+      console.log(`Skipped ${user.email} — no access to property "${propertyName}"`);
+    }
+    return hasAccess;
+  });
+}
