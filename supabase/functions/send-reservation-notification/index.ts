@@ -319,7 +319,7 @@ const handler = async (req: Request): Promise<Response> => {
                     <p style="margin: 10px 0; color: #1e3a8a; font-size: 14px;">
                       <strong>Check-in Time:</strong> From 3:00 PM<br/>
                       <strong>Check-out Time:</strong> By 12:00 PM<br/>
-                      <strong>Location:</strong> ICONIA Zamalek - Boutique Stay & Wellness Residences, Cairo, Egypt
+                      <strong>Location:</strong> ${propertyName}
                     </p>
                     <p style="margin: 15px 0 0 0; color: #1e3a8a; font-size: 14px;">
                       Please bring a valid ID or passport for check-in. Early check-in and late check-out may be available upon request, subject to availability.
