@@ -62,6 +62,8 @@ export default function GuestInbox() {
   const [activeTab, setActiveTab] = useState("all");
   const [selectedThreadId, setSelectedThreadId] = useState<string | null>(null);
 
+  const selectedThread = threads.find((t) => t.id === selectedThreadId) || null;
+
   const fetchThreads = useCallback(async () => {
     let query = supabase
       .from("message_threads")
