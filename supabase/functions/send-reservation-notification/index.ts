@@ -257,7 +257,7 @@ const handler = async (req: Request): Promise<Response> => {
                     Dear ${guestNames[0] || 'Guest'},
                   </p>
                   <p style="color: #333; font-size: 14px; line-height: 1.6; margin-bottom: 30px;">
-                    Thank you for choosing SuiteSpot ICONIA Zamalek - Boutique Stay & Wellness Residences! We're delighted to confirm your reservation.
+                    Thank you for choosing SuiteSpot ${propertyName}! We're delighted to confirm your reservation.
                   </p>
                   
                   <h2 style="color: #0f172a; margin-top: 0;">Your Booking Details</h2>
