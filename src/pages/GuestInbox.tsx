@@ -11,6 +11,7 @@ import { AdminBreadcrumb } from "@/components/AdminBreadcrumb";
 import { ArrowLeft, MessageCircle, ExternalLink } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { useIsMobile } from "@/hooks/use-mobile";
+import { ConversationPanel } from "@/components/inbox/ConversationPanel";
 
 interface MessageThread {
   id: string;
