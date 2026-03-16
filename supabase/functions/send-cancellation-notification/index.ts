@@ -84,6 +84,9 @@ const handler = async (req: Request): Promise<Response> => {
     }
     console.log('Cancellation property_id:', propertyId);
 
+    // Dynamic property name lookup
+    const cancellationPropertyName = await getPropertyName(supabase, propertyId);
+
     // Fetch admin users
     const { data: userRoles, error: rolesError } = await supabase
       .from("user_roles")
