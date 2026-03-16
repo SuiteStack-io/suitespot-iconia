@@ -238,8 +238,36 @@ export function BulkAvailabilityEditor({ pendingAvailability, setPendingAvailabi
     }
   };
 
+  const handleFullSync = async () => {
+    if (!propertyId) return;
+    setIsSyncing(true);
+    try {
+      const { data, error } = await supabase.functions.invoke('channex-full-sync', {
+        body: { propertyId },
+      });
+      if (error) throw error;
+      if (data?.success === false) {
+        toast({ title: 'Sync Failed', description: data.error || 'Failed to sync', variant: 'destructive' });
+        return;
+      }
+      const roomTypeCount = data?.results?.length || 0;
+      toast({ title: 'Success', description: `Availability synced to Channex (${roomTypeCount} room type${roomTypeCount !== 1 ? 's' : ''} pushed)` });
+    } catch (err: any) {
+      toast({ title: 'Sync Error', description: err.message || 'Failed to sync to Channex', variant: 'destructive' });
+    } finally {
+      setIsSyncing(false);
+    }
+  };
+
   return (
     <div className="space-y-6">
+      {/* Sync to Channex button */}
+      <div className="flex justify-end">
+        <Button variant="outline" onClick={handleFullSync} disabled={isSyncing}>
+          <RefreshCw className={cn("h-4 w-4", isSyncing && "animate-spin")} />
+          {isSyncing ? "Syncing..." : "Sync to Channex"}
+        </Button>
+      </div>
       {/* Editor Card */}
       <Card>
         <CardHeader>
