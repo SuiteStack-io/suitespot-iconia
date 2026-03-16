@@ -1142,20 +1142,6 @@ Thank you for choosing SuiteSpot!`;
             </Button>
           </div>
         )}
-        {isEditMode && (
-          <div className="flex gap-2">
-            <Button variant="outline" onClick={() => {
-              setIsEditMode(false);
-              fetchReservation();
-            }}>
-              <X className="h-4 w-4 mr-2" />
-              Cancel
-            </Button>
-            <Button onClick={handleSave} disabled={saving}>
-              {saving ? 'Saving...' : 'Save Changes'}
-            </Button>
-          </div>
-        )}
       </div>
 
       <div className="grid gap-6 md:grid-cols-2">
