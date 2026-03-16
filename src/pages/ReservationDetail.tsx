@@ -419,6 +419,8 @@ const ReservationDetail = () => {
   // Single date-change effect: fetch rates from rate plan and recalculate in one pass
   const recalculatePricing = useCallback(async () => {
     if (!isEditMode || !formData.unit_id) return;
+    // Skip for Channex/OTA reservations — their pricing is set by the channel
+    if (reservation?.channex_booking_id) return;
 
     const nights = calculateNights();
     if (nights <= 0) return;
