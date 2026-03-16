@@ -512,7 +512,7 @@ const ReservationDetail = () => {
     } finally {
       setRecalculatingPrice(false);
     }
-  }, [isEditMode, formData.unit_id, formData.check_in_date, formData.check_out_date, formData.commission_rate, units, propertyId]);
+  }, [isEditMode, formData.unit_id, formData.check_in_date, formData.check_out_date, formData.commission_rate, formData.vat_exempt, units, propertyId]);
 
   useEffect(() => {
     if (isEditMode) {
