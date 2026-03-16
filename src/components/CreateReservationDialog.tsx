@@ -1027,6 +1027,11 @@ export function CreateReservationDialog() {
 
     if (!validateForm()) return;
 
+    if (!propertyId) {
+      toast.error('No active property selected.');
+      return;
+    }
+
     setLoading(true);
 
     try {
