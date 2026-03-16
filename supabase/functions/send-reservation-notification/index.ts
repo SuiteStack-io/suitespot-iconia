@@ -95,20 +95,26 @@ const handler = async (req: Request): Promise<Response> => {
     // Fetch unit details if unitId is provided
     let matchedRoomName = null;
     let matchedRoomNumber = null;
+    let unitPropertyId: string | null = null;
     
     if (unitId) {
       const { data: unitData, error: unitError } = await supabaseClient
         .from('units')
-        .select('name, booking_com_name, unit_number')
+        .select('name, booking_com_name, unit_number, property_id')
         .eq('id', unitId)
         .single();
       
       if (!unitError && unitData) {
         matchedRoomName = unitData.booking_com_name || unitData.name;
         matchedRoomNumber = unitData.unit_number;
+        unitPropertyId = unitData.property_id || null;
         console.log("Matched unit details:", { name: matchedRoomName, number: matchedRoomNumber });
       }
     }
+
+    // Fetch dynamic property name
+    const propertyName = await getPropertyName(supabaseClient, unitPropertyId);
+    console.log("Dynamic property name:", propertyName);
     
     // Calculate proper adult/children counts if they're both 0 or undefined
     let finalAdults = adults;
