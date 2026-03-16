@@ -28,6 +28,7 @@ export interface PendingAvailability {
   dateFrom: string;
   dateTo: string;
   availability: number;
+  previousAvailability: number | null;
   addedAt: Date;
 }
 
