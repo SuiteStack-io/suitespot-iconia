@@ -1,118 +1,43 @@
 
 
-## Fix: Filter Blocked Dates by Active Property
+## Fix Availability Sync: Old Date Range & Checkout Date Bugs
 
-### Problem
-`fetchBlockedDates()` fetches ALL blocked dates across all properties. `fetchUnits()` correctly filters by `propertyId`, but blocked dates does not.
+### Bug 1: Modified reservations don't sync old date range
 
-### File: `src/components/BlockedDatesManager.tsx`
+**Root cause**: The `notify_channex_availability_change()` trigger function (created in migration `20260216093044`) only queues the NEW dates on UPDATE. When a reservation's dates change (e.g., March 20-27 → March 22-29), the old range (March 20-22) never gets its availability restored in Channex.
 
-**1. Filter `fetchBlockedDates` by property (lines 101-121)**
+**Fix**: SQL migration to update the trigger function. On UPDATE, detect if `check_in_date` or `check_out_date` changed. If so, queue TWO sync entries — one for the old date range and one for the new date range. Also handle cancellations (status changed to 'cancelled') by queuing the freed dates.
 
-The `blocked_dates` table references `units` via `unit_id`. Filter by joining through units that belong to the active property:
+### Bug 2: Checkout date counted as occupied
 
-```typescript
-const fetchBlockedDates = async () => {
-  try {
-    let query = supabase
-      .from("blocked_dates")
-      .select(`
-        *,
-        units (
-          name,
-          unit_number,
-          booking_com_name
-        )
-      `)
-      .order("blocked_date", { ascending: true });
+**Root cause**: The `calculateAvailability()` function in `channex-process-sync-queue/index.ts` uses a simple count query (`.lt("check_in_date", dateTo).gt("check_out_date", dateFrom)`) which counts any reservation overlapping the range. This has two problems:
+1. For multi-day ranges, different days may have different availability but only one number is returned
+2. A reservation checking out within the range is counted as fully occupying it, even though checkout day is free
 
-    // Filter to only show blocked dates for units belonging to the active property
-    if (propertyId) {
-      query = query.eq('units.property_id', propertyId);
-    }
+**Fix**: Rewrite `calculateAvailability` to do day-by-day calculation (matching the full-sync logic where `check_out_date > date` excludes the checkout day), then collapse consecutive days with the same availability into ranges. Update the caller to push multiple availability values per queue item.
 
-    const { data, error } = await query;
-    if (error) throw error;
+The full-sync function (`channex-full-sync/index.ts`) already correctly uses `r.check_out_date > ds` for day-by-day, so no change needed there.
 
-    // Remove entries where the unit was filtered out (unit doesn't belong to property)
-    const filtered = (data || []).filter(d => d.unit_id === null || d.units !== null);
-    setBlockedDates(filtered);
-  } catch (error: any) {
-    console.error("Error fetching blocked dates:", error);
-    toast.error("Failed to fetch blocked dates");
-  }
-};
-```
+### Changes
 
-However, `blocked_dates` rows with `unit_id = null` (meaning "all rooms") have no unit join to filter on. We need a different approach — filter blocked dates whose `unit_id` is either null OR belongs to a unit in the active property. The cleanest way: use the unit IDs we already fetch.
+**1. SQL Migration — Update trigger function**
 
-**Better approach — filter client-side using fetched units:**
+Replace `notify_channex_availability_change()` to:
+- On UPDATE: if dates or unit changed, queue sync for OLD dates AND NEW dates separately
+- On UPDATE: if status changed to 'cancelled', queue sync for the reservation's dates (to restore availability)
+- On DELETE: queue sync for OLD dates (already works, no change)
+- On INSERT: queue sync for NEW dates (already works, no change)
 
-Since `fetchUnits` already returns only units for the active property, filter blocked dates to only include those whose `unit_id` is null or matches a fetched unit.
+**2. Edge function — `supabase/functions/channex-process-sync-queue/index.ts`**
 
-Actually, the simplest and most reliable fix: add `property_id` awareness to the query. Since `blocked_dates` has a `unit_id` FK to `units`, and `units` has `property_id`, we can filter via an inner join or use an `in` filter with the property's unit IDs.
+Rewrite `calculateAvailability()` → `calculateAvailabilityRanges()`:
+- Accept the same parameters but return an array of `{ date_from, date_to, availability }` collapsed ranges
+- Fetch all units + reservations + blocked dates for the room type (scoped by property)
+- Iterate day-by-day through the date range
+- For each day, count occupied units (where `check_in_date <= day AND check_out_date > day`) and blocked units
+- Collapse consecutive days with equal availability into ranges (like full-sync does)
 
-**Revised approach — fetch unit IDs first, then filter:**
-
-```typescript
-// In useEffect, ensure both refetch when propertyId changes
-useEffect(() => {
-  fetchUnits();
-  fetchBlockedDates();
-}, [propertyId]);
-```
-
-In `fetchBlockedDates`, after fetching units (or independently):
-- Query units for the active property to get their IDs
-- Filter blocked_dates where `unit_id` is in that list
-
-**Simplest implementation:**
-
-1. **Change useEffect (line 80-83)** to depend on `propertyId`
-2. **Update `fetchBlockedDates`** to filter by property's unit IDs
-
-```typescript
-const fetchBlockedDates = async () => {
-  try {
-    // First get unit IDs for the active property
-    let unitIds: string[] = [];
-    if (propertyId) {
-      const { data: propUnits } = await supabase
-        .from("units")
-        .select("id")
-        .eq("property_id", propertyId);
-      unitIds = (propUnits || []).map(u => u.id);
-    }
-
-    let query = supabase
-      .from("blocked_dates")
-      .select(`*, units (name, unit_number, booking_com_name)`)
-      .order("blocked_date", { ascending: true });
-
-    if (propertyId && unitIds.length > 0) {
-      // Only show blocked dates for this property's units
-      query = query.in("unit_id", unitIds);
-    } else if (propertyId && unitIds.length === 0) {
-      // Property has no units, show nothing
-      setBlockedDates([]);
-      return;
-    }
-
-    const { data, error } = await query;
-    if (error) throw error;
-    setBlockedDates(data || []);
-  } catch (error: any) {
-    console.error("Error fetching blocked dates:", error);
-    toast.error("Failed to fetch blocked dates");
-  }
-};
-```
-
-3. **Update useEffect** (line 80-83): add `propertyId` to dependency array
-
-### Summary
-- 1 file changed: `src/components/BlockedDatesManager.tsx`
-- `fetchBlockedDates` filters by active property's unit IDs
-- Re-fetches when property switches
-- Blocked dates with `unit_id = null` (all-rooms blocks) won't show unless we decide they should — this matches the expectation that blocks are property-scoped
+Update the availability processing loop (lines 95-146):
+- Call `calculateAvailabilityRanges()` instead of `calculateAvailability()`
+- Push all returned ranges as separate values (not just one)
 
