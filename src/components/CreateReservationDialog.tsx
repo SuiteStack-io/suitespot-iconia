@@ -1027,6 +1027,11 @@ export function CreateReservationDialog() {
 
     if (!validateForm()) return;
 
+    if (!propertyId) {
+      toast.error('No active property selected.');
+      return;
+    }
+
     setLoading(true);
 
     try {
@@ -1081,6 +1086,7 @@ export function CreateReservationDialog() {
           notes: notes || null,
           guest_ages: [],
           group_id: groupId,
+          property_id: propertyId,
         };
 
         const { data: insertedReservation, error } = await supabase
