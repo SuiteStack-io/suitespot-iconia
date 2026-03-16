@@ -163,7 +163,7 @@ const handler = async (req: Request): Promise<Response> => {
         const customerResult = await resend.emails.send({
           from: "SuiteSpot Reservations <reservations@bookings.suitespoteg.com>",
           to: [customerEmail],
-          subject: `Booking Confirmation - ${unitName} at ICONIA Zamalek - Boutique Stay & Wellness Residences`,
+          subject: `Booking Confirmation - ${unitName} at ${propertyName}`,
           html: `
             <!DOCTYPE html>
             <html>
