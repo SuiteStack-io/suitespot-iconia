@@ -1086,6 +1086,7 @@ export function CreateReservationDialog() {
           notes: notes || null,
           guest_ages: [],
           group_id: groupId,
+          property_id: propertyId,
         };
 
         const { data: insertedReservation, error } = await supabase
