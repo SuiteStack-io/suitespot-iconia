@@ -218,6 +218,7 @@ const ReservationDetail = () => {
     currency: 'USD',
     payment_method: '',
     arrival_time: '',
+    vat_exempt: false as boolean,
   });
 
   const canEdit = userRole === 'admin';
