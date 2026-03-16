@@ -1074,6 +1074,20 @@ Thank you for choosing SuiteSpot!`;
               </Button>
             </div>
           )}
+          {isEditMode && (
+            <div className="flex gap-2">
+              <Button variant="outline" onClick={() => {
+                setIsEditMode(false);
+                fetchReservation();
+              }}>
+                <X className="h-4 w-4 mr-2" />
+                Cancel
+              </Button>
+              <Button onClick={handleSave} disabled={saving}>
+                {saving ? 'Saving...' : 'Save Changes'}
+              </Button>
+            </div>
+          )}
         </div>
         {canEdit && !isEditMode && (
           <div className="flex md:hidden gap-2 mt-4 justify-center flex-wrap">
@@ -1125,20 +1139,6 @@ Thank you for choosing SuiteSpot!`;
             >
               <Trash2 className="h-4 w-4 mr-2" />
               Cancel
-            </Button>
-          </div>
-        )}
-        {isEditMode && (
-          <div className="flex gap-2">
-            <Button variant="outline" onClick={() => {
-              setIsEditMode(false);
-              fetchReservation();
-            }}>
-              <X className="h-4 w-4 mr-2" />
-              Cancel
-            </Button>
-            <Button onClick={handleSave} disabled={saving}>
-              {saving ? 'Saving...' : 'Save Changes'}
             </Button>
           </div>
         )}
