@@ -655,7 +655,39 @@ const ReservationDetail = () => {
       toast.error('Failed to update reservation');
     } else {
       toast.success('Reservation updated successfully');
-      
+
+      // Send modification notification if dates or price changed (not for cancellations)
+      const isBeingModified = (
+        format(formData.check_in_date, 'yyyy-MM-dd') !== reservation?.check_in_date ||
+        format(formData.check_out_date, 'yyyy-MM-dd') !== reservation?.check_out_date ||
+        total !== reservation?.total_price
+      );
+
+      if (isBeingModified && !isBeingCancelled) {
+        try {
+          await supabase.functions.invoke('send-modification-notification', {
+            body: {
+              booking_reference: reservation?.booking_reference,
+              guest_names: formData.guest_names,
+              room_name: reservation?.units?.booking_com_name || reservation?.units?.name || '',
+              room_number: reservation?.units?.unit_number || '',
+              old_check_in: reservation?.check_in_date,
+              old_check_out: reservation?.check_out_date,
+              new_check_in: format(formData.check_in_date, 'yyyy-MM-dd'),
+              new_check_out: format(formData.check_out_date, 'yyyy-MM-dd'),
+              old_total_price: reservation?.total_price,
+              new_total_price: total,
+              currency: formData.currency || reservation?.currency || 'USD',
+              channel: reservation?.channel,
+              source: formData.source,
+              property_id: propertyId,
+            },
+          });
+        } catch (notifyErr) {
+          console.error('Error sending modification notification:', notifyErr);
+        }
+      }
+
       // Send cancellation notification if status changed to cancelled
       if (isBeingCancelled) {
         try {

@@ -1,55 +1,118 @@
 
 
-## Fix: Missing Modification Email on Manual Reservation Edit
+## Fix: Filter Blocked Dates by Active Property
 
-### Root Cause
+### Problem
+`fetchBlockedDates()` fetches ALL blocked dates across all properties. `fetchUnits()` correctly filters by `propertyId`, but blocked dates does not.
 
-The `handleSave` function in `src/pages/ReservationDetail.tsx` (line 656-691) updates the reservation in the database but **never invokes `send-modification-notification`**. The modification notification edge function is only called from `BookingComReservations.tsx` (the screenshot parsing flow). So manual edits via the reservation detail page never trigger a modification email.
+### File: `src/components/BlockedDatesManager.tsx`
 
-### Fix
+**1. Filter `fetchBlockedDates` by property (lines 101-121)**
 
-In `src/pages/ReservationDetail.tsx`, after the successful update (line 656), add logic to detect if dates or price changed and invoke `send-modification-notification`:
+The `blocked_dates` table references `units` via `unit_id`. Filter by joining through units that belong to the active property:
 
-1. **Detect meaningful changes**: Compare old vs new `check_in_date`, `check_out_date`, and `total_price`. Only send the modification email if at least one changed AND the reservation is not being cancelled (cancellation already has its own notification).
+```typescript
+const fetchBlockedDates = async () => {
+  try {
+    let query = supabase
+      .from("blocked_dates")
+      .select(`
+        *,
+        units (
+          name,
+          unit_number,
+          booking_com_name
+        )
+      `)
+      .order("blocked_date", { ascending: true });
 
-2. **Call the edge function**: After the existing success toast (line 657), before the cancellation check block, add:
-   ```typescript
-   const datesOrPriceChanged = (
-     format(formData.check_in_date, 'yyyy-MM-dd') !== reservation?.check_in_date ||
-     format(formData.check_out_date, 'yyyy-MM-dd') !== reservation?.check_out_date ||
-     total !== reservation?.total_price
-   );
-   
-   if (datesOrPriceChanged && !isBeingCancelled) {
-     try {
-       await supabase.functions.invoke('send-modification-notification', {
-         body: {
-           booking_reference: reservation?.booking_reference,
-           guest_names: formData.guest_names,
-           room_name: reservation?.units?.booking_com_name || reservation?.units?.name || '',
-           room_number: reservation?.units?.unit_number || '',
-           old_check_in: reservation?.check_in_date,
-           old_check_out: reservation?.check_out_date,
-           new_check_in: format(formData.check_in_date, 'yyyy-MM-dd'),
-           new_check_out: format(formData.check_out_date, 'yyyy-MM-dd'),
-           old_total_price: reservation?.total_price,
-           new_total_price: total,
-           currency: formData.currency || reservation?.currency || 'USD',
-           channel: reservation?.channel,
-           source: formData.source,
-           property_id: reservation?.property_id,
-         },
-       });
-     } catch (notifyErr) {
-       console.error('Error sending modification notification:', notifyErr);
-     }
-   }
-   ```
+    // Filter to only show blocked dates for units belonging to the active property
+    if (propertyId) {
+      query = query.eq('units.property_id', propertyId);
+    }
 
-3. Insert this block at line 658, right after the success toast and before the cancellation notification check (line 660).
+    const { data, error } = await query;
+    if (error) throw error;
 
-### No Changes To
-- The edge function itself (already works correctly)
-- Email layout, sender, or recipient logic
-- Any other notification flows
+    // Remove entries where the unit was filtered out (unit doesn't belong to property)
+    const filtered = (data || []).filter(d => d.unit_id === null || d.units !== null);
+    setBlockedDates(filtered);
+  } catch (error: any) {
+    console.error("Error fetching blocked dates:", error);
+    toast.error("Failed to fetch blocked dates");
+  }
+};
+```
+
+However, `blocked_dates` rows with `unit_id = null` (meaning "all rooms") have no unit join to filter on. We need a different approach — filter blocked dates whose `unit_id` is either null OR belongs to a unit in the active property. The cleanest way: use the unit IDs we already fetch.
+
+**Better approach — filter client-side using fetched units:**
+
+Since `fetchUnits` already returns only units for the active property, filter blocked dates to only include those whose `unit_id` is null or matches a fetched unit.
+
+Actually, the simplest and most reliable fix: add `property_id` awareness to the query. Since `blocked_dates` has a `unit_id` FK to `units`, and `units` has `property_id`, we can filter via an inner join or use an `in` filter with the property's unit IDs.
+
+**Revised approach — fetch unit IDs first, then filter:**
+
+```typescript
+// In useEffect, ensure both refetch when propertyId changes
+useEffect(() => {
+  fetchUnits();
+  fetchBlockedDates();
+}, [propertyId]);
+```
+
+In `fetchBlockedDates`, after fetching units (or independently):
+- Query units for the active property to get their IDs
+- Filter blocked_dates where `unit_id` is in that list
+
+**Simplest implementation:**
+
+1. **Change useEffect (line 80-83)** to depend on `propertyId`
+2. **Update `fetchBlockedDates`** to filter by property's unit IDs
+
+```typescript
+const fetchBlockedDates = async () => {
+  try {
+    // First get unit IDs for the active property
+    let unitIds: string[] = [];
+    if (propertyId) {
+      const { data: propUnits } = await supabase
+        .from("units")
+        .select("id")
+        .eq("property_id", propertyId);
+      unitIds = (propUnits || []).map(u => u.id);
+    }
+
+    let query = supabase
+      .from("blocked_dates")
+      .select(`*, units (name, unit_number, booking_com_name)`)
+      .order("blocked_date", { ascending: true });
+
+    if (propertyId && unitIds.length > 0) {
+      // Only show blocked dates for this property's units
+      query = query.in("unit_id", unitIds);
+    } else if (propertyId && unitIds.length === 0) {
+      // Property has no units, show nothing
+      setBlockedDates([]);
+      return;
+    }
+
+    const { data, error } = await query;
+    if (error) throw error;
+    setBlockedDates(data || []);
+  } catch (error: any) {
+    console.error("Error fetching blocked dates:", error);
+    toast.error("Failed to fetch blocked dates");
+  }
+};
+```
+
+3. **Update useEffect** (line 80-83): add `propertyId` to dependency array
+
+### Summary
+- 1 file changed: `src/components/BlockedDatesManager.tsx`
+- `fetchBlockedDates` filters by active property's unit IDs
+- Re-fetches when property switches
+- Blocked dates with `unit_id = null` (all-rooms blocks) won't show unless we decide they should — this matches the expectation that blocks are property-scoped
 
