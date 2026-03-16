@@ -116,6 +116,7 @@ interface Unit {
   unit_number: string | null;
   unit_type: string | null;
   status: string;
+  tax_percentage: number | null;
 }
 
 interface UnitAvailability extends Unit {
@@ -181,6 +182,7 @@ const ReservationDetail = () => {
   const confirmationRef = useRef<HTMLDivElement>(null);
   const [priceBreakdown, setPriceBreakdown] = useState<string>('');
   const [recalculatingPrice, setRecalculatingPrice] = useState(false);
+  const [priceSubtotal, setPriceSubtotal] = useState<number>(0);
   
   // Document upload states
   const [idPassportUrl, setIdPassportUrl] = useState<string | null>(null);
@@ -216,6 +218,7 @@ const ReservationDetail = () => {
     currency: 'USD',
     payment_method: '',
     arrival_time: '',
+    vat_exempt: false as boolean,
   });
 
   const canEdit = userRole === 'admin';
@@ -289,6 +292,7 @@ const ReservationDetail = () => {
         currency: data.currency || 'USD',
         payment_method: data.payment_method || '',
         arrival_time: (data as any).arrival_time || '',
+        vat_exempt: data.vat_exempt === true,
       });
     }
   };
@@ -296,7 +300,7 @@ const ReservationDetail = () => {
   const fetchUnits = async () => {
     const { data } = await withPropertyFilter(supabase
       .from('units')
-      .select('id, name, unit_number, unit_type, status'), propertyId)
+      .select('id, name, unit_number, unit_type, status, tax_percentage'), propertyId)
       .order('name');
     
     if (data) {
@@ -472,20 +476,33 @@ const ReservationDetail = () => {
         }
       }
 
+      // Calculate VAT
+      const subtotal = totalPrice;
+      const matchedUnit = units.find(u => u.id === formData.unit_id);
+      const taxPercentage = matchedUnit?.tax_percentage ?? 14;
+      const isVatExempt = formData.vat_exempt === true;
+      const taxAmount = isVatExempt ? 0 : subtotal * (taxPercentage / 100);
+      const finalTotal = subtotal + taxAmount;
+
+      setPriceSubtotal(subtotal);
+
       // Build breakdown string
       const parts: string[] = [];
       if (weekdayCount > 0) parts.push(`${weekdayCount} weekday night${weekdayCount > 1 ? 's' : ''} × ${formData.currency} ${weekdayRate.toFixed(2)}`);
       if (weekendCount > 0) parts.push(`${weekendCount} weekend night${weekendCount > 1 ? 's' : ''} × ${formData.currency} ${weekendRate.toFixed(2)}`);
-      const breakdownStr = parts.join(' + ') + ` = ${formData.currency} ${totalPrice.toFixed(2)}`;
+      let breakdownStr = parts.join(' + ') + ` = ${formData.currency} ${subtotal.toFixed(2)}`;
+      if (!isVatExempt) {
+        breakdownStr += ` + ${taxPercentage}% VAT ${formData.currency} ${taxAmount.toFixed(2)} = ${formData.currency} ${finalTotal.toFixed(2)}`;
+      }
       setPriceBreakdown(breakdownStr);
 
-      const pricePerNight = Number((totalPrice / nights).toFixed(2));
-      const commission = (totalPrice * formData.commission_rate) / 100;
-      const net = totalPrice - commission;
+      const pricePerNight = Number((subtotal / nights).toFixed(2));
+      const commission = (finalTotal * formData.commission_rate) / 100;
+      const net = finalTotal - commission;
 
       setFormData(prev => ({
         ...prev,
-        total_price: totalPrice,
+        total_price: finalTotal,
         price_per_night: pricePerNight,
         commission_amount: commission,
         net_revenue: net,
@@ -495,7 +512,7 @@ const ReservationDetail = () => {
     } finally {
       setRecalculatingPrice(false);
     }
-  }, [isEditMode, formData.unit_id, formData.check_in_date, formData.check_out_date, formData.commission_rate, units, propertyId]);
+  }, [isEditMode, formData.unit_id, formData.check_in_date, formData.check_out_date, formData.commission_rate, formData.vat_exempt, units, propertyId]);
 
   useEffect(() => {
     if (isEditMode) {
@@ -1449,7 +1466,21 @@ Thank you for choosing SuiteSpot!`;
                   </div>
                 </div>
                 <div>
-                  <Label className="text-muted-foreground">Total Price</Label>
+                  <Label className="text-muted-foreground">Subtotal</Label>
+                  <div className="mt-2 h-10 flex items-center px-3 bg-muted/50 rounded-md border border-input text-sm font-medium">
+                    {formData.currency} {priceSubtotal.toFixed(2)}
+                  </div>
+                </div>
+                {formData.vat_exempt !== true && (
+                  <div>
+                    <Label className="text-muted-foreground">Taxes & Fees</Label>
+                    <div className="mt-2 h-10 flex items-center px-3 bg-muted/50 rounded-md border border-input text-sm font-medium">
+                      {formData.currency} {(formData.total_price - priceSubtotal).toFixed(2)}
+                    </div>
+                  </div>
+                )}
+                <div>
+                  <Label className="text-muted-foreground">Total Price (incl. VAT)</Label>
                   <div className="mt-2 h-10 flex items-center px-3 bg-muted/50 rounded-md border border-input text-sm font-medium">
                     {formData.currency} {formData.total_price.toFixed(2)}
                     {recalculatingPrice && <Loader2 className="ml-2 h-3 w-3 animate-spin" />}

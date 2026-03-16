@@ -1,34 +1,118 @@
 
 
-## Add VAT to the Edit-Mode Pricing Recalculation
+## Fix: Filter Blocked Dates by Active Property
 
-Currently, `recalculatePricing` calculates `totalPrice` as the raw sum of nightly rates (subtotal) without adding VAT. The view-mode display already shows VAT correctly (14% tax). The edit mode needs the same treatment.
+### Problem
+`fetchBlockedDates()` fetches ALL blocked dates across all properties. `fetchUnits()` correctly filters by `propertyId`, but blocked dates does not.
 
-### Changes in `src/pages/ReservationDetail.tsx`
+### File: `src/components/BlockedDatesManager.tsx`
 
-**1. Update `recalculatePricing` (lines 454-492) to include VAT**
+**1. Filter `fetchBlockedDates` by property (lines 101-121)**
 
-After summing nightly rates into `totalPrice` (which is actually the subtotal):
-- Fetch `tax_percentage` from the unit (default 14%) and check `vat_exempt` from formData
-- Calculate `taxAmount = isVatExempt ? 0 : subtotal * (taxPercentage / 100)`
-- Set `total_price = subtotal + taxAmount`
-- Update the breakdown string to include the tax line, e.g.:
-  `"5 weekday nights × USD 100.00 + 2 weekend nights × USD 120.00 = USD 740.00 + 14% VAT USD 103.60 = USD 843.60"`
-- Derive `price_per_night` from the subtotal (pre-tax) divided by nights, since that's the nightly rate
+The `blocked_dates` table references `units` via `unit_id`. Filter by joining through units that belong to the active property:
 
-**2. Update the edit-mode Total Price display (line 1452-1459)**
+```typescript
+const fetchBlockedDates = async () => {
+  try {
+    let query = supabase
+      .from("blocked_dates")
+      .select(`
+        *,
+        units (
+          name,
+          unit_number,
+          booking_com_name
+        )
+      `)
+      .order("blocked_date", { ascending: true });
 
-- Rename the label to "Total Price (incl. VAT)" to match the view-mode display
-- Add a "Subtotal" and "Taxes & Fees" line between Price per Night and Total Price, matching the view-mode layout:
-  - Subtotal = subtotal (nightly rates sum), stored in new state `priceSubtotal`
-  - Taxes & Fees row (shown only if not VAT exempt)
-  - Total Price (incl. VAT) as the final read-only field
+    // Filter to only show blocked dates for units belonging to the active property
+    if (propertyId) {
+      query = query.eq('units.property_id', propertyId);
+    }
 
-**3. Add state for subtotal tracking**
+    const { data, error } = await query;
+    if (error) throw error;
 
-Add `priceSubtotal` state variable to hold the pre-tax sum so the edit-mode UI can display the breakdown rows.
+    // Remove entries where the unit was filtered out (unit doesn't belong to property)
+    const filtered = (data || []).filter(d => d.unit_id === null || d.units !== null);
+    setBlockedDates(filtered);
+  } catch (error: any) {
+    console.error("Error fetching blocked dates:", error);
+    toast.error("Failed to fetch blocked dates");
+  }
+};
+```
 
-**4. Update `handleSave`**
+However, `blocked_dates` rows with `unit_id = null` (meaning "all rooms") have no unit join to filter on. We need a different approach — filter blocked dates whose `unit_id` is either null OR belongs to a unit in the active property. The cleanest way: use the unit IDs we already fetch.
 
-Ensure the saved `total_price` is the VAT-inclusive amount (already the case after step 1).
+**Better approach — filter client-side using fetched units:**
+
+Since `fetchUnits` already returns only units for the active property, filter blocked dates to only include those whose `unit_id` is null or matches a fetched unit.
+
+Actually, the simplest and most reliable fix: add `property_id` awareness to the query. Since `blocked_dates` has a `unit_id` FK to `units`, and `units` has `property_id`, we can filter via an inner join or use an `in` filter with the property's unit IDs.
+
+**Revised approach — fetch unit IDs first, then filter:**
+
+```typescript
+// In useEffect, ensure both refetch when propertyId changes
+useEffect(() => {
+  fetchUnits();
+  fetchBlockedDates();
+}, [propertyId]);
+```
+
+In `fetchBlockedDates`, after fetching units (or independently):
+- Query units for the active property to get their IDs
+- Filter blocked_dates where `unit_id` is in that list
+
+**Simplest implementation:**
+
+1. **Change useEffect (line 80-83)** to depend on `propertyId`
+2. **Update `fetchBlockedDates`** to filter by property's unit IDs
+
+```typescript
+const fetchBlockedDates = async () => {
+  try {
+    // First get unit IDs for the active property
+    let unitIds: string[] = [];
+    if (propertyId) {
+      const { data: propUnits } = await supabase
+        .from("units")
+        .select("id")
+        .eq("property_id", propertyId);
+      unitIds = (propUnits || []).map(u => u.id);
+    }
+
+    let query = supabase
+      .from("blocked_dates")
+      .select(`*, units (name, unit_number, booking_com_name)`)
+      .order("blocked_date", { ascending: true });
+
+    if (propertyId && unitIds.length > 0) {
+      // Only show blocked dates for this property's units
+      query = query.in("unit_id", unitIds);
+    } else if (propertyId && unitIds.length === 0) {
+      // Property has no units, show nothing
+      setBlockedDates([]);
+      return;
+    }
+
+    const { data, error } = await query;
+    if (error) throw error;
+    setBlockedDates(data || []);
+  } catch (error: any) {
+    console.error("Error fetching blocked dates:", error);
+    toast.error("Failed to fetch blocked dates");
+  }
+};
+```
+
+3. **Update useEffect** (line 80-83): add `propertyId` to dependency array
+
+### Summary
+- 1 file changed: `src/components/BlockedDatesManager.tsx`
+- `fetchBlockedDates` filters by active property's unit IDs
+- Re-fetches when property switches
+- Blocked dates with `unit_id = null` (all-rooms blocks) won't show unless we decide they should — this matches the expectation that blocks are property-scoped
 
