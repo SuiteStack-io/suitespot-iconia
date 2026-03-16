@@ -72,6 +72,8 @@ const handler = async (req: Request): Promise<Response> => {
     }
     console.log('Modification property_id:', propertyId);
 
+    const modPropertyName = await getPropertyName(supabase, propertyId);
+
     // Get all admin/manager/front_desk users
     const { data: adminRoles, error: rolesError } = await supabase
       .from("user_roles")
