@@ -1490,6 +1490,11 @@ Thank you for choosing SuiteSpot!`;
                   {priceBreakdown && (
                     <p className="text-xs text-muted-foreground mt-1">{priceBreakdown}</p>
                   )}
+                  {reservation?.channex_booking_id && isEditMode && (
+                    <p className="text-xs text-muted-foreground mt-1">
+                      Pricing is managed by the booking channel and cannot be recalculated.
+                    </p>
+                  )}
                 </div>
                 <div>
                   <Label>Commission Amount</Label>
