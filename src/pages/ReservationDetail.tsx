@@ -477,8 +477,8 @@ const ReservationDetail = () => {
 
       // Calculate VAT
       const subtotal = totalPrice;
-      const unit = units.find(u => u.id === formData.unit_id);
-      const taxPercentage = unit?.tax_percentage ?? 14;
+      const matchedUnit = units.find(u => u.id === formData.unit_id);
+      const taxPercentage = matchedUnit?.tax_percentage ?? 14;
       const isVatExempt = formData.vat_exempt === true;
       const taxAmount = isVatExempt ? 0 : subtotal * (taxPercentage / 100);
       const finalTotal = subtotal + taxAmount;
