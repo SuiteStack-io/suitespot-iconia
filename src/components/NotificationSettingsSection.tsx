@@ -37,8 +37,8 @@ const NOTIFICATION_LABELS: Record<keyof NotificationSettings, { label: string; d
     description: 'Receive an email when rooms are auto-shuffled',
   },
   daily_summary_email: {
-    label: 'Daily Summary',
-    description: 'Receive a daily summary email with occupancy and arrivals',
+    label: 'Summary Reports (Daily, Weekly, Monthly)',
+    description: 'Receive automated daily, weekly, and monthly summary reports by email',
   },
 };
 
@@ -48,7 +48,7 @@ const DEFAULT_SETTINGS: NotificationSettings = {
   new_booking_email: true,
   cancelled_booking_email: true,
   room_shuffle_email: true,
-  daily_summary_email: true,
+  daily_summary_email: false,
 };
 
 interface NotificationSettingsSectionProps {
@@ -107,7 +107,7 @@ export function NotificationSettingsSection({
           new_booking_email: data.new_booking_email ?? true,
           cancelled_booking_email: data.cancelled_booking_email ?? true,
           room_shuffle_email: data.room_shuffle_email ?? true,
-          daily_summary_email: data.daily_summary_email ?? true,
+          daily_summary_email: data.daily_summary_email ?? false,
         });
       } else {
         setSettings(DEFAULT_SETTINGS);
@@ -150,16 +150,19 @@ export function NotificationSettingsSection({
   const allEnabled = Object.values(settings).every(Boolean);
   const allDisabled = Object.values(settings).every(v => !v);
 
-  const handleEnableAll = () => setSettings(DEFAULT_SETTINGS);
+  const handleEnableAll = () => setSettings(prev => ({
+    ...DEFAULT_SETTINGS,
+    daily_summary_email: prev.daily_summary_email, // Keep admin-controlled toggle unchanged
+  }));
   const handleDisableAll = () =>
-    setSettings({
+    setSettings(prev => ({
       checkin_email: false,
       checkout_email: false,
       new_booking_email: false,
       cancelled_booking_email: false,
       room_shuffle_email: false,
-      daily_summary_email: false,
-    });
+      daily_summary_email: prev.daily_summary_email, // Keep admin-controlled toggle unchanged
+    }));
 
   if (loading) {
     return (

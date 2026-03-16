@@ -1,0 +1,1 @@
+ALTER TABLE user_notification_settings ALTER COLUMN daily_summary_email SET DEFAULT false;
