@@ -241,24 +241,79 @@ export function BulkAvailabilityEditor({ pendingAvailability, setPendingAvailabi
     }
   };
 
+  const isSyncing = syncStatus === 'syncing';
+
+  const animateProgress = (from: number, to: number, durationMs: number): Promise<void> => {
+    return new Promise((resolve) => {
+      const steps = Math.max(1, Math.floor(durationMs / 80));
+      const increment = (to - from) / steps;
+      let current = from;
+      let step = 0;
+      const interval = setInterval(() => {
+        step++;
+        current = Math.min(to, from + increment * step);
+        setSyncProgress(Math.round(current));
+        if (step >= steps) {
+          clearInterval(interval);
+          resolve();
+        }
+      }, 80);
+    });
+  };
+
   const handleFullSync = async () => {
     if (!propertyId) return;
-    setIsSyncing(true);
+    setSyncStatus('syncing');
+    setSyncProgress(0);
+    setSyncStep('Pushing availability...');
+    setSyncError('');
+
+    // Start animating to 45% while the request runs
+    const progressPromise = animateProgress(0, 45, 2000);
+
     try {
       const { data, error } = await supabase.functions.invoke('channex-full-sync', {
         body: { propertyId },
       });
+
+      // Wait for initial animation to finish
+      await progressPromise;
+
       if (error) throw error;
       if (data?.success === false) {
+        setSyncStatus('error');
+        setSyncError(data.error || 'Failed to sync');
+        setSyncProgress(45);
         toast({ title: 'Sync Failed', description: data.error || 'Failed to sync', variant: 'destructive' });
         return;
       }
+
+      // Step 2: rates & restrictions
+      setSyncStep('Pushing rates & restrictions...');
+      await animateProgress(50, 85, 800);
+
+      // Step 3: finalizing
+      setSyncStep('Finalizing...');
+      await animateProgress(90, 100, 400);
+
+      setSyncStatus('success');
+      setSyncProgress(100);
+      setSyncStep('Sync complete');
+
       const roomTypeCount = data?.results?.length || 0;
       toast({ title: 'Success', description: `Availability synced to Channex (${roomTypeCount} room type${roomTypeCount !== 1 ? 's' : ''} pushed)` });
+
+      // Fade out after 2s
+      setTimeout(() => {
+        setSyncStatus('idle');
+        setSyncProgress(0);
+        setSyncStep('');
+      }, 2000);
     } catch (err: any) {
+      await progressPromise.catch(() => {});
+      setSyncStatus('error');
+      setSyncError(err.message || 'Failed to sync to Channex');
       toast({ title: 'Sync Error', description: err.message || 'Failed to sync to Channex', variant: 'destructive' });
-    } finally {
-      setIsSyncing(false);
     }
   };
 
