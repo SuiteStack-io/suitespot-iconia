@@ -596,7 +596,8 @@ const ReservationDetail = () => {
     setSaving(true);
     
     const nights = calculateNights();
-    const total = formData.price_per_night * nights;
+    const total = formData.total_price;
+    const ppn = nights > 0 ? Number((total / nights).toFixed(2)) : 0;
     const commission = (total * formData.commission_rate) / 100;
     const net = total - commission;
 
