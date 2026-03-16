@@ -48,7 +48,7 @@ const DEFAULT_SETTINGS: NotificationSettings = {
   new_booking_email: true,
   cancelled_booking_email: true,
   room_shuffle_email: true,
-  daily_summary_email: true,
+  daily_summary_email: false,
 };
 
 interface NotificationSettingsSectionProps {
