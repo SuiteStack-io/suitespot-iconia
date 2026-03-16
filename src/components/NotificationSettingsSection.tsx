@@ -107,7 +107,7 @@ export function NotificationSettingsSection({
           new_booking_email: data.new_booking_email ?? true,
           cancelled_booking_email: data.cancelled_booking_email ?? true,
           room_shuffle_email: data.room_shuffle_email ?? true,
-          daily_summary_email: data.daily_summary_email ?? true,
+          daily_summary_email: data.daily_summary_email ?? false,
         });
       } else {
         setSettings(DEFAULT_SETTINGS);
