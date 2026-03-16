@@ -90,9 +90,23 @@ Deno.serve(async (req: Request) => {
         }
       }
 
+      // Merge overlapping date ranges for the same entity_id
+      const entityMap = new Map<string, any>();
+      for (const item of deduped) {
+        const eid = item.entity_id;
+        if (!entityMap.has(eid)) {
+          entityMap.set(eid, { ...item });
+        } else {
+          const existing = entityMap.get(eid)!;
+          if (item.date_from < existing.date_from) existing.date_from = item.date_from;
+          if (item.date_to > existing.date_to) existing.date_to = item.date_to;
+        }
+      }
+      const merged = Array.from(entityMap.values());
+
       const values: object[] = [];
 
-      for (const item of deduped) {
+      for (const item of merged) {
         try {
           const channexRoomTypeId = await resolve(item.entity_id, "room_type");
           if (!channexRoomTypeId) {
@@ -147,10 +161,10 @@ Deno.serve(async (req: Request) => {
         }
       }
 
-      // Mark deduplicated-out items as completed too
-      const dedupedIds = new Set(deduped.map((d: any) => d.id));
+      // Mark deduplicated/merged-out items as completed too
+      const mergedIds = new Set(merged.map((d: any) => d.id));
       for (const item of availabilityItems) {
-        if (!dedupedIds.has(item.id)) {
+        if (!mergedIds.has(item.id)) {
           await markCompleted(supabase, item.id);
         }
       }
@@ -557,13 +571,13 @@ async function calculateAvailabilityRanges(
     if (dailyAvail[i].avail === currentAvail) {
       lastDate = dailyAvail[i].date;
     } else {
-      ranges.push({ date_from: rangeStart.date, date_to: formatDate(addDays(new Date(lastDate), 1)), availability: currentAvail });
+      ranges.push({ date_from: rangeStart.date, date_to: lastDate, availability: currentAvail });
       rangeStart = dailyAvail[i];
       currentAvail = rangeStart.avail;
       lastDate = rangeStart.date;
     }
   }
-  ranges.push({ date_from: rangeStart.date, date_to: formatDate(addDays(new Date(lastDate), 1)), availability: currentAvail });
+  ranges.push({ date_from: rangeStart.date, date_to: lastDate, availability: currentAvail });
 
   console.log(`[process-sync-queue] Availability for ${roomTypeName} @ property ${propertyId || 'all'} (${dateFrom}-${dateTo}): ${ranges.length} ranges`);
   return ranges;
