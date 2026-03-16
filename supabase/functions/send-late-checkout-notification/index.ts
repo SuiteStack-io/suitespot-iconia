@@ -1,6 +1,7 @@
 
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2.75.0";
 import { Resend } from "https://esm.sh/resend@4.0.0";
+import { getPropertyName } from "../_shared/property-utils.ts";
 
 const resend = new Resend(Deno.env.get("RESEND_API_KEY"));
 
@@ -42,6 +43,8 @@ Deno.serve(async (req) => {
 
     const propertyId = lateCheckoutRes.property_id;
     console.log('Late checkout property_id:', propertyId);
+
+    const latePropertyName = await getPropertyName(supabase, propertyId);
 
     // Get all admin users
     const { data: profiles, error: profilesError } = await supabase
@@ -106,7 +109,7 @@ Deno.serve(async (req) => {
         const emailResponse = await resend.emails.send({
           from: "SuiteSpot Notifications <notifications@bookings.suitespoteg.com>",
           to: [admin.email],
-          subject: `⏰ Late Checkout Added - ${roomInfo} - ${guestName}`,
+          subject: `⏰ Late Checkout Added - ${roomInfo} - ${guestName} at ${latePropertyName}`,
           html: `
             <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto;">
               <div style="background: linear-gradient(135deg, #f59e0b, #d97706); padding: 20px; border-radius: 8px 8px 0 0;">

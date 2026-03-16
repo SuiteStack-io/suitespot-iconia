@@ -1,6 +1,7 @@
 
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2.75.0";
 import { Resend } from "https://esm.sh/resend@4.0.0";
+import { getPropertyName } from "../_shared/property-utils.ts";
 
 const resend = new Resend(Deno.env.get("RESEND_API_KEY"));
 
@@ -42,6 +43,8 @@ Deno.serve(async (req) => {
 
     const propertyId = extensionRes.property_id;
     console.log('Extension property_id:', propertyId);
+
+    const extPropertyName = await getPropertyName(supabase, propertyId);
 
     // Calculate nights
     const checkIn = new Date(extensionRes.check_in_date);
@@ -114,7 +117,7 @@ Deno.serve(async (req) => {
         const emailResponse = await resend.emails.send({
           from: "SuiteSpot Notifications <notifications@bookings.suitespoteg.com>",
           to: [admin.email],
-          subject: `📅 Stay Extended - ${roomInfo} - ${guestName}`,
+          subject: `📅 Stay Extended - ${roomInfo} - ${guestName} at ${extPropertyName}`,
           html: `
             <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto;">
               <div style="background: linear-gradient(135deg, #3b82f6, #1d4ed8); padding: 20px; border-radius: 8px 8px 0 0;">

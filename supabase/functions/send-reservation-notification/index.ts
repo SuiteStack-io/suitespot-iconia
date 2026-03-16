@@ -1,6 +1,7 @@
 
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2.75.0";
 import { Resend } from "https://esm.sh/resend@4.0.0";
+import { getPropertyName } from "../_shared/property-utils.ts";
 
 const resend = new Resend(Deno.env.get("RESEND_API_KEY"));
 
@@ -94,20 +95,26 @@ const handler = async (req: Request): Promise<Response> => {
     // Fetch unit details if unitId is provided
     let matchedRoomName = null;
     let matchedRoomNumber = null;
+    let unitPropertyId: string | null = null;
     
     if (unitId) {
       const { data: unitData, error: unitError } = await supabaseClient
         .from('units')
-        .select('name, booking_com_name, unit_number')
+        .select('name, booking_com_name, unit_number, property_id')
         .eq('id', unitId)
         .single();
       
       if (!unitError && unitData) {
         matchedRoomName = unitData.booking_com_name || unitData.name;
         matchedRoomNumber = unitData.unit_number;
+        unitPropertyId = unitData.property_id || null;
         console.log("Matched unit details:", { name: matchedRoomName, number: matchedRoomNumber });
       }
     }
+
+    // Fetch dynamic property name
+    const propertyName = await getPropertyName(supabaseClient, unitPropertyId);
+    console.log("Dynamic property name:", propertyName);
     
     // Calculate proper adult/children counts if they're both 0 or undefined
     let finalAdults = adults;
@@ -156,7 +163,7 @@ const handler = async (req: Request): Promise<Response> => {
         const customerResult = await resend.emails.send({
           from: "SuiteSpot Reservations <reservations@bookings.suitespoteg.com>",
           to: [customerEmail],
-          subject: `Booking Confirmation - ${unitName} at ICONIA Zamalek - Boutique Stay & Wellness Residences`,
+          subject: `Booking Confirmation - ${unitName} at ${propertyName}`,
           html: `
             <!DOCTYPE html>
             <html>
@@ -242,7 +249,7 @@ const handler = async (req: Request): Promise<Response> => {
                 <div class="header">
                   <div class="check-icon">✓</div>
                   <h1>Booking Confirmed!</h1>
-                  <p style="margin-top: 10px; margin-bottom: 0; font-size: 16px;">Your reservation at ICONIA Zamalek - Boutique Stay & Wellness Residences</p>
+                  <p style="margin-top: 10px; margin-bottom: 0; font-size: 16px;">Your reservation at ${propertyName}</p>
                 </div>
                 
                 <div class="content">
@@ -250,7 +257,7 @@ const handler = async (req: Request): Promise<Response> => {
                     Dear ${guestNames[0] || 'Guest'},
                   </p>
                   <p style="color: #333; font-size: 14px; line-height: 1.6; margin-bottom: 30px;">
-                    Thank you for choosing SuiteSpot ICONIA Zamalek - Boutique Stay & Wellness Residences! We're delighted to confirm your reservation.
+                    Thank you for choosing SuiteSpot ${propertyName}! We're delighted to confirm your reservation.
                   </p>
                   
                   <h2 style="color: #0f172a; margin-top: 0;">Your Booking Details</h2>
@@ -312,7 +319,7 @@ const handler = async (req: Request): Promise<Response> => {
                     <p style="margin: 10px 0; color: #1e3a8a; font-size: 14px;">
                       <strong>Check-in Time:</strong> From 3:00 PM<br/>
                       <strong>Check-out Time:</strong> By 12:00 PM<br/>
-                      <strong>Location:</strong> ICONIA Zamalek - Boutique Stay & Wellness Residences, Cairo, Egypt
+                      <strong>Location:</strong> ${propertyName}
                     </p>
                     <p style="margin: 15px 0 0 0; color: #1e3a8a; font-size: 14px;">
                       Please bring a valid ID or passport for check-in. Early check-in and late check-out may be available upon request, subject to availability.
@@ -346,7 +353,7 @@ const handler = async (req: Request): Promise<Response> => {
                 <div class="footer">
                   <p>SuiteSpot - Your Home Away From Home</p>
                   <p style="font-size: 12px; margin-top: 10px; color: #9ca3af;">
-                    ICONIA Zamalek - Boutique Stay & Wellness Residences, Cairo, Egypt
+                    ${propertyName}
                   </p>
                 </div>
               </body>
@@ -680,7 +687,7 @@ const handler = async (req: Request): Promise<Response> => {
             </head>
             <body>
               <div class="header">
-                <h1>New Reservation in ICONIA Zamalek - Boutique Stay & Wellness Residences</h1>
+                <h1>New Reservation in ${propertyName}</h1>
                 <p style="margin-top: 0; margin-bottom: 0; font-size: 18px; font-weight: 400;">SuiteSpot Bookings</p>
               </div>
               

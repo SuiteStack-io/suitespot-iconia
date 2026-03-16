@@ -1,6 +1,7 @@
 
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2.75.0";
 import { Resend } from "https://esm.sh/resend@4.0.0";
+import { getPropertyName } from "../_shared/property-utils.ts";
 
 const resend = new Resend(Deno.env.get("RESEND_API_KEY"));
 
@@ -82,6 +83,9 @@ const handler = async (req: Request): Promise<Response> => {
       propertyId = resData?.property_id || null;
     }
     console.log('Cancellation property_id:', propertyId);
+
+    // Dynamic property name lookup
+    const cancellationPropertyName = await getPropertyName(supabase, propertyId);
 
     // Fetch admin users
     const { data: userRoles, error: rolesError } = await supabase
@@ -278,7 +282,7 @@ const handler = async (req: Request): Promise<Response> => {
 
       <div style="background-color: #f9fafb; padding: 20px; text-align: center; border-top: 1px solid #e5e7eb;">
         <p style="margin: 0; color: #9ca3af; font-size: 12px;">
-          SuiteSpot • ICONIA Zamalek - Boutique Stay & Wellness Residences
+          SuiteSpot • ${cancellationPropertyName}
         </p>
       </div>
 
@@ -299,7 +303,7 @@ const handler = async (req: Request): Promise<Response> => {
         const result = await resend.emails.send({
           from: "SuiteSpot Reservations <reservations@bookings.suitespoteg.com>",
           to: [admin.email as string],
-          subject: `Cancelled Booking - ${guest_names?.[0] || "Guest"} - ${checkInShort} to ${checkOutShort}${unit_number ? ` - Room #${unit_number}` : ''}`,
+          subject: `Cancelled Booking - ${guest_names?.[0] || "Guest"} - ${checkInShort} to ${checkOutShort}${unit_number ? ` - Room #${unit_number}` : ''} at ${cancellationPropertyName}`,
           html: emailHtml,
         });
         

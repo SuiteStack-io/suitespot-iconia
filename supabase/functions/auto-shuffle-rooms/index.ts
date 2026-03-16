@@ -1,5 +1,6 @@
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2.75.0';
 import { Resend } from 'https://esm.sh/resend@4.0.0';
+import { getPropertyName } from '../_shared/property-utils.ts';
 
 const corsHeaders = {
   'Access-Control-Allow-Origin': '*',
@@ -320,6 +321,8 @@ Deno.serve(async (req) => {
       }
       console.log('Shuffle property_id:', shufflePropertyId);
 
+      const shufflePropertyName = await getPropertyName(supabase, shufflePropertyId);
+
       // Fetch admin/front_desk emails
       const { data: adminRoles } = await supabase
         .from('user_roles')
@@ -564,7 +567,7 @@ Deno.serve(async (req) => {
               const result = await resend.emails.send({
                 from: 'SuiteSpot Reservations <reservations@bookings.suitespoteg.com>',
                 to: [email],
-                subject: `Room Shuffle Alert - ${guestNames[0] || 'Guest'} (${bookingReference})`,
+                subject: `Room Shuffle Alert - ${guestNames[0] || 'Guest'} (${bookingReference}) at ${shufflePropertyName}`,
                 html: emailHtml,
               });
               console.log(`Shuffle email sent to ${email}:`, JSON.stringify(result));
