@@ -35,6 +35,7 @@ import { CreateGuestAccountDialog } from '@/components/CreateGuestAccountDialog'
 import { SlideMenu } from '@/components/SlideMenu';
 import { RoomTransferDialog } from '@/components/RoomTransferDialog';
 import { usePropertyId, withPropertyFilter } from '@/hooks/usePropertyFilter';
+import { getActiveRate } from '@/lib/rateResolver';
 import {
   AlertDialog,
   AlertDialogAction,
