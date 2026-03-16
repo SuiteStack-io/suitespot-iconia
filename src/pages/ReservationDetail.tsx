@@ -615,7 +615,7 @@ const ReservationDetail = () => {
         guest_nationality: formData.guest_nationality,
         contact_email: formData.contact_email,
         contact_phone: formData.contact_phone,
-        price_per_night: formData.price_per_night,
+        price_per_night: ppn,
         total_price: total,
         commission_rate: formData.commission_rate,
         commission_amount: commission,
