@@ -168,24 +168,26 @@ export function EditPermissionsDialog({
 
     setSaving(true);
     try {
-      // Upsert permissions (insert or update)
-      const { error } = await supabase
-        .from('user_permissions')
-        .upsert({
-          user_id: user.id,
-          ...permissions,
-          updated_at: new Date().toISOString(),
-        }, {
-          onConflict: 'user_id',
-        });
+      // Only upsert permissions for non-admin users
+      if (!isAdmin) {
+        const { error } = await supabase
+          .from('user_permissions')
+          .upsert({
+            user_id: user.id,
+            ...permissions,
+            updated_at: new Date().toISOString(),
+          }, {
+            onConflict: 'user_id',
+          });
 
-      if (error) throw error;
+        if (error) throw error;
+      }
 
-      // Trigger notification settings save
+      // Trigger notification settings save for all users
       setNotifSaveTrigger(prev => prev + 1);
       toast({
         title: 'Success',
-        description: `Permissions updated for ${user.full_name || user.email}`,
+        description: `Settings updated for ${user.full_name || user.email}`,
       });
 
       onOpenChange(false);
@@ -194,7 +196,7 @@ export function EditPermissionsDialog({
       console.error('Error saving permissions:', error);
       toast({
         title: 'Error',
-        description: 'Failed to save permissions',
+        description: 'Failed to save settings',
         variant: 'destructive',
       });
     } finally {
@@ -313,18 +315,16 @@ export function EditPermissionsDialog({
           <Button variant="outline" onClick={() => onOpenChange(false)}>
             Cancel
           </Button>
-          {!isAdmin && (
-            <Button onClick={handleSave} disabled={saving || loading}>
-              {saving ? (
-                <>
-                  <Loader2 className="h-4 w-4 mr-2 animate-spin" />
-                  Saving...
-                </>
-              ) : (
-                'Save Changes'
-              )}
-            </Button>
-          )}
+          <Button onClick={handleSave} disabled={saving || loading}>
+            {saving ? (
+              <>
+                <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+                Saving...
+              </>
+            ) : (
+              'Save Changes'
+            )}
+          </Button>
         </DialogFooter>
       </DialogContent>
     </Dialog>
