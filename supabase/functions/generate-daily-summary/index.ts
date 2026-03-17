@@ -16,15 +16,20 @@ function isLastWorkingDayOfMonth(date: Date): boolean {
   const month = date.getMonth();
   const lastDay = new Date(year, month + 1, 0);
   let lastWorkingDay = new Date(lastDay);
-  // Working days: Sun(0)-Thu(4). Fri=5, Sat=6
   while (lastWorkingDay.getDay() === 5 || lastWorkingDay.getDay() === 6) {
     lastWorkingDay.setDate(lastWorkingDay.getDate() - 1);
   }
   return date.getDate() === lastWorkingDay.getDate() && date.getMonth() === lastWorkingDay.getMonth();
 }
 
+function formatRoomDisplay(unit: any): string {
+  if (!unit) return "Unassigned";
+  const roomName = unit.booking_com_name || unit.name || "Unknown";
+  const roomNum = unit.unit_number || "";
+  return roomNum ? `${roomName} (#${roomNum})` : roomName;
+}
+
 async function getRecipients(supabase: any, propertyId?: string): Promise<{ email: string; name: string }[]> {
-  // Get users with daily_summary_email enabled
   const { data: settings } = await supabase
     .from("user_notification_settings")
     .select("user_id")
@@ -37,7 +42,6 @@ async function getRecipients(supabase: any, propertyId?: string): Promise<{ emai
 
   const userIds = settings.map((s: any) => s.user_id);
 
-  // Get emails via service role admin API
   const { data: { users }, error } = await supabase.auth.admin.listUsers({ perPage: 1000 });
   if (error) {
     console.error("Error fetching users:", error);
@@ -49,7 +53,6 @@ async function getRecipients(supabase: any, propertyId?: string): Promise<{ emai
     .select("id, full_name")
     .in("id", userIds);
 
-  // Get user roles for admin fallback logic
   const { data: userRoles } = await supabase
     .from("user_roles")
     .select("user_id, role")
@@ -74,7 +77,6 @@ async function getRecipients(supabase: any, propertyId?: string): Promise<{ emai
     }
   }
 
-  // Filter by property access if propertyId provided
   if (propertyId && candidates.length > 0) {
     const candidateIds = candidates.map(c => c.user_id);
     const { data: allAccess } = await supabase
@@ -93,13 +95,10 @@ async function getRecipients(supabase: any, propertyId?: string): Promise<{ emai
 
     candidates = candidates.filter(user => {
       const userAccessEntries = accessList.filter((a: any) => a.user_id === user.user_id);
-
-      // Admin with no property access entries = global access
       if (userAccessEntries.length === 0 && user.role === 'admin') {
         console.log(`${user.email} — admin with global access for summary`);
         return true;
       }
-
       const hasAccess = userAccessEntries.some((a: any) => a.property_id === propertyId);
       if (!hasAccess) {
         console.log(`Skipped ${user.email} — no access to property "${propertyName}" for summary`);
@@ -116,14 +115,15 @@ function generatePDF(
   dateStr: string,
   checkIns: any[],
   checkOuts: any[],
-  occupancy: { occupied: number; vacant: number; total: number; rate: number }
+  occupancy: { occupied: number; vacant: number; total: number; rate: number },
+  blockedRooms: { room: string; reason: string }[]
 ): Uint8Array {
   const doc = new jsPDF();
   let y = 20;
 
-  // Header
+  // Header — dark navy
   doc.setFontSize(20);
-  doc.setTextColor(14, 165, 233); // sky-500
+  doc.setTextColor(15, 23, 42);
   doc.text("SuiteSpot", 14, y);
   y += 8;
   doc.setFontSize(14);
@@ -142,14 +142,13 @@ function generatePDF(
   y += 8;
 
   if (checkIns.length > 0) {
-    // Table header
     doc.setFontSize(9);
-    doc.setFillColor(14, 165, 233);
+    doc.setFillColor(15, 23, 42);
     doc.setTextColor(255, 255, 255);
     doc.rect(14, y - 4, 182, 7, "F");
     doc.text("Guest Name", 16, y);
     doc.text("Room", 80, y);
-    doc.text("Source", 140, y);
+    doc.text("Source", 150, y);
     y += 6;
 
     doc.setTextColor(0, 0, 0);
@@ -159,8 +158,8 @@ function generatePDF(
         doc.rect(14, y - 4, 182, 7, "F");
       }
       doc.text((ci.guest_names?.[0] || "N/A").substring(0, 30), 16, y);
-      doc.text((ci.units?.name || "Unassigned").substring(0, 25), 80, y);
-      doc.text((ci.source || ci.channel || "N/A").substring(0, 20), 140, y);
+      doc.text(formatRoomDisplay(ci.units).substring(0, 35), 80, y);
+      doc.text((ci.source || ci.channel || "N/A").substring(0, 20), 150, y);
       y += 7;
       if (y > 270) { doc.addPage(); y = 20; }
     });
@@ -179,12 +178,12 @@ function generatePDF(
 
   if (checkOuts.length > 0) {
     doc.setFontSize(9);
-    doc.setFillColor(14, 165, 233);
+    doc.setFillColor(15, 23, 42);
     doc.setTextColor(255, 255, 255);
     doc.rect(14, y - 4, 182, 7, "F");
     doc.text("Guest Name", 16, y);
     doc.text("Room", 80, y);
-    doc.text("Source", 140, y);
+    doc.text("Source", 150, y);
     y += 6;
 
     doc.setTextColor(0, 0, 0);
@@ -194,8 +193,8 @@ function generatePDF(
         doc.rect(14, y - 4, 182, 7, "F");
       }
       doc.text((co.guest_names?.[0] || "N/A").substring(0, 30), 16, y);
-      doc.text((co.units?.name || "Unassigned").substring(0, 25), 80, y);
-      doc.text((co.source || co.channel || "N/A").substring(0, 20), 140, y);
+      doc.text(formatRoomDisplay(co.units).substring(0, 35), 80, y);
+      doc.text((co.source || co.channel || "N/A").substring(0, 20), 150, y);
       y += 7;
       if (y > 270) { doc.addPage(); y = 20; }
     });
@@ -207,6 +206,35 @@ function generatePDF(
 
   y += 6;
 
+  // Blocked Rooms section
+  if (blockedRooms.length > 0) {
+    doc.setFontSize(13);
+    doc.text(`Blocked Rooms (${blockedRooms.length})`, 14, y);
+    y += 8;
+
+    doc.setFontSize(9);
+    doc.setFillColor(15, 23, 42);
+    doc.setTextColor(255, 255, 255);
+    doc.rect(14, y - 4, 182, 7, "F");
+    doc.text("Room", 16, y);
+    doc.text("Reason", 100, y);
+    y += 6;
+
+    doc.setTextColor(0, 0, 0);
+    blockedRooms.forEach((br, i) => {
+      if (i % 2 === 0) {
+        doc.setFillColor(249, 250, 251);
+        doc.rect(14, y - 4, 182, 7, "F");
+      }
+      doc.text(br.room.substring(0, 40), 16, y);
+      doc.text((br.reason || "—").substring(0, 50), 100, y);
+      y += 7;
+      if (y > 270) { doc.addPage(); y = 20; }
+    });
+
+    y += 6;
+  }
+
   // Occupancy section
   doc.setFontSize(13);
   doc.text("Today's Occupancy", 14, y);
@@ -216,7 +244,7 @@ function generatePDF(
   doc.text(`Vacant: ${occupancy.vacant} rooms`, 16, y); y += 6;
   doc.text(`Total: ${occupancy.total} rooms`, 16, y); y += 6;
   doc.setFontSize(14);
-  doc.setTextColor(14, 165, 233);
+  doc.setTextColor(15, 23, 42);
   doc.text(`Occupancy Rate: ${occupancy.rate.toFixed(1)}%`, 16, y);
   y += 10;
 
@@ -233,46 +261,59 @@ function generateEmailHTML(
   dateStr: string,
   checkIns: any[],
   checkOuts: any[],
-  occupancy: { occupied: number; vacant: number; total: number; rate: number }
+  occupancy: { occupied: number; vacant: number; total: number; rate: number },
+  blockedRooms: { room: string; reason: string }[]
 ): string {
   const tableStyle = 'style="width:100%;border-collapse:collapse;margin:8px 0 16px 0;"';
-  const thStyle = 'style="background:#0EA5E9;color:white;padding:8px 12px;text-align:left;font-size:13px;"';
+  const thStyle = 'style="background:#1e293b;color:white;padding:8px 12px;text-align:left;font-size:13px;"';
   const tdStyle = (i: number) => `style="padding:8px 12px;border-bottom:1px solid #eee;font-size:13px;background:${i % 2 === 0 ? '#f9fafb' : '#fff'};"`;
 
   const checkInRows = checkIns.length > 0
-    ? checkIns.map((ci, i) => `<tr><td ${tdStyle(i)}>${ci.guest_names?.[0] || "N/A"}</td><td ${tdStyle(i)}>${ci.units?.name || "Unassigned"}</td><td ${tdStyle(i)}>${ci.source || ci.channel || "N/A"}</td></tr>`).join("")
+    ? checkIns.map((ci, i) => `<tr><td ${tdStyle(i)}>${ci.guest_names?.[0] || "N/A"}</td><td ${tdStyle(i)}>${formatRoomDisplay(ci.units)}</td><td ${tdStyle(i)}>${ci.source || ci.channel || "N/A"}</td></tr>`).join("")
     : `<tr><td colspan="3" style="padding:12px;color:#888;">No check-ins today</td></tr>`;
 
   const checkOutRows = checkOuts.length > 0
-    ? checkOuts.map((co, i) => `<tr><td ${tdStyle(i)}>${co.guest_names?.[0] || "N/A"}</td><td ${tdStyle(i)}>${co.units?.name || "Unassigned"}</td><td ${tdStyle(i)}>${co.source || co.channel || "N/A"}</td></tr>`).join("")
+    ? checkOuts.map((co, i) => `<tr><td ${tdStyle(i)}>${co.guest_names?.[0] || "N/A"}</td><td ${tdStyle(i)}>${formatRoomDisplay(co.units)}</td><td ${tdStyle(i)}>${co.source || co.channel || "N/A"}</td></tr>`).join("")
     : `<tr><td colspan="3" style="padding:12px;color:#888;">No check-outs today</td></tr>`;
+
+  const blockedSection = blockedRooms.length > 0
+    ? `
+        <h2 style="font-size:16px;color:#1e293b;margin:20px 0 8px;">🚫 Blocked Rooms (${blockedRooms.length})</h2>
+        <table ${tableStyle}>
+          <tr><th ${thStyle}>Room</th><th ${thStyle}>Reason</th></tr>
+          ${blockedRooms.map((br, i) => `<tr><td ${tdStyle(i)}>${br.room}</td><td ${tdStyle(i)}>${br.reason || "—"}</td></tr>`).join("")}
+        </table>
+      `
+    : "";
 
   return `
     <div style="font-family:Arial,sans-serif;max-width:650px;margin:0 auto;color:#222;">
-      <div style="background:#0EA5E9;padding:20px 24px;border-radius:8px 8px 0 0;">
+      <div style="background:linear-gradient(135deg, #0f172a 0%, #1e293b 100%);padding:20px 24px;border-radius:8px 8px 0 0;">
         <h1 style="color:white;margin:0;font-size:22px;">SuiteSpot Daily Summary</h1>
         <p style="color:rgba(255,255,255,0.9);margin:4px 0 0;font-size:14px;">${propertyName} — ${dateStr}</p>
       </div>
       <div style="padding:24px;background:#fff;border:1px solid #e5e7eb;border-top:none;border-radius:0 0 8px 8px;">
-        <h2 style="font-size:16px;color:#0EA5E9;margin:0 0 8px;">📥 Today's Check-ins (${checkIns.length})</h2>
+        <h2 style="font-size:16px;color:#1e293b;margin:0 0 8px;">📥 Today's Check-ins (${checkIns.length})</h2>
         <table ${tableStyle}>
           <tr><th ${thStyle}>Guest Name</th><th ${thStyle}>Room</th><th ${thStyle}>Source</th></tr>
           ${checkInRows}
         </table>
 
-        <h2 style="font-size:16px;color:#0EA5E9;margin:20px 0 8px;">📤 Today's Check-outs (${checkOuts.length})</h2>
+        <h2 style="font-size:16px;color:#1e293b;margin:20px 0 8px;">📤 Today's Check-outs (${checkOuts.length})</h2>
         <table ${tableStyle}>
           <tr><th ${thStyle}>Guest Name</th><th ${thStyle}>Room</th><th ${thStyle}>Source</th></tr>
           ${checkOutRows}
         </table>
 
-        <h2 style="font-size:16px;color:#0EA5E9;margin:20px 0 8px;">🏠 Today's Occupancy</h2>
-        <div style="background:#f0f9ff;padding:16px;border-radius:8px;border:1px solid #bae6fd;">
+        ${blockedSection}
+
+        <h2 style="font-size:16px;color:#1e293b;margin:20px 0 8px;">🏠 Today's Occupancy</h2>
+        <div style="background:#f1f5f9;padding:16px;border-radius:8px;border:1px solid #cbd5e1;">
           <table style="width:100%;">
             <tr><td style="padding:4px 0;font-size:14px;">Occupied</td><td style="text-align:right;font-weight:bold;font-size:14px;">${occupancy.occupied} rooms</td></tr>
             <tr><td style="padding:4px 0;font-size:14px;">Vacant</td><td style="text-align:right;font-weight:bold;font-size:14px;">${occupancy.vacant} rooms</td></tr>
             <tr><td style="padding:4px 0;font-size:14px;">Total</td><td style="text-align:right;font-weight:bold;font-size:14px;">${occupancy.total} rooms</td></tr>
-            <tr><td colspan="2" style="padding:8px 0 0;text-align:center;font-size:22px;font-weight:bold;color:#0EA5E9;">${occupancy.rate.toFixed(1)}% Occupancy</td></tr>
+            <tr><td colspan="2" style="padding:8px 0 0;text-align:center;font-size:22px;font-weight:bold;color:#0f172a;">${occupancy.rate.toFixed(1)}% Occupancy</td></tr>
           </table>
         </div>
 
@@ -315,7 +356,6 @@ const handler = async (req: Request): Promise<Response> => {
     // Get recipients filtered by property access
     const recipients = await getRecipients(supabase, property.id);
     if (recipients.length === 0) {
-      // Log and return
       await supabase.from("summary_report_log").insert({
         report_type: "daily",
         property_id: property.id,
@@ -325,7 +365,6 @@ const handler = async (req: Request): Promise<Response> => {
         sent_at: new Date().toISOString(),
       });
       console.log("No recipients configured, skipping daily summary");
-      // Still check for weekly/monthly
       await triggerAdditionalReports(supabaseUrl, supabaseKey, today);
       return new Response(JSON.stringify({ success: true, message: "No recipients" }), {
         status: 200,
@@ -333,18 +372,18 @@ const handler = async (req: Request): Promise<Response> => {
       });
     }
 
-    // Fetch check-ins today
+    // Fetch check-ins today (with room details)
     const { data: checkIns } = await supabase
       .from("reservations")
-      .select("guest_names, source, channel, units!unit_id(name)")
+      .select("guest_names, source, channel, units!unit_id(name, booking_com_name, unit_number)")
       .eq("check_in_date", todayStr)
       .in("status", ["confirmed", "checked-in"])
       .eq("property_id", property.id);
 
-    // Fetch check-outs today
+    // Fetch check-outs today (with room details)
     const { data: checkOuts } = await supabase
       .from("reservations")
-      .select("guest_names, source, channel, units!unit_id(name)")
+      .select("guest_names, source, channel, units!unit_id(name, booking_com_name, unit_number)")
       .eq("check_out_date", todayStr)
       .in("status", ["confirmed", "checked-in", "checked-out", "completed"])
       .eq("property_id", property.id);
@@ -361,19 +400,47 @@ const handler = async (req: Request): Promise<Response> => {
     const occupied = inHouse?.length || 0;
 
     // Total units for property
-    const { data: units } = await supabase
+    const { data: allUnits } = await supabase
       .from("units")
       .select("id")
       .eq("property_id", property.id);
 
-    const totalRooms = units?.length || 1;
-    const vacant = totalRooms - occupied;
-    const occupancyRate = (occupied / totalRooms) * 100;
+    // Fetch blocked dates for today to get blocked unit IDs and details
+    const { data: blockedToday } = await supabase
+      .from("blocked_dates")
+      .select("unit_id, reason, units(name, booking_com_name, unit_number)")
+      .eq("blocked_date", todayStr);
+
+    // Filter blocked dates to only include units belonging to this property
+    const propertyUnitIds = new Set((allUnits || []).map((u: any) => u.id));
+    const propertyBlockedToday = (blockedToday || []).filter(
+      (b: any) => b.unit_id && propertyUnitIds.has(b.unit_id)
+    );
+
+    // Deduplicate blocked unit IDs
+    const blockedUnitIds = new Set(propertyBlockedToday.map((b: any) => b.unit_id));
+
+    // Build blocked rooms display data (deduplicated by unit)
+    const blockedRoomsMap = new Map<string, { room: string; reason: string }>();
+    for (const b of propertyBlockedToday) {
+      if (!blockedRoomsMap.has(b.unit_id)) {
+        blockedRoomsMap.set(b.unit_id, {
+          room: formatRoomDisplay(b.units),
+          reason: b.reason || "—",
+        });
+      }
+    }
+    const blockedRooms = Array.from(blockedRoomsMap.values());
+
+    // Total rooms = all units minus blocked units
+    const totalRooms = (allUnits?.length || 0) - blockedUnitIds.size;
+    const vacant = Math.max(0, totalRooms - occupied);
+    const occupancyRate = totalRooms > 0 ? (occupied / totalRooms) * 100 : 0;
 
     const occupancy = { occupied, vacant, total: totalRooms, rate: occupancyRate };
 
     // Generate PDF
-    const pdfBytes = generatePDF(property.name, dateDisplay, checkIns || [], checkOuts || [], occupancy);
+    const pdfBytes = generatePDF(property.name, dateDisplay, checkIns || [], checkOuts || [], occupancy, blockedRooms);
 
     // Upload PDF to storage
     const pdfFilename = `Daily-Summary-${todayStr}.pdf`;
@@ -384,13 +451,12 @@ const handler = async (req: Request): Promise<Response> => {
     if (uploadError) console.error("PDF upload error:", uploadError);
 
     // Generate email HTML
-    const emailHTML = generateEmailHTML(property.name, dateDisplay, checkIns || [], checkOuts || [], occupancy);
+    const emailHTML = generateEmailHTML(property.name, dateDisplay, checkIns || [], checkOuts || [], occupancy, blockedRooms);
 
     // Send emails with 600ms delay between recipients
     const sentEmails: string[] = [];
     let errorCount = 0;
 
-    // Convert PDF to base64 for attachment
     const pdfBase64 = btoa(String.fromCharCode(...new Uint8Array(pdfBytes)));
 
     for (const recipient of recipients) {
@@ -409,7 +475,6 @@ const handler = async (req: Request): Promise<Response> => {
         errorCount++;
       }
 
-      // 600ms delay between recipients
       if (recipients.indexOf(recipient) < recipients.length - 1) {
         await new Promise(resolve => setTimeout(resolve, 600));
       }
@@ -447,9 +512,8 @@ const handler = async (req: Request): Promise<Response> => {
 };
 
 async function triggerAdditionalReports(supabaseUrl: string, serviceKey: string, today: Date) {
-  const dayOfWeek = today.getDay(); // 0=Sun, 4=Thu
+  const dayOfWeek = today.getDay();
 
-  // Thursday → trigger weekly
   if (dayOfWeek === 4) {
     console.log("Today is Thursday — triggering weekly summary");
     try {
@@ -466,7 +530,6 @@ async function triggerAdditionalReports(supabaseUrl: string, serviceKey: string,
     }
   }
 
-  // Last working day of month → trigger monthly
   if (isLastWorkingDayOfMonth(today)) {
     console.log("Today is last working day of month — triggering monthly summary");
     try {
