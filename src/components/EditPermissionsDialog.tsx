@@ -315,18 +315,16 @@ export function EditPermissionsDialog({
           <Button variant="outline" onClick={() => onOpenChange(false)}>
             Cancel
           </Button>
-          {!isAdmin && (
-            <Button onClick={handleSave} disabled={saving || loading}>
-              {saving ? (
-                <>
-                  <Loader2 className="h-4 w-4 mr-2 animate-spin" />
-                  Saving...
-                </>
-              ) : (
-                'Save Changes'
-              )}
-            </Button>
-          )}
+          <Button onClick={handleSave} disabled={saving || loading}>
+            {saving ? (
+              <>
+                <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+                Saving...
+              </>
+            ) : (
+              'Save Changes'
+            )}
+          </Button>
         </DialogFooter>
       </DialogContent>
     </Dialog>
