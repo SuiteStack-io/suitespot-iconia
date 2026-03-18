@@ -1,6 +1,5 @@
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2.39.3";
 import { Resend } from "https://esm.sh/resend@3.2.0";
-import jsPDF from "https://esm.sh/jspdf@2.5.2";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
@@ -110,151 +109,6 @@ async function getRecipients(supabase: any, propertyId?: string): Promise<{ emai
   return candidates.map(c => ({ email: c.email, name: c.name }));
 }
 
-function generatePDF(
-  propertyName: string,
-  dateStr: string,
-  checkIns: any[],
-  checkOuts: any[],
-  occupancy: { occupied: number; vacant: number; total: number; rate: number },
-  blockedRooms: { room: string; reason: string }[]
-): Uint8Array {
-  const doc = new jsPDF();
-  let y = 20;
-
-  // Header — dark navy
-  doc.setFontSize(20);
-  doc.setTextColor(15, 23, 42);
-  doc.text("SuiteSpot", 14, y);
-  y += 8;
-  doc.setFontSize(14);
-  doc.setTextColor(0, 0, 0);
-  doc.text(`Daily Summary — ${propertyName}`, 14, y);
-  y += 7;
-  doc.setFontSize(10);
-  doc.setTextColor(100, 100, 100);
-  doc.text(dateStr, 14, y);
-  y += 12;
-
-  // Check-ins section
-  doc.setFontSize(13);
-  doc.setTextColor(0, 0, 0);
-  doc.text(`Today's Check-ins (${checkIns.length})`, 14, y);
-  y += 8;
-
-  if (checkIns.length > 0) {
-    doc.setFontSize(9);
-    doc.setFillColor(15, 23, 42);
-    doc.setTextColor(255, 255, 255);
-    doc.rect(14, y - 4, 182, 7, "F");
-    doc.text("Guest Name", 16, y);
-    doc.text("Room", 80, y);
-    doc.text("Source", 150, y);
-    y += 6;
-
-    doc.setTextColor(0, 0, 0);
-    checkIns.forEach((ci, i) => {
-      if (i % 2 === 0) {
-        doc.setFillColor(249, 250, 251);
-        doc.rect(14, y - 4, 182, 7, "F");
-      }
-      doc.text((ci.guest_names?.[0] || "N/A").substring(0, 30), 16, y);
-      doc.text(formatRoomDisplay(ci.units).substring(0, 35), 80, y);
-      doc.text((ci.source || ci.channel || "N/A").substring(0, 20), 150, y);
-      y += 7;
-      if (y > 270) { doc.addPage(); y = 20; }
-    });
-  } else {
-    doc.setFontSize(10);
-    doc.text("No check-ins today", 16, y);
-    y += 7;
-  }
-
-  y += 6;
-
-  // Check-outs section
-  doc.setFontSize(13);
-  doc.text(`Today's Check-outs (${checkOuts.length})`, 14, y);
-  y += 8;
-
-  if (checkOuts.length > 0) {
-    doc.setFontSize(9);
-    doc.setFillColor(15, 23, 42);
-    doc.setTextColor(255, 255, 255);
-    doc.rect(14, y - 4, 182, 7, "F");
-    doc.text("Guest Name", 16, y);
-    doc.text("Room", 80, y);
-    doc.text("Source", 150, y);
-    y += 6;
-
-    doc.setTextColor(0, 0, 0);
-    checkOuts.forEach((co, i) => {
-      if (i % 2 === 0) {
-        doc.setFillColor(249, 250, 251);
-        doc.rect(14, y - 4, 182, 7, "F");
-      }
-      doc.text((co.guest_names?.[0] || "N/A").substring(0, 30), 16, y);
-      doc.text(formatRoomDisplay(co.units).substring(0, 35), 80, y);
-      doc.text((co.source || co.channel || "N/A").substring(0, 20), 150, y);
-      y += 7;
-      if (y > 270) { doc.addPage(); y = 20; }
-    });
-  } else {
-    doc.setFontSize(10);
-    doc.text("No check-outs today", 16, y);
-    y += 7;
-  }
-
-  y += 6;
-
-  // Blocked Rooms section
-  if (blockedRooms.length > 0) {
-    doc.setFontSize(13);
-    doc.text(`Blocked Rooms (${blockedRooms.length})`, 14, y);
-    y += 8;
-
-    doc.setFontSize(9);
-    doc.setFillColor(15, 23, 42);
-    doc.setTextColor(255, 255, 255);
-    doc.rect(14, y - 4, 182, 7, "F");
-    doc.text("Room", 16, y);
-    doc.text("Reason", 100, y);
-    y += 6;
-
-    doc.setTextColor(0, 0, 0);
-    blockedRooms.forEach((br, i) => {
-      if (i % 2 === 0) {
-        doc.setFillColor(249, 250, 251);
-        doc.rect(14, y - 4, 182, 7, "F");
-      }
-      doc.text(br.room.substring(0, 40), 16, y);
-      doc.text((br.reason || "—").substring(0, 50), 100, y);
-      y += 7;
-      if (y > 270) { doc.addPage(); y = 20; }
-    });
-
-    y += 6;
-  }
-
-  // Occupancy section
-  doc.setFontSize(13);
-  doc.text("Today's Occupancy", 14, y);
-  y += 8;
-  doc.setFontSize(10);
-  doc.text(`Occupied: ${occupancy.occupied} rooms`, 16, y); y += 6;
-  doc.text(`Vacant: ${occupancy.vacant} rooms`, 16, y); y += 6;
-  doc.text(`Total: ${occupancy.total} rooms`, 16, y); y += 6;
-  doc.setFontSize(14);
-  doc.setTextColor(15, 23, 42);
-  doc.text(`Occupancy Rate: ${occupancy.rate.toFixed(1)}%`, 16, y);
-  y += 10;
-
-  // Footer
-  doc.setFontSize(8);
-  doc.setTextColor(150, 150, 150);
-  doc.text(`Generated automatically by SuiteSpot PMS — ${new Date().toISOString()}`, 14, 285);
-
-  return doc.output("arraybuffer");
-}
 
 function generateEmailHTML(
   propertyName: string,
@@ -439,25 +293,12 @@ const handler = async (req: Request): Promise<Response> => {
 
     const occupancy = { occupied, vacant, total: totalRooms, rate: occupancyRate };
 
-    // Generate PDF
-    const pdfBytes = generatePDF(property.name, dateDisplay, checkIns || [], checkOuts || [], occupancy, blockedRooms);
-
-    // Upload PDF to storage
-    const pdfFilename = `Daily-Summary-${todayStr}.pdf`;
-    const { error: uploadError } = await supabase.storage
-      .from("reports")
-      .upload(pdfFilename, pdfBytes, { contentType: "application/pdf", upsert: true });
-
-    if (uploadError) console.error("PDF upload error:", uploadError);
-
     // Generate email HTML
     const emailHTML = generateEmailHTML(property.name, dateDisplay, checkIns || [], checkOuts || [], occupancy, blockedRooms);
 
     // Send emails with 600ms delay between recipients
     const sentEmails: string[] = [];
     let errorCount = 0;
-
-    const pdfBase64 = btoa(String.fromCharCode(...new Uint8Array(pdfBytes)));
 
     for (const recipient of recipients) {
       try {
@@ -466,7 +307,6 @@ const handler = async (req: Request): Promise<Response> => {
           to: [recipient.email],
           subject: `Daily Summary — ${property.name} — ${dateDisplay}`,
           html: emailHTML,
-          attachments: [{ filename: pdfFilename, content: pdfBase64 }],
         });
         console.log(`Email sent to ${recipient.email}:`, JSON.stringify(emailResponse));
         sentEmails.push(recipient.email);
@@ -480,16 +320,13 @@ const handler = async (req: Request): Promise<Response> => {
       }
     }
 
-    // Get PDF URL
-    const { data: urlData } = supabase.storage.from("reports").getPublicUrl(pdfFilename);
-
     // Log result
     await supabase.from("summary_report_log").insert({
       report_type: "daily",
       property_id: property.id,
       report_date: todayStr,
       recipients: sentEmails,
-      pdf_url: urlData?.publicUrl || null,
+      pdf_url: null,
       status: errorCount === 0 ? "sent" : errorCount < recipients.length ? "partial" : "failed",
       error_message: errorCount > 0 ? `${errorCount} emails failed` : null,
       sent_at: new Date().toISOString(),

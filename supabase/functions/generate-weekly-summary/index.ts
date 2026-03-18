@@ -1,6 +1,5 @@
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2.39.3";
 import { Resend } from "https://esm.sh/resend@3.2.0";
-import jsPDF from "https://esm.sh/jspdf@2.5.2";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
@@ -168,55 +167,6 @@ const handler = async (req: Request): Promise<Response> => {
     const coBreakdown = breakdownBySource(checkOuts || []);
     const bookingBreakdown = breakdownBySource(newBookings || []);
 
-    // Generate PDF
-    const doc = new jsPDF();
-    let y = 20;
-    doc.setFontSize(20);
-    doc.setTextColor(14, 165, 233);
-    doc.text("SuiteSpot", 14, y); y += 8;
-    doc.setFontSize(14);
-    doc.setTextColor(0, 0, 0);
-    doc.text(`Weekly Summary — ${property.name}`, 14, y); y += 7;
-    doc.setFontSize(10);
-    doc.setTextColor(100, 100, 100);
-    doc.text(`Week of ${formatDateShort(startDate)} to ${formatDateShort(endDate)}`, 14, y); y += 12;
-
-    // Check-ins
-    doc.setFontSize(13); doc.setTextColor(0,0,0);
-    doc.text(`Week's Check-ins: ${(checkIns || []).length}`, 14, y); y += 7;
-    doc.setFontSize(10);
-    doc.text(`By source: ${formatBreakdown(ciBreakdown)}`, 16, y); y += 10;
-
-    // Check-outs
-    doc.setFontSize(13);
-    doc.text(`Week's Check-outs: ${(checkOuts || []).length}`, 14, y); y += 7;
-    doc.setFontSize(10);
-    doc.text(`By source: ${formatBreakdown(coBreakdown)}`, 16, y); y += 10;
-
-    // Occupancy
-    doc.setFontSize(13);
-    doc.text("Week's Occupancy", 14, y); y += 7;
-    doc.setFontSize(10);
-    doc.text(`Average occupancy: ${avgOccupancy.toFixed(1)}%`, 16, y); y += 6;
-    doc.text(`Highest: ${highestDay.date} (${highestDay.rate.toFixed(1)}%)`, 16, y); y += 6;
-    doc.text(`Lowest: ${lowestDay.date} (${lowestDay.rate.toFixed(1)}%)`, 16, y); y += 6;
-    doc.text(`Room nights sold: ${totalRoomNightsSold} / ${totalRoomNightsAvailable} available`, 16, y); y += 10;
-
-    // New bookings
-    doc.setFontSize(13);
-    doc.text(`Week's New Bookings: ${(newBookings || []).length}`, 14, y); y += 7;
-    doc.setFontSize(10);
-    doc.text(`By source: ${formatBreakdown(bookingBreakdown)}`, 16, y); y += 10;
-
-    doc.setFontSize(8);
-    doc.setTextColor(150, 150, 150);
-    doc.text(`Generated automatically by SuiteSpot PMS — ${new Date().toISOString()}`, 14, 285);
-
-    const pdfBytes = doc.output("arraybuffer");
-    const pdfFilename = `Weekly-Summary-${start}-to-${end}.pdf`;
-
-    await supabase.storage.from("reports").upload(pdfFilename, pdfBytes, { contentType: "application/pdf", upsert: true });
-
     // Email HTML
     const emailHTML = `
       <div style="font-family:Arial,sans-serif;max-width:650px;margin:0 auto;color:#222;">
@@ -247,7 +197,6 @@ const handler = async (req: Request): Promise<Response> => {
       </div>
     `;
 
-    const pdfBase64 = btoa(String.fromCharCode(...new Uint8Array(pdfBytes)));
     const sentEmails: string[] = [];
     let errorCount = 0;
 
@@ -258,7 +207,6 @@ const handler = async (req: Request): Promise<Response> => {
           to: [recipient.email],
           subject: `Weekly Summary — ${property.name} — Week of ${formatDateShort(startDate)} to ${formatDateShort(endDate)}`,
           html: emailHTML,
-          attachments: [{ filename: pdfFilename, content: pdfBase64 }],
         });
         console.log(`Weekly email sent to ${recipient.email}:`, JSON.stringify(resp));
         sentEmails.push(recipient.email);
@@ -271,10 +219,9 @@ const handler = async (req: Request): Promise<Response> => {
       }
     }
 
-    const { data: urlData } = supabase.storage.from("reports").getPublicUrl(pdfFilename);
     await supabase.from("summary_report_log").insert({
       report_type: "weekly", property_id: property.id, report_date: todayStr,
-      recipients: sentEmails, pdf_url: urlData?.publicUrl || null,
+      recipients: sentEmails, pdf_url: null,
       status: errorCount === 0 ? "sent" : errorCount < recipients.length ? "partial" : "failed",
       error_message: errorCount > 0 ? `${errorCount} emails failed` : null,
       sent_at: new Date().toISOString(),

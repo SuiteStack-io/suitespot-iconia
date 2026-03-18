@@ -1,6 +1,5 @@
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2.39.3";
 import { Resend } from "https://esm.sh/resend@3.2.0";
-import jsPDF from "https://esm.sh/jspdf@2.5.2";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
@@ -219,67 +218,6 @@ const handler = async (req: Request): Promise<Response> => {
     const netVsPrior = comparisonStr(netRevenue, priorNet, "vs last month", true);
     const netVsLY = lyHasData ? comparisonStr(netRevenue, lyNet, `vs ${lyMonthName}`, true) : `vs ${lyMonthName}: N/A — no data`;
 
-    // Generate PDF
-    const doc = new jsPDF();
-    let y = 20;
-    doc.setFontSize(20); doc.setTextColor(14, 165, 233);
-    doc.text("SuiteSpot", 14, y); y += 8;
-    doc.setFontSize(14); doc.setTextColor(0, 0, 0);
-    doc.text(`Monthly Summary — ${property.name}`, 14, y); y += 7;
-    doc.setFontSize(10); doc.setTextColor(100, 100, 100);
-    doc.text(monthName, 14, y); y += 12;
-
-    // Check-ins
-    doc.setFontSize(13); doc.setTextColor(0, 0, 0);
-    doc.text(`Check-ins: ${(checkIns || []).length}`, 14, y); y += 7;
-    doc.setFontSize(9);
-    doc.text(`By source: ${formatBreakdownWithPct(ciBreakdown, (checkIns || []).length)}`, 16, y); y += 8;
-
-    // Check-outs
-    doc.setFontSize(13);
-    doc.text(`Check-outs: ${(checkOuts || []).length}`, 14, y); y += 7;
-    doc.setFontSize(9);
-    doc.text(`By source: ${formatBreakdownWithPct(coBreakdown, (checkOuts || []).length)}`, 16, y); y += 10;
-
-    // Occupancy
-    doc.setFontSize(13);
-    doc.text("Occupancy", 14, y); y += 7;
-    doc.setFontSize(10);
-    doc.text(`Average: ${occupancy.avgRate.toFixed(1)}%`, 16, y); y += 6;
-    doc.text(`Room nights: ${occupancy.roomNightsSold} sold / ${occupancy.roomNightsAvailable} available`, 16, y); y += 6;
-    doc.setFontSize(9);
-    doc.text(occVsPrior, 16, y); y += 5;
-    doc.text(occVsLY, 16, y); y += 10;
-
-    // Revenue
-    doc.setFontSize(13);
-    doc.text("Revenue", 14, y); y += 7;
-    doc.setFontSize(10);
-    doc.text(`Gross: ${formatCurrency(grossRevenue)}`, 16, y); y += 6;
-    doc.text(`Commissions: ${formatCurrency(totalCommission)}`, 16, y); y += 6;
-    doc.text(`Net: ${formatCurrency(netRevenue)}`, 16, y); y += 7;
-    doc.setFontSize(9);
-    doc.text(grossVsPrior, 16, y); y += 5;
-    doc.text(grossVsLY, 16, y); y += 5;
-    doc.text(netVsPrior, 16, y); y += 5;
-    doc.text(netVsLY, 16, y); y += 10;
-
-    // Bookings
-    doc.setFontSize(13);
-    doc.text(`New Bookings: ${(newBookings || []).length}`, 14, y); y += 7;
-    doc.setFontSize(10);
-    doc.text(`By source: ${formatBreakdown(bookingBreakdown)}`, 16, y); y += 6;
-    doc.text(`Avg booking value: ${formatCurrency(avgBookingValue)}`, 16, y); y += 6;
-    doc.text(`Avg length of stay: ${avgLOS.toFixed(1)} nights`, 16, y); y += 10;
-
-    doc.setFontSize(8); doc.setTextColor(150, 150, 150);
-    doc.text(`Generated automatically by SuiteSpot PMS — ${new Date().toISOString()}`, 14, 285);
-
-    const pdfBytes = doc.output("arraybuffer");
-    const pdfFilename = `Monthly-Summary-${start.substring(0, 7)}.pdf`;
-
-    await supabase.storage.from("reports").upload(pdfFilename, pdfBytes, { contentType: "application/pdf", upsert: true });
-
     // Email HTML
     const emailHTML = `
       <div style="font-family:Arial,sans-serif;max-width:650px;margin:0 auto;color:#222;">
@@ -324,7 +262,6 @@ const handler = async (req: Request): Promise<Response> => {
       </div>
     `;
 
-    const pdfBase64 = btoa(String.fromCharCode(...new Uint8Array(pdfBytes)));
     const sentEmails: string[] = [];
     let errorCount = 0;
 
@@ -335,7 +272,6 @@ const handler = async (req: Request): Promise<Response> => {
           to: [recipient.email],
           subject: `Monthly Summary — ${property.name} — ${monthName}`,
           html: emailHTML,
-          attachments: [{ filename: pdfFilename, content: pdfBase64 }],
         });
         console.log(`Monthly email sent to ${recipient.email}:`, JSON.stringify(resp));
         sentEmails.push(recipient.email);
@@ -348,10 +284,9 @@ const handler = async (req: Request): Promise<Response> => {
       }
     }
 
-    const { data: urlData } = supabase.storage.from("reports").getPublicUrl(pdfFilename);
     await supabase.from("summary_report_log").insert({
       report_type: "monthly", property_id: property.id, report_date: todayStr,
-      recipients: sentEmails, pdf_url: urlData?.publicUrl || null,
+      recipients: sentEmails, pdf_url: null,
       status: errorCount === 0 ? "sent" : errorCount < recipients.length ? "partial" : "failed",
       error_message: errorCount > 0 ? `${errorCount} emails failed` : null,
       sent_at: new Date().toISOString(),
