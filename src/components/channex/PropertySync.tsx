@@ -137,6 +137,7 @@ export function PropertySync({ onSwitchToSettings }: PropertySyncProps) {
       } else {
         toast.error(data?.error || 'Full sync failed');
       }
+      await fetchData();
     } catch (err: any) {
       toast.error(err.message || 'Full sync failed');
     } finally {
