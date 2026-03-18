@@ -238,6 +238,8 @@ Deno.serve(async (req: Request) => {
     // CREATE/UPDATE RESERVATION IN reservations TABLE
     // ================================================================
     let reservationResult: string | null = null;
+    let oldArrivalDate: string | null = null;
+    let oldDepartureDate: string | null = null;
 
     if (arrival_date && departure_date && booking_id) {
       try {
