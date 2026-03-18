@@ -184,14 +184,18 @@ export function EditPermissionsDialog({
       }
 
       // Trigger notification settings save for all users
+      // Trigger notification settings save for all users
       setNotifSaveTrigger(prev => prev + 1);
-      toast({
-        title: 'Success',
-        description: `Settings updated for ${user.full_name || user.email}`,
-      });
 
-      onOpenChange(false);
-      onSuccess?.();
+      // Delay close to allow the notification save useEffect to fire
+      setTimeout(() => {
+        toast({
+          title: 'Success',
+          description: `Settings updated for ${user.full_name || user.email}`,
+        });
+        onOpenChange(false);
+        onSuccess?.();
+      }, 500);
     } catch (error) {
       console.error('Error saving permissions:', error);
       toast({
