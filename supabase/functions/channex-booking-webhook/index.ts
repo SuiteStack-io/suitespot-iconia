@@ -244,6 +244,18 @@ Deno.serve(async (req: Request) => {
     if (arrival_date && departure_date && booking_id) {
       try {
         if (status === "cancelled") {
+          // Capture old dates before cancelling
+          const { data: cancelExisting } = await supabase
+            .from("reservations")
+            .select("id, check_in_date, check_out_date")
+            .eq("channex_booking_id", booking_id)
+            .maybeSingle();
+
+          if (cancelExisting) {
+            oldArrivalDate = cancelExisting.check_in_date;
+            oldDepartureDate = cancelExisting.check_out_date;
+          }
+
           // Cancel existing reservation
           const { data: updated, error: cancelErr } = await supabase
             .from("reservations")
