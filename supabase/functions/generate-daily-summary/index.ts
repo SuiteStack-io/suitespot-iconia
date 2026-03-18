@@ -293,25 +293,12 @@ const handler = async (req: Request): Promise<Response> => {
 
     const occupancy = { occupied, vacant, total: totalRooms, rate: occupancyRate };
 
-    // Generate PDF
-    const pdfBytes = generatePDF(property.name, dateDisplay, checkIns || [], checkOuts || [], occupancy, blockedRooms);
-
-    // Upload PDF to storage
-    const pdfFilename = `Daily-Summary-${todayStr}.pdf`;
-    const { error: uploadError } = await supabase.storage
-      .from("reports")
-      .upload(pdfFilename, pdfBytes, { contentType: "application/pdf", upsert: true });
-
-    if (uploadError) console.error("PDF upload error:", uploadError);
-
     // Generate email HTML
     const emailHTML = generateEmailHTML(property.name, dateDisplay, checkIns || [], checkOuts || [], occupancy, blockedRooms);
 
     // Send emails with 600ms delay between recipients
     const sentEmails: string[] = [];
     let errorCount = 0;
-
-    const pdfBase64 = btoa(String.fromCharCode(...new Uint8Array(pdfBytes)));
 
     for (const recipient of recipients) {
       try {
@@ -320,7 +307,6 @@ const handler = async (req: Request): Promise<Response> => {
           to: [recipient.email],
           subject: `Daily Summary — ${property.name} — ${dateDisplay}`,
           html: emailHTML,
-          attachments: [{ filename: pdfFilename, content: pdfBase64 }],
         });
         console.log(`Email sent to ${recipient.email}:`, JSON.stringify(emailResponse));
         sentEmails.push(recipient.email);
@@ -334,16 +320,13 @@ const handler = async (req: Request): Promise<Response> => {
       }
     }
 
-    // Get PDF URL
-    const { data: urlData } = supabase.storage.from("reports").getPublicUrl(pdfFilename);
-
     // Log result
     await supabase.from("summary_report_log").insert({
       report_type: "daily",
       property_id: property.id,
       report_date: todayStr,
       recipients: sentEmails,
-      pdf_url: urlData?.publicUrl || null,
+      pdf_url: null,
       status: errorCount === 0 ? "sent" : errorCount < recipients.length ? "partial" : "failed",
       error_message: errorCount > 0 ? `${errorCount} emails failed` : null,
       sent_at: new Date().toISOString(),

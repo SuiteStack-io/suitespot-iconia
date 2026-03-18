@@ -262,7 +262,6 @@ const handler = async (req: Request): Promise<Response> => {
       </div>
     `;
 
-    const pdfBase64 = btoa(String.fromCharCode(...new Uint8Array(pdfBytes)));
     const sentEmails: string[] = [];
     let errorCount = 0;
 
@@ -273,7 +272,6 @@ const handler = async (req: Request): Promise<Response> => {
           to: [recipient.email],
           subject: `Monthly Summary — ${property.name} — ${monthName}`,
           html: emailHTML,
-          attachments: [{ filename: pdfFilename, content: pdfBase64 }],
         });
         console.log(`Monthly email sent to ${recipient.email}:`, JSON.stringify(resp));
         sentEmails.push(recipient.email);
@@ -286,10 +284,9 @@ const handler = async (req: Request): Promise<Response> => {
       }
     }
 
-    const { data: urlData } = supabase.storage.from("reports").getPublicUrl(pdfFilename);
     await supabase.from("summary_report_log").insert({
       report_type: "monthly", property_id: property.id, report_date: todayStr,
-      recipients: sentEmails, pdf_url: urlData?.publicUrl || null,
+      recipients: sentEmails, pdf_url: null,
       status: errorCount === 0 ? "sent" : errorCount < recipients.length ? "partial" : "failed",
       error_message: errorCount > 0 ? `${errorCount} emails failed` : null,
       sent_at: new Date().toISOString(),
