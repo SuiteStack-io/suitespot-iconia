@@ -482,58 +482,9 @@ Deno.serve(async (req: Request) => {
 
             const totalUnits = allUnits?.length || 0;
 
-            // Helper to calculate and push availability for a date range
-            const pushAvailForRange = async (dateFrom: string, dateTo: string, label: string) => {
-              // dateTo here is the departure/checkout date (exclusive), 
-              // so last occupied night = dateTo - 1 day
-              const lastOccupiedNight = new Date(dateTo);
-              lastOccupiedNight.setDate(lastOccupiedNight.getDate() - 1);
-              const lastNightStr = lastOccupiedNight.toISOString().split("T")[0];
-
-              // Count overlapping confirmed reservations for this date range
-              const { count: overlapping } = await supabase
-                .from("reservations")
-                .select("id", { count: "exact", head: true })
-                .eq("property_id", localPropertyId!)
-                .in("status", ["confirmed", "checked-in"])
-                .lt("check_in_date", dateTo)
-                .gt("check_out_date", dateFrom);
-
-              const available = Math.max(0, totalUnits - (overlapping || 0));
-
-              const availPayload = {
-                values: [{
-                  property_id: channexPropertyId,
-                  room_type_id: channexRoomTypeId!,
-                  date_from: dateFrom,
-                  date_to: lastNightStr,
-                  availability: available,
-                }],
-              };
-
-              console.log(`[channex-booking-webhook] Pushing availability (${label}):`, JSON.stringify(availPayload));
-              const availResponse = await channexRequest("POST", "/api/v1/availability", availPayload);
-              console.log(`[channex-booking-webhook] Availability push response (${label}):`, JSON.stringify(availResponse));
-
-              await supabase.from("channex_sync_logs").insert({
-                function_name: "channex-booking-webhook",
-                endpoint: "/api/v1/availability",
-                request_payload: availPayload,
-                response_payload: availResponse as any,
-                status_code: 200,
-                success: true,
-                error_message: null,
-                property_id: localPropertyId,
-              });
-
-              return available;
-            };
-
-            // Filter availability push to only units of this room type
-            // by checking reservations on units with the same booking_com_name
             const unitIds = allUnits?.map((u: any) => u.id) || [];
 
-            // Re-define push to scope by unit IDs
+            // Helper to calculate and push availability for a date range (scoped to room type units)
             const pushScopedAvailForRange = async (dateFrom: string, dateTo: string, label: string) => {
               const lastOccupiedNight = new Date(dateTo);
               lastOccupiedNight.setDate(lastOccupiedNight.getDate() - 1);
