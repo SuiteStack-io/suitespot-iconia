@@ -430,7 +430,182 @@ Deno.serve(async (req: Request) => {
       }
     }
 
-    await logSync("channex-booking-webhook", "webhook", body, { status, booking_id, ack: ackSuccess, reservation: reservationResult }, 200, true, null, localPropertyId);
+    // ================================================================
+    // PUSH UPDATED AVAILABILITY TO CHANNEX
+    // ================================================================
+    let availabilityPushResult: string | null = null;
+    try {
+      if (!isTestProperty && channexPropertyId && arrival_date && departure_date) {
+        // Resolve Channex room_type_id
+        let channexRoomTypeId: string | null = rooms?.[0]?.room_type_id || null;
+        if (!channexRoomTypeId && roomTypeId) {
+          const { data: rtMapping } = await supabase
+            .from("channex_mappings")
+            .select("channex_id")
+            .eq("local_id", roomTypeId)
+            .eq("entity_type", "room_type")
+            .maybeSingle();
+          if (rtMapping) channexRoomTypeId = rtMapping.channex_id;
+        }
+
+        if (channexRoomTypeId) {
+          // Resolve booking_com_name and count total units
+          let bookingComName: string | null = null;
+          if (roomTypeId) {
+            const { data: unitData } = await supabase
+              .from("units")
+              .select("booking_com_name")
+              .eq("id", roomTypeId)
+              .maybeSingle();
+            if (unitData) bookingComName = unitData.booking_com_name;
+          }
+
+          if (bookingComName && localPropertyId) {
+            const { data: allUnits } = await supabase
+              .from("units")
+              .select("id")
+              .eq("booking_com_name", bookingComName)
+              .eq("property_id", localPropertyId)
+              .neq("status", "maintenance");
+
+            const totalUnits = allUnits?.length || 0;
+
+            // Helper to calculate and push availability for a date range
+            const pushAvailForRange = async (dateFrom: string, dateTo: string, label: string) => {
+              // dateTo here is the departure/checkout date (exclusive), 
+              // so last occupied night = dateTo - 1 day
+              const lastOccupiedNight = new Date(dateTo);
+              lastOccupiedNight.setDate(lastOccupiedNight.getDate() - 1);
+              const lastNightStr = lastOccupiedNight.toISOString().split("T")[0];
+
+              // Count overlapping confirmed reservations for this date range
+              const { count: overlapping } = await supabase
+                .from("reservations")
+                .select("id", { count: "exact", head: true })
+                .eq("property_id", localPropertyId!)
+                .in("status", ["confirmed", "checked-in"])
+                .lt("check_in_date", dateTo)
+                .gt("check_out_date", dateFrom);
+
+              const available = Math.max(0, totalUnits - (overlapping || 0));
+
+              const availPayload = {
+                values: [{
+                  property_id: channexPropertyId,
+                  room_type_id: channexRoomTypeId!,
+                  date_from: dateFrom,
+                  date_to: lastNightStr,
+                  availability: available,
+                }],
+              };
+
+              console.log(`[channex-booking-webhook] Pushing availability (${label}):`, JSON.stringify(availPayload));
+              const availResponse = await channexRequest("POST", "/api/v1/availability", availPayload);
+              console.log(`[channex-booking-webhook] Availability push response (${label}):`, JSON.stringify(availResponse));
+
+              await supabase.from("channex_sync_logs").insert({
+                function_name: "channex-booking-webhook",
+                endpoint: "/api/v1/availability",
+                request_payload: availPayload,
+                response_payload: availResponse as any,
+                status_code: 200,
+                success: true,
+                error_message: null,
+                property_id: localPropertyId,
+              });
+
+              return available;
+            };
+
+            // Filter availability push to only units of this room type
+            // by checking reservations on units with the same booking_com_name
+            const unitIds = allUnits?.map((u: any) => u.id) || [];
+
+            // Re-define push to scope by unit IDs
+            const pushScopedAvailForRange = async (dateFrom: string, dateTo: string, label: string) => {
+              const lastOccupiedNight = new Date(dateTo);
+              lastOccupiedNight.setDate(lastOccupiedNight.getDate() - 1);
+              const lastNightStr = lastOccupiedNight.toISOString().split("T")[0];
+
+              const { count: overlapping } = await supabase
+                .from("reservations")
+                .select("id", { count: "exact", head: true })
+                .in("unit_id", unitIds)
+                .in("status", ["confirmed", "checked-in"])
+                .lt("check_in_date", dateTo)
+                .gt("check_out_date", dateFrom);
+
+              const available = Math.max(0, totalUnits - (overlapping || 0));
+
+              const availPayload = {
+                values: [{
+                  property_id: channexPropertyId,
+                  room_type_id: channexRoomTypeId!,
+                  date_from: dateFrom,
+                  date_to: lastNightStr,
+                  availability: available,
+                }],
+              };
+
+              console.log(`[channex-booking-webhook] Pushing availability (${label}):`, JSON.stringify(availPayload));
+              const availResponse = await channexRequest("POST", "/api/v1/availability", availPayload);
+              console.log(`[channex-booking-webhook] Availability push response (${label}):`, JSON.stringify(availResponse));
+
+              await supabase.from("channex_sync_logs").insert({
+                function_name: "channex-booking-webhook",
+                endpoint: "/api/v1/availability",
+                request_payload: availPayload,
+                response_payload: availResponse as any,
+                status_code: 200,
+                success: true,
+                error_message: null,
+                property_id: localPropertyId,
+              });
+
+              return available;
+            };
+
+            if (status === "cancelled" && oldArrivalDate && oldDepartureDate) {
+              // Restore availability for cancelled date range
+              const avail = await pushScopedAvailForRange(oldArrivalDate, oldDepartureDate, "cancellation-restore");
+              availabilityPushResult = `cancelled-restore:${avail}`;
+            } else if (oldArrivalDate && oldDepartureDate && (oldArrivalDate !== arrival_date || oldDepartureDate !== departure_date)) {
+              // Modification: push for both old and new ranges
+              const oldAvail = await pushScopedAvailForRange(oldArrivalDate, oldDepartureDate, "modification-old-range");
+              const newAvail = await pushScopedAvailForRange(arrival_date, departure_date, "modification-new-range");
+              availabilityPushResult = `modified:old=${oldAvail},new=${newAvail}`;
+            } else {
+              // New booking or same-date update
+              const avail = await pushScopedAvailForRange(arrival_date, departure_date, "new-booking");
+              availabilityPushResult = `new:${avail}`;
+            }
+
+            console.log("[channex-booking-webhook] Availability push result:", availabilityPushResult);
+          } else {
+            console.warn("[channex-booking-webhook] Could not resolve booking_com_name or localPropertyId for availability push");
+          }
+        } else {
+          console.warn("[channex-booking-webhook] No Channex room_type_id available for availability push");
+        }
+      }
+    } catch (availErr: any) {
+      console.error("[channex-booking-webhook] Availability push error (non-fatal):", availErr.message);
+      availabilityPushResult = `error:${availErr.message}`;
+      try {
+        await supabase.from("channex_sync_logs").insert({
+          function_name: "channex-booking-webhook",
+          endpoint: "/api/v1/availability",
+          request_payload: { booking_id, arrival_date, departure_date },
+          response_payload: null,
+          status_code: null,
+          success: false,
+          error_message: availErr.message,
+          property_id: localPropertyId,
+        });
+      } catch { /* ignore logging failure */ }
+    }
+
+    await logSync("channex-booking-webhook", "webhook", body, { status, booking_id, ack: ackSuccess, reservation: reservationResult, availability: availabilityPushResult }, 200, true, null, localPropertyId);
 
     return ok({ success: true, booking_id, status, acknowledged: ackSuccess, reservation: reservationResult });
   } catch (err: any) {
