@@ -268,11 +268,14 @@ Deno.serve(async (req: Request) => {
           // Check if reservation already exists (idempotency)
           const { data: existing } = await supabase
             .from("reservations")
-            .select("id")
+            .select("id, check_in_date, check_out_date")
             .eq("channex_booking_id", booking_id)
             .maybeSingle();
 
           if (existing) {
+            // Capture old dates before updating (for availability restoration)
+            oldArrivalDate = existing.check_in_date;
+            oldDepartureDate = existing.check_out_date;
             // Update existing reservation
             const { error: updateErr } = await supabase
               .from("reservations")
