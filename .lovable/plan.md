@@ -1,118 +1,39 @@
 
 
-## Fix: Filter Blocked Dates by Active Property
+## Fix: Daily Summary Email Not Received
 
-### Problem
-`fetchBlockedDates()` fetches ALL blocked dates across all properties. `fetchUnits()` correctly filters by `propertyId`, but blocked dates does not.
+### Root Cause
 
-### File: `src/components/BlockedDatesManager.tsx`
+The `user_notification_settings` table is **empty** — your preferences were never saved to the database. The report log confirms: both March 17 and March 18 runs logged "No recipients configured" and skipped sending.
 
-**1. Filter `fetchBlockedDates` by property (lines 101-121)**
+**Why settings aren't saving:** In `EditPermissionsDialog.tsx`, the `handleSave` function triggers `setNotifSaveTrigger(prev => prev + 1)` and then **immediately** closes the dialog with `onOpenChange(false)`. React batches the state update, so the `NotificationSettingsSection` component unmounts before its `useEffect` on `triggerSave` fires — the `saveSettings()` call never executes.
 
-The `blocked_dates` table references `units` via `unit_id`. Filter by joining through units that belong to the active property:
+### Fix
 
+**File: `src/components/EditPermissionsDialog.tsx`** (lines 186-194)
+
+Change `handleSave` to **await** the notification save before closing the dialog. Instead of using the trigger pattern, directly call the save and only close after it completes:
+
+1. Add a `ref` to expose a `save()` method from `NotificationSettingsSection`, OR simpler: move the dialog close into a callback that fires after the notification save completes.
+
+**Simplest approach:** Keep the trigger pattern but delay closing the dialog. Replace lines 186-194:
 ```typescript
-const fetchBlockedDates = async () => {
-  try {
-    let query = supabase
-      .from("blocked_dates")
-      .select(`
-        *,
-        units (
-          name,
-          unit_number,
-          booking_com_name
-        )
-      `)
-      .order("blocked_date", { ascending: true });
+// Trigger notification settings save for all users
+setNotifSaveTrigger(prev => prev + 1);
 
-    // Filter to only show blocked dates for units belonging to the active property
-    if (propertyId) {
-      query = query.eq('units.property_id', propertyId);
-    }
-
-    const { data, error } = await query;
-    if (error) throw error;
-
-    // Remove entries where the unit was filtered out (unit doesn't belong to property)
-    const filtered = (data || []).filter(d => d.unit_id === null || d.units !== null);
-    setBlockedDates(filtered);
-  } catch (error: any) {
-    console.error("Error fetching blocked dates:", error);
-    toast.error("Failed to fetch blocked dates");
-  }
-};
+// Delay close to allow the notification save useEffect to fire
+setTimeout(() => {
+  toast({
+    title: 'Success',
+    description: `Settings updated for ${user.full_name || user.email}`,
+  });
+  onOpenChange(false);
+  onSuccess?.();
+}, 500);
 ```
 
-However, `blocked_dates` rows with `unit_id = null` (meaning "all rooms") have no unit join to filter on. We need a different approach — filter blocked dates whose `unit_id` is either null OR belongs to a unit in the active property. The cleanest way: use the unit IDs we already fetch.
+This gives the `NotificationSettingsSection` component time to execute its `saveSettings()` before the dialog unmounts.
 
-**Better approach — filter client-side using fetched units:**
-
-Since `fetchUnits` already returns only units for the active property, filter blocked dates to only include those whose `unit_id` is null or matches a fetched unit.
-
-Actually, the simplest and most reliable fix: add `property_id` awareness to the query. Since `blocked_dates` has a `unit_id` FK to `units`, and `units` has `property_id`, we can filter via an inner join or use an `in` filter with the property's unit IDs.
-
-**Revised approach — fetch unit IDs first, then filter:**
-
-```typescript
-// In useEffect, ensure both refetch when propertyId changes
-useEffect(() => {
-  fetchUnits();
-  fetchBlockedDates();
-}, [propertyId]);
-```
-
-In `fetchBlockedDates`, after fetching units (or independently):
-- Query units for the active property to get their IDs
-- Filter blocked_dates where `unit_id` is in that list
-
-**Simplest implementation:**
-
-1. **Change useEffect (line 80-83)** to depend on `propertyId`
-2. **Update `fetchBlockedDates`** to filter by property's unit IDs
-
-```typescript
-const fetchBlockedDates = async () => {
-  try {
-    // First get unit IDs for the active property
-    let unitIds: string[] = [];
-    if (propertyId) {
-      const { data: propUnits } = await supabase
-        .from("units")
-        .select("id")
-        .eq("property_id", propertyId);
-      unitIds = (propUnits || []).map(u => u.id);
-    }
-
-    let query = supabase
-      .from("blocked_dates")
-      .select(`*, units (name, unit_number, booking_com_name)`)
-      .order("blocked_date", { ascending: true });
-
-    if (propertyId && unitIds.length > 0) {
-      // Only show blocked dates for this property's units
-      query = query.in("unit_id", unitIds);
-    } else if (propertyId && unitIds.length === 0) {
-      // Property has no units, show nothing
-      setBlockedDates([]);
-      return;
-    }
-
-    const { data, error } = await query;
-    if (error) throw error;
-    setBlockedDates(data || []);
-  } catch (error: any) {
-    console.error("Error fetching blocked dates:", error);
-    toast.error("Failed to fetch blocked dates");
-  }
-};
-```
-
-3. **Update useEffect** (line 80-83): add `propertyId` to dependency array
-
-### Summary
-- 1 file changed: `src/components/BlockedDatesManager.tsx`
-- `fetchBlockedDates` filters by active property's unit IDs
-- Re-fetches when property switches
-- Blocked dates with `unit_id = null` (all-rooms blocks) won't show unless we decide they should — this matches the expectation that blocks are property-scoped
+### Files Changed
+- `src/components/EditPermissionsDialog.tsx` — delay dialog close until after notification settings persist
 
