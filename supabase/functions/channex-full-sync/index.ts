@@ -6,7 +6,7 @@ import { logSync, createAlert } from "../_shared/channex-client.ts";
  * channex-full-sync
  *
  * Pushes 500 days of availability, rates, and restrictions for a single
- * property to Channex. Returns task IDs for certification.
+ * property to Channex. Batches ALL values into minimum API calls.
  */
 
 const corsHeaders = {
@@ -17,8 +17,7 @@ const corsHeaders = {
 
 const CHANNEX_API_KEY = Deno.env.get("CHANNEX_API_KEY");
 const CHANNEX_BASE_URL = Deno.env.get("CHANNEX_BASE_URL");
-const BATCH_SIZE = 10;
-const BATCH_DELAY_MS = 6000;
+const BATCH_SIZE = 500;
 const SYNC_DAYS = 500;
 
 function formatDate(d: Date): string {
@@ -29,7 +28,6 @@ function addDays(d: Date, n: number): Date {
   r.setDate(r.getDate() + n);
   return r;
 }
-const delay = (ms: number) => new Promise((r) => setTimeout(r, ms));
 
 Deno.serve(async (req: Request) => {
   if (req.method === "OPTIONS") {
@@ -79,7 +77,9 @@ Deno.serve(async (req: Request) => {
     const availabilityResponses: any[] = [];
     const ratesResponses: any[] = [];
 
-    // ── AVAILABILITY ──────────────────────────────────────────
+    // ── AVAILABILITY: Collect all values across all room types ──
+    const allAvailValues: Record<string, any>[] = [];
+
     const { data: roomTypeMappings } = await supabase
       .from("channex_mappings")
       .select("*")
@@ -156,7 +156,7 @@ Deno.serve(async (req: Request) => {
           availByDate.push({ date: ds, avail: Math.max(0, totalUnits - occupiedUnits.size - blockedUnits.size) });
         }
 
-        // Collapse
+        // Collapse consecutive days with same availability into ranges
         const ranges: { date_from: string; date_to: string; availability: number }[] = [];
         let rangeStart = availByDate[0];
         let currentAvail = rangeStart.avail;
@@ -173,35 +173,41 @@ Deno.serve(async (req: Request) => {
         }
         ranges.push({ date_from: rangeStart.date, date_to: formatDate(addDays(new Date(lastDate), 1)), availability: currentAvail });
 
-        const availValues = ranges.map((r) => ({
-          property_id: channexPropertyId,
-          room_type_id: rtMapping.channex_id,
-          date_from: r.date_from,
-          date_to: r.date_to,
-          availability: r.availability,
-        }));
-
-        // Push in batches, capture task IDs
-        for (let i = 0; i < availValues.length; i += BATCH_SIZE) {
-          const batch = availValues.slice(i, i + BATCH_SIZE);
-          try {
-            const resp = await rawChannexPost("/api/v1/availability", { values: batch });
-            if (resp.taskId) result.availability_task_ids.push(resp.taskId);
-            availabilityResponses.push(resp.rawData);
-          } catch (err: any) {
-            result.errors.push(`Avail ${roomName} batch ${Math.floor(i / BATCH_SIZE)}: ${err.message}`);
-          }
-          if (i + BATCH_SIZE < availValues.length) await delay(BATCH_DELAY_MS);
+        // Add to combined array (NOT sending per room type)
+        for (const r of ranges) {
+          allAvailValues.push({
+            property_id: channexPropertyId,
+            room_type_id: rtMapping.channex_id,
+            date_from: r.date_from,
+            date_to: r.date_to,
+            availability: r.availability,
+          });
         }
 
         result.room_types_pushed++;
-        console.log(`[full-sync] Pushed ${availValues.length} availability ranges for ${roomName}`);
+        console.log(`[full-sync] Collected ${ranges.length} availability ranges for ${roomName}`);
       } catch (err: any) {
         result.errors.push(`Room type ${rtMapping.local_id}: ${err.message}`);
       }
     }
 
-    // ── RATES + RESTRICTIONS ──────────────────────────────────
+    // Send ALL availability in minimal API calls (chunks of 500)
+    for (let i = 0; i < allAvailValues.length; i += BATCH_SIZE) {
+      const chunk = allAvailValues.slice(i, i + BATCH_SIZE);
+      try {
+        const resp = await rawChannexPost("/api/v1/availability", { values: chunk });
+        if (resp.taskId) result.availability_task_ids.push(resp.taskId);
+        availabilityResponses.push(resp.rawData);
+      } catch (err: any) {
+        result.errors.push(`Avail batch ${Math.floor(i / BATCH_SIZE)}: ${err.message}`);
+      }
+    }
+    console.log(`[full-sync] Sent ${allAvailValues.length} availability values in ${Math.ceil(allAvailValues.length / BATCH_SIZE)} API call(s)`);
+
+    // ── RATES + RESTRICTIONS: Collect all values across all rate plans ──
+    const allRateValues: Record<string, any>[] = [];
+    const allRestrictionIds: string[] = [];
+
     const { data: ratePlanMappings } = await supabase
       .from("channex_mappings")
       .select("*")
@@ -252,7 +258,6 @@ Deno.serve(async (req: Request) => {
         const CHUNK_DAYS = 30;
         const todayStr = formatDate(today);
 
-        const rateValues: Record<string, any>[] = [];
         for (const p of prices) {
           const rateInCents = Math.round(p.weekday_rate * 100);
           let chunkStart = new Date(dateFrom);
@@ -292,37 +297,46 @@ Deno.serve(async (req: Request) => {
             const maxStay = chunkRestriction?.max_stay ?? ratePlan.default_max_stay ?? null;
             if (maxStay) value.max_stay = maxStay;
 
-            rateValues.push(value);
+            allRateValues.push(value);
             chunkStart = chunkEnd;
           }
         }
 
-        // Push in batches, capture task IDs
-        for (let i = 0; i < rateValues.length; i += BATCH_SIZE) {
-          const batch = rateValues.slice(i, i + BATCH_SIZE);
-          try {
-            const resp = await rawChannexPost("/api/v1/restrictions", { values: batch });
-            if (resp.taskId) result.rates_task_ids.push(resp.taskId);
-            ratesResponses.push(resp.rawData);
-          } catch (err: any) {
-            result.errors.push(`Rates ${ratePlan.name} batch ${Math.floor(i / BATCH_SIZE)}: ${err.message}`);
-          }
-          if (i + BATCH_SIZE < rateValues.length) await delay(BATCH_DELAY_MS);
-        }
-
-        // Mark restrictions synced
+        // Collect restriction IDs to mark as synced after successful push
         if (dateRestrictions && dateRestrictions.length > 0) {
-          await supabase
-            .from("rate_plan_restrictions")
-            .update({ synced_to_channex: true })
-            .in("id", dateRestrictions.map((r: any) => r.id));
+          for (const r of dateRestrictions) {
+            allRestrictionIds.push(r.id);
+          }
         }
 
         result.rate_plans_pushed++;
-        console.log(`[full-sync] Pushed ${rateValues.length} rate+restriction values for ${ratePlan.name}`);
+        console.log(`[full-sync] Collected rate+restriction values for ${ratePlan.name}`);
       } catch (err: any) {
         result.errors.push(`Rate plan ${rpMapping.local_id}: ${err.message}`);
       }
+    }
+
+    // Send ALL rates+restrictions in minimal API calls (chunks of 500)
+    let ratesPushSuccess = true;
+    for (let i = 0; i < allRateValues.length; i += BATCH_SIZE) {
+      const chunk = allRateValues.slice(i, i + BATCH_SIZE);
+      try {
+        const resp = await rawChannexPost("/api/v1/restrictions", { values: chunk });
+        if (resp.taskId) result.rates_task_ids.push(resp.taskId);
+        ratesResponses.push(resp.rawData);
+      } catch (err: any) {
+        ratesPushSuccess = false;
+        result.errors.push(`Rates batch ${Math.floor(i / BATCH_SIZE)}: ${err.message}`);
+      }
+    }
+    console.log(`[full-sync] Sent ${allRateValues.length} rate values in ${Math.ceil(allRateValues.length / BATCH_SIZE)} API call(s)`);
+
+    // Mark restrictions as synced only if push succeeded
+    if (ratesPushSuccess && allRestrictionIds.length > 0) {
+      await supabase
+        .from("rate_plan_restrictions")
+        .update({ synced_to_channex: true })
+        .in("id", allRestrictionIds);
     }
 
     // ── LOG ────────────────────────────────────────────────────
@@ -334,6 +348,10 @@ Deno.serve(async (req: Request) => {
         days: SYNC_DAYS,
         room_types: propertyRoomTypeMappings.map((m: any) => ({ local_id: m.local_id, channex_id: m.channex_id, name: m.booking_com_name })),
         rate_plans: propertyRatePlanMappings.map((m: any) => ({ local_id: m.local_id, channex_id: m.channex_id })),
+        total_avail_values: allAvailValues.length,
+        total_rate_values: allRateValues.length,
+        avail_api_calls: Math.ceil(allAvailValues.length / BATCH_SIZE),
+        rates_api_calls: Math.ceil(allRateValues.length / BATCH_SIZE),
       },
       {
         room_types_pushed: result.room_types_pushed,
@@ -381,7 +399,6 @@ async function rawChannexPost(endpoint: string, body: object): Promise<{ taskId:
   }
 
   const data = await response.json();
-  // Channex returns task IDs in data array or data.id
   const taskId = data?.data?.[0]?.id || data?.data?.id || data?.meta?.task_id || null;
   return { taskId, rawData: data };
 }
