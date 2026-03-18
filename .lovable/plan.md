@@ -1,46 +1,118 @@
 
 
-## Push Availability After Booking Webhook Processing
+## Fix: Filter Blocked Dates by Active Property
 
 ### Problem
-The webhook sets `skip_channex_sync: true` on reservations, so the PMS database trigger never pushes availability back to Channex. With Channex auto-availability being turned off, no availability update happens at all after OTA bookings.
+`fetchBlockedDates()` fetches ALL blocked dates across all properties. `fetchUnits()` correctly filters by `propertyId`, but blocked dates does not.
 
-### Solution
-Add an availability push block between the ACK section (line 426) and the final `logSync` call (line 428). This handles new, modified, and cancelled bookings.
+### File: `src/components/BlockedDatesManager.tsx`
 
-### Changes
+**1. Filter `fetchBlockedDates` by property (lines 101-121)**
 
-**File: `supabase/functions/channex-booking-webhook/index.ts`**
+The `blocked_dates` table references `units` via `unit_id`. Filter by joining through units that belong to the active property:
 
-Insert a new block after line 426 (`}` closing the ACK section) and before line 428 (the final `logSync`):
+```typescript
+const fetchBlockedDates = async () => {
+  try {
+    let query = supabase
+      .from("blocked_dates")
+      .select(`
+        *,
+        units (
+          name,
+          unit_number,
+          booking_com_name
+        )
+      `)
+      .order("blocked_date", { ascending: true });
 
-1. **For modifications** — before updating the reservation (around line 273), first query the existing reservation's `check_in_date` and `check_out_date` and store them as `oldArrivalDate` / `oldDepartureDate`. These will be used later to restore availability on the old date range.
+    // Filter to only show blocked dates for units belonging to the active property
+    if (propertyId) {
+      query = query.eq('units.property_id', propertyId);
+    }
 
-2. **New availability push block** (after ACK, before final logSync):
-   - Wrap everything in `try/catch` so failures don't break the webhook response
-   - Skip if `isTestProperty` or missing `channexPropertyId`
-   - Get the Channex `room_type_id` from `rooms[0].room_type_id` (already available in `enrichedData`)
-   - If not available, look it up from `channex_mappings` using `roomTypeId` (local ID)
-   - Resolve `booking_com_name` from the local unit to count total units of that room type
-   - Build date ranges to update:
-     - For **new/modified**: the current booking's `arrival_date` to `departure_date` minus 1 day
-     - For **modified**: also the old date range (`oldArrivalDate` to `oldDepartureDate` minus 1 day)
-     - For **cancelled**: the cancelled booking's date range
-   - For each date range, count overlapping confirmed reservations and calculate `availability = totalUnits - overlapping`
-   - Push via `channexRequest("POST", "/api/v1/availability", { values: [...] })`
-   - Log the push to `channex_sync_logs`
+    const { data, error } = await query;
+    if (error) throw error;
 
-3. **Old dates capture for modifications** — modify the existing update path (line 267-299) to fetch old dates before updating:
-   - Change the existing `select("id")` query on line 268 to `select("id, check_in_date, check_out_date")`
-   - Store `oldArrivalDate = existing.check_in_date` and `oldDepartureDate = existing.check_out_date` in variables declared in the outer scope (alongside `reservationResult` on line 240)
+    // Remove entries where the unit was filtered out (unit doesn't belong to property)
+    const filtered = (data || []).filter(d => d.unit_id === null || d.units !== null);
+    setBlockedDates(filtered);
+  } catch (error: any) {
+    console.error("Error fetching blocked dates:", error);
+    toast.error("Failed to fetch blocked dates");
+  }
+};
+```
 
-4. **Old dates capture for cancellations** — similarly, in the cancel path (line 246-264), change `select("id")` to `select("id, check_in_date, check_out_date")` and store old dates.
+However, `blocked_dates` rows with `unit_id = null` (meaning "all rooms") have no unit join to filter on. We need a different approach — filter blocked dates whose `unit_id` is either null OR belongs to a unit in the active property. The cleanest way: use the unit IDs we already fetch.
 
-### Key details
-- Uses `channexRequest` from shared client (already imported)
-- Availability = total units with matching `booking_com_name` in property minus confirmed reservations overlapping the date range
-- Checkout day excluded from occupancy (matches existing convention)
-- `date_to` in the Channex payload = departure_date minus 1 day (inclusive last occupied night)
-- `skip_channex_sync: true` remains on reservations — no duplicate pushes from DB triggers
-- No duplicate variable declarations — old dates stored in variables declared at the `reservationResult` scope level
+**Better approach — filter client-side using fetched units:**
+
+Since `fetchUnits` already returns only units for the active property, filter blocked dates to only include those whose `unit_id` is null or matches a fetched unit.
+
+Actually, the simplest and most reliable fix: add `property_id` awareness to the query. Since `blocked_dates` has a `unit_id` FK to `units`, and `units` has `property_id`, we can filter via an inner join or use an `in` filter with the property's unit IDs.
+
+**Revised approach — fetch unit IDs first, then filter:**
+
+```typescript
+// In useEffect, ensure both refetch when propertyId changes
+useEffect(() => {
+  fetchUnits();
+  fetchBlockedDates();
+}, [propertyId]);
+```
+
+In `fetchBlockedDates`, after fetching units (or independently):
+- Query units for the active property to get their IDs
+- Filter blocked_dates where `unit_id` is in that list
+
+**Simplest implementation:**
+
+1. **Change useEffect (line 80-83)** to depend on `propertyId`
+2. **Update `fetchBlockedDates`** to filter by property's unit IDs
+
+```typescript
+const fetchBlockedDates = async () => {
+  try {
+    // First get unit IDs for the active property
+    let unitIds: string[] = [];
+    if (propertyId) {
+      const { data: propUnits } = await supabase
+        .from("units")
+        .select("id")
+        .eq("property_id", propertyId);
+      unitIds = (propUnits || []).map(u => u.id);
+    }
+
+    let query = supabase
+      .from("blocked_dates")
+      .select(`*, units (name, unit_number, booking_com_name)`)
+      .order("blocked_date", { ascending: true });
+
+    if (propertyId && unitIds.length > 0) {
+      // Only show blocked dates for this property's units
+      query = query.in("unit_id", unitIds);
+    } else if (propertyId && unitIds.length === 0) {
+      // Property has no units, show nothing
+      setBlockedDates([]);
+      return;
+    }
+
+    const { data, error } = await query;
+    if (error) throw error;
+    setBlockedDates(data || []);
+  } catch (error: any) {
+    console.error("Error fetching blocked dates:", error);
+    toast.error("Failed to fetch blocked dates");
+  }
+};
+```
+
+3. **Update useEffect** (line 80-83): add `propertyId` to dependency array
+
+### Summary
+- 1 file changed: `src/components/BlockedDatesManager.tsx`
+- `fetchBlockedDates` filters by active property's unit IDs
+- Re-fetches when property switches
+- Blocked dates with `unit_id = null` (all-rooms blocks) won't show unless we decide they should — this matches the expectation that blocks are property-scoped
 
