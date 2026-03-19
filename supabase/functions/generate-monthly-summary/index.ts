@@ -6,71 +6,108 @@ const corsHeaders = {
   "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type",
 };
 
-async function getRecipients(supabase: any): Promise<{ email: string; name: string }[]> {
+function formatCurrency(amount: number, currency = "EGP"): string {
+  if (currency === "EGP") return `EGP ${amount.toLocaleString("en-US", { minimumFractionDigits: 0, maximumFractionDigits: 0 })}`;
+  return `$${amount.toLocaleString("en-US", { minimumFractionDigits: 0, maximumFractionDigits: 0 })}`;
+}
+
+function getMonthRange(year: number, month: number): { start: string; end: string; days: number } {
+  const start = `${year}-${String(month + 1).padStart(2, "0")}-01`;
+  const lastDay = new Date(year, month + 1, 0).getDate();
+  const end = `${year}-${String(month + 1).padStart(2, "0")}-${String(lastDay).padStart(2, "0")}`;
+  return { start, end, days: lastDay };
+}
+
+function monthLabel(year: number, month: number): string {
+  return new Date(year, month).toLocaleDateString("en-US", { month: "short", year: "numeric" });
+}
+
+function fullMonthLabel(year: number, month: number): string {
+  return new Date(year, month).toLocaleDateString("en-US", { month: "long", year: "numeric" });
+}
+
+async function getRecipients(supabase: any, propertyId?: string): Promise<{ email: string; name: string }[]> {
   const { data: settings } = await supabase
     .from("user_notification_settings")
     .select("user_id")
     .eq("daily_summary_email", true);
+
   if (!settings || settings.length === 0) return [];
+
   const userIds = settings.map((s: any) => s.user_id);
-  const { data: { users } } = await supabase.auth.admin.listUsers({ perPage: 1000 });
+  const { data: { users }, error } = await supabase.auth.admin.listUsers({ perPage: 1000 });
+  if (error) { console.error("Error fetching users:", error); return []; }
+
   const { data: profiles } = await supabase.from("profiles").select("id, full_name").in("id", userIds);
+  const { data: userRoles } = await supabase.from("user_roles").select("user_id, role").in("user_id", userIds);
+
   const profileMap = new Map((profiles || []).map((p: any) => [p.id, p.full_name]));
-  const recipients: { email: string; name: string }[] = [];
+  const roleMap = new Map((userRoles || []).map((r: any) => [r.user_id, r.role]));
+
+  let candidates: { user_id: string; email: string; name: string; role: string }[] = [];
   for (const uid of userIds) {
     const user = users?.find((u: any) => u.id === uid);
-    if (user?.email) recipients.push({ email: user.email, name: profileMap.get(uid) || "Team Member" });
+    if (user?.email) {
+      candidates.push({ user_id: uid, email: user.email, name: profileMap.get(uid) || "Team Member", role: roleMap.get(uid) || "user" });
+    }
   }
-  return recipients;
-}
 
-interface SourceBreakdown { [source: string]: number; }
-
-function breakdownBySource(data: any[]): SourceBreakdown {
-  const bd: SourceBreakdown = {};
-  for (const r of data) {
-    const src = r.source || r.channel || "Unknown";
-    bd[src] = (bd[src] || 0) + 1;
+  if (propertyId && candidates.length > 0) {
+    const candidateIds = candidates.map(c => c.user_id);
+    const { data: allAccess } = await supabase.from("user_property_access").select("user_id, property_id").in("user_id", candidateIds);
+    const accessList = allAccess || [];
+    candidates = candidates.filter(user => {
+      const entries = accessList.filter((a: any) => a.user_id === user.user_id);
+      if (entries.length === 0 && user.role === "admin") return true;
+      return entries.some((a: any) => a.property_id === propertyId);
+    });
   }
-  return bd;
+
+  return candidates.map(c => ({ email: c.email, name: c.name }));
 }
 
-function formatBreakdown(bd: SourceBreakdown): string {
-  return Object.entries(bd).map(([k, v]) => `${k}: ${v}`).join(", ");
-}
+async function computeMonthOccupancy(
+  supabase: any, propertyId: string, unitIds: string[], start: string, end: string
+): Promise<{ avgRate: number; sold: number; available: number; dailyData: { date: string; occupied: number; available: number; rate: number }[] }> {
+  const dailyData: { date: string; occupied: number; available: number; rate: number }[] = [];
+  let totalSold = 0;
+  let totalAvailable = 0;
+  const d = new Date(start + "T00:00:00");
+  const endD = new Date(end + "T00:00:00");
 
-function formatBreakdownWithPct(bd: SourceBreakdown, total: number): string {
-  return Object.entries(bd).map(([k, v]) => {
-    const pct = total > 0 ? ((v / total) * 100).toFixed(1) : "0";
-    return `${k}: ${v} (${pct}%)`;
-  }).join(", ");
-}
+  while (d <= endD) {
+    const ds = d.toISOString().split("T")[0];
 
-function comparisonStr(current: number, prior: number | null, label: string, isCurrency = false): string {
-  if (prior === null || prior === undefined) return `${label}: ${isCurrency ? formatCurrency(current) : current.toFixed(1) + '%'} (N/A — no prior data)`;
-  if (prior === 0) return `${label}: ${isCurrency ? formatCurrency(current) : current.toFixed(1) + '%'} (N/A — prior period was zero)`;
-  const change = ((current - prior) / prior) * 100;
-  const arrow = change >= 0 ? "↑" : "↓";
-  const priorStr = isCurrency ? formatCurrency(prior) : prior.toFixed(1) + '%';
-  return `${label}: ${isCurrency ? formatCurrency(current) : current.toFixed(1) + '%'} (${arrow} ${Math.abs(change).toFixed(1)}% vs ${priorStr})`;
-}
+    const { data: inHouse } = await supabase
+      .from("reservations").select("id")
+      .lte("check_in_date", ds).gt("check_out_date", ds)
+      .in("status", ["confirmed", "checked-in"])
+      .eq("property_id", propertyId);
 
-function formatCurrency(n: number): string {
-  return new Intl.NumberFormat("en-US", { style: "currency", currency: "EGP", maximumFractionDigits: 0 }).format(n);
-}
+    const { data: blocked } = await supabase
+      .from("blocked_dates").select("unit_id")
+      .eq("blocked_date", ds)
+      .in("unit_id", unitIds);
 
-function getMonthRange(year: number, month: number): { start: string; end: string } {
-  const start = `${year}-${String(month + 1).padStart(2, "0")}-01`;
-  const lastDay = new Date(year, month + 1, 0).getDate();
-  const end = `${year}-${String(month + 1).padStart(2, "0")}-${String(lastDay).padStart(2, "0")}`;
-  return { start, end };
+    const blockedCount = new Set((blocked || []).map((b: any) => b.unit_id)).size;
+    const available = Math.max(1, unitIds.length - blockedCount);
+    const occupied = inHouse?.length || 0;
+    const rate = (occupied / available) * 100;
+
+    dailyData.push({ date: ds, occupied, available, rate });
+    totalSold += occupied;
+    totalAvailable += available;
+    d.setDate(d.getDate() + 1);
+  }
+
+  const avgRate = totalAvailable > 0 ? (totalSold / totalAvailable) * 100 : 0;
+  return { avgRate, sold: totalSold, available: totalAvailable, dailyData };
 }
 
 async function fetchRevenueData(supabase: any, propertyId: string, start: string, end: string) {
-  // Matching Analytics.tsx exactly: neq status Cancelled, is cancelled_at null, gte/lte check_in_date
   const { data } = await supabase
     .from("reservations")
-    .select("total_price, commission_amount, source, channel, nights, check_in_date, check_out_date")
+    .select("total_price, commission_amount, source, channel, nights")
     .neq("status", "Cancelled")
     .is("cancelled_at", null)
     .gte("check_in_date", start)
@@ -79,29 +116,126 @@ async function fetchRevenueData(supabase: any, propertyId: string, start: string
   return data || [];
 }
 
-async function fetchOccupancyForMonth(supabase: any, propertyId: string, start: string, end: string, totalRooms: number) {
-  const startDate = new Date(start);
-  const endDate = new Date(end);
-  let totalOccupied = 0;
-  let days = 0;
+async function fetchNewBookings(supabase: any, propertyId: string, start: string, end: string) {
+  const { data } = await supabase
+    .from("reservations")
+    .select("source, channel, total_price, commission_amount, nights")
+    .gte("created_at", `${start}T00:00:00`)
+    .lte("created_at", `${end}T23:59:59`)
+    .eq("property_id", propertyId);
+  return data || [];
+}
 
-  const d = new Date(startDate);
-  while (d <= endDate) {
-    const ds = d.toISOString().split("T")[0];
-    const { data } = await supabase
-      .from("reservations")
-      .select("id")
-      .lte("check_in_date", ds)
-      .gt("check_out_date", ds)
-      .in("status", ["confirmed", "checked-in"])
-      .eq("property_id", propertyId);
-    totalOccupied += (data?.length || 0);
-    days++;
-    d.setDate(d.getDate() + 1);
+interface SourceBreakdown { [source: string]: { count: number; revenue: number } }
+
+function buildSourceBreakdown(data: any[]): SourceBreakdown {
+  const bd: SourceBreakdown = {};
+  for (const r of data) {
+    const src = r.source || r.channel || "Unknown";
+    if (!bd[src]) bd[src] = { count: 0, revenue: 0 };
+    bd[src].count++;
+    bd[src].revenue += (r.total_price || 0) - (r.commission_amount || 0);
+  }
+  return bd;
+}
+
+function simpleSourceBreakdown(data: any[]): { [source: string]: number } {
+  const bd: { [source: string]: number } = {};
+  for (const r of data) {
+    const src = r.source || r.channel || "Unknown";
+    bd[src] = (bd[src] || 0) + 1;
+  }
+  return bd;
+}
+
+function formatSimpleBreakdown(bd: { [source: string]: number }, total: number): string {
+  return Object.entries(bd).map(([k, v]) => {
+    const pct = total > 0 ? ((v / total) * 100).toFixed(1) : "0";
+    return `${k}: ${v} (${pct}%)`;
+  }).join(", ") || "—";
+}
+
+function renderBarChart(items: { label: string; value: number; displayValue: string; isCurrent: boolean }[]): string {
+  const maxVal = Math.max(...items.map(i => i.value), 1);
+  return items.map(item => {
+    const pct = Math.max(2, (item.value / maxVal) * 100);
+    const barBg = item.isCurrent ? "#334155" : "#1e293b";
+    const borderLeft = item.isCurrent ? "border-left:3px solid #3b82f6;" : "";
+    return `
+      <tr>
+        <td style="padding:4px 8px 4px 0;font-size:12px;color:#64748b;white-space:nowrap;width:100px;">${item.label}</td>
+        <td style="padding:4px 0;width:100%;">
+          <div style="background:#e2e8f0;border-radius:4px;height:24px;width:100%;position:relative;">
+            <div style="background:${barBg};border-radius:4px;height:24px;width:${pct.toFixed(1)}%;${borderLeft}min-width:2px;"></div>
+          </div>
+        </td>
+        <td style="padding:4px 0 4px 8px;font-size:13px;font-weight:bold;color:#1e293b;white-space:nowrap;">${item.displayValue}</td>
+      </tr>`;
+  }).join("");
+}
+
+function renderComparisonCard(
+  current: number, previous: number, label: string, formatFn: (v: number) => string,
+  yoyCurrent?: number, yoyPrevious?: number, yoyLabel?: string
+): string {
+  let momHtml = "";
+  if (previous === 0 && current === 0) {
+    momHtml = `<span style="font-size:13px;color:#64748b;">No data for comparison</span>`;
+  } else {
+    const change = previous > 0 ? ((current - previous) / previous) * 100 : (current > 0 ? 100 : 0);
+    const isPositive = change >= 0;
+    const arrow = isPositive ? "↑" : "↓";
+    const color = isPositive ? "#16a34a" : "#dc2626";
+    momHtml = `
+      <div>
+        <span style="font-size:16px;font-weight:bold;color:${color};">${arrow} ${Math.abs(change).toFixed(1)}%</span>
+        <span style="font-size:13px;color:#64748b;margin-left:8px;">${label}</span>
+      </div>
+      <div style="font-size:12px;color:#94a3b8;margin-top:2px;">This month: ${formatFn(current)} vs Last month: ${formatFn(previous)}</div>`;
   }
 
-  const avgRate = days > 0 ? (totalOccupied / (totalRooms * days)) * 100 : 0;
-  return { avgRate, roomNightsSold: totalOccupied, roomNightsAvailable: totalRooms * days };
+  let yoyHtml = "";
+  if (yoyLabel !== undefined) {
+    if (yoyPrevious === undefined || yoyPrevious === null) {
+      yoyHtml = `<div style="font-size:12px;color:#94a3b8;margin-top:6px;">${yoyLabel}: N/A — no data</div>`;
+    } else if (yoyPrevious === 0 && (yoyCurrent || 0) === 0) {
+      yoyHtml = `<div style="font-size:12px;color:#94a3b8;margin-top:6px;">${yoyLabel}: N/A</div>`;
+    } else {
+      const yChange = yoyPrevious > 0 ? (((yoyCurrent || 0) - yoyPrevious) / yoyPrevious) * 100 : ((yoyCurrent || 0) > 0 ? 100 : 0);
+      const yPositive = yChange >= 0;
+      const yArrow = yPositive ? "↑" : "↓";
+      const yColor = yPositive ? "#16a34a" : "#dc2626";
+      yoyHtml = `<div style="font-size:12px;margin-top:6px;"><span style="color:${yColor};font-weight:bold;">${yArrow} ${Math.abs(yChange).toFixed(1)}%</span> <span style="color:#94a3b8;">${yoyLabel} (${formatFn(yoyPrevious)})</span></div>`;
+    }
+  }
+
+  return `
+    <div style="background:#f1f5f9;border-radius:8px;border:1px solid #cbd5e1;padding:12px;margin:8px 0 20px;">
+      ${momHtml}${yoyHtml}
+    </div>`;
+}
+
+function comparisonLine(current: number, prior: number | null | undefined, label: string, formatFn: (v: number) => string): string {
+  if (prior === null || prior === undefined) return `<span style="color:#94a3b8;">${label}: N/A — no data</span>`;
+  if (prior === 0 && current === 0) return `<span style="color:#94a3b8;">${label}: N/A</span>`;
+  const change = prior > 0 ? ((current - prior) / prior) * 100 : (current > 0 ? 100 : 0);
+  const isPositive = change >= 0;
+  const arrow = isPositive ? "↑" : "↓";
+  const color = isPositive ? "#16a34a" : "#dc2626";
+  return `<span style="color:${color};font-weight:bold;">${arrow} ${Math.abs(change).toFixed(1)}%</span> <span style="color:#64748b;">${label} (${formatFn(prior)})</span>`;
+}
+
+interface MonthData {
+  label: string;
+  year: number;
+  month: number;
+  occupancyRate: number;
+  sold: number;
+  avail: number;
+  newBookings: number;
+  netRevenue: number;
+  grossRevenue: number;
+  isCurrent: boolean;
 }
 
 const handler = async (req: Request): Promise<Response> => {
@@ -119,13 +253,11 @@ const handler = async (req: Request): Promise<Response> => {
     const todayStr = today.toISOString().split("T")[0];
     const currentMonth = today.getMonth();
     const currentYear = today.getFullYear();
-    const monthName = today.toLocaleDateString("en-US", { month: "long", year: "numeric" });
+    const monthName = fullMonthLabel(currentYear, currentMonth);
 
     const { data: property } = await supabase
-      .from("properties")
-      .select("id, name")
-      .eq("is_default", true)
-      .single();
+      .from("properties").select("id, name, currency")
+      .eq("is_default", true).single();
 
     if (!property) {
       return new Response(JSON.stringify({ error: "No default property" }), {
@@ -133,7 +265,8 @@ const handler = async (req: Request): Promise<Response> => {
       });
     }
 
-    const recipients = await getRecipients(supabase);
+    const currency = property.currency || "EGP";
+    const recipients = await getRecipients(supabase, property.id);
     if (recipients.length === 0) {
       await supabase.from("summary_report_log").insert({
         report_type: "monthly", property_id: property.id, report_date: todayStr,
@@ -144,124 +277,226 @@ const handler = async (req: Request): Promise<Response> => {
       });
     }
 
+    const { data: allUnits } = await supabase.from("units").select("id").eq("property_id", property.id);
+    const unitIds = (allUnits || []).map((u: any) => u.id);
     const { start, end } = getMonthRange(currentYear, currentMonth);
 
-    // Total units
-    const { data: units } = await supabase.from("units").select("id").eq("property_id", property.id);
-    const totalRooms = units?.length || 1;
-
-    // Check-ins/Check-outs
+    // ===== CHECK-INS / CHECK-OUTS =====
     const { data: checkIns } = await supabase
-      .from("reservations")
-      .select("source, channel")
+      .from("reservations").select("source, channel")
       .gte("check_in_date", start).lte("check_in_date", end)
       .in("status", ["confirmed", "checked-in"])
       .eq("property_id", property.id);
 
     const { data: checkOuts } = await supabase
-      .from("reservations")
-      .select("source, channel")
+      .from("reservations").select("source, channel")
       .gte("check_out_date", start).lte("check_out_date", end)
       .in("status", ["confirmed", "checked-in", "checked-out", "completed"])
       .eq("property_id", property.id);
 
-    // Occupancy
-    const occupancy = await fetchOccupancyForMonth(supabase, property.id, start, end, totalRooms);
+    const ciBreakdown = simpleSourceBreakdown(checkIns || []);
+    const coBreakdown = simpleSourceBreakdown(checkOuts || []);
 
-    // Revenue — matching Analytics.tsx exactly
+    // ===== OCCUPANCY (corrected — excludes blocked) =====
+    const occData = await computeMonthOccupancy(supabase, property.id, unitIds, start, end);
+    const highestDay = occData.dailyData.length > 0 ? occData.dailyData.reduce((a, b) => a.rate > b.rate ? a : b) : null;
+    const lowestDay = occData.dailyData.length > 0 ? occData.dailyData.reduce((a, b) => a.rate < b.rate ? a : b) : null;
+
+    // ===== REVENUE =====
     const revenueData = await fetchRevenueData(supabase, property.id, start, end);
     const grossRevenue = revenueData.reduce((s: number, r: any) => s + (r.total_price || 0), 0);
     const totalCommission = revenueData.reduce((s: number, r: any) => s + (r.commission_amount || 0), 0);
-    const netRevenue = revenueData.reduce((s: number, r: any) => s + ((r.total_price || 0) - (r.commission_amount || 0)), 0);
+    const netRevenue = grossRevenue - totalCommission;
+    const adr = occData.sold > 0 ? netRevenue / occData.sold : 0;
+    const revpar = occData.available > 0 ? netRevenue / occData.available : 0;
 
-    // Bookings
-    const { data: newBookings } = await supabase
-      .from("reservations")
-      .select("source, channel, total_price, nights")
-      .gte("created_at", `${start}T00:00:00`).lte("created_at", `${end}T23:59:59`)
-      .eq("property_id", property.id);
+    // ===== NEW BOOKINGS =====
+    const newBookings = await fetchNewBookings(supabase, property.id, start, end);
+    const avgBookingValue = newBookings.length > 0 ? newBookings.reduce((s: number, r: any) => s + (r.total_price || 0), 0) / newBookings.length : 0;
+    const avgLOS = newBookings.length > 0 ? newBookings.reduce((s: number, r: any) => s + (r.nights || 0), 0) / newBookings.length : 0;
+    const bookingBreakdown = simpleSourceBreakdown(newBookings);
+    const sourceBreakdown = buildSourceBreakdown(newBookings);
 
-    const avgBookingValue = (newBookings || []).length > 0
-      ? (newBookings || []).reduce((s: number, r: any) => s + (r.total_price || 0), 0) / (newBookings || []).length
-      : 0;
-    const avgLOS = (newBookings || []).length > 0
-      ? (newBookings || []).reduce((s: number, r: any) => s + (r.nights || 0), 0) / (newBookings || []).length
-      : 0;
-
-    // Prior month comparison
+    // ===== PRIOR MONTH =====
     const priorMonth = currentMonth === 0 ? 11 : currentMonth - 1;
     const priorYear = currentMonth === 0 ? currentYear - 1 : currentYear;
     const priorRange = getMonthRange(priorYear, priorMonth);
-    const priorOcc = await fetchOccupancyForMonth(supabase, property.id, priorRange.start, priorRange.end, totalRooms);
+    const priorOcc = await computeMonthOccupancy(supabase, property.id, unitIds, priorRange.start, priorRange.end);
     const priorRevData = await fetchRevenueData(supabase, property.id, priorRange.start, priorRange.end);
     const priorGross = priorRevData.reduce((s: number, r: any) => s + (r.total_price || 0), 0);
-    const priorNet = priorRevData.reduce((s: number, r: any) => s + ((r.total_price || 0) - (r.commission_amount || 0)), 0);
+    const priorComm = priorRevData.reduce((s: number, r: any) => s + (r.commission_amount || 0), 0);
+    const priorNet = priorGross - priorComm;
+    const priorAdr = priorOcc.sold > 0 ? priorNet / priorOcc.sold : 0;
+    const priorRevpar = priorOcc.available > 0 ? priorNet / priorOcc.available : 0;
+    const priorBookings = await fetchNewBookings(supabase, property.id, priorRange.start, priorRange.end);
+    const priorSourceBreakdown = buildSourceBreakdown(priorBookings);
 
-    // Same month last year
+    // ===== SAME MONTH LAST YEAR =====
     const lyRange = getMonthRange(currentYear - 1, currentMonth);
-    const lyOcc = await fetchOccupancyForMonth(supabase, property.id, lyRange.start, lyRange.end, totalRooms);
+    const lyOcc = await computeMonthOccupancy(supabase, property.id, unitIds, lyRange.start, lyRange.end);
     const lyRevData = await fetchRevenueData(supabase, property.id, lyRange.start, lyRange.end);
     const lyGross = lyRevData.reduce((s: number, r: any) => s + (r.total_price || 0), 0);
-    const lyNet = lyRevData.reduce((s: number, r: any) => s + ((r.total_price || 0) - (r.commission_amount || 0)), 0);
-    const lyHasData = lyRevData.length > 0;
-    const lyMonthName = new Date(currentYear - 1, currentMonth).toLocaleDateString("en-US", { month: "long", year: "numeric" });
+    const lyComm = lyRevData.reduce((s: number, r: any) => s + (r.commission_amount || 0), 0);
+    const lyNet = lyGross - lyComm;
+    const lyAdr = lyOcc.sold > 0 ? lyNet / lyOcc.sold : 0;
+    const lyRevpar = lyOcc.available > 0 ? lyNet / lyOcc.available : 0;
+    const lyHasData = lyRevData.length > 0 || lyOcc.sold > 0;
+    const lyBookings = await fetchNewBookings(supabase, property.id, lyRange.start, lyRange.end);
+    const lyMonthName = monthLabel(currentYear - 1, currentMonth);
 
-    const ciBreakdown = breakdownBySource(checkIns || []);
-    const coBreakdown = breakdownBySource(checkOuts || []);
-    const bookingBreakdown = breakdownBySource(newBookings || []);
+    // ===== 6-MONTH TREND DATA =====
+    const months: MonthData[] = [];
+    for (let i = 5; i >= 0; i--) {
+      let mMonth = currentMonth - i;
+      let mYear = currentYear;
+      while (mMonth < 0) { mMonth += 12; mYear--; }
+      const mRange = getMonthRange(mYear, mMonth);
 
-    // Comparison strings
-    const occVsPrior = comparisonStr(occupancy.avgRate, priorOcc.avgRate, "vs last month");
-    const occVsLY = lyHasData ? comparisonStr(occupancy.avgRate, lyOcc.avgRate, `vs ${lyMonthName}`) : `vs ${lyMonthName}: N/A — no data`;
-    const grossVsPrior = comparisonStr(grossRevenue, priorGross, "vs last month", true);
-    const grossVsLY = lyHasData ? comparisonStr(grossRevenue, lyGross, `vs ${lyMonthName}`, true) : `vs ${lyMonthName}: N/A — no data`;
-    const netVsPrior = comparisonStr(netRevenue, priorNet, "vs last month", true);
-    const netVsLY = lyHasData ? comparisonStr(netRevenue, lyNet, `vs ${lyMonthName}`, true) : `vs ${lyMonthName}: N/A — no data`;
+      let mOccRate = 0, mSold = 0, mAvail = 0;
+      if (i === 0) {
+        mOccRate = occData.avgRate; mSold = occData.sold; mAvail = occData.available;
+      } else if (i === 1) {
+        mOccRate = priorOcc.avgRate; mSold = priorOcc.sold; mAvail = priorOcc.available;
+      } else {
+        const mOcc = await computeMonthOccupancy(supabase, property.id, unitIds, mRange.start, mRange.end);
+        mOccRate = mOcc.avgRate; mSold = mOcc.sold; mAvail = mOcc.available;
+      }
 
-    // Email HTML
+      let mBookings = 0, mNet = 0, mGross = 0;
+      if (i === 0) {
+        mBookings = newBookings.length; mNet = netRevenue; mGross = grossRevenue;
+      } else if (i === 1) {
+        mBookings = priorBookings.length; mNet = priorNet; mGross = priorGross;
+      } else {
+        const mB = await fetchNewBookings(supabase, property.id, mRange.start, mRange.end);
+        mBookings = mB.length;
+        const mR = await fetchRevenueData(supabase, property.id, mRange.start, mRange.end);
+        mGross = mR.reduce((s: number, r: any) => s + (r.total_price || 0), 0);
+        const mC = mR.reduce((s: number, r: any) => s + (r.commission_amount || 0), 0);
+        mNet = mGross - mC;
+      }
+
+      months.push({
+        label: monthLabel(mYear, mMonth), year: mYear, month: mMonth,
+        occupancyRate: mOccRate, sold: mSold, avail: mAvail,
+        newBookings: mBookings, netRevenue: mNet, grossRevenue: mGross,
+        isCurrent: i === 0,
+      });
+    }
+
+    const curMonth = months[months.length - 1];
+    const prevMonth = months[months.length - 2];
+
+    // ===== SOURCE BREAKDOWN TABLE =====
+    const sourceEntries = Object.entries(sourceBreakdown).sort((a, b) => b[1].count - a[1].count);
+    const totalBookingsCount = newBookings.length;
+    const sourceTableRows = sourceEntries.length > 0
+      ? sourceEntries.map(([src, data], i) => {
+          const pct = totalBookingsCount > 0 ? ((data.count / totalBookingsCount) * 100).toFixed(1) : "0";
+          const priorPct = priorBookings.length > 0 && priorSourceBreakdown[src]
+            ? ((priorSourceBreakdown[src].count / priorBookings.length) * 100).toFixed(1) : null;
+          const changeStr = priorPct !== null
+            ? (() => { const diff = parseFloat(pct) - parseFloat(priorPct); const arrow = diff >= 0 ? "↑" : "↓"; const color = diff >= 0 ? "#16a34a" : "#dc2626"; return `<span style="color:${color};font-size:11px;">${arrow} from ${priorPct}%</span>`; })()
+            : `<span style="color:#94a3b8;font-size:11px;">New</span>`;
+          const bg = i % 2 === 0 ? '#f9fafb' : '#fff';
+          return `<tr><td style="padding:8px 12px;border-bottom:1px solid #eee;font-size:13px;background:${bg};">${src}</td><td style="padding:8px 12px;border-bottom:1px solid #eee;font-size:13px;background:${bg};text-align:center;">${data.count}</td><td style="padding:8px 12px;border-bottom:1px solid #eee;font-size:13px;background:${bg};text-align:center;">${pct}% ${changeStr}</td><td style="padding:8px 12px;border-bottom:1px solid #eee;font-size:13px;background:${bg};text-align:right;">${formatCurrency(data.revenue, currency)}</td></tr>`;
+        }).join("")
+      : `<tr><td colspan="4" style="padding:12px;color:#888;">No bookings this month</td></tr>`;
+
+    // ===== BAR CHARTS =====
+    const occChartRows = renderBarChart(months.map(m => ({ label: m.label, value: m.occupancyRate, displayValue: `${m.occupancyRate.toFixed(1)}%`, isCurrent: m.isCurrent })));
+    const bookingsChartRows = renderBarChart(months.map(m => ({ label: m.label, value: m.newBookings, displayValue: `${m.newBookings}`, isCurrent: m.isCurrent })));
+    const revenueChartRows = renderBarChart(months.map(m => ({ label: m.label, value: m.netRevenue, displayValue: formatCurrency(m.netRevenue, currency), isCurrent: m.isCurrent })));
+
+    // ===== COMPARISON HELPERS =====
+    const fmt = (v: number) => formatCurrency(v, currency);
+    const fmtPct = (v: number) => `${v.toFixed(1)}%`;
+    const fmtN = (v: number) => `${v} bookings`;
+
+    const thStyle = 'style="background:#1e293b;color:white;padding:8px 12px;text-align:left;font-size:13px;"';
+
+    // ===== EMAIL HTML =====
     const emailHTML = `
       <div style="font-family:Arial,sans-serif;max-width:650px;margin:0 auto;color:#222;">
-        <div style="background:#0EA5E9;padding:20px 24px;border-radius:8px 8px 0 0;">
+        <div style="background:linear-gradient(135deg, #0f172a 0%, #1e293b 100%);padding:20px 24px;border-radius:8px 8px 0 0;">
           <h1 style="color:white;margin:0;font-size:22px;">SuiteSpot Monthly Summary</h1>
           <p style="color:rgba(255,255,255,0.9);margin:4px 0 0;font-size:14px;">${property.name} — ${monthName}</p>
         </div>
         <div style="padding:24px;background:#fff;border:1px solid #e5e7eb;border-top:none;border-radius:0 0 8px 8px;">
-          <h2 style="font-size:16px;color:#0EA5E9;">📥 Check-ins: ${(checkIns || []).length}</h2>
-          <p style="font-size:13px;color:#555;">${formatBreakdownWithPct(ciBreakdown, (checkIns || []).length)}</p>
 
-          <h2 style="font-size:16px;color:#0EA5E9;margin-top:16px;">📤 Check-outs: ${(checkOuts || []).length}</h2>
-          <p style="font-size:13px;color:#555;">${formatBreakdownWithPct(coBreakdown, (checkOuts || []).length)}</p>
+          <h2 style="font-size:16px;color:#1e293b;margin:0 0 8px;">📥 Check-ins: ${(checkIns || []).length}</h2>
+          <p style="font-size:13px;color:#555;margin:0 0 16px;">${formatSimpleBreakdown(ciBreakdown, (checkIns || []).length)}</p>
 
-          <h2 style="font-size:16px;color:#0EA5E9;margin-top:16px;">🏠 Occupancy</h2>
-          <div style="background:#f0f9ff;padding:16px;border-radius:8px;border:1px solid #bae6fd;">
-            <p style="margin:4px 0;font-size:14px;"><strong>Average:</strong> ${occupancy.avgRate.toFixed(1)}%</p>
-            <p style="margin:4px 0;font-size:14px;"><strong>Room nights:</strong> ${occupancy.roomNightsSold} sold / ${occupancy.roomNightsAvailable} available</p>
-            <p style="margin:4px 0;font-size:13px;color:#555;">${occVsPrior}</p>
-            <p style="margin:4px 0;font-size:13px;color:#555;">${occVsLY}</p>
-          </div>
+          <h2 style="font-size:16px;color:#1e293b;margin:0 0 8px;">📤 Check-outs: ${(checkOuts || []).length}</h2>
+          <p style="font-size:13px;color:#555;margin:0 0 16px;">${formatSimpleBreakdown(coBreakdown, (checkOuts || []).length)}</p>
 
-          <h2 style="font-size:16px;color:#0EA5E9;margin-top:16px;">💰 Revenue</h2>
-          <div style="background:#f0fdf4;padding:16px;border-radius:8px;border:1px solid #bbf7d0;">
+          <h2 style="font-size:16px;color:#1e293b;margin:20px 0 8px;">🏠 Occupancy</h2>
+          <div style="background:#f1f5f9;padding:16px;border-radius:8px;border:1px solid #cbd5e1;">
             <table style="width:100%;">
-              <tr><td style="padding:4px 0;font-size:14px;">Gross Revenue</td><td style="text-align:right;font-weight:bold;font-size:14px;">${formatCurrency(grossRevenue)}</td></tr>
-              <tr><td style="padding:4px 0;font-size:14px;">Commissions</td><td style="text-align:right;font-weight:bold;font-size:14px;color:#dc2626;">${formatCurrency(totalCommission)}</td></tr>
-              <tr style="border-top:2px solid #16a34a;"><td style="padding:8px 0 4px;font-size:14px;font-weight:bold;">Net Revenue</td><td style="text-align:right;font-weight:bold;font-size:16px;color:#16a34a;">${formatCurrency(netRevenue)}</td></tr>
+              <tr><td style="padding:4px 0;font-size:14px;">Average Occupancy</td><td style="text-align:right;font-weight:bold;font-size:14px;">${occData.avgRate.toFixed(1)}%</td></tr>
+              ${highestDay ? `<tr><td style="padding:4px 0;font-size:14px;">Highest Day</td><td style="text-align:right;font-weight:bold;font-size:14px;">${highestDay.date} (${highestDay.rate.toFixed(1)}%)</td></tr>` : ""}
+              ${lowestDay ? `<tr><td style="padding:4px 0;font-size:14px;">Lowest Day</td><td style="text-align:right;font-weight:bold;font-size:14px;">${lowestDay.date} (${lowestDay.rate.toFixed(1)}%)</td></tr>` : ""}
+              <tr><td style="padding:4px 0;font-size:14px;">Room Nights</td><td style="text-align:right;font-weight:bold;font-size:14px;">${occData.sold} sold / ${occData.available} available</td></tr>
             </table>
-            <p style="margin:8px 0 2px;font-size:12px;color:#555;">${grossVsPrior}</p>
-            <p style="margin:2px 0;font-size:12px;color:#555;">${grossVsLY}</p>
-            <p style="margin:2px 0;font-size:12px;color:#555;">${netVsPrior}</p>
-            <p style="margin:2px 0;font-size:12px;color:#555;">${netVsLY}</p>
+            <div style="margin-top:8px;font-size:12px;">
+              <p style="margin:2px 0;">${comparisonLine(occData.avgRate, priorOcc.avgRate, `vs ${monthLabel(priorYear, priorMonth)}`, fmtPct)}</p>
+              <p style="margin:2px 0;">${comparisonLine(occData.avgRate, lyHasData ? lyOcc.avgRate : null, `vs ${lyMonthName}`, fmtPct)}</p>
+            </div>
           </div>
 
-          <h2 style="font-size:16px;color:#0EA5E9;margin-top:16px;">📊 New Bookings: ${(newBookings || []).length}</h2>
-          <p style="font-size:13px;color:#555;">By source: ${formatBreakdown(bookingBreakdown)}</p>
-          <p style="font-size:13px;color:#555;">Avg value: ${formatCurrency(avgBookingValue)} · Avg stay: ${avgLOS.toFixed(1)} nights</p>
+          <h2 style="font-size:16px;color:#1e293b;margin:20px 0 8px;">💰 Revenue</h2>
+          <div style="background:#f1f5f9;padding:16px;border-radius:8px;border:1px solid #cbd5e1;">
+            <table style="width:100%;">
+              <tr><td style="padding:4px 0;font-size:14px;">Gross Revenue</td><td style="text-align:right;font-weight:bold;font-size:14px;">${fmt(grossRevenue)}</td></tr>
+              <tr><td style="padding:4px 0;font-size:14px;">Commissions</td><td style="text-align:right;font-weight:bold;font-size:14px;color:#dc2626;">${fmt(totalCommission)}</td></tr>
+              <tr style="border-top:2px solid #1e293b;"><td style="padding:8px 0 4px;font-size:14px;font-weight:bold;">Net Revenue</td><td style="text-align:right;font-weight:bold;font-size:16px;color:#16a34a;">${fmt(netRevenue)}</td></tr>
+              <tr><td style="padding:4px 0;font-size:14px;">ADR</td><td style="text-align:right;font-weight:bold;font-size:14px;">${fmt(adr)}</td></tr>
+              <tr><td style="padding:4px 0;font-size:14px;">RevPAR</td><td style="text-align:right;font-weight:bold;font-size:14px;">${fmt(revpar)}</td></tr>
+            </table>
+            <div style="margin-top:8px;font-size:12px;">
+              <p style="margin:2px 0;">${comparisonLine(grossRevenue, priorGross, `Gross vs ${monthLabel(priorYear, priorMonth)}`, fmt)}</p>
+              <p style="margin:2px 0;">${comparisonLine(netRevenue, priorNet, `Net vs ${monthLabel(priorYear, priorMonth)}`, fmt)}</p>
+              <p style="margin:2px 0;">${comparisonLine(adr, priorAdr, `ADR vs ${monthLabel(priorYear, priorMonth)}`, fmt)}</p>
+              <p style="margin:2px 0;">${comparisonLine(revpar, priorRevpar, `RevPAR vs ${monthLabel(priorYear, priorMonth)}`, fmt)}</p>
+              <p style="margin:2px 0;">${comparisonLine(grossRevenue, lyHasData ? lyGross : null, `Gross vs ${lyMonthName}`, fmt)}</p>
+              <p style="margin:2px 0;">${comparisonLine(netRevenue, lyHasData ? lyNet : null, `Net vs ${lyMonthName}`, fmt)}</p>
+              <p style="margin:2px 0;">${comparisonLine(adr, lyHasData ? lyAdr : null, `ADR vs ${lyMonthName}`, fmt)}</p>
+              <p style="margin:2px 0;">${comparisonLine(revpar, lyHasData ? lyRevpar : null, `RevPAR vs ${lyMonthName}`, fmt)}</p>
+            </div>
+          </div>
+
+          <h2 style="font-size:16px;color:#1e293b;margin:20px 0 8px;">📊 New Bookings: ${newBookings.length}</h2>
+          <p style="font-size:13px;color:#555;margin:0;">By source: ${formatSimpleBreakdown(bookingBreakdown, newBookings.length)}</p>
+          <p style="font-size:13px;color:#555;margin:4px 0 16px;">Avg value: ${fmt(avgBookingValue)} · Avg stay: ${avgLOS.toFixed(1)} nights</p>
+
+          <hr style="border:none;border-top:2px solid #e2e8f0;margin:24px 0;" />
+
+          <h2 style="font-size:18px;color:#1e293b;margin:0 0 16px;">📊 Performance — Past 6 Months</h2>
+
+          <h3 style="font-size:15px;color:#1e293b;margin:0 0 8px;">Occupancy Trend</h3>
+          <table style="width:100%;border-collapse:collapse;">${occChartRows}</table>
+          ${renderComparisonCard(curMonth.occupancyRate, prevMonth.occupancyRate, "month-over-month", fmtPct, occData.avgRate, lyHasData ? lyOcc.avgRate : undefined, `vs ${lyMonthName}`)}
+
+          <h3 style="font-size:15px;color:#1e293b;margin:0 0 8px;">New Bookings Trend</h3>
+          <table style="width:100%;border-collapse:collapse;">${bookingsChartRows}</table>
+          ${renderComparisonCard(curMonth.newBookings, prevMonth.newBookings, "month-over-month", fmtN, newBookings.length, lyHasData ? lyBookings.length : undefined, `vs ${lyMonthName}`)}
+
+          <h3 style="font-size:15px;color:#1e293b;margin:0 0 8px;">Revenue Trend</h3>
+          <table style="width:100%;border-collapse:collapse;">${revenueChartRows}</table>
+          ${renderComparisonCard(curMonth.netRevenue, prevMonth.netRevenue, "month-over-month", fmt, netRevenue, lyHasData ? lyNet : undefined, `vs ${lyMonthName}`)}
+
+          <h3 style="font-size:15px;color:#1e293b;margin:16px 0 8px;">Booking Source Breakdown</h3>
+          <table style="width:100%;border-collapse:collapse;margin:8px 0 16px 0;">
+            <tr><th ${thStyle}>Source</th><th ${thStyle} style="background:#1e293b;color:white;padding:8px 12px;text-align:center;font-size:13px;">Count</th><th ${thStyle} style="background:#1e293b;color:white;padding:8px 12px;text-align:center;font-size:13px;">Share</th><th ${thStyle} style="background:#1e293b;color:white;padding:8px 12px;text-align:right;font-size:13px;">Net Revenue</th></tr>
+            ${sourceTableRows}
+          </table>
 
           <p style="margin:24px 0 0;font-size:11px;color:#999;">Generated automatically by SuiteSpot PMS — ${new Date().toISOString()}</p>
         </div>
       </div>
     `;
 
+    // ===== SEND EMAILS =====
     const sentEmails: string[] = [];
     let errorCount = 0;
 
