@@ -138,8 +138,10 @@ async function computeWeekRevenue(supabase: any, propertyId: string, start: stri
   const { data } = await supabase
     .from("reservations")
     .select("total_price, commission_amount")
-    .gte("created_at", `${start}T00:00:00`)
-    .lte("created_at", `${end}T23:59:59`)
+    .neq("status", "Cancelled")
+    .is("cancelled_at", null)
+    .gte("check_in_date", start)
+    .lte("check_in_date", end)
     .eq("property_id", propertyId);
 
   let total = 0;
