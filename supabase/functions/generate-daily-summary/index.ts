@@ -299,7 +299,7 @@ const handler = async (req: Request): Promise<Response> => {
     const occupancy = { occupied, vacant, total: totalRooms, rate: occupancyRate };
 
     // Generate email HTML
-    const emailHTML = generateEmailHTML(property.name, dateDisplay, checkIns || [], checkOuts || [], occupancy, blockedRooms);
+    const { headerHTML, bodyContentHTML } = generateEmailHTML(property.name, dateDisplay, checkIns || [], checkOuts || [], occupancy, blockedRooms);
 
     // Send emails with 600ms delay between recipients
     const sentEmails: string[] = [];
