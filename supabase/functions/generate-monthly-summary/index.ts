@@ -11,6 +11,11 @@ function formatCurrency(amount: number, currency = "EGP"): string {
   return `$${amount.toLocaleString("en-US", { minimumFractionDigits: 0, maximumFractionDigits: 0 })}`;
 }
 
+function getFirstName(fullName: string): string {
+  if (!fullName || fullName === "Team Member") return "there";
+  return fullName.split(" ")[0];
+}
+
 function getMonthRange(year: number, month: number): { start: string; end: string; days: number } {
   const start = `${year}-${String(month + 1).padStart(2, "0")}-01`;
   const lastDay = new Date(year, month + 1, 0).getDate();
