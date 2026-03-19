@@ -10,6 +10,11 @@ function formatDateShort(date: Date): string {
   return date.toLocaleDateString("en-US", { month: "short", day: "numeric" });
 }
 
+function getFirstName(fullName: string): string {
+  if (!fullName || fullName === "Team Member") return "there";
+  return fullName.split(" ")[0];
+}
+
 function formatDateFull(date: Date): string {
   return date.toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric" });
 }
