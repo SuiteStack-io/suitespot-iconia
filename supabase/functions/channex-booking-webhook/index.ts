@@ -484,32 +484,89 @@ Deno.serve(async (req: Request) => {
 
             const unitIds = allUnits?.map((u: any) => u.id) || [];
 
-            // Helper to calculate and push availability for a date range (scoped to room type units)
+            // Helper to calculate and push per-day availability for a date range
             const pushScopedAvailForRange = async (dateFrom: string, dateTo: string, label: string) => {
-              const lastOccupiedNight = new Date(dateTo);
-              lastOccupiedNight.setDate(lastOccupiedNight.getDate() - 1);
-              const lastNightStr = lastOccupiedNight.toISOString().split("T")[0];
-
-              const { count: overlapping } = await supabase
+              // Fetch all overlapping reservations for the range
+              const { data: overlappingRes } = await supabase
                 .from("reservations")
-                .select("id", { count: "exact", head: true })
+                .select("check_in_date, check_out_date, unit_id")
                 .in("unit_id", unitIds)
                 .in("status", ["confirmed", "checked-in"])
                 .lt("check_in_date", dateTo)
                 .gt("check_out_date", dateFrom);
 
-              const available = Math.max(0, totalUnits - (overlapping || 0));
+              // Fetch blocked dates in the range
+              const { data: blockedDates } = await supabase
+                .from("blocked_dates")
+                .select("blocked_date, unit_id")
+                .in("unit_id", unitIds)
+                .gte("blocked_date", dateFrom)
+                .lt("blocked_date", dateTo);
 
-              const availPayload = {
-                values: [{
-                  property_id: channexPropertyId,
-                  room_type_id: channexRoomTypeId!,
-                  date_from: dateFrom,
-                  date_to: lastNightStr,
-                  availability: available,
-                }],
-              };
+              const reservations = overlappingRes || [];
+              const blocks = blockedDates || [];
 
+              // Build day-by-day availability
+              const dayAvailabilities: { date: string; availability: number }[] = [];
+              const cursor = new Date(dateFrom + "T00:00:00Z");
+              const endDate = new Date(dateTo + "T00:00:00Z");
+
+              while (cursor < endDate) {
+                const ds = cursor.toISOString().split("T")[0];
+
+                // Count occupied units: check_in_date <= ds AND check_out_date > ds
+                const occupiedUnitIds = new Set<string>();
+                for (const r of reservations) {
+                  if (r.check_in_date <= ds && r.check_out_date > ds && r.unit_id) {
+                    occupiedUnitIds.add(r.unit_id);
+                  }
+                }
+                for (const b of blocks) {
+                  if (b.blocked_date === ds && b.unit_id) {
+                    occupiedUnitIds.add(b.unit_id);
+                  }
+                }
+
+                const avail = Math.max(0, totalUnits - occupiedUnitIds.size);
+                dayAvailabilities.push({ date: ds, availability: avail });
+
+                cursor.setUTCDate(cursor.getUTCDate() + 1);
+              }
+
+              if (dayAvailabilities.length === 0) return totalUnits;
+
+              // Collapse consecutive days with the same availability into ranges
+              const values: { property_id: string; room_type_id: string; date_from: string; date_to: string; availability: number }[] = [];
+              let rangeStart = dayAvailabilities[0].date;
+              let rangeEnd = dayAvailabilities[0].date;
+              let rangeAvail = dayAvailabilities[0].availability;
+
+              for (let i = 1; i < dayAvailabilities.length; i++) {
+                if (dayAvailabilities[i].availability === rangeAvail) {
+                  rangeEnd = dayAvailabilities[i].date;
+                } else {
+                  values.push({
+                    property_id: channexPropertyId,
+                    room_type_id: channexRoomTypeId!,
+                    date_from: rangeStart,
+                    date_to: rangeEnd,
+                    availability: rangeAvail,
+                  });
+                  rangeStart = dayAvailabilities[i].date;
+                  rangeEnd = dayAvailabilities[i].date;
+                  rangeAvail = dayAvailabilities[i].availability;
+                }
+              }
+              // Push final range
+              values.push({
+                property_id: channexPropertyId,
+                room_type_id: channexRoomTypeId!,
+                date_from: rangeStart,
+                date_to: rangeEnd,
+                availability: rangeAvail,
+              });
+
+              const availPayload = { values };
               console.log(`[channex-booking-webhook] Pushing availability (${label}):`, JSON.stringify(availPayload));
               const availResponse = await channexRequest("POST", "/api/v1/availability", availPayload);
               console.log(`[channex-booking-webhook] Availability push response (${label}):`, JSON.stringify(availResponse));
@@ -525,7 +582,7 @@ Deno.serve(async (req: Request) => {
                 property_id: localPropertyId,
               });
 
-              return available;
+              return dayAvailabilities[0].availability;
             };
 
             if (status === "cancelled" && oldArrivalDate && oldDepartureDate) {
