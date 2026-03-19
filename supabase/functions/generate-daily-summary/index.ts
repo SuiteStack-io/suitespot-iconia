@@ -145,13 +145,14 @@ function generateEmailHTML(
       `
     : "";
 
-  return `
+  const headerHTML = `
     <div style="font-family:Arial,sans-serif;max-width:650px;margin:0 auto;color:#222;">
       <div style="background:linear-gradient(135deg, #0f172a 0%, #1e293b 100%);padding:20px 24px;border-radius:8px 8px 0 0;">
         <h1 style="color:white;margin:0;font-size:22px;">SuiteSpot Daily Summary</h1>
         <p style="color:rgba(255,255,255,0.9);margin:4px 0 0;font-size:14px;">${propertyName} — ${dateStr}</p>
-      </div>
-      <div style="padding:24px;background:#fff;border:1px solid #e5e7eb;border-top:none;border-radius:0 0 8px 8px;">
+      </div>`;
+
+  const bodyContentHTML = `
         <h2 style="font-size:16px;color:#1e293b;margin:0 0 8px;">📥 Today's Check-ins (${checkIns.length})</h2>
         <table ${tableStyle}>
           <tr><th ${thStyle}>Guest Name</th><th ${thStyle}>Room</th><th ${thStyle}>Source</th></tr>
@@ -176,10 +177,9 @@ function generateEmailHTML(
           </table>
         </div>
 
-        <p style="margin:24px 0 0;font-size:11px;color:#999;">Generated automatically by SuiteSpot PMS — ${new Date().toISOString()}</p>
-      </div>
-    </div>
-  `;
+        <p style="margin:24px 0 0;font-size:11px;color:#999;">Generated automatically by SuiteSpot PMS — ${new Date().toISOString()}</p>`;
+
+  return { headerHTML, bodyContentHTML };
 }
 
 const handler = async (req: Request): Promise<Response> => {
