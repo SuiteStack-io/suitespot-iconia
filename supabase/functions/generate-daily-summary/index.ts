@@ -307,11 +307,15 @@ const handler = async (req: Request): Promise<Response> => {
 
     for (const recipient of recipients) {
       try {
+        const firstName = getFirstName(recipient.name);
+        const greeting = `<p style="font-size:15px;color:#333;margin:0 0 20px;line-height:1.5;">Hi ${firstName}, here's your daily summary for ${property.name} — ${dateDisplay}.</p>`;
+        const personalizedHTML = `${headerHTML}<div style="padding:24px;background:#fff;border:1px solid #e5e7eb;border-top:none;border-radius:0 0 8px 8px;">${greeting}${bodyContentHTML}</div></div>`;
+
         const emailResponse = await resend.emails.send({
           from: "Mia — SuiteSpot AI <ai-assistant@bookings.suitespoteg.com>",
           to: [recipient.email],
           subject: `Daily Summary — ${property.name} — ${dateDisplay}`,
-          html: emailHTML,
+          html: personalizedHTML,
         });
         console.log(`Email sent to ${recipient.email}:`, JSON.stringify(emailResponse));
         sentEmails.push(recipient.email);

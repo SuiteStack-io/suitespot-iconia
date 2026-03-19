@@ -392,13 +392,20 @@ const handler = async (req: Request): Promise<Response> => {
     const sentEmails: string[] = [];
     let errorCount = 0;
 
+    const greetingStartDate = startDate.toLocaleDateString("en-US", { weekday: "long", month: "long", day: "numeric" });
+    const greetingEndDate = endDate.toLocaleDateString("en-US", { weekday: "long", month: "long", day: "numeric", year: "numeric" });
+
     for (const recipient of recipients) {
       try {
+        const firstName = getFirstName(recipient.name);
+        const greeting = `<p style="font-size:15px;color:#333;margin:0 0 20px;line-height:1.5;">Hi ${firstName}, here's your weekly summary for ${property.name} from ${greetingStartDate} to ${greetingEndDate}.</p>`;
+        const personalizedHTML = `${weeklyHeaderHTML}<div style="padding:24px;background:#fff;border:1px solid #e5e7eb;border-top:none;border-radius:0 0 8px 8px;">${greeting}${weeklyBodyHTML}</div></div>`;
+
         const resp = await resend.emails.send({
           from: "Mia — SuiteSpot AI <ai-assistant@bookings.suitespoteg.com>",
           to: [recipient.email],
           subject: `Weekly Summary — ${property.name} — ${formatDateFull(startDate)} to ${formatDateFull(endDate)}`,
-          html: emailHTML,
+          html: personalizedHTML,
         });
         console.log(`Weekly email sent to ${recipient.email}:`, JSON.stringify(resp));
         sentEmails.push(recipient.email);

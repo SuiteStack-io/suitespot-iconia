@@ -504,11 +504,15 @@ const handler = async (req: Request): Promise<Response> => {
 
     for (const recipient of recipients) {
       try {
+        const firstName = getFirstName(recipient.name);
+        const greeting = `<p style="font-size:15px;color:#333;margin:0 0 20px;line-height:1.5;">Hi ${firstName}, here's your monthly summary for ${property.name} — ${monthName}.</p>`;
+        const personalizedHTML = `${monthlyHeaderHTML}<div style="padding:24px;background:#fff;border:1px solid #e5e7eb;border-top:none;border-radius:0 0 8px 8px;">${greeting}${monthlyBodyHTML}</div></div>`;
+
         const resp = await resend.emails.send({
           from: "Mia — SuiteSpot AI <ai-assistant@bookings.suitespoteg.com>",
           to: [recipient.email],
           subject: `Monthly Summary — ${property.name} — ${monthName}`,
-          html: emailHTML,
+          html: personalizedHTML,
         });
         console.log(`Monthly email sent to ${recipient.email}:`, JSON.stringify(resp));
         sentEmails.push(recipient.email);
