@@ -121,8 +121,20 @@ Deno.serve(async (req: Request) => {
       enrichedData.check_out || enrichedData.checkout ||
       enrichedData.checkout_date || rawPayload.departure_date || null;
 
+    // --- Resolve effective stay dates (prefer room-level, fallback to top-level) ---
+    const roomsList = enrichedData.rooms || bookingData.rooms;
+    const firstRoomDates = roomsList?.[0] || {};
+    const effectiveCheckIn: string | null =
+      firstRoomDates.checkin_date || firstRoomDates.check_in_date || firstRoomDates.arrival_date ||
+      arrival_date || null;
+    const effectiveCheckOut: string | null =
+      firstRoomDates.checkout_date || firstRoomDates.check_out_date || firstRoomDates.departure_date ||
+      departure_date || null;
+
+    console.log("[channex-booking-webhook] Resolved effective dates:", { effectiveCheckIn, effectiveCheckOut, roomLevel: !!firstRoomDates.checkin_date, topLevel: { arrival_date, departure_date } });
+
     const customer = enrichedData.customer || bookingData.customer;
-    const rooms = enrichedData.rooms || bookingData.rooms;
+    const rooms = roomsList;
     const amount = enrichedData.amount || enrichedData.total_amount || bookingData.amount || bookingData.total_amount;
     const currency = enrichedData.currency || bookingData.currency;
 
@@ -130,7 +142,7 @@ Deno.serve(async (req: Request) => {
       enrichedData.arrival_hour || enrichedData.arrivalHour ||
       enrichedData.check_in_time || bookingData.arrival_hour || null;
 
-    console.log("[channex-booking-webhook] Extracted dates:", { arrival_date, departure_date, arrival_hour });
+    console.log("[channex-booking-webhook] Extracted dates:", { arrival_date, departure_date, effectiveCheckIn, effectiveCheckOut, arrival_hour });
 
     // --- Resolve local property ID ---
     let localPropertyId: string | null = null;
@@ -447,7 +459,11 @@ Deno.serve(async (req: Request) => {
     // ================================================================
     let availabilityPushResult: string | null = null;
     try {
-      if (!isTestProperty && channexPropertyId && arrival_date && departure_date) {
+      if (!isTestProperty && channexPropertyId && effectiveCheckIn && effectiveCheckOut) {
+        // Guard: effectiveCheckOut must be after effectiveCheckIn
+        if (effectiveCheckOut <= effectiveCheckIn) {
+          console.error("[channex-booking-webhook] Invalid date range for availability push:", { effectiveCheckIn, effectiveCheckOut });
+        } else {
         // Resolve Channex room_type_id
         let channexRoomTypeId: string | null = rooms?.[0]?.room_type_id || null;
         if (!channexRoomTypeId && roomTypeId) {
@@ -485,7 +501,15 @@ Deno.serve(async (req: Request) => {
             const unitIds = allUnits?.map((u: any) => u.id) || [];
 
             // Helper to calculate and push per-day availability for a date range
+            // dateFrom = inclusive check-in day, dateTo = exclusive checkout day
             const pushScopedAvailForRange = async (dateFrom: string, dateTo: string, label: string) => {
+              // Compute the last occupied night (dateTo - 1 day)
+              const lastOccupied = new Date(dateTo + "T00:00:00Z");
+              lastOccupied.setUTCDate(lastOccupied.getUTCDate() - 1);
+              const lastOccupiedStr = lastOccupied.toISOString().split("T")[0];
+
+              console.log(`[channex-booking-webhook] pushScopedAvailForRange(${label}): dateFrom=${dateFrom}, dateTo=${dateTo}, lastOccupiedNight=${lastOccupiedStr}`);
+
               // Fetch all overlapping reservations for the range
               const { data: overlappingRes } = await supabase
                 .from("reservations")
@@ -501,17 +525,17 @@ Deno.serve(async (req: Request) => {
                 .select("blocked_date, unit_id")
                 .in("unit_id", unitIds)
                 .gte("blocked_date", dateFrom)
-                .lt("blocked_date", dateTo);
+                .lte("blocked_date", lastOccupiedStr);
 
               const reservations = overlappingRes || [];
               const blocks = blockedDates || [];
 
-              // Build day-by-day availability
+              // Build day-by-day availability from dateFrom to lastOccupied (inclusive)
               const dayAvailabilities: { date: string; availability: number }[] = [];
               const cursor = new Date(dateFrom + "T00:00:00Z");
-              const endDate = new Date(dateTo + "T00:00:00Z");
+              const endInclusive = new Date(lastOccupiedStr + "T00:00:00Z");
 
-              while (cursor < endDate) {
+              while (cursor <= endInclusive) {
                 const ds = cursor.toISOString().split("T")[0];
 
                 // Count occupied units: check_in_date <= ds AND check_out_date > ds
@@ -532,6 +556,8 @@ Deno.serve(async (req: Request) => {
 
                 cursor.setUTCDate(cursor.getUTCDate() + 1);
               }
+
+              console.log(`[channex-booking-webhook] Day-by-day (${label}): ${dayAvailabilities.length} days, first=${dayAvailabilities[0]?.date}, last=${dayAvailabilities[dayAvailabilities.length - 1]?.date}`);
 
               if (dayAvailabilities.length === 0) return totalUnits;
 
@@ -589,14 +615,14 @@ Deno.serve(async (req: Request) => {
               // Restore availability for cancelled date range
               const avail = await pushScopedAvailForRange(oldArrivalDate, oldDepartureDate, "cancellation-restore");
               availabilityPushResult = `cancelled-restore:${avail}`;
-            } else if (oldArrivalDate && oldDepartureDate && (oldArrivalDate !== arrival_date || oldDepartureDate !== departure_date)) {
+            } else if (oldArrivalDate && oldDepartureDate && (oldArrivalDate !== effectiveCheckIn || oldDepartureDate !== effectiveCheckOut)) {
               // Modification: push for both old and new ranges
               const oldAvail = await pushScopedAvailForRange(oldArrivalDate, oldDepartureDate, "modification-old-range");
-              const newAvail = await pushScopedAvailForRange(arrival_date, departure_date, "modification-new-range");
+              const newAvail = await pushScopedAvailForRange(effectiveCheckIn, effectiveCheckOut, "modification-new-range");
               availabilityPushResult = `modified:old=${oldAvail},new=${newAvail}`;
             } else {
               // New booking or same-date update
-              const avail = await pushScopedAvailForRange(arrival_date, departure_date, "new-booking");
+              const avail = await pushScopedAvailForRange(effectiveCheckIn, effectiveCheckOut, "new-booking");
               availabilityPushResult = `new:${avail}`;
             }
 
@@ -607,6 +633,7 @@ Deno.serve(async (req: Request) => {
         } else {
           console.warn("[channex-booking-webhook] No Channex room_type_id available for availability push");
         }
+        } // end date guard
       }
     } catch (availErr: any) {
       console.error("[channex-booking-webhook] Availability push error (non-fatal):", availErr.message);
