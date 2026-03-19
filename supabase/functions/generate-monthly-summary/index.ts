@@ -11,6 +11,11 @@ function formatCurrency(amount: number, currency = "EGP"): string {
   return `$${amount.toLocaleString("en-US", { minimumFractionDigits: 0, maximumFractionDigits: 0 })}`;
 }
 
+function getFirstName(fullName: string): string {
+  if (!fullName || fullName === "Team Member") return "there";
+  return fullName.split(" ")[0];
+}
+
 function getMonthRange(year: number, month: number): { start: string; end: string; days: number } {
   const start = `${year}-${String(month + 1).padStart(2, "0")}-01`;
   const lastDay = new Date(year, month + 1, 0).getDate();
@@ -416,14 +421,14 @@ const handler = async (req: Request): Promise<Response> => {
     const thStyle = 'style="background:#1e293b;color:white;padding:8px 12px;text-align:left;font-size:13px;"';
 
     // ===== EMAIL HTML =====
-    const emailHTML = `
+    const monthlyHeaderHTML = `
       <div style="font-family:Arial,sans-serif;max-width:650px;margin:0 auto;color:#222;">
         <div style="background:linear-gradient(135deg, #0f172a 0%, #1e293b 100%);padding:20px 24px;border-radius:8px 8px 0 0;">
           <h1 style="color:white;margin:0;font-size:22px;">SuiteSpot Monthly Summary</h1>
           <p style="color:rgba(255,255,255,0.9);margin:4px 0 0;font-size:14px;">${property.name} — ${monthName}</p>
-        </div>
-        <div style="padding:24px;background:#fff;border:1px solid #e5e7eb;border-top:none;border-radius:0 0 8px 8px;">
+        </div>`;
 
+    const monthlyBodyHTML = `
           <h2 style="font-size:16px;color:#1e293b;margin:0 0 8px;">📥 Check-ins: ${(checkIns || []).length}</h2>
           <p style="font-size:13px;color:#555;margin:0 0 16px;">${formatSimpleBreakdown(ciBreakdown, (checkIns || []).length)}</p>
 
@@ -491,10 +496,7 @@ const handler = async (req: Request): Promise<Response> => {
             ${sourceTableRows}
           </table>
 
-          <p style="margin:24px 0 0;font-size:11px;color:#999;">Generated automatically by SuiteSpot PMS — ${new Date().toISOString()}</p>
-        </div>
-      </div>
-    `;
+          <p style="margin:24px 0 0;font-size:11px;color:#999;">Generated automatically by SuiteSpot PMS — ${new Date().toISOString()}</p>`;
 
     // ===== SEND EMAILS =====
     const sentEmails: string[] = [];
@@ -502,11 +504,15 @@ const handler = async (req: Request): Promise<Response> => {
 
     for (const recipient of recipients) {
       try {
+        const firstName = getFirstName(recipient.name);
+        const greeting = `<p style="font-size:15px;color:#333;margin:0 0 20px;line-height:1.5;">Hi ${firstName}, here's your monthly summary for ${property.name} — ${monthName}.</p>`;
+        const personalizedHTML = `${monthlyHeaderHTML}<div style="padding:24px;background:#fff;border:1px solid #e5e7eb;border-top:none;border-radius:0 0 8px 8px;">${greeting}${monthlyBodyHTML}</div></div>`;
+
         const resp = await resend.emails.send({
           from: "Mia — SuiteSpot AI <ai-assistant@bookings.suitespoteg.com>",
           to: [recipient.email],
           subject: `Monthly Summary — ${property.name} — ${monthName}`,
-          html: emailHTML,
+          html: personalizedHTML,
         });
         console.log(`Monthly email sent to ${recipient.email}:`, JSON.stringify(resp));
         sentEmails.push(recipient.email);

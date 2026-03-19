@@ -10,6 +10,11 @@ function formatDate(date: Date): string {
   return date.toLocaleDateString("en-US", { weekday: "short", month: "short", day: "numeric", year: "numeric" });
 }
 
+function getFirstName(fullName: string): string {
+  if (!fullName || fullName === "Team Member") return "there";
+  return fullName.split(" ")[0];
+}
+
 function isLastWorkingDayOfMonth(date: Date): boolean {
   const year = date.getFullYear();
   const month = date.getMonth();
@@ -117,7 +122,7 @@ function generateEmailHTML(
   checkOuts: any[],
   occupancy: { occupied: number; vacant: number; total: number; rate: number },
   blockedRooms: { room: string; reason: string }[]
-): string {
+): { headerHTML: string; bodyContentHTML: string } {
   const tableStyle = 'style="width:100%;border-collapse:collapse;margin:8px 0 16px 0;"';
   const thStyle = 'style="background:#1e293b;color:white;padding:8px 12px;text-align:left;font-size:13px;"';
   const tdStyle = (i: number) => `style="padding:8px 12px;border-bottom:1px solid #eee;font-size:13px;background:${i % 2 === 0 ? '#f9fafb' : '#fff'};"`;
@@ -140,13 +145,14 @@ function generateEmailHTML(
       `
     : "";
 
-  return `
+  const headerHTML = `
     <div style="font-family:Arial,sans-serif;max-width:650px;margin:0 auto;color:#222;">
       <div style="background:linear-gradient(135deg, #0f172a 0%, #1e293b 100%);padding:20px 24px;border-radius:8px 8px 0 0;">
         <h1 style="color:white;margin:0;font-size:22px;">SuiteSpot Daily Summary</h1>
         <p style="color:rgba(255,255,255,0.9);margin:4px 0 0;font-size:14px;">${propertyName} — ${dateStr}</p>
-      </div>
-      <div style="padding:24px;background:#fff;border:1px solid #e5e7eb;border-top:none;border-radius:0 0 8px 8px;">
+      </div>`;
+
+  const bodyContentHTML = `
         <h2 style="font-size:16px;color:#1e293b;margin:0 0 8px;">📥 Today's Check-ins (${checkIns.length})</h2>
         <table ${tableStyle}>
           <tr><th ${thStyle}>Guest Name</th><th ${thStyle}>Room</th><th ${thStyle}>Source</th></tr>
@@ -171,10 +177,9 @@ function generateEmailHTML(
           </table>
         </div>
 
-        <p style="margin:24px 0 0;font-size:11px;color:#999;">Generated automatically by SuiteSpot PMS — ${new Date().toISOString()}</p>
-      </div>
-    </div>
-  `;
+        <p style="margin:24px 0 0;font-size:11px;color:#999;">Generated automatically by SuiteSpot PMS — ${new Date().toISOString()}</p>`;
+
+  return { headerHTML, bodyContentHTML };
 }
 
 const handler = async (req: Request): Promise<Response> => {
@@ -294,7 +299,7 @@ const handler = async (req: Request): Promise<Response> => {
     const occupancy = { occupied, vacant, total: totalRooms, rate: occupancyRate };
 
     // Generate email HTML
-    const emailHTML = generateEmailHTML(property.name, dateDisplay, checkIns || [], checkOuts || [], occupancy, blockedRooms);
+    const { headerHTML, bodyContentHTML } = generateEmailHTML(property.name, dateDisplay, checkIns || [], checkOuts || [], occupancy, blockedRooms);
 
     // Send emails with 600ms delay between recipients
     const sentEmails: string[] = [];
@@ -302,11 +307,15 @@ const handler = async (req: Request): Promise<Response> => {
 
     for (const recipient of recipients) {
       try {
+        const firstName = getFirstName(recipient.name);
+        const greeting = `<p style="font-size:15px;color:#333;margin:0 0 20px;line-height:1.5;">Hi ${firstName}, here's your daily summary for ${property.name} — ${dateDisplay}.</p>`;
+        const personalizedHTML = `${headerHTML}<div style="padding:24px;background:#fff;border:1px solid #e5e7eb;border-top:none;border-radius:0 0 8px 8px;">${greeting}${bodyContentHTML}</div></div>`;
+
         const emailResponse = await resend.emails.send({
           from: "Mia — SuiteSpot AI <ai-assistant@bookings.suitespoteg.com>",
           to: [recipient.email],
           subject: `Daily Summary — ${property.name} — ${dateDisplay}`,
-          html: emailHTML,
+          html: personalizedHTML,
         });
         console.log(`Email sent to ${recipient.email}:`, JSON.stringify(emailResponse));
         sentEmails.push(recipient.email);

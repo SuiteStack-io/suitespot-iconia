@@ -10,6 +10,11 @@ function formatDateShort(date: Date): string {
   return date.toLocaleDateString("en-US", { month: "short", day: "numeric" });
 }
 
+function getFirstName(fullName: string): string {
+  if (!fullName || fullName === "Team Member") return "there";
+  return fullName.split(" ")[0];
+}
+
 function formatDateFull(date: Date): string {
   return date.toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric" });
 }
@@ -326,14 +331,14 @@ const handler = async (req: Request): Promise<Response> => {
       label: w.label, value: w.revenue, displayValue: formatCurrency(w.revenue, currency), isCurrent: w.isCurrent,
     })));
 
-    const emailHTML = `
+    const weeklyHeaderHTML = `
       <div style="font-family:Arial,sans-serif;max-width:650px;margin:0 auto;color:#222;">
         <div style="background:linear-gradient(135deg, #0f172a 0%, #1e293b 100%);padding:20px 24px;border-radius:8px 8px 0 0;">
           <h1 style="color:white;margin:0;font-size:22px;">SuiteSpot Weekly Summary</h1>
           <p style="color:rgba(255,255,255,0.9);margin:4px 0 0;font-size:14px;">${property.name} — ${formatDateFull(startDate)} to ${formatDateFull(endDate)}</p>
-        </div>
-        <div style="padding:24px;background:#fff;border:1px solid #e5e7eb;border-top:none;border-radius:0 0 8px 8px;">
+        </div>`;
 
+    const weeklyBodyHTML = `
           <h2 style="font-size:16px;color:#1e293b;margin:0 0 8px;">📥 Check-ins (${(checkIns || []).length})</h2>
           <table ${tableStyle}>
             <tr><th ${thStyle}>Guest Name</th><th ${thStyle}>Room</th><th ${thStyle}>Source</th></tr>
@@ -381,22 +386,26 @@ const handler = async (req: Request): Promise<Response> => {
           </table>
           ${renderWoWCard(currentWeek.revenue, lastWeek.revenue, "revenue", v => formatCurrency(v, currency))}
 
-          <p style="margin:24px 0 0;font-size:11px;color:#999;">Generated automatically by SuiteSpot PMS — ${new Date().toISOString()}</p>
-        </div>
-      </div>
-    `;
+          <p style="margin:24px 0 0;font-size:11px;color:#999;">Generated automatically by SuiteSpot PMS — ${new Date().toISOString()}</p>`;
 
     // Send emails
     const sentEmails: string[] = [];
     let errorCount = 0;
 
+    const greetingStartDate = startDate.toLocaleDateString("en-US", { weekday: "long", month: "long", day: "numeric" });
+    const greetingEndDate = endDate.toLocaleDateString("en-US", { weekday: "long", month: "long", day: "numeric", year: "numeric" });
+
     for (const recipient of recipients) {
       try {
+        const firstName = getFirstName(recipient.name);
+        const greeting = `<p style="font-size:15px;color:#333;margin:0 0 20px;line-height:1.5;">Hi ${firstName}, here's your weekly summary for ${property.name} from ${greetingStartDate} to ${greetingEndDate}.</p>`;
+        const personalizedHTML = `${weeklyHeaderHTML}<div style="padding:24px;background:#fff;border:1px solid #e5e7eb;border-top:none;border-radius:0 0 8px 8px;">${greeting}${weeklyBodyHTML}</div></div>`;
+
         const resp = await resend.emails.send({
           from: "Mia — SuiteSpot AI <ai-assistant@bookings.suitespoteg.com>",
           to: [recipient.email],
           subject: `Weekly Summary — ${property.name} — ${formatDateFull(startDate)} to ${formatDateFull(endDate)}`,
-          html: emailHTML,
+          html: personalizedHTML,
         });
         console.log(`Weekly email sent to ${recipient.email}:`, JSON.stringify(resp));
         sentEmails.push(recipient.email);
