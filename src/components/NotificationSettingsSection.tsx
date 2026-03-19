@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import { supabase } from '@/integrations/supabase/client';
 import { Switch } from '@/components/ui/switch';
 import { Label } from '@/components/ui/label';
@@ -74,6 +74,8 @@ export function NotificationSettingsSection({
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [settings, setSettings] = useState<NotificationSettings>(DEFAULT_SETTINGS);
+  const settingsRef = useRef(settings);
+  useEffect(() => { settingsRef.current = settings; }, [settings]);
 
   useEffect(() => {
     fetchSettings();
@@ -85,7 +87,22 @@ export function NotificationSettingsSection({
 
   useEffect(() => {
     if (triggerSave && triggerSave > 0) {
-      saveSettings();
+      const currentSettings = settingsRef.current;
+      (async () => {
+        try {
+          const { error } = await supabase
+            .from('user_notification_settings')
+            .upsert({
+              user_id: userId,
+              ...currentSettings,
+              updated_at: new Date().toISOString(),
+            }, { onConflict: 'user_id' });
+          if (error) throw error;
+        } catch (error) {
+          console.error('Error saving notification settings:', error);
+          toast({ title: 'Error', description: 'Failed to save notification settings', variant: 'destructive' });
+        }
+      })();
     }
   }, [triggerSave]);
 
