@@ -331,14 +331,14 @@ const handler = async (req: Request): Promise<Response> => {
       label: w.label, value: w.revenue, displayValue: formatCurrency(w.revenue, currency), isCurrent: w.isCurrent,
     })));
 
-    const emailHTML = `
+    const weeklyHeaderHTML = `
       <div style="font-family:Arial,sans-serif;max-width:650px;margin:0 auto;color:#222;">
         <div style="background:linear-gradient(135deg, #0f172a 0%, #1e293b 100%);padding:20px 24px;border-radius:8px 8px 0 0;">
           <h1 style="color:white;margin:0;font-size:22px;">SuiteSpot Weekly Summary</h1>
           <p style="color:rgba(255,255,255,0.9);margin:4px 0 0;font-size:14px;">${property.name} — ${formatDateFull(startDate)} to ${formatDateFull(endDate)}</p>
-        </div>
-        <div style="padding:24px;background:#fff;border:1px solid #e5e7eb;border-top:none;border-radius:0 0 8px 8px;">
+        </div>`;
 
+    const weeklyBodyHTML = `
           <h2 style="font-size:16px;color:#1e293b;margin:0 0 8px;">📥 Check-ins (${(checkIns || []).length})</h2>
           <table ${tableStyle}>
             <tr><th ${thStyle}>Guest Name</th><th ${thStyle}>Room</th><th ${thStyle}>Source</th></tr>
@@ -386,10 +386,7 @@ const handler = async (req: Request): Promise<Response> => {
           </table>
           ${renderWoWCard(currentWeek.revenue, lastWeek.revenue, "revenue", v => formatCurrency(v, currency))}
 
-          <p style="margin:24px 0 0;font-size:11px;color:#999;">Generated automatically by SuiteSpot PMS — ${new Date().toISOString()}</p>
-        </div>
-      </div>
-    `;
+          <p style="margin:24px 0 0;font-size:11px;color:#999;">Generated automatically by SuiteSpot PMS — ${new Date().toISOString()}</p>`;
 
     // Send emails
     const sentEmails: string[] = [];
