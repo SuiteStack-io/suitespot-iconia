@@ -121,8 +121,20 @@ Deno.serve(async (req: Request) => {
       enrichedData.check_out || enrichedData.checkout ||
       enrichedData.checkout_date || rawPayload.departure_date || null;
 
+    // --- Resolve effective stay dates (prefer room-level, fallback to top-level) ---
+    const roomsList = enrichedData.rooms || bookingData.rooms;
+    const firstRoomDates = roomsList?.[0] || {};
+    const effectiveCheckIn: string | null =
+      firstRoomDates.checkin_date || firstRoomDates.check_in_date || firstRoomDates.arrival_date ||
+      arrival_date || null;
+    const effectiveCheckOut: string | null =
+      firstRoomDates.checkout_date || firstRoomDates.check_out_date || firstRoomDates.departure_date ||
+      departure_date || null;
+
+    console.log("[channex-booking-webhook] Resolved effective dates:", { effectiveCheckIn, effectiveCheckOut, roomLevel: !!firstRoomDates.checkin_date, topLevel: { arrival_date, departure_date } });
+
     const customer = enrichedData.customer || bookingData.customer;
-    const rooms = enrichedData.rooms || bookingData.rooms;
+    const rooms = roomsList;
     const amount = enrichedData.amount || enrichedData.total_amount || bookingData.amount || bookingData.total_amount;
     const currency = enrichedData.currency || bookingData.currency;
 
@@ -130,7 +142,7 @@ Deno.serve(async (req: Request) => {
       enrichedData.arrival_hour || enrichedData.arrivalHour ||
       enrichedData.check_in_time || bookingData.arrival_hour || null;
 
-    console.log("[channex-booking-webhook] Extracted dates:", { arrival_date, departure_date, arrival_hour });
+    console.log("[channex-booking-webhook] Extracted dates:", { arrival_date, departure_date, effectiveCheckIn, effectiveCheckOut, arrival_hour });
 
     // --- Resolve local property ID ---
     let localPropertyId: string | null = null;
