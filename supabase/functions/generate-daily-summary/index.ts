@@ -10,6 +10,11 @@ function formatDate(date: Date): string {
   return date.toLocaleDateString("en-US", { weekday: "short", month: "short", day: "numeric", year: "numeric" });
 }
 
+function getFirstName(fullName: string): string {
+  if (!fullName || fullName === "Team Member") return "there";
+  return fullName.split(" ")[0];
+}
+
 function isLastWorkingDayOfMonth(date: Date): boolean {
   const year = date.getFullYear();
   const month = date.getMonth();
