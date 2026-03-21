@@ -37,6 +37,8 @@ const handler = async (req: Request): Promise<Response> => {
           <head>
             <meta charset="UTF-8">
             <meta name="viewport" content="width=device-width, initial-scale=1.0">
+            <meta name="color-scheme" content="light dark">
+            <meta name="supported-color-schemes" content="light dark">
             <style>
               body {
                 font-family: 'Playfair Display', Georgia, serif;
@@ -53,16 +55,20 @@ const handler = async (req: Request): Promise<Response> => {
                 box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
               }
               .header {
-                background: linear-gradient(135deg, #d4af37 0%, #f4e4c1 100%);
+                background: linear-gradient(135deg, #d4af37 0%, #f4e4c1 100%) !important;
                 padding: 40px 20px;
                 text-align: center;
               }
               .header h1 {
-                color: #2c3e50;
+                color: #2c3e50 !important;
                 margin: 0;
                 font-size: 32px;
                 font-weight: 600;
                 letter-spacing: -0.02em;
+              }
+              @media (prefers-color-scheme: dark) {
+                .header { background: linear-gradient(135deg, #d4af37 0%, #f4e4c1 100%) !important; }
+                .header h1 { color: #2c3e50 !important; }
               }
               .content {
                 padding: 40px 30px;

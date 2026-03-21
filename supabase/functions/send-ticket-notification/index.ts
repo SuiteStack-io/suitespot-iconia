@@ -67,15 +67,22 @@ const handler = async (req: Request): Promise<Response> => {
         <!DOCTYPE html>
         <html>
           <head>
+            <meta name="color-scheme" content="light dark">
+            <meta name="supported-color-schemes" content="light dark">
             <style>
               body { font-family: Arial, sans-serif; line-height: 1.6; color: #333; }
               .container { max-width: 600px; margin: 0 auto; padding: 20px; }
-              .header { background: ${statusInfo.color}; color: white; padding: 30px; text-align: center; border-radius: 10px 10px 0 0; }
+              .header { background: ${statusInfo.color} !important; color: #ffffff !important; padding: 30px; text-align: center; border-radius: 10px 10px 0 0; }
+              .header h1 { color: #ffffff !important; text-shadow: 0 0 1px rgba(0,0,0,0.5); }
               .content { background: #f9f9f9; padding: 30px; border-radius: 0 0 10px 10px; }
               .ticket-info { background: white; padding: 20px; border-radius: 8px; margin: 20px 0; border-left: 4px solid ${statusInfo.color}; }
               .status-badge { display: inline-block; background: ${statusInfo.color}; color: white; padding: 5px 15px; border-radius: 20px; font-size: 14px; }
               .button { display: inline-block; background: #667eea; color: white; padding: 12px 30px; text-decoration: none; border-radius: 5px; margin-top: 20px; }
               .footer { text-align: center; padding: 20px; color: #666; font-size: 12px; }
+              @media (prefers-color-scheme: dark) {
+                .header { background: ${statusInfo.color} !important; }
+                .header h1 { color: #ffffff !important; }
+              }
             </style>
           </head>
           <body>

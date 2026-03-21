@@ -418,14 +418,14 @@ const handler = async (req: Request): Promise<Response> => {
     const fmtPct = (v: number) => `${v.toFixed(1)}%`;
     const fmtN = (v: number) => `${v} bookings`;
 
-    const thStyle = 'style="background:#1e293b;color:white;padding:8px 12px;text-align:left;font-size:13px;"';
+    const thStyle = 'class="dark-th" style="background:#1e293b !important;color:#ffffff !important;padding:8px 12px;text-align:left;font-size:13px;"';
 
     // ===== EMAIL HTML =====
     const monthlyHeaderHTML = `
       <div style="font-family:Arial,sans-serif;max-width:650px;margin:0 auto;color:#222;">
-        <div style="background:linear-gradient(135deg, #0f172a 0%, #1e293b 100%);padding:20px 24px;border-radius:8px 8px 0 0;">
-          <h1 style="color:white;margin:0;font-size:22px;">SuiteSpot Monthly Summary</h1>
-          <p style="color:rgba(255,255,255,0.9);margin:4px 0 0;font-size:14px;">${property.name} — ${monthName}</p>
+        <div class="email-header" style="background:linear-gradient(135deg, #0f172a 0%, #1e293b 100%) !important;padding:20px 24px;border-radius:8px 8px 0 0;">
+          <h1 style="color:#ffffff !important;margin:0;font-size:22px;text-shadow:0 0 1px rgba(0,0,0,0.5);">SuiteSpot Monthly Summary</h1>
+          <p style="color:rgba(255,255,255,0.9) !important;margin:4px 0 0;font-size:14px;text-shadow:0 0 1px rgba(0,0,0,0.5);">${property.name} — ${monthName}</p>
         </div>`;
 
     const monthlyBodyHTML = `
@@ -506,7 +506,8 @@ const handler = async (req: Request): Promise<Response> => {
       try {
         const firstName = getFirstName(recipient.name);
         const greeting = `<p style="font-size:15px;color:#333;margin:0 0 20px;line-height:1.5;">Hi ${firstName}, here's your monthly summary for ${property.name} — ${monthName}.</p>`;
-        const personalizedHTML = `${monthlyHeaderHTML}<div style="padding:24px;background:#fff;border:1px solid #e5e7eb;border-top:none;border-radius:0 0 8px 8px;">${greeting}${monthlyBodyHTML}</div></div>`;
+        const dmHead = `<!DOCTYPE html><html><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1.0"><meta name="color-scheme" content="light dark"><meta name="supported-color-schemes" content="light dark"><style>@media(prefers-color-scheme:dark){.email-header{background:linear-gradient(135deg,#0f172a 0%,#1e293b 100%)!important}.email-header h1,.email-header p{color:#ffffff!important}.dark-th{background:#1e293b!important;color:#ffffff!important}}</style></head><body style="margin:0;padding:0;">`;
+        const personalizedHTML = `${dmHead}${monthlyHeaderHTML}<div style="padding:24px;background:#fff;border:1px solid #e5e7eb;border-top:none;border-radius:0 0 8px 8px;">${greeting}${monthlyBodyHTML}</div></div></body></html>`;
 
         const resp = await resend.emails.send({
           from: "Mia — SuiteSpot AI <ai-assistant@bookings.suitespoteg.com>",

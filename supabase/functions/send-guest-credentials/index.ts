@@ -44,15 +44,22 @@ const handler = async (req: Request): Promise<Response> => {
         <!DOCTYPE html>
         <html>
           <head>
+            <meta name="color-scheme" content="light dark">
+            <meta name="supported-color-schemes" content="light dark">
             <style>
               body { font-family: Arial, sans-serif; line-height: 1.6; color: #333; }
               .container { max-width: 600px; margin: 0 auto; padding: 20px; }
-              .header { background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); color: white; padding: 30px; text-align: center; border-radius: 10px 10px 0 0; }
+              .header { background: linear-gradient(135deg, #667eea 0%, #764ba2 100%) !important; color: #ffffff !important; padding: 30px; text-align: center; border-radius: 10px 10px 0 0; }
+              .header h1, .header p { color: #ffffff !important; text-shadow: 0 0 1px rgba(0,0,0,0.5); }
               .content { background: #f9f9f9; padding: 30px; border-radius: 0 0 10px 10px; }
               .credentials { background: white; padding: 20px; border-radius: 8px; margin: 20px 0; border-left: 4px solid #667eea; }
               .button { display: inline-block; background: #667eea; color: white; padding: 12px 30px; text-decoration: none; border-radius: 5px; margin-top: 20px; }
               .footer { text-align: center; padding: 20px; color: #666; font-size: 12px; }
               .info-box { background: #e7f3ff; padding: 15px; border-radius: 5px; margin: 15px 0; }
+              @media (prefers-color-scheme: dark) {
+                .header { background: linear-gradient(135deg, #667eea 0%, #764ba2 100%) !important; }
+                .header h1, .header p { color: #ffffff !important; }
+              }
             </style>
           </head>
           <body>
