@@ -418,7 +418,7 @@ const handler = async (req: Request): Promise<Response> => {
     const fmtPct = (v: number) => `${v.toFixed(1)}%`;
     const fmtN = (v: number) => `${v} bookings`;
 
-    const thStyle = 'style="background:#1e293b;color:white;padding:8px 12px;text-align:left;font-size:13px;"';
+    const thStyle = 'class="dark-th" style="background:#1e293b !important;color:#ffffff !important;padding:8px 12px;text-align:left;font-size:13px;"';
 
     // ===== EMAIL HTML =====
     const monthlyHeaderHTML = `
