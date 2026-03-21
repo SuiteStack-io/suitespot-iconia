@@ -119,9 +119,10 @@ Deno.serve(async (req) => {
           to: [admin.email],
           subject: `📅 Stay Extended - ${roomInfo} - ${guestName} at ${extPropertyName}`,
           html: `
+            <!DOCTYPE html><html><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1.0"><meta name="color-scheme" content="light dark"><meta name="supported-color-schemes" content="light dark"><style>@media(prefers-color-scheme:dark){.email-header{background:linear-gradient(135deg,#3b82f6,#1d4ed8)!important}.email-header h1{color:#ffffff!important}}</style></head><body style="margin:0;padding:0;">
             <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto;">
-              <div style="background: linear-gradient(135deg, #3b82f6, #1d4ed8); padding: 20px; border-radius: 8px 8px 0 0;">
-                <h1 style="color: white; margin: 0; font-size: 24px;">Stay Extended</h1>
+              <div class="email-header" style="background: linear-gradient(135deg, #3b82f6, #1d4ed8) !important; padding: 20px; border-radius: 8px 8px 0 0;">
+                <h1 style="color: #ffffff !important; margin: 0; font-size: 24px; text-shadow: 0 0 1px rgba(0,0,0,0.5);">Stay Extended</h1>
               </div>
               
               <div style="background: #f8fafc; padding: 24px; border: 1px solid #e2e8f0; border-top: none;">
