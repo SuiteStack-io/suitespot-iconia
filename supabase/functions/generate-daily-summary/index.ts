@@ -258,6 +258,29 @@ const handler = async (req: Request): Promise<Response> => {
       .in("status", ["confirmed", "checked-in", "checked-out", "completed"])
       .eq("property_id", property.id);
 
+    // Fetch in-house guests (checked in before today, checking out after today)
+    const { data: inHouseData } = await supabase
+      .from("reservations")
+      .select("guest_names, source, channel, check_out_date, guest_nationality, units!unit_id(name, booking_com_name, unit_number)")
+      .lt("check_in_date", todayStr)
+      .gt("check_out_date", todayStr)
+      .eq("status", "checked-in")
+      .eq("property_id", property.id);
+
+    // Process and sort in-house guests
+    const inHouseGuests = (inHouseData || []).map((g: any) => {
+      const checkOutDate = new Date(g.check_out_date + "T00:00:00");
+      const todayDate = new Date(todayStr + "T00:00:00");
+      const nightsRemaining = Math.round((checkOutDate.getTime() - todayDate.getTime()) / (1000 * 60 * 60 * 24));
+      return {
+        guest_name: g.guest_names?.[0] || "N/A",
+        room: formatRoomDisplay(g.units),
+        source: g.source || g.channel || "N/A",
+        nights_remaining: nightsRemaining,
+        nationality: g.guest_nationality || "—",
+      };
+    }).sort((a: any, b: any) => a.nights_remaining - b.nights_remaining || a.guest_name.localeCompare(b.guest_name));
+
     // Occupancy: count in-house guests
     const { data: inHouse } = await supabase
       .from("reservations")
@@ -310,7 +333,7 @@ const handler = async (req: Request): Promise<Response> => {
     const occupancy = { occupied, vacant, total: totalRooms, rate: occupancyRate };
 
     // Generate email HTML
-    const { headerHTML, bodyContentHTML } = generateEmailHTML(property.name, dateDisplay, checkIns || [], checkOuts || [], occupancy, blockedRooms);
+    const { headerHTML, bodyContentHTML } = generateEmailHTML(property.name, dateDisplay, checkIns || [], checkOuts || [], inHouseGuests, occupancy, blockedRooms);
 
     // Send emails with 600ms delay between recipients
     const sentEmails: string[] = [];
