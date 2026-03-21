@@ -147,9 +147,9 @@ function generateEmailHTML(
 
   const headerHTML = `
     <div style="font-family:Arial,sans-serif;max-width:650px;margin:0 auto;color:#222;">
-      <div style="background:linear-gradient(135deg, #0f172a 0%, #1e293b 100%);padding:20px 24px;border-radius:8px 8px 0 0;">
-        <h1 style="color:white;margin:0;font-size:22px;">SuiteSpot Daily Summary</h1>
-        <p style="color:rgba(255,255,255,0.9);margin:4px 0 0;font-size:14px;">${propertyName} — ${dateStr}</p>
+      <div class="email-header" style="background:linear-gradient(135deg, #0f172a 0%, #1e293b 100%) !important;padding:20px 24px;border-radius:8px 8px 0 0;">
+        <h1 style="color:#ffffff !important;margin:0;font-size:22px;text-shadow:0 0 1px rgba(0,0,0,0.5);">SuiteSpot Daily Summary</h1>
+        <p style="color:rgba(255,255,255,0.9) !important;margin:4px 0 0;font-size:14px;text-shadow:0 0 1px rgba(0,0,0,0.5);">${propertyName} — ${dateStr}</p>
       </div>`;
 
   const bodyContentHTML = `
