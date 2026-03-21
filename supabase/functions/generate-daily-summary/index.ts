@@ -120,6 +120,7 @@ function generateEmailHTML(
   dateStr: string,
   checkIns: any[],
   checkOuts: any[],
+  inHouseGuests: { guest_name: string; room: string; source: string; nights_remaining: number; nationality: string }[],
   occupancy: { occupied: number; vacant: number; total: number; rate: number },
   blockedRooms: { room: string; reason: string }[]
 ): { headerHTML: string; bodyContentHTML: string } {
@@ -134,6 +135,10 @@ function generateEmailHTML(
   const checkOutRows = checkOuts.length > 0
     ? checkOuts.map((co, i) => `<tr><td ${tdStyle(i)}>${co.guest_names?.[0] || "N/A"}</td><td ${tdStyle(i)}>${formatRoomDisplay(co.units)}</td><td ${tdStyle(i)}>${co.source || co.channel || "N/A"}</td></tr>`).join("")
     : `<tr><td colspan="3" style="padding:12px;color:#888;">No check-outs today</td></tr>`;
+
+  const inHouseRows = inHouseGuests.length > 0
+    ? inHouseGuests.map((g, i) => `<tr><td ${tdStyle(i)}>${g.guest_name}</td><td ${tdStyle(i)}>${g.room}</td><td ${tdStyle(i)}>${g.source}</td><td ${tdStyle(i)}>${g.nights_remaining}</td><td ${tdStyle(i)}>${g.nationality}</td></tr>`).join("")
+    : `<tr><td colspan="5" style="padding:12px;color:#888;">No in-house guests currently</td></tr>`;
 
   const blockedSection = blockedRooms.length > 0
     ? `
@@ -157,6 +162,12 @@ function generateEmailHTML(
         <table ${tableStyle}>
           <tr><th ${thStyle}>Guest Name</th><th ${thStyle}>Room</th><th ${thStyle}>Source</th></tr>
           ${checkInRows}
+        </table>
+
+        <h2 style="font-size:16px;color:#1e293b;margin:20px 0 8px;">🏨 In-House Guests (${inHouseGuests.length})</h2>
+        <table ${tableStyle}>
+          <tr><th ${thStyle}>Guest Name</th><th ${thStyle}>Room</th><th ${thStyle}>Source</th><th ${thStyle}>Nights Remaining</th><th ${thStyle}>Nationality</th></tr>
+          ${inHouseRows}
         </table>
 
         <h2 style="font-size:16px;color:#1e293b;margin:20px 0 8px;">📤 Today's Check-outs (${checkOuts.length})</h2>
@@ -247,6 +258,29 @@ const handler = async (req: Request): Promise<Response> => {
       .in("status", ["confirmed", "checked-in", "checked-out", "completed"])
       .eq("property_id", property.id);
 
+    // Fetch in-house guests (checked in before today, checking out after today)
+    const { data: inHouseData } = await supabase
+      .from("reservations")
+      .select("guest_names, source, channel, check_out_date, guest_nationality, units!unit_id(name, booking_com_name, unit_number)")
+      .lt("check_in_date", todayStr)
+      .gt("check_out_date", todayStr)
+      .eq("status", "checked-in")
+      .eq("property_id", property.id);
+
+    // Process and sort in-house guests
+    const inHouseGuests = (inHouseData || []).map((g: any) => {
+      const checkOutDate = new Date(g.check_out_date + "T00:00:00");
+      const todayDate = new Date(todayStr + "T00:00:00");
+      const nightsRemaining = Math.round((checkOutDate.getTime() - todayDate.getTime()) / (1000 * 60 * 60 * 24));
+      return {
+        guest_name: g.guest_names?.[0] || "N/A",
+        room: formatRoomDisplay(g.units),
+        source: g.source || g.channel || "N/A",
+        nights_remaining: nightsRemaining,
+        nationality: g.guest_nationality || "—",
+      };
+    }).sort((a: any, b: any) => a.nights_remaining - b.nights_remaining || a.guest_name.localeCompare(b.guest_name));
+
     // Occupancy: count in-house guests
     const { data: inHouse } = await supabase
       .from("reservations")
@@ -299,7 +333,7 @@ const handler = async (req: Request): Promise<Response> => {
     const occupancy = { occupied, vacant, total: totalRooms, rate: occupancyRate };
 
     // Generate email HTML
-    const { headerHTML, bodyContentHTML } = generateEmailHTML(property.name, dateDisplay, checkIns || [], checkOuts || [], occupancy, blockedRooms);
+    const { headerHTML, bodyContentHTML } = generateEmailHTML(property.name, dateDisplay, checkIns || [], checkOuts || [], inHouseGuests, occupancy, blockedRooms);
 
     // Send emails with 600ms delay between recipients
     const sentEmails: string[] = [];
