@@ -303,7 +303,7 @@ const handler = async (req: Request): Promise<Response> => {
 
     // ===== BUILD EMAIL =====
     const tableStyle = 'style="width:100%;border-collapse:collapse;margin:8px 0 16px 0;"';
-    const thStyle = 'style="background:#1e293b;color:white;padding:8px 12px;text-align:left;font-size:13px;"';
+    const thStyle = 'class="dark-th" style="background:#1e293b !important;color:#ffffff !important;padding:8px 12px;text-align:left;font-size:13px;"';
     const tdStyle = (i: number) => `style="padding:8px 12px;border-bottom:1px solid #eee;font-size:13px;background:${i % 2 === 0 ? '#f9fafb' : '#fff'};"`;
 
     const ciRows = (checkIns || []).length > 0
