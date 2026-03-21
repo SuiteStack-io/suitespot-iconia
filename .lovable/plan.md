@@ -1,48 +1,64 @@
 
-Goal: fix `channex-booking-webhook` so a new booking pushes availability for the full occupied stay window (`check_in_date` through `check_out_date - 1 day`), with no skipped boundary days.
 
-Implementation plan:
+## Fix Dark Mode Email Visibility Across All Email Templates
 
-1) Inspect and harden stay-range source in webhook
-- In `channex-booking-webhook/index.ts`, add a small date-range resolver for booking dates.
-- Resolve `effectiveCheckIn`/`effectiveCheckOut` from the richest available booking data:
-  - Prefer room-level dates when available (`rooms[*].checkin_date` / `rooms[*].checkout_date`, plus common aliases).
-  - Fallback to top-level dates (`arrival_date` / `departure_date` aliases).
-- Normalize to `YYYY-MM-DD` date-only strings before use.
-- Add a guard: if `effectiveCheckOut <= effectiveCheckIn`, skip push and log a clear error.
+### Problem
+Dark-background headers (navy, red, amber, blue, purple, gold) become transparent or inverted in dark mode email clients, making white text invisible.
 
-2) Make the availability loop explicitly boundary-safe
-- Keep `pushScopedAvailForRange(dateFrom, dateTo, label)` semantics as:
-  - `dateFrom` = inclusive check-in day
-  - `dateTo` = exclusive checkout day
-- Refactor day iteration to an explicit inclusive occupied range:
-  - `lastOccupied = dateTo - 1 day`
-  - loop from `dateFrom` to `lastOccupied` inclusive
-- This guarantees:
-  - first occupied day is included (no `+1` bug),
-  - last occupied night is included (no `-1` extra loss).
+### Approach
+For every email template with a colored header background:
+1. Add `<meta name="color-scheme" content="light dark">` and `<meta name="supported-color-schemes" content="light dark">` to the `<head>` section
+2. Add a `<style>` block with `@media (prefers-color-scheme: dark)` rules that force header backgrounds and text colors with `!important`
+3. Add `text-shadow: 0 0 1px rgba(0,0,0,0.5)` on white header text as a fallback if backgrounds get stripped
+4. For table header rows (`th` with dark backgrounds), add inline `!important` via `<style>` overrides
+5. For templates that only use inline styles (no `<head>`), wrap content in a minimal `<!DOCTYPE html><html><head>...</head><body>...</body></html>` structure
 
-3) Keep per-day occupancy rule and range grouping unchanged
-- For each day, count occupancy with:
-  - `check_in_date <= day AND check_out_date > day`
-- Compute `availability = totalUnits - occupied`.
-- Collapse consecutive equal-availability days into `date_from/date_to` ranges.
-- Push all grouped values in one batch payload.
+### Files to Modify (13 files)
 
-4) Ensure new-booking call path uses full resolved range
-- In the “new booking” branch (after reservation create/update), call availability push with the resolved booking window (`effectiveCheckIn`, `effectiveCheckOut`) directly.
-- Do not trim boundaries before calling.
-- Keep cancellation/modification flows unchanged except using the same normalized range helper for consistency.
+**Summary emails (navy gradient headers + dark table headers):**
+1. `generate-daily-summary/index.ts` — Add `<!DOCTYPE html><html><head>` wrapper with meta tags, dark mode `<style>` block; add `text-shadow` + `!important` on header text; add dark mode protection for `th` backgrounds
+2. `generate-weekly-summary/index.ts` — Same as daily
+3. `generate-monthly-summary/index.ts` — Same as daily
 
-5) Add precise diagnostics for verification
-- Log computed push window and generated day bounds:
-  - start day, last occupied day, day count, and final grouped payload.
-- This allows immediate confirmation for the example:
-  - 2026-03-22 to 2026-03-30 occupied nights -> grouped payload:
-    - 2026-03-22..2026-03-22 (8)
-    - 2026-03-23..2026-03-24 (9)
-    - 2026-03-25..2026-03-30 (10)
+**Notification emails with colored headers (table-based layout):**
+4. `send-cancellation-notification/index.ts` — Add meta tags + dark mode `<style>` block for red `#dc2626` header
+5. `send-modification-notification/index.ts` — Add meta tags + dark mode styles for amber gradient header
+6. `send-room-change-notification/index.ts` — Same as modification
+7. `auto-shuffle-rooms/index.ts` — Same as modification (amber header)
 
-Technical notes:
-- No duplicate variable declarations in the same scope (explicitly checked while refactoring helpers and loop variables).
-- No changes to recipient logic, triggers, or other sync functions required for this specific bug.
+**Notification emails with colored headers (div-based layout):**
+8. `send-extension-notification/index.ts` — Add wrapper with meta tags + dark mode styles for blue gradient header
+9. `send-late-checkout-notification/index.ts` — Add wrapper + dark mode styles for amber gradient header
+10. `send-ticket-notification/index.ts` — Add meta tags + dark mode styles for dynamic-color header
+
+**Emails with `<style>` tags but no dark mode block:**
+11. `send-guest-credentials/index.ts` — Add meta tags + dark mode `@media` block for purple gradient header
+12. `send-kyc-reminder/index.ts` — Add meta tags + dark mode block for gold gradient header
+13. `send-kyc-completion-notification/index.ts` — Add meta tags + dark mode block for gold gradient header
+
+**Already fixed (no changes needed):**
+- `send-reservation-notification/index.ts` — Already has dark mode CSS
+
+**No colored headers (no changes needed):**
+- `send-checkin-notification`, `send-checkout-notification`, `send-admin-notification`, `send-checkout-surveys`, `send-survey-notification` — These use simple colored text headings without dark background headers
+
+### Dark Mode CSS Pattern (applied per template)
+```html
+<meta name="color-scheme" content="light dark">
+<meta name="supported-color-schemes" content="light dark">
+<style>
+  @media (prefers-color-scheme: dark) {
+    .email-header { background: [original-color] !important; }
+    .email-header h1, .email-header p, .email-header div { color: #ffffff !important; }
+    .dark-th { background: #1e293b !important; color: #ffffff !important; }
+  }
+</style>
+```
+
+For inline-only templates (summaries), the header div gets `class="email-header"` added alongside existing inline styles, and `th` elements get `class="dark-th"`.
+
+### No Changes To
+- Email content, data, recipient logic, or notification settings
+- Color values themselves (same navy/red/amber/blue/purple/gold)
+- `send-reservation-notification` (already has dark mode support)
+
