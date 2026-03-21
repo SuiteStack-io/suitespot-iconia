@@ -423,9 +423,9 @@ const handler = async (req: Request): Promise<Response> => {
     // ===== EMAIL HTML =====
     const monthlyHeaderHTML = `
       <div style="font-family:Arial,sans-serif;max-width:650px;margin:0 auto;color:#222;">
-        <div style="background:linear-gradient(135deg, #0f172a 0%, #1e293b 100%);padding:20px 24px;border-radius:8px 8px 0 0;">
-          <h1 style="color:white;margin:0;font-size:22px;">SuiteSpot Monthly Summary</h1>
-          <p style="color:rgba(255,255,255,0.9);margin:4px 0 0;font-size:14px;">${property.name} — ${monthName}</p>
+        <div class="email-header" style="background:linear-gradient(135deg, #0f172a 0%, #1e293b 100%) !important;padding:20px 24px;border-radius:8px 8px 0 0;">
+          <h1 style="color:#ffffff !important;margin:0;font-size:22px;text-shadow:0 0 1px rgba(0,0,0,0.5);">SuiteSpot Monthly Summary</h1>
+          <p style="color:rgba(255,255,255,0.9) !important;margin:4px 0 0;font-size:14px;text-shadow:0 0 1px rgba(0,0,0,0.5);">${property.name} — ${monthName}</p>
         </div>`;
 
     const monthlyBodyHTML = `
