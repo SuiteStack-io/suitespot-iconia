@@ -181,6 +181,7 @@ Deno.serve(async (req) => {
                 </p>
               </div>
             </div>
+            </body></html>
           `,
         });
         console.log(`Email sent to ${admin.email}:`, emailResponse);
