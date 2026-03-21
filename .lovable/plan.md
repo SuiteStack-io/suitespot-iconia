@@ -1,64 +1,39 @@
 
 
-## Fix Dark Mode Email Visibility Across All Email Templates
+## Add In-House Guests Section to Daily Summary Email
 
-### Problem
-Dark-background headers (navy, red, amber, blue, purple, gold) become transparent or inverted in dark mode email clients, making white text invisible.
+### What Changes
 
-### Approach
-For every email template with a colored header background:
-1. Add `<meta name="color-scheme" content="light dark">` and `<meta name="supported-color-schemes" content="light dark">` to the `<head>` section
-2. Add a `<style>` block with `@media (prefers-color-scheme: dark)` rules that force header backgrounds and text colors with `!important`
-3. Add `text-shadow: 0 0 1px rgba(0,0,0,0.5)` on white header text as a fallback if backgrounds get stripped
-4. For table header rows (`th` with dark backgrounds), add inline `!important` via `<style>` overrides
-5. For templates that only use inline styles (no `<head>`), wrap content in a minimal `<!DOCTYPE html><html><head>...</head><body>...</body></html>` structure
+**File:** `supabase/functions/generate-daily-summary/index.ts`
 
-### Files to Modify (13 files)
+### 1. New Data Query (in handler, after check-outs query)
 
-**Summary emails (navy gradient headers + dark table headers):**
-1. `generate-daily-summary/index.ts` — Add `<!DOCTYPE html><html><head>` wrapper with meta tags, dark mode `<style>` block; add `text-shadow` + `!important` on header text; add dark mode protection for `th` backgrounds
-2. `generate-weekly-summary/index.ts` — Same as daily
-3. `generate-monthly-summary/index.ts` — Same as daily
+Fetch in-house guests who checked in BEFORE today and check out AFTER today (status = "checked-in"):
 
-**Notification emails with colored headers (table-based layout):**
-4. `send-cancellation-notification/index.ts` — Add meta tags + dark mode `<style>` block for red `#dc2626` header
-5. `send-modification-notification/index.ts` — Add meta tags + dark mode styles for amber gradient header
-6. `send-room-change-notification/index.ts` — Same as modification
-7. `auto-shuffle-rooms/index.ts` — Same as modification (amber header)
-
-**Notification emails with colored headers (div-based layout):**
-8. `send-extension-notification/index.ts` — Add wrapper with meta tags + dark mode styles for blue gradient header
-9. `send-late-checkout-notification/index.ts` — Add wrapper + dark mode styles for amber gradient header
-10. `send-ticket-notification/index.ts` — Add meta tags + dark mode styles for dynamic-color header
-
-**Emails with `<style>` tags but no dark mode block:**
-11. `send-guest-credentials/index.ts` — Add meta tags + dark mode `@media` block for purple gradient header
-12. `send-kyc-reminder/index.ts` — Add meta tags + dark mode block for gold gradient header
-13. `send-kyc-completion-notification/index.ts` — Add meta tags + dark mode block for gold gradient header
-
-**Already fixed (no changes needed):**
-- `send-reservation-notification/index.ts` — Already has dark mode CSS
-
-**No colored headers (no changes needed):**
-- `send-checkin-notification`, `send-checkout-notification`, `send-admin-notification`, `send-checkout-surveys`, `send-survey-notification` — These use simple colored text headings without dark background headers
-
-### Dark Mode CSS Pattern (applied per template)
-```html
-<meta name="color-scheme" content="light dark">
-<meta name="supported-color-schemes" content="light dark">
-<style>
-  @media (prefers-color-scheme: dark) {
-    .email-header { background: [original-color] !important; }
-    .email-header h1, .email-header p, .email-header div { color: #ffffff !important; }
-    .dark-th { background: #1e293b !important; color: #ffffff !important; }
-  }
-</style>
+```sql
+reservations
+  .select("guest_names, source, channel, check_out_date, guest_nationality, units!unit_id(name, booking_com_name, unit_number)")
+  .lt("check_in_date", todayStr)       -- checked in before today
+  .gt("check_out_date", todayStr)      -- checking out after today
+  .eq("status", "checked-in")
+  .eq("property_id", property.id)
 ```
 
-For inline-only templates (summaries), the header div gets `class="email-header"` added alongside existing inline styles, and `th` elements get `class="dark-th"`.
+Calculate `nights_remaining` as `check_out_date - today` for each row. Sort by nights remaining ascending, then guest name alphabetically.
 
-### No Changes To
-- Email content, data, recipient logic, or notification settings
-- Color values themselves (same navy/red/amber/blue/purple/gold)
-- `send-reservation-notification` (already has dark mode support)
+### 2. Update `generateEmailHTML` Function
+
+- Add `inHouseGuests` parameter (array with guest_names, room, source, nights_remaining, nationality)
+- Insert a new table section between Check-ins and Check-outs:
+  - Header: `🏨 In-House Guests (X)`
+  - 5 columns: Guest Name, Room, Source, Nights Remaining, Nationality
+  - Same table/th/td styling as existing tables
+  - Empty state: "No in-house guests currently"
+
+### 3. No Other Changes
+
+- Check-ins, Check-outs, Occupancy, Blocked Rooms sections untouched
+- Weekly/monthly summaries untouched
+- Recipient logic, email styling, header design untouched
+- No PDF changes (the user mentioned PDF but daily summaries currently have no PDF attachment per the memory note — PDF attachments are excluded from all summaries)
 
