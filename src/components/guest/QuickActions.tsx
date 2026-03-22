@@ -181,7 +181,7 @@ export function QuickActions({ unitId }: QuickActionsProps) {
             </div>
             <Button
               onClick={() => {
-                window.open("https://maps.google.com/?q=SuiteSpot+Almaza+North+Coast+Egypt");
+                window.open("https://maps.google.com/?q=SuiteSpot");
                 setMapDialogOpen(false);
               }}
               className="w-full gap-2"
