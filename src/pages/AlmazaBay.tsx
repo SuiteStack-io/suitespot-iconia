@@ -331,11 +331,11 @@ const AlmazaBay = () => {
   }, [simulationTimer]);
 
   const fetchProperties = async () => {
-    const { data, error } = await supabase
+    let query = supabase
       .from('units')
-      .select('*')
-      .eq('location', 'Almaza Bay')
-      .order('name');
+      .select('*');
+    query = withPropertyFilter(query, propertyId) as any;
+    const { data, error } = await query.order('name');
 
     if (error) {
       toast({
