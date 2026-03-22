@@ -61,7 +61,7 @@ const handler = async (req: Request): Promise<Response> => {
                 <h2>Hello ${guestName},</h2>
                 <p>We're excited to welcome you to <strong>${unitName}</strong>!</p>
                 
-                <div class="info-box">
+                <div style="background: #e7f3ff; padding: 15px; border-radius: 5px; margin: 15px 0;">
                   <strong>Your Stay Details:</strong><br>
                   Check-in: ${new Date(checkInDate).toLocaleDateString()}<br>
                   Check-out: ${new Date(checkOutDate).toLocaleDateString()}
