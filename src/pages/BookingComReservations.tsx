@@ -839,13 +839,16 @@ const BookingComReservations = () => {
         const originalUnit = units.find(u => u.id === unitId);
         const originalUnitType = originalUnit?.unit_type;
         
-        // Fetch all units
-        const { data: allUnits } = await supabase
+        // Fetch all units (property-scoped)
+        console.log('[BookingCom] Fetching conflict alternatives for property:', propertyId);
+        let altQuery = supabase
           .from('units')
           .select('id, name, unit_number, unit_type')
           .eq('status', 'available')
           .neq('id', unitId)
           .order('unit_number');
+        if (propertyId) altQuery = altQuery.eq('property_id', propertyId);
+        const { data: allUnits } = await altQuery;
         
         // Check availability for each unit on these specific dates (conflicts AND blocked dates)
         const availableUnitsChecked = await Promise.all(
