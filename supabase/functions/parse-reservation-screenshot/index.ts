@@ -333,6 +333,7 @@ Other important notes:
                   bookingReference: parsedData.bookingReference,
                   guestNames: parsedData.guestNames,
                   triggerSource: 'allocate-unit',
+                  propertyId,
                 }),
               }
             );
