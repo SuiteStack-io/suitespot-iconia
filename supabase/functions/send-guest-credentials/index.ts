@@ -85,7 +85,7 @@ const handler = async (req: Request): Promise<Response> => {
                 </div>
 
                 <div style="text-align: center;">
-                  <a href="${Deno.env.get("SUPABASE_URL")?.replace('/auth/v1', '')}/guest/login" class="button">
+                  <a href="${Deno.env.get("SUPABASE_URL")?.replace('/auth/v1', '')}/guest/login" style="display: inline-block; background: #667eea; color: white; padding: 12px 30px; text-decoration: none; border-radius: 5px; margin-top: 20px;">
                     Access Guest Portal
                   </a>
                 </div>
