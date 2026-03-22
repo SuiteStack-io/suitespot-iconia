@@ -75,7 +75,7 @@ const handler = async (req: Request): Promise<Response> => {
                   <li>Contact our team for assistance</li>
                 </ul>
 
-                <div class="credentials">
+                <div style="background: white; padding: 20px; border-radius: 8px; margin: 20px 0; border-left: 4px solid #667eea;">
                   <h3>Your Login Credentials</h3>
                   <p><strong>Username:</strong> ${username}</p>
                   <p><strong>Password:</strong> ${password}</p>
