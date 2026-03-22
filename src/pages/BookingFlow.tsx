@@ -148,6 +148,9 @@ const BookingFlow = () => {
   const [bookedDates, setBookedDates] = useState<Date[]>([]);
   const [preSelectedUnitId, setPreSelectedUnitId] = useState<string | null>(null);
   const [preSelectedUnitType, setPreSelectedUnitType] = useState<string | null>(null);
+  const [defaultPropertyId, setDefaultPropertyId] = useState<string | null>(null);
+  const [preSelectedUnitId, setPreSelectedUnitId] = useState<string | null>(null);
+  const [preSelectedUnitType, setPreSelectedUnitType] = useState<string | null>(null);
   const [selectedUnitType, setSelectedUnitType] = useState<string>("");
   const [ratePlanRate, setRatePlanRate] = useState<RatePlanRateState | null>(null);
   
