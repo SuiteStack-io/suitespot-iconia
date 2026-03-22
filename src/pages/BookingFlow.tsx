@@ -149,8 +149,7 @@ const BookingFlow = () => {
   const [preSelectedUnitId, setPreSelectedUnitId] = useState<string | null>(null);
   const [preSelectedUnitType, setPreSelectedUnitType] = useState<string | null>(null);
   const [defaultPropertyId, setDefaultPropertyId] = useState<string | null>(null);
-  const [preSelectedUnitId, setPreSelectedUnitId] = useState<string | null>(null);
-  const [preSelectedUnitType, setPreSelectedUnitType] = useState<string | null>(null);
+  const [defaultPropertyName, setDefaultPropertyName] = useState<string>("SuiteSpot");
   const [selectedUnitType, setSelectedUnitType] = useState<string>("");
   const [ratePlanRate, setRatePlanRate] = useState<RatePlanRateState | null>(null);
   
