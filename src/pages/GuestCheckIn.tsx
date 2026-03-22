@@ -442,7 +442,7 @@ const GuestCheckIn = () => {
             className="h-12 mx-auto mb-2"
           />
           <p className="font-playfair text-base font-normal leading-relaxed text-foreground mb-6">
-            SuiteSpot ICONIA Zamalek
+            SuiteSpot
           </p>
           <h1 className="font-playfair text-5xl font-semibold tracking-tight text-foreground mb-3">
             Guest Check-In

@@ -3,6 +3,7 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/u
 import { Button } from "@/components/ui/button";
 import { Checkbox } from "@/components/ui/checkbox";
 import { supabase } from "@/integrations/supabase/client";
+import { usePropertyId, withPropertyFilter } from "@/hooks/usePropertyFilter";
 import { toast } from "sonner";
 import { Loader2 } from "lucide-react";
 import { SelectionUnit } from "@/types/unit";
@@ -26,6 +27,7 @@ export const InventorySelectionModal = ({
   guestName,
   onCredentialsGenerated
 }: InventorySelectionModalProps) => {
+  const propertyId = usePropertyId();
   const [units, setUnits] = useState<SelectionUnit[]>([]);
   const [selectedUnits, setSelectedUnits] = useState<Set<string>>(new Set());
   const [loading, setLoading] = useState(true);
@@ -40,12 +42,11 @@ export const InventorySelectionModal = ({
 
   const fetchUnits = async () => {
     try {
-      const { data, error } = await supabase
+      let query = supabase
         .from("units")
-        .select("id, name, booking_com_name, beds, baths, max_guests, photos, unit_size, view, address, features, min_stay, price_per_night, payment_terms")
-        .eq("location", "Almaza Bay")
-        .eq("status", "available")
-        .order("name");
+        .select("id, name, booking_com_name, beds, baths, max_guests, photos, unit_size, view, address, features, min_stay, price_per_night, payment_terms");
+      query = withPropertyFilter(query, propertyId) as any;
+      const { data, error } = await (query as any).eq("status", "available").order("name");
 
       if (error) throw error;
       setUnits(data || []);

@@ -1,6 +1,7 @@
 
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2.39.3";
 import { Resend } from "https://esm.sh/resend@4.0.0";
+import { getPropertyName } from "../_shared/property-utils.ts";
 
 const resend = new Resend(Deno.env.get("RESEND_API_KEY"));
 
@@ -103,11 +104,13 @@ const handler = async (req: Request): Promise<Response> => {
     const typeformLink = "https://admin.typeform.com/form/HB53DCc4/results";
     const kycManagementLink = `https://${Deno.env.get("SUPABASE_URL")?.split("//")[1]?.split(".")[0]}.lovable.app/kyc-management`;
 
+    const displayName = propertyName || 'SuiteSpot';
+
     // Send email to each admin
     const emailPromises = adminUsers.map(async (admin: any) => {
       try {
         const emailResponse = await resend.emails.send({
-          from: "SuiteSpot Almaza <almaza@bookings.suitespoteg.com>",
+          from: `${displayName} <almaza@bookings.suitespoteg.com>`,
           to: [admin.email],
           subject: "🎉 New KYC Questionnaire Completed",
           html: `
@@ -142,7 +145,7 @@ const handler = async (req: Request): Promise<Response> => {
                     </center>
                   </div>
                   <div style="background-color: #f7fafc; padding: 30px; text-align: center; color: #718096; font-size: 14px;">
-                    <p>SuiteSpot Almaza Bay | Almaza Bay, North Coast, Egypt</p>
+                    <p>${displayName}</p>
                   </div>
                 </div>
               </body>

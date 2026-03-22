@@ -13,6 +13,7 @@ import { SlideMenu } from "@/components/SlideMenu";
 import { useAuth } from "@/lib/auth";
 import { AdminBreadcrumb } from "@/components/AdminBreadcrumb";
 import { useNavigate } from "react-router-dom";
+import { usePropertySafe } from "@/lib/propertyContext";
 import { Calendar } from "@/components/ui/calendar";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
@@ -39,6 +40,8 @@ const TicketAnalytics = () => {
   const [loading, setLoading] = useState(true);
   const { userRole } = useAuth();
   const navigate = useNavigate();
+  const propertyCtx = usePropertySafe();
+  const activeProperty = propertyCtx?.activeProperty;
   const [timePeriod, setTimePeriod] = useState<TimePeriod>('month');
   const [customDateRange, setCustomDateRange] = useState<DateRange | undefined>();
 
@@ -226,7 +229,7 @@ const TicketAnalytics = () => {
   return (
     <div className="container mx-auto p-6 space-y-6">
       <header className="border-b bg-card sticky top-0 z-10 -mx-6 px-6 -mt-6 pt-6 pb-4">
-        <AdminBreadcrumb section="ICONIA" currentPage="Tickets Analytics" />
+        <AdminBreadcrumb section={activeProperty?.name || "Property"} currentPage="Tickets Analytics" />
         <div className="flex items-center gap-3 mt-4 justify-between">
           <div className="flex items-center gap-3">
             <SlideMenu userRole={userRole} />

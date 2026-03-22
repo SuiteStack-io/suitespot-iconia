@@ -10,6 +10,7 @@ import { formatDistanceToNow } from "date-fns";
 import { useAuth } from "@/lib/auth";
 import { SlideMenu } from "@/components/SlideMenu";
 import { AdminBreadcrumb } from "@/components/AdminBreadcrumb";
+import { usePropertySafe } from "@/lib/propertyContext";
 
 interface SelectionSession {
   id: string;
@@ -25,6 +26,8 @@ interface SelectionSession {
 export default function SelectionSessions() {
   const navigate = useNavigate();
   const { userRole } = useAuth();
+  const propertyCtx = usePropertySafe();
+  const activeProperty = propertyCtx?.activeProperty;
   const [sessions, setSessions] = useState<SelectionSession[]>([]);
   const [loading, setLoading] = useState(true);
   const { toast } = useToast();
@@ -212,7 +215,7 @@ export default function SelectionSessions() {
     <div className="min-h-screen bg-background">
       <header className="border-b bg-card">
         <div className="container mx-auto px-4 py-4">
-          <AdminBreadcrumb section="Almaza Bay" currentPage="KYC Results" />
+          <AdminBreadcrumb section={activeProperty?.name || "Property"} currentPage="KYC Results" />
           <div className="flex items-center gap-4">
           <SlideMenu userRole={userRole} />
           
@@ -237,7 +240,7 @@ export default function SelectionSessions() {
           </Button>
           
           <div>
-            <h1 className="text-xl font-bold">Almaza Bay KYC Results</h1>
+            <h1 className="text-xl font-bold">{activeProperty?.name || 'Property'} KYC Results</h1>
             <p className="text-sm text-muted-foreground hidden md:block">
               Manage active guest selection sessions and access times
             </p>

@@ -15,6 +15,7 @@ import { Key, Ban, CheckCircle, Copy, UserPlus, Loader2, ArrowLeft } from "lucid
 import { format } from "date-fns";
 import { SlideMenu } from "@/components/SlideMenu";
 import { usePropertyId, withPropertyFilter } from "@/hooks/usePropertyFilter";
+import { usePropertySafe } from "@/lib/propertyContext";
 
 async function hashPassword(password: string): Promise<string> {
   const encoder = new TextEncoder();
@@ -68,6 +69,8 @@ export default function GuestAccounts() {
   const navigate = useNavigate();
   const { user, userRole } = useAuth();
   const propertyId = usePropertyId();
+  const propertyCtx = usePropertySafe();
+  const activeProperty = propertyCtx?.activeProperty;
   const [loading, setLoading] = useState(true);
   const [accounts, setAccounts] = useState<GuestAccount[]>([]);
   const [resetDialogOpen, setResetDialogOpen] = useState(false);
@@ -549,7 +552,8 @@ export default function GuestAccounts() {
                   variant="default"
                   className="w-full"
                   onClick={() => {
-                    const whatsappMessage = `Welcome to SuiteSpot Almaza! We're excited to have you with us. Below are your login details to access your guest portal and manage everything related to your stay.
+                    const propertyName = activeProperty?.name || 'SuiteSpot';
+                    const whatsappMessage = `Welcome to ${propertyName}! We're excited to have you with us. Below are your login details to access your guest portal and manage everything related to your stay.
 
 Username: 
 ${generatedCredentials.username}
@@ -559,7 +563,7 @@ ${generatedCredentials.password}
 
 Once logged in, you'll be able to view check-in details, access your stay information, and enjoy a seamless SuiteSpot experience. If you need anything at all, we're just a message away.
 
-Wishing you an amazing summer stay! 🌴🌊`;
+Wishing you an amazing stay! 🌴🌊`;
                     navigator.clipboard.writeText(whatsappMessage);
                     toast.success("WhatsApp message copied to clipboard!");
                   }}

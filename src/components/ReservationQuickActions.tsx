@@ -16,6 +16,7 @@ import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, 
 import { cn } from "@/lib/utils";
 import { useAuth } from "@/lib/auth";
 import { usePropertyId, withPropertyFilter } from "@/hooks/usePropertyFilter";
+import { usePropertySafe } from "@/lib/propertyContext";
 import { RoomSwapDialog } from "@/components/RoomSwapDialog";
 interface Reservation {
   id: string;
@@ -64,6 +65,8 @@ export const ReservationQuickActions = ({
   onMoveComplete,
 }: ReservationQuickActionsProps) => {
   const [availableUnits, setAvailableUnits] = useState<Unit[]>([]);
+  const propertyCtx = usePropertySafe();
+  const activeProperty = propertyCtx?.activeProperty;
   const [selectedUnitId, setSelectedUnitId] = useState<string>("");
   const [unitConflicts, setUnitConflicts] = useState<Map<string, ConflictInfo>>(new Map());
   const [loading, setLoading] = useState(false);
@@ -2056,7 +2059,7 @@ export const ReservationQuickActions = ({
               SuiteSpot
             </h1>
             <p className="text-lg font-medium text-gray-900 mb-1" style={{ fontFamily: "'Playfair Display', serif" }}>
-              ICONIA Zamalek
+              {activeProperty?.name || 'SuiteSpot'}
             </p>
             <p className="text-gray-500 text-sm">Reservation Confirmation</p>
           </div>

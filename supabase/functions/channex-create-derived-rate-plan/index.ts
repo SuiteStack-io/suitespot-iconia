@@ -138,13 +138,14 @@ Deno.serve(async (req) => {
     }
 
     // Look up room type Channex ID - find the unit with matching booking_com_name
-    const { data: roomTypeUnit } = await supabaseAdmin
+    let roomTypeQuery = supabaseAdmin
       .from('units')
       .select('id')
-      .eq('booking_com_name', ratePlan.room_type)
-      .eq('location', 'ICONIA')
-      .limit(1)
-      .maybeSingle();
+      .eq('booking_com_name', ratePlan.room_type);
+    if (ratePlan.property_id) {
+      roomTypeQuery = roomTypeQuery.eq('property_id', ratePlan.property_id);
+    }
+    const { data: roomTypeUnit } = await roomTypeQuery.limit(1).maybeSingle();
 
     let channexRoomTypeId: string | null = null;
     if (roomTypeUnit) {

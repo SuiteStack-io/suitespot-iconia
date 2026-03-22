@@ -234,7 +234,7 @@ Deno.serve(async (req) => {
     if (propertyId) {
       unitsQuery = unitsQuery.eq('property_id', propertyId);
     } else {
-      unitsQuery = unitsQuery.eq('location', 'ICONIA');
+      throw new Error('property_id is required for syncing units');
     }
 
     const { data: units, error: unitsError } = await unitsQuery;

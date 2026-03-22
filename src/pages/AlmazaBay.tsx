@@ -2,6 +2,7 @@ import { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useAuth } from '@/lib/auth';
 import { supabase } from '@/integrations/supabase/client';
+import { usePropertyId, withPropertyFilter } from '@/hooks/usePropertyFilter';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
@@ -180,6 +181,7 @@ const AlmazaBay = () => {
   const { user, loading, userRole } = useAuth();
   const navigate = useNavigate();
   const { toast } = useToast();
+  const propertyId = usePropertyId();
   const [properties, setProperties] = useState<Property[]>([]);
   const [reservations, setReservations] = useState<Reservation[]>([]);
   const [editingId, setEditingId] = useState<string | null>(null);
@@ -330,11 +332,11 @@ const AlmazaBay = () => {
   }, [simulationTimer]);
 
   const fetchProperties = async () => {
-    const { data, error } = await supabase
+    let query = supabase
       .from('units')
-      .select('*')
-      .eq('location', 'Almaza Bay')
-      .order('name');
+      .select('*');
+    query = withPropertyFilter(query, propertyId) as any;
+    const { data, error } = await query.order('name');
 
     if (error) {
       toast({
@@ -865,17 +867,17 @@ const AlmazaBay = () => {
             status: row['Status'] || 'available',
             view: row['View'] || null,
             is_private: ['Yes', 'yes', 'true', 'TRUE', true].includes(row['Is Private']),
-            location: 'Almaza Bay',
+            property_id: propertyId,
             photos: [],
           };
 
-          // Check if property already exists by name and unit number
-          const { data: existing } = await supabase
+          // Check if property already exists by name and property_id
+          let existingQuery = supabase
             .from('units')
             .select('id')
-            .eq('name', propertyData.name)
-            .eq('location', 'Almaza Bay')
-            .maybeSingle();
+            .eq('name', propertyData.name);
+          existingQuery = withPropertyFilter(existingQuery, propertyId) as any;
+          const { data: existing } = await existingQuery.maybeSingle();
 
           if (existing) {
             // Update existing property

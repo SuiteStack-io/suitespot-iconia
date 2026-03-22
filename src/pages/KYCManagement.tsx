@@ -1,6 +1,7 @@
 import { useState, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
 import { supabase } from "@/integrations/supabase/client";
+import { usePropertyId, withPropertyFilter } from "@/hooks/usePropertyFilter";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
@@ -46,6 +47,7 @@ interface Property {
 export default function KYCManagement() {
   const navigate = useNavigate();
   const { userRole } = useAuth();
+  const propertyId = usePropertyId();
   const [kycLinks, setKycLinks] = useState<KYCLink[]>([]);
   const [filteredLinks, setFilteredLinks] = useState<KYCLink[]>([]);
   const [properties, setProperties] = useState<Property[]>([]);
@@ -108,11 +110,11 @@ export default function KYCManagement() {
 
   const fetchProperties = async () => {
     try {
-      const { data, error } = await supabase
+      let query = supabase
         .from("units")
-        .select("id, name")
-        .eq("location", "Almaza Bay")
-        .order("name");
+        .select("id, name");
+      query = withPropertyFilter(query, propertyId) as any;
+      const { data, error } = await query.order("name");
 
       if (error) throw error;
       setProperties(data || []);

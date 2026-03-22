@@ -13,6 +13,7 @@ import { Progress } from "@/components/ui/progress";
 import { Link, useNavigate, useSearchParams } from "react-router-dom";
 import { Helmet } from "react-helmet-async";
 import { supabase } from "@/integrations/supabase/client";
+import { usePropertySafe } from "@/lib/propertyContext";
 import { useToast } from "@/hooks/use-toast";
 import { format, parseISO, subDays } from "date-fns";
 import { Dialog, DialogContent, DialogClose, DialogHeader, DialogTitle } from "@/components/ui/dialog";
@@ -147,6 +148,8 @@ const BookingFlow = () => {
   const [bookedDates, setBookedDates] = useState<Date[]>([]);
   const [preSelectedUnitId, setPreSelectedUnitId] = useState<string | null>(null);
   const [preSelectedUnitType, setPreSelectedUnitType] = useState<string | null>(null);
+  const [defaultPropertyId, setDefaultPropertyId] = useState<string | null>(null);
+  const [defaultPropertyName, setDefaultPropertyName] = useState<string>("SuiteSpot");
   const [selectedUnitType, setSelectedUnitType] = useState<string>("");
   const [ratePlanRate, setRatePlanRate] = useState<RatePlanRateState | null>(null);
   
@@ -231,6 +234,12 @@ const BookingFlow = () => {
     return false;
   };
 
+  // Look up default property
+  useEffect(() => {
+    supabase.from("properties").select("id, name").eq("is_default", true).maybeSingle()
+      .then(({ data }) => { if (data) { setDefaultPropertyId(data.id); setDefaultPropertyName(data.name); } });
+  }, []);
+
   // Initialize from URL parameters
   useEffect(() => {
     const checkIn = searchParams.get("checkIn");
@@ -263,6 +272,7 @@ const BookingFlow = () => {
 
   // Fetch available units based on selected dates
   useEffect(() => {
+    if (!defaultPropertyId) return;
     const fetchAvailableUnits = async () => {
       setIsLoadingUnits(true);
       try {
@@ -273,7 +283,7 @@ const BookingFlow = () => {
             .select("id, name, booking_com_name, unit_type, unit_number, status, beds, baths, max_guests, unit_size, sofa_bed, tax_percentage, photos")
             .eq("id", preSelectedUnitId)
             .eq("is_private", false)
-            .eq("location", "ICONIA")
+            .eq("property_id", defaultPropertyId)
             .single();
 
           if (unitError) throw unitError;
@@ -286,7 +296,7 @@ const BookingFlow = () => {
             .eq("status", "available")
             .eq("unit_type", preSelectedUnitType)
             .eq("is_private", false)
-            .eq("location", "ICONIA")
+            .eq("property_id", defaultPropertyId)
             .order("unit_number");
 
           const { data: typeUnits, error: unitsError } = await query;
@@ -351,7 +361,7 @@ const BookingFlow = () => {
             .select("id, name, booking_com_name, unit_type, unit_number, status, beds, baths, max_guests, unit_size, sofa_bed, tax_percentage, photos")
             .eq("status", "available")
             .eq("is_private", false)
-            .eq("location", "ICONIA")
+            .eq("property_id", defaultPropertyId)
             .order("name");
 
           if (unitsError) throw unitsError;
@@ -944,7 +954,7 @@ const BookingFlow = () => {
       <div className="container mx-auto px-6 py-12 pt-24">
         <div className="max-w-4xl mx-auto">
           <div className="text-center mb-8">
-            <h1 className="text-4xl font-playfair font-bold text-foreground mb-3">ICONIA Zamalek</h1>
+            <h1 className="text-4xl font-playfair font-bold text-foreground mb-3">{defaultPropertyName}</h1>
             <div className="flex items-center justify-center gap-2 text-muted-foreground">
               <MapPin className="w-4 h-4" />
               <span className="uppercase tracking-wide text-sm">Cairo, Egypt</span>

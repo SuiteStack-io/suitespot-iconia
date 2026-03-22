@@ -27,6 +27,7 @@ import suitespotLogo from '@/assets/suitespot-logo.png';
 import { SlideMenu } from '@/components/SlideMenu';
 import { AdminBreadcrumb } from '@/components/AdminBreadcrumb';
 import { usePropertyId, withPropertyFilter } from '@/hooks/usePropertyFilter';
+import { usePropertySafe } from '@/lib/propertyContext';
 import { Switch } from '@/components/ui/switch';
 import { Calendar } from '@/components/ui/calendar';
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
@@ -87,6 +88,8 @@ const BookingComReservations = () => {
   const { user, loading, userRole } = useAuth();
   const navigate = useNavigate();
   const propertyId = usePropertyId();
+  const propertyCtx = usePropertySafe();
+  const activeProperty = propertyCtx?.activeProperty;
   const { toast } = useToast();
   const [uploading, setUploading] = useState(false);
   const [parsedData, setParsedData] = useState<ParsedReservation | null>(null);
@@ -1515,7 +1518,7 @@ const BookingComReservations = () => {
     <div className="min-h-screen bg-background">
       <header className="border-b bg-card">
         <div className="container mx-auto px-4 py-4">
-          <AdminBreadcrumb section="ICONIA" currentPage="Booking.com" />
+          <AdminBreadcrumb section={activeProperty?.name || "Property"} currentPage="Booking.com" />
           <div className="flex items-center gap-4">
           <SlideMenu userRole={userRole} />
           
