@@ -44,35 +44,24 @@ const handler = async (req: Request): Promise<Response> => {
         <!DOCTYPE html>
         <html>
           <head>
-            <meta name="color-scheme" content="light dark">
-            <meta name="supported-color-schemes" content="light dark">
-            <style>
-              body { font-family: Arial, sans-serif; line-height: 1.6; color: #333; }
-              .container { max-width: 600px; margin: 0 auto; padding: 20px; }
-              .header { background: linear-gradient(135deg, #667eea 0%, #764ba2 100%) !important; color: #ffffff !important; padding: 30px; text-align: center; border-radius: 10px 10px 0 0; }
-              .header h1, .header p { color: #ffffff !important; text-shadow: 0 0 1px rgba(0,0,0,0.5); }
-              .content { background: #f9f9f9; padding: 30px; border-radius: 0 0 10px 10px; }
-              .credentials { background: white; padding: 20px; border-radius: 8px; margin: 20px 0; border-left: 4px solid #667eea; }
-              .button { display: inline-block; background: #667eea; color: white; padding: 12px 30px; text-decoration: none; border-radius: 5px; margin-top: 20px; }
-              .footer { text-align: center; padding: 20px; color: #666; font-size: 12px; }
-              .info-box { background: #e7f3ff; padding: 15px; border-radius: 5px; margin: 15px 0; }
-              @media (prefers-color-scheme: dark) {
-                .header { background: linear-gradient(135deg, #667eea 0%, #764ba2 100%) !important; }
-                .header h1, .header p { color: #ffffff !important; }
-              }
-            </style>
+            <meta name="color-scheme" content="light">
+            <meta name="supported-color-schemes" content="light">
           </head>
-          <body>
-            <div class="container">
-              <div class="header">
-                <h1>Welcome to SuiteSpot!</h1>
-                <p>Your stay is about to begin</p>
-              </div>
-              <div class="content">
+          <body style="font-family: Arial, sans-serif; line-height: 1.6; color: #333; margin: 0; padding: 0;">
+            <div style="max-width: 600px; margin: 0 auto; padding: 20px;">
+              <table width="100%" cellpadding="0" cellspacing="0" border="0" role="presentation">
+                <tr>
+                  <td bgcolor="#764ba2" style="background-color: #764ba2; color: #ffffff; padding: 30px; text-align: center; border-radius: 10px 10px 0 0;">
+                    <h1 style="color: #ffffff; margin: 0; font-family: Arial, sans-serif;">Welcome to SuiteSpot!</h1>
+                    <p style="color: #ffffff; margin: 8px 0 0 0; font-family: Arial, sans-serif;">Your stay is about to begin</p>
+                  </td>
+                </tr>
+              </table>
+              <div style="background: #f9f9f9; padding: 30px; border-radius: 0 0 10px 10px;">
                 <h2>Hello ${guestName},</h2>
                 <p>We're excited to welcome you to <strong>${unitName}</strong>!</p>
                 
-                <div class="info-box">
+                <div style="background: #e7f3ff; padding: 15px; border-radius: 5px; margin: 15px 0;">
                   <strong>Your Stay Details:</strong><br>
                   Check-in: ${new Date(checkInDate).toLocaleDateString()}<br>
                   Check-out: ${new Date(checkOutDate).toLocaleDateString()}
@@ -86,7 +75,7 @@ const handler = async (req: Request): Promise<Response> => {
                   <li>Contact our team for assistance</li>
                 </ul>
 
-                <div class="credentials">
+                <div style="background: white; padding: 20px; border-radius: 8px; margin: 20px 0; border-left: 4px solid #667eea;">
                   <h3>Your Login Credentials</h3>
                   <p><strong>Username:</strong> ${username}</p>
                   <p><strong>Password:</strong> ${password}</p>
@@ -96,7 +85,7 @@ const handler = async (req: Request): Promise<Response> => {
                 </div>
 
                 <div style="text-align: center;">
-                  <a href="${Deno.env.get("SUPABASE_URL")?.replace('/auth/v1', '')}/guest/login" class="button">
+                  <a href="${Deno.env.get("SUPABASE_URL")?.replace('/auth/v1', '')}/guest/login" style="display: inline-block; background: #667eea; color: white; padding: 12px 30px; text-decoration: none; border-radius: 5px; margin-top: 20px;">
                     Access Guest Portal
                   </a>
                 </div>
@@ -112,7 +101,7 @@ const handler = async (req: Request): Promise<Response> => {
                   <strong>The SuiteSpot Team</strong>
                 </p>
               </div>
-              <div class="footer">
+              <div style="text-align: center; padding: 20px; color: #666; font-size: 12px;">
                 <p>This is an automated message from SuiteSpot Guest Portal</p>
               </div>
             </div>

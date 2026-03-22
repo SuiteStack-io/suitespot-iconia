@@ -169,90 +169,21 @@ const handler = async (req: Request): Promise<Response> => {
             <html>
               <head>
                 <meta charset="utf-8">
-                <style>
-                  body {
-                    font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif;
-                    line-height: 1.6;
-                    color: #333;
-                    max-width: 600px;
-                    margin: 0 auto;
-                    padding: 20px;
-                  }
-                  .header {
-                    background: linear-gradient(135deg, #0f172a 0%, #1e293b 100%);
-                    color: white;
-                    padding: 40px 30px;
-                    border-radius: 10px 10px 0 0;
-                    text-align: center;
-                  }
-                  .header h1 {
-                    margin: 0;
-                    font-size: 28px;
-                  }
-                  .check-icon {
-                    font-size: 48px;
-                    margin-bottom: 10px;
-                  }
-                  @media (prefers-color-scheme: dark) {
-                    .header {
-                      background: linear-gradient(135deg, #0f172a 0%, #1e293b 100%) !important;
-                    }
-                    .header h1, .header p {
-                      color: #ffffff !important;
-                    }
-                  }
-                  .content {
-                    background: #ffffff;
-                    padding: 30px;
-                    border: 1px solid #e5e7eb;
-                    border-top: none;
-                  }
-                  .detail-row {
-                    display: flex;
-                    padding: 12px 0;
-                    border-bottom: 1px solid #f3f4f6;
-                  }
-                  .detail-label {
-                    font-weight: 600;
-                    width: 150px;
-                    color: #6b7280;
-                  }
-                  .detail-value {
-                    flex: 1;
-                    color: #111827;
-                  }
-                  .highlight {
-                    background: #f0fdf4;
-                    padding: 20px;
-                    border-radius: 8px;
-                    margin: 20px 0;
-                    border-left: 4px solid #22c55e;
-                  }
-                  .info-box {
-                    background: #eff6ff;
-                    padding: 20px;
-                    border-radius: 8px;
-                    margin: 20px 0;
-                    border-left: 4px solid #3b82f6;
-                  }
-                  .footer {
-                    text-align: center;
-                    margin-top: 30px;
-                    padding-top: 20px;
-                    border-top: 1px solid #e5e7eb;
-                    color: #6b7280;
-                    font-size: 14px;
-                  }
-                </style>
+                <meta name="color-scheme" content="light">
+                <meta name="supported-color-schemes" content="light">
               </head>
-              <body>
-                <div class="header">
-                  <div class="check-icon">✓</div>
-                  <h1>Booking Confirmed!</h1>
-                  <p style="margin-top: 10px; margin-bottom: 0; font-size: 16px;">Your reservation at ${propertyName}</p>
-                </div>
+              <body style="font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif; line-height: 1.6; color: #333; max-width: 600px; margin: 0 auto; padding: 20px;">
+                <table width="100%" cellpadding="0" cellspacing="0" border="0" role="presentation">
+                  <tr>
+                    <td bgcolor="#0f172a" style="background-color: #0f172a; color: white; padding: 40px 30px; border-radius: 10px 10px 0 0; text-align: center;">
+                      <div style="font-size: 48px; margin-bottom: 10px;">✓</div>
+                      <h1 style="margin: 0; font-size: 28px; color: #ffffff;">Booking Confirmed!</h1>
+                      <p style="margin-top: 10px; margin-bottom: 0; font-size: 16px; color: #ffffff;">Your reservation at ${propertyName}</p>
+                    </td>
+                  </tr>
+                </table>
                 
-                <div class="content">
+                <div style="background: #ffffff; padding: 30px; border: 1px solid #e5e7eb; border-top: none;">
                   <p style="color: #333; font-size: 16px; margin-bottom: 20px;">
                     Dear ${guestNames[0] || 'Guest'},
                   </p>

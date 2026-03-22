@@ -181,15 +181,9 @@ const handler = async (req: Request): Promise<Response> => {
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <meta name="color-scheme" content="light dark">
-  <meta name="supported-color-schemes" content="light dark">
+  <meta name="color-scheme" content="light">
+  <meta name="supported-color-schemes" content="light">
   <title>Reservation Modified</title>
-  <style>
-    @media (prefers-color-scheme: dark) {
-      .email-header { background: linear-gradient(135deg, #f59e0b 0%, #d97706 100%) !important; }
-      .email-header h1, .email-header p { color: #ffffff !important; }
-    }
-  </style>
 </head>
 <body style="margin: 0; padding: 0; font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; background-color: #f8fafc;">
   <table role="presentation" style="width: 100%; border-collapse: collapse;">
@@ -198,10 +192,10 @@ const handler = async (req: Request): Promise<Response> => {
         <table role="presentation" style="width: 100%; max-width: 600px; border-collapse: collapse; background-color: #ffffff; border-radius: 16px; overflow: hidden; box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);">
           
           <tr>
-            <td class="email-header" style="background: linear-gradient(135deg, #f59e0b 0%, #d97706 100%) !important; padding: 32px 40px; text-align: center;">
+            <td bgcolor="#d97706" style="background-color: #d97706; padding: 32px 40px; text-align: center;">
               <div style="font-size: 48px; margin-bottom: 12px;">🔄</div>
-              <h1 style="margin: 0; color: #ffffff !important; font-size: 28px; font-weight: 700; text-shadow: 0 0 1px rgba(0,0,0,0.5);">Reservation Modified</h1>
-              <p style="margin: 8px 0 0 0; color: rgba(255, 255, 255, 0.9) !important; font-size: 16px; text-shadow: 0 0 1px rgba(0,0,0,0.5);">A booking has been modified</p>
+              <h1 style="margin: 0; color: #ffffff; font-size: 28px; font-weight: 700; font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;">Reservation Modified</h1>
+              <p style="margin: 8px 0 0 0; color: #ffffff; font-size: 16px; font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;">A booking has been modified</p>
             </td>
           </tr>
 

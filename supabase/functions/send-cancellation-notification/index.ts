@@ -187,25 +187,23 @@ const handler = async (req: Request): Promise<Response> => {
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <meta name="color-scheme" content="light dark">
-  <meta name="supported-color-schemes" content="light dark">
-  <style>
-    @media (prefers-color-scheme: dark) {
-      .email-header { background-color: #dc2626 !important; }
-      .email-header h1 { color: #ffffff !important; }
-    }
-  </style>
+  <meta name="color-scheme" content="light">
+  <meta name="supported-color-schemes" content="light">
 </head>
 <body style="margin: 0; padding: 0; font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; background-color: #f5f5f5;">
   <div style="max-width: 600px; margin: 0 auto; padding: 20px;">
     <div style="background-color: #ffffff; border-radius: 12px; overflow: hidden; box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);">
       
-      <div class="email-header" style="background-color: #dc2626 !important; padding: 30px; text-align: center;">
-        <div style="font-size: 48px; margin-bottom: 10px;">🚫</div>
-        <h1 style="color: #ffffff !important; margin: 0; font-size: 24px; font-weight: 600; text-shadow: 0 0 1px rgba(0,0,0,0.5);">
-          Reservation Cancelled
-        </h1>
-      </div>
+      <table width="100%" cellpadding="0" cellspacing="0" border="0" role="presentation">
+        <tr>
+          <td bgcolor="#dc2626" style="background-color: #dc2626; padding: 30px; text-align: center;">
+            <div style="font-size: 48px; margin-bottom: 10px;">🚫</div>
+            <h1 style="color: #ffffff; margin: 0; font-size: 24px; font-weight: 600; font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;">
+              Reservation Cancelled
+            </h1>
+          </td>
+        </tr>
+      </table>
 
       <div style="background-color: #fef2f2; border-left: 4px solid #dc2626; padding: 16px 24px; margin: 0;">
         <p style="margin: 0; color: #991b1b; font-size: 14px; font-weight: 500;">

@@ -67,38 +67,27 @@ const handler = async (req: Request): Promise<Response> => {
         <!DOCTYPE html>
         <html>
           <head>
-            <meta name="color-scheme" content="light dark">
-            <meta name="supported-color-schemes" content="light dark">
-            <style>
-              body { font-family: Arial, sans-serif; line-height: 1.6; color: #333; }
-              .container { max-width: 600px; margin: 0 auto; padding: 20px; }
-              .header { background: ${statusInfo.color} !important; color: #ffffff !important; padding: 30px; text-align: center; border-radius: 10px 10px 0 0; }
-              .header h1 { color: #ffffff !important; text-shadow: 0 0 1px rgba(0,0,0,0.5); }
-              .content { background: #f9f9f9; padding: 30px; border-radius: 0 0 10px 10px; }
-              .ticket-info { background: white; padding: 20px; border-radius: 8px; margin: 20px 0; border-left: 4px solid ${statusInfo.color}; }
-              .status-badge { display: inline-block; background: ${statusInfo.color}; color: white; padding: 5px 15px; border-radius: 20px; font-size: 14px; }
-              .button { display: inline-block; background: #667eea; color: white; padding: 12px 30px; text-decoration: none; border-radius: 5px; margin-top: 20px; }
-              .footer { text-align: center; padding: 20px; color: #666; font-size: 12px; }
-              @media (prefers-color-scheme: dark) {
-                .header { background: ${statusInfo.color} !important; }
-                .header h1 { color: #ffffff !important; }
-              }
-            </style>
+            <meta name="color-scheme" content="light">
+            <meta name="supported-color-schemes" content="light">
           </head>
-          <body>
-            <div class="container">
-              <div class="header">
-                <h1>${statusInfo.subject}</h1>
-              </div>
-              <div class="content">
+          <body style="font-family: Arial, sans-serif; line-height: 1.6; color: #333; margin: 0; padding: 0;">
+            <div style="max-width: 600px; margin: 0 auto; padding: 20px;">
+              <table width="100%" cellpadding="0" cellspacing="0" border="0" role="presentation">
+                <tr>
+                  <td bgcolor="${statusInfo.color}" style="background-color: ${statusInfo.color}; color: #ffffff; padding: 30px; text-align: center; border-radius: 10px 10px 0 0;">
+                    <h1 style="color: #ffffff; margin: 0; font-family: Arial, sans-serif;">${statusInfo.subject}</h1>
+                  </td>
+                </tr>
+              </table>
+              <div style="background: #f9f9f9; padding: 30px; border-radius: 0 0 10px 10px;">
                 <h2>Hello ${guestName},</h2>
                 <p>${statusInfo.message}</p>
                 
-                <div class="ticket-info">
+                <div style="background: white; padding: 20px; border-radius: 8px; margin: 20px 0; border-left: 4px solid ${statusInfo.color};">
                   <h3>${ticketTitle}</h3>
                   <p>
                     <strong>Status:</strong> 
-                    <span class="status-badge">${ticketStatus.toUpperCase().replace("_", " ")}</span>
+                    <span style="display: inline-block; background: ${statusInfo.color}; color: white; padding: 5px 15px; border-radius: 20px; font-size: 14px;">${ticketStatus.toUpperCase().replace("_", " ")}</span>
                   </p>
                   <p><strong>Ticket ID:</strong> ${ticketId.slice(0, 8)}</p>
                   ${resolutionNotes ? `
@@ -114,7 +103,7 @@ const handler = async (req: Request): Promise<Response> => {
                 </p>
 
                 <div style="text-align: center;">
-                  <a href="${Deno.env.get("SUPABASE_URL")?.replace('/auth/v1', '')}/guest/login" class="button">
+                  <a href="${Deno.env.get("SUPABASE_URL")?.replace('/auth/v1', '')}/guest/login" style="display: inline-block; background: #667eea; color: white; padding: 12px 30px; text-decoration: none; border-radius: 5px; margin-top: 20px;">
                     View Ticket Details
                   </a>
                 </div>
@@ -128,7 +117,7 @@ const handler = async (req: Request): Promise<Response> => {
                   <strong>The SuiteSpot Team</strong>
                 </p>
               </div>
-              <div class="footer">
+              <div style="text-align: center; padding: 20px; color: #666; font-size: 12px;">
                 <p>This is an automated notification from SuiteSpot Guest Portal</p>
               </div>
             </div>

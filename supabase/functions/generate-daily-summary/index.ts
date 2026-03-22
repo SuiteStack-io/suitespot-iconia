@@ -125,7 +125,7 @@ function generateEmailHTML(
   blockedRooms: { room: string; reason: string }[]
 ): { headerHTML: string; bodyContentHTML: string } {
   const tableStyle = 'style="width:100%;border-collapse:collapse;margin:8px 0 16px 0;"';
-  const thStyle = 'class="dark-th" style="background:#1e293b !important;color:#ffffff !important;padding:8px 12px;text-align:left;font-size:13px;"';
+  const thStyle = (extra = '') => `bgcolor="#1e293b" style="background-color:#1e293b;color:#ffffff;padding:8px 12px;text-align:left;font-size:13px;${extra}"`;
   const tdStyle = (i: number) => `style="padding:8px 12px;border-bottom:1px solid #eee;font-size:13px;background:${i % 2 === 0 ? '#f9fafb' : '#fff'};"`;
 
   const checkInRows = checkIns.length > 0
@@ -144,7 +144,7 @@ function generateEmailHTML(
     ? `
         <h2 style="font-size:16px;color:#1e293b;margin:20px 0 8px;">🚫 Blocked Rooms (${blockedRooms.length})</h2>
         <table ${tableStyle}>
-          <tr><th ${thStyle}>Room</th><th ${thStyle}>Reason</th></tr>
+          <tr><th ${thStyle()}>Room</th><th ${thStyle()}>Reason</th></tr>
           ${blockedRooms.map((br, i) => `<tr><td ${tdStyle(i)}>${br.room}</td><td ${tdStyle(i)}>${br.reason || "—"}</td></tr>`).join("")}
         </table>
       `
@@ -152,27 +152,31 @@ function generateEmailHTML(
 
   const headerHTML = `
     <div style="font-family:Arial,sans-serif;max-width:650px;margin:0 auto;color:#222;">
-      <div class="email-header" style="background:linear-gradient(135deg, #0f172a 0%, #1e293b 100%) !important;padding:20px 24px;border-radius:8px 8px 0 0;">
-        <h1 style="color:#ffffff !important;margin:0;font-size:22px;text-shadow:0 0 1px rgba(0,0,0,0.5);">SuiteSpot Daily Summary</h1>
-        <p style="color:rgba(255,255,255,0.9) !important;margin:4px 0 0;font-size:14px;text-shadow:0 0 1px rgba(0,0,0,0.5);">${propertyName} — ${dateStr}</p>
-      </div>`;
+      <table width="100%" cellpadding="0" cellspacing="0" border="0" role="presentation">
+        <tr>
+          <td bgcolor="#0f172a" style="background-color:#0f172a;padding:20px 24px;border-radius:8px 8px 0 0;">
+            <h1 style="color:#ffffff;margin:0;font-size:22px;font-family:Arial,sans-serif;">SuiteSpot Daily Summary</h1>
+            <p style="color:#ffffff;margin:4px 0 0;font-size:14px;font-family:Arial,sans-serif;">${propertyName} — ${dateStr}</p>
+          </td>
+        </tr>
+      </table>`;
 
   const bodyContentHTML = `
         <h2 style="font-size:16px;color:#1e293b;margin:0 0 8px;">📥 Today's Check-ins (${checkIns.length})</h2>
         <table ${tableStyle}>
-          <tr><th ${thStyle}>Guest Name</th><th ${thStyle}>Room</th><th ${thStyle}>Source</th></tr>
+          <tr><th ${thStyle()}>Guest Name</th><th ${thStyle()}>Room</th><th ${thStyle()}>Source</th></tr>
           ${checkInRows}
         </table>
 
         <h2 style="font-size:16px;color:#1e293b;margin:20px 0 8px;">🏨 In-House Guests (${inHouseGuests.length})</h2>
         <table ${tableStyle}>
-          <tr><th ${thStyle}>Guest Name</th><th ${thStyle}>Room</th><th ${thStyle}>Source</th><th ${thStyle}>Nights Remaining</th><th ${thStyle}>Nationality</th></tr>
+          <tr><th ${thStyle()}>Guest Name</th><th ${thStyle()}>Room</th><th ${thStyle()}>Source</th><th ${thStyle()}>Nights Remaining</th><th ${thStyle()}>Nationality</th></tr>
           ${inHouseRows}
         </table>
 
         <h2 style="font-size:16px;color:#1e293b;margin:20px 0 8px;">📤 Today's Check-outs (${checkOuts.length})</h2>
         <table ${tableStyle}>
-          <tr><th ${thStyle}>Guest Name</th><th ${thStyle}>Room</th><th ${thStyle}>Source</th></tr>
+          <tr><th ${thStyle()}>Guest Name</th><th ${thStyle()}>Room</th><th ${thStyle()}>Source</th></tr>
           ${checkOutRows}
         </table>
 
@@ -343,7 +347,7 @@ const handler = async (req: Request): Promise<Response> => {
       try {
         const firstName = getFirstName(recipient.name);
         const greeting = `<p style="font-size:15px;color:#333;margin:0 0 20px;line-height:1.5;">Hi ${firstName}, here's your daily summary for ${property.name} — ${dateDisplay}.</p>`;
-        const dmHead = `<!DOCTYPE html><html><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1.0"><meta name="color-scheme" content="light dark"><meta name="supported-color-schemes" content="light dark"><style>@media(prefers-color-scheme:dark){.email-header{background:linear-gradient(135deg,#0f172a 0%,#1e293b 100%)!important}.email-header h1,.email-header p{color:#ffffff!important}.dark-th{background:#1e293b!important;color:#ffffff!important}}</style></head><body style="margin:0;padding:0;">`;
+        const dmHead = `<!DOCTYPE html><html><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1.0"><meta name="color-scheme" content="light"><meta name="supported-color-schemes" content="light"></head><body style="margin:0;padding:0;">`;
         const personalizedHTML = `${dmHead}${headerHTML}<div style="padding:24px;background:#fff;border:1px solid #e5e7eb;border-top:none;border-radius:0 0 8px 8px;">${greeting}${bodyContentHTML}</div></div></body></html>`;
 
         const emailResponse = await resend.emails.send({
