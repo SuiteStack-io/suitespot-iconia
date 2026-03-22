@@ -15,6 +15,7 @@ import { toPng } from 'html-to-image';
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from "@/components/ui/alert-dialog";
 import { cn } from "@/lib/utils";
 import { useAuth } from "@/lib/auth";
+import { usePropertyId, withPropertyFilter } from "@/hooks/usePropertyFilter";
 import { RoomSwapDialog } from "@/components/RoomSwapDialog";
 interface Reservation {
   id: string;
