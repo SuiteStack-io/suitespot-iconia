@@ -181,6 +181,7 @@ const AlmazaBay = () => {
   const { user, loading, userRole } = useAuth();
   const navigate = useNavigate();
   const { toast } = useToast();
+  const propertyId = usePropertyId();
   const [properties, setProperties] = useState<Property[]>([]);
   const [reservations, setReservations] = useState<Reservation[]>([]);
   const [editingId, setEditingId] = useState<string | null>(null);

@@ -27,6 +27,7 @@ export const InventorySelectionModal = ({
   guestName,
   onCredentialsGenerated
 }: InventorySelectionModalProps) => {
+  const propertyId = usePropertyId();
   const [units, setUnits] = useState<SelectionUnit[]>([]);
   const [selectedUnits, setSelectedUnits] = useState<Set<string>>(new Set());
   const [loading, setLoading] = useState(true);

@@ -235,6 +235,12 @@ const BookingFlow = () => {
     return false;
   };
 
+  // Look up default property
+  useEffect(() => {
+    supabase.from("properties").select("id, name").eq("is_default", true).maybeSingle()
+      .then(({ data }) => { if (data) { setDefaultPropertyId(data.id); setDefaultPropertyName(data.name); } });
+  }, []);
+
   // Initialize from URL parameters
   useEffect(() => {
     const checkIn = searchParams.get("checkIn");

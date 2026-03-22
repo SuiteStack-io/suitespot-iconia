@@ -47,6 +47,7 @@ interface Property {
 export default function KYCManagement() {
   const navigate = useNavigate();
   const { userRole } = useAuth();
+  const propertyId = usePropertyId();
   const [kycLinks, setKycLinks] = useState<KYCLink[]>([]);
   const [filteredLinks, setFilteredLinks] = useState<KYCLink[]>([]);
   const [properties, setProperties] = useState<Property[]>([]);
