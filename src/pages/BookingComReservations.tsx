@@ -453,15 +453,22 @@ const BookingComReservations = () => {
 
   // Split-stay helper functions
   const fetchAvailabilityForSegment = async (segmentId: string, startDate: Date, endDate: Date, excludeReservationIds: string[] = []) => {
+    if (!propertyId) {
+      console.log('[BookingCom] fetchAvailabilityForSegment skipped — propertyId is null');
+      setSegmentAvailability(prev => ({ ...prev, [segmentId]: [] }));
+      return;
+    }
     setLoadingSegmentAvailability(prev => ({ ...prev, [segmentId]: true }));
     
     try {
       const checkIn = format(startDate, 'yyyy-MM-dd');
       const checkOut = format(endDate, 'yyyy-MM-dd');
       
-      const { data: allUnits } = await withPropertyFilter(supabase
+      console.log('[BookingCom] Fetching segment availability for property:', propertyId);
+      const { data: allUnits } = await supabase
         .from('units')
-        .select('id, name, unit_number, unit_type, booking_com_name'), propertyId)
+        .select('id, name, unit_number, unit_type, booking_com_name')
+        .eq('property_id', propertyId)
         .order('name');
 
       const unitsChecked = await Promise.all(
