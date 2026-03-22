@@ -183,12 +183,21 @@ const BookingComReservations = () => {
   };
 
   const fetchUnitsWithStatus = async (checkIn: string, checkOut: string, excludeReservationIds: string[] = []) => {
+    if (!propertyId) {
+      console.log('[BookingCom] fetchUnitsWithStatus skipped — propertyId is null');
+      setUnitsWithStatus([]);
+      return;
+    }
     setLoadingUnitsStatus(true);
+    console.log('[BookingCom] Fetching rooms for property:', propertyId);
     try {
-      const { data: allUnits } = await withPropertyFilter(supabase
+      const { data: allUnits } = await supabase
         .from('units')
-        .select('id, name, unit_number, unit_type, booking_com_name'), propertyId)
+        .select('id, name, unit_number, unit_type, booking_com_name')
+        .eq('property_id', propertyId)
         .order('name');
+
+      console.log('[BookingCom] Rooms returned:', allUnits?.length, allUnits?.map(u => ({ id: u.id, name: u.name })));
 
       const unitsChecked = await Promise.all(
         (allUnits || []).map(async (unit) => {
@@ -228,6 +237,12 @@ const BookingComReservations = () => {
       });
 
       setUnitsWithStatus(unitsChecked);
+
+      // Validate existing room assignments against the filtered unit list
+      const validUnitIds = new Set(unitsChecked.map(u => u.id));
+      setRoomAssignments(prev => prev.map(r => 
+        r.unitId && !validUnitIds.has(r.unitId) ? { ...r, unitId: null } : r
+      ));
     } catch (error) {
       console.error('Error fetching units with status:', error);
     } finally {
