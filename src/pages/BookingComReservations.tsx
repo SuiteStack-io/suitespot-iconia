@@ -27,6 +27,7 @@ import suitespotLogo from '@/assets/suitespot-logo.png';
 import { SlideMenu } from '@/components/SlideMenu';
 import { AdminBreadcrumb } from '@/components/AdminBreadcrumb';
 import { usePropertyId, withPropertyFilter } from '@/hooks/usePropertyFilter';
+import { usePropertySafe } from '@/lib/propertyContext';
 import { Switch } from '@/components/ui/switch';
 import { Calendar } from '@/components/ui/calendar';
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
