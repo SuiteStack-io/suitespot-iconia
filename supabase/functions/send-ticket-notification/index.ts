@@ -83,11 +83,11 @@ const handler = async (req: Request): Promise<Response> => {
                 <h2>Hello ${guestName},</h2>
                 <p>${statusInfo.message}</p>
                 
-                <div class="ticket-info">
+                <div style="background: white; padding: 20px; border-radius: 8px; margin: 20px 0; border-left: 4px solid ${statusInfo.color};">
                   <h3>${ticketTitle}</h3>
                   <p>
                     <strong>Status:</strong> 
-                    <span class="status-badge">${ticketStatus.toUpperCase().replace("_", " ")}</span>
+                    <span style="display: inline-block; background: ${statusInfo.color}; color: white; padding: 5px 15px; border-radius: 20px; font-size: 14px;">${ticketStatus.toUpperCase().replace("_", " ")}</span>
                   </p>
                   <p><strong>Ticket ID:</strong> ${ticketId.slice(0, 8)}</p>
                   ${resolutionNotes ? `
@@ -103,7 +103,7 @@ const handler = async (req: Request): Promise<Response> => {
                 </p>
 
                 <div style="text-align: center;">
-                  <a href="${Deno.env.get("SUPABASE_URL")?.replace('/auth/v1', '')}/guest/login" class="button">
+                  <a href="${Deno.env.get("SUPABASE_URL")?.replace('/auth/v1', '')}/guest/login" style="display: inline-block; background: #667eea; color: white; padding: 12px 30px; text-decoration: none; border-radius: 5px; margin-top: 20px;">
                     View Ticket Details
                   </a>
                 </div>
@@ -117,7 +117,7 @@ const handler = async (req: Request): Promise<Response> => {
                   <strong>The SuiteSpot Team</strong>
                 </p>
               </div>
-              <div class="footer">
+              <div style="text-align: center; padding: 20px; color: #666; font-size: 12px;">
                 <p>This is an automated notification from SuiteSpot Guest Portal</p>
               </div>
             </div>
