@@ -201,6 +201,39 @@ Other important notes:
       console.error('Error fetching units:', unitsError);
     }
 
+    console.log('[ParseScreenshot] Units found:', units?.length, units?.map(u => ({ id: u.id, name: u.booking_com_name || u.name })));
+
+    // If no propertyId, skip unit matching entirely
+    if (!propertyId) {
+      const unmatchedRooms: MatchedRoom[] = (parsedData.rooms || []).map((room: any) => ({
+        roomName: room.roomName,
+        price: room.price,
+        unitId: null,
+        matchedUnitName: null,
+        status: 'no_match' as const,
+        warning: 'No property context — manual assignment required'
+      }));
+
+      const checkIn = new Date(parsedData.checkInDate);
+      const checkOut = new Date(parsedData.checkOutDate);
+      const nights = Math.ceil((checkOut.getTime() - checkIn.getTime()) / (1000 * 60 * 60 * 24));
+
+      return new Response(JSON.stringify({
+        success: true,
+        data: {
+          ...parsedData,
+          unitId: null,
+          blockedUnitWarning: null,
+          matchedRooms: unmatchedRooms,
+          isMultiRoom: unmatchedRooms.length > 1,
+          nights,
+        }
+      }), {
+        headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+        status: 200,
+      });
+    }
+
     const matchedRooms: MatchedRoom[] = [];
     const usedUnitIds: string[] = []; // Track assigned units to avoid duplicates
 
