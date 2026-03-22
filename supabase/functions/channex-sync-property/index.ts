@@ -237,7 +237,11 @@ Deno.serve(async (req) => {
       throw new Error('property_id is required for syncing units');
     }
 
+    console.log('[SyncProperty] Using property_id:', propertyId);
+
     const { data: units, error: unitsError } = await unitsQuery;
+
+    console.log('[SyncProperty] Units found:', units?.length, units?.map(u => ({ id: u.id, name: u.booking_com_name || u.name })));
 
     if (unitsError) {
       errors.push({ entity: 'room_type', local_id: 'all', name: 'All', error: unitsError.message });
