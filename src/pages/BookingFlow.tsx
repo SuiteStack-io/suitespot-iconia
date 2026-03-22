@@ -13,6 +13,7 @@ import { Progress } from "@/components/ui/progress";
 import { Link, useNavigate, useSearchParams } from "react-router-dom";
 import { Helmet } from "react-helmet-async";
 import { supabase } from "@/integrations/supabase/client";
+import { usePropertySafe } from "@/lib/propertyContext";
 import { useToast } from "@/hooks/use-toast";
 import { format, parseISO, subDays } from "date-fns";
 import { Dialog, DialogContent, DialogClose, DialogHeader, DialogTitle } from "@/components/ui/dialog";
