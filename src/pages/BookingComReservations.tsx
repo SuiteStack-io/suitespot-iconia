@@ -88,6 +88,8 @@ const BookingComReservations = () => {
   const { user, loading, userRole } = useAuth();
   const navigate = useNavigate();
   const propertyId = usePropertyId();
+  const propertyCtx = usePropertySafe();
+  const activeProperty = propertyCtx?.activeProperty;
   const { toast } = useToast();
   const [uploading, setUploading] = useState(false);
   const [parsedData, setParsedData] = useState<ParsedReservation | null>(null);

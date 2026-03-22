@@ -167,12 +167,12 @@ export function QuickActions({ unitId }: QuickActionsProps) {
             <div className="bg-muted rounded-lg p-4">
               <h4 className="font-medium mb-2 text-foreground">Address</h4>
               <p className="text-sm text-muted-foreground mb-4">
-                SuiteSpot Almaza, North Coast, Egypt
+                Contact the front desk for our property address.
               </p>
               <Button
                 variant="outline"
                 size="sm"
-                onClick={() => copyToClipboard("SuiteSpot Almaza, North Coast, Egypt", "Address")}
+                onClick={() => copyToClipboard("SuiteSpot", "Property name")}
                 className="gap-2 w-full"
               >
                 <Copy className="h-4 w-4" />

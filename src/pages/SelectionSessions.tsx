@@ -26,6 +26,8 @@ interface SelectionSession {
 export default function SelectionSessions() {
   const navigate = useNavigate();
   const { userRole } = useAuth();
+  const propertyCtx = usePropertySafe();
+  const activeProperty = propertyCtx?.activeProperty;
   const [sessions, setSessions] = useState<SelectionSession[]>([]);
   const [loading, setLoading] = useState(true);
   const { toast } = useToast();

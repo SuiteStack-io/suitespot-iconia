@@ -69,6 +69,8 @@ export default function GuestAccounts() {
   const navigate = useNavigate();
   const { user, userRole } = useAuth();
   const propertyId = usePropertyId();
+  const propertyCtx = usePropertySafe();
+  const activeProperty = propertyCtx?.activeProperty;
   const [loading, setLoading] = useState(true);
   const [accounts, setAccounts] = useState<GuestAccount[]>([]);
   const [resetDialogOpen, setResetDialogOpen] = useState(false);

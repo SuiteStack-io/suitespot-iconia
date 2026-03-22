@@ -65,6 +65,8 @@ export const ReservationQuickActions = ({
   onMoveComplete,
 }: ReservationQuickActionsProps) => {
   const [availableUnits, setAvailableUnits] = useState<Unit[]>([]);
+  const propertyCtx = usePropertySafe();
+  const activeProperty = propertyCtx?.activeProperty;
   const [selectedUnitId, setSelectedUnitId] = useState<string>("");
   const [unitConflicts, setUnitConflicts] = useState<Map<string, ConflictInfo>>(new Map());
   const [loading, setLoading] = useState(false);

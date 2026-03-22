@@ -40,6 +40,8 @@ const TicketAnalytics = () => {
   const [loading, setLoading] = useState(true);
   const { userRole } = useAuth();
   const navigate = useNavigate();
+  const propertyCtx = usePropertySafe();
+  const activeProperty = propertyCtx?.activeProperty;
   const [timePeriod, setTimePeriod] = useState<TimePeriod>('month');
   const [customDateRange, setCustomDateRange] = useState<DateRange | undefined>();
 
