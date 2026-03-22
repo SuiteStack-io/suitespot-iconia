@@ -185,9 +185,17 @@ Other important notes:
     const supabaseKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!;
     const supabase = createClient(supabaseUrl, supabaseKey);
 
-    const { data: units, error: unitsError } = await supabase
+    let unitsQuery = supabase
       .from('units')
       .select('id, name, booking_com_name, status, unit_type');
+    
+    if (propertyId) {
+      unitsQuery = unitsQuery.eq('property_id', propertyId);
+    } else {
+      console.log('[ParseScreenshot] No propertyId — skipping unit matching');
+    }
+
+    const { data: units, error: unitsError } = await unitsQuery;
 
     if (unitsError) {
       console.error('Error fetching units:', unitsError);

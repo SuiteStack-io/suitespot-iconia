@@ -165,6 +165,17 @@ const BookingComReservations = () => {
     fetchUnits();
   }, [propertyId]);
 
+  // Re-fetch units when propertyId becomes available while preview modal is open
+  useEffect(() => {
+    if (propertyId && showPreview && parsedData?.checkInDate && parsedData?.checkOutDate) {
+      console.log('[BookingCom] propertyId resolved while modal open, re-fetching units');
+      const excludeIds = (existingReservationsToUpdate.length > 0 && isModificationMode)
+        ? existingReservationsToUpdate.map((r: any) => r.id)
+        : [];
+      fetchUnitsWithStatus(parsedData.checkInDate, parsedData.checkOutDate, excludeIds);
+    }
+  }, [propertyId]);
+
   const fetchUnits = async () => {
     if (!propertyId) {
       setUnits([]);
