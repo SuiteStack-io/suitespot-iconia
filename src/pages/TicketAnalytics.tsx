@@ -13,6 +13,7 @@ import { SlideMenu } from "@/components/SlideMenu";
 import { useAuth } from "@/lib/auth";
 import { AdminBreadcrumb } from "@/components/AdminBreadcrumb";
 import { useNavigate } from "react-router-dom";
+import { usePropertySafe } from "@/lib/propertyContext";
 import { Calendar } from "@/components/ui/calendar";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
