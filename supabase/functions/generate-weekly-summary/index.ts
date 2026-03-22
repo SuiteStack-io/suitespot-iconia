@@ -333,21 +333,25 @@ const handler = async (req: Request): Promise<Response> => {
 
     const weeklyHeaderHTML = `
       <div style="font-family:Arial,sans-serif;max-width:650px;margin:0 auto;color:#222;">
-        <div class="email-header" style="background:linear-gradient(135deg, #0f172a 0%, #1e293b 100%) !important;padding:20px 24px;border-radius:8px 8px 0 0;">
-          <h1 style="color:#ffffff !important;margin:0;font-size:22px;text-shadow:0 0 1px rgba(0,0,0,0.5);">SuiteSpot Weekly Summary</h1>
-          <p style="color:rgba(255,255,255,0.9) !important;margin:4px 0 0;font-size:14px;text-shadow:0 0 1px rgba(0,0,0,0.5);">${property.name} — ${formatDateFull(startDate)} to ${formatDateFull(endDate)}</p>
-        </div>`;
+        <table width="100%" cellpadding="0" cellspacing="0" border="0" role="presentation">
+          <tr>
+            <td bgcolor="#0f172a" style="background-color:#0f172a;padding:20px 24px;border-radius:8px 8px 0 0;">
+              <h1 style="color:#ffffff;margin:0;font-size:22px;font-family:Arial,sans-serif;">SuiteSpot Weekly Summary</h1>
+              <p style="color:#ffffff;margin:4px 0 0;font-size:14px;font-family:Arial,sans-serif;">${property.name} — ${formatDateFull(startDate)} to ${formatDateFull(endDate)}</p>
+            </td>
+          </tr>
+        </table>`;
 
     const weeklyBodyHTML = `
           <h2 style="font-size:16px;color:#1e293b;margin:0 0 8px;">📥 Check-ins (${(checkIns || []).length})</h2>
           <table ${tableStyle}>
-            <tr><th ${thStyle}>Guest Name</th><th ${thStyle}>Room</th><th ${thStyle}>Source</th></tr>
+            <tr><th ${thStyle()}>Guest Name</th><th ${thStyle()}>Room</th><th ${thStyle()}>Source</th></tr>
             ${ciRows}
           </table>
 
           <h2 style="font-size:16px;color:#1e293b;margin:20px 0 8px;">📤 Check-outs (${(checkOuts || []).length})</h2>
           <table ${tableStyle}>
-            <tr><th ${thStyle}>Guest Name</th><th ${thStyle}>Room</th><th ${thStyle}>Source</th></tr>
+            <tr><th ${thStyle()}>Guest Name</th><th ${thStyle()}>Room</th><th ${thStyle()}>Source</th></tr>
             ${coRows}
           </table>
 
