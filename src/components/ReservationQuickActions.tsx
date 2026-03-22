@@ -233,11 +233,10 @@ export const ReservationQuickActions = ({
   const fetchExtensionUnits = async () => {
     if (!newCheckoutDate || !reservation) return;
     
-    // Fetch all available units at ICONIA
-    const { data: units } = await supabase
+    // Fetch all available units for the active property
+    const { data: units } = await withPropertyFilter(supabase
       .from("units")
-      .select("id, name, unit_number, status, booking_com_name")
-      .eq("location", "ICONIA")
+      .select("id, name, unit_number, status, booking_com_name"), propertyId)
       .eq("status", "available")
       .order("unit_number");
     
