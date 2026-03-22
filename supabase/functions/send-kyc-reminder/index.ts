@@ -27,10 +27,12 @@ const handler = async (req: Request): Promise<Response> => {
 
     console.log("Sending KYC reminder to:", guestEmail);
 
+    const displayName = propertyName || 'SuiteSpot';
+
     const emailResponse = await resend.emails.send({
-      from: "SuiteSpot Almaza <almaza@bookings.suitespoteg.com>",
+      from: `${displayName} <almaza@bookings.suitespoteg.com>`,
       to: [guestEmail],
-      subject: "Complete Your SuiteSpot Almaza Questionnaire",
+      subject: `Complete Your ${displayName} Questionnaire`,
       html: `
         <!DOCTYPE html>
         <html>
@@ -45,13 +47,13 @@ const handler = async (req: Request): Promise<Response> => {
               <table width="100%" cellpadding="0" cellspacing="0" border="0" role="presentation">
                 <tr>
                   <td bgcolor="#d4af37" style="background-color: #d4af37; padding: 40px 20px; text-align: center;">
-                    <h1 style="color: #2c3e50; margin: 0; font-size: 32px; font-weight: 600; letter-spacing: -0.02em; font-family: 'Playfair Display', Georgia, serif;">Welcome to SuiteSpot Almaza</h1>
+                    <h1 style="color: #2c3e50; margin: 0; font-size: 32px; font-weight: 600; letter-spacing: -0.02em; font-family: 'Playfair Display', Georgia, serif;">Welcome to ${displayName}</h1>
                   </td>
                 </tr>
               </table>
               <div style="padding: 40px 30px;">
                 <h2 style="color: #2c3e50; font-size: 24px; font-weight: 500; margin-top: 0;">Hello ${guestName},</h2>
-                <p style="color: #4a5568; font-size: 16px; line-height: 1.6; margin: 20px 0;">We're excited to guide you through the next step in finding your perfect home at Almaza Bay.</p>
+                <p style="color: #4a5568; font-size: 16px; line-height: 1.6; margin: 20px 0;">We're excited to guide you through the next step in finding your perfect home.</p>
                 ${propertyName ? `
                   <div style="background-color: #f7fafc; padding: 20px; border-radius: 6px; margin: 20px 0;">
                     <p style="margin: 0; font-weight: 500;">Property: ${propertyName}</p>
@@ -66,7 +68,7 @@ const handler = async (req: Request): Promise<Response> => {
                 <p style="word-break: break-all; color: #d4af37;">${kycLink}</p>
               </div>
               <div style="background-color: #f7fafc; padding: 30px; text-align: center; color: #718096; font-size: 14px;">
-                <p>SuiteSpot Almaza Bay | Almaza Bay, North Coast, Egypt</p>
+                <p>${displayName}</p>
                 <p>If you have any questions, feel free to reach out to us.</p>
               </div>
             </div>

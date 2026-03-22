@@ -145,7 +145,7 @@ const handler = async (req: Request): Promise<Response> => {
                     </center>
                   </div>
                   <div style="background-color: #f7fafc; padding: 30px; text-align: center; color: #718096; font-size: 14px;">
-                    <p>SuiteSpot Almaza Bay | Almaza Bay, North Coast, Egypt</p>
+                    <p>${displayName}</p>
                   </div>
                 </div>
               </body>
