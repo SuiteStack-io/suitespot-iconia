@@ -16,6 +16,7 @@ import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, 
 import { cn } from "@/lib/utils";
 import { useAuth } from "@/lib/auth";
 import { usePropertyId, withPropertyFilter } from "@/hooks/usePropertyFilter";
+import { usePropertySafe } from "@/lib/propertyContext";
 import { RoomSwapDialog } from "@/components/RoomSwapDialog";
 interface Reservation {
   id: string;
