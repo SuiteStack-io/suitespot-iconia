@@ -145,7 +145,12 @@ Deno.serve(async (req) => {
     if (ratePlan.property_id) {
       roomTypeQuery = roomTypeQuery.eq('property_id', ratePlan.property_id);
     }
+
+    console.log('[DerivedRP] Using property_id from rate plan:', ratePlan.property_id);
+
     const { data: roomTypeUnit } = await roomTypeQuery.limit(1).maybeSingle();
+
+    console.log('[DerivedRP] Room type unit found:', roomTypeUnit);
 
     let channexRoomTypeId: string | null = null;
     if (roomTypeUnit) {

@@ -323,6 +323,8 @@ Deno.serve(async (req) => {
 
     const { data: ratePlans } = await ratePlansQuery;
 
+    console.log('[SyncProperty] Rate plans found:', ratePlans?.length, ratePlans?.map(rp => ({ id: rp.id, name: rp.name, room_type: rp.room_type })));
+
     if (ratePlans && ratePlans.length > 0) {
       const rtLookup: Record<string, string> = {};
       for (const result of roomTypeResults) {
