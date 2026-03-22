@@ -3,6 +3,7 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/u
 import { Button } from "@/components/ui/button";
 import { Checkbox } from "@/components/ui/checkbox";
 import { supabase } from "@/integrations/supabase/client";
+import { usePropertyId, withPropertyFilter } from "@/hooks/usePropertyFilter";
 import { toast } from "sonner";
 import { Loader2 } from "lucide-react";
 import { SelectionUnit } from "@/types/unit";
