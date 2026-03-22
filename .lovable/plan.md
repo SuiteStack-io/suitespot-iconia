@@ -1,32 +1,31 @@
 
 
-## Fix send-reservation-notification: Gmail-Safe Dark Mode
+## Fix Room Dropdowns: Filter by Active Property
 
 ### Problem
-The internal notification email (lines 539-767) still uses a full `<style>` block with CSS classes (`.header`, `.content`, `.detail-row`, etc.) and `@media (prefers-color-scheme: dark)` — all stripped by Gmail. The customer confirmation email (lines 167-292) uses CSS classes (`class="detail-row"`, `class="highlight"`, `class="info-box"`, `class="footer"`) that have no backing `<style>` block, so they render unstyled.
+Several room dropdowns show rooms from ALL properties instead of only the active property. The root causes differ by file:
 
-### Changes — `supabase/functions/send-reservation-notification/index.ts`
+### Files to Fix
 
-**Internal notification email (lines 539-767):**
-1. Remove entire `<style>` block (lines 544-617)
-2. Replace `<div class="header">` with `<table><tr><td bgcolor="#0f172a">` — same pattern as all other fixed templates
-3. Replace all `class="detail-row"`, `class="detail-label"`, `class="detail-value"` with inline styles on each element
-4. Replace `class="highlight"` with inline styles
-5. Replace `class="footer"` with inline styles
-6. Replace `class="button"` with inline styles
-7. Add `<meta name="color-scheme" content="light">` and `<meta name="supported-color-schemes" content="light">`
-8. Remove all `class="..."` attributes
+**1. `src/components/ReservationQuickActions.tsx`** — 2 queries hardcode `.eq("location", "ICONIA")` instead of filtering by property_id
+- **Line ~236** (`fetchExtensionUnits`): Replace `.eq("location", "ICONIA")` with `withPropertyFilter(..., propertyId)`
+- **Line ~286** (`fetchAvailableUnits`): Replace `.eq("status", "available").eq("location", "ICONIA")` with `withPropertyFilter(..., propertyId).eq("status", "available")`
+- Add `import { usePropertyId, withPropertyFilter } from "@/hooks/usePropertyFilter"` and call `usePropertyId()` in the component (this component receives props but needs hook access — will need to add it at the component level or receive propertyId as a prop)
 
-**Customer confirmation email (lines 167-292):**
-1. Replace `class="detail-row"`, `class="detail-label"`, `class="detail-value"` with inline styles
-2. Replace `class="highlight"` with inline styles
-3. Replace `class="info-box"` with inline styles
-4. Replace `class="footer"` with inline styles
+**2. `src/components/CreateReservationDialog.tsx`** — 1 unfiltered query
+- **Line ~361** (`allUnitsData` query for occupancy chart): `supabase.from("units").select("id").eq("status", "available")` has NO property filter. Wrap with `withPropertyFilter(..., propertyId)`
+
+**3. `src/pages/BookingComReservations.tsx`** — Already correctly uses `withPropertyFilter` on all 3 unit queries (`fetchUnits`, `fetchUnitsWithStatus`, `fetchAvailabilityForSegment`). The bug the user sees may be caused by `propertyId` being null when the query first runs (race condition with property context loading). Will add a guard: skip fetching units if `propertyId` is null, and re-fetch when it becomes available.
+
+### Technical Details
+
+- `ReservationQuickActions` is the biggest offender — completely ignoring property context and hardcoding "ICONIA"
+- For `ReservationQuickActions`, since it's a component (not a page), it already has access to hooks. Will add `const propertyId = usePropertyId()` and replace the hardcoded location filters
+- For `CreateReservationDialog`, the occupancy chart query is a minor leak but should be fixed for correctness
+- For `BookingComReservations`, will add `if (!propertyId) return` guard to `fetchUnits` and `fetchUnitsWithStatus` to prevent querying with null filter
 
 ### No Changes To
-- Email content, data, recipient logic, property access filtering
-- Color values (same navy #0f172a)
-
-### After Code Changes
-Deploy the edge function.
+- Room data, existing assignments, property switcher logic, screenshot parsing logic
+- RoomTransferDialog (already uses `withPropertyFilter`)
+- RoomCalendar (already uses `withPropertyFilter`)
 
