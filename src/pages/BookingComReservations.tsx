@@ -1516,7 +1516,7 @@ const BookingComReservations = () => {
     <div className="min-h-screen bg-background">
       <header className="border-b bg-card">
         <div className="container mx-auto px-4 py-4">
-          <AdminBreadcrumb section="ICONIA" currentPage="Booking.com" />
+          <AdminBreadcrumb section={activeProperty?.name || "Property"} currentPage="Booking.com" />
           <div className="flex items-center gap-4">
           <SlideMenu userRole={userRole} />
           

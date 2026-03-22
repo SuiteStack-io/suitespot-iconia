@@ -227,7 +227,7 @@ const TicketAnalytics = () => {
   return (
     <div className="container mx-auto p-6 space-y-6">
       <header className="border-b bg-card sticky top-0 z-10 -mx-6 px-6 -mt-6 pt-6 pb-4">
-        <AdminBreadcrumb section="ICONIA" currentPage="Tickets Analytics" />
+        <AdminBreadcrumb section={activeProperty?.name || "Property"} currentPage="Tickets Analytics" />
         <div className="flex items-center gap-3 mt-4 justify-between">
           <div className="flex items-center gap-3">
             <SlideMenu userRole={userRole} />

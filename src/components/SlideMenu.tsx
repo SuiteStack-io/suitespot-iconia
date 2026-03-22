@@ -72,10 +72,12 @@ export function SlideMenu({ userRole }: SlideMenuProps) {
   const location = useLocation();
   const [almazaBayOpen, setAlmazaBayOpen] = useState(false);
   const { hasPermission } = useAuth();
+  const propertyCtx = usePropertySafe();
+  const activePropertyName = propertyCtx?.activeProperty?.name;
 
   const menuSections: MenuSection[] = [
     {
-      label: 'ALMAZA BAY',
+      label: activePropertyName?.toUpperCase() || 'ALMAZA BAY',
       items: [
         { title: 'Properties', url: '/almaza-bay', icon: Mountain },
         { title: 'KYC Management', url: '/kyc-management', icon: ClipboardList },
@@ -87,7 +89,7 @@ export function SlideMenu({ userRole }: SlideMenuProps) {
       collapsible: true,
     },
     {
-      label: 'ICONIA',
+      label: 'OPERATIONS',
       items: [
         { title: 'Rooms', url: '/rooms', icon: DoorOpen, showFor: ['admin'] },
         { title: 'Room Types', url: '/room-types', icon: Layers, showFor: ['admin'] },

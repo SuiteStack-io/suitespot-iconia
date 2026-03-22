@@ -2056,7 +2056,7 @@ export const ReservationQuickActions = ({
               SuiteSpot
             </h1>
             <p className="text-lg font-medium text-gray-900 mb-1" style={{ fontFamily: "'Playfair Display', serif" }}>
-              ICONIA Zamalek
+              {activeProperty?.name || 'SuiteSpot'}
             </p>
             <p className="text-gray-500 text-sm">Reservation Confirmation</p>
           </div>

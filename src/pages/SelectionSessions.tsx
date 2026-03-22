@@ -238,7 +238,7 @@ export default function SelectionSessions() {
           </Button>
           
           <div>
-            <h1 className="text-xl font-bold">Almaza Bay KYC Results</h1>
+            <h1 className="text-xl font-bold">{activeProperty?.name || 'Property'} KYC Results</h1>
             <p className="text-sm text-muted-foreground hidden md:block">
               Manage active guest selection sessions and access times
             </p>
