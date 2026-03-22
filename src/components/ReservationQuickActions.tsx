@@ -15,6 +15,7 @@ import { toPng } from 'html-to-image';
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from "@/components/ui/alert-dialog";
 import { cn } from "@/lib/utils";
 import { useAuth } from "@/lib/auth";
+import { usePropertyId, withPropertyFilter } from "@/hooks/usePropertyFilter";
 import { RoomSwapDialog } from "@/components/RoomSwapDialog";
 interface Reservation {
   id: string;
@@ -117,6 +118,7 @@ export const ReservationQuickActions = ({
   const { toast } = useToast();
   const navigate = useNavigate();
   const { user } = useAuth();
+  const propertyId = usePropertyId();
 
   // Fetch current user's name on mount
   useEffect(() => {
@@ -232,11 +234,10 @@ export const ReservationQuickActions = ({
   const fetchExtensionUnits = async () => {
     if (!newCheckoutDate || !reservation) return;
     
-    // Fetch all available units at ICONIA
-    const { data: units } = await supabase
+    // Fetch all available units for the active property
+    const { data: units } = await withPropertyFilter(supabase
       .from("units")
-      .select("id, name, unit_number, status, booking_com_name")
-      .eq("location", "ICONIA")
+      .select("id, name, unit_number, status, booking_com_name"), propertyId)
       .eq("status", "available")
       .order("unit_number");
     
@@ -282,12 +283,11 @@ export const ReservationQuickActions = ({
     setLoading(true);
 
     try {
-      // Fetch all available ICONIA units with booking_com_name
-      const { data: units, error: unitsError } = await supabase
+      // Fetch all available units for the active property
+      const { data: units, error: unitsError } = await withPropertyFilter(supabase
         .from("units")
-        .select("id, name, unit_number, status, booking_com_name, location")
+        .select("id, name, unit_number, status, booking_com_name, location"), propertyId)
         .eq("status", "available")
-        .eq("location", "ICONIA")
         .order("unit_number");
 
       if (unitsError) throw unitsError;
