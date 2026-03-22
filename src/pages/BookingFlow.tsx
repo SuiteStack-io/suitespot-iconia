@@ -274,7 +274,7 @@ const BookingFlow = () => {
             .select("id, name, booking_com_name, unit_type, unit_number, status, beds, baths, max_guests, unit_size, sofa_bed, tax_percentage, photos")
             .eq("id", preSelectedUnitId)
             .eq("is_private", false)
-            .eq("location", "ICONIA")
+            .eq("property_id", defaultPropertyId)
             .single();
 
           if (unitError) throw unitError;
