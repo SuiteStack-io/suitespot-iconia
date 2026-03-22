@@ -65,8 +65,15 @@ const Suites = () => {
   const { toast } = useToast();
   const [units, setUnits] = useState<Unit[]>([]);
   const [isLoading, setIsLoading] = useState(true);
+  const [defaultPropertyId, setDefaultPropertyId] = useState<string | null>(null);
 
   useEffect(() => {
+    supabase.from("properties").select("id").eq("is_default", true).maybeSingle()
+      .then(({ data }) => { if (data) setDefaultPropertyId(data.id); });
+  }, []);
+
+  useEffect(() => {
+    if (!defaultPropertyId) return;
     const fetchUnits = async () => {
       try {
         const { data, error } = await supabase
@@ -74,7 +81,7 @@ const Suites = () => {
           .select("id, name, booking_com_name, unit_type, unit_number, unit_size, status, comments")
           .eq("status", "available")
           .eq("is_private", false)
-          .eq("location", "ICONIA")
+          .eq("property_id", defaultPropertyId)
           .order("name");
 
         if (error) throw error;
