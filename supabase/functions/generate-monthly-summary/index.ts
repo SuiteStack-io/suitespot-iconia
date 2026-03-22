@@ -496,7 +496,7 @@ const handler = async (req: Request): Promise<Response> => {
 
           <h3 style="font-size:15px;color:#1e293b;margin:16px 0 8px;">Booking Source Breakdown</h3>
           <table style="width:100%;border-collapse:collapse;margin:8px 0 16px 0;">
-            <tr><th ${thStyle}>Source</th><th ${thStyle} style="background:#1e293b;color:white;padding:8px 12px;text-align:center;font-size:13px;">Count</th><th ${thStyle} style="background:#1e293b;color:white;padding:8px 12px;text-align:center;font-size:13px;">Share</th><th ${thStyle} style="background:#1e293b;color:white;padding:8px 12px;text-align:right;font-size:13px;">Net Revenue</th></tr>
+            <tr><th ${thStyle()}>Source</th><th ${thStyle('text-align:center;')}>Count</th><th ${thStyle('text-align:center;')}>Share</th><th ${thStyle('text-align:right;')}>Net Revenue</th></tr>
             ${sourceTableRows}
           </table>
 
