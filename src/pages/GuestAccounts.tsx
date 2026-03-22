@@ -15,6 +15,7 @@ import { Key, Ban, CheckCircle, Copy, UserPlus, Loader2, ArrowLeft } from "lucid
 import { format } from "date-fns";
 import { SlideMenu } from "@/components/SlideMenu";
 import { usePropertyId, withPropertyFilter } from "@/hooks/usePropertyFilter";
+import { usePropertySafe } from "@/lib/propertyContext";
 
 async function hashPassword(password: string): Promise<string> {
   const encoder = new TextEncoder();
