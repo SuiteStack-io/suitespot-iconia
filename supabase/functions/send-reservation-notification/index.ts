@@ -193,42 +193,42 @@ const handler = async (req: Request): Promise<Response> => {
                   
                   <h2 style="color: #0f172a; margin-top: 0;">Your Booking Details</h2>
                   
-                  <div class="detail-row">
-                    <div class="detail-label">Confirmation:</div>
-                    <div class="detail-value"><strong>${reservationId}</strong></div>
+                  <div style="display: flex; padding: 12px 0; border-bottom: 1px solid #f3f4f6;">
+                    <div style="font-weight: 600; width: 150px; color: #6b7280;">Confirmation:</div>
+                    <div style="flex: 1; color: #111827;"><strong>${reservationId}</strong></div>
                   </div>
                   
-                  <div class="detail-row">
-                    <div class="detail-label">Guest(s):</div>
-                    <div class="detail-value">${guestNames.join(", ")}</div>
+                  <div style="display: flex; padding: 12px 0; border-bottom: 1px solid #f3f4f6;">
+                    <div style="font-weight: 600; width: 150px; color: #6b7280;">Guest(s):</div>
+                    <div style="flex: 1; color: #111827;">${guestNames.join(", ")}</div>
                   </div>
                   
-                  <div class="detail-row">
-                    <div class="detail-label">Accommodation:</div>
-                    <div class="detail-value"><strong>${unitName}</strong></div>
+                  <div style="display: flex; padding: 12px 0; border-bottom: 1px solid #f3f4f6;">
+                    <div style="font-weight: 600; width: 150px; color: #6b7280;">Accommodation:</div>
+                    <div style="flex: 1; color: #111827;"><strong>${unitName}</strong></div>
                   </div>
                   
-                  <div class="detail-row">
-                    <div class="detail-label">Check-in:</div>
-                    <div class="detail-value">${checkInDate} at 3:00 PM</div>
+                  <div style="display: flex; padding: 12px 0; border-bottom: 1px solid #f3f4f6;">
+                    <div style="font-weight: 600; width: 150px; color: #6b7280;">Check-in:</div>
+                    <div style="flex: 1; color: #111827;">${checkInDate} at 3:00 PM</div>
                   </div>
                   
-                  <div class="detail-row">
-                    <div class="detail-label">Check-out:</div>
-                    <div class="detail-value">${checkOutDate} by 12:00 PM</div>
+                  <div style="display: flex; padding: 12px 0; border-bottom: 1px solid #f3f4f6;">
+                    <div style="font-weight: 600; width: 150px; color: #6b7280;">Check-out:</div>
+                    <div style="flex: 1; color: #111827;">${checkOutDate} by 12:00 PM</div>
                   </div>
                   
-                  <div class="detail-row">
-                    <div class="detail-label">Duration:</div>
-                    <div class="detail-value">${nights} night${nights > 1 ? "s" : ""}</div>
+                  <div style="display: flex; padding: 12px 0; border-bottom: 1px solid #f3f4f6;">
+                    <div style="font-weight: 600; width: 150px; color: #6b7280;">Duration:</div>
+                    <div style="flex: 1; color: #111827;">${nights} night${nights > 1 ? "s" : ""}</div>
                   </div>
                   
-                  <div class="detail-row">
-                    <div class="detail-label">Guests:</div>
-                    <div class="detail-value">${numberOfGuests} guest${numberOfGuests > 1 ? "s" : ""} (${finalAdults || 0} adult${(finalAdults || 0) > 1 ? "s" : ""}, ${finalChildren || 0} child${(finalChildren || 0) !== 1 ? "ren" : ""})</div>
+                  <div style="display: flex; padding: 12px 0; border-bottom: 1px solid #f3f4f6;">
+                    <div style="font-weight: 600; width: 150px; color: #6b7280;">Guests:</div>
+                    <div style="flex: 1; color: #111827;">${numberOfGuests} guest${numberOfGuests > 1 ? "s" : ""} (${finalAdults || 0} adult${(finalAdults || 0) > 1 ? "s" : ""}, ${finalChildren || 0} child${(finalChildren || 0) !== 1 ? "ren" : ""})</div>
                   </div>
                   
-                  <div class="highlight">
+                  <div style="background: #f0fdf4; padding: 20px; border-radius: 8px; margin: 20px 0; border-left: 4px solid #22c55e;">
                     ${subtotal && taxAmount ? `
                     <div style="display: flex; justify-content: space-between; margin-bottom: 8px;">
                       <span style="font-size: 14px; color: #6b7280;">Subtotal</span>
@@ -245,7 +245,7 @@ const handler = async (req: Request): Promise<Response> => {
                     </div>
                   </div>
 
-                  <div class="info-box">
+                  <div style="background: #eff6ff; border: 1px solid #bfdbfe; border-radius: 10px; padding: 25px; margin: 20px 0;">
                     <h3 style="color: #1e40af; margin-top: 0; font-size: 18px;">Important Information</h3>
                     <p style="margin: 10px 0; color: #1e3a8a; font-size: 14px;">
                       <strong>Check-in Time:</strong> From 3:00 PM<br/>
@@ -281,7 +281,7 @@ const handler = async (req: Request): Promise<Response> => {
                   </p>
                 </div>
                 
-                <div class="footer">
+                <div style="text-align: center; margin-top: 30px; padding-top: 20px; border-top: 1px solid #e5e7eb; color: #6b7280; font-size: 14px;">
                   <p>SuiteSpot - Your Home Away From Home</p>
                   <p style="font-size: 12px; margin-top: 10px; color: #9ca3af;">
                     ${propertyName}
@@ -541,174 +541,106 @@ const handler = async (req: Request): Promise<Response> => {
           <html>
             <head>
               <meta charset="utf-8">
-              <style>
-                body {
-                  font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif;
-                  line-height: 1.6;
-                  color: #333;
-                  max-width: 600px;
-                  margin: 0 auto;
-                  padding: 20px;
-                }
-                .header {
-                  background: linear-gradient(135deg, #0f172a 0%, #1e293b 100%);
-                  color: white;
-                  padding: 30px;
-                  border-radius: 10px 10px 0 0;
-                  text-align: center;
-                }
-                .header h1 {
-                  margin: 0;
-                  font-size: 24px;
-                }
-                /* Explicitly define dark mode styles to prevent Gmail iOS auto-inversion */
-                @media (prefers-color-scheme: dark) {
-                  .header {
-                    background: linear-gradient(135deg, #0f172a 0%, #1e293b 100%) !important;
-                  }
-                  .header h1, .header p {
-                    color: #ffffff !important;
-                  }
-                }
-                .content {
-                  background: #ffffff;
-                  padding: 30px;
-                  border: 1px solid #e5e7eb;
-                  border-top: none;
-                }
-                .detail-row {
-                  display: flex;
-                  padding: 12px 0;
-                  border-bottom: 1px solid #f3f4f6;
-                }
-                .detail-label {
-                  font-weight: 600;
-                  width: 150px;
-                  color: #6b7280;
-                }
-                .detail-value {
-                  flex: 1;
-                  color: #111827;
-                }
-                .highlight {
-                  background: #f0fdf4;
-                  padding: 20px;
-                  border-radius: 8px;
-                  margin: 20px 0;
-                  border-left: 4px solid #22c55e;
-                }
-                .footer {
-                  text-align: center;
-                  margin-top: 30px;
-                  padding-top: 20px;
-                  border-top: 1px solid #e5e7eb;
-                  color: #6b7280;
-                  font-size: 14px;
-                }
-                .button {
-                  display: inline-block;
-                  padding: 12px 24px;
-                  background: #0f172a;
-                  color: white;
-                  text-decoration: none;
-                  border-radius: 6px;
-                  margin-top: 20px;
-                }
-              </style>
+              <meta name="color-scheme" content="light">
+              <meta name="supported-color-schemes" content="light">
             </head>
-            <body>
-              <div class="header">
-                <h1>New Reservation in ${propertyName}</h1>
-                <p style="margin-top: 0; margin-bottom: 0; font-size: 18px; font-weight: 400;">SuiteSpot Bookings</p>
-              </div>
+            <body style="font-family: Arial, sans-serif; line-height: 1.6; color: #333; max-width: 600px; margin: 0 auto; padding: 20px;">
+              <table width="100%" cellpadding="0" cellspacing="0" border="0" role="presentation">
+                <tr>
+                  <td bgcolor="#0f172a" style="background-color: #0f172a; color: #ffffff; padding: 30px; border-radius: 10px 10px 0 0; text-align: center;">
+                    <h1 style="margin: 0; font-size: 24px; color: #ffffff; font-family: Arial, sans-serif;">New Reservation in ${propertyName}</h1>
+                    <p style="margin-top: 0; margin-bottom: 0; font-size: 18px; font-weight: 400; color: #ffffff; font-family: Arial, sans-serif;">SuiteSpot Bookings</p>
+                  </td>
+                </tr>
+              </table>
               
-              <div class="content">
-                <p style="color: #333; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', 'Roboto', 'Oxygen', 'Ubuntu', 'Cantarell', 'Fira Sans', 'Droid Sans', 'Helvetica Neue', sans-serif; font-size: 14px; line-height: 1.6; margin-bottom: 20px;">
+              <div style="background: #ffffff; padding: 30px; border: 1px solid #e5e7eb; border-top: none;">
+                <p style="color: #333; font-size: 14px; line-height: 1.6; margin-bottom: 20px;">
                   Dear Team,
                 </p>
-                <p style="color: #333; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', 'Roboto', 'Oxygen', 'Ubuntu', 'Cantarell', 'Fira Sans', 'Droid Sans', 'Helvetica Neue', sans-serif; font-size: 14px; line-height: 1.6; margin-bottom: 30px;">
+                <p style="color: #333; font-size: 14px; line-height: 1.6; margin-bottom: 30px;">
                   A new reservation has been received. Please find the details below:
                 </p>
                 
                 <h2 style="color: #0f172a; margin-top: 0;">Reservation Details</h2>
                 
-                <div class="detail-row">
-                  <div class="detail-label">Guest(s):</div>
-                  <div class="detail-value"><strong>${guestNames.join(", ")}</strong></div>
+                <div style="display: flex; padding: 12px 0; border-bottom: 1px solid #f3f4f6;">
+                  <div style="font-weight: 600; width: 150px; color: #6b7280;">Guest(s):</div>
+                  <div style="flex: 1; color: #111827;"><strong>${guestNames.join(", ")}</strong></div>
                 </div>
                 
                 ${isSplitStay && splitStaySegments && splitStaySegments.length > 1 ? splitStayHtml : 
                   (isMultiRoom && rooms && rooms.length > 1 ? multiRoomHtml : `
-                <div class="detail-row">
-                  <div class="detail-label">Room:</div>
-                  <div class="detail-value"><strong>${matchedRoomName || unitName}</strong></div>
+                <div style="display: flex; padding: 12px 0; border-bottom: 1px solid #f3f4f6;">
+                  <div style="font-weight: 600; width: 150px; color: #6b7280;">Room:</div>
+                  <div style="flex: 1; color: #111827;"><strong>${matchedRoomName || unitName}</strong></div>
                 </div>
                 
                 ${matchedRoomNumber ? `
-                <div class="detail-row">
-                  <div class="detail-label">Room #:</div>
-                  <div class="detail-value"><strong>${matchedRoomNumber}</strong></div>
+                <div style="display: flex; padding: 12px 0; border-bottom: 1px solid #f3f4f6;">
+                  <div style="font-weight: 600; width: 150px; color: #6b7280;">Room #:</div>
+                  <div style="flex: 1; color: #111827;"><strong>${matchedRoomNumber}</strong></div>
                 </div>
                 ` : ''}
                 `)}
                 
-                <div class="detail-row">
-                  <div class="detail-label">Check-in:</div>
-                  <div class="detail-value">${checkInDate}</div>
+                <div style="display: flex; padding: 12px 0; border-bottom: 1px solid #f3f4f6;">
+                  <div style="font-weight: 600; width: 150px; color: #6b7280;">Check-in:</div>
+                  <div style="flex: 1; color: #111827;">${checkInDate}</div>
                 </div>
                 
-                <div class="detail-row">
-                  <div class="detail-label">Check-out:</div>
-                  <div class="detail-value">${checkOutDate}</div>
+                <div style="display: flex; padding: 12px 0; border-bottom: 1px solid #f3f4f6;">
+                  <div style="font-weight: 600; width: 150px; color: #6b7280;">Check-out:</div>
+                  <div style="flex: 1; color: #111827;">${checkOutDate}</div>
                 </div>
                 
-                <div class="detail-row">
-                  <div class="detail-label">Duration:</div>
-                  <div class="detail-value">${nights} night${nights > 1 ? "s" : ""}</div>
+                <div style="display: flex; padding: 12px 0; border-bottom: 1px solid #f3f4f6;">
+                  <div style="font-weight: 600; width: 150px; color: #6b7280;">Duration:</div>
+                  <div style="flex: 1; color: #111827;">${nights} night${nights > 1 ? "s" : ""}</div>
                 </div>
                 
-                <div class="detail-row">
-                  <div class="detail-label">Guests:</div>
-                  <div class="detail-value">${numberOfGuests} guest${numberOfGuests > 1 ? "s" : ""}</div>
+                <div style="display: flex; padding: 12px 0; border-bottom: 1px solid #f3f4f6;">
+                  <div style="font-weight: 600; width: 150px; color: #6b7280;">Guests:</div>
+                  <div style="flex: 1; color: #111827;">${numberOfGuests} guest${numberOfGuests > 1 ? "s" : ""}</div>
                 </div>
                 
                 ${guestNationality ? `
-                <div class="detail-row">
-                  <div class="detail-label">Nationality:</div>
-                  <div class="detail-value">${guestNationality}</div>
+                <div style="display: flex; padding: 12px 0; border-bottom: 1px solid #f3f4f6;">
+                  <div style="font-weight: 600; width: 150px; color: #6b7280;">Nationality:</div>
+                  <div style="flex: 1; color: #111827;">${guestNationality}</div>
                 </div>
                 ` : ''}
                 
                 ${customerPhone ? `
-                <div class="detail-row">
-                  <div class="detail-label">Mobile Number:</div>
-                  <div class="detail-value">+20 ${customerPhone}</div>
+                <div style="display: flex; padding: 12px 0; border-bottom: 1px solid #f3f4f6;">
+                  <div style="font-weight: 600; width: 150px; color: #6b7280;">Mobile Number:</div>
+                  <div style="flex: 1; color: #111827;">+20 ${customerPhone}</div>
                 </div>
                 ` : ''}
                 
-                <div class="detail-row">
-                  <div class="detail-label">Adults:</div>
-                  <div class="detail-value">${finalAdults || 0}</div>
+                <div style="display: flex; padding: 12px 0; border-bottom: 1px solid #f3f4f6;">
+                  <div style="font-weight: 600; width: 150px; color: #6b7280;">Adults:</div>
+                  <div style="flex: 1; color: #111827;">${finalAdults || 0}</div>
                 </div>
                 
-                <div class="detail-row">
-                  <div class="detail-label">Children:</div>
-                  <div class="detail-value">${finalChildren || 0}</div>
+                <div style="display: flex; padding: 12px 0; border-bottom: 1px solid #f3f4f6;">
+                  <div style="font-weight: 600; width: 150px; color: #6b7280;">Children:</div>
+                  <div style="flex: 1; color: #111827;">${finalChildren || 0}</div>
                 </div>
                 
-                <div class="detail-row">
-                  <div class="detail-label">Source:</div>
-                  <div class="detail-value">${source}</div>
+                <div style="display: flex; padding: 12px 0; border-bottom: 1px solid #f3f4f6;">
+                  <div style="font-weight: 600; width: 150px; color: #6b7280;">Source:</div>
+                  <div style="flex: 1; color: #111827;">${source}</div>
                 </div>
                 
                 ${notes ? `
-                <div class="detail-row">
-                  <div class="detail-label">Notes:</div>
-                  <div class="detail-value">${notes}</div>
+                <div style="display: flex; padding: 12px 0; border-bottom: 1px solid #f3f4f6;">
+                  <div style="font-weight: 600; width: 150px; color: #6b7280;">Notes:</div>
+                  <div style="flex: 1; color: #111827;">${notes}</div>
                 </div>
                 ` : ''}
                 
-                <div class="highlight">
+                <div style="background: #f0fdf4; padding: 20px; border-radius: 8px; margin: 20px 0; border-left: 4px solid #22c55e;">
                   <div style="font-size: 14px; color: #6b7280; margin-bottom: 5px;">Total Amount</div>
                   <div style="font-size: 28px; font-weight: bold; color: #0f172a;">$${totalPrice.toFixed(2)}</div>
                 </div>
@@ -745,18 +677,18 @@ const handler = async (req: Request): Promise<Response> => {
                   `;
                 })() : ''}
                 
-                <p style="color: #333; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', 'Roboto', 'Oxygen', 'Ubuntu', 'Cantarell', 'Fira Sans', 'Droid Sans', 'Helvetica Neue', sans-serif; font-size: 14px; line-height: 1.6; margin-top: 30px; margin-bottom: 10px;">
+                <p style="color: #333; font-size: 14px; line-height: 1.6; margin-top: 30px; margin-bottom: 10px;">
                   Please ensure the room is prepared according to our standard arrival checklist.<br/>
                   Front desk: kindly confirm the check-in time with the guest 24 hours before arrival.
                 </p>
                 
-                <p style="color: #333; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', 'Roboto', 'Oxygen', 'Ubuntu', 'Cantarell', 'Fira Sans', 'Droid Sans', 'Helvetica Neue', sans-serif; font-size: 14px; line-height: 1.6; margin-top: 20px;">
+                <p style="color: #333; font-size: 14px; line-height: 1.6; margin-top: 20px;">
                   Best,<br/>
                   SuiteSpot Reservations System
                 </p>
               </div>
               
-              <div class="footer">
+              <div style="text-align: center; margin-top: 30px; padding-top: 20px; border-top: 1px solid #e5e7eb; color: #6b7280; font-size: 14px;">
                 <p>SuiteSpot Bookings Management System</p>
                 <p style="font-size: 12px; margin-top: 10px;">
                   Reservation ID: ${reservationId}
