@@ -193,42 +193,42 @@ const handler = async (req: Request): Promise<Response> => {
                   
                   <h2 style="color: #0f172a; margin-top: 0;">Your Booking Details</h2>
                   
-                  <div class="detail-row">
-                    <div class="detail-label">Confirmation:</div>
-                    <div class="detail-value"><strong>${reservationId}</strong></div>
+                  <div style="display: flex; padding: 12px 0; border-bottom: 1px solid #f3f4f6;">
+                    <div style="font-weight: 600; width: 150px; color: #6b7280;">Confirmation:</div>
+                    <div style="flex: 1; color: #111827;"><strong>${reservationId}</strong></div>
                   </div>
                   
-                  <div class="detail-row">
-                    <div class="detail-label">Guest(s):</div>
-                    <div class="detail-value">${guestNames.join(", ")}</div>
+                  <div style="display: flex; padding: 12px 0; border-bottom: 1px solid #f3f4f6;">
+                    <div style="font-weight: 600; width: 150px; color: #6b7280;">Guest(s):</div>
+                    <div style="flex: 1; color: #111827;">${guestNames.join(", ")}</div>
                   </div>
                   
-                  <div class="detail-row">
-                    <div class="detail-label">Accommodation:</div>
-                    <div class="detail-value"><strong>${unitName}</strong></div>
+                  <div style="display: flex; padding: 12px 0; border-bottom: 1px solid #f3f4f6;">
+                    <div style="font-weight: 600; width: 150px; color: #6b7280;">Accommodation:</div>
+                    <div style="flex: 1; color: #111827;"><strong>${unitName}</strong></div>
                   </div>
                   
-                  <div class="detail-row">
-                    <div class="detail-label">Check-in:</div>
-                    <div class="detail-value">${checkInDate} at 3:00 PM</div>
+                  <div style="display: flex; padding: 12px 0; border-bottom: 1px solid #f3f4f6;">
+                    <div style="font-weight: 600; width: 150px; color: #6b7280;">Check-in:</div>
+                    <div style="flex: 1; color: #111827;">${checkInDate} at 3:00 PM</div>
                   </div>
                   
-                  <div class="detail-row">
-                    <div class="detail-label">Check-out:</div>
-                    <div class="detail-value">${checkOutDate} by 12:00 PM</div>
+                  <div style="display: flex; padding: 12px 0; border-bottom: 1px solid #f3f4f6;">
+                    <div style="font-weight: 600; width: 150px; color: #6b7280;">Check-out:</div>
+                    <div style="flex: 1; color: #111827;">${checkOutDate} by 12:00 PM</div>
                   </div>
                   
-                  <div class="detail-row">
-                    <div class="detail-label">Duration:</div>
-                    <div class="detail-value">${nights} night${nights > 1 ? "s" : ""}</div>
+                  <div style="display: flex; padding: 12px 0; border-bottom: 1px solid #f3f4f6;">
+                    <div style="font-weight: 600; width: 150px; color: #6b7280;">Duration:</div>
+                    <div style="flex: 1; color: #111827;">${nights} night${nights > 1 ? "s" : ""}</div>
                   </div>
                   
-                  <div class="detail-row">
-                    <div class="detail-label">Guests:</div>
-                    <div class="detail-value">${numberOfGuests} guest${numberOfGuests > 1 ? "s" : ""} (${finalAdults || 0} adult${(finalAdults || 0) > 1 ? "s" : ""}, ${finalChildren || 0} child${(finalChildren || 0) !== 1 ? "ren" : ""})</div>
+                  <div style="display: flex; padding: 12px 0; border-bottom: 1px solid #f3f4f6;">
+                    <div style="font-weight: 600; width: 150px; color: #6b7280;">Guests:</div>
+                    <div style="flex: 1; color: #111827;">${numberOfGuests} guest${numberOfGuests > 1 ? "s" : ""} (${finalAdults || 0} adult${(finalAdults || 0) > 1 ? "s" : ""}, ${finalChildren || 0} child${(finalChildren || 0) !== 1 ? "ren" : ""})</div>
                   </div>
                   
-                  <div class="highlight">
+                  <div style="background: #f0fdf4; padding: 20px; border-radius: 8px; margin: 20px 0; border-left: 4px solid #22c55e;">
                     ${subtotal && taxAmount ? `
                     <div style="display: flex; justify-content: space-between; margin-bottom: 8px;">
                       <span style="font-size: 14px; color: #6b7280;">Subtotal</span>
@@ -245,7 +245,7 @@ const handler = async (req: Request): Promise<Response> => {
                     </div>
                   </div>
 
-                  <div class="info-box">
+                  <div style="background: #eff6ff; border: 1px solid #bfdbfe; border-radius: 10px; padding: 25px; margin: 20px 0;">
                     <h3 style="color: #1e40af; margin-top: 0; font-size: 18px;">Important Information</h3>
                     <p style="margin: 10px 0; color: #1e3a8a; font-size: 14px;">
                       <strong>Check-in Time:</strong> From 3:00 PM<br/>
@@ -281,7 +281,7 @@ const handler = async (req: Request): Promise<Response> => {
                   </p>
                 </div>
                 
-                <div class="footer">
+                <div style="text-align: center; margin-top: 30px; padding-top: 20px; border-top: 1px solid #e5e7eb; color: #6b7280; font-size: 14px;">
                   <p>SuiteSpot - Your Home Away From Home</p>
                   <p style="font-size: 12px; margin-top: 10px; color: #9ca3af;">
                     ${propertyName}
