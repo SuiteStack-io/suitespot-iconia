@@ -9,6 +9,7 @@ import { useNavigate } from "react-router-dom";
 import { cn } from "@/lib/utils";
 import type { DateRange } from "react-day-picker";
 import { supabase } from "@/integrations/supabase/client";
+import { usePropertySafe } from "@/lib/propertyContext";
 
 export const BookingWidget = () => {
   const navigate = useNavigate();
