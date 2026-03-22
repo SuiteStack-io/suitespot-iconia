@@ -14,6 +14,7 @@ interface ShuffleRequest {
   bookingReference: string;
   guestNames: string[];
   triggerSource: 'channex' | 'manual' | 'allocate-unit';
+  propertyId?: string;
 }
 
 interface MoveDetail {
