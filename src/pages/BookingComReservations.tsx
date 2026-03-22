@@ -282,8 +282,9 @@ const BookingComReservations = () => {
           setUploadProgress(50);
           
           // Call edge function to parse
+          console.log('[BookingCom] Invoking parse-reservation-screenshot with propertyId:', propertyId);
           const { data, error } = await supabase.functions.invoke('parse-reservation-screenshot', {
-            body: { imageBase64: base64 }
+            body: { imageBase64: base64, propertyId }
           });
 
           setUploadProgress(80);
