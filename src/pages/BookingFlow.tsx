@@ -272,6 +272,7 @@ const BookingFlow = () => {
 
   // Fetch available units based on selected dates
   useEffect(() => {
+    if (!defaultPropertyId) return;
     const fetchAvailableUnits = async () => {
       setIsLoadingUnits(true);
       try {
