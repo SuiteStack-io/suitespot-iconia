@@ -163,6 +163,10 @@ const BookingComReservations = () => {
   }, [propertyId]);
 
   const fetchUnits = async () => {
+    if (!propertyId) {
+      setUnits([]);
+      return;
+    }
     const { data, error } = await withPropertyFilter(supabase
       .from('units')
       .select('*'), propertyId)

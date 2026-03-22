@@ -282,12 +282,11 @@ export const ReservationQuickActions = ({
     setLoading(true);
 
     try {
-      // Fetch all available ICONIA units with booking_com_name
-      const { data: units, error: unitsError } = await supabase
+      // Fetch all available units for the active property
+      const { data: units, error: unitsError } = await withPropertyFilter(supabase
         .from("units")
-        .select("id, name, unit_number, status, booking_com_name, location")
+        .select("id, name, unit_number, status, booking_com_name, location"), propertyId)
         .eq("status", "available")
-        .eq("location", "ICONIA")
         .order("unit_number");
 
       if (unitsError) throw unitsError;

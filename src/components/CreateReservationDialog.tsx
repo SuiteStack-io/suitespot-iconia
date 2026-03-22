@@ -358,10 +358,10 @@ export function CreateReservationDialog() {
 
         if (error) throw error;
 
-        const { data: allUnitsData } = await supabase
+        const { data: allUnitsData } = await withPropertyFilter(supabase
           .from("units")
           .select("id")
-          .eq("status", "available");
+          .eq("status", "available"), propertyId);
 
         const totalUnits = allUnitsData?.length || 0;
         if (totalUnits === 0) return;
