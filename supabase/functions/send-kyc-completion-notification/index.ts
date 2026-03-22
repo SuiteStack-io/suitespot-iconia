@@ -1,6 +1,7 @@
 
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2.39.3";
 import { Resend } from "https://esm.sh/resend@4.0.0";
+import { getPropertyName } from "../_shared/property-utils.ts";
 
 const resend = new Resend(Deno.env.get("RESEND_API_KEY"));
 
