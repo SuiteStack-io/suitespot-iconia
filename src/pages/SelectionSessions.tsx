@@ -213,7 +213,7 @@ export default function SelectionSessions() {
     <div className="min-h-screen bg-background">
       <header className="border-b bg-card">
         <div className="container mx-auto px-4 py-4">
-          <AdminBreadcrumb section="Almaza Bay" currentPage="KYC Results" />
+          <AdminBreadcrumb section={activeProperty?.name || "Property"} currentPage="KYC Results" />
           <div className="flex items-center gap-4">
           <SlideMenu userRole={userRole} />
           
