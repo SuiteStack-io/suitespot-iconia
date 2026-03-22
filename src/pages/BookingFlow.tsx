@@ -954,7 +954,7 @@ const BookingFlow = () => {
       <div className="container mx-auto px-6 py-12 pt-24">
         <div className="max-w-4xl mx-auto">
           <div className="text-center mb-8">
-            <h1 className="text-4xl font-playfair font-bold text-foreground mb-3">ICONIA Zamalek</h1>
+            <h1 className="text-4xl font-playfair font-bold text-foreground mb-3">{defaultPropertyName}</h1>
             <div className="flex items-center justify-center gap-2 text-muted-foreground">
               <MapPin className="w-4 h-4" />
               <span className="uppercase tracking-wide text-sm">Cairo, Egypt</span>
