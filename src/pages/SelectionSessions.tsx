@@ -10,6 +10,7 @@ import { formatDistanceToNow } from "date-fns";
 import { useAuth } from "@/lib/auth";
 import { SlideMenu } from "@/components/SlideMenu";
 import { AdminBreadcrumb } from "@/components/AdminBreadcrumb";
+import { usePropertySafe } from "@/lib/propertyContext";
 
 interface SelectionSession {
   id: string;
