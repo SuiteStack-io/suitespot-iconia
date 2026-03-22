@@ -58,10 +58,17 @@ const lodgingBusinessJsonLd = {
 
 const Locations = () => {
   const [properties, setProperties] = useState<any[]>([]);
+  const [defaultPropertyId, setDefaultPropertyId] = useState<string | null>(null);
 
   useEffect(() => {
-    fetchProperties();
+    supabase.from("properties").select("id").eq("is_default", true).maybeSingle()
+      .then(({ data }) => { if (data) setDefaultPropertyId(data.id); });
   }, []);
+
+  useEffect(() => {
+    if (!defaultPropertyId) return;
+    fetchProperties();
+  }, [defaultPropertyId]);
 
   const fetchProperties = async () => {
     const { data } = await supabase
@@ -70,7 +77,7 @@ const Locations = () => {
       .not("latitude", "is", null)
       .not("longitude", "is", null)
       .eq("is_private", false)
-      .eq("location", "ICONIA")
+      .eq("property_id", defaultPropertyId!)
       .order("name");
     
     if (data) {

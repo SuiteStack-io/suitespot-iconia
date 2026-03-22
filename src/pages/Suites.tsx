@@ -107,6 +107,7 @@ const Suites = () => {
     };
 
     fetchUnits();
+  // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [toast]);
 
   const getDefaultAmenities = (unitType: string | null) => {

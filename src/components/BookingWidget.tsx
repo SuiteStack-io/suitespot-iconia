@@ -16,8 +16,15 @@ export const BookingWidget = () => {
   const [dateRange, setDateRange] = useState<DateRange | undefined>();
   const [guests, setGuests] = useState<string>("2");
   const [bookedDates, setBookedDates] = useState<Date[]>([]);
+  const [defaultPropertyId, setDefaultPropertyId] = useState<string | null>(null);
 
   useEffect(() => {
+    supabase.from("properties").select("id").eq("is_default", true).maybeSingle()
+      .then(({ data }) => { if (data) setDefaultPropertyId(data.id); });
+  }, []);
+
+  useEffect(() => {
+    if (!defaultPropertyId) return;
     const fetchBookedDates = async () => {
       try {
         // Fetch manually blocked dates
@@ -27,13 +34,13 @@ export const BookingWidget = () => {
 
         if (blockedError) throw blockedError;
 
-        // Get all available units (only ICONIA public properties)
+        // Get all available units for the default property
         const { data: allUnits } = await supabase
           .from("units")
           .select("id")
           .eq("status", "available")
           .eq("is_private", false)
-          .eq("location", "ICONIA");
+          .eq("property_id", defaultPropertyId);
 
         const totalUnits = allUnits?.length || 0;
         if (totalUnits === 0) return;

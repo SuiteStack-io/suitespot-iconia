@@ -866,17 +866,17 @@ const AlmazaBay = () => {
             status: row['Status'] || 'available',
             view: row['View'] || null,
             is_private: ['Yes', 'yes', 'true', 'TRUE', true].includes(row['Is Private']),
-            location: 'Almaza Bay',
+            property_id: propertyId,
             photos: [],
           };
 
-          // Check if property already exists by name and unit number
-          const { data: existing } = await supabase
+          // Check if property already exists by name and property_id
+          let existingQuery = supabase
             .from('units')
             .select('id')
-            .eq('name', propertyData.name)
-            .eq('location', 'Almaza Bay')
-            .maybeSingle();
+            .eq('name', propertyData.name);
+          existingQuery = withPropertyFilter(existingQuery, propertyId) as any;
+          const { data: existing } = await existingQuery.maybeSingle();
 
           if (existing) {
             // Update existing property

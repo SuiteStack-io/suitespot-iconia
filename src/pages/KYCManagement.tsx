@@ -109,11 +109,11 @@ export default function KYCManagement() {
 
   const fetchProperties = async () => {
     try {
-      const { data, error } = await supabase
+      let query = supabase
         .from("units")
-        .select("id, name")
-        .eq("location", "Almaza Bay")
-        .order("name");
+        .select("id, name");
+      query = withPropertyFilter(query, propertyId) as any;
+      const { data, error } = await query.order("name");
 
       if (error) throw error;
       setProperties(data || []);
