@@ -165,6 +165,17 @@ const BookingComReservations = () => {
     fetchUnits();
   }, [propertyId]);
 
+  // Re-fetch units when propertyId becomes available while preview modal is open
+  useEffect(() => {
+    if (propertyId && showPreview && parsedData?.checkInDate && parsedData?.checkOutDate) {
+      console.log('[BookingCom] propertyId resolved while modal open, re-fetching units');
+      const excludeIds = (existingReservationsToUpdate.length > 0 && isModificationMode)
+        ? existingReservationsToUpdate.map((r: any) => r.id)
+        : [];
+      fetchUnitsWithStatus(parsedData.checkInDate, parsedData.checkOutDate, excludeIds);
+    }
+  }, [propertyId]);
+
   const fetchUnits = async () => {
     if (!propertyId) {
       setUnits([]);
@@ -183,12 +194,21 @@ const BookingComReservations = () => {
   };
 
   const fetchUnitsWithStatus = async (checkIn: string, checkOut: string, excludeReservationIds: string[] = []) => {
+    if (!propertyId) {
+      console.log('[BookingCom] fetchUnitsWithStatus skipped — propertyId is null');
+      setUnitsWithStatus([]);
+      return;
+    }
     setLoadingUnitsStatus(true);
+    console.log('[BookingCom] Fetching rooms for property:', propertyId);
     try {
-      const { data: allUnits } = await withPropertyFilter(supabase
+      const { data: allUnits } = await supabase
         .from('units')
-        .select('id, name, unit_number, unit_type, booking_com_name'), propertyId)
+        .select('id, name, unit_number, unit_type, booking_com_name')
+        .eq('property_id', propertyId)
         .order('name');
+
+      console.log('[BookingCom] Rooms returned:', allUnits?.length, allUnits?.map(u => ({ id: u.id, name: u.name })));
 
       const unitsChecked = await Promise.all(
         (allUnits || []).map(async (unit) => {
@@ -228,6 +248,12 @@ const BookingComReservations = () => {
       });
 
       setUnitsWithStatus(unitsChecked);
+
+      // Validate existing room assignments against the filtered unit list
+      const validUnitIds = new Set(unitsChecked.map(u => u.id));
+      setRoomAssignments(prev => prev.map(r => 
+        r.unitId && !validUnitIds.has(r.unitId) ? { ...r, unitId: null } : r
+      ));
     } catch (error) {
       console.error('Error fetching units with status:', error);
     } finally {
@@ -267,8 +293,9 @@ const BookingComReservations = () => {
           setUploadProgress(50);
           
           // Call edge function to parse
+          console.log('[BookingCom] Invoking parse-reservation-screenshot with propertyId:', propertyId);
           const { data, error } = await supabase.functions.invoke('parse-reservation-screenshot', {
-            body: { imageBase64: base64 }
+            body: { imageBase64: base64, propertyId }
           });
 
           setUploadProgress(80);
@@ -438,15 +465,22 @@ const BookingComReservations = () => {
 
   // Split-stay helper functions
   const fetchAvailabilityForSegment = async (segmentId: string, startDate: Date, endDate: Date, excludeReservationIds: string[] = []) => {
+    if (!propertyId) {
+      console.log('[BookingCom] fetchAvailabilityForSegment skipped — propertyId is null');
+      setSegmentAvailability(prev => ({ ...prev, [segmentId]: [] }));
+      return;
+    }
     setLoadingSegmentAvailability(prev => ({ ...prev, [segmentId]: true }));
     
     try {
       const checkIn = format(startDate, 'yyyy-MM-dd');
       const checkOut = format(endDate, 'yyyy-MM-dd');
       
-      const { data: allUnits } = await withPropertyFilter(supabase
+      console.log('[BookingCom] Fetching segment availability for property:', propertyId);
+      const { data: allUnits } = await supabase
         .from('units')
-        .select('id, name, unit_number, unit_type, booking_com_name'), propertyId)
+        .select('id, name, unit_number, unit_type, booking_com_name')
+        .eq('property_id', propertyId)
         .order('name');
 
       const unitsChecked = await Promise.all(
@@ -816,13 +850,16 @@ const BookingComReservations = () => {
         const originalUnit = units.find(u => u.id === unitId);
         const originalUnitType = originalUnit?.unit_type;
         
-        // Fetch all units
-        const { data: allUnits } = await supabase
+        // Fetch all units (property-scoped)
+        console.log('[BookingCom] Fetching conflict alternatives for property:', propertyId);
+        let altQuery = supabase
           .from('units')
           .select('id, name, unit_number, unit_type')
           .eq('status', 'available')
           .neq('id', unitId)
           .order('unit_number');
+        if (propertyId) altQuery = altQuery.eq('property_id', propertyId);
+        const { data: allUnits } = await altQuery;
         
         // Check availability for each unit on these specific dates (conflicts AND blocked dates)
         const availableUnitsChecked = await Promise.all(

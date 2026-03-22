@@ -14,6 +14,7 @@ interface ShuffleRequest {
   bookingReference: string;
   guestNames: string[];
   triggerSource: 'channex' | 'manual' | 'allocate-unit';
+  propertyId?: string;
 }
 
 interface MoveDetail {
@@ -53,17 +54,25 @@ Deno.serve(async (req) => {
     const supabaseKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!;
     const supabase = createClient(supabaseUrl, supabaseKey);
 
-    const { roomType, checkInDate, checkOutDate, bookingReference, guestNames, triggerSource }: ShuffleRequest = await req.json();
+    const { roomType, checkInDate, checkOutDate, bookingReference, guestNames, triggerSource, propertyId }: ShuffleRequest = await req.json();
 
-    console.log('Auto-shuffle requested:', { roomType, checkInDate, checkOutDate, bookingReference });
+    console.log('[AutoShuffle] Request:', { roomType, checkInDate, checkOutDate, bookingReference, propertyId });
 
     // 1. Get all units of this room type, excluding maintenance/blocked status
-    const { data: units, error: unitsError } = await supabase
+    let unitsQuery = supabase
       .from('units')
       .select('id, unit_number, name')
       .eq('booking_com_name', roomType)
       .not('status', 'in', '("maintenance","blocked")')
       .order('unit_number', { ascending: true });
+    
+    if (propertyId) {
+      unitsQuery = unitsQuery.eq('property_id', propertyId);
+    }
+    
+    const { data: units, error: unitsError } = await unitsQuery;
+
+    console.log('[AutoShuffle] Units found for room type:', units?.length, units?.map(u => ({ id: u.id, name: u.name })));
 
     if (unitsError) throw unitsError;
     if (!units || units.length === 0) {

@@ -49,11 +49,13 @@ Deno.serve(async (req) => {
   }
 
   try {
-    const { imageBase64 } = await req.json();
+    const { imageBase64, propertyId } = await req.json();
 
     if (!imageBase64) {
       throw new Error('No image provided');
     }
+
+    console.log('[ParseScreenshot] propertyId:', propertyId || 'NOT PROVIDED');
 
     console.log('Parsing reservation screenshot with AI...');
 
@@ -183,12 +185,53 @@ Other important notes:
     const supabaseKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!;
     const supabase = createClient(supabaseUrl, supabaseKey);
 
-    const { data: units, error: unitsError } = await supabase
+    let unitsQuery = supabase
       .from('units')
       .select('id, name, booking_com_name, status, unit_type');
+    
+    if (propertyId) {
+      unitsQuery = unitsQuery.eq('property_id', propertyId);
+    } else {
+      console.log('[ParseScreenshot] No propertyId — skipping unit matching');
+    }
+
+    const { data: units, error: unitsError } = await unitsQuery;
 
     if (unitsError) {
       console.error('Error fetching units:', unitsError);
+    }
+
+    console.log('[ParseScreenshot] Units found:', units?.length, units?.map(u => ({ id: u.id, name: u.booking_com_name || u.name })));
+
+    // If no propertyId, skip unit matching entirely
+    if (!propertyId) {
+      const unmatchedRooms: MatchedRoom[] = (parsedData.rooms || []).map((room: any) => ({
+        roomName: room.roomName,
+        price: room.price,
+        unitId: null,
+        matchedUnitName: null,
+        status: 'no_match' as const,
+        warning: 'No property context — manual assignment required'
+      }));
+
+      const checkIn = new Date(parsedData.checkInDate);
+      const checkOut = new Date(parsedData.checkOutDate);
+      const nights = Math.ceil((checkOut.getTime() - checkIn.getTime()) / (1000 * 60 * 60 * 24));
+
+      return new Response(JSON.stringify({
+        success: true,
+        data: {
+          ...parsedData,
+          unitId: null,
+          blockedUnitWarning: null,
+          matchedRooms: unmatchedRooms,
+          isMultiRoom: unmatchedRooms.length > 1,
+          nights,
+        }
+      }), {
+        headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+        status: 200,
+      });
     }
 
     const matchedRooms: MatchedRoom[] = [];
@@ -290,6 +333,7 @@ Other important notes:
                   bookingReference: parsedData.bookingReference,
                   guestNames: parsedData.guestNames,
                   triggerSource: 'allocate-unit',
+                  propertyId,
                 }),
               }
             );
