@@ -104,11 +104,13 @@ const handler = async (req: Request): Promise<Response> => {
     const typeformLink = "https://admin.typeform.com/form/HB53DCc4/results";
     const kycManagementLink = `https://${Deno.env.get("SUPABASE_URL")?.split("//")[1]?.split(".")[0]}.lovable.app/kyc-management`;
 
+    const displayName = propertyName || 'SuiteSpot';
+
     // Send email to each admin
     const emailPromises = adminUsers.map(async (admin: any) => {
       try {
         const emailResponse = await resend.emails.send({
-          from: "SuiteSpot Almaza <almaza@bookings.suitespoteg.com>",
+          from: `${displayName} <almaza@bookings.suitespoteg.com>`,
           to: [admin.email],
           subject: "🎉 New KYC Questionnaire Completed",
           html: `
