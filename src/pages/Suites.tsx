@@ -5,6 +5,7 @@ import { Link } from "react-router-dom";
 import { Wifi, Tv, Coffee, Wind, Users, Bed, Loader2 } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { useToast } from "@/hooks/use-toast";
+import { usePropertySafe } from "@/lib/propertyContext";
 import { PublicNav } from "@/components/PublicNav";
 import { PublicFooter } from "@/components/PublicFooter";
 import { SEO } from "@/components/SEO";
