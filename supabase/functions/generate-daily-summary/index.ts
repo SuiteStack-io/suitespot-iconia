@@ -164,13 +164,13 @@ function generateEmailHTML(
   const bodyContentHTML = `
         <h2 style="font-size:16px;color:#1e293b;margin:0 0 8px;">📥 Today's Check-ins (${checkIns.length})</h2>
         <table ${tableStyle}>
-          <tr><th ${thStyle}>Guest Name</th><th ${thStyle}>Room</th><th ${thStyle}>Source</th></tr>
+          <tr><th ${thStyle()}>Guest Name</th><th ${thStyle()}>Room</th><th ${thStyle()}>Source</th></tr>
           ${checkInRows}
         </table>
 
         <h2 style="font-size:16px;color:#1e293b;margin:20px 0 8px;">🏨 In-House Guests (${inHouseGuests.length})</h2>
         <table ${tableStyle}>
-          <tr><th ${thStyle}>Guest Name</th><th ${thStyle}>Room</th><th ${thStyle}>Source</th><th ${thStyle}>Nights Remaining</th><th ${thStyle}>Nationality</th></tr>
+          <tr><th ${thStyle()}>Guest Name</th><th ${thStyle()}>Room</th><th ${thStyle()}>Source</th><th ${thStyle()}>Nights Remaining</th><th ${thStyle()}>Nationality</th></tr>
           ${inHouseRows}
         </table>
 
