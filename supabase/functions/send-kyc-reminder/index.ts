@@ -37,106 +37,35 @@ const handler = async (req: Request): Promise<Response> => {
           <head>
             <meta charset="UTF-8">
             <meta name="viewport" content="width=device-width, initial-scale=1.0">
-            <meta name="color-scheme" content="light dark">
-            <meta name="supported-color-schemes" content="light dark">
-            <style>
-              body {
-                font-family: 'Playfair Display', Georgia, serif;
-                background-color: #f5f5f0;
-                margin: 0;
-                padding: 0;
-              }
-              .container {
-                max-width: 600px;
-                margin: 40px auto;
-                background-color: #ffffff;
-                border-radius: 8px;
-                overflow: hidden;
-                box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
-              }
-              .header {
-                background: linear-gradient(135deg, #d4af37 0%, #f4e4c1 100%) !important;
-                padding: 40px 20px;
-                text-align: center;
-              }
-              .header h1 {
-                color: #2c3e50 !important;
-                margin: 0;
-                font-size: 32px;
-                font-weight: 600;
-                letter-spacing: -0.02em;
-              }
-              @media (prefers-color-scheme: dark) {
-                .header { background: linear-gradient(135deg, #d4af37 0%, #f4e4c1 100%) !important; }
-                .header h1 { color: #2c3e50 !important; }
-              }
-              .content {
-                padding: 40px 30px;
-              }
-              .content h2 {
-                color: #2c3e50;
-                font-size: 24px;
-                font-weight: 500;
-                margin-top: 0;
-              }
-              .content p {
-                color: #4a5568;
-                font-size: 16px;
-                line-height: 1.6;
-                margin: 20px 0;
-              }
-              .cta-button {
-                display: inline-block;
-                background-color: #d4af37;
-                color: #ffffff;
-                text-decoration: none;
-                padding: 16px 48px;
-                border-radius: 6px;
-                font-size: 18px;
-                font-weight: 500;
-                margin: 30px 0;
-                text-align: center;
-              }
-              .cta-button:hover {
-                background-color: #c09d2e;
-              }
-              .footer {
-                background-color: #f7fafc;
-                padding: 30px;
-                text-align: center;
-                color: #718096;
-                font-size: 14px;
-              }
-              .property-info {
-                background-color: #f7fafc;
-                padding: 20px;
-                border-radius: 6px;
-                margin: 20px 0;
-              }
-            </style>
+            <meta name="color-scheme" content="light">
+            <meta name="supported-color-schemes" content="light">
           </head>
-          <body>
-            <div class="container">
-              <div class="header">
-                <h1>Welcome to SuiteSpot Almaza</h1>
-              </div>
-              <div class="content">
-                <h2>Hello ${guestName},</h2>
-                <p>We're excited to guide you through the next step in finding your perfect home at Almaza Bay.</p>
+          <body style="font-family: 'Playfair Display', Georgia, serif; background-color: #f5f5f0; margin: 0; padding: 0;">
+            <div style="max-width: 600px; margin: 40px auto; background-color: #ffffff; border-radius: 8px; overflow: hidden; box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);">
+              <table width="100%" cellpadding="0" cellspacing="0" border="0" role="presentation">
+                <tr>
+                  <td bgcolor="#d4af37" style="background-color: #d4af37; padding: 40px 20px; text-align: center;">
+                    <h1 style="color: #2c3e50; margin: 0; font-size: 32px; font-weight: 600; letter-spacing: -0.02em; font-family: 'Playfair Display', Georgia, serif;">Welcome to SuiteSpot Almaza</h1>
+                  </td>
+                </tr>
+              </table>
+              <div style="padding: 40px 30px;">
+                <h2 style="color: #2c3e50; font-size: 24px; font-weight: 500; margin-top: 0;">Hello ${guestName},</h2>
+                <p style="color: #4a5568; font-size: 16px; line-height: 1.6; margin: 20px 0;">We're excited to guide you through the next step in finding your perfect home at Almaza Bay.</p>
                 ${propertyName ? `
-                  <div class="property-info">
+                  <div style="background-color: #f7fafc; padding: 20px; border-radius: 6px; margin: 20px 0;">
                     <p style="margin: 0; font-weight: 500;">Property: ${propertyName}</p>
                   </div>
                 ` : ''}
-                <p>To help us tailor the perfect home options for your stay, please complete our short questionnaire:</p>
+                <p style="color: #4a5568; font-size: 16px; line-height: 1.6; margin: 20px 0;">To help us tailor the perfect home options for your stay, please complete our short questionnaire:</p>
                 <center>
-                  <a href="${kycLink}" class="cta-button">Complete Questionnaire</a>
+                  <a href="${kycLink}" style="display: inline-block; background-color: #d4af37; color: #ffffff; text-decoration: none; padding: 16px 48px; border-radius: 6px; font-size: 18px; font-weight: 500; margin: 30px 0; text-align: center;">Complete Questionnaire</a>
                 </center>
-                <p>This will only take a few minutes, and we'll get back to you within 3 hours with personalized options.</p>
-                <p>If the button doesn't work, copy and paste this link into your browser:</p>
+                <p style="color: #4a5568; font-size: 16px; line-height: 1.6; margin: 20px 0;">This will only take a few minutes, and we'll get back to you within 3 hours with personalized options.</p>
+                <p style="color: #4a5568; font-size: 16px; line-height: 1.6; margin: 20px 0;">If the button doesn't work, copy and paste this link into your browser:</p>
                 <p style="word-break: break-all; color: #d4af37;">${kycLink}</p>
               </div>
-              <div class="footer">
+              <div style="background-color: #f7fafc; padding: 30px; text-align: center; color: #718096; font-size: 14px;">
                 <p>SuiteSpot Almaza Bay | Almaza Bay, North Coast, Egypt</p>
                 <p>If you have any questions, feel free to reach out to us.</p>
               </div>

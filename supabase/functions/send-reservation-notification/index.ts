@@ -182,58 +182,8 @@ const handler = async (req: Request): Promise<Response> => {
                     </td>
                   </tr>
                 </table>
-                  .content {
-                    background: #ffffff;
-                    padding: 30px;
-                    border: 1px solid #e5e7eb;
-                    border-top: none;
-                  }
-                  .detail-row {
-                    display: flex;
-                    padding: 12px 0;
-                    border-bottom: 1px solid #f3f4f6;
-                  }
-                  .detail-label {
-                    font-weight: 600;
-                    width: 150px;
-                    color: #6b7280;
-                  }
-                  .detail-value {
-                    flex: 1;
-                    color: #111827;
-                  }
-                  .highlight {
-                    background: #f0fdf4;
-                    padding: 20px;
-                    border-radius: 8px;
-                    margin: 20px 0;
-                    border-left: 4px solid #22c55e;
-                  }
-                  .info-box {
-                    background: #eff6ff;
-                    padding: 20px;
-                    border-radius: 8px;
-                    margin: 20px 0;
-                    border-left: 4px solid #3b82f6;
-                  }
-                  .footer {
-                    text-align: center;
-                    margin-top: 30px;
-                    padding-top: 20px;
-                    border-top: 1px solid #e5e7eb;
-                    color: #6b7280;
-                    font-size: 14px;
-                  }
-                </style>
-              </head>
-              <body>
-                <div class="header">
-                  <div class="check-icon">✓</div>
-                  <h1>Booking Confirmed!</h1>
-                  <p style="margin-top: 10px; margin-bottom: 0; font-size: 16px;">Your reservation at ${propertyName}</p>
-                </div>
                 
-                <div class="content">
+                <div style="background: #ffffff; padding: 30px; border: 1px solid #e5e7eb; border-top: none;">
                   <p style="color: #333; font-size: 16px; margin-bottom: 20px;">
                     Dear ${guestNames[0] || 'Guest'},
                   </p>
