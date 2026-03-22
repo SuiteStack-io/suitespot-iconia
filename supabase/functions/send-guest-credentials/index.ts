@@ -101,7 +101,7 @@ const handler = async (req: Request): Promise<Response> => {
                   <strong>The SuiteSpot Team</strong>
                 </p>
               </div>
-              <div class="footer">
+              <div style="text-align: center; padding: 20px; color: #666; font-size: 12px;">
                 <p>This is an automated message from SuiteSpot Guest Portal</p>
               </div>
             </div>
