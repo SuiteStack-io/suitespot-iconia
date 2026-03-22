@@ -118,6 +118,7 @@ export const ReservationQuickActions = ({
   const { toast } = useToast();
   const navigate = useNavigate();
   const { user } = useAuth();
+  const propertyId = usePropertyId();
 
   // Fetch current user's name on mount
   useEffect(() => {
