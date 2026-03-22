@@ -287,7 +287,7 @@ const BookingFlow = () => {
             .eq("status", "available")
             .eq("unit_type", preSelectedUnitType)
             .eq("is_private", false)
-            .eq("location", "ICONIA")
+            .eq("property_id", defaultPropertyId)
             .order("unit_number");
 
           const { data: typeUnits, error: unitsError } = await query;
