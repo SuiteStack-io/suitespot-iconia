@@ -49,11 +49,13 @@ Deno.serve(async (req) => {
   }
 
   try {
-    const { imageBase64 } = await req.json();
+    const { imageBase64, propertyId } = await req.json();
 
     if (!imageBase64) {
       throw new Error('No image provided');
     }
+
+    console.log('[ParseScreenshot] propertyId:', propertyId || 'NOT PROVIDED');
 
     console.log('Parsing reservation screenshot with AI...');
 
