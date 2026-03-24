@@ -268,6 +268,10 @@ const Rooms = () => {
   };
 
   const fetchReservations = async () => {
+    if (!propertyId) {
+      setReservations([]);
+      return;
+    }
     const today = new Date().toISOString().split('T')[0];
     const { data, error } = await withPropertyFilter(supabase
       .from('reservations')
