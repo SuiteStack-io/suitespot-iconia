@@ -542,7 +542,23 @@ export function ConnectionStatus() {
           </div>
 
           {selectedQueueStatus && (
-            <div className="rounded-lg border border-border overflow-hidden">
+            <div className="space-y-3">
+              <div className="flex items-center gap-2">
+                <Filter className="h-4 w-4 text-muted-foreground" />
+                <Select value={selectedQueueStatus} onValueChange={(val) => { setSelectedQueueStatus(val); fetchQueueItems(val); }}>
+                  <SelectTrigger className="w-[160px] h-8 text-xs">
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="all">All</SelectItem>
+                    <SelectItem value="pending">Pending</SelectItem>
+                    <SelectItem value="processing">Processing</SelectItem>
+                    <SelectItem value="failed">Failed</SelectItem>
+                    <SelectItem value="completed">Completed</SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
+              <div className="rounded-lg border border-border overflow-hidden">
               {loadingQueueItems ? (
                 <div className="flex items-center justify-center p-6">
                   <Loader2 className="h-5 w-5 animate-spin text-muted-foreground" />
