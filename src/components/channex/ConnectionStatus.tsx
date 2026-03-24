@@ -153,14 +153,43 @@ export function ConnectionStatus() {
       if (error) throw error;
       toast.success('Completed queue items cleared');
       fetchQueueStats();
-      if (selectedQueueStatus === 'completed') {
-        setSelectedQueueStatus(null);
-        setQueueItems([]);
+      if (selectedQueueStatus === 'completed' || selectedQueueStatus === 'all') {
+        if (selectedQueueStatus === 'completed') {
+          setSelectedQueueStatus(null);
+          setQueueItems([]);
+        } else {
+          fetchQueueItems('all');
+        }
       }
     } catch (err: any) {
       toast.error(`Failed to clear queue: ${err.message}`);
     } finally {
       setClearing(false);
+    }
+  };
+
+  const clearFailedQueue = async () => {
+    setClearingFailed(true);
+    try {
+      const { error } = await supabase
+        .from('channex_sync_queue')
+        .delete()
+        .eq('status', 'failed');
+      if (error) throw error;
+      toast.success('Failed queue items cleared');
+      fetchQueueStats();
+      if (selectedQueueStatus === 'failed' || selectedQueueStatus === 'all') {
+        if (selectedQueueStatus === 'failed') {
+          setSelectedQueueStatus(null);
+          setQueueItems([]);
+        } else {
+          fetchQueueItems('all');
+        }
+      }
+    } catch (err: any) {
+      toast.error(`Failed to clear queue: ${err.message}`);
+    } finally {
+      setClearingFailed(false);
     }
   };
 
