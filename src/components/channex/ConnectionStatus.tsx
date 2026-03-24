@@ -120,12 +120,15 @@ export function ConnectionStatus() {
 
   const fetchQueueItems = async (status: string) => {
     setLoadingQueueItems(true);
-    const { data } = await supabase
+    let query = supabase
       .from('channex_sync_queue')
       .select('id, sync_type, entity_id, status, error_message, created_at, date_from, date_to')
-      .eq('status', status)
       .order('created_at', { ascending: false })
       .limit(50);
+    if (status !== 'all') {
+      query = query.eq('status', status);
+    }
+    const { data } = await query;
     setQueueItems(data || []);
     setLoadingQueueItems(false);
   };
