@@ -821,21 +821,26 @@ const Rooms = () => {
     if (!roomToDelete) return;
 
     try {
-      // Check if room has any reservations
-      const { data: reservations, error: resError } = await supabase
+      // Check if room has any active reservations
+      const { data: activeReservations, error: resError } = await supabase
         .from('reservations')
-        .select('id')
+        .select('id, guest_names, check_in_date, check_out_date, booking_reference, status')
         .eq('unit_id', roomToDelete.id)
-        .limit(1);
+        .in('status', ['confirmed', 'checked-in'])
+        .limit(5);
 
       if (resError) throw resError;
 
-      if (reservations && reservations.length > 0) {
+      if (activeReservations && activeReservations.length > 0) {
+        const details = activeReservations.map(r => 
+          `• ${r.guest_names?.[0] || 'Guest'} — ${r.check_in_date} to ${r.check_out_date} (Ref: ${r.booking_reference}, ${r.status})`
+        ).join('\n');
         toast({
           variant: 'destructive',
-          title: 'Cannot Delete',
-          description: 'This room has existing reservations and cannot be deleted.',
+          title: 'Cannot Delete — Active Reservations',
+          description: `This room has ${activeReservations.length} active reservation(s):\n${details}`,
         });
+        console.log('Blocking reservations:', activeReservations);
         setDeleteDialogOpen(false);
         setRoomToDelete(null);
         return;
