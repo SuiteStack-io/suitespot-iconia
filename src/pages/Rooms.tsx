@@ -243,7 +243,7 @@ const Rooms = () => {
       supabase.removeChannel(unitsChannel);
       supabase.removeChannel(reservationsChannel);
     };
-  }, [user]);
+  }, [user, propertyId]);
 
   const fetchUnits = async () => {
     const { data, error } = await withPropertyFilter(supabase
