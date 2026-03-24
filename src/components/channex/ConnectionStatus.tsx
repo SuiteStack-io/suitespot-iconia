@@ -1,5 +1,6 @@
 import { useState, useEffect, useMemo } from 'react';
-import { Loader2, CheckCircle2, XCircle, Wifi, AlertTriangle, Clock, Copy, Check, FlaskConical, RefreshCw, Database, Trash2, ChevronDown } from 'lucide-react';
+import { Loader2, CheckCircle2, XCircle, Wifi, AlertTriangle, Clock, Copy, Check, FlaskConical, RefreshCw, Database, Trash2, ChevronDown, Filter } from 'lucide-react';
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
@@ -82,6 +83,7 @@ export function ConnectionStatus() {
   const [queueItems, setQueueItems] = useState<QueueItem[]>([]);
   const [loadingQueueItems, setLoadingQueueItems] = useState(false);
   const [clearing, setClearing] = useState(false);
+  const [clearingFailed, setClearingFailed] = useState(false);
   const [backfilling, setBackfilling] = useState(false);
 
   useEffect(() => {
@@ -118,12 +120,15 @@ export function ConnectionStatus() {
 
   const fetchQueueItems = async (status: string) => {
     setLoadingQueueItems(true);
-    const { data } = await supabase
+    let query = supabase
       .from('channex_sync_queue')
       .select('id, sync_type, entity_id, status, error_message, created_at, date_from, date_to')
-      .eq('status', status)
       .order('created_at', { ascending: false })
       .limit(50);
+    if (status !== 'all') {
+      query = query.eq('status', status);
+    }
+    const { data } = await query;
     setQueueItems(data || []);
     setLoadingQueueItems(false);
   };
@@ -148,14 +153,43 @@ export function ConnectionStatus() {
       if (error) throw error;
       toast.success('Completed queue items cleared');
       fetchQueueStats();
-      if (selectedQueueStatus === 'completed') {
-        setSelectedQueueStatus(null);
-        setQueueItems([]);
+      if (selectedQueueStatus === 'completed' || selectedQueueStatus === 'all') {
+        if (selectedQueueStatus === 'completed') {
+          setSelectedQueueStatus(null);
+          setQueueItems([]);
+        } else {
+          fetchQueueItems('all');
+        }
       }
     } catch (err: any) {
       toast.error(`Failed to clear queue: ${err.message}`);
     } finally {
       setClearing(false);
+    }
+  };
+
+  const clearFailedQueue = async () => {
+    setClearingFailed(true);
+    try {
+      const { error } = await supabase
+        .from('channex_sync_queue')
+        .delete()
+        .eq('status', 'failed');
+      if (error) throw error;
+      toast.success('Failed queue items cleared');
+      fetchQueueStats();
+      if (selectedQueueStatus === 'failed' || selectedQueueStatus === 'all') {
+        if (selectedQueueStatus === 'failed') {
+          setSelectedQueueStatus(null);
+          setQueueItems([]);
+        } else {
+          fetchQueueItems('all');
+        }
+      }
+    } catch (err: any) {
+      toast.error(`Failed to clear queue: ${err.message}`);
+    } finally {
+      setClearingFailed(false);
     }
   };
 
@@ -508,7 +542,23 @@ export function ConnectionStatus() {
           </div>
 
           {selectedQueueStatus && (
-            <div className="rounded-lg border border-border overflow-hidden">
+            <div className="space-y-3">
+              <div className="flex items-center gap-2">
+                <Filter className="h-4 w-4 text-muted-foreground" />
+                <Select value={selectedQueueStatus} onValueChange={(val) => { setSelectedQueueStatus(val); fetchQueueItems(val); }}>
+                  <SelectTrigger className="w-[160px] h-8 text-xs">
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="all">All</SelectItem>
+                    <SelectItem value="pending">Pending</SelectItem>
+                    <SelectItem value="processing">Processing</SelectItem>
+                    <SelectItem value="failed">Failed</SelectItem>
+                    <SelectItem value="completed">Completed</SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
+              <div className="rounded-lg border border-border overflow-hidden">
               {loadingQueueItems ? (
                 <div className="flex items-center justify-center p-6">
                   <Loader2 className="h-5 w-5 animate-spin text-muted-foreground" />
@@ -525,7 +575,7 @@ export function ConnectionStatus() {
                       <TableHead>Type</TableHead>
                       <TableHead>Date Range</TableHead>
                       <TableHead>Status</TableHead>
-                      {selectedQueueStatus === 'failed' && <TableHead>Error</TableHead>}
+                      {(selectedQueueStatus === 'failed' || selectedQueueStatus === 'all') && <TableHead>Error</TableHead>}
                     </TableRow>
                   </TableHeader>
                   <TableBody>
@@ -555,7 +605,7 @@ export function ConnectionStatus() {
                             {item.status}
                           </Badge>
                         </TableCell>
-                        {selectedQueueStatus === 'failed' && (
+                        {(selectedQueueStatus === 'failed' || selectedQueueStatus === 'all') && (
                           <TableCell className="text-xs text-destructive max-w-[200px] truncate" title={item.error_message || ''}>
                             {item.error_message || '—'}
                           </TableCell>
@@ -565,10 +615,11 @@ export function ConnectionStatus() {
                   </TableBody>
                 </Table>
               )}
+              </div>
             </div>
           )}
 
-          <div className="flex gap-2">
+          <div className="flex gap-2 flex-wrap">
             <Button variant="ghost" size="sm" onClick={() => { fetchQueueStats(); if (selectedQueueStatus) fetchQueueItems(selectedQueueStatus); }} className="gap-1.5">
               <RefreshCw className="h-3.5 w-3.5" />
               Refresh
@@ -590,6 +641,26 @@ export function ConnectionStatus() {
                 <AlertDialogFooter>
                   <AlertDialogCancel>Cancel</AlertDialogCancel>
                   <AlertDialogAction onClick={clearCompletedQueue}>Clear</AlertDialogAction>
+                </AlertDialogFooter>
+              </AlertDialogContent>
+            </AlertDialog>
+            <AlertDialog>
+              <AlertDialogTrigger asChild>
+                <Button variant="outline" size="sm" disabled={clearingFailed || queueStats.failed === 0} className="gap-1.5 text-destructive border-destructive/50 hover:text-destructive hover:bg-destructive/10">
+                  {clearingFailed ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Trash2 className="h-3.5 w-3.5" />}
+                  Clear Failed ({queueStats.failed})
+                </Button>
+              </AlertDialogTrigger>
+              <AlertDialogContent>
+                <AlertDialogHeader>
+                  <AlertDialogTitle>Clear Failed Items?</AlertDialogTitle>
+                  <AlertDialogDescription>
+                    Clear all failed sync queue items? This cannot be undone.
+                  </AlertDialogDescription>
+                </AlertDialogHeader>
+                <AlertDialogFooter>
+                  <AlertDialogCancel>Cancel</AlertDialogCancel>
+                  <AlertDialogAction onClick={clearFailedQueue} className="bg-destructive text-destructive-foreground hover:bg-destructive/90">Clear</AlertDialogAction>
                 </AlertDialogFooter>
               </AlertDialogContent>
             </AlertDialog>
