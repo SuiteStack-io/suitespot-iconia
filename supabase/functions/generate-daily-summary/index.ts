@@ -270,21 +270,90 @@ const handler = async (req: Request): Promise<Response> => {
     // Fetch in-house guests (checked in before today, checking out after today)
     const { data: inHouseData } = await supabase
       .from("reservations")
-      .select("guest_names, source, channel, check_out_date, guest_nationality, units!unit_id(name, booking_com_name, unit_number)")
+      .select("guest_names, source, channel, check_out_date, guest_nationality, booking_reference, units!unit_id(name, booking_com_name, unit_number)")
       .lt("check_in_date", todayStr)
       .gt("check_out_date", todayStr)
       .eq("status", "checked-in")
       .eq("property_id", property.id);
 
+    // Fetch extension bookings checking in TODAY (these guests are already in-house)
+    const { data: extensionCheckIns } = await supabase
+      .from("reservations")
+      .select("guest_names, source, channel, check_out_date, guest_nationality, booking_reference, unit_id, units!unit_id(name, booking_com_name, unit_number)")
+      .eq("check_in_date", todayStr)
+      .in("status", ["confirmed", "checked-in"])
+      .eq("property_id", property.id)
+      .ilike("booking_reference", "%EXT%");
+
+    // Helper: extract base booking reference by stripping -EXT, -EXT2, -EXT3 suffixes
+    function getBaseReference(ref: string): string {
+      if (!ref) return ref;
+      return ref.replace(/-EXT\d*$/i, "");
+    }
+
+    // Collect base references from extensions to look up original booking sources
+    const extBaseRefs = (extensionCheckIns || [])
+      .map((e: any) => getBaseReference(e.booking_reference))
+      .filter((r: string) => r);
+    const uniqueBaseRefs = [...new Set(extBaseRefs)];
+
+    // Fetch original bookings for source resolution
+    let originalSourceMap = new Map<string, string>();
+    if (uniqueBaseRefs.length > 0) {
+      const { data: originals } = await supabase
+        .from("reservations")
+        .select("booking_reference, source, channel")
+        .in("booking_reference", uniqueBaseRefs)
+        .eq("property_id", property.id);
+      for (const orig of originals || []) {
+        originalSourceMap.set(orig.booking_reference, orig.source || orig.channel || "N/A");
+      }
+    }
+
+    // Merge regular in-house + extension check-ins, deduplicating by base reference
+    const seenBaseRefs = new Set<string>();
+    const mergedInHouse: any[] = [];
+
+    // First add regular in-house guests
+    for (const g of inHouseData || []) {
+      const baseRef = g.booking_reference ? getBaseReference(g.booking_reference) : null;
+      if (baseRef) seenBaseRefs.add(baseRef);
+      mergedInHouse.push(g);
+    }
+
+    // Then add extension check-ins, but check if guest is already listed
+    for (const ext of extensionCheckIns || []) {
+      const baseRef = getBaseReference(ext.booking_reference);
+      if (seenBaseRefs.has(baseRef)) {
+        // Guest already in list — update their checkout date if extension is later
+        const existing = mergedInHouse.find((g: any) => 
+          g.booking_reference && getBaseReference(g.booking_reference) === baseRef
+        );
+        if (existing && ext.check_out_date > existing.check_out_date) {
+          existing.check_out_date = ext.check_out_date;
+        }
+      } else {
+        // New entry — use original source
+        seenBaseRefs.add(baseRef);
+        const origSource = originalSourceMap.get(baseRef);
+        mergedInHouse.push({
+          ...ext,
+          source: origSource || ext.source,
+          channel: origSource ? undefined : ext.channel,
+        });
+      }
+    }
+
     // Process and sort in-house guests
-    const inHouseGuests = (inHouseData || []).map((g: any) => {
+    const inHouseGuests = mergedInHouse.map((g: any) => {
       const checkOutDate = new Date(g.check_out_date + "T00:00:00");
       const todayDate = new Date(todayStr + "T00:00:00");
       const nightsRemaining = Math.round((checkOutDate.getTime() - todayDate.getTime()) / (1000 * 60 * 60 * 24));
+      const source = g.source || g.channel || "N/A";
       return {
         guest_name: g.guest_names?.[0] || "N/A",
         room: formatRoomDisplay(g.units),
-        source: g.source || g.channel || "N/A",
+        source,
         nights_remaining: nightsRemaining,
         nationality: g.guest_nationality || "—",
       };
