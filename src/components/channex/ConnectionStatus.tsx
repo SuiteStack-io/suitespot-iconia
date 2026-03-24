@@ -615,10 +615,11 @@ export function ConnectionStatus() {
                   </TableBody>
                 </Table>
               )}
+              </div>
             </div>
           )}
 
-          <div className="flex gap-2">
+          <div className="flex gap-2 flex-wrap">
             <Button variant="ghost" size="sm" onClick={() => { fetchQueueStats(); if (selectedQueueStatus) fetchQueueItems(selectedQueueStatus); }} className="gap-1.5">
               <RefreshCw className="h-3.5 w-3.5" />
               Refresh
@@ -640,6 +641,26 @@ export function ConnectionStatus() {
                 <AlertDialogFooter>
                   <AlertDialogCancel>Cancel</AlertDialogCancel>
                   <AlertDialogAction onClick={clearCompletedQueue}>Clear</AlertDialogAction>
+                </AlertDialogFooter>
+              </AlertDialogContent>
+            </AlertDialog>
+            <AlertDialog>
+              <AlertDialogTrigger asChild>
+                <Button variant="outline" size="sm" disabled={clearingFailed || queueStats.failed === 0} className="gap-1.5 text-destructive border-destructive/50 hover:text-destructive hover:bg-destructive/10">
+                  {clearingFailed ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Trash2 className="h-3.5 w-3.5" />}
+                  Clear Failed ({queueStats.failed})
+                </Button>
+              </AlertDialogTrigger>
+              <AlertDialogContent>
+                <AlertDialogHeader>
+                  <AlertDialogTitle>Clear Failed Items?</AlertDialogTitle>
+                  <AlertDialogDescription>
+                    Clear all failed sync queue items? This cannot be undone.
+                  </AlertDialogDescription>
+                </AlertDialogHeader>
+                <AlertDialogFooter>
+                  <AlertDialogCancel>Cancel</AlertDialogCancel>
+                  <AlertDialogAction onClick={clearFailedQueue} className="bg-destructive text-destructive-foreground hover:bg-destructive/90">Clear</AlertDialogAction>
                 </AlertDialogFooter>
               </AlertDialogContent>
             </AlertDialog>
