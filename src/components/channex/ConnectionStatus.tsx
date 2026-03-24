@@ -575,7 +575,7 @@ export function ConnectionStatus() {
                       <TableHead>Type</TableHead>
                       <TableHead>Date Range</TableHead>
                       <TableHead>Status</TableHead>
-                      {selectedQueueStatus === 'failed' && <TableHead>Error</TableHead>}
+                      {(selectedQueueStatus === 'failed' || selectedQueueStatus === 'all') && <TableHead>Error</TableHead>}
                     </TableRow>
                   </TableHeader>
                   <TableBody>
