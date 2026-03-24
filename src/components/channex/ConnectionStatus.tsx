@@ -605,7 +605,7 @@ export function ConnectionStatus() {
                             {item.status}
                           </Badge>
                         </TableCell>
-                        {selectedQueueStatus === 'failed' && (
+                        {(selectedQueueStatus === 'failed' || selectedQueueStatus === 'all') && (
                           <TableCell className="text-xs text-destructive max-w-[200px] truncate" title={item.error_message || ''}>
                             {item.error_message || '—'}
                           </TableCell>
