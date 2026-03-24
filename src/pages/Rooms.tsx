@@ -243,9 +243,13 @@ const Rooms = () => {
       supabase.removeChannel(unitsChannel);
       supabase.removeChannel(reservationsChannel);
     };
-  }, [user]);
+  }, [user, propertyId]);
 
   const fetchUnits = async () => {
+    if (!propertyId) {
+      setUnits([]);
+      return;
+    }
     const { data, error } = await withPropertyFilter(supabase
       .from('units')
       .select('*')
@@ -264,6 +268,10 @@ const Rooms = () => {
   };
 
   const fetchReservations = async () => {
+    if (!propertyId) {
+      setReservations([]);
+      return;
+    }
     const today = new Date().toISOString().split('T')[0];
     const { data, error } = await withPropertyFilter(supabase
       .from('reservations')
