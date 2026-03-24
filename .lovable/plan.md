@@ -1,27 +1,25 @@
 
 
-## Fix: Rooms page showing all properties' rooms
+## Fix: Double Room delete blocked by old reservations + show related reservations
 
-### Root Cause
-`fetchUnits()` already uses `withPropertyFilter(query, propertyId)`, but:
-1. The `useEffect` (line 205) depends only on `[user]`, not `propertyId` — so it never re-fetches when the active property changes.
-2. If `propertyId` is `null` at mount time (race condition), `withPropertyFilter` is a no-op and returns ALL units.
+### Problem
+The delete check at line 825 queries `reservations` where `unit_id = roomToDelete.id` with no status filter. This means even completed, cancelled, or checked-out reservations block deletion. The user also cannot see which reservations are blocking the delete.
 
 ### Changes — Single file: `src/pages/Rooms.tsx`
 
-**1. Add `propertyId` guard to `fetchUnits`** (line ~248)
-- If `!propertyId`, set `units` to `[]` and return early. No query runs without a valid property.
+**1. Filter delete check to only active reservations** (line ~825-829)
+- Change the query to only check for reservations with status `IN ('confirmed', 'checked-in')` — these are genuinely active bookings that should block deletion.
+- Completed, cancelled, and checked-out reservations should not prevent deletion.
 
-**2. Add `propertyId` to the `useEffect` dependency array** (line ~246)
-- Change `[user]` → `[user, propertyId]` so the room list refreshes whenever the active property changes in the switcher.
+**2. Show blocking reservation details in the error toast** (line ~833-838)
+- When active reservations exist, fetch their details (guest name, check-in/out dates, booking reference).
+- Display this info in the toast description so the user can identify and handle the blocking reservation.
+- Format: "Booked by [guest] from [check_in] to [check_out] (Ref: [reference])"
 
-**3. Add `propertyId` guard to `fetchReservations`** (if it exists and queries without property filter — will verify)
-- Same pattern: skip query if no `propertyId`.
+**3. Add a "View Reservation" action** 
+- Include the reservation ID in the toast so the user can navigate to it, or add a console.log with the reservation details for immediate visibility.
 
-These two small changes ensure:
-- Rooms only load for the active property
-- Switching properties triggers an immediate refresh
-- The header counts ("7 room types · 35 units") automatically reflect only the active property since they derive from the `units` state
-- Add Room already passes `property_id: propertyId` (line 584) — no change needed
-- Bulk edit operates on `units` state which will already be property-scoped — no change needed
+### What stays the same
+- If there ARE active reservations, deletion is still blocked (safety preserved).
+- No layout, design, or other page changes.
 
