@@ -108,7 +108,7 @@ const Suites = () => {
 
     fetchUnits();
   // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [toast]);
+  }, [toast, defaultPropertyId]);
 
   const getDefaultAmenities = (unitType: string | null) => {
     const baseAmenities = ["Smart TV", "High-Speed WiFi", "Air Conditioning", "Premium Bedding"];
