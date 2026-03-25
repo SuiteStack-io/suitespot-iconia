@@ -80,18 +80,43 @@ const Suites = () => {
     if (!defaultPropertyId) return;
     const fetchUnits = async () => {
       try {
-        const { data, error } = await supabase
-          .from("units")
-          .select("id, name, booking_com_name, unit_type, unit_number, unit_size, status, comments, photos, max_guests, beds, features, show_on_website")
-          .eq("status", "available")
-          .eq("is_private", false)
-          .eq("show_on_website", true)
-          .eq("property_id", defaultPropertyId)
-          .order("name");
+        // Fetch units, room type photos, and unit photos in parallel
+        const [unitsRes, rtPhotosRes, unitPhotosRes] = await Promise.all([
+          supabase
+            .from("units")
+            .select("id, name, booking_com_name, unit_type, unit_number, unit_size, status, comments, photos, max_guests, beds, features, show_on_website")
+            .eq("status", "available")
+            .eq("is_private", false)
+            .eq("show_on_website", true)
+            .eq("property_id", defaultPropertyId)
+            .order("name"),
+          supabase
+            .from("room_type_photos")
+            .select("room_type_name, photo_url, display_order")
+            .eq("property_id", defaultPropertyId)
+            .order("display_order"),
+          supabase
+            .from("unit_photos")
+            .select("unit_id, photo_url, display_order")
+            .order("display_order"),
+        ]);
 
-        if (error) throw error;
+        if (unitsRes.error) throw unitsRes.error;
+
+        // Build photo lookup maps
+        const rtPhotosByType: Record<string, string[]> = {};
+        (rtPhotosRes.data || []).forEach((p: any) => {
+          if (!rtPhotosByType[p.room_type_name]) rtPhotosByType[p.room_type_name] = [];
+          rtPhotosByType[p.room_type_name].push(p.photo_url);
+        });
+
+        const unitPhotosByUnit: Record<string, string[]> = {};
+        (unitPhotosRes.data || []).forEach((p: any) => {
+          if (!unitPhotosByUnit[p.unit_id]) unitPhotosByUnit[p.unit_id] = [];
+          unitPhotosByUnit[p.unit_id].push(p.photo_url);
+        });
         
-        const grouped = (data || []).reduce((acc, unit) => {
+        const grouped = (unitsRes.data || []).reduce((acc, unit) => {
           const type = unit.unit_type || "Other";
           if (!acc[type]) acc[type] = [];
           acc[type].push(unit);
@@ -99,9 +124,19 @@ const Suites = () => {
         }, {} as Record<string, Unit[]>);
 
         const uniqueUnits = Object.entries(grouped).map(([type, unitsOfType]) => {
-          const withPhotos = unitsOfType.find(u => u.photos && u.photos.length > 0);
+          // Pick representative with best photos using priority: unit_photos > room_type_photos > legacy photos
+          const getPhotos = (u: Unit): string[] => {
+            if (unitPhotosByUnit[u.id]?.length) return unitPhotosByUnit[u.id];
+            const rtName = u.booking_com_name || u.name;
+            if (rtPhotosByType[rtName]?.length) return rtPhotosByType[rtName];
+            return u.photos || [];
+          };
+
+          const withPhotos = unitsOfType.find(u => getPhotos(u).length > 0);
+          const chosen = withPhotos || unitsOfType[0];
           return {
-            ...(withPhotos || unitsOfType[0]),
+            ...chosen,
+            photos: getPhotos(chosen),
             availableCount: unitsOfType.length,
           };
         });

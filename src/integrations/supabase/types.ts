@@ -2059,6 +2059,41 @@ export type Database = {
           },
         ]
       }
+      room_type_photos: {
+        Row: {
+          created_at: string
+          display_order: number
+          id: string
+          photo_url: string
+          property_id: string
+          room_type_name: string
+        }
+        Insert: {
+          created_at?: string
+          display_order?: number
+          id?: string
+          photo_url: string
+          property_id: string
+          room_type_name: string
+        }
+        Update: {
+          created_at?: string
+          display_order?: number
+          id?: string
+          photo_url?: string
+          property_id?: string
+          room_type_name?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "room_type_photos_property_id_fkey"
+            columns: ["property_id"]
+            isOneToOne: false
+            referencedRelation: "properties"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       selection_accounts: {
         Row: {
           created_at: string | null
@@ -2378,6 +2413,38 @@ export type Database = {
             columns: ["ticket_id"]
             isOneToOne: false
             referencedRelation: "guest_tickets"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      unit_photos: {
+        Row: {
+          created_at: string
+          display_order: number
+          id: string
+          photo_url: string
+          unit_id: string
+        }
+        Insert: {
+          created_at?: string
+          display_order?: number
+          id?: string
+          photo_url: string
+          unit_id: string
+        }
+        Update: {
+          created_at?: string
+          display_order?: number
+          id?: string
+          photo_url?: string
+          unit_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "unit_photos_unit_id_fkey"
+            columns: ["unit_id"]
+            isOneToOne: false
+            referencedRelation: "units"
             referencedColumns: ["id"]
           },
         ]

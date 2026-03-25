@@ -7,7 +7,8 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Textarea } from '@/components/ui/textarea';
-import { Save, Plus, Pencil, X, Upload, Trash2, Eye, ChevronDown, ChevronRight, ChevronsDown, ChevronsUp, Copy, Image as ImageIcon, GripVertical, ArrowLeft, BedDouble, MoreVertical, Wand2, Loader2, CloudUpload } from 'lucide-react';
+import { Save, Plus, Pencil, X, Upload, Trash2, Eye, ChevronDown, ChevronRight, ChevronsDown, ChevronsUp, Copy, Image as ImageIcon, GripVertical, ArrowLeft, BedDouble, MoreVertical, Wand2, Loader2, CloudUpload, Camera, Share2 } from 'lucide-react';
+import PhotoUploadModal from '@/components/PhotoUploadModal';
 import { useToast } from '@/hooks/use-toast';
 import { Progress } from '@/components/ui/progress';
 import { Card, CardHeader, CardTitle, CardDescription, CardContent } from '@/components/ui/card';
@@ -59,6 +60,21 @@ import { SlideMenu } from '@/components/SlideMenu';
 import { AdminBreadcrumb } from '@/components/AdminBreadcrumb';
 
 import { Unit } from '@/types/unit';
+
+interface PhotoRecord {
+  id: string;
+  photo_url: string;
+  display_order: number;
+}
+
+interface RoomTypePhotoRecord extends PhotoRecord {
+  room_type_name: string;
+  property_id: string;
+}
+
+interface UnitPhotoRecord extends PhotoRecord {
+  unit_id: string;
+}
 
 interface Reservation {
   id: string;
@@ -126,6 +142,11 @@ const Rooms = () => {
   const [expandedTypes, setExpandedTypes] = useState<Set<string>>(new Set());
   const [pendingAvailabilitySync, setPendingAvailabilitySync] = useState<PendingAvailabilitySync[]>([]);
   const [isSyncingAvailability, setIsSyncingAvailability] = useState(false);
+  const [roomTypePhotos, setRoomTypePhotos] = useState<Record<string, RoomTypePhotoRecord[]>>({});
+  const [unitPhotosMap, setUnitPhotosMap] = useState<Record<string, UnitPhotoRecord[]>>({});
+  const [photoModalOpen, setPhotoModalOpen] = useState(false);
+  const [photoModalTarget, setPhotoModalTarget] = useState<{ type: 'room_type'; roomTypeName: string } | { type: 'unit'; unitId: string; unitName: string } | null>(null);
+  const [photoModalPhotos, setPhotoModalPhotos] = useState<PhotoRecord[]>([]);
 
   const sensors = useSensors(
     useSensor(PointerSensor),
@@ -206,6 +227,7 @@ const Rooms = () => {
     if (user) {
       fetchUnits();
       fetchReservations();
+      fetchPhotos();
     }
 
     // Real-time updates for units and reservations
@@ -285,6 +307,123 @@ const Rooms = () => {
     }
 
     setReservations(data || []);
+  };
+
+  const fetchPhotos = async () => {
+    if (!propertyId) return;
+
+    const [rtRes, upRes] = await Promise.all([
+      supabase.from('room_type_photos').select('*').eq('property_id', propertyId).order('display_order'),
+      supabase.from('unit_photos').select('*').order('display_order'),
+    ]);
+
+    if (rtRes.data) {
+      const grouped: Record<string, RoomTypePhotoRecord[]> = {};
+      (rtRes.data as any[]).forEach((p: any) => {
+        if (!grouped[p.room_type_name]) grouped[p.room_type_name] = [];
+        grouped[p.room_type_name].push(p);
+      });
+      setRoomTypePhotos(grouped);
+    }
+
+    if (upRes.data) {
+      const grouped: Record<string, UnitPhotoRecord[]> = {};
+      (upRes.data as any[]).forEach((p: any) => {
+        if (!grouped[p.unit_id]) grouped[p.unit_id] = [];
+        grouped[p.unit_id].push(p);
+      });
+      setUnitPhotosMap(grouped);
+    }
+  };
+
+  // Photo modal helpers
+  const openRoomTypePhotoModal = (roomTypeName: string) => {
+    const existing = roomTypePhotos[roomTypeName] || [];
+    setPhotoModalTarget({ type: 'room_type', roomTypeName });
+    setPhotoModalPhotos(existing.map(p => ({ id: p.id, photo_url: p.photo_url, display_order: p.display_order })));
+    setPhotoModalOpen(true);
+  };
+
+  const openUnitPhotoModal = (unitId: string, unitName: string) => {
+    const existing = unitPhotosMap[unitId] || [];
+    setPhotoModalTarget({ type: 'unit', unitId, unitName });
+    setPhotoModalPhotos(existing.map(p => ({ id: p.id, photo_url: p.photo_url, display_order: p.display_order })));
+    setPhotoModalOpen(true);
+  };
+
+  const handlePhotoModalSave = async (newPhotos: PhotoRecord[]) => {
+    if (!photoModalTarget || !propertyId) return;
+
+    if (photoModalTarget.type === 'room_type') {
+      // Delete old records
+      await supabase.from('room_type_photos').delete().eq('property_id', propertyId).eq('room_type_name', photoModalTarget.roomTypeName);
+      // Insert new
+      if (newPhotos.length > 0) {
+        await supabase.from('room_type_photos').insert(
+          newPhotos.map((p, i) => ({
+            room_type_name: photoModalTarget.roomTypeName,
+            property_id: propertyId,
+            photo_url: p.photo_url,
+            display_order: i,
+          }))
+        );
+      }
+    } else {
+      // Delete old records
+      await supabase.from('unit_photos').delete().eq('unit_id', photoModalTarget.unitId);
+      // Insert new
+      if (newPhotos.length > 0) {
+        await supabase.from('unit_photos').insert(
+          newPhotos.map((p, i) => ({
+            unit_id: photoModalTarget.unitId,
+            photo_url: p.photo_url,
+            display_order: i,
+          }))
+        );
+      }
+    }
+
+    setPhotoModalPhotos(newPhotos);
+    fetchPhotos();
+  };
+
+  const handlePhotoModalDelete = async (photoId: string, photoUrl: string) => {
+    // Delete from storage
+    const path = photoUrl.split('/property-photos/')[1];
+    if (path) {
+      await supabase.storage.from('property-photos').remove([path]);
+    }
+  };
+
+  const handleClearUnitPhotos = async () => {
+    if (!photoModalTarget || photoModalTarget.type !== 'unit') return;
+    // Delete storage files
+    for (const p of photoModalPhotos) {
+      const path = p.photo_url.split('/property-photos/')[1];
+      if (path) await supabase.storage.from('property-photos').remove([path]);
+    }
+    await supabase.from('unit_photos').delete().eq('unit_id', photoModalTarget.unitId);
+    setPhotoModalPhotos([]);
+    fetchPhotos();
+  };
+
+  const getEffectivePhotos = (unitId: string, roomTypeName: string) => {
+    const unitP = unitPhotosMap[unitId];
+    if (unitP && unitP.length > 0) return { count: unitP.length, source: 'unit' as const };
+    const rtP = roomTypePhotos[roomTypeName];
+    if (rtP && rtP.length > 0) return { count: rtP.length, source: 'shared' as const };
+    return { count: 0, source: 'none' as const };
+  };
+
+  const getPhotoModeBadge = (roomTypeName: string, typeUnits: Unit[]) => {
+    const hasTypePhotos = (roomTypePhotos[roomTypeName] || []).length > 0;
+    const unitsWithPhotos = typeUnits.filter(u => (unitPhotosMap[u.id] || []).length > 0);
+    
+    if (hasTypePhotos && unitsWithPhotos.length === 0) return { label: '📷 Type photos (shared)', variant: 'secondary' as const };
+    if (!hasTypePhotos && unitsWithPhotos.length > 0 && unitsWithPhotos.length === typeUnits.length) return { label: '📷 Per-unit photos', variant: 'outline' as const };
+    if (hasTypePhotos && unitsWithPhotos.length > 0) return { label: '📷 Mixed', variant: 'outline' as const };
+    if (!hasTypePhotos && unitsWithPhotos.length > 0) return { label: '📷 Per-unit photos', variant: 'outline' as const };
+    return null;
   };
 
   const handlePhotoUpload = async (unitId: string, files: FileList) => {
@@ -1156,6 +1295,7 @@ const Rooms = () => {
         <div className="space-y-4">
           {Array.from(roomTypeGroups.entries()).map(([typeName, { units: typeUnits, representative }]) => {
             const isExpanded = expandedTypes.has(typeName);
+            const photoBadge = getPhotoModeBadge(typeName, typeUnits);
             return (
               <Card key={typeName}>
                 <Collapsible open={isExpanded} onOpenChange={() => toggleType(typeName)}>
@@ -1177,6 +1317,16 @@ const Rooms = () => {
                           </div>
                         </div>
                         <div className="flex items-center gap-2">
+                          {photoBadge && <Badge variant={photoBadge.variant} className="text-xs">{photoBadge.label}</Badge>}
+                          <Button
+                            variant="ghost"
+                            size="icon"
+                            className="h-8 w-8"
+                            onClick={(e) => { e.stopPropagation(); openRoomTypePhotoModal(typeName); }}
+                            title="Manage room type photos"
+                          >
+                            <Camera className="h-4 w-4" />
+                          </Button>
                           <Badge variant="secondary">{typeUnits.length} unit{typeUnits.length !== 1 ? 's' : ''}</Badge>
                           {representative.unit_type && <Badge variant="outline">{representative.unit_type}</Badge>}
                         </div>
@@ -1252,37 +1402,23 @@ const Rooms = () => {
                                     )}
                                   </TableCell>
                                   <TableCell className="px-3 py-2 text-center">
-                                    <div className="flex items-center justify-center gap-1">
-                                      <input
-                                        type="file"
-                                        id={`photo-upload-${unit.id}`}
-                                        multiple
-                                        accept="image/*"
-                                        className="hidden"
-                                        onChange={(e) => {
-                                          if (e.target.files && e.target.files.length > 0) {
-                                            handlePhotoUpload(unit.id, e.target.files);
-                                          }
-                                        }}
-                                      />
-                                      <span className="text-sm tabular-nums text-muted-foreground">{unit.photos?.length || 0}</span>
-                                      {uploadingPhotos === unit.id && uploadProgress[unit.id] !== undefined && (
-                                        <Progress value={uploadProgress[unit.id]} className="h-1.5 w-12 [&>div]:bg-primary" />
-                                      )}
-                                      {unit.photos && unit.photos.length > 0 && (
+                                    {(() => {
+                                      const ep = getEffectivePhotos(unit.id, typeName);
+                                      return (
                                         <Button
                                           variant="ghost"
-                                          size="icon"
-                                          className="h-7 w-7"
-                                          onClick={() => {
-                                            setCurrentUnitPhotos({ id: unit.id, photos: unit.photos || [] });
-                                            setPhotoGalleryOpen(true);
-                                          }}
+                                          size="sm"
+                                          className="h-7 gap-1 text-sm"
+                                          onClick={() => openUnitPhotoModal(unit.id, unit.name)}
                                         >
-                                          <Eye className="h-3.5 w-3.5" />
+                                          <Camera className="h-3.5 w-3.5" />
+                                          <span className="tabular-nums">{ep.count}</span>
+                                          {ep.source === 'shared' && (
+                                            <Share2 className="h-3 w-3 text-muted-foreground" />
+                                          )}
                                         </Button>
-                                      )}
-                                    </div>
+                                      );
+                                    })()}
                                   </TableCell>
                                   <TableCell className="px-3 py-2">
                                     {isEditing ? (
@@ -1648,6 +1784,39 @@ const Rooms = () => {
           </div>
         </DialogContent>
       </Dialog>
+
+      {/* Photo Upload Modal (room type or unit level) */}
+      <PhotoUploadModal
+        open={photoModalOpen}
+        onOpenChange={(open) => { setPhotoModalOpen(open); if (!open) setPhotoModalTarget(null); }}
+        title={
+          photoModalTarget?.type === 'room_type'
+            ? `Photos for ${photoModalTarget.roomTypeName}`
+            : photoModalTarget?.type === 'unit'
+            ? `Photos for ${photoModalTarget.unitName}`
+            : 'Photos'
+        }
+        description={
+          photoModalTarget?.type === 'room_type'
+            ? 'These photos will be used for all units of this type unless a unit has its own photos.'
+            : 'These photos override the room type photos for this unit only.'
+        }
+        photos={photoModalPhotos}
+        storagePath={
+          photoModalTarget?.type === 'room_type'
+            ? `room-types/${propertyId}/${photoModalTarget.roomTypeName}`
+            : photoModalTarget?.type === 'unit'
+            ? `units/${photoModalTarget.unitId}`
+            : ''
+        }
+        onPhotosChange={(newPhotos) => {
+          setPhotoModalPhotos(newPhotos);
+          handlePhotoModalSave(newPhotos);
+        }}
+        onDeletePhoto={handlePhotoModalDelete}
+        onClearAll={photoModalTarget?.type === 'unit' ? handleClearUnitPhotos : undefined}
+        clearAllLabel="Clear unit photos (use type photos instead)"
+      />
     </div>
   );
 };
