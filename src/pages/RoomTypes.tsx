@@ -73,6 +73,7 @@ const groupRoomsByType = (rooms: RoomTypeData[]): GroupedRoomType[] => {
         max_infants: room.max_infants ?? 0,
         default_occupancy: room.default_occupancy ?? 2,
         room_kind: room.room_kind ?? 'room',
+        show_on_website: room.show_on_website ?? true,
       };
     } else {
       groups[displayName].unitIds.push(room.id);
