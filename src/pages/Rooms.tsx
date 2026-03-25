@@ -1402,37 +1402,23 @@ const Rooms = () => {
                                     )}
                                   </TableCell>
                                   <TableCell className="px-3 py-2 text-center">
-                                    <div className="flex items-center justify-center gap-1">
-                                      <input
-                                        type="file"
-                                        id={`photo-upload-${unit.id}`}
-                                        multiple
-                                        accept="image/*"
-                                        className="hidden"
-                                        onChange={(e) => {
-                                          if (e.target.files && e.target.files.length > 0) {
-                                            handlePhotoUpload(unit.id, e.target.files);
-                                          }
-                                        }}
-                                      />
-                                      <span className="text-sm tabular-nums text-muted-foreground">{unit.photos?.length || 0}</span>
-                                      {uploadingPhotos === unit.id && uploadProgress[unit.id] !== undefined && (
-                                        <Progress value={uploadProgress[unit.id]} className="h-1.5 w-12 [&>div]:bg-primary" />
-                                      )}
-                                      {unit.photos && unit.photos.length > 0 && (
+                                    {(() => {
+                                      const ep = getEffectivePhotos(unit.id, typeName);
+                                      return (
                                         <Button
                                           variant="ghost"
-                                          size="icon"
-                                          className="h-7 w-7"
-                                          onClick={() => {
-                                            setCurrentUnitPhotos({ id: unit.id, photos: unit.photos || [] });
-                                            setPhotoGalleryOpen(true);
-                                          }}
+                                          size="sm"
+                                          className="h-7 gap-1 text-sm"
+                                          onClick={() => openUnitPhotoModal(unit.id, unit.name)}
                                         >
-                                          <Eye className="h-3.5 w-3.5" />
+                                          <Camera className="h-3.5 w-3.5" />
+                                          <span className="tabular-nums">{ep.count}</span>
+                                          {ep.source === 'shared' && (
+                                            <Share2 className="h-3 w-3 text-muted-foreground" />
+                                          )}
                                         </Button>
-                                      )}
-                                    </div>
+                                      );
+                                    })()}
                                   </TableCell>
                                   <TableCell className="px-3 py-2">
                                     {isEditing ? (
