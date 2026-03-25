@@ -173,7 +173,7 @@ export function PropertyList() {
                           <Star className="h-4 w-4" />
                         </Button>
                       )}
-                      {canDeleteProperty && !property.is_default && (
+                      {canEdit && !property.is_default && (
                         <Button variant="ghost" size="sm" className="text-destructive" onClick={() => handleDeleteAttempt(property)}>
                           <Trash2 className="h-4 w-4" />
                         </Button>
