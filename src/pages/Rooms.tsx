@@ -342,7 +342,7 @@ const Rooms = () => {
   const openRoomTypePhotoModal = (roomTypeName: string) => {
     const existing = roomTypePhotos[roomTypeName] || [];
     setPhotoModalTarget({ type: 'room_type', roomTypeName });
-    setPhotoModalPhotos(existing.map(p => ({ id: p.id, photo_url: p.photo_url, display_order: p.display_order })));
+    setPhotoModalPhotos(existing.map(p => ({ id: p.id, photo_url: p.photo_url, display_order: p.display_order, is_cover: !!(p as any).is_cover })));
     setPhotoModalOpen(true);
   };
 
