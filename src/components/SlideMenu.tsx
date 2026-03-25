@@ -63,7 +63,7 @@ interface MenuSection {
 export function SlideMenu({ userRole }: SlideMenuProps) {
   const navigate = useNavigate();
   const location = useLocation();
-  const [almazaBayOpen, setAlmazaBayOpen] = useState(false);
+  
   const { hasPermission } = useAuth();
   const propertyCtx = usePropertySafe();
   const activePropertyName = propertyCtx?.activeProperty?.name;
