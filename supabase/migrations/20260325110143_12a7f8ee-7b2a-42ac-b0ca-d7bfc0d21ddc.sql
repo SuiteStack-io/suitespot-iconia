@@ -1,0 +1,1 @@
+ALTER TABLE public.units ADD COLUMN show_on_website boolean NOT NULL DEFAULT true;
