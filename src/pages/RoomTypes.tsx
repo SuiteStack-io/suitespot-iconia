@@ -127,6 +127,7 @@ export default function RoomTypes() {
           max_infants: group.max_infants,
           default_occupancy: group.default_occupancy,
           room_kind: group.room_kind,
+          show_on_website: group.show_on_website,
         };
       });
       setEditedData(initial);
