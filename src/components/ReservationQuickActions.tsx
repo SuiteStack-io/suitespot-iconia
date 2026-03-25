@@ -1218,6 +1218,7 @@ export const ReservationQuickActions = ({
                     className="w-full border-blue-500/30 text-blue-700 hover:bg-blue-500/10"
                     onClick={() => {
                       setExtendAgainMode(true);
+                      setIsDiscounted(false);
                       // Pre-fill price from first extension's nightly rate
                       const firstExt = siblingExtensions.length > 0 ? siblingExtensions[0] : fullReservation;
                       const firstExtNights = differenceInCalendarDays(
@@ -1225,8 +1226,9 @@ export const ReservationQuickActions = ({
                         new Date(firstExt.check_in_date)
                       );
                       if (firstExtNights > 0 && firstExt.total_price) {
-                        const netRate = (firstExt.total_price / 1.14) / firstExtNights;
+                        const netRate = Math.round(((firstExt.total_price / 1.14) / firstExtNights) * 100) / 100;
                         setExtensionPricePerNight(netRate.toFixed(2));
+                        setOriginalRate(netRate);
                       }
                       // Set check-in to last extension's checkout
                       const lastExt = siblingExtensions.length > 0 ? siblingExtensions[siblingExtensions.length - 1] : fullReservation;
