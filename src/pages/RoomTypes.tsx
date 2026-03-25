@@ -101,7 +101,7 @@ export default function RoomTypes() {
     queryFn: async () => {
       const { data, error } = await withPropertyFilter(supabase
         .from('units')
-        .select('id, name, booking_com_name, max_guests, max_children, max_infants, default_occupancy, room_kind')
+        .select('id, name, booking_com_name, max_guests, max_children, max_infants, default_occupancy, room_kind, show_on_website')
         .or('is_private.eq.false,is_private.is.null')
         .order('name'), propertyId);
 
