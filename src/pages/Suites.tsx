@@ -97,10 +97,13 @@ const Suites = () => {
           return acc;
         }, {} as Record<string, Unit[]>);
 
-        const uniqueUnits = Object.entries(grouped).map(([type, unitsOfType]) => ({
-          ...unitsOfType[0],
-          availableCount: unitsOfType.length,
-        }));
+        const uniqueUnits = Object.entries(grouped).map(([type, unitsOfType]) => {
+          const withPhotos = unitsOfType.find(u => u.photos && u.photos.length > 0);
+          return {
+            ...(withPhotos || unitsOfType[0]),
+            availableCount: unitsOfType.length,
+          };
+        });
 
         setUnits(uniqueUnits);
       } catch (error: any) {
