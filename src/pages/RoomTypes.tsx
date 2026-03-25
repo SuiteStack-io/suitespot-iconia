@@ -23,6 +23,7 @@ import {
 import { useToast } from '@/hooks/use-toast';
 import { SlideMenu } from '@/components/SlideMenu';
 import { Save, Loader2 } from 'lucide-react';
+import { Switch } from '@/components/ui/switch';
 
 interface RoomTypeData {
   id: string;
@@ -33,6 +34,7 @@ interface RoomTypeData {
   max_infants: number;
   default_occupancy: number;
   room_kind: string;
+  show_on_website: boolean;
 }
 
 interface GroupedRoomType {
@@ -44,6 +46,7 @@ interface GroupedRoomType {
   max_infants: number;
   default_occupancy: number;
   room_kind: string;
+  show_on_website: boolean;
 }
 
 interface EditedGroupData {
@@ -52,6 +55,7 @@ interface EditedGroupData {
   max_infants: number;
   default_occupancy: number;
   room_kind: string;
+  show_on_website: boolean;
 }
 
 const groupRoomsByType = (rooms: RoomTypeData[]): GroupedRoomType[] => {
@@ -70,6 +74,7 @@ const groupRoomsByType = (rooms: RoomTypeData[]): GroupedRoomType[] => {
         max_infants: room.max_infants ?? 0,
         default_occupancy: room.default_occupancy ?? 2,
         room_kind: room.room_kind ?? 'room',
+        show_on_website: room.show_on_website ?? true,
       };
     } else {
       groups[displayName].unitIds.push(room.id);
@@ -97,7 +102,7 @@ export default function RoomTypes() {
     queryFn: async () => {
       const { data, error } = await withPropertyFilter(supabase
         .from('units')
-        .select('id, name, booking_com_name, max_guests, max_children, max_infants, default_occupancy, room_kind')
+        .select('id, name, booking_com_name, max_guests, max_children, max_infants, default_occupancy, room_kind, show_on_website')
         .or('is_private.eq.false,is_private.is.null')
         .order('name'), propertyId);
 
@@ -123,6 +128,7 @@ export default function RoomTypes() {
           max_infants: group.max_infants,
           default_occupancy: group.default_occupancy,
           room_kind: group.room_kind,
+          show_on_website: group.show_on_website,
         };
       });
       setEditedData(initial);
@@ -141,6 +147,7 @@ export default function RoomTypes() {
             max_infants: data.max_infants,
             default_occupancy: data.default_occupancy,
             room_kind: data.room_kind,
+            show_on_website: data.show_on_website,
           })
           .eq('id', id)
       );
@@ -168,7 +175,7 @@ export default function RoomTypes() {
     },
   });
 
-  const handleFieldChange = (displayName: string, field: keyof EditedGroupData, value: number | string) => {
+  const handleFieldChange = (displayName: string, field: keyof EditedGroupData, value: number | string | boolean) => {
     setEditedData(prev => ({
       ...prev,
       [displayName]: {
@@ -254,6 +261,7 @@ export default function RoomTypes() {
                 <TableHead className="w-[100px]">Max Infants</TableHead>
                 <TableHead className="w-[110px]">Default Occ</TableHead>
                 <TableHead className="w-[120px]">Room Kind</TableHead>
+                <TableHead className="w-[90px]">Website</TableHead>
               </TableRow>
             </TableHeader>
             <TableBody>
@@ -314,6 +322,12 @@ export default function RoomTypes() {
                         <SelectItem value="dorm">Dorm</SelectItem>
                       </SelectContent>
                     </Select>
+                  </TableCell>
+                  <TableCell>
+                    <Switch
+                      checked={editedData[group.displayName]?.show_on_website ?? true}
+                      onCheckedChange={(checked) => handleFieldChange(group.displayName, 'show_on_website', checked ? true : false)}
+                    />
                   </TableCell>
                 </TableRow>
               ))}
