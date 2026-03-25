@@ -83,6 +83,8 @@ export const ReservationQuickActions = ({
   const [fullReservation, setFullReservation] = useState<any>(null);
   const [currentUserName, setCurrentUserName] = useState<string>("");
   const [siblingExtensions, setSiblingExtensions] = useState<any[]>([]);
+  const [originalRate, setOriginalRate] = useState<number | null>(null);
+  const [isDiscounted, setIsDiscounted] = useState(false);
   
   // Extension room and source selection state
   const [extensionUnitId, setExtensionUnitId] = useState<string>("");
