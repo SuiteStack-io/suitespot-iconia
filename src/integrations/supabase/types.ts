@@ -2064,6 +2064,7 @@ export type Database = {
           created_at: string
           display_order: number
           id: string
+          is_cover: boolean
           photo_url: string
           property_id: string
           room_type_name: string
@@ -2072,6 +2073,7 @@ export type Database = {
           created_at?: string
           display_order?: number
           id?: string
+          is_cover?: boolean
           photo_url: string
           property_id: string
           room_type_name: string
@@ -2080,6 +2082,7 @@ export type Database = {
           created_at?: string
           display_order?: number
           id?: string
+          is_cover?: boolean
           photo_url?: string
           property_id?: string
           room_type_name?: string
