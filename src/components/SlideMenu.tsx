@@ -6,11 +6,6 @@ import {
   SheetContent,
   SheetTrigger,
 } from '@/components/ui/sheet';
-import {
-  Collapsible,
-  CollapsibleContent,
-  CollapsibleTrigger,
-} from '@/components/ui/collapsible';
 import { Button } from '@/components/ui/button';
 import {
   PanelLeft,
