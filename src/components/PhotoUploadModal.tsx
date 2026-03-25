@@ -28,13 +28,14 @@ import {
   verticalListSortingStrategy,
 } from '@dnd-kit/sortable';
 import { CSS } from '@dnd-kit/utilities';
-import { Upload, Trash2, GripVertical, X, ImageIcon, Loader2 } from 'lucide-react';
+import { Upload, Trash2, GripVertical, X, ImageIcon, Loader2, Star } from 'lucide-react';
 import { toast } from 'sonner';
 
 interface PhotoItem {
   id: string;
   photo_url: string;
   display_order: number;
+  is_cover?: boolean;
 }
 
 interface PhotoUploadModalProps {
@@ -72,7 +73,7 @@ const convertToWebP = (file: File): Promise<Blob> => {
   });
 };
 
-function SortablePhoto({ photo, onDelete }: { photo: PhotoItem; onDelete: () => void }) {
+function SortablePhoto({ photo, onDelete, onSetCover }: { photo: PhotoItem; onDelete: () => void; onSetCover: () => void }) {
   const { attributes, listeners, setNodeRef, transform, transition, isDragging } = useSortable({ id: photo.id });
   const style = { transform: CSS.Transform.toString(transform), transition, opacity: isDragging ? 0.5 : 1 };
 
@@ -81,9 +82,26 @@ function SortablePhoto({ photo, onDelete }: { photo: PhotoItem; onDelete: () => 
       <button type="button" className="cursor-grab touch-none text-muted-foreground hover:text-foreground" {...attributes} {...listeners}>
         <GripVertical className="h-4 w-4" />
       </button>
-      <img src={photo.photo_url} alt="" className="h-16 w-20 object-cover rounded" />
+      <div className="relative">
+        <img src={photo.photo_url} alt="" className="h-16 w-20 object-cover rounded" />
+        <button
+          type="button"
+          onClick={onSetCover}
+          className={`absolute -top-1.5 -right-1.5 p-0.5 rounded-full transition-colors ${
+            photo.is_cover
+              ? 'bg-yellow-500 text-white shadow-sm'
+              : 'bg-background/80 text-muted-foreground hover:text-yellow-500 border border-border'
+          }`}
+          title={photo.is_cover ? 'Cover photo' : 'Set as cover'}
+        >
+          <Star className={`h-3 w-3 ${photo.is_cover ? 'fill-current' : ''}`} />
+        </button>
+      </div>
       <div className="flex-1 min-w-0">
-        <p className="text-xs text-muted-foreground truncate">{photo.photo_url.split('/').pop()}</p>
+        <div className="flex items-center gap-1.5">
+          <p className="text-xs text-muted-foreground truncate">{photo.photo_url.split('/').pop()}</p>
+          {photo.is_cover && <Badge variant="secondary" className="text-[10px] px-1.5 py-0">Cover</Badge>}
+        </div>
       </div>
       <Button variant="ghost" size="icon" className="h-7 w-7 text-destructive hover:text-destructive" onClick={onDelete}>
         <Trash2 className="h-3.5 w-3.5" />
@@ -116,6 +134,11 @@ const PhotoUploadModal = ({
     useSensor(KeyboardSensor, { coordinateGetter: sortableKeyboardCoordinates })
   );
 
+  const handleSetCover = (photoId: string) => {
+    const updated = photos.map(p => ({ ...p, is_cover: p.id === photoId }));
+    onPhotosChange(updated);
+  };
+
   const handleFiles = useCallback(async (files: File[]) => {
     const MAX_SIZE = 3 * 1024 * 1024;
     const validFiles = files.filter(f => {
@@ -143,7 +166,6 @@ const PhotoUploadModal = ({
         let fileName: string;
 
         if (seoSlug && seoPrefix) {
-          // Convert to WebP if not already
           if (file.type !== 'image/webp') {
             uploadBlob = await convertToWebP(file);
           }
@@ -167,6 +189,7 @@ const PhotoUploadModal = ({
           id: crypto.randomUUID(),
           photo_url: publicUrl,
           display_order: photos.length + i,
+          is_cover: false,
         });
 
         setUploadProgress(Math.round(((i + 1) / validFiles.length) * 100));
@@ -180,7 +203,7 @@ const PhotoUploadModal = ({
       setUploading(false);
       setUploadProgress(0);
     }
-  }, [photos, storagePath, onPhotosChange]);
+  }, [photos, storagePath, onPhotosChange, seoPrefix, seoSlug]);
 
   const handleDrop = useCallback((e: React.DragEvent) => {
     e.preventDefault();
@@ -239,7 +262,7 @@ const PhotoUploadModal = ({
               <>
                 <Upload className="h-8 w-8 mx-auto text-muted-foreground mb-2" />
                 <p className="text-sm font-medium">Drop photos here or click to browse</p>
-                <p className="text-xs text-muted-foreground mt-1">JPG, PNG, WebP · Max 3MB each</p>
+                <p className="text-xs text-muted-foreground mt-1">JPG, PNG, WebP · Max 3MB each · Click ★ to set cover photo</p>
               </>
             )}
           </div>
@@ -249,10 +272,11 @@ const PhotoUploadModal = ({
             <DndContext sensors={sensors} collisionDetection={closestCenter} onDragEnd={handleDragEnd}>
               <SortableContext items={photos.map(p => p.id)} strategy={verticalListSortingStrategy}>
                 <div className="space-y-2">
-                  {photos.map((photo, idx) => (
+                  {photos.map((photo) => (
                     <SortablePhoto
                       key={photo.id}
                       photo={photo}
+                      onSetCover={() => handleSetCover(photo.id)}
                       onDelete={async () => {
                         await onDeletePhoto(photo.id, photo.photo_url);
                         onPhotosChange(photos.filter(p => p.id !== photo.id).map((p, i) => ({ ...p, display_order: i })));
