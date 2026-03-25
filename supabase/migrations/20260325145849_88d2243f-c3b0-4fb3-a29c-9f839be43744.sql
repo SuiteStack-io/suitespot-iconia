@@ -1,0 +1,1 @@
+ALTER TABLE public.room_type_photos ADD COLUMN is_cover boolean NOT NULL DEFAULT false;
