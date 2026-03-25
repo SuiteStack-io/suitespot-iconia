@@ -75,6 +75,8 @@ interface RoomTypePhotoRecord extends PhotoRecord {
 interface UnitPhotoRecord extends PhotoRecord {
   unit_id: string;
 }
+
+interface Reservation {
   id: string;
   unit_id: string | null;
   check_in_date: string;
