@@ -986,15 +986,20 @@ export const ReservationQuickActions = ({
         <div className="space-y-4">
           {/* Reservation Summary */}
           <div className="p-4 bg-muted/50 rounded-lg space-y-2">
-            <div className="flex items-center justify-between">
+            <div className="flex items-center justify-between flex-wrap gap-2">
               <span className="font-semibold text-lg">{reservation.guest_names[0]}</span>
-              <div className="flex items-center gap-2">
+              <div className="flex items-center gap-2 flex-wrap">
                 <Badge variant={reservation.status === 'completed' ? 'secondary' : reservation.status === 'checked-out' ? 'outline' : 'default'}>
                   {reservation.status.replace('-', ' ')}
                 </Badge>
                 <Badge variant={getSourceBadgeColor(reservation.source)}>
                   {reservation.source || "Unknown"}
                 </Badge>
+                {fullReservation?.guest_nationality && (
+                  <Badge className="bg-teal-100 text-teal-800 border-teal-300 hover:bg-teal-100">
+                    {fullReservation.guest_nationality}
+                  </Badge>
+                )}
               </div>
             </div>
             <div className="text-sm text-muted-foreground">
