@@ -129,8 +129,14 @@ function generateEmailHTML(
   const tdStyle = (i: number) => `style="padding:8px 12px;border-bottom:1px solid #eee;font-size:13px;background:${i % 2 === 0 ? '#f9fafb' : '#fff'};"`;
 
   const checkInRows = checkIns.length > 0
-    ? checkIns.map((ci, i) => `<tr><td ${tdStyle(i)}>${ci.guest_names?.[0] || "N/A"}</td><td ${tdStyle(i)}>${formatRoomDisplay(ci.units)}</td><td ${tdStyle(i)}>${ci.source || ci.channel || "N/A"}</td></tr>`).join("")
-    : `<tr><td colspan="3" style="padding:12px;color:#888;">No check-ins today</td></tr>`;
+    ? checkIns.map((ci, i) => {
+        const nights = ci.check_in_date && ci.check_out_date
+          ? Math.round((new Date(ci.check_out_date + "T00:00:00").getTime() - new Date(ci.check_in_date + "T00:00:00").getTime()) / (1000 * 60 * 60 * 24))
+          : "—";
+        const nationality = ci.guest_nationality || "—";
+        return `<tr><td ${tdStyle(i)}>${ci.guest_names?.[0] || "N/A"}</td><td ${tdStyle(i)}>${formatRoomDisplay(ci.units)}</td><td ${tdStyle(i)}>${ci.source || ci.channel || "N/A"}</td><td ${tdStyle(i)}>${nights}</td><td ${tdStyle(i)}>${nationality}</td></tr>`;
+      }).join("")
+    : `<tr><td colspan="5" style="padding:12px;color:#888;">No check-ins today</td></tr>`;
 
   const checkOutRows = checkOuts.length > 0
     ? checkOuts.map((co, i) => `<tr><td ${tdStyle(i)}>${co.guest_names?.[0] || "N/A"}</td><td ${tdStyle(i)}>${formatRoomDisplay(co.units)}</td><td ${tdStyle(i)}>${co.source || co.channel || "N/A"}</td></tr>`).join("")
@@ -164,7 +170,7 @@ function generateEmailHTML(
   const bodyContentHTML = `
         <h2 style="font-size:16px;color:#1e293b;margin:0 0 8px;">📥 Today's Check-ins (${checkIns.length})</h2>
         <table ${tableStyle}>
-          <tr><th ${thStyle()}>Guest Name</th><th ${thStyle()}>Room</th><th ${thStyle()}>Source</th></tr>
+          <tr><th ${thStyle()}>Guest Name</th><th ${thStyle()}>Room</th><th ${thStyle()}>Source</th><th ${thStyle()}>Nights</th><th ${thStyle()}>Nationality</th></tr>
           ${checkInRows}
         </table>
 
@@ -249,7 +255,7 @@ const handler = async (req: Request): Promise<Response> => {
     // Fetch check-ins today (with room details + booking_reference to filter extensions)
     const { data: rawCheckIns } = await supabase
       .from("reservations")
-      .select("guest_names, source, channel, booking_reference, units!unit_id(name, booking_com_name, unit_number)")
+      .select("guest_names, source, channel, booking_reference, check_in_date, check_out_date, guest_nationality, units!unit_id(name, booking_com_name, unit_number)")
       .eq("check_in_date", todayStr)
       .in("status", ["confirmed", "checked-in"])
       .eq("property_id", property.id);
