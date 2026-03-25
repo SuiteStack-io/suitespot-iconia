@@ -1,30 +1,15 @@
 
 
-## Add Nationality Badge to Reservation Quick Actions Modal
+## Update your property role to "owner"
 
-### Change — Single file: `src/components/ReservationQuickActions.tsx`
+### Single change
+Update the `user_property_access` record for your user (`7737ccd3-...`) on the default property (`c98a2256-...`) from `admin` to `owner`.
 
-**Lines 988-998**: Update the guest info card to include a nationality badge after the status and source badges.
+This will also fix the missing trash icon issue, since `canDeleteProperty` checks for `owner` or `isSystemAdmin` roles via the property context.
 
-Current badge area:
-```
-<div className="flex items-center gap-2">
-  <Badge>status</Badge>
-  <Badge>source</Badge>
-</div>
-```
-
-Updated structure:
-- Change the layout so the guest name and badges wrap properly on mobile
-- Add `flex-wrap` to the badges container
-- After the source badge, conditionally render a nationality badge using `fullReservation?.guest_nationality`
-- Style the nationality badge with a teal/cyan background: `bg-teal-100 text-teal-800 border-teal-300`
-- Only show the badge when nationality is truthy (no "Unknown" or empty badge)
-
-Badge order: Status, Source, Nationality — matching the requested sequence.
-
-### What stays the same
-- All existing badge colors for status and source
-- All modal functionality (extend, move, checkout, swap, etc.)
-- No data fetching changes needed — `fullReservation` already includes `guest_nationality` via `select("*")`
+### Technical detail
+- Table: `user_property_access`
+- Record ID: `e298ce92-160e-436b-94de-5dec86e4dc86`
+- Change: `role` from `admin` → `owner`
+- Method: SQL UPDATE via insert tool
 
