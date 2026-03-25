@@ -89,12 +89,12 @@ const Suites = () => {
         const [unitsRes, rtPhotosRes, unitPhotosRes] = await Promise.all([
           supabase
             .from("units")
-            .select("id, name, booking_com_name, unit_type, unit_number, unit_size, status, comments, photos, max_guests, beds, features, show_on_website")
+            .select("id, name, booking_com_name, unit_type, unit_number, unit_size, status, comments, photos, max_guests, beds, features, show_on_website, room_type_display_order")
             .eq("status", "available")
             .eq("is_private", false)
             .eq("show_on_website", true)
             .eq("property_id", defaultPropertyId)
-            .order("name"),
+            .order("room_type_display_order"),
           supabase
             .from("room_type_photos")
             .select("room_type_name, photo_url, display_order, is_cover")
