@@ -98,6 +98,7 @@ const STATUS_OPTIONS = ['available', 'occupied', 'maintenance', 'reserved'];
 const Rooms = () => {
   const { user, loading, userRole } = useAuth();
   const propertyId = usePropertyId();
+  const { activeProperty } = useProperty();
   const navigate = useNavigate();
   const { toast } = useToast();
   const [units, setUnits] = useState<Unit[]>([]);
