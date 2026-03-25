@@ -82,7 +82,7 @@ const Suites = () => {
       try {
         const { data, error } = await supabase
           .from("units")
-          .select("id, name, booking_com_name, unit_type, unit_number, unit_size, status, comments")
+          .select("id, name, booking_com_name, unit_type, unit_number, unit_size, status, comments, photos, max_guests, beds, features")
           .eq("status", "available")
           .eq("is_private", false)
           .eq("property_id", defaultPropertyId)
