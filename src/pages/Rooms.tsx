@@ -1784,6 +1784,39 @@ const Rooms = () => {
           </div>
         </DialogContent>
       </Dialog>
+
+      {/* Photo Upload Modal (room type or unit level) */}
+      <PhotoUploadModal
+        open={photoModalOpen}
+        onOpenChange={(open) => { setPhotoModalOpen(open); if (!open) setPhotoModalTarget(null); }}
+        title={
+          photoModalTarget?.type === 'room_type'
+            ? `Photos for ${photoModalTarget.roomTypeName}`
+            : photoModalTarget?.type === 'unit'
+            ? `Photos for ${photoModalTarget.unitName}`
+            : 'Photos'
+        }
+        description={
+          photoModalTarget?.type === 'room_type'
+            ? 'These photos will be used for all units of this type unless a unit has its own photos.'
+            : 'These photos override the room type photos for this unit only.'
+        }
+        photos={photoModalPhotos}
+        storagePath={
+          photoModalTarget?.type === 'room_type'
+            ? `room-types/${propertyId}/${photoModalTarget.roomTypeName}`
+            : photoModalTarget?.type === 'unit'
+            ? `units/${photoModalTarget.unitId}`
+            : ''
+        }
+        onPhotosChange={(newPhotos) => {
+          setPhotoModalPhotos(newPhotos);
+          handlePhotoModalSave(newPhotos);
+        }}
+        onDeletePhoto={handlePhotoModalDelete}
+        onClearAll={photoModalTarget?.type === 'unit' ? handleClearUnitPhotos : undefined}
+        clearAllLabel="Clear unit photos (use type photos instead)"
+      />
     </div>
   );
 };
