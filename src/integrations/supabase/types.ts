@@ -2784,6 +2784,10 @@ export type Database = {
           conflict_reference: string
         }[]
       }
+      delete_property_with_dependencies: {
+        Args: { p_property_id: string }
+        Returns: undefined
+      }
       generate_guest_username: {
         Args: { p_first_name: string; p_last_name: string }
         Returns: string
