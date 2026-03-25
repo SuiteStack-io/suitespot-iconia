@@ -336,7 +336,97 @@ const Rooms = () => {
     }
   };
 
-  const handlePhotoUpload = async (unitId: string, files: FileList) => {
+  // Photo modal helpers
+  const openRoomTypePhotoModal = (roomTypeName: string) => {
+    const existing = roomTypePhotos[roomTypeName] || [];
+    setPhotoModalTarget({ type: 'room_type', roomTypeName });
+    setPhotoModalPhotos(existing.map(p => ({ id: p.id, photo_url: p.photo_url, display_order: p.display_order })));
+    setPhotoModalOpen(true);
+  };
+
+  const openUnitPhotoModal = (unitId: string, unitName: string) => {
+    const existing = unitPhotosMap[unitId] || [];
+    setPhotoModalTarget({ type: 'unit', unitId, unitName });
+    setPhotoModalPhotos(existing.map(p => ({ id: p.id, photo_url: p.photo_url, display_order: p.display_order })));
+    setPhotoModalOpen(true);
+  };
+
+  const handlePhotoModalSave = async (newPhotos: PhotoRecord[]) => {
+    if (!photoModalTarget || !propertyId) return;
+
+    if (photoModalTarget.type === 'room_type') {
+      // Delete old records
+      await supabase.from('room_type_photos').delete().eq('property_id', propertyId).eq('room_type_name', photoModalTarget.roomTypeName);
+      // Insert new
+      if (newPhotos.length > 0) {
+        await supabase.from('room_type_photos').insert(
+          newPhotos.map((p, i) => ({
+            room_type_name: photoModalTarget.roomTypeName,
+            property_id: propertyId,
+            photo_url: p.photo_url,
+            display_order: i,
+          }))
+        );
+      }
+    } else {
+      // Delete old records
+      await supabase.from('unit_photos').delete().eq('unit_id', photoModalTarget.unitId);
+      // Insert new
+      if (newPhotos.length > 0) {
+        await supabase.from('unit_photos').insert(
+          newPhotos.map((p, i) => ({
+            unit_id: photoModalTarget.unitId,
+            photo_url: p.photo_url,
+            display_order: i,
+          }))
+        );
+      }
+    }
+
+    setPhotoModalPhotos(newPhotos);
+    fetchPhotos();
+  };
+
+  const handlePhotoModalDelete = async (photoId: string, photoUrl: string) => {
+    // Delete from storage
+    const path = photoUrl.split('/property-photos/')[1];
+    if (path) {
+      await supabase.storage.from('property-photos').remove([path]);
+    }
+  };
+
+  const handleClearUnitPhotos = async () => {
+    if (!photoModalTarget || photoModalTarget.type !== 'unit') return;
+    // Delete storage files
+    for (const p of photoModalPhotos) {
+      const path = p.photo_url.split('/property-photos/')[1];
+      if (path) await supabase.storage.from('property-photos').remove([path]);
+    }
+    await supabase.from('unit_photos').delete().eq('unit_id', photoModalTarget.unitId);
+    setPhotoModalPhotos([]);
+    fetchPhotos();
+  };
+
+  const getEffectivePhotos = (unitId: string, roomTypeName: string) => {
+    const unitP = unitPhotosMap[unitId];
+    if (unitP && unitP.length > 0) return { count: unitP.length, source: 'unit' as const };
+    const rtP = roomTypePhotos[roomTypeName];
+    if (rtP && rtP.length > 0) return { count: rtP.length, source: 'shared' as const };
+    return { count: 0, source: 'none' as const };
+  };
+
+  const getPhotoModeBadge = (roomTypeName: string, typeUnits: Unit[]) => {
+    const hasTypePhotos = (roomTypePhotos[roomTypeName] || []).length > 0;
+    const unitsWithPhotos = typeUnits.filter(u => (unitPhotosMap[u.id] || []).length > 0);
+    
+    if (hasTypePhotos && unitsWithPhotos.length === 0) return { label: '📷 Type photos (shared)', variant: 'secondary' as const };
+    if (!hasTypePhotos && unitsWithPhotos.length > 0 && unitsWithPhotos.length === typeUnits.length) return { label: '📷 Per-unit photos', variant: 'outline' as const };
+    if (hasTypePhotos && unitsWithPhotos.length > 0) return { label: '📷 Mixed', variant: 'outline' as const };
+    if (!hasTypePhotos && unitsWithPhotos.length > 0) return { label: '📷 Per-unit photos', variant: 'outline' as const };
+    return null;
+  };
+
+
     const MAX_FILE_SIZE = 3 * 1024 * 1024; // 3MB in bytes
     const validFiles: File[] = [];
     const invalidFiles: string[] = [];
