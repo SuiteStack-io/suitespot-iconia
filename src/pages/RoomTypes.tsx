@@ -23,6 +23,7 @@ import {
 import { useToast } from '@/hooks/use-toast';
 import { SlideMenu } from '@/components/SlideMenu';
 import { Save, Loader2 } from 'lucide-react';
+import { Switch } from '@/components/ui/switch';
 
 interface RoomTypeData {
   id: string;
