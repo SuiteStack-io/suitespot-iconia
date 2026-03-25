@@ -426,7 +426,7 @@ const Rooms = () => {
     return null;
   };
 
-
+  const handlePhotoUpload = async (unitId: string, files: FileList) => {
     const MAX_FILE_SIZE = 3 * 1024 * 1024; // 3MB in bytes
     const validFiles: File[] = [];
     const invalidFiles: string[] = [];
