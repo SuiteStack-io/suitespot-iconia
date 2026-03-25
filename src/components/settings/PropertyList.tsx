@@ -22,11 +22,9 @@ export function PropertyList() {
   const [managingUsersFor, setManagingUsersFor] = useState<Property | null>(null);
   const [deletingProperty, setDeletingProperty] = useState<Property | null>(null);
   const [roomCounts, setRoomCounts] = useState<Record<string, number>>({});
-  const [reservationCounts, setReservationCounts] = useState<Record<string, number>>({});
 
   useEffect(() => {
     if (properties.length === 0) return;
-    // Fetch room counts
     supabase
       .from('units')
       .select('property_id')
@@ -35,17 +33,6 @@ export function PropertyList() {
         const counts: Record<string, number> = {};
         data.forEach(u => { if (u.property_id) counts[u.property_id] = (counts[u.property_id] || 0) + 1; });
         setRoomCounts(counts);
-      });
-    // Fetch reservation counts per property (to determine if delete is safe)
-    supabase
-      .from('reservations')
-      .select('property_id')
-      .not('status', 'in', '("cancelled","completed","checked-out")')
-      .then(({ data }) => {
-        if (!data) return;
-        const counts: Record<string, number> = {};
-        data.forEach(r => { if (r.property_id) counts[r.property_id] = (counts[r.property_id] || 0) + 1; });
-        setReservationCounts(counts);
       });
   }, [properties]);
 
@@ -81,11 +68,6 @@ export function PropertyList() {
   };
 
   const handleDeleteAttempt = (property: Property) => {
-    const hasReservations = (reservationCounts[property.id] || 0) > 0;
-    if (hasReservations) {
-      toast.error('This property has existing bookings and cannot be deleted. Deactivate it instead.');
-      return;
-    }
     setDeletingProperty(property);
   };
 
