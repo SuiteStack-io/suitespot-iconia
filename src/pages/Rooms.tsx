@@ -59,7 +59,22 @@ import { CSS } from '@dnd-kit/utilities';
 import { SlideMenu } from '@/components/SlideMenu';
 import { AdminBreadcrumb } from '@/components/AdminBreadcrumb';
 
+import { Unit } from '@/types/unit';
+
 interface PhotoRecord {
+  id: string;
+  photo_url: string;
+  display_order: number;
+}
+
+interface RoomTypePhotoRecord extends PhotoRecord {
+  room_type_name: string;
+  property_id: string;
+}
+
+interface UnitPhotoRecord extends PhotoRecord {
+  unit_id: string;
+}
   id: string;
   photo_url: string;
   display_order: number;
