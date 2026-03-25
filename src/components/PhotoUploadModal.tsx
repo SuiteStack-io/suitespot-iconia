@@ -139,10 +139,26 @@ const PhotoUploadModal = ({
       const newPhotos: PhotoItem[] = [];
       for (let i = 0; i < validFiles.length; i++) {
         const file = validFiles[i];
-        const ext = file.name.split('.').pop();
-        const fileName = `${storagePath}/${Date.now()}-${Math.random().toString(36).substring(2)}.${ext}`;
+        let uploadBlob: Blob | File = file;
+        let fileName: string;
 
-        const { error } = await supabase.storage.from('property-photos').upload(fileName, file, { cacheControl: '3600' });
+        if (seoSlug && seoPrefix) {
+          // Convert to WebP if not already
+          if (file.type !== 'image/webp') {
+            uploadBlob = await convertToWebP(file);
+          }
+          const seqNum = photos.length + i + 1;
+          fileName = `${storagePath}/${seoPrefix}-${seoSlug}-${seqNum}.webp`;
+        } else {
+          const ext = file.name.split('.').pop();
+          fileName = `${storagePath}/${Date.now()}-${Math.random().toString(36).substring(2)}.${ext}`;
+        }
+
+        const { error } = await supabase.storage.from('property-photos').upload(fileName, uploadBlob, {
+          cacheControl: '3600',
+          contentType: seoSlug && seoPrefix ? 'image/webp' : file.type,
+          upsert: true,
+        });
         if (error) throw error;
 
         const { data: { publicUrl } } = supabase.storage.from('property-photos').getPublicUrl(fileName);
