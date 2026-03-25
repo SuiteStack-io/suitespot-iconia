@@ -227,6 +227,7 @@ const Rooms = () => {
     if (user) {
       fetchUnits();
       fetchReservations();
+      fetchPhotos();
     }
 
     // Real-time updates for units and reservations
