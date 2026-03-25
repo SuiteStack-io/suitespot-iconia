@@ -45,6 +45,7 @@ interface GroupedRoomType {
   max_infants: number;
   default_occupancy: number;
   room_kind: string;
+  show_on_website: boolean;
 }
 
 interface EditedGroupData {
