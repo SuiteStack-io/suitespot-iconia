@@ -1809,6 +1809,14 @@ const Rooms = () => {
             ? `units/${photoModalTarget.unitId}`
             : ''
         }
+        seoPrefix="iconia-zamalek"
+        seoSlug={
+          photoModalTarget?.type === 'room_type'
+            ? photoModalTarget.roomTypeName?.toLowerCase().replace(/\s+/g, '-')
+            : photoModalTarget?.type === 'unit'
+            ? photoModalTarget.unitName?.toLowerCase().replace(/\s+/g, '-')
+            : undefined
+        }
         onPhotosChange={(newPhotos) => {
           setPhotoModalPhotos(newPhotos);
           handlePhotoModalSave(newPhotos);

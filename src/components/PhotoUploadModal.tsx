@@ -48,7 +48,29 @@ interface PhotoUploadModalProps {
   onDeletePhoto: (photoId: string, photoUrl: string) => Promise<void>;
   onClearAll?: () => Promise<void>;
   clearAllLabel?: string;
+  seoPrefix?: string;
+  seoSlug?: string;
 }
+
+const convertToWebP = (file: File): Promise<Blob> => {
+  return new Promise((resolve, reject) => {
+    const img = new window.Image();
+    img.onload = () => {
+      const canvas = document.createElement('canvas');
+      canvas.width = img.width;
+      canvas.height = img.height;
+      canvas.getContext('2d')!.drawImage(img, 0, 0);
+      canvas.toBlob(
+        blob => blob ? resolve(blob) : reject(new Error('WebP conversion failed')),
+        'image/webp',
+        0.85
+      );
+      URL.revokeObjectURL(img.src);
+    };
+    img.onerror = () => { URL.revokeObjectURL(img.src); reject(new Error('Image load failed')); };
+    img.src = URL.createObjectURL(file);
+  });
+};
 
 function SortablePhoto({ photo, onDelete }: { photo: PhotoItem; onDelete: () => void }) {
   const { attributes, listeners, setNodeRef, transform, transition, isDragging } = useSortable({ id: photo.id });
@@ -81,6 +103,8 @@ const PhotoUploadModal = ({
   onDeletePhoto,
   onClearAll,
   clearAllLabel,
+  seoPrefix,
+  seoSlug,
 }: PhotoUploadModalProps) => {
   const [uploading, setUploading] = useState(false);
   const [uploadProgress, setUploadProgress] = useState(0);
@@ -115,10 +139,26 @@ const PhotoUploadModal = ({
       const newPhotos: PhotoItem[] = [];
       for (let i = 0; i < validFiles.length; i++) {
         const file = validFiles[i];
-        const ext = file.name.split('.').pop();
-        const fileName = `${storagePath}/${Date.now()}-${Math.random().toString(36).substring(2)}.${ext}`;
+        let uploadBlob: Blob | File = file;
+        let fileName: string;
 
-        const { error } = await supabase.storage.from('property-photos').upload(fileName, file, { cacheControl: '3600' });
+        if (seoSlug && seoPrefix) {
+          // Convert to WebP if not already
+          if (file.type !== 'image/webp') {
+            uploadBlob = await convertToWebP(file);
+          }
+          const seqNum = photos.length + i + 1;
+          fileName = `${storagePath}/${seoPrefix}-${seoSlug}-${seqNum}.webp`;
+        } else {
+          const ext = file.name.split('.').pop();
+          fileName = `${storagePath}/${Date.now()}-${Math.random().toString(36).substring(2)}.${ext}`;
+        }
+
+        const { error } = await supabase.storage.from('property-photos').upload(fileName, uploadBlob, {
+          cacheControl: '3600',
+          contentType: seoSlug && seoPrefix ? 'image/webp' : file.type,
+          upsert: true,
+        });
         if (error) throw error;
 
         const { data: { publicUrl } } = supabase.storage.from('property-photos').getPublicUrl(fileName);
