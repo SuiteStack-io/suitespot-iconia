@@ -261,7 +261,7 @@ export default function RoomTypes() {
                 <TableHead className="w-[100px]">Max Infants</TableHead>
                 <TableHead className="w-[110px]">Default Occ</TableHead>
                 <TableHead className="w-[120px]">Room Kind</TableHead>
-              </TableRow>
+                <TableHead className="w-[90px]">Website</TableHead>
             </TableHeader>
             <TableBody>
               {groupedRoomTypes.map((group) => (
