@@ -262,6 +262,7 @@ export default function RoomTypes() {
                 <TableHead className="w-[110px]">Default Occ</TableHead>
                 <TableHead className="w-[120px]">Room Kind</TableHead>
                 <TableHead className="w-[90px]">Website</TableHead>
+              </TableRow>
             </TableHeader>
             <TableBody>
               {groupedRoomTypes.map((group) => (
