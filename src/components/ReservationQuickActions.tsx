@@ -83,6 +83,8 @@ export const ReservationQuickActions = ({
   const [fullReservation, setFullReservation] = useState<any>(null);
   const [currentUserName, setCurrentUserName] = useState<string>("");
   const [siblingExtensions, setSiblingExtensions] = useState<any[]>([]);
+  const [originalRate, setOriginalRate] = useState<number | null>(null);
+  const [isDiscounted, setIsDiscounted] = useState(false);
   
   // Extension room and source selection state
   const [extensionUnitId, setExtensionUnitId] = useState<string>("");
@@ -159,6 +161,8 @@ export const ReservationQuickActions = ({
       setExtensionPricePerNight("");
       setExtendConflict(false);
       setSiblingExtensions([]);
+      setOriginalRate(null);
+      setIsDiscounted(false);
       // Reset extension-specific state
       setExtensionUnitId(reservation.unit_id);
       setExtensionSource("");
@@ -1214,6 +1218,7 @@ export const ReservationQuickActions = ({
                     className="w-full border-blue-500/30 text-blue-700 hover:bg-blue-500/10"
                     onClick={() => {
                       setExtendAgainMode(true);
+                      setIsDiscounted(false);
                       // Pre-fill price from first extension's nightly rate
                       const firstExt = siblingExtensions.length > 0 ? siblingExtensions[0] : fullReservation;
                       const firstExtNights = differenceInCalendarDays(
@@ -1221,8 +1226,9 @@ export const ReservationQuickActions = ({
                         new Date(firstExt.check_in_date)
                       );
                       if (firstExtNights > 0 && firstExt.total_price) {
-                        const netRate = (firstExt.total_price / 1.14) / firstExtNights;
+                        const netRate = Math.round(((firstExt.total_price / 1.14) / firstExtNights) * 100) / 100;
                         setExtensionPricePerNight(netRate.toFixed(2));
+                        setOriginalRate(netRate);
                       }
                       // Set check-in to last extension's checkout
                       const lastExt = siblingExtensions.length > 0 ? siblingExtensions[siblingExtensions.length - 1] : fullReservation;
@@ -1423,18 +1429,54 @@ export const ReservationQuickActions = ({
 
                     <div className="space-y-2">
                       <label className="text-sm font-medium">Price/Night (Net)</label>
-                      <Input
-                        type="number"
-                        placeholder="Enter net price per night"
-                        value={extensionPricePerNight}
-                        onChange={(e) => setExtensionPricePerNight(e.target.value)}
-                        min="0"
-                        step="0.01"
-                        className={isBelowFloor ? "border-destructive" : ""}
-                      />
+                      <div className="flex gap-2 items-center">
+                        <Input
+                          type="number"
+                          placeholder="Enter net price per night"
+                          value={extensionPricePerNight}
+                          onChange={(e) => {
+                            setExtensionPricePerNight(e.target.value);
+                            setIsDiscounted(false);
+                          }}
+                          min="0"
+                          step="0.01"
+                          className={cn("flex-1", isBelowFloor ? "border-destructive" : "")}
+                        />
+                        {originalRate && (
+                          <Button
+                            type="button"
+                            size="sm"
+                            variant="outline"
+                            className="shrink-0 text-xs border-emerald-500/40 text-emerald-700 hover:bg-emerald-500/10"
+                            onClick={() => {
+                              const discounted = Math.round(originalRate * 0.9 * 100) / 100;
+                              setExtensionPricePerNight(discounted.toFixed(2));
+                              setIsDiscounted(true);
+                            }}
+                          >
+                            -10%
+                          </Button>
+                        )}
+                        {isDiscounted && originalRate && (
+                          <button
+                            type="button"
+                            className="text-xs text-muted-foreground underline hover:text-foreground shrink-0"
+                            onClick={() => {
+                              setExtensionPricePerNight(originalRate.toFixed(2));
+                              setIsDiscounted(false);
+                            }}
+                          >
+                            Reset
+                          </button>
+                        )}
+                      </div>
                       {isBelowFloor ? (
                         <p className="text-xs text-destructive">
                           Rate cannot be lower than the previous extension rate of ${priceFloor.toFixed(2)}/night
+                        </p>
+                      ) : originalRate && isDiscounted ? (
+                        <p className="text-xs text-muted-foreground">
+                          Original rate: ${originalRate.toFixed(2)} → Discounted: ${(Math.round(originalRate * 0.9 * 100) / 100).toFixed(2)} (-10%)
                         </p>
                       ) : (
                         <p className="text-xs text-muted-foreground">
@@ -1581,7 +1623,35 @@ export const ReservationQuickActions = ({
                   <Button
                     size="sm"
                     variant="outline"
-                    onClick={() => setExtendMode(true)}
+                    onClick={() => {
+                      setExtendMode(true);
+                      setIsDiscounted(false);
+                      // Auto-fill price based on source
+                      if (fullReservation) {
+                        const resNights = differenceInCalendarDays(
+                          new Date(fullReservation.check_out_date),
+                          new Date(fullReservation.check_in_date)
+                        );
+                        let calcRate = 0;
+                        const isExt = /-EXT\d*$/.test(fullReservation.booking_reference || '');
+                        const src = (fullReservation.source || '').toLowerCase();
+                        if (isExt && resNights > 0 && fullReservation.total_price) {
+                          // Extension of extension: use this extension's own rate (net of VAT)
+                          calcRate = Math.round(((fullReservation.total_price / 1.14) / resNights) * 100) / 100;
+                        } else if (src.includes('booking') && resNights > 0 && fullReservation.total_price) {
+                          // Booking.com: gross total / nights
+                          calcRate = Math.round((fullReservation.total_price / resNights) * 100) / 100;
+                        } else if (fullReservation.price_per_night) {
+                          calcRate = fullReservation.price_per_night;
+                        } else if (resNights > 0 && fullReservation.total_price) {
+                          calcRate = Math.round(((fullReservation.total_price / 1.14) / resNights) * 100) / 100;
+                        }
+                        if (calcRate > 0) {
+                          setExtensionPricePerNight(calcRate.toFixed(2));
+                          setOriginalRate(calcRate);
+                        }
+                      }
+                    }}
                     disabled={updatingStatus}
                     className="gap-1"
                   >
@@ -1860,17 +1930,55 @@ export const ReservationQuickActions = ({
 
               <div className="space-y-2">
                 <label className="text-sm font-medium">Price/Night (Net)</label>
-                <Input
-                  type="number"
-                  placeholder="Enter net price per night"
-                  value={extensionPricePerNight}
-                  onChange={(e) => setExtensionPricePerNight(e.target.value)}
-                  min="0"
-                  step="0.01"
-                />
-                <p className="text-xs text-muted-foreground">
-                  No minimum price applies for extensions
-                </p>
+                <div className="flex gap-2 items-center">
+                  <Input
+                    type="number"
+                    placeholder="Enter net price per night"
+                    value={extensionPricePerNight}
+                    onChange={(e) => {
+                      setExtensionPricePerNight(e.target.value);
+                      setIsDiscounted(false);
+                    }}
+                    min="0"
+                    step="0.01"
+                    className="flex-1"
+                  />
+                  {originalRate && (
+                    <Button
+                      type="button"
+                      size="sm"
+                      variant="outline"
+                      className="shrink-0 text-xs border-emerald-500/40 text-emerald-700 hover:bg-emerald-500/10"
+                      onClick={() => {
+                        const discounted = Math.round(originalRate * 0.9 * 100) / 100;
+                        setExtensionPricePerNight(discounted.toFixed(2));
+                        setIsDiscounted(true);
+                      }}
+                    >
+                      -10%
+                    </Button>
+                  )}
+                  {isDiscounted && originalRate && (
+                    <button
+                      type="button"
+                      className="text-xs text-muted-foreground underline hover:text-foreground shrink-0"
+                      onClick={() => {
+                        setExtensionPricePerNight(originalRate.toFixed(2));
+                        setIsDiscounted(false);
+                      }}
+                    >
+                      Reset
+                    </button>
+                  )}
+                </div>
+                {originalRate && (
+                  <p className="text-xs text-muted-foreground">
+                    {isDiscounted
+                      ? `${(fullReservation?.source || '').toLowerCase().includes('booking') ? 'Booking.com' : 'Original'} rate: $${originalRate.toFixed(2)} → Discounted: $${(Math.round(originalRate * 0.9 * 100) / 100).toFixed(2)} (-10%)`
+                      : `Based on ${(fullReservation?.source || '').toLowerCase().includes('booking') ? 'Booking.com' : 'original booking'} rate: $${originalRate.toFixed(2)}/night`
+                    }
+                  </p>
+                )}
               </div>
 
               {extensionSubtotal > 0 && (
