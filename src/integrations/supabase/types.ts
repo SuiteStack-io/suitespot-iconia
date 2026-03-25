@@ -2482,6 +2482,7 @@ export type Database = {
           price_per_night: number | null
           property_id: string | null
           room_kind: string | null
+          room_type_display_order: number
           show_on_website: boolean
           sofa_bed: boolean | null
           status: string
@@ -2522,6 +2523,7 @@ export type Database = {
           price_per_night?: number | null
           property_id?: string | null
           room_kind?: string | null
+          room_type_display_order?: number
           show_on_website?: boolean
           sofa_bed?: boolean | null
           status: string
@@ -2562,6 +2564,7 @@ export type Database = {
           price_per_night?: number | null
           property_id?: string | null
           room_kind?: string | null
+          room_type_display_order?: number
           show_on_website?: boolean
           sofa_bed?: boolean | null
           status?: string
