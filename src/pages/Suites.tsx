@@ -2,13 +2,13 @@ import { useState, useEffect } from "react";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
 import { Link } from "react-router-dom";
-import { Wifi, Tv, Coffee, Wind, Users, Bed, Loader2 } from "lucide-react";
+import { Wifi, Tv, Coffee, Wind, Users, Bed, Loader2, Camera } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { useToast } from "@/hooks/use-toast";
-import { usePropertySafe } from "@/lib/propertyContext";
 import { PublicNav } from "@/components/PublicNav";
 import { PublicFooter } from "@/components/PublicFooter";
 import { SEO } from "@/components/SEO";
+import SuiteLightbox from "@/components/SuiteLightbox";
 
 interface Unit {
   id: string;
@@ -24,6 +24,8 @@ interface Unit {
   beds: number | null;
   features: string[] | null;
   availableCount?: number;
+  coverPhoto?: string;
+  allPhotos?: string[];
 }
 
 const suitesJsonLd = {
@@ -70,6 +72,9 @@ const Suites = () => {
   const [units, setUnits] = useState<Unit[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [defaultPropertyId, setDefaultPropertyId] = useState<string | null>(null);
+  const [lightboxOpen, setLightboxOpen] = useState(false);
+  const [lightboxPhotos, setLightboxPhotos] = useState<string[]>([]);
+  const [lightboxIndex, setLightboxIndex] = useState(0);
 
   useEffect(() => {
     supabase.from("properties").select("id").eq("is_default", true).maybeSingle()
@@ -80,7 +85,6 @@ const Suites = () => {
     if (!defaultPropertyId) return;
     const fetchUnits = async () => {
       try {
-        // Fetch units, room type photos, and unit photos in parallel
         const [unitsRes, rtPhotosRes, unitPhotosRes] = await Promise.all([
           supabase
             .from("units")
@@ -92,7 +96,7 @@ const Suites = () => {
             .order("name"),
           supabase
             .from("room_type_photos")
-            .select("room_type_name, photo_url, display_order")
+            .select("room_type_name, photo_url, display_order, is_cover")
             .eq("property_id", defaultPropertyId)
             .order("display_order"),
           supabase
@@ -103,11 +107,11 @@ const Suites = () => {
 
         if (unitsRes.error) throw unitsRes.error;
 
-        // Build photo lookup maps
-        const rtPhotosByType: Record<string, string[]> = {};
+        // Build photo lookup maps with cover info
+        const rtPhotosByType: Record<string, { url: string; isCover: boolean }[]> = {};
         (rtPhotosRes.data || []).forEach((p: any) => {
           if (!rtPhotosByType[p.room_type_name]) rtPhotosByType[p.room_type_name] = [];
-          rtPhotosByType[p.room_type_name].push(p.photo_url);
+          rtPhotosByType[p.room_type_name].push({ url: p.photo_url, isCover: p.is_cover });
         });
 
         const unitPhotosByUnit: Record<string, string[]> = {};
@@ -124,19 +128,34 @@ const Suites = () => {
         }, {} as Record<string, Unit[]>);
 
         const uniqueUnits = Object.entries(grouped).map(([type, unitsOfType]) => {
-          // Pick representative with best photos using priority: unit_photos > room_type_photos > legacy photos
-          const getPhotos = (u: Unit): string[] => {
-            if (unitPhotosByUnit[u.id]?.length) return unitPhotosByUnit[u.id];
+          const getPhotosAndCover = (u: Unit): { allPhotos: string[]; coverPhoto: string | undefined } => {
+            // Unit photos override
+            if (unitPhotosByUnit[u.id]?.length) {
+              return { allPhotos: unitPhotosByUnit[u.id], coverPhoto: unitPhotosByUnit[u.id][0] };
+            }
+            // Room type photos with cover support
             const rtName = u.booking_com_name || u.name;
-            if (rtPhotosByType[rtName]?.length) return rtPhotosByType[rtName];
-            return u.photos || [];
+            const rtPhotos = rtPhotosByType[rtName];
+            if (rtPhotos?.length) {
+              const urls = rtPhotos.map(p => p.url);
+              const cover = rtPhotos.find(p => p.isCover);
+              return { allPhotos: urls, coverPhoto: cover ? cover.url : urls[0] };
+            }
+            // Legacy
+            return { allPhotos: u.photos || [], coverPhoto: u.photos?.[0] };
           };
 
-          const withPhotos = unitsOfType.find(u => getPhotos(u).length > 0);
+          const withPhotos = unitsOfType.find(u => {
+            const { allPhotos } = getPhotosAndCover(u);
+            return allPhotos.length > 0;
+          });
           const chosen = withPhotos || unitsOfType[0];
+          const { allPhotos, coverPhoto } = getPhotosAndCover(chosen);
           return {
             ...chosen,
-            photos: getPhotos(chosen),
+            photos: allPhotos,
+            allPhotos,
+            coverPhoto,
             availableCount: unitsOfType.length,
           };
         });
@@ -152,6 +171,12 @@ const Suites = () => {
     fetchUnits();
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [toast, defaultPropertyId]);
+
+  const openLightbox = (photos: string[], index: number = 0) => {
+    setLightboxPhotos(photos);
+    setLightboxIndex(index);
+    setLightboxOpen(true);
+  };
 
   const getDefaultAmenities = (unitType: string | null) => {
     const baseAmenities = ["Smart TV", "High-Speed WiFi", "Air Conditioning", "Premium Bedding"];
@@ -227,18 +252,43 @@ const Suites = () => {
                   const amenities = unit.features?.length ? unit.features : getDefaultAmenities(unit.unit_type);
                   const guests = unit.max_guests ? `Up to ${unit.max_guests}` : getDefaultGuests(unit.unit_type);
                   const beds = unit.beds ? `${unit.beds} Bed${unit.beds > 1 ? 's' : ''}` : getDefaultBeds(unit.unit_type);
+                  const allPhotos = unit.allPhotos || unit.photos || [];
+                  const displayPhoto = unit.coverPhoto || allPhotos[0];
                   
                   return (
                     <Card key={unit.id} className="overflow-hidden">
                       <div className="grid md:grid-cols-2 gap-0">
-                        <div className="h-64 md:h-auto bg-gradient-to-br from-accent/20 to-primary/20 relative min-h-[300px]">
-                          {unit.photos && unit.photos.length > 0 ? (
-                            <img
-                              src={unit.photos[0]}
-                              alt={unit.booking_com_name || unit.name}
-                              className="absolute inset-0 w-full h-full object-cover"
-                              loading="lazy"
-                            />
+                        <div
+                          className="h-64 md:h-auto bg-gradient-to-br from-accent/20 to-primary/20 relative min-h-[300px] cursor-pointer group"
+                          onClick={() => allPhotos.length > 0 && openLightbox(allPhotos, 0)}
+                        >
+                          {displayPhoto ? (
+                            <>
+                              <img
+                                src={displayPhoto}
+                                alt={unit.booking_com_name || unit.name}
+                                className="absolute inset-0 w-full h-full object-cover transition-transform duration-300 group-hover:scale-[1.02]"
+                                loading="lazy"
+                              />
+                              {/* Photo count overlay */}
+                              {allPhotos.length > 1 && (
+                                <div className="absolute top-3 right-3 bg-black/60 text-white text-xs font-medium px-2.5 py-1 rounded-full flex items-center gap-1.5 opacity-80 group-hover:opacity-100 transition-opacity">
+                                  <Camera className="h-3.5 w-3.5" />
+                                  {allPhotos.length}
+                                </div>
+                              )}
+                              {/* Dot indicators */}
+                              {allPhotos.length > 1 && allPhotos.length <= 8 && (
+                                <div className="absolute bottom-3 left-1/2 -translate-x-1/2 flex gap-1.5">
+                                  {allPhotos.map((_, i) => (
+                                    <span
+                                      key={i}
+                                      className={`w-1.5 h-1.5 rounded-full ${i === 0 ? 'bg-white' : 'bg-white/50'}`}
+                                    />
+                                  ))}
+                                </div>
+                              )}
+                            </>
                           ) : (
                             <div className="absolute inset-0 flex items-center justify-center">
                               <p className="text-muted-foreground">[Image: {unit.name}]</p>
@@ -341,6 +391,14 @@ const Suites = () => {
       </div>
 
       <PublicFooter />
+
+      {/* Lightbox */}
+      <SuiteLightbox
+        photos={lightboxPhotos}
+        initialIndex={lightboxIndex}
+        open={lightboxOpen}
+        onClose={() => setLightboxOpen(false)}
+      />
     </div>
   );
 };

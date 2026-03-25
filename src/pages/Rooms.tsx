@@ -367,6 +367,7 @@ const Rooms = () => {
             property_id: propertyId,
             photo_url: p.photo_url,
             display_order: i,
+            is_cover: !!(p as any).is_cover,
           }))
         );
       }
