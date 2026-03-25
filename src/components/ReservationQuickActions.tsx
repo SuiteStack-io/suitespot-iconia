@@ -161,6 +161,8 @@ export const ReservationQuickActions = ({
       setExtensionPricePerNight("");
       setExtendConflict(false);
       setSiblingExtensions([]);
+      setOriginalRate(null);
+      setIsDiscounted(false);
       // Reset extension-specific state
       setExtensionUnitId(reservation.unit_id);
       setExtensionSource("");
