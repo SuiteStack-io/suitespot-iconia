@@ -103,6 +103,8 @@ const PhotoUploadModal = ({
   onDeletePhoto,
   onClearAll,
   clearAllLabel,
+  seoPrefix,
+  seoSlug,
 }: PhotoUploadModalProps) => {
   const [uploading, setUploading] = useState(false);
   const [uploadProgress, setUploadProgress] = useState(0);
