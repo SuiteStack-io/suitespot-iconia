@@ -1,0 +1,1 @@
+ALTER TABLE public.units ADD COLUMN room_type_display_order integer NOT NULL DEFAULT 99;
