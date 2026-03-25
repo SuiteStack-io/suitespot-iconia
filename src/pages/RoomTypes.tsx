@@ -146,6 +146,7 @@ export default function RoomTypes() {
             max_infants: data.max_infants,
             default_occupancy: data.default_occupancy,
             room_kind: data.room_kind,
+            show_on_website: data.show_on_website,
           })
           .eq('id', id)
       );
