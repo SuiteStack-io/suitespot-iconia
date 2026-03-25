@@ -1,48 +1,35 @@
 
 
-## Show real photos on the Suites page and answer the upload question
+## Add "Show on Website" Toggle to Control Public Suite Visibility
 
-### Where to upload photos
+### Problem
+"Double Room with Terrace" appears on the public Suites page but should be hidden. "Suite with Terrace" should appear instead. Need a per-unit toggle to control public visibility without affecting PMS.
 
-Photos can be uploaded from two places:
-1. **Rooms Management** (`/admin/rooms`) — edit a room type and add photos directly to the unit record (stored in the `photos` column)
-2. **Media Library** (`/admin/media`) — general media uploads, but these aren't linked to specific room types
+### Changes
 
-The `photos` field on each unit record is what the Suites page should display. So the best workflow is: go to Rooms, edit a unit, and upload photos there.
-
-### Code changes — `src/pages/Suites.tsx`
-
-**1. Fetch photos and real data from units**
-
-Update the query (line 81) to also select `photos, max_guests, beds, features`:
-```
-.select("id, name, booking_com_name, unit_type, unit_number, unit_size, status, comments, photos, max_guests, beds, features")
+#### 1. Database Migration
+Add `show_on_website` boolean column to the `units` table:
+```sql
+ALTER TABLE public.units ADD COLUMN show_on_website boolean NOT NULL DEFAULT true;
 ```
 
-Update the `Unit` interface to add:
-```ts
-photos: string[] | null;
-max_guests: number | null;
-beds: number | null;
-features: string[] | null;
+#### 2. Set Initial Visibility
+Use the insert tool to hide "Double Room with Terrace" units:
+```sql
+UPDATE public.units SET show_on_website = false WHERE booking_com_name = 'Double Room with Terrace';
 ```
 
-When grouping units, prefer the record that has photos.
+#### 3. Update Public Suites Page (`src/pages/Suites.tsx`)
+Add `.eq("show_on_website", true)` to the query filter (line 85 area) so hidden room types don't appear on the public website.
 
-**2. Replace placeholder with real image**
+#### 4. Add Toggle to Room Types Admin (`src/pages/RoomTypes.tsx`)
+- Add `show_on_website` to the `RoomTypeData`, `GroupedRoomType`, and `EditedGroupData` interfaces
+- Add a "Website" column to the table with a Switch toggle per room type
+- Include `show_on_website` in the fetch query and update mutation
+- When grouping, take the first unit's `show_on_website` value
 
-Replace the gradient placeholder div (lines 191-196) with:
-- If `unit.photos?.length > 0`: render an `<img>` with `unit.photos[0]` as src, object-cover
-- Otherwise: keep the current placeholder
-
-**3. Use real data for guests, beds, amenities when available**
-
-- Use `unit.max_guests` instead of hardcoded guest counts when available
-- Use `unit.beds` for bedding info when available  
-- Use `unit.features` for amenities when available, falling back to the existing defaults
-
-### What stays the same
-- Page layout, card structure, SEO, hero section
-- "Check Availability" button behavior
-- Common amenities section at bottom
+#### 5. What stays the same
+- All PMS pages (calendar, reservations, rooms, Channex) are unaffected
+- No room types are renamed, merged, or deleted
+- Bookings and rate plans continue working normally
 
