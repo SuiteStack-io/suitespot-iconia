@@ -63,7 +63,7 @@ export function SlideMenu({ userRole }: SlideMenuProps) {
   const location = useLocation();
   
   const { hasPermission } = useAuth();
-  const propertyCtx = usePropertySafe();
+  
 
   const menuSections: MenuSection[] = [
     {
