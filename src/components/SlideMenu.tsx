@@ -1,5 +1,4 @@
-import { useEffect } from 'react';
-import { usePropertySafe } from '@/lib/propertyContext';
+import { useNavigate, useLocation } from 'react-router-dom';
 import { useNavigate, useLocation } from 'react-router-dom';
 import {
   Sheet,
