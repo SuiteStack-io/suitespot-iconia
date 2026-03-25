@@ -1,16 +1,9 @@
-import { useState, useEffect } from 'react';
-import { usePropertySafe } from '@/lib/propertyContext';
 import { useNavigate, useLocation } from 'react-router-dom';
 import {
   Sheet,
   SheetContent,
   SheetTrigger,
 } from '@/components/ui/sheet';
-import {
-  Collapsible,
-  CollapsibleContent,
-  CollapsibleTrigger,
-} from '@/components/ui/collapsible';
 import { Button } from '@/components/ui/button';
 import {
   PanelLeft,
@@ -25,17 +18,15 @@ import {
   Sparkles,
   Upload,
   Ticket,
-  Mountain,
   ClipboardList,
-  ScrollText,
   Shield,
   Image as ImageIcon,
   Map,
-  BarChart3,
+  
   DollarSign,
   Wallet,
   Banknote,
-  ChevronDown,
+  
   FileSignature,
   Zap,
   Lock,
@@ -64,30 +55,16 @@ interface MenuSection {
   label: string;
   items: MenuItem[];
   showFor?: ('admin' | 'manager' | 'front_desk' | 'housekeeping')[];
-  collapsible?: boolean;
 }
 
 export function SlideMenu({ userRole }: SlideMenuProps) {
   const navigate = useNavigate();
   const location = useLocation();
-  const [almazaBayOpen, setAlmazaBayOpen] = useState(false);
+  
   const { hasPermission } = useAuth();
-  const propertyCtx = usePropertySafe();
-  const activePropertyName = propertyCtx?.activeProperty?.name;
+  
 
   const menuSections: MenuSection[] = [
-    {
-      label: activePropertyName?.toUpperCase() || 'ALMAZA BAY',
-      items: [
-        { title: 'Properties', url: '/almaza-bay', icon: Mountain },
-        { title: 'KYC Management', url: '/kyc-management', icon: ClipboardList },
-        { title: 'KYC Results', url: '/selection-sessions', icon: FileText },
-        { title: 'Session Audit Log', url: '/session-audit-log', icon: ScrollText },
-        { title: 'Tickets Analytics', url: '/ticket-analytics', icon: BarChart3 },
-      ],
-      showFor: ['admin'],
-      collapsible: true,
-    },
     {
       label: 'OPERATIONS',
       items: [
@@ -199,10 +176,6 @@ export function SlideMenu({ userRole }: SlideMenuProps) {
           {/* Menu Sections */}
           <nav className="flex-1 overflow-y-auto px-3">
             {filteredSections.map((section, sectionIndex) => {
-              const isCollapsible = section.collapsible;
-              const isOpen = section.label === 'ALMAZA BAY' ? almazaBayOpen : true;
-              const setOpen = section.label === 'ALMAZA BAY' ? setAlmazaBayOpen : undefined;
-
               const sectionContent = (
                 <div className="space-y-1">
                   {section.items.map((item) => {
@@ -228,30 +201,6 @@ export function SlideMenu({ userRole }: SlideMenuProps) {
                   })}
                 </div>
               );
-
-              if (isCollapsible && setOpen) {
-                return (
-                  <Collapsible
-                    key={section.label}
-                    open={isOpen}
-                    onOpenChange={setOpen}
-                    className={sectionIndex > 0 ? 'mt-6' : ''}
-                  >
-                    <CollapsibleTrigger className="flex items-center justify-between w-full px-3 mb-2 group cursor-pointer">
-                      <h3 className="text-xs font-semibold text-[hsl(30,12%,60%)] uppercase tracking-wider group-hover:text-[hsl(30,15%,70%)] transition-colors">
-                        {section.label}
-                      </h3>
-                      <ChevronDown className={cn(
-                        'h-4 w-4 text-[hsl(30,12%,60%)] transition-transform duration-200',
-                        isOpen && 'rotate-180'
-                      )} />
-                    </CollapsibleTrigger>
-                    <CollapsibleContent>
-                      {sectionContent}
-                    </CollapsibleContent>
-                  </Collapsible>
-                );
-              }
 
               return (
                 <div key={section.label} className={sectionIndex > 0 ? 'mt-6' : ''}>
