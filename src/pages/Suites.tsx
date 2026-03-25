@@ -19,6 +19,7 @@ interface Unit {
   unit_size: string | null;
   status: string;
   comments: string | null;
+  room_type_display_order: number;
   photos: string[] | null;
   max_guests: number | null;
   beds: number | null;
