@@ -57,7 +57,6 @@ interface MenuSection {
   label: string;
   items: MenuItem[];
   showFor?: ('admin' | 'manager' | 'front_desk' | 'housekeeping')[];
-  collapsible?: boolean;
 }
 
 export function SlideMenu({ userRole }: SlideMenuProps) {
