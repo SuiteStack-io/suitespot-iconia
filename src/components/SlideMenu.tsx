@@ -206,30 +206,6 @@ export function SlideMenu({ userRole }: SlideMenuProps) {
                 </div>
               );
 
-              if (isCollapsible && setOpen) {
-                return (
-                  <Collapsible
-                    key={section.label}
-                    open={isOpen}
-                    onOpenChange={setOpen}
-                    className={sectionIndex > 0 ? 'mt-6' : ''}
-                  >
-                    <CollapsibleTrigger className="flex items-center justify-between w-full px-3 mb-2 group cursor-pointer">
-                      <h3 className="text-xs font-semibold text-[hsl(30,12%,60%)] uppercase tracking-wider group-hover:text-[hsl(30,15%,70%)] transition-colors">
-                        {section.label}
-                      </h3>
-                      <ChevronDown className={cn(
-                        'h-4 w-4 text-[hsl(30,12%,60%)] transition-transform duration-200',
-                        isOpen && 'rotate-180'
-                      )} />
-                    </CollapsibleTrigger>
-                    <CollapsibleContent>
-                      {sectionContent}
-                    </CollapsibleContent>
-                  </Collapsible>
-                );
-              }
-
               return (
                 <div key={section.label} className={sectionIndex > 0 ? 'mt-6' : ''}>
                   <div className="px-3 mb-2">
