@@ -1429,18 +1429,54 @@ export const ReservationQuickActions = ({
 
                     <div className="space-y-2">
                       <label className="text-sm font-medium">Price/Night (Net)</label>
-                      <Input
-                        type="number"
-                        placeholder="Enter net price per night"
-                        value={extensionPricePerNight}
-                        onChange={(e) => setExtensionPricePerNight(e.target.value)}
-                        min="0"
-                        step="0.01"
-                        className={isBelowFloor ? "border-destructive" : ""}
-                      />
+                      <div className="flex gap-2 items-center">
+                        <Input
+                          type="number"
+                          placeholder="Enter net price per night"
+                          value={extensionPricePerNight}
+                          onChange={(e) => {
+                            setExtensionPricePerNight(e.target.value);
+                            setIsDiscounted(false);
+                          }}
+                          min="0"
+                          step="0.01"
+                          className={cn("flex-1", isBelowFloor ? "border-destructive" : "")}
+                        />
+                        {originalRate && (
+                          <Button
+                            type="button"
+                            size="sm"
+                            variant="outline"
+                            className="shrink-0 text-xs border-emerald-500/40 text-emerald-700 hover:bg-emerald-500/10"
+                            onClick={() => {
+                              const discounted = Math.round(originalRate * 0.9 * 100) / 100;
+                              setExtensionPricePerNight(discounted.toFixed(2));
+                              setIsDiscounted(true);
+                            }}
+                          >
+                            -10%
+                          </Button>
+                        )}
+                        {isDiscounted && originalRate && (
+                          <button
+                            type="button"
+                            className="text-xs text-muted-foreground underline hover:text-foreground shrink-0"
+                            onClick={() => {
+                              setExtensionPricePerNight(originalRate.toFixed(2));
+                              setIsDiscounted(false);
+                            }}
+                          >
+                            Reset
+                          </button>
+                        )}
+                      </div>
                       {isBelowFloor ? (
                         <p className="text-xs text-destructive">
                           Rate cannot be lower than the previous extension rate of ${priceFloor.toFixed(2)}/night
+                        </p>
+                      ) : originalRate && isDiscounted ? (
+                        <p className="text-xs text-muted-foreground">
+                          Original rate: ${originalRate.toFixed(2)} → Discounted: ${(Math.round(originalRate * 0.9 * 100) / 100).toFixed(2)} (-10%)
                         </p>
                       ) : (
                         <p className="text-xs text-muted-foreground">
