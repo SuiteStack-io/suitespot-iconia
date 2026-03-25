@@ -255,7 +255,7 @@ const handler = async (req: Request): Promise<Response> => {
     // Fetch check-ins today (with room details + booking_reference to filter extensions)
     const { data: rawCheckIns } = await supabase
       .from("reservations")
-      .select("guest_names, source, channel, booking_reference, units!unit_id(name, booking_com_name, unit_number)")
+      .select("guest_names, source, channel, booking_reference, check_in_date, check_out_date, guest_nationality, units!unit_id(name, booking_com_name, unit_number)")
       .eq("check_in_date", todayStr)
       .in("status", ["confirmed", "checked-in"])
       .eq("property_id", property.id);
