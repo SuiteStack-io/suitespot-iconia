@@ -1,26 +1,31 @@
 
 
-## Show trash button for property deletion
+## Fix: Allow property deletion when all bookings are cancelled
 
 ### Problem
-The `canDeleteProperty` flag from the property context depends on the user's role for the **active** property. Even though you're now `owner` on the default property, the role fetch may be returning null because admin/system-admin users bypass `user_property_access` in the properties query — meaning no access record is found, so `propertyRole` stays null.
+`PropertyList.tsx` line 42-48 counts **all** reservations for each property. Even after cancelling every booking, the count is still > 0, so the toast "existing bookings" blocks the delete dialog from opening.
 
 ### Fix — `src/components/settings/PropertyList.tsx`
 
-**Line 176**: Change the delete button condition from using the context's `canDeleteProperty` (which is tied to the active property) to using the same `canEdit` check already used for the other action buttons:
+**Lines 42-48**: Add a filter to the reservations query to only count active bookings (exclude `cancelled`, `completed`, and `checked-out` statuses):
 
 ```tsx
 // Before
-{canDeleteProperty && !property.is_default && (
+supabase
+  .from('reservations')
+  .select('property_id')
 
 // After
-{canEdit && !property.is_default && (
+supabase
+  .from('reservations')
+  .select('property_id')
+  .not('status', 'in', '("cancelled","completed","checked-out")')
 ```
 
-This aligns the delete button visibility with the edit, users, and toggle buttons — all gated by `canEdit` (`isSystemAdmin || userRole === 'admin'`). The confirmation dialog and reservation-count guard still protect against accidental deletion.
+This way, cancelled/completed/checked-out reservations no longer block deletion. Only properties with active bookings (confirmed, checked-in, etc.) will show the error toast.
 
 ### What stays the same
-- Delete confirmation dialog (type property name)
-- Reservation check preventing deletion of properties with bookings
-- Default property cannot be deleted
+- Delete confirmation dialog with name typing
+- Actual deletion logic in `DeletePropertyDialog`
+- Default property protection (no trash icon shown)
 
