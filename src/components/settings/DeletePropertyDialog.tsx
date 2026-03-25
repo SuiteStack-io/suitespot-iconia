@@ -27,16 +27,22 @@ export function DeletePropertyDialog({ property, open, onClose, onDeleted }: Del
     if (!canDelete) return;
     setDeleting(true);
     try {
-      // Delete access records first (cascade should handle, but be explicit)
-      await supabase.from('user_property_access').delete().eq('property_id', property.id);
-      
-      const { error } = await supabase.from('properties').delete().eq('id', property.id);
+      const { error } = await supabase.rpc('delete_property_with_dependencies', {
+        p_property_id: property.id,
+      });
       if (error) throw error;
 
       toast.success(`${property.name} deleted`);
       onDeleted();
     } catch (err: any) {
-      toast.error(err.message || 'Failed to delete property');
+      const msg = err.message || '';
+      if (msg.includes('active bookings')) {
+        toast.error('Cannot delete — active bookings exist. Cancel or complete them first.');
+      } else if (msg.includes('default property')) {
+        toast.error('Cannot delete the default property. Set another as default first.');
+      } else {
+        toast.error(msg || 'Failed to delete property');
+      }
     } finally {
       setDeleting(false);
     }
@@ -56,7 +62,7 @@ export function DeletePropertyDialog({ property, open, onClose, onDeleted }: Del
 
         <div className="space-y-4 py-2">
           <p className="text-sm">
-            You are about to delete <strong>{property.name}</strong>. This will remove all user assignments for this property.
+            You are about to delete <strong>{property.name}</strong>. This will permanently remove all rooms, rate plans, booking history, and related logs for this property.
           </p>
           <div>
             <Label>Type "{property.name}" to confirm</Label>
