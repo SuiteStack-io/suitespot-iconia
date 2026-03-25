@@ -1,81 +1,35 @@
 
 
-## Suites Page: Default Cover Photo, Lightbox Slideshow, Mobile Swipe
+## Reorder Suite Cards on /suites Page
 
-### Overview
-Three changes: (1) add `is_cover` field to `room_type_photos` for marking a default/cover photo, with admin UI toggle; (2) build a fullscreen lightbox slideshow component; (3) add mobile swipe support and dot indicators on suite cards.
+### Problem
+Suite cards display in alphabetical order by `name`. Need custom ordering: Suite with Terrace first, then Deluxe Suite, Family Suite, Junior Suite.
+
+### Approach
+Add a `room_type_display_order` integer column to the `units` table, set values per room type, and sort by it on the Suites page.
 
 ### 1. Database Migration
-
-Add `is_cover` boolean column to `room_type_photos`:
-
+Add column:
 ```sql
-ALTER TABLE public.room_type_photos ADD COLUMN is_cover boolean NOT NULL DEFAULT false;
+ALTER TABLE public.units ADD COLUMN room_type_display_order integer NOT NULL DEFAULT 99;
 ```
 
-### 2. Admin PhotoUploadModal — Cover Photo Toggle
-
-**File: `src/components/PhotoUploadModal.tsx`**
-
-- Add a star/pin icon overlay on each `SortablePhoto` thumbnail
-- Clicking the star marks that photo as the cover (`is_cover = true`) and unmarks all others
-- Track `coverId` state in the modal, pass it out via a new `onCoverChange?: (photoId: string) => void` prop or embed it in the `onPhotosChange` callback
-- Visually: filled star = cover, outlined star = not cover
-
-**File: `src/pages/Rooms.tsx`**
-
-- When saving room type photos, persist the `is_cover` field alongside each photo record
-- Fetch `is_cover` in the photo query and pass it through
-
-### 3. New Component: `src/components/SuiteLightbox.tsx`
-
-A fullscreen lightbox/slideshow component with:
-
-- **Props**: `photos: string[]`, `initialIndex: number`, `open: boolean`, `onClose: () => void`
-- **Navigation**: Left/right arrow buttons, keyboard arrows, Escape to close
-- **Counter**: "2 / 6" indicator
-- **Close**: X button top-right, click outside image, Escape key
-- **Transitions**: CSS fade/slide between images
-- **Mobile swipe**: Touch event handlers (`touchstart`, `touchmove`, `touchend`) for left/right navigation and swipe-down to close, with momentum-based transitions
-- **Animation**: Scale-up open animation using CSS transforms
-
-### 4. Update Suites Page (`src/pages/Suites.tsx`)
-
-**Data fetching:**
-- Fetch `is_cover` from `room_type_photos` alongside `photo_url` and `display_order`
-- Determine cover photo: find photo with `is_cover = true`, fall back to first by `display_order`
-- Store all photos per unit (not just the cover) for the lightbox
-
-**Suite card image area:**
-- Display cover photo as main image
-- Add dot indicators at bottom of image when `photos.length > 1`
-- On click, open `SuiteLightbox` with all photos starting at index 0
-- Add a subtle camera icon overlay showing photo count
-
-**Lightbox integration:**
-- Render `SuiteLightbox` component, controlled by state: `lightboxOpen`, `lightboxPhotos`, `lightboxIndex`
-
-### 5. Technical Details
-
-**Touch swipe implementation** (in SuiteLightbox):
-```
-- Track touchStartX, touchStartY, touchDeltaX on touchmove
-- Apply translateX transform following the finger
-- On touchend: if deltaX > threshold (50px), navigate; if deltaY > threshold, close
-- Use CSS transition for snap-back animation
+### 2. Data Update (via insert tool)
+Set display order values for existing units by `booking_com_name`:
+```sql
+UPDATE units SET room_type_display_order = 1 WHERE booking_com_name ILIKE '%terrace%';
+UPDATE units SET room_type_display_order = 2 WHERE booking_com_name ILIKE '%deluxe%';
+UPDATE units SET room_type_display_order = 3 WHERE booking_com_name ILIKE '%family%';
+UPDATE units SET room_type_display_order = 4 WHERE booking_com_name ILIKE '%junior%';
 ```
 
-**Dot indicators** on suite card:
-- Absolutely positioned at bottom center of image container
-- Small circles, filled for "current" (always first when not in lightbox)
-- Max ~6 dots shown, collapse to "..." if more
-
-### Files to Create
-- `src/components/SuiteLightbox.tsx`
+### 3. Update `src/pages/Suites.tsx`
+- Add `room_type_display_order` to the select fields (line 91)
+- Change `.order("name")` to `.order("room_type_display_order")` (line 96)
+- Add `room_type_display_order` to the Unit interface
 
 ### Files to Modify
-- `src/components/PhotoUploadModal.tsx` — add cover star toggle on thumbnails
-- `src/pages/Rooms.tsx` — persist `is_cover` field when saving room type photos
-- `src/pages/Suites.tsx` — fetch `is_cover`, use cover photo, add dot indicators, integrate lightbox
-- Database migration for `is_cover` column
+- `src/pages/Suites.tsx` — select + order by new field
+- Database migration for column
+- Data update for existing values
 
