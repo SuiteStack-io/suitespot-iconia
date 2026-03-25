@@ -323,6 +323,12 @@ export default function RoomTypes() {
                       </SelectContent>
                     </Select>
                   </TableCell>
+                  <TableCell>
+                    <Switch
+                      checked={editedData[group.displayName]?.show_on_website ?? true}
+                      onCheckedChange={(checked) => handleFieldChange(group.displayName, 'show_on_website', checked ? true : false)}
+                    />
+                  </TableCell>
                 </TableRow>
               ))}
             </TableBody>
