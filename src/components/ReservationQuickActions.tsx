@@ -1585,7 +1585,35 @@ export const ReservationQuickActions = ({
                   <Button
                     size="sm"
                     variant="outline"
-                    onClick={() => setExtendMode(true)}
+                    onClick={() => {
+                      setExtendMode(true);
+                      setIsDiscounted(false);
+                      // Auto-fill price based on source
+                      if (fullReservation) {
+                        const resNights = differenceInCalendarDays(
+                          new Date(fullReservation.check_out_date),
+                          new Date(fullReservation.check_in_date)
+                        );
+                        let calcRate = 0;
+                        const isExt = /-EXT\d*$/.test(fullReservation.booking_reference || '');
+                        const src = (fullReservation.source || '').toLowerCase();
+                        if (isExt && resNights > 0 && fullReservation.total_price) {
+                          // Extension of extension: use this extension's own rate (net of VAT)
+                          calcRate = Math.round(((fullReservation.total_price / 1.14) / resNights) * 100) / 100;
+                        } else if (src.includes('booking') && resNights > 0 && fullReservation.total_price) {
+                          // Booking.com: gross total / nights
+                          calcRate = Math.round((fullReservation.total_price / resNights) * 100) / 100;
+                        } else if (fullReservation.price_per_night) {
+                          calcRate = fullReservation.price_per_night;
+                        } else if (resNights > 0 && fullReservation.total_price) {
+                          calcRate = Math.round(((fullReservation.total_price / 1.14) / resNights) * 100) / 100;
+                        }
+                        if (calcRate > 0) {
+                          setExtensionPricePerNight(calcRate.toFixed(2));
+                          setOriginalRate(calcRate);
+                        }
+                      }
+                    }}
                     disabled={updatingStatus}
                     className="gap-1"
                   >
