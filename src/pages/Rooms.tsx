@@ -142,6 +142,11 @@ const Rooms = () => {
   const [expandedTypes, setExpandedTypes] = useState<Set<string>>(new Set());
   const [pendingAvailabilitySync, setPendingAvailabilitySync] = useState<PendingAvailabilitySync[]>([]);
   const [isSyncingAvailability, setIsSyncingAvailability] = useState(false);
+  const [roomTypePhotos, setRoomTypePhotos] = useState<Record<string, RoomTypePhotoRecord[]>>({});
+  const [unitPhotosMap, setUnitPhotosMap] = useState<Record<string, UnitPhotoRecord[]>>({});
+  const [photoModalOpen, setPhotoModalOpen] = useState(false);
+  const [photoModalTarget, setPhotoModalTarget] = useState<{ type: 'room_type'; roomTypeName: string } | { type: 'unit'; unitId: string; unitName: string } | null>(null);
+  const [photoModalPhotos, setPhotoModalPhotos] = useState<PhotoRecord[]>([]);
 
   const sensors = useSensors(
     useSensor(PointerSensor),
