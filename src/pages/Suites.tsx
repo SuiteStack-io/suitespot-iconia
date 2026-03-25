@@ -195,11 +195,19 @@ const Suites = () => {
                   return (
                     <Card key={unit.id} className="overflow-hidden">
                       <div className="grid md:grid-cols-2 gap-0">
-                        <div className="h-64 md:h-auto bg-gradient-to-br from-accent/20 to-primary/20 relative">
-                          {/* Placeholder for image */}
-                          <div className="absolute inset-0 flex items-center justify-center">
-                            <p className="text-muted-foreground">[Image: {unit.name}]</p>
-                          </div>
+                        <div className="h-64 md:h-auto bg-gradient-to-br from-accent/20 to-primary/20 relative min-h-[300px]">
+                          {unit.photos && unit.photos.length > 0 ? (
+                            <img
+                              src={unit.photos[0]}
+                              alt={unit.booking_com_name || unit.name}
+                              className="absolute inset-0 w-full h-full object-cover"
+                              loading="lazy"
+                            />
+                          ) : (
+                            <div className="absolute inset-0 flex items-center justify-center">
+                              <p className="text-muted-foreground">[Image: {unit.name}]</p>
+                            </div>
+                          )}
                         </div>
                         <div className="p-8">
                           <h3 className="text-3xl font-serif font-bold text-foreground mb-2">
