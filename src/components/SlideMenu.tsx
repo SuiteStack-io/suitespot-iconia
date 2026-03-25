@@ -65,7 +65,6 @@ export function SlideMenu({ userRole }: SlideMenuProps) {
   
   const { hasPermission } = useAuth();
   const propertyCtx = usePropertySafe();
-  const activePropertyName = propertyCtx?.activeProperty?.name;
 
   const menuSections: MenuSection[] = [
     {
