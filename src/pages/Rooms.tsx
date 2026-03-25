@@ -1295,6 +1295,7 @@ const Rooms = () => {
         <div className="space-y-4">
           {Array.from(roomTypeGroups.entries()).map(([typeName, { units: typeUnits, representative }]) => {
             const isExpanded = expandedTypes.has(typeName);
+            const photoBadge = getPhotoModeBadge(typeName, typeUnits);
             return (
               <Card key={typeName}>
                 <Collapsible open={isExpanded} onOpenChange={() => toggleType(typeName)}>
@@ -1316,6 +1317,16 @@ const Rooms = () => {
                           </div>
                         </div>
                         <div className="flex items-center gap-2">
+                          {photoBadge && <Badge variant={photoBadge.variant} className="text-xs">{photoBadge.label}</Badge>}
+                          <Button
+                            variant="ghost"
+                            size="icon"
+                            className="h-8 w-8"
+                            onClick={(e) => { e.stopPropagation(); openRoomTypePhotoModal(typeName); }}
+                            title="Manage room type photos"
+                          >
+                            <Camera className="h-4 w-4" />
+                          </Button>
                           <Badge variant="secondary">{typeUnits.length} unit{typeUnits.length !== 1 ? 's' : ''}</Badge>
                           {representative.unit_type && <Badge variant="outline">{representative.unit_type}</Badge>}
                         </div>
