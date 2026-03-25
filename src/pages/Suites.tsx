@@ -188,9 +188,9 @@ const Suites = () => {
             ) : (
               <div className="space-y-12">
                 {units.map((unit) => {
-                  const amenities = getDefaultAmenities(unit.unit_type);
-                  const guests = getDefaultGuests(unit.unit_type);
-                  const beds = getDefaultBeds(unit.unit_type);
+                  const amenities = unit.features?.length ? unit.features : getDefaultAmenities(unit.unit_type);
+                  const guests = unit.max_guests ? `Up to ${unit.max_guests}` : getDefaultGuests(unit.unit_type);
+                  const beds = unit.beds ? `${unit.beds} Bed${unit.beds > 1 ? 's' : ''}` : getDefaultBeds(unit.unit_type);
                   
                   return (
                     <Card key={unit.id} className="overflow-hidden">
