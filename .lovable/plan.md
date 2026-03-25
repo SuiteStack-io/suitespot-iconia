@@ -1,43 +1,48 @@
 
 
-## Auto-fill Price/Night and Add Discount Button to Extend Stay Form
+## Show real photos on the Suites page and answer the upload question
 
-### What changes
+### Where to upload photos
 
-**`src/components/ReservationQuickActions.tsx`** — all changes in this single file:
+Photos can be uploaded from two places:
+1. **Rooms Management** (`/admin/rooms`) — edit a room type and add photos directly to the unit record (stored in the `photos` column)
+2. **Media Library** (`/admin/media`) — general media uploads, but these aren't linked to specific room types
 
-#### 1. New state variables
-- `originalRate: number | null` — stores the calculated default rate for reset functionality
-- `isDiscounted: boolean` — tracks whether the -10% discount is active
+The `photos` field on each unit record is what the Suites page should display. So the best workflow is: go to Rooms, edit a unit, and upload photos there.
 
-#### 2. Auto-fill logic when entering extend mode
-When `setExtendMode(true)` is clicked (line ~1584), calculate and pre-fill `extensionPricePerNight`:
+### Code changes — `src/pages/Suites.tsx`
 
-- **Booking.com source** (`reservation.source` contains "booking"): `fullReservation.total_price / nights` (gross rate per night, since Booking.com totals include commissions)
-- **Manual/Direct source**: Use `fullReservation.price_per_night` if available, otherwise `fullReservation.total_price / nights`
-- **Extension of extension** (booking ref contains "EXT"): Use the current extension's own `total_price / nights` (already handled in "Extend Again" but needs to apply for first extend too)
-- Store this calculated value in `originalRate` for the reset button
+**1. Fetch photos and real data from units**
 
-#### 3. Add "-10% Discount" button and "Reset" link
-Next to the Price/Night input field (both in first-extend and extend-again sections):
-- Small button labeled "-10%" styled with a green/blue accent
-- On click: sets `extensionPricePerNight` to `originalRate * 0.9`, sets `isDiscounted = true`
-- "Reset" link appears when discounted, restores `originalRate`
-- Clicking -10% multiple times always applies 10% off the ORIGINAL rate (not compounding)
+Update the query (line 81) to also select `photos, max_guests, beds, features`:
+```
+.select("id, name, booking_com_name, unit_type, unit_number, unit_size, status, comments, photos, max_guests, beds, features")
+```
 
-#### 4. Dynamic helper text replacing "No minimum price applies for extensions"
-- **Booking.com**: `"Based on Booking.com rate: $XX.XX/night"` or `"Booking.com rate: $XX.XX → Discounted: $YY.YY (-10%)"` when discounted
-- **Direct/Manual**: `"Based on original booking rate: $XX.XX/night"` or with discount suffix
-- **Extend Again**: Keep existing floor-based helper text but also show the auto-filled context
+Update the `Unit` interface to add:
+```ts
+photos: string[] | null;
+max_guests: number | null;
+beds: number | null;
+features: string[] | null;
+```
 
-#### 5. What stays unchanged
-- New Checkout Date field, Currency, Payment Method, Source selectors
-- Extension save logic, booking reference generation, commission calculation
-- Extend Again price floor validation logic
+When grouping units, prefer the record that has photos.
 
-### Technical details
+**2. Replace placeholder with real image**
 
-The auto-fill runs at the moment the user clicks "Extend Stay" (onClick handler at line ~1584). The `fullReservation` data is already fetched at that point. For the "Extend Again" flow, the existing pre-fill logic (lines 1217-1225) already calculates from the first extension — we add `originalRate` tracking and discount button there too.
+Replace the gradient placeholder div (lines 191-196) with:
+- If `unit.photos?.length > 0`: render an `<img>` with `unit.photos[0]` as src, object-cover
+- Otherwise: keep the current placeholder
 
-The `-10%` button uses `Math.round(originalRate * 0.9 * 100) / 100` to avoid floating point issues. The Input remains editable — manual typing clears the discount state.
+**3. Use real data for guests, beds, amenities when available**
+
+- Use `unit.max_guests` instead of hardcoded guest counts when available
+- Use `unit.beds` for bedding info when available  
+- Use `unit.features` for amenities when available, falling back to the existing defaults
+
+### What stays the same
+- Page layout, card structure, SEO, hero section
+- "Check Availability" button behavior
+- Common amenities section at bottom
 
