@@ -1,26 +1,30 @@
 
 
-## Add Nights and Nationality columns to Check-ins table in daily summary email
+## Add Nationality Badge to Reservation Quick Actions Modal
 
-### Changes — Single file: `supabase/functions/generate-daily-summary/index.ts`
+### Change — Single file: `src/components/ReservationQuickActions.tsx`
 
-**1. Update check-ins query to include additional fields** (line 252)
-- Add `check_in_date`, `check_out_date`, and `guest_nationality` to the select statement
+**Lines 988-998**: Update the guest info card to include a nationality badge after the status and source badges.
 
-**2. Update check-in rows HTML generation** (lines 131-133)
-- Calculate nights: `(check_out_date - check_in_date)` in days
-- Add Nights and Nationality columns to each row
-- Update the empty-state colspan from 3 to 5
+Current badge area:
+```
+<div className="flex items-center gap-2">
+  <Badge>status</Badge>
+  <Badge>source</Badge>
+</div>
+```
 
-**3. Update check-ins table header** (line 167)
-- Add `<th>Nights</th>` and `<th>Nationality</th>` after Source
+Updated structure:
+- Change the layout so the guest name and badges wrap properly on mobile
+- Add `flex-wrap` to the badges container
+- After the source badge, conditionally render a nationality badge using `fullReservation?.guest_nationality`
+- Style the nationality badge with a teal/cyan background: `bg-teal-100 text-teal-800 border-teal-300`
+- Only show the badge when nationality is truthy (no "Unknown" or empty badge)
 
-### Note on PDF
-The daily summary does not include a PDF attachment (excluded for Edge Function stability per project convention), so no PDF changes are needed.
+Badge order: Status, Source, Nationality — matching the requested sequence.
 
 ### What stays the same
-- In-House Guests table (already has these columns)
-- Check-outs table
-- Weekly/monthly summaries
-- Email design and header
+- All existing badge colors for status and source
+- All modal functionality (extend, move, checkout, swap, etc.)
+- No data fetching changes needed — `fullReservation` already includes `guest_nationality` via `select("*")`
 
