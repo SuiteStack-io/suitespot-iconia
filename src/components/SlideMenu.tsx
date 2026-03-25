@@ -180,10 +180,6 @@ export function SlideMenu({ userRole }: SlideMenuProps) {
           {/* Menu Sections */}
           <nav className="flex-1 overflow-y-auto px-3">
             {filteredSections.map((section, sectionIndex) => {
-              const isCollapsible = section.collapsible;
-              const isOpen = section.label === 'ALMAZA BAY' ? almazaBayOpen : true;
-              const setOpen = section.label === 'ALMAZA BAY' ? setAlmazaBayOpen : undefined;
-
               const sectionContent = (
                 <div className="space-y-1">
                   {section.items.map((item) => {
