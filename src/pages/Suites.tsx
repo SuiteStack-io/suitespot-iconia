@@ -19,6 +19,10 @@ interface Unit {
   unit_size: string | null;
   status: string;
   comments: string | null;
+  photos: string[] | null;
+  max_guests: number | null;
+  beds: number | null;
+  features: string[] | null;
   availableCount?: number;
 }
 
@@ -78,7 +82,7 @@ const Suites = () => {
       try {
         const { data, error } = await supabase
           .from("units")
-          .select("id, name, booking_com_name, unit_type, unit_number, unit_size, status, comments")
+          .select("id, name, booking_com_name, unit_type, unit_number, unit_size, status, comments, photos, max_guests, beds, features")
           .eq("status", "available")
           .eq("is_private", false)
           .eq("property_id", defaultPropertyId)
@@ -93,10 +97,13 @@ const Suites = () => {
           return acc;
         }, {} as Record<string, Unit[]>);
 
-        const uniqueUnits = Object.entries(grouped).map(([type, unitsOfType]) => ({
-          ...unitsOfType[0],
-          availableCount: unitsOfType.length,
-        }));
+        const uniqueUnits = Object.entries(grouped).map(([type, unitsOfType]) => {
+          const withPhotos = unitsOfType.find(u => u.photos && u.photos.length > 0);
+          return {
+            ...(withPhotos || unitsOfType[0]),
+            availableCount: unitsOfType.length,
+          };
+        });
 
         setUnits(uniqueUnits);
       } catch (error: any) {
@@ -181,18 +188,26 @@ const Suites = () => {
             ) : (
               <div className="space-y-12">
                 {units.map((unit) => {
-                  const amenities = getDefaultAmenities(unit.unit_type);
-                  const guests = getDefaultGuests(unit.unit_type);
-                  const beds = getDefaultBeds(unit.unit_type);
+                  const amenities = unit.features?.length ? unit.features : getDefaultAmenities(unit.unit_type);
+                  const guests = unit.max_guests ? `Up to ${unit.max_guests}` : getDefaultGuests(unit.unit_type);
+                  const beds = unit.beds ? `${unit.beds} Bed${unit.beds > 1 ? 's' : ''}` : getDefaultBeds(unit.unit_type);
                   
                   return (
                     <Card key={unit.id} className="overflow-hidden">
                       <div className="grid md:grid-cols-2 gap-0">
-                        <div className="h-64 md:h-auto bg-gradient-to-br from-accent/20 to-primary/20 relative">
-                          {/* Placeholder for image */}
-                          <div className="absolute inset-0 flex items-center justify-center">
-                            <p className="text-muted-foreground">[Image: {unit.name}]</p>
-                          </div>
+                        <div className="h-64 md:h-auto bg-gradient-to-br from-accent/20 to-primary/20 relative min-h-[300px]">
+                          {unit.photos && unit.photos.length > 0 ? (
+                            <img
+                              src={unit.photos[0]}
+                              alt={unit.booking_com_name || unit.name}
+                              className="absolute inset-0 w-full h-full object-cover"
+                              loading="lazy"
+                            />
+                          ) : (
+                            <div className="absolute inset-0 flex items-center justify-center">
+                              <p className="text-muted-foreground">[Image: {unit.name}]</p>
+                            </div>
+                          )}
                         </div>
                         <div className="p-8">
                           <h3 className="text-3xl font-serif font-bold text-foreground mb-2">
