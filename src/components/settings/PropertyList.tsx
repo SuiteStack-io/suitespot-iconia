@@ -40,6 +40,7 @@ export function PropertyList() {
     supabase
       .from('reservations')
       .select('property_id')
+      .not('status', 'in', '("cancelled","completed","checked-out")')
       .then(({ data }) => {
         if (!data) return;
         const counts: Record<string, number> = {};
