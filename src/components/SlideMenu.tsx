@@ -24,7 +24,7 @@ import {
   Shield,
   Image as ImageIcon,
   Map,
-  BarChart3,
+  
   DollarSign,
   Wallet,
   Banknote,
