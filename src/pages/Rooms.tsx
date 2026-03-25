@@ -1809,7 +1809,7 @@ const Rooms = () => {
             ? `units/${photoModalTarget.unitId}`
             : ''
         }
-        seoPrefix="iconia-zamalek"
+        seoPrefix={activeProperty?.name?.toLowerCase().replace(/\s+/g, '-') || 'property'}
         seoSlug={
           photoModalTarget?.type === 'room_type'
             ? photoModalTarget.roomTypeName?.toLowerCase().replace(/\s+/g, '-')
