@@ -76,21 +76,6 @@ interface UnitPhotoRecord extends PhotoRecord {
   unit_id: string;
 }
   id: string;
-  photo_url: string;
-  display_order: number;
-}
-
-interface RoomTypePhotoRecord extends PhotoRecord {
-  room_type_name: string;
-  property_id: string;
-}
-
-interface UnitPhotoRecord extends PhotoRecord {
-  unit_id: string;
-}
-
-interface Reservation {
-  id: string;
   unit_id: string | null;
   check_in_date: string;
   check_out_date: string;
