@@ -70,18 +70,6 @@ export function SlideMenu({ userRole }: SlideMenuProps) {
 
   const menuSections: MenuSection[] = [
     {
-      label: activePropertyName?.toUpperCase() || 'ALMAZA BAY',
-      items: [
-        { title: 'Properties', url: '/almaza-bay', icon: Mountain },
-        { title: 'KYC Management', url: '/kyc-management', icon: ClipboardList },
-        { title: 'KYC Results', url: '/selection-sessions', icon: FileText },
-        { title: 'Session Audit Log', url: '/session-audit-log', icon: ScrollText },
-        { title: 'Tickets Analytics', url: '/ticket-analytics', icon: BarChart3 },
-      ],
-      showFor: ['admin'],
-      collapsible: true,
-    },
-    {
       label: 'OPERATIONS',
       items: [
         { title: 'Rooms', url: '/rooms', icon: DoorOpen, showFor: ['admin'] },
