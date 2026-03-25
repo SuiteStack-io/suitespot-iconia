@@ -3,6 +3,7 @@ import { useNavigate } from 'react-router-dom';
 import { useAuth } from '@/lib/auth';
 import { supabase } from '@/integrations/supabase/client';
 import { usePropertyId, withPropertyFilter } from '@/hooks/usePropertyFilter';
+import { useProperty } from '@/lib/propertyContext';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
@@ -97,6 +98,7 @@ const STATUS_OPTIONS = ['available', 'occupied', 'maintenance', 'reserved'];
 const Rooms = () => {
   const { user, loading, userRole } = useAuth();
   const propertyId = usePropertyId();
+  const { activeProperty } = useProperty();
   const navigate = useNavigate();
   const { toast } = useToast();
   const [units, setUnits] = useState<Unit[]>([]);
@@ -1809,7 +1811,7 @@ const Rooms = () => {
             ? `units/${photoModalTarget.unitId}`
             : ''
         }
-        seoPrefix="iconia-zamalek"
+        seoPrefix={activeProperty?.name?.toLowerCase().replace(/\s+/g, '-') || 'property'}
         seoSlug={
           photoModalTarget?.type === 'room_type'
             ? photoModalTarget.roomTypeName?.toLowerCase().replace(/\s+/g, '-')
