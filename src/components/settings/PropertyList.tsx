@@ -68,11 +68,6 @@ export function PropertyList() {
   };
 
   const handleDeleteAttempt = (property: Property) => {
-    const hasReservations = (reservationCounts[property.id] || 0) > 0;
-    if (hasReservations) {
-      toast.error('This property has existing bookings and cannot be deleted. Deactivate it instead.');
-      return;
-    }
     setDeletingProperty(property);
   };
 
