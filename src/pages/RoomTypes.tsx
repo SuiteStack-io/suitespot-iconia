@@ -175,7 +175,7 @@ export default function RoomTypes() {
     },
   });
 
-  const handleFieldChange = (displayName: string, field: keyof EditedGroupData, value: number | string) => {
+  const handleFieldChange = (displayName: string, field: keyof EditedGroupData, value: number | string | boolean) => {
     setEditedData(prev => ({
       ...prev,
       [displayName]: {
