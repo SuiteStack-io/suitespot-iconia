@@ -309,6 +309,33 @@ const Rooms = () => {
     setReservations(data || []);
   };
 
+  const fetchPhotos = async () => {
+    if (!propertyId) return;
+
+    const [rtRes, upRes] = await Promise.all([
+      supabase.from('room_type_photos').select('*').eq('property_id', propertyId).order('display_order'),
+      supabase.from('unit_photos').select('*').order('display_order'),
+    ]);
+
+    if (rtRes.data) {
+      const grouped: Record<string, RoomTypePhotoRecord[]> = {};
+      (rtRes.data as any[]).forEach((p: any) => {
+        if (!grouped[p.room_type_name]) grouped[p.room_type_name] = [];
+        grouped[p.room_type_name].push(p);
+      });
+      setRoomTypePhotos(grouped);
+    }
+
+    if (upRes.data) {
+      const grouped: Record<string, UnitPhotoRecord[]> = {};
+      (upRes.data as any[]).forEach((p: any) => {
+        if (!grouped[p.unit_id]) grouped[p.unit_id] = [];
+        grouped[p.unit_id].push(p);
+      });
+      setUnitPhotosMap(grouped);
+    }
+  };
+
   const handlePhotoUpload = async (unitId: string, files: FileList) => {
     const MAX_FILE_SIZE = 3 * 1024 * 1024; // 3MB in bytes
     const validFiles: File[] = [];
