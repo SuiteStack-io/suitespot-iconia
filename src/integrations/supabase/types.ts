@@ -2635,6 +2635,7 @@ export type Database = {
           can_check_out: boolean | null
           can_create_booking: boolean | null
           can_export_calendar: boolean | null
+          can_override_rates: boolean
           can_submit_forms: boolean | null
           created_at: string | null
           id: string
@@ -2650,6 +2651,7 @@ export type Database = {
           can_check_out?: boolean | null
           can_create_booking?: boolean | null
           can_export_calendar?: boolean | null
+          can_override_rates?: boolean
           can_submit_forms?: boolean | null
           created_at?: string | null
           id?: string
@@ -2665,6 +2667,7 @@ export type Database = {
           can_check_out?: boolean | null
           can_create_booking?: boolean | null
           can_export_calendar?: boolean | null
+          can_override_rates?: boolean
           can_submit_forms?: boolean | null
           created_at?: string | null
           id?: string

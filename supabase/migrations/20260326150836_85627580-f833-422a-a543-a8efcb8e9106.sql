@@ -1,0 +1,1 @@
+ALTER TABLE user_permissions ADD COLUMN can_override_rates boolean NOT NULL DEFAULT false;

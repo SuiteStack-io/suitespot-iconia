@@ -221,7 +221,7 @@ const ReservationDetail = () => {
     vat_exempt: false as boolean,
   });
 
-  const canEdit = userRole === 'admin';
+  const canEdit = hasPermission('can_create_booking');
 
   useEffect(() => {
     fetchReservation();

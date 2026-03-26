@@ -1461,9 +1461,9 @@ export function CreateReservationDialog() {
                       value={roomPrices[roomIndex]}
                       onChange={(e) => updateRoomPrice(roomIndex, e.target.value ? Number(e.target.value) : "")}
                       placeholder="Enter price"
-                      min={userRole === 'admin' ? 0 : (getMinPriceForRoom(roomIndex) || 0)}
+                      min={hasPermission('can_override_rates') ? 0 : (getMinPriceForRoom(roomIndex) || 0)}
                       step="1"
-                      className={cn(!isRoomPriceValid(roomIndex) && userRole !== 'admin' && "border-destructive focus-visible:ring-destructive")}
+                      className={cn(!isRoomPriceValid(roomIndex) && !hasPermission('can_override_rates') && "border-destructive focus-visible:ring-destructive")}
                     />
                     {getMinPriceForRoom(roomIndex) !== null && (
                       <p className="text-xs text-muted-foreground">
@@ -1475,7 +1475,7 @@ export function CreateReservationDialog() {
                         Includes ${extraRate}/night extra guest fee ({extraAdultsCount} additional adult{extraAdultsCount > 1 ? 's' : ''})
                       </p>
                     )}
-                    {!isRoomPriceValid(roomIndex) && userRole !== 'admin' && (
+                    {!isRoomPriceValid(roomIndex) && !hasPermission('can_override_rates') && (
                       <p className="text-xs text-destructive">
                         Rate cannot be lower than the standard rate of ${getMinPriceForRoom(roomIndex)?.toFixed(2)}/night
                       </p>
