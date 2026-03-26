@@ -237,6 +237,7 @@ export function EditPermissionsDialog({
       can_export_calendar: newValue,
       can_access_pms: newValue,
       can_access_front_desk: newValue,
+      can_override_rates: newValue,
     });
   };
 
