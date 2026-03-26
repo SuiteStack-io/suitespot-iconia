@@ -1,48 +1,29 @@
 
 
-## Fix: Auto-Shuffle Blocked by Overlap Trigger
+## Fix Room Shuffle Email Subject Line
 
-### Root Cause
-The BFS algorithm correctly computes a valid chain of moves, but executes them **sequentially**. A database trigger (`prevent_reservation_overlap`) fires on each individual UPDATE and blocks moves where the destination unit still has a conflicting reservation that hasn't been moved yet (it's scheduled to move later in the chain).
+### Problem
+The subject line currently shows the **triggering** booking's guest name and reference:
+`Room Shuffle Alert - Emna Haj Romdhane (5765450047) at ICONIA Zamalek...`
 
-Example: BFS says "move A from 501→502, then move B from 502→503". When move A executes, B is still on 502, so the trigger raises `RESERVATION CONFLICT`.
+It should show the **moved** guest's name and room change:
+`Room Shuffle Alert - Anton Yang - Room #505 to #502 at ICONIA Zamalek...`
 
 ### Fix
-Update the `prevent_reservation_overlap()` trigger function to **skip validation when the update is a shuffle operation**. The shuffle code already sets `shuffled_from_unit_id` on the reservation during moves — we use this as the signal.
+**File: `supabase/functions/auto-shuffle-rooms/index.ts`** — line 581
 
-### Database Migration
-```sql
-CREATE OR REPLACE FUNCTION public.prevent_reservation_overlap()
- RETURNS trigger
- LANGUAGE plpgsql
- SECURITY DEFINER
- SET search_path TO 'public'
-AS $function$
-DECLARE
-  conflict_record RECORD;
-  unit_info RECORD;
-BEGIN
-  -- Skip validation for shuffle moves (BFS algorithm pre-validates)
-  IF NEW.shuffled_from_unit_id IS NOT NULL 
-     AND (OLD.shuffled_from_unit_id IS NULL OR NEW.shuffled_from_unit_id != OLD.shuffled_from_unit_id) THEN
-    RETURN NEW;
-  END IF;
-
-  -- Only check for confirmed or checked-in reservations
-  IF NEW.status NOT IN ('confirmed', 'checked-in') THEN
-    RETURN NEW;
-  END IF;
-
-  -- existing conflict check logic unchanged...
-END;
-$function$;
+Replace:
+```ts
+subject: `Room Shuffle Alert - ${guestNames[0] || 'Guest'} (${bookingReference}) at ${shufflePropertyName}`,
 ```
 
-The condition `NEW.shuffled_from_unit_id IS NOT NULL AND (OLD value differs)` ensures:
-- Shuffle moves bypass the trigger (trusted, pre-validated by BFS)
-- Normal inserts/updates still get full conflict checking
-- Re-saving a previously shuffled reservation doesn't skip validation
+With:
+```ts
+subject: `Room Shuffle Alert - ${solution.moves[0]?.guest_name || guestNames[0] || 'Guest'} - Room #${solution.moves[0]?.from_room_number} to #${solution.moves[0]?.to_room_number} at ${shufflePropertyName}`,
+```
 
-### Files
-- Single database migration only. No application code changes needed.
+This uses the first move's guest name, from-room, and to-room in the subject. If there are multiple moves, the first move is shown (the email body already contains all move details).
+
+### Files Modified
+- `supabase/functions/auto-shuffle-rooms/index.ts` (single line change)
 
