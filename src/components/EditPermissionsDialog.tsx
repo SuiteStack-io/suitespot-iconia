@@ -35,6 +35,7 @@ interface UserPermissions {
   can_export_calendar: boolean;
   can_access_pms: boolean;
   can_access_front_desk: boolean;
+  can_override_rates: boolean;
 }
 
 const PERMISSION_LABELS: Record<keyof UserPermissions, { label: string; description: string }> = {
