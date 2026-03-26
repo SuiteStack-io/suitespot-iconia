@@ -143,6 +143,7 @@ export function EditPermissionsDialog({
           can_export_calendar: data.can_export_calendar ?? false,
           can_access_pms: data.can_access_pms ?? false,
           can_access_front_desk: data.can_access_front_desk ?? false,
+          can_override_rates: data.can_override_rates ?? false,
         });
       } else {
         setPermissions({
