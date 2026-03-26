@@ -157,7 +157,7 @@ const ReservationDetail = () => {
   const { id } = useParams();
   const navigate = useNavigate();
   const propertyId = usePropertyId();
-  const { userRole } = useAuth();
+  const { userRole, hasPermission } = useAuth();
   const [reservation, setReservation] = useState<Reservation | null>(null);
   const [units, setUnits] = useState<Unit[]>([]);
   const [unitAvailability, setUnitAvailability] = useState<UnitAvailability[]>([]);
