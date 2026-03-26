@@ -720,7 +720,7 @@ export function CreateReservationDialog() {
 
   // Check if room price is valid (>= minimum, unless admin)
   const isRoomPriceValid = (roomIndex: number): boolean => {
-    if (userRole === 'admin') return true;
+    if (hasPermission('can_override_rates')) return true;
     
     const price = roomPrices[roomIndex];
     const minPrice = getMinPriceForRoom(roomIndex);
