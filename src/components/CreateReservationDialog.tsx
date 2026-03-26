@@ -1020,8 +1020,8 @@ export function CreateReservationDialog() {
   };
 
   const handleSubmit = async () => {
-    if (!userRole || (userRole !== 'admin' && userRole !== 'manager')) {
-      toast.error('You do not have permission to create reservations. Admin or Manager role required.');
+    if (!canCreateBooking) {
+      toast.error('You do not have permission to create reservations.');
       return;
     }
 
