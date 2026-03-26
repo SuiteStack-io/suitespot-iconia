@@ -158,6 +158,7 @@ export function EditPermissionsDialog({
           can_access_front_desk: false,
           can_override_rates: false,
         });
+      }
     } catch (error) {
       console.error('Error fetching permissions:', error);
       toast({
