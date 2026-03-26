@@ -1,23 +1,39 @@
 
 
-## Fix: Booking Page "Loading Available Suites" Never Resolves
+## Apply Three Permission Fixes from Audit
 
-### Root Cause
-The `useEffect` that fetches available units (line 274) has a guard `if (!defaultPropertyId) return;` — but `defaultPropertyId` is **missing from the dependency array** (line 440). The default property is fetched asynchronously in a separate `useEffect`, so when it resolves and sets `defaultPropertyId`, the units fetch never re-triggers.
-
-### Fix
-**File: `src/pages/BookingFlow.tsx`** — single-line change at line 440:
-
-Add `defaultPropertyId` to the dependency array:
-
-```ts
-}, [toast, dateRange, preSelectedUnitId, preSelectedUnitType, defaultPropertyId]);
+### 1. Database Migration
+Add `can_override_rates` boolean column to `user_permissions` table:
+```sql
+ALTER TABLE user_permissions ADD COLUMN can_override_rates boolean NOT NULL DEFAULT false;
 ```
 
-This ensures the fetch re-runs once the default property ID is available.
+### 2. Update `src/lib/auth.tsx`
+- Add `can_override_rates: boolean` to the `UserPermissions` interface and `DEFAULT_PERMISSIONS`
+- Add it to `fetchUserPermissions` mapping
 
-### What stays the same
-- Booking flow steps, design, and submission logic
-- Property switcher and admin pages
-- How bookings are saved
+### 3. Update `src/components/EditPermissionsDialog.tsx`
+- Add `can_override_rates` to the local `UserPermissions` interface, default state, `PERMISSION_LABELS`, fetch/save logic, and toggle-all logic
+- Label: "Override Room Rates", Description: "Ability to set prices below the standard room rate"
+
+### 4. Update `src/components/CreateReservationDialog.tsx`
+- **Line 1023**: Replace `if (!userRole || (userRole !== 'admin' && userRole !== 'manager'))` with `if (!canCreateBooking)`
+- **Line 723**: Replace `if (userRole === 'admin') return true` with `if (hasPermission('can_override_rates')) return true`
+- **Line 1464**: Replace `userRole === 'admin'` with `hasPermission('can_override_rates')`
+- **Line 1466**: Replace `userRole !== 'admin'` with `!hasPermission('can_override_rates')`
+- **Line 1478**: Replace `userRole !== 'admin'` with `!hasPermission('can_override_rates')`
+
+### 5. Update `src/pages/ReservationDetail.tsx`
+- **Line 160**: Destructure `hasPermission` from `useAuth()`: `const { userRole, hasPermission } = useAuth()`
+- **Line 224**: Replace `const canEdit = userRole === 'admin'` with `const canEdit = hasPermission('can_create_booking')`
+
+### Files Modified
+- Database migration (new column)
+- `src/lib/auth.tsx`
+- `src/components/EditPermissionsDialog.tsx`
+- `src/components/CreateReservationDialog.tsx`
+- `src/pages/ReservationDetail.tsx`
+
+### Not Changed
+All "OK TO KEEP" checks (AdminRoute, Users, Commissions, Analytics, Rooms, edge functions) remain untouched.
 
