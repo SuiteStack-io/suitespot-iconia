@@ -75,6 +75,10 @@ const PERMISSION_LABELS: Record<keyof UserPermissions, { label: string; descript
     label: 'Access Front Desk', 
     description: 'Access to Room Rates, Guests, and Guest Forms pages' 
   },
+  can_override_rates: { 
+    label: 'Override Room Rates', 
+    description: 'Ability to set prices below the standard room rate' 
+  },
 };
 
 interface EditPermissionsDialogProps {
