@@ -437,7 +437,7 @@ const BookingFlow = () => {
     };
 
     fetchAvailableUnits();
-  }, [toast, dateRange, preSelectedUnitId, preSelectedUnitType]);
+  }, [toast, dateRange, preSelectedUnitId, preSelectedUnitType, defaultPropertyId]);
   
   // Helper function to group units by type
   const groupUnitsByType = (unitsList: Unit[]): GroupedUnitType[] => {
