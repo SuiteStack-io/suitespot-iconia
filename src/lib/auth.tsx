@@ -13,6 +13,7 @@ export interface UserPermissions {
   can_export_calendar: boolean;
   can_access_pms: boolean;
   can_access_front_desk: boolean;
+  can_override_rates: boolean;
 }
 
 const DEFAULT_PERMISSIONS: UserPermissions = {
@@ -25,6 +26,7 @@ const DEFAULT_PERMISSIONS: UserPermissions = {
   can_export_calendar: false,
   can_access_pms: false,
   can_access_front_desk: false,
+  can_override_rates: false,
 };
 
 interface AuthContextType {
