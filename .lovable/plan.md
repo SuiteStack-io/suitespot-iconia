@@ -1,35 +1,23 @@
 
 
-## Reorder Suite Cards on /suites Page
+## Fix: Booking Page "Loading Available Suites" Never Resolves
 
-### Problem
-Suite cards display in alphabetical order by `name`. Need custom ordering: Suite with Terrace first, then Deluxe Suite, Family Suite, Junior Suite.
+### Root Cause
+The `useEffect` that fetches available units (line 274) has a guard `if (!defaultPropertyId) return;` — but `defaultPropertyId` is **missing from the dependency array** (line 440). The default property is fetched asynchronously in a separate `useEffect`, so when it resolves and sets `defaultPropertyId`, the units fetch never re-triggers.
 
-### Approach
-Add a `room_type_display_order` integer column to the `units` table, set values per room type, and sort by it on the Suites page.
+### Fix
+**File: `src/pages/BookingFlow.tsx`** — single-line change at line 440:
 
-### 1. Database Migration
-Add column:
-```sql
-ALTER TABLE public.units ADD COLUMN room_type_display_order integer NOT NULL DEFAULT 99;
+Add `defaultPropertyId` to the dependency array:
+
+```ts
+}, [toast, dateRange, preSelectedUnitId, preSelectedUnitType, defaultPropertyId]);
 ```
 
-### 2. Data Update (via insert tool)
-Set display order values for existing units by `booking_com_name`:
-```sql
-UPDATE units SET room_type_display_order = 1 WHERE booking_com_name ILIKE '%terrace%';
-UPDATE units SET room_type_display_order = 2 WHERE booking_com_name ILIKE '%deluxe%';
-UPDATE units SET room_type_display_order = 3 WHERE booking_com_name ILIKE '%family%';
-UPDATE units SET room_type_display_order = 4 WHERE booking_com_name ILIKE '%junior%';
-```
+This ensures the fetch re-runs once the default property ID is available.
 
-### 3. Update `src/pages/Suites.tsx`
-- Add `room_type_display_order` to the select fields (line 91)
-- Change `.order("name")` to `.order("room_type_display_order")` (line 96)
-- Add `room_type_display_order` to the Unit interface
-
-### Files to Modify
-- `src/pages/Suites.tsx` — select + order by new field
-- Database migration for column
-- Data update for existing values
+### What stays the same
+- Booking flow steps, design, and submission logic
+- Property switcher and admin pages
+- How bookings are saved
 
