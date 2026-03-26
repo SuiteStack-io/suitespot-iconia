@@ -1,39 +1,48 @@
 
 
-## Apply Three Permission Fixes from Audit
+## Fix: Auto-Shuffle Blocked by Overlap Trigger
 
-### 1. Database Migration
-Add `can_override_rates` boolean column to `user_permissions` table:
+### Root Cause
+The BFS algorithm correctly computes a valid chain of moves, but executes them **sequentially**. A database trigger (`prevent_reservation_overlap`) fires on each individual UPDATE and blocks moves where the destination unit still has a conflicting reservation that hasn't been moved yet (it's scheduled to move later in the chain).
+
+Example: BFS says "move A from 501→502, then move B from 502→503". When move A executes, B is still on 502, so the trigger raises `RESERVATION CONFLICT`.
+
+### Fix
+Update the `prevent_reservation_overlap()` trigger function to **skip validation when the update is a shuffle operation**. The shuffle code already sets `shuffled_from_unit_id` on the reservation during moves — we use this as the signal.
+
+### Database Migration
 ```sql
-ALTER TABLE user_permissions ADD COLUMN can_override_rates boolean NOT NULL DEFAULT false;
+CREATE OR REPLACE FUNCTION public.prevent_reservation_overlap()
+ RETURNS trigger
+ LANGUAGE plpgsql
+ SECURITY DEFINER
+ SET search_path TO 'public'
+AS $function$
+DECLARE
+  conflict_record RECORD;
+  unit_info RECORD;
+BEGIN
+  -- Skip validation for shuffle moves (BFS algorithm pre-validates)
+  IF NEW.shuffled_from_unit_id IS NOT NULL 
+     AND (OLD.shuffled_from_unit_id IS NULL OR NEW.shuffled_from_unit_id != OLD.shuffled_from_unit_id) THEN
+    RETURN NEW;
+  END IF;
+
+  -- Only check for confirmed or checked-in reservations
+  IF NEW.status NOT IN ('confirmed', 'checked-in') THEN
+    RETURN NEW;
+  END IF;
+
+  -- existing conflict check logic unchanged...
+END;
+$function$;
 ```
 
-### 2. Update `src/lib/auth.tsx`
-- Add `can_override_rates: boolean` to the `UserPermissions` interface and `DEFAULT_PERMISSIONS`
-- Add it to `fetchUserPermissions` mapping
+The condition `NEW.shuffled_from_unit_id IS NOT NULL AND (OLD value differs)` ensures:
+- Shuffle moves bypass the trigger (trusted, pre-validated by BFS)
+- Normal inserts/updates still get full conflict checking
+- Re-saving a previously shuffled reservation doesn't skip validation
 
-### 3. Update `src/components/EditPermissionsDialog.tsx`
-- Add `can_override_rates` to the local `UserPermissions` interface, default state, `PERMISSION_LABELS`, fetch/save logic, and toggle-all logic
-- Label: "Override Room Rates", Description: "Ability to set prices below the standard room rate"
-
-### 4. Update `src/components/CreateReservationDialog.tsx`
-- **Line 1023**: Replace `if (!userRole || (userRole !== 'admin' && userRole !== 'manager'))` with `if (!canCreateBooking)`
-- **Line 723**: Replace `if (userRole === 'admin') return true` with `if (hasPermission('can_override_rates')) return true`
-- **Line 1464**: Replace `userRole === 'admin'` with `hasPermission('can_override_rates')`
-- **Line 1466**: Replace `userRole !== 'admin'` with `!hasPermission('can_override_rates')`
-- **Line 1478**: Replace `userRole !== 'admin'` with `!hasPermission('can_override_rates')`
-
-### 5. Update `src/pages/ReservationDetail.tsx`
-- **Line 160**: Destructure `hasPermission` from `useAuth()`: `const { userRole, hasPermission } = useAuth()`
-- **Line 224**: Replace `const canEdit = userRole === 'admin'` with `const canEdit = hasPermission('can_create_booking')`
-
-### Files Modified
-- Database migration (new column)
-- `src/lib/auth.tsx`
-- `src/components/EditPermissionsDialog.tsx`
-- `src/components/CreateReservationDialog.tsx`
-- `src/pages/ReservationDetail.tsx`
-
-### Not Changed
-All "OK TO KEEP" checks (AdminRoute, Users, Commissions, Analytics, Rooms, edge functions) remain untouched.
+### Files
+- Single database migration only. No application code changes needed.
 
