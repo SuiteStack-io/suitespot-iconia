@@ -720,7 +720,7 @@ export function CreateReservationDialog() {
 
   // Check if room price is valid (>= minimum, unless admin)
   const isRoomPriceValid = (roomIndex: number): boolean => {
-    if (userRole === 'admin') return true;
+    if (hasPermission('can_override_rates')) return true;
     
     const price = roomPrices[roomIndex];
     const minPrice = getMinPriceForRoom(roomIndex);
@@ -1020,8 +1020,8 @@ export function CreateReservationDialog() {
   };
 
   const handleSubmit = async () => {
-    if (!userRole || (userRole !== 'admin' && userRole !== 'manager')) {
-      toast.error('You do not have permission to create reservations. Admin or Manager role required.');
+    if (!canCreateBooking) {
+      toast.error('You do not have permission to create reservations.');
       return;
     }
 
@@ -1461,9 +1461,9 @@ export function CreateReservationDialog() {
                       value={roomPrices[roomIndex]}
                       onChange={(e) => updateRoomPrice(roomIndex, e.target.value ? Number(e.target.value) : "")}
                       placeholder="Enter price"
-                      min={userRole === 'admin' ? 0 : (getMinPriceForRoom(roomIndex) || 0)}
+                      min={hasPermission('can_override_rates') ? 0 : (getMinPriceForRoom(roomIndex) || 0)}
                       step="1"
-                      className={cn(!isRoomPriceValid(roomIndex) && userRole !== 'admin' && "border-destructive focus-visible:ring-destructive")}
+                      className={cn(!isRoomPriceValid(roomIndex) && !hasPermission('can_override_rates') && "border-destructive focus-visible:ring-destructive")}
                     />
                     {getMinPriceForRoom(roomIndex) !== null && (
                       <p className="text-xs text-muted-foreground">
@@ -1475,7 +1475,7 @@ export function CreateReservationDialog() {
                         Includes ${extraRate}/night extra guest fee ({extraAdultsCount} additional adult{extraAdultsCount > 1 ? 's' : ''})
                       </p>
                     )}
-                    {!isRoomPriceValid(roomIndex) && userRole !== 'admin' && (
+                    {!isRoomPriceValid(roomIndex) && !hasPermission('can_override_rates') && (
                       <p className="text-xs text-destructive">
                         Rate cannot be lower than the standard rate of ${getMinPriceForRoom(roomIndex)?.toFixed(2)}/night
                       </p>

@@ -35,6 +35,7 @@ interface UserPermissions {
   can_export_calendar: boolean;
   can_access_pms: boolean;
   can_access_front_desk: boolean;
+  can_override_rates: boolean;
 }
 
 const PERMISSION_LABELS: Record<keyof UserPermissions, { label: string; description: string }> = {
@@ -74,6 +75,10 @@ const PERMISSION_LABELS: Record<keyof UserPermissions, { label: string; descript
     label: 'Access Front Desk', 
     description: 'Access to Room Rates, Guests, and Guest Forms pages' 
   },
+  can_override_rates: { 
+    label: 'Override Room Rates', 
+    description: 'Ability to set prices below the standard room rate' 
+  },
 };
 
 interface EditPermissionsDialogProps {
@@ -103,6 +108,7 @@ export function EditPermissionsDialog({
     can_export_calendar: false,
     can_access_pms: false,
     can_access_front_desk: false,
+    can_override_rates: false,
   });
 
   useEffect(() => {
@@ -137,6 +143,7 @@ export function EditPermissionsDialog({
           can_export_calendar: data.can_export_calendar ?? false,
           can_access_pms: data.can_access_pms ?? false,
           can_access_front_desk: data.can_access_front_desk ?? false,
+          can_override_rates: data.can_override_rates ?? false,
         });
       } else {
         setPermissions({
@@ -149,6 +156,7 @@ export function EditPermissionsDialog({
           can_export_calendar: false,
           can_access_pms: false,
           can_access_front_desk: false,
+          can_override_rates: false,
         });
       }
     } catch (error) {
@@ -230,6 +238,7 @@ export function EditPermissionsDialog({
       can_export_calendar: newValue,
       can_access_pms: newValue,
       can_access_front_desk: newValue,
+      can_override_rates: newValue,
     });
   };
 
