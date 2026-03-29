@@ -146,6 +146,7 @@ export const ReservationsList = ({ userRole }: ReservationsListProps) => {
   const [bulkStatus, setBulkStatus] = useState<string>('');
   const [isUpdating, setIsUpdating] = useState(false);
   const [dateRange, setDateRange] = useState<{ from: Date | undefined; to: Date | undefined }>({ from: undefined, to: undefined });
+  const [checkOutDateRange, setCheckOutDateRange] = useState<{ from: Date | undefined; to: Date | undefined }>({ from: undefined, to: undefined });
   const [checkInAgreements, setCheckInAgreements] = useState<Map<string, CheckInAgreement>>(new Map());
   const [showPreviewDialog, setShowPreviewDialog] = useState(false);
   const [previewPdfUrl, setPreviewPdfUrl] = useState<string | null>(null);
