@@ -1297,6 +1297,10 @@ Thank you for choosing SuiteSpot!`;
             ) : (
               <>
                 <div>
+                  <Label className="text-muted-foreground">Booking Reference</Label>
+                  <p className="mt-1 font-medium">{reservation.booking_reference || 'N/A'}</p>
+                </div>
+                <div>
                   <Label className="text-muted-foreground">Guest Names</Label>
                   <div className="mt-1 space-y-1">
                     {reservation.guest_names && reservation.guest_names.length > 0 ? (
