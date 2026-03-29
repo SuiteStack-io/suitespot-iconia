@@ -136,7 +136,8 @@ export const ReservationsList = ({ userRole }: ReservationsListProps) => {
   const [settledFilter, setSettledFilter] = useState<string>('all');
   const [currencyFilter, setCurrencyFilter] = useState<string>('all');
   const [sourceFilter, setSourceFilter] = useState<string>('all');
-  const [units, setUnits] = useState<{ id: string; name: string; unit_number: string | null }[]>([]);
+  const [units, setUnits] = useState<{ id: string; name: string; unit_number: string | null; booking_com_name: string | null }[]>([]);
+  const [roomTypeFilter, setRoomTypeFilter] = useState<string>('all');
   const [sources, setSources] = useState<string[]>([]);
   const [sortField, setSortField] = useState<SortField>('created_at');
   const [sortOrder, setSortOrder] = useState<SortOrder>('desc');
