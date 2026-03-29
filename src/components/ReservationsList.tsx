@@ -904,7 +904,7 @@ export const ReservationsList = ({ userRole }: ReservationsListProps) => {
                   format(dateRange.from, "MMM dd, yyyy")
                 )
               ) : (
-                <span>Select date range</span>
+                <span>Check-in date range</span>
               )}
             </Button>
           </PopoverTrigger>
