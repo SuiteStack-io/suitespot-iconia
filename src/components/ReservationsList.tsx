@@ -241,7 +241,7 @@ export const ReservationsList = ({ userRole }: ReservationsListProps) => {
   const fetchUnits = async () => {
     const { data, error } = await withPropertyFilter(supabase
       .from('units')
-      .select('id, name, unit_number')
+      .select('id, name, unit_number, booking_com_name')
       .order('unit_number'), propertyId);
 
     if (!error && data) {
