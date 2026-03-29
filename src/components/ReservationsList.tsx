@@ -130,7 +130,7 @@ export const ReservationsList = ({ userRole }: ReservationsListProps) => {
   const [reservations, setReservations] = useState<Reservation[]>([]);
   const [filteredReservations, setFilteredReservations] = useState<GroupedReservation[]>([]);
   const [searchQuery, setSearchQuery] = useState('');
-  const [statusFilter, setStatusFilter] = useState<string>('all');
+  const [statusFilter, setStatusFilter] = useState<string>('confirmed');
   const [unitFilter, setUnitFilter] = useState<string>('all');
   const [paymentFilter, setPaymentFilter] = useState<string>('all');
   const [settledFilter, setSettledFilter] = useState<string>('all');
