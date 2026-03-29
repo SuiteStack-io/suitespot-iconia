@@ -331,6 +331,10 @@ export const ReservationsList = ({ userRole }: ReservationsListProps) => {
       filtered = filtered.filter((r) => r.status === statusFilter);
     }
 
+    if (roomTypeFilter !== 'all') {
+      filtered = filtered.filter((r) => (r as any).units?.booking_com_name === roomTypeFilter);
+    }
+
     if (unitFilter !== 'all') {
       filtered = filtered.filter((r) => (r.units?.unit_number || r.units?.name) === unitFilter);
     }
