@@ -1,4 +1,5 @@
 import { useState, useEffect, useCallback } from 'react';
+import SuiteLightbox from '@/components/SuiteLightbox';
 import { useNavigate } from 'react-router-dom';
 import { useQuery } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
@@ -24,17 +25,8 @@ interface RoomTypeData {
   channelRates: Array<{ channel: string; weekday: number; weekend: number; markup: number }>;
 }
 
-function RoomPhotoSlideshow({ photos, name }: { photos: string[]; name: string }) {
-  const [currentIndex, setCurrentIndex] = useState(0);
-  const [paused, setPaused] = useState(false);
-
-  useEffect(() => {
-    if (photos.length <= 1 || paused) return;
-    const timer = setInterval(() => {
-      setCurrentIndex((i) => (i + 1) % photos.length);
-    }, 4000);
-    return () => clearInterval(timer);
-  }, [photos.length, paused]);
+function RoomPhotoCard({ photos, name }: { photos: string[]; name: string }) {
+  const [lightboxOpen, setLightboxOpen] = useState(false);
 
   if (photos.length === 0) {
     return (
@@ -45,49 +37,31 @@ function RoomPhotoSlideshow({ photos, name }: { photos: string[]; name: string }
   }
 
   return (
-    <div
-      className="relative w-full h-full"
-      onMouseEnter={() => setPaused(true)}
-      onMouseLeave={() => setPaused(false)}
-    >
-      {photos.map((url, i) => (
+    <>
+      <div
+        className="relative w-full h-full cursor-pointer group"
+        onClick={() => setLightboxOpen(true)}
+      >
         <img
-          key={url}
-          src={url}
-          alt={`${name} ${i + 1}`}
-          className={`absolute inset-0 w-full h-full object-cover transition-opacity duration-500 ${
-            i === currentIndex ? 'opacity-100' : 'opacity-0'
-          }`}
+          src={photos[0]}
+          alt={`${name} cover`}
+          className="w-full h-full object-cover"
           loading="lazy"
         />
-      ))}
-      {photos.length > 1 && (
-        <>
-          {/* Click areas for manual navigation */}
-          <button
-            className="absolute inset-y-0 left-0 w-1/2 z-10 cursor-pointer"
-            onClick={() => setCurrentIndex((i) => (i - 1 + photos.length) % photos.length)}
-            aria-label="Previous photo"
-          />
-          <button
-            className="absolute inset-y-0 right-0 w-1/2 z-10 cursor-pointer"
-            onClick={() => setCurrentIndex((i) => (i + 1) % photos.length)}
-            aria-label="Next photo"
-          />
-          {/* Dot indicators */}
-          <div className="absolute bottom-2 left-1/2 -translate-x-1/2 flex gap-1.5 z-20">
-            {photos.map((_, i) => (
-              <div
-                key={i}
-                className={`w-1.5 h-1.5 rounded-full transition-all ${
-                  i === currentIndex ? 'bg-white w-4' : 'bg-white/50'
-                }`}
-              />
-            ))}
+        <div className="absolute inset-0 bg-black/0 group-hover:bg-black/10 transition-colors" />
+        {photos.length > 1 && (
+          <div className="absolute top-2 right-2 bg-black/60 text-white text-[10px] font-medium px-2 py-0.5 rounded-full">
+            1/{photos.length}
           </div>
-        </>
-      )}
-    </div>
+        )}
+      </div>
+      <SuiteLightbox
+        photos={photos}
+        initialIndex={0}
+        open={lightboxOpen}
+        onClose={() => setLightboxOpen(false)}
+      />
+    </>
   );
 }
 
@@ -283,7 +257,7 @@ export default function FrontDeskRoomRates() {
             {roomTypes.map((room) => (
               <Card key={room.name} className="overflow-hidden">
                 <AspectRatio ratio={16 / 10}>
-                  <RoomPhotoSlideshow photos={room.photos} name={room.name} />
+                  <RoomPhotoCard photos={room.photos} name={room.name} />
                 </AspectRatio>
 
                 <CardHeader className="pb-2">
