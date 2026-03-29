@@ -103,6 +103,9 @@ verify_jwt = false
 [functions.channex-sync-messages]
 verify_jwt = false
 
+[functions.auto-assign-rooms]
+verify_jwt = false
+
 [functions.generate-daily-summary]
 verify_jwt = false
 
