@@ -883,10 +883,23 @@ export const ReservationsList = ({ userRole }: ReservationsListProps) => {
           </SelectTrigger>
           <SelectContent>
             <SelectItem value="all">All Units</SelectItem>
-            {units.map((unit) => (
+            {units
+              .filter(unit => roomTypeFilter === 'all' || unit.booking_com_name === roomTypeFilter)
+              .map((unit) => (
               <SelectItem key={unit.id} value={unit.unit_number || unit.name}>
                 {unit.unit_number || unit.name}
               </SelectItem>
+            ))}
+          </SelectContent>
+        </Select>
+        <Select value={roomTypeFilter} onValueChange={(val) => { setRoomTypeFilter(val); if (val !== 'all') setUnitFilter('all'); }}>
+          <SelectTrigger className="w-full sm:w-[200px]">
+            <SelectValue placeholder="All Room Types" />
+          </SelectTrigger>
+          <SelectContent>
+            <SelectItem value="all">All Room Types</SelectItem>
+            {[...new Set(units.map(u => u.booking_com_name).filter(Boolean))].sort().map(rt => (
+              <SelectItem key={rt!} value={rt!}>{rt}</SelectItem>
             ))}
           </SelectContent>
         </Select>
