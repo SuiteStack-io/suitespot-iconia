@@ -146,6 +146,7 @@ export const ReservationsList = ({ userRole }: ReservationsListProps) => {
   const [bulkStatus, setBulkStatus] = useState<string>('');
   const [isUpdating, setIsUpdating] = useState(false);
   const [dateRange, setDateRange] = useState<{ from: Date | undefined; to: Date | undefined }>({ from: undefined, to: undefined });
+  const [checkOutDateRange, setCheckOutDateRange] = useState<{ from: Date | undefined; to: Date | undefined }>({ from: undefined, to: undefined });
   const [checkInAgreements, setCheckInAgreements] = useState<Map<string, CheckInAgreement>>(new Map());
   const [showPreviewDialog, setShowPreviewDialog] = useState(false);
   const [previewPdfUrl, setPreviewPdfUrl] = useState<string | null>(null);
@@ -204,7 +205,7 @@ export const ReservationsList = ({ userRole }: ReservationsListProps) => {
 
   useEffect(() => {
     filterReservations();
-  }, [reservations, searchQuery, statusFilter, unitFilter, paymentFilter, sourceFilter, currencyFilter, sortField, sortOrder, dateRange]);
+  }, [reservations, searchQuery, statusFilter, unitFilter, paymentFilter, sourceFilter, currencyFilter, sortField, sortOrder, dateRange, checkOutDateRange]);
 
   useEffect(() => {
     // Extract unique sources from reservations
@@ -353,12 +354,20 @@ export const ReservationsList = ({ userRole }: ReservationsListProps) => {
       filtered = filtered.filter((r) => r.currency === currencyFilter);
     }
 
-    // Date range filtering
+    // Check-in date range filtering
     if (dateRange.from) {
       filtered = filtered.filter(r => new Date(r.check_in_date) >= dateRange.from!);
     }
     if (dateRange.to) {
       filtered = filtered.filter(r => new Date(r.check_in_date) <= dateRange.to!);
+    }
+
+    // Check-out date range filtering
+    if (checkOutDateRange.from) {
+      filtered = filtered.filter(r => new Date(r.check_out_date) >= checkOutDateRange.from!);
+    }
+    if (checkOutDateRange.to) {
+      filtered = filtered.filter(r => new Date(r.check_out_date) <= checkOutDateRange.to!);
     }
 
     // Apply sorting
@@ -895,7 +904,7 @@ export const ReservationsList = ({ userRole }: ReservationsListProps) => {
                   format(dateRange.from, "MMM dd, yyyy")
                 )
               ) : (
-                <span>Select date range</span>
+                <span>Check-in date range</span>
               )}
             </Button>
           </PopoverTrigger>
@@ -904,6 +913,40 @@ export const ReservationsList = ({ userRole }: ReservationsListProps) => {
               mode="range"
               selected={dateRange}
               onSelect={(range) => setDateRange({ from: range?.from, to: range?.to })}
+              numberOfMonths={2}
+              initialFocus
+              className="pointer-events-auto"
+            />
+          </PopoverContent>
+        </Popover>
+        <Popover>
+          <PopoverTrigger asChild>
+            <Button
+              variant="outline"
+              className={cn(
+                "w-full sm:w-[240px] justify-start text-left font-normal",
+                !checkOutDateRange.from && "text-muted-foreground"
+              )}
+            >
+              <CalendarIcon className="mr-2 h-4 w-4" />
+              {checkOutDateRange.from ? (
+                checkOutDateRange.to ? (
+                  <>
+                    {format(checkOutDateRange.from, "MMM dd, yyyy")} - {format(checkOutDateRange.to, "MMM dd, yyyy")}
+                  </>
+                ) : (
+                  format(checkOutDateRange.from, "MMM dd, yyyy")
+                )
+              ) : (
+                <span>Check-out date range</span>
+              )}
+            </Button>
+          </PopoverTrigger>
+          <PopoverContent className="w-auto p-0" align="start">
+            <Calendar
+              mode="range"
+              selected={checkOutDateRange}
+              onSelect={(range) => setCheckOutDateRange({ from: range?.from, to: range?.to })}
               numberOfMonths={2}
               initialFocus
               className="pointer-events-auto"
@@ -980,10 +1023,13 @@ export const ReservationsList = ({ userRole }: ReservationsListProps) => {
           </div>
         </div>
 
-        {(dateRange.from || dateRange.to) && (
+        {(dateRange.from || dateRange.to || checkOutDateRange.from || checkOutDateRange.to) && (
           <Button
             variant="outline"
-            onClick={() => setDateRange({ from: undefined, to: undefined })}
+            onClick={() => {
+              setDateRange({ from: undefined, to: undefined });
+              setCheckOutDateRange({ from: undefined, to: undefined });
+            }}
             className="sm:w-auto"
           >
             <X className="h-4 w-4 mr-2" />
