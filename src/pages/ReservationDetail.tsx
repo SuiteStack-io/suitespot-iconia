@@ -31,7 +31,7 @@ import { Edit2, X, CalendarIcon, Trash2, FileText, Download, Check, ChevronsUpDo
 import { Progress } from '@/components/ui/progress';
 import { toPng } from 'html-to-image';
 import { cn } from '@/lib/utils';
-import { CreateGuestAccountDialog } from '@/components/CreateGuestAccountDialog';
+
 import { SlideMenu } from '@/components/SlideMenu';
 import { RoomTransferDialog } from '@/components/RoomTransferDialog';
 import { usePropertyId, withPropertyFilter } from '@/hooks/usePropertyFilter';
@@ -1070,10 +1070,6 @@ Thank you for choosing SuiteSpot!`;
               >
                 <Mail className="h-4 w-4" />
               </Button>
-              <CreateGuestAccountDialog
-                reservationId={reservation.id}
-                guestName={reservation.guest_names[0] || 'Guest'}
-              />
               <Button 
                 variant="outline"
                 onClick={() => setShowRoomTransferDialog(true)}
@@ -1149,10 +1145,6 @@ Thank you for choosing SuiteSpot!`;
             >
               <Mail className="h-4 w-4" />
             </Button>
-            <CreateGuestAccountDialog
-              reservationId={reservation.id}
-              guestName={reservation.guest_names[0] || 'Guest'}
-            />
             <Button 
               variant="outline"
               size="sm"
