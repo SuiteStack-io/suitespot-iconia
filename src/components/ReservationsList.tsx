@@ -354,12 +354,20 @@ export const ReservationsList = ({ userRole }: ReservationsListProps) => {
       filtered = filtered.filter((r) => r.currency === currencyFilter);
     }
 
-    // Date range filtering
+    // Check-in date range filtering
     if (dateRange.from) {
       filtered = filtered.filter(r => new Date(r.check_in_date) >= dateRange.from!);
     }
     if (dateRange.to) {
       filtered = filtered.filter(r => new Date(r.check_in_date) <= dateRange.to!);
+    }
+
+    // Check-out date range filtering
+    if (checkOutDateRange.from) {
+      filtered = filtered.filter(r => new Date(r.check_out_date) >= checkOutDateRange.from!);
+    }
+    if (checkOutDateRange.to) {
+      filtered = filtered.filter(r => new Date(r.check_out_date) <= checkOutDateRange.to!);
     }
 
     // Apply sorting
