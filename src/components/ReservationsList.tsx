@@ -919,6 +919,40 @@ export const ReservationsList = ({ userRole }: ReservationsListProps) => {
             />
           </PopoverContent>
         </Popover>
+        <Popover>
+          <PopoverTrigger asChild>
+            <Button
+              variant="outline"
+              className={cn(
+                "w-full sm:w-[240px] justify-start text-left font-normal",
+                !checkOutDateRange.from && "text-muted-foreground"
+              )}
+            >
+              <CalendarIcon className="mr-2 h-4 w-4" />
+              {checkOutDateRange.from ? (
+                checkOutDateRange.to ? (
+                  <>
+                    {format(checkOutDateRange.from, "MMM dd, yyyy")} - {format(checkOutDateRange.to, "MMM dd, yyyy")}
+                  </>
+                ) : (
+                  format(checkOutDateRange.from, "MMM dd, yyyy")
+                )
+              ) : (
+                <span>Check-out date range</span>
+              )}
+            </Button>
+          </PopoverTrigger>
+          <PopoverContent className="w-auto p-0" align="start">
+            <Calendar
+              mode="range"
+              selected={checkOutDateRange}
+              onSelect={(range) => setCheckOutDateRange({ from: range?.from, to: range?.to })}
+              numberOfMonths={2}
+              initialFocus
+              className="pointer-events-auto"
+            />
+          </PopoverContent>
+        </Popover>
       </div>
 
       {/* Payment, Source, and Export Filters */}
