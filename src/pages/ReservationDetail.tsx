@@ -1145,10 +1145,6 @@ Thank you for choosing SuiteSpot!`;
             >
               <Mail className="h-4 w-4" />
             </Button>
-            <CreateGuestAccountDialog
-              reservationId={reservation.id}
-              guestName={reservation.guest_names[0] || 'Guest'}
-            />
             <Button 
               variant="outline"
               size="sm"
