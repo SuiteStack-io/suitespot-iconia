@@ -1,29 +1,32 @@
 
 
-## Fix Room Shuffle Email Subject Line
+## Part A: Manual Room Assignment Fix
 
-### Problem
-The subject line currently shows the **triggering** booking's guest name and reference:
-`Room Shuffle Alert - Emna Haj Romdhane (5765450047) at ICONIA Zamalek...`
+### Current State (wrong assignments)
+| Guest | Check-in | Currently on | Should be on |
+|---|---|---|---|
+| Anton Yang | Apr 1–4 | Room 502 | Room 505 |
+| Emna Haj Romdhane | Apr 3–5 | Room 505 | Room 501 |
+| Alejandro Quiros | Apr 3–6 | Room 501 | Room 502 |
 
-It should show the **moved** guest's name and room change:
-`Room Shuffle Alert - Anton Yang - Room #505 to #502 at ICONIA Zamalek...`
+### Data Updates (3 SQL statements via insert tool)
+```sql
+-- Anton Yang → Room 505
+UPDATE reservations SET unit_id = '3ca13973-c38c-4084-9a7a-f390cf20ee55'
+WHERE id = '0b435855-30ca-4250-a68d-a100f4028c07';
 
-### Fix
-**File: `supabase/functions/auto-shuffle-rooms/index.ts`** — line 581
+-- Emna Haj Romdhane → Room 501
+UPDATE reservations SET unit_id = 'daf2ed4d-e7ec-4b4b-a709-7323aac2f6ed'
+WHERE id = '004f4960-8396-45fe-9312-f032cb4ced20';
 
-Replace:
-```ts
-subject: `Room Shuffle Alert - ${guestNames[0] || 'Guest'} (${bookingReference}) at ${shufflePropertyName}`,
+-- Alejandro Quiros → Room 502
+UPDATE reservations SET unit_id = 'bc577e59-03cb-4b1b-ba79-807afdaae977'
+WHERE id = 'afd8dfa2-1f72-4958-bace-d7e4043d20be';
 ```
 
-With:
-```ts
-subject: `Room Shuffle Alert - ${solution.moves[0]?.guest_name || guestNames[0] || 'Guest'} - Room #${solution.moves[0]?.from_room_number} to #${solution.moves[0]?.to_room_number} at ${shufflePropertyName}`,
-```
+### Note on Part B
+The title mentions "Algorithm Upgrade" but no details were provided. After applying Part A, let me know what changes you want to the shuffle algorithm.
 
-This uses the first move's guest name, from-room, and to-room in the subject. If there are multiple moves, the first move is shown (the email body already contains all move details).
-
-### Files Modified
-- `supabase/functions/auto-shuffle-rooms/index.ts` (single line change)
+### No code changes needed
+This is a data-only fix — 3 reservation rows updated to the correct `unit_id`.
 
