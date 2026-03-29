@@ -1,4 +1,4 @@
-import { useEffect } from 'react';
+import { useState, useEffect, useCallback } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useQuery } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
@@ -24,6 +24,73 @@ interface RoomTypeData {
   channelRates: Array<{ channel: string; weekday: number; weekend: number; markup: number }>;
 }
 
+function RoomPhotoSlideshow({ photos, name }: { photos: string[]; name: string }) {
+  const [currentIndex, setCurrentIndex] = useState(0);
+  const [paused, setPaused] = useState(false);
+
+  useEffect(() => {
+    if (photos.length <= 1 || paused) return;
+    const timer = setInterval(() => {
+      setCurrentIndex((i) => (i + 1) % photos.length);
+    }, 4000);
+    return () => clearInterval(timer);
+  }, [photos.length, paused]);
+
+  if (photos.length === 0) {
+    return (
+      <div className="w-full h-full bg-muted flex items-center justify-center">
+        <ImageIcon className="h-12 w-12 text-muted-foreground/40" />
+      </div>
+    );
+  }
+
+  return (
+    <div
+      className="relative w-full h-full"
+      onMouseEnter={() => setPaused(true)}
+      onMouseLeave={() => setPaused(false)}
+    >
+      {photos.map((url, i) => (
+        <img
+          key={url}
+          src={url}
+          alt={`${name} ${i + 1}`}
+          className={`absolute inset-0 w-full h-full object-cover transition-opacity duration-500 ${
+            i === currentIndex ? 'opacity-100' : 'opacity-0'
+          }`}
+          loading="lazy"
+        />
+      ))}
+      {photos.length > 1 && (
+        <>
+          {/* Click areas for manual navigation */}
+          <button
+            className="absolute inset-y-0 left-0 w-1/2 z-10 cursor-pointer"
+            onClick={() => setCurrentIndex((i) => (i - 1 + photos.length) % photos.length)}
+            aria-label="Previous photo"
+          />
+          <button
+            className="absolute inset-y-0 right-0 w-1/2 z-10 cursor-pointer"
+            onClick={() => setCurrentIndex((i) => (i + 1) % photos.length)}
+            aria-label="Next photo"
+          />
+          {/* Dot indicators */}
+          <div className="absolute bottom-2 left-1/2 -translate-x-1/2 flex gap-1.5 z-20">
+            {photos.map((_, i) => (
+              <div
+                key={i}
+                className={`w-1.5 h-1.5 rounded-full transition-all ${
+                  i === currentIndex ? 'bg-white w-4' : 'bg-white/50'
+                }`}
+              />
+            ))}
+          </div>
+        </>
+      )}
+    </div>
+  );
+}
+
 export default function FrontDeskRoomRates() {
   const { userRole, hasPermission } = useAuth();
   const navigate = useNavigate();
@@ -39,8 +106,7 @@ export default function FrontDeskRoomRates() {
   const { data: roomTypes, isLoading } = useQuery({
     queryKey: ['front-desk-room-rates', propertyId],
     queryFn: async () => {
-      // Fetch units, rate plans, and channel markups
-      const [unitsRes, rpRes, markupsRes] = await Promise.all([
+      const [unitsRes, rpRes, markupsRes, rtPhotosRes] = await Promise.all([
         withPropertyFilter(
           supabase
             .from('units')
@@ -63,6 +129,13 @@ export default function FrontDeskRoomRates() {
             .eq('is_active', true),
           propertyId
         ),
+        propertyId
+          ? supabase
+              .from('room_type_photos')
+              .select('room_type_name, photo_url, display_order, is_cover')
+              .eq('property_id', propertyId)
+              .order('display_order')
+          : Promise.resolve({ data: [], error: null }),
       ]);
 
       const { data: units, error: unitsError } = unitsRes;
@@ -72,6 +145,21 @@ export default function FrontDeskRoomRates() {
       if (rpError) throw rpError;
 
       const channelMarkups = (markupsRes.data as any[]) || [];
+      const rtPhotos = (rtPhotosRes.data as any[]) || [];
+
+      // Group room_type_photos by room_type_name, cover first
+      const photosByType = new Map<string, string[]>();
+      for (const p of rtPhotos) {
+        if (!photosByType.has(p.room_type_name)) {
+          photosByType.set(p.room_type_name, []);
+        }
+        const arr = photosByType.get(p.room_type_name)!;
+        if (p.is_cover) {
+          arr.unshift(p.photo_url);
+        } else {
+          arr.push(p.photo_url);
+        }
+      }
 
       // Group units by booking_com_name
       const grouped = new Map<string, { area: string | null; maxGuests: number | null; features: string[]; photos: string[] }>();
@@ -110,10 +198,8 @@ export default function FrontDeskRoomRates() {
         let currency = 'USD';
         let ratePlanName: string | null = null;
 
-        // Find best matching rate plan: prefer default, then highest priority
         for (const rp of ratePlans || []) {
           const prices = rp.rate_plan_prices || [];
-          // Find type-level price (no unit_id) matching this room type
           const match = prices.find(
             (p: any) => p.room_type === name && !p.unit_id
           );
@@ -122,11 +208,10 @@ export default function FrontDeskRoomRates() {
             weekendRate = match.weekend_rate;
             currency = rp.currency || 'USD';
             ratePlanName = rp.name;
-            if (rp.is_default) break; // default wins
+            if (rp.is_default) break;
           }
         }
 
-        // Build channel rates from markups
         const channelRates = weekdayRate != null
           ? channelMarkups.map((cm: any) => ({
               channel: cm.channel_name,
@@ -136,12 +221,15 @@ export default function FrontDeskRoomRates() {
             }))
           : [];
 
+        // Resolve photos: room_type_photos > legacy unit photos
+        const resolvedPhotos = photosByType.get(name) || data.photos;
+
         result.push({
           name,
           area: data.area,
           maxGuests: data.maxGuests,
           features: data.features,
-          photos: data.photos,
+          photos: resolvedPhotos,
           weekdayRate,
           weekendRate,
           currency,
@@ -194,19 +282,8 @@ export default function FrontDeskRoomRates() {
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
             {roomTypes.map((room) => (
               <Card key={room.name} className="overflow-hidden">
-                {/* Photo */}
                 <AspectRatio ratio={16 / 10}>
-                  {room.photos?.length > 0 ? (
-                    <img
-                      src={room.photos[0]}
-                      alt={room.name}
-                      className="object-cover w-full h-full"
-                    />
-                  ) : (
-                    <div className="w-full h-full bg-muted flex items-center justify-center">
-                      <ImageIcon className="h-12 w-12 text-muted-foreground/40" />
-                    </div>
-                  )}
+                  <RoomPhotoSlideshow photos={room.photos} name={room.name} />
                 </AspectRatio>
 
                 <CardHeader className="pb-2">
@@ -214,7 +291,6 @@ export default function FrontDeskRoomRates() {
                 </CardHeader>
 
                 <CardContent className="space-y-4">
-                  {/* Rates */}
                   <div className="flex items-center gap-2">
                     <DollarSign className="h-4 w-4 text-muted-foreground" />
                     {room.weekdayRate != null ? (
@@ -238,7 +314,6 @@ export default function FrontDeskRoomRates() {
                     )}
                   </div>
 
-                  {/* Channel sell rates */}
                   {room.channelRates?.length > 0 && (
                     <div className="space-y-0.5">
                       {room.channelRates.map(cr => (
@@ -254,7 +329,6 @@ export default function FrontDeskRoomRates() {
                     </div>
                   )}
 
-                  {/* Area & Occupancy */}
                   <div className="flex flex-wrap gap-4 text-sm">
                     {room.area && (
                       <div className="flex items-center gap-1.5 text-muted-foreground">
@@ -270,7 +344,6 @@ export default function FrontDeskRoomRates() {
                     )}
                   </div>
 
-                  {/* Amenities */}
                   {room.features?.length > 0 ? (
                     <div className="flex flex-wrap gap-1.5">
                       {room.features.map((f) => (
@@ -283,7 +356,6 @@ export default function FrontDeskRoomRates() {
                     <p className="text-xs text-muted-foreground italic">No amenities listed</p>
                   )}
 
-                  {/* Rate plan name */}
                   {room.ratePlanName && (
                     <p className="text-xs text-muted-foreground">
                       Rate plan: {room.ratePlanName}
