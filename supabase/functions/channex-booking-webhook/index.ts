@@ -416,11 +416,40 @@ Deno.serve(async (req: Request) => {
               console.log("[channex-booking-webhook] Reservation created:", newRes.id, "unit:", allocatedUnitId || "none");
 
               if (!allocatedUnitId) {
-                await createAlert(
-                  "booking_unassigned",
-                  `Channex booking ${bookingRef} (${guestName}) has no unit assigned. Please assign manually.`,
-                  localPropertyId
-                );
+                // Invoke auto-assign-rooms to find the best room
+                try {
+                  const assignResponse = await fetch(
+                    `${Deno.env.get("SUPABASE_URL")}/functions/v1/auto-assign-rooms`,
+                    {
+                      method: "POST",
+                      headers: {
+                        "Content-Type": "application/json",
+                        "Authorization": `Bearer ${Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")}`,
+                      },
+                      body: JSON.stringify({ reservation_ids: [newRes.id] }),
+                    }
+                  );
+                  const assignResult = await assignResponse.json();
+                  console.log("[channex-booking-webhook] auto-assign-rooms result:", JSON.stringify(assignResult));
+
+                  if (assignResult.assigned?.length > 0) {
+                    console.log(`[channex-booking-webhook] Auto-assigned room: ${assignResult.assigned[0].room_number}`);
+                  } else if (assignResult.conflicts?.length > 0) {
+                    // Conflict email already sent by auto-assign-rooms; also create alert
+                    await createAlert(
+                      "booking_unassigned",
+                      `Channex booking ${bookingRef} (${guestName}) could not be auto-assigned: ${assignResult.conflicts[0].reason}`,
+                      localPropertyId
+                    );
+                  }
+                } catch (autoAssignErr: any) {
+                  console.error("[channex-booking-webhook] auto-assign-rooms invoke failed:", autoAssignErr.message);
+                  await createAlert(
+                    "booking_unassigned",
+                    `Channex booking ${bookingRef} (${guestName}) has no unit assigned. Auto-assign failed. Please assign manually.`,
+                    localPropertyId
+                  );
+                }
               }
             }
           }
