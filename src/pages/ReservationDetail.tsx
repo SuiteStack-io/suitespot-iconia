@@ -1181,9 +1181,13 @@ Thank you for choosing SuiteSpot!`;
           <CardHeader>
             <CardTitle>Guest Information</CardTitle>
           </CardHeader>
-          <CardContent className="space-y-4">
+            <CardContent className="space-y-4">
             {isEditMode ? (
               <>
+                <div>
+                  <Label className="text-muted-foreground">Booking Reference</Label>
+                  <p className="mt-1 font-medium">{reservation.booking_reference || 'N/A'}</p>
+                </div>
                 <div>
                   <Label>Guest Names</Label>
                   {formData.guest_names.map((name, idx) => (
@@ -1292,6 +1296,10 @@ Thank you for choosing SuiteSpot!`;
               </>
             ) : (
               <>
+                <div>
+                  <Label className="text-muted-foreground">Booking Reference</Label>
+                  <p className="mt-1 font-medium">{reservation.booking_reference || 'N/A'}</p>
+                </div>
                 <div>
                   <Label className="text-muted-foreground">Guest Names</Label>
                   <div className="mt-1 space-y-1">
