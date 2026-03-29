@@ -205,7 +205,7 @@ export const ReservationsList = ({ userRole }: ReservationsListProps) => {
 
   useEffect(() => {
     filterReservations();
-  }, [reservations, searchQuery, statusFilter, unitFilter, paymentFilter, sourceFilter, currencyFilter, sortField, sortOrder, dateRange]);
+  }, [reservations, searchQuery, statusFilter, unitFilter, paymentFilter, sourceFilter, currencyFilter, sortField, sortOrder, dateRange, checkOutDateRange]);
 
   useEffect(() => {
     // Extract unique sources from reservations
