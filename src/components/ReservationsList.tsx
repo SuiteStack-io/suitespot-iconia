@@ -1023,10 +1023,13 @@ export const ReservationsList = ({ userRole }: ReservationsListProps) => {
           </div>
         </div>
 
-        {(dateRange.from || dateRange.to) && (
+        {(dateRange.from || dateRange.to || checkOutDateRange.from || checkOutDateRange.to) && (
           <Button
             variant="outline"
-            onClick={() => setDateRange({ from: undefined, to: undefined })}
+            onClick={() => {
+              setDateRange({ from: undefined, to: undefined });
+              setCheckOutDateRange({ from: undefined, to: undefined });
+            }}
             className="sm:w-auto"
           >
             <X className="h-4 w-4 mr-2" />
