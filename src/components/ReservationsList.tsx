@@ -136,7 +136,8 @@ export const ReservationsList = ({ userRole }: ReservationsListProps) => {
   const [settledFilter, setSettledFilter] = useState<string>('all');
   const [currencyFilter, setCurrencyFilter] = useState<string>('all');
   const [sourceFilter, setSourceFilter] = useState<string>('all');
-  const [units, setUnits] = useState<{ id: string; name: string; unit_number: string | null }[]>([]);
+  const [units, setUnits] = useState<{ id: string; name: string; unit_number: string | null; booking_com_name: string | null }[]>([]);
+  const [roomTypeFilter, setRoomTypeFilter] = useState<string>('all');
   const [sources, setSources] = useState<string[]>([]);
   const [sortField, setSortField] = useState<SortField>('created_at');
   const [sortOrder, setSortOrder] = useState<SortOrder>('desc');
@@ -205,7 +206,7 @@ export const ReservationsList = ({ userRole }: ReservationsListProps) => {
 
   useEffect(() => {
     filterReservations();
-  }, [reservations, searchQuery, statusFilter, unitFilter, paymentFilter, sourceFilter, currencyFilter, sortField, sortOrder, dateRange, checkOutDateRange]);
+  }, [reservations, searchQuery, statusFilter, unitFilter, roomTypeFilter, paymentFilter, sourceFilter, currencyFilter, sortField, sortOrder, dateRange, checkOutDateRange]);
 
   useEffect(() => {
     // Extract unique sources from reservations
@@ -240,7 +241,7 @@ export const ReservationsList = ({ userRole }: ReservationsListProps) => {
   const fetchUnits = async () => {
     const { data, error } = await withPropertyFilter(supabase
       .from('units')
-      .select('id, name, unit_number')
+      .select('id, name, unit_number, booking_com_name')
       .order('unit_number'), propertyId);
 
     if (!error && data) {
@@ -328,6 +329,10 @@ export const ReservationsList = ({ userRole }: ReservationsListProps) => {
 
     if (statusFilter !== 'all') {
       filtered = filtered.filter((r) => r.status === statusFilter);
+    }
+
+    if (roomTypeFilter !== 'all') {
+      filtered = filtered.filter((r) => (r as any).units?.booking_com_name === roomTypeFilter);
     }
 
     if (unitFilter !== 'all') {
@@ -878,10 +883,23 @@ export const ReservationsList = ({ userRole }: ReservationsListProps) => {
           </SelectTrigger>
           <SelectContent>
             <SelectItem value="all">All Units</SelectItem>
-            {units.map((unit) => (
+            {units
+              .filter(unit => roomTypeFilter === 'all' || unit.booking_com_name === roomTypeFilter)
+              .map((unit) => (
               <SelectItem key={unit.id} value={unit.unit_number || unit.name}>
                 {unit.unit_number || unit.name}
               </SelectItem>
+            ))}
+          </SelectContent>
+        </Select>
+        <Select value={roomTypeFilter} onValueChange={(val) => { setRoomTypeFilter(val); if (val !== 'all') setUnitFilter('all'); }}>
+          <SelectTrigger className="w-full sm:w-[200px]">
+            <SelectValue placeholder="All Room Types" />
+          </SelectTrigger>
+          <SelectContent>
+            <SelectItem value="all">All Room Types</SelectItem>
+            {[...new Set(units.map(u => u.booking_com_name).filter(Boolean))].sort().map(rt => (
+              <SelectItem key={rt!} value={rt!}>{rt}</SelectItem>
             ))}
           </SelectContent>
         </Select>
