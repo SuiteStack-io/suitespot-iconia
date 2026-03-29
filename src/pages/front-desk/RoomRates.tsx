@@ -257,7 +257,7 @@ export default function FrontDeskRoomRates() {
             {roomTypes.map((room) => (
               <Card key={room.name} className="overflow-hidden">
                 <AspectRatio ratio={16 / 10}>
-                  <RoomPhotoSlideshow photos={room.photos} name={room.name} />
+                  <RoomPhotoCard photos={room.photos} name={room.name} />
                 </AspectRatio>
 
                 <CardHeader className="pb-2">
