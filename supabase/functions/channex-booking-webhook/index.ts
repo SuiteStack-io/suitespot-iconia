@@ -138,6 +138,10 @@ Deno.serve(async (req: Request) => {
     const amount = enrichedData.amount || enrichedData.total_amount || bookingData.amount || bookingData.total_amount;
     const currency = enrichedData.currency || bookingData.currency;
 
+    // Extract OTA commission if available
+    const otaCommissionRaw = enrichedData.ota_commission || enrichedData.commission || bookingData.ota_commission || null;
+    const otaCommission = otaCommissionRaw ? parseFloat(String(otaCommissionRaw)) || null : null;
+
     const arrival_hour =
       enrichedData.arrival_hour || enrichedData.arrivalHour ||
       enrichedData.check_in_time || bookingData.arrival_hour || null;
