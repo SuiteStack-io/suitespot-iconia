@@ -1066,6 +1066,7 @@ export type Database = {
           last_message_at: string | null
           last_message_sender: string | null
           last_message_text: string | null
+          last_notification_sent_at: string | null
           message_count: number | null
           property_id: string | null
           provider: string
@@ -1083,6 +1084,7 @@ export type Database = {
           last_message_at?: string | null
           last_message_sender?: string | null
           last_message_text?: string | null
+          last_notification_sent_at?: string | null
           message_count?: number | null
           property_id?: string | null
           provider: string
@@ -1100,6 +1102,7 @@ export type Database = {
           last_message_at?: string | null
           last_message_sender?: string | null
           last_message_text?: string | null
+          last_notification_sent_at?: string | null
           message_count?: number | null
           property_id?: string | null
           provider?: string
