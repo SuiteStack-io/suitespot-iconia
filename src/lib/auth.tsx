@@ -14,6 +14,7 @@ export interface UserPermissions {
   can_access_pms: boolean;
   can_access_front_desk: boolean;
   can_override_rates: boolean;
+  can_access_guest_inbox: boolean;
 }
 
 const DEFAULT_PERMISSIONS: UserPermissions = {
@@ -27,6 +28,7 @@ const DEFAULT_PERMISSIONS: UserPermissions = {
   can_access_pms: false,
   can_access_front_desk: false,
   can_override_rates: false,
+  can_access_guest_inbox: false,
 };
 
 interface AuthContextType {
