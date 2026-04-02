@@ -12,6 +12,7 @@ import {
   DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu';
 import { NotificationBell } from '@/components/NotificationBell';
+import { UnreadMessagesBadge } from '@/components/UnreadMessagesBadge';
 import { SlideMenu } from '@/components/SlideMenu';
 import suitespotLogo from '@/assets/suitespot-logo.png';
 import { useIsMobile } from '@/hooks/use-mobile';
@@ -148,6 +149,7 @@ const Index = () => {
                 {propertyCtx.activeProperty.name}
               </Badge>
             )}
+            <UnreadMessagesBadge />
             <NotificationBell />
             <Button 
               variant="outline" 
