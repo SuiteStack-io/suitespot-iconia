@@ -1,64 +1,48 @@
 
 
-## Fix: Tighten Fallback Matching to Prevent False Matches
+## Fix Corrupted Reservations — 4 SQL Data Operations
 
-### Problem
-For NEW bookings (status != "cancelled"), the webhook uses fuzzy fallback matching (Try 2: guest name + dates + source) which can match the WRONG reservation when a guest has multiple bookings with overlapping check-in dates but different check-out dates. This caused reservation BDC-5835903406 to be overwritten by BDC-6226916261.
+### Current State (2 records exist)
+| ID | Current Guest | Current Ref | Current Unit | Current Channex ID |
+|---|---|---|---|---|
+| `659a79a3` | Malaknaz Barazesh | 5388507785 | Family Suite 417/418 (`b8485d0a`) | `90fdd28b...` |
+| `72a4d5b5` | Rojin Sepanj Khoui | 6226916261 | Junior Suite 517 (`d95e7cbc`) | `c9153441...` |
 
-### Root Cause
-Lines 400-402: For non-cancelled bookings, `findReservationByFallback` is called unconditionally. The fuzzy match matched on check-in date + guest name even though check-out dates differed (the query already requires exact check-out match, but the real issue is that for NEW bookings, fuzzy matching should never be used at all).
+### Operations
 
-Additionally, line 400 calls fallback for ALL non-cancelled statuses including "new" — new bookings should always create a new reservation if Try 1 (booking_reference) doesn't match.
+#### 1. UPDATE `659a79a3` → Restore to Anne Laure Decom
+- guest_names: `{"Anne Laure Decom"}`
+- booking_reference: `5388507785` (unchanged)
+- dates: Apr 23–27 (unchanged), unit: Family Suite 417/418 (unchanged)
+- total_price: 500.40, price_per_night: 125.10, commission_amount: 88.87, commission_rate: 17.76, net_revenue: 411.53
+- channex_booking_id: NULL (pre-connection booking)
+- adults: 2, children: 2, number_of_guests: 4
+- skip_channex_sync: true
 
-### Plan
+#### 2. UPDATE `72a4d5b5` → Restore Rojin with correct ref + move to Deluxe Suite
+- booking_reference: `6656841094` (was incorrectly 6226916261)
+- unit_id: `1ee439fb` (Deluxe Suite 511, move from Junior Suite 517)
+- total_price: 283.75 (unchanged), price_per_night: 141.88, commission_amount: 43.82, commission_rate: 15.44, net_revenue: 239.93
+- channex_booking_id: `c9153441...` (unchanged)
+- skip_channex_sync: true
 
-#### 1. Split fallback into two functions
-**File**: `supabase/functions/channex-booking-webhook/index.ts`
+#### 3. INSERT — Malaknaz Booking 1 (ref 5835903406, Apr 23–27)
+- Junior Suite 517 (`d95e7cbc`, freed by moving Rojin)
+- total_price: 446.41, price_per_night: 111.60
+- channex_booking_id: `90fdd28b-6fe4-475f-a754-1e3ec483512a`
+- property_id: `c98a2256...`, status: confirmed, source: Booking.com
 
-Replace `findReservationByFallback` with two variants:
-- **`findReservationByReference`** — Try 1 only (booking_reference match). Used for new bookings.
-- **`findReservationByFallback`** — Try 1 + stricter Try 2. Used only for cancellations and modifications.
+#### 4. INSERT — Malaknaz Booking 2 (ref 6226916261, Apr 23–25)
+- Junior Suite 503 (`860c5c76`, now free)
+- total_price: 265.31, price_per_night: 132.66, commission_amount: 40.97, commission_rate: 15.44, net_revenue: 224.34
+- channex_booking_id: `c266ae07-10d2-47a6-aff5-9320051df5c3`
+- property_id: `c98a2256...`, status: confirmed, source: Booking.com
 
-Stricter Try 2 rules:
-- Require exact match on `check_in_date` AND `check_out_date` (already done)
-- If multiple results returned, return `null` (do NOT pick one)
-- Remove the `data.length === 1` single-result fallback (too loose)
-- Add `channex_booking_id` column to the select, and add safeguard: if matched reservation already has a DIFFERENT `channex_booking_id`, return `null`
-
-#### 2. Update new booking logic (lines 393-402)
-For non-cancelled bookings:
-- First check direct `channex_booking_id` match (existing, unchanged)
-- If no direct match: call `findReservationByReference` (Try 1 only — booking_reference match)
-- If reference match found AND it already has a different `channex_booking_id` set, skip it — create new reservation instead
-- Do NOT use fuzzy matching for new bookings
-
-#### 3. Update cancellation logic (lines 315-326)
-Keep using full `findReservationByFallback` (Try 1 + strict Try 2), but with the stricter rules above.
-
-#### 4. Add channex_booking_id safeguard
-In both cancellation and modification paths, before updating a fallback-matched reservation:
-- Check if the matched reservation already has a `channex_booking_id` that is different from the current `booking_id`
-- If so, do NOT update it — treat as no match (create new for new bookings, send alert for cancellations)
-
-### Specific Code Changes
-
-**`findReservationByFallback` (lines 10-61)**: 
-- Add `channex_booking_id` to select queries
-- Remove the `data.length === 1` fallback (line 53-56)
-- Add check: if matched reservation has a different `channex_booking_id`, skip it
-- Accept a `mode` parameter: `"strict"` (cancellations/modifications) or `"reference_only"` (new bookings)
-
-**Lines 393-402** (new booking path):
-- Change to only use reference matching for the fallback, not fuzzy
-- Add channex_booking_id conflict check before updating
-
-**Lines 324-326** (cancellation path):
-- Keep full fallback but benefits from stricter Try 2
+#### 5. Push availability to Channex
+Invoke `channex-full-sync` for the property to recalculate availability for all affected room types (Family Suite, Junior Suite, Deluxe Suite).
 
 ### Summary
-- 1 file edited (`channex-booking-webhook/index.ts`)
-- Fuzzy matching disabled for new bookings
-- Fuzzy matching tightened for cancellations (no single-result fallback, channex_booking_id conflict check)
-- Prevents false matches when same guest has multiple bookings
-- Note: The overwritten reservation (659a79a3) data cannot be restored from code — it needs manual correction in the database based on the original BDC-5835903406 booking data
+- 2 UPDATEs + 2 INSERTs via the insert tool (no migration needed)
+- 1 edge function invocation for availability sync
+- No code file changes
 
