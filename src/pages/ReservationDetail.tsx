@@ -2258,6 +2258,17 @@ Thank you for choosing SuiteSpot!`;
         }}
       />
 
+      <LateCheckoutDialog
+        open={showLateCheckoutDialog}
+        onOpenChange={setShowLateCheckoutDialog}
+        mode={(reservation as any).late_checkout_time ? 'remove' : 'apply'}
+        reservationId={reservation.id}
+        unitId={reservation.unit_id}
+        unitName={reservation.units ? `${reservation.units.booking_com_name || reservation.units.name} #${reservation.units.unit_number}` : 'Unknown'}
+        checkoutDate={reservation.check_out_date}
+        onSuccess={fetchReservation}
+      />
+
       <AlertDialog open={showDeleteDialog} onOpenChange={setShowDeleteDialog}>
         <AlertDialogContent>
           <AlertDialogHeader>
