@@ -379,6 +379,21 @@ Deno.serve(async (req: Request) => {
 
             const bookingRef = ota_reservation_code || booking_id;
 
+            // Calculate pricing fields for OTA reservations
+            const totalAmount = parseFloat(amount) || null;
+            const nightCount = (() => {
+              if (!arrival_date || !departure_date) return 0;
+              const d1 = new Date(arrival_date);
+              const d2 = new Date(departure_date);
+              return Math.max(1, Math.round((d2.getTime() - d1.getTime()) / 86400000));
+            })();
+            const calcPricePerNight = totalAmount && nightCount > 0 ? Number((totalAmount / nightCount).toFixed(2)) : null;
+            const calcCommissionAmount = otaCommission && otaCommission > 0 ? otaCommission : null;
+            const calcCommissionRate = calcCommissionAmount && totalAmount && totalAmount > 0
+              ? Number(((calcCommissionAmount / totalAmount) * 100).toFixed(2)) : null;
+            const calcNetRevenue = totalAmount && calcCommissionAmount
+              ? Number((totalAmount - calcCommissionAmount).toFixed(2)) : null;
+
             const reservationRecord = {
               channex_booking_id: booking_id,
               booking_reference: bookingRef,
@@ -393,7 +408,11 @@ Deno.serve(async (req: Request) => {
               source: ota_name || "Channex",
               property_id: localPropertyId,
               unit_id: allocatedUnitId,
-              total_price: parseFloat(amount) || null,
+              total_price: totalAmount,
+              price_per_night: calcPricePerNight,
+              commission_amount: calcCommissionAmount,
+              commission_rate: calcCommissionRate,
+              net_revenue: calcNetRevenue,
               currency: currency || "USD",
               number_of_guests: numberOfGuests,
               adults: parseInt(adults) || 1,
