@@ -159,6 +159,9 @@ const ReservationDetail = () => {
   const propertyId = usePropertyId();
   const { userRole, hasPermission } = useAuth();
   const [reservation, setReservation] = useState<Reservation | null>(null);
+  const isOtaReservation = reservation?.channel === 'Channex' || 
+    ['BookingCom', 'Booking.com', 'Airbnb', 'Expedia', 'VRBO', 'Agoda', 'Hotels.com'].includes(reservation?.source || '');
+  const otaSourceLabel = reservation?.source || reservation?.channel || 'the OTA';
   const [units, setUnits] = useState<Unit[]>([]);
   const [unitAvailability, setUnitAvailability] = useState<UnitAvailability[]>([]);
   const [checkingAvailability, setCheckingAvailability] = useState(false);
@@ -1077,7 +1080,11 @@ Thank you for choosing SuiteSpot!`;
                 <ArrowLeftRight className="h-4 w-4 mr-2" />
                 Room Transfer
               </Button>
-              <Button onClick={() => setIsEditMode(true)}>
+              <Button 
+                onClick={() => setIsEditMode(true)} 
+                disabled={isOtaReservation}
+                title={isOtaReservation ? `This reservation was made through ${otaSourceLabel}. It can only be modified through the ${otaSourceLabel} platform.` : undefined}
+              >
                 <Edit2 className="h-4 w-4 mr-2" />
                 Edit Reservation
               </Button>
@@ -1096,6 +1103,8 @@ Thank you for choosing SuiteSpot!`;
               <Button 
                 variant="destructive"
                 onClick={() => setShowDeleteDialog(true)}
+                disabled={isOtaReservation}
+                title={isOtaReservation ? `This reservation was made through ${otaSourceLabel}. It can only be cancelled through the ${otaSourceLabel} platform.` : undefined}
               >
                 <Trash2 className="h-4 w-4 mr-2" />
                 Cancel Reservation
