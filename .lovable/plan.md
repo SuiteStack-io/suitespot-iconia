@@ -1,71 +1,49 @@
 
 
-## Fix: Correct Pricing & Commission for Channex/OTA Reservations
+## Add Email Notification for New Guest Messages
 
-### Problem
-1. `price_per_night` is never set in the webhook → shows USD 0.00
-2. `commission_amount`, `commission_rate`, `net_revenue` are never set → show N/A or incorrect defaults
-3. The UI defaults null values to 0 or 10%, showing misleading data
+### What this does
+After the `channex-message-webhook` stores an incoming guest message, it will send an email notification to property operators via the existing `send-admin-notification` pattern (Resend + property-scoped user filtering).
 
 ### Changes
 
-#### 1. Edge Function: `supabase/functions/channex-booking-webhook/index.ts`
+#### 1. New Edge Function: `supabase/functions/send-message-notification/index.ts`
+A lightweight notification function that:
+- Accepts: `property_id`, `guest_name`, `provider` (OTA source), `message_text`, `booking_reference`, `thread_id`
+- Fetches admin/front_desk users with property access (same pattern as `send-reservation-notification`)
+- Filters by notification preferences (can reuse existing `new_booking_email` pref or add a new one later)
+- Sends email via Resend with subject: `"New Message from [Guest Name] - [Property Name]"`
+- Email body includes: guest name, OTA source, booking reference (if available), message text, "Reply from your PMS Inbox" note
+- Rate-limits with 600ms delay between recipients (existing pattern)
 
-**Extract ota_commission** (after line ~139, where `amount` and `currency` are extracted):
-```ts
-const otaCommission = parseFloat(enrichedData.ota_commission || enrichedData.commission || bookingData.ota_commission || '0') || null;
-```
+#### 2. Update: `supabase/functions/channex-message-webhook/index.ts`
+After successfully storing the message (line ~185 and ~98), add a notification block:
+- **Only for incoming messages**: Check `sender !== 'property'` and `sender !== 'operator'` (only notify for guest messages)
+- **Throttle**: Check the thread's `last_message_at` — if last notification was sent <5 minutes ago for the same thread, skip the email. Use a simple query: check `message_threads.last_notification_sent_at` field
+- Fetch thread details (title, provider, reservation info) to populate the email
+- Call `send-message-notification` via `fetch()` with service role auth (same pattern as booking webhook notifications)
+- Wrap in try/catch so notification failure never blocks the webhook ACK
 
-**Calculate pricing fields** — add before the `reservationRecord` object (line ~378):
-```ts
-const totalAmount = parseFloat(amount) || null;
-const nightCount = (() => {
-  if (!arrival_date || !departure_date) return 0;
-  const d1 = new Date(arrival_date);
-  const d2 = new Date(departure_date);
-  return Math.max(1, Math.round((d2.getTime() - d1.getTime()) / 86400000));
-})();
-const calcPricePerNight = totalAmount && nightCount > 0 ? Number((totalAmount / nightCount).toFixed(2)) : null;
-const calcCommissionAmount = otaCommission && otaCommission > 0 ? otaCommission : null;
-const calcCommissionRate = calcCommissionAmount && totalAmount && totalAmount > 0 
-  ? Number(((calcCommissionAmount / totalAmount) * 100).toFixed(2)) : null;
-const calcNetRevenue = totalAmount && calcCommissionAmount 
-  ? Number((totalAmount - calcCommissionAmount).toFixed(2)) : null;
-```
+#### 3. Database Migration
+Add `last_notification_sent_at` (timestamptz, nullable) column to `message_threads` table for throttling. Updated by the webhook after sending a notification.
 
-**Add to INSERT record** (line ~378 `reservationRecord`):
-```ts
-price_per_night: calcPricePerNight,
-commission_amount: calcCommissionAmount,
-commission_rate: calcCommissionRate,
-net_revenue: calcNetRevenue,
-```
+#### 4. Config: `supabase/config.toml`
+Add `[functions.send-message-notification]` with `verify_jwt = false`
 
-**Add to UPDATE** (line ~304 update call): same 4 fields
+### Email template style
+Matches existing notification emails (dark navy header, structured detail rows, Resend via `notifications@bookings.suitespoteg.com`).
 
-#### 2. UI: `src/pages/ReservationDetail.tsx`
-
-**Read-only display** (lines 1655-1750):
-- Line 1657: Change `const pricePerNight = reservation?.price_per_night || 0;` to use the actual value, and when it's null/0 for OTA, calculate from `total_price / nights`
-- Lines 1731-1735 (Commission Rate): Change to show "N/A" when `commission_rate` is null, without appending `%` sign
-- Lines 1739-1742 (Commission Amount): Already shows "N/A" but prefixes with `$` — remove the `$` prefix when value is N/A
-- Lines 1744-1750 (Net Revenue): Already shows "N/A" but prefixes with `$` — remove the `$` prefix when value is N/A
-
-**Form data loading** (lines 286-290):
-- Change `commission_rate: data.commission_rate || 10` to `commission_rate: data.commission_rate ?? (data.channel === 'Channex' ? null : 10)` — preserve null for OTA
-- Change `commission_amount: data.commission_amount || 0` to `data.commission_amount ?? null`
-- Change `net_revenue: data.net_revenue || 0` to `data.net_revenue ?? null`
-
-**Price per night calculation fix** (line 1657):
-```ts
-const pricePerNight = reservation?.price_per_night || 
-  (reservation?.total_price && reservation?.nights ? Number((reservation.total_price / reservation.nights).toFixed(2)) : 0);
+### Throttle logic
+```text
+For each incoming guest message:
+  if sender is 'property' or 'operator' → skip notification
+  if thread.last_notification_sent_at > (now - 5 minutes) → skip notification
+  else → send email, update last_notification_sent_at
 ```
 
 ### Summary
-- 2 files edited
-- No database migrations needed (columns already exist)
-- OTA reservations get correct pricing from webhook data
-- Manual reservation commission logic unchanged
-- UI shows "N/A" cleanly when commission data is unavailable
+- 1 new edge function (`send-message-notification`)
+- 1 file edited (`channex-message-webhook`)
+- 1 migration (add throttle column)
+- 1 config entry
 
