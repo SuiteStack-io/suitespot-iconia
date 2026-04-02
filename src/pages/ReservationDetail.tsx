@@ -1103,6 +1103,8 @@ Thank you for choosing SuiteSpot!`;
               <Button 
                 variant="destructive"
                 onClick={() => setShowDeleteDialog(true)}
+                disabled={isOtaReservation}
+                title={isOtaReservation ? `This reservation was made through ${otaSourceLabel}. It can only be cancelled through the ${otaSourceLabel} platform.` : undefined}
               >
                 <Trash2 className="h-4 w-4 mr-2" />
                 Cancel Reservation
