@@ -231,7 +231,7 @@ function PropertyCard({
   propertyRatePlans, isSyncing, isFullSyncing, onSync, onFullSync, onRefresh,
 }: PropertyCardProps) {
   const [open, setOpen] = useState(false);
-  const isSynced = !!property.channex_property_id;
+  const isSynced = !!propertyMapping;
 
   const rpLookup: Record<string, { name: string; room_type: string | null }> = {};
   for (const rp of propertyRatePlans) rpLookup[rp.id] = { name: rp.name, room_type: rp.room_type };
@@ -275,7 +275,7 @@ function PropertyCard({
       <CardContent className="space-y-2">
         {isSynced && (
           <p className="text-xs text-muted-foreground">
-            Channex Property ID: <code className="bg-muted px-1 rounded">{property.channex_property_id}</code>
+            Channex Property ID: <code className="bg-muted px-1 rounded">{propertyMapping?.channex_id}</code>
           </p>
         )}
         {!isSynced && (
