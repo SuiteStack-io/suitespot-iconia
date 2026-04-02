@@ -238,7 +238,7 @@ Deno.serve(async (req) => {
     } catch (apiError) {
       const errorMessage = apiError instanceof Error ? apiError.message : 'Unknown error';
       console.error('[DerivedRP] Channex API error:', errorMessage);
-      await logSync(functionName, '/api/v1/rate_plans', channexPayload, null, null, false, errorMessage, null);
+      await logSync(functionName, '/api/v1/rate_plans', channexPayload, null, null, false, errorMessage, resolvedPropertyId);
       return new Response(
         JSON.stringify({ success: false, error: `Channex API error: ${errorMessage}` }),
         { status: 502, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
