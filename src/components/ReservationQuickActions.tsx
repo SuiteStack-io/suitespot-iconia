@@ -1499,7 +1499,7 @@ export const ReservationQuickActions = ({
                 );
               })()}
             </div>
-          ) : !extendMode && !lateCheckoutMode ? (
+          ) : !extendMode ? (
             <>
               {/* Status Actions */}
               <div className="space-y-2">
