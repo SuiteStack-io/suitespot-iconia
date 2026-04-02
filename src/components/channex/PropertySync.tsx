@@ -231,7 +231,7 @@ function PropertyCard({
   propertyRatePlans, isSyncing, isFullSyncing, onSync, onFullSync, onRefresh,
 }: PropertyCardProps) {
   const [open, setOpen] = useState(false);
-  const isSynced = !!property.channex_property_id;
+  const isSynced = !!propertyMapping;
 
   const rpLookup: Record<string, { name: string; room_type: string | null }> = {};
   for (const rp of propertyRatePlans) rpLookup[rp.id] = { name: rp.name, room_type: rp.room_type };
