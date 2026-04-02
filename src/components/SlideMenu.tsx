@@ -190,13 +190,13 @@ export function SlideMenu({ userRole }: SlideMenuProps) {
                           variant="ghost"
                           onClick={() => navigate(item.url)}
                           className={cn(
-                            'w-full justify-start gap-3 h-10 px-3 rounded-md',
+                            'w-full justify-start gap-2 h-10 px-3 rounded-md',
                             'text-[hsl(30,15%,70%)] hover:text-white hover:bg-[hsl(30,8%,25%)]',
                             isActive && 'bg-cyan-500/10 text-cyan-400 hover:text-cyan-400 hover:bg-cyan-500/20'
                           )}
                         >
-                          <Icon className={cn('h-4 w-4', isActive && 'text-cyan-400')} />
-                          <span className="text-sm flex-1">{item.title}</span>
+                          <Icon className={cn('h-4 w-4 shrink-0', isActive && 'text-cyan-400')} />
+                          <span className="text-sm">{item.title}</span>
                           {item.url === '/admin/inbox' && unreadCount > 0 && (userRole === 'admin' || hasPermission('can_access_guest_inbox')) && (
                             <span className="ml-auto inline-flex items-center justify-center h-5 min-w-[20px] px-1 rounded-full bg-destructive text-destructive-foreground text-[11px] font-semibold leading-none">
                               {unreadCount > 99 ? '99+' : unreadCount}
