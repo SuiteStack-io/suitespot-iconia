@@ -653,10 +653,13 @@ Deno.serve(async (req: Request) => {
         // Fetch full reservation + unit for notification payload
         const { data: fullRes } = await supabase
           .from("reservations")
-          .select("*, units:unit_id(name, room_number, room_type)")
+          .select("*, units:unit_id(name, unit_number, unit_type)")
           .eq("id", resId)
           .maybeSingle();
 
+        if (!fullRes) {
+          console.error("[channex-booking-webhook] Failed to fetch reservation for notification:", resId);
+        }
         if (fullRes) {
           const unitData = fullRes.units as any;
 
@@ -677,7 +680,7 @@ Deno.serve(async (req: Request) => {
                   checkOut: fullRes.check_out_date,
                   unitName: unitData?.name || null,
                   unitId: fullRes.unit_id,
-                  unitType: unitData?.room_type || null,
+                  unitType: unitData?.unit_type || null,
                   totalPrice: fullRes.total_price,
                   numberOfGuests: fullRes.number_of_guests,
                   adults: fullRes.adults,
@@ -709,7 +712,7 @@ Deno.serve(async (req: Request) => {
                   booking_reference: fullRes.booking_reference,
                   guest_names: fullRes.guest_names,
                   room_name: unitData?.name || null,
-                  room_number: unitData?.room_number || null,
+                  room_number: unitData?.unit_number || null,
                   old_check_in: oldArrivalDate || fullRes.check_in_date,
                   old_check_out: oldDepartureDate || fullRes.check_out_date,
                   new_check_in: fullRes.check_in_date,
