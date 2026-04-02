@@ -39,6 +39,7 @@ import {
 import { cn } from '@/lib/utils';
 import { useAuth } from '@/lib/auth';
 import { PropertySwitcher } from '@/components/PropertySwitcher';
+import { useUnreadMessages } from '@/hooks/useUnreadMessages';
 
 interface SlideMenuProps {
   userRole: string | null;
