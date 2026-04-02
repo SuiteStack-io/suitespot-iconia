@@ -10,6 +10,7 @@ interface Notification {
   read: boolean;
   created_at: string;
   metadata?: any;
+  user_id?: string;
 }
 
 export const useNotifications = () => {
