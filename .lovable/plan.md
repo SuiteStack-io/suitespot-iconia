@@ -1,39 +1,63 @@
 
 
-## Fix Inconsistent Channex Property ID Across PMS
+## Fix: Remove Ghost Property and Prevent Future Ghost Syncs
 
 ### Root Cause
-Three separate sources store the Channex Property ID:
-1. `channex_mappings` table (correct: `6b4e4f35-...`) — authoritative
-2. `properties.channex_property_id` column — was just synced in previous fix
-3. `channex_property_config.channex_property_id` column — **still has the old value** (`67a25d0e-...`)
-
-The **Settings tab** reads from `channex_property_config` (source #3), which was never updated.
+The `channex_mappings` table still has a property mapping row for the deleted property `4484e7cf-...`. The daily sync (`channex-daily-sync`) iterates ALL property mappings without checking if the property still exists in the `properties` table. The UI in `PropertySync.tsx` only shows properties from the `properties` table, so the ghost doesn't appear there — but backend syncs still process it.
 
 ### Changes
 
-**1. Database: Update stale value in `channex_property_config`**
+#### 1. Database Cleanup (insert tool — 3 DELETE statements)
 ```sql
-UPDATE channex_property_config
-SET channex_property_id = '6b4e4f35-6287-46ae-a588-a220484b05f6';
+-- Remove ghost property mapping
+DELETE FROM channex_mappings WHERE local_id = '4484e7cf-d0a0-42c8-bf96-94ca642c1eee';
+
+-- Remove ghost property config
+DELETE FROM channex_property_config WHERE property_id = '4484e7cf-d0a0-42c8-bf96-94ca642c1eee';
+
+-- Remove any pending/failed sync queue items for ghost property
+DELETE FROM channex_sync_queue WHERE property_id = '4484e7cf-d0a0-42c8-bf96-94ca642c1eee';
 ```
 
-**2. UI: Settings tab reads from `channex_mappings` instead**
-**File: `src/components/channex/PropertySettings.tsx`**
+#### 2. Fix `channex-daily-sync` — validate properties exist
+**File**: `supabase/functions/channex-daily-sync/index.ts`
 
-- The `channex_property_id` displayed at lines 267-276 currently comes from `config.channex_property_id` (the `channex_property_config` table)
-- Change the "Synced" badge and displayed ID to use the property mapping from `channex_mappings` (already fetched at line 107 into `mappings` state)
-- Derive the property mapping: `const propertyMapping = mappings.find(m => m.entity_type === 'property');`
-- Replace `config.channex_property_id` references in the display/badge (lines 267, 273, 275) with `propertyMapping?.channex_id`
-- Keep the reset handlers that clear `channex_property_id` on the config table (lines 182, 203) — they're fine for cleanup
+After fetching `propertyMappings` (line 61), add a validation step that filters out any mapping whose `local_id` doesn't exist in the `properties` table:
 
-**3. Edge function: `channex-create-derived-rate-plan`**
-**File: `supabase/functions/channex-create-derived-rate-plan/index.ts`**
+```ts
+// After line 66 (after the empty check)
+const { data: activeProperties } = await supabase
+  .from("properties")
+  .select("id");
+const activePropertyIds = new Set((activeProperties || []).map((p: any) => p.id));
+const validMappings = propertyMappings.filter((m: any) => activePropertyIds.has(m.local_id));
 
-- Lines 167-170 read `channex_property_id` from `channex_property_config` — change to read from `channex_mappings` where `entity_type = 'property'`
+if (validMappings.length === 0) {
+  return respond(200, { success: true, message: "No active synced properties", ... });
+}
+```
+
+Then iterate `validMappings` instead of `propertyMappings` in the `for` loop at line 75.
+
+#### 3. Fix `channex-full-sync` — validate property exists
+**File**: `supabase/functions/channex-full-sync/index.ts`
+
+After fetching `propMapping` (line 59), add a check that the property exists in the `properties` table:
+
+```ts
+const { data: propertyExists } = await supabase
+  .from("properties")
+  .select("id")
+  .eq("id", propertyId)
+  .maybeSingle();
+
+if (!propertyExists) {
+  return respond(400, { success: false, error: "Property not found in properties table" });
+}
+```
 
 ### Summary
-- 1 data update (insert tool)
-- 2 file edits (`PropertySettings.tsx`, `channex-create-derived-rate-plan/index.ts`)
-- All other edge functions already use `channex_mappings` for property ID resolution
+- 3 data deletions to clean ghost property references
+- 2 edge function edits to add property existence validation
+- No UI changes needed (UI already reads from `properties` table)
 
