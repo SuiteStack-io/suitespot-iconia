@@ -268,7 +268,7 @@ Deno.serve(async (req) => {
       markup_percentage: markupSettings.markup_percentage,
     });
 
-    await logSync(functionName, '/api/v1/rate_plans', channexPayload, channexResponse, 200, true, null, null);
+    await logSync(functionName, '/api/v1/rate_plans', channexPayload, channexResponse, 200, true, null, resolvedPropertyId);
 
     return new Response(
       JSON.stringify({
