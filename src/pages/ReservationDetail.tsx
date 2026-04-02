@@ -1816,6 +1816,12 @@ Thank you for choosing SuiteSpot!`;
                      'Not Set'}
                   </p>
                 </div>
+                {(reservation as any).late_checkout_time && (
+                  <div>
+                    <Label className="text-muted-foreground">Late Checkout</Label>
+                    <p className="mt-1 font-medium">{(reservation as any).late_checkout_time}</p>
+                  </div>
+                )}
               </>
             )}
           </CardContent>
