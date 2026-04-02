@@ -657,6 +657,9 @@ Deno.serve(async (req: Request) => {
           .eq("id", resId)
           .maybeSingle();
 
+        if (!fullRes) {
+          console.error("[channex-booking-webhook] Failed to fetch reservation for notification:", resId);
+        }
         if (fullRes) {
           const unitData = fullRes.units as any;
 
