@@ -1567,16 +1567,6 @@ export const ReservationQuickActions = ({
                     <Plus className="h-3 w-3" />
                     Extend Stay
                   </Button>
-                  <Button
-                    size="sm"
-                    variant="outline"
-                    onClick={() => setLateCheckoutMode(true)}
-                    disabled={updatingStatus}
-                    className="gap-1"
-                  >
-                    <Clock className="h-3 w-3" />
-                    Late Checkout Fee
-                  </Button>
                   {(reservation.status === 'confirmed' || reservation.status === 'checked-in') && (
                     <TooltipProvider>
                       <Tooltip>
