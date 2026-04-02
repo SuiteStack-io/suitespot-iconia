@@ -125,7 +125,7 @@ Deno.serve(async (req) => {
       .delete()
       .eq('id', derived_mapping_id);
 
-    await logSync(functionName, `/api/v1/rate_plans/${mapping.channex_derived_rate_plan_id}`, { derived_mapping_id }, null, 200, true, null, null);
+    await logSync(functionName, `/api/v1/rate_plans/${mapping.channex_derived_rate_plan_id}`, { derived_mapping_id }, null, 200, true, null, resolvedPropertyId);
 
     return new Response(
       JSON.stringify({ success: true, message: 'Derived rate plan deleted' }),
