@@ -109,6 +109,8 @@ Deno.serve(async (req) => {
       );
     }
 
+    resolvedPropertyId = ratePlan.property_id || null;
+
     // Look up base rate plan's Channex mapping
     const { data: baseMapping } = await supabaseAdmin
       .from('channex_mappings')

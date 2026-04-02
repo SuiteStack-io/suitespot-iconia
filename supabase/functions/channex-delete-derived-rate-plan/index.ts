@@ -92,6 +92,13 @@ Deno.serve(async (req) => {
       );
     }
 
+    const { data: baseRp } = await supabaseAdmin
+      .from('rate_plans')
+      .select('property_id')
+      .eq('id', mapping.base_rate_plan_id)
+      .maybeSingle();
+    resolvedPropertyId = baseRp?.property_id || null;
+
     // Delete from Channex
     try {
       await channexRequest(
