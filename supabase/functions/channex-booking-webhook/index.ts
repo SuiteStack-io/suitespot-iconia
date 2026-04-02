@@ -653,7 +653,7 @@ Deno.serve(async (req: Request) => {
         // Fetch full reservation + unit for notification payload
         const { data: fullRes } = await supabase
           .from("reservations")
-          .select("*, units:unit_id(name, room_number, room_type)")
+          .select("*, units:unit_id(name, unit_number, unit_type)")
           .eq("id", resId)
           .maybeSingle();
 
