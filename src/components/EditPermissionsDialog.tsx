@@ -114,6 +114,7 @@ export function EditPermissionsDialog({
     can_access_pms: false,
     can_access_front_desk: false,
     can_override_rates: false,
+    can_access_guest_inbox: false,
   });
 
   useEffect(() => {
