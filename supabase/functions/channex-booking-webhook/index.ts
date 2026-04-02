@@ -680,7 +680,7 @@ Deno.serve(async (req: Request) => {
                   checkOut: fullRes.check_out_date,
                   unitName: unitData?.name || null,
                   unitId: fullRes.unit_id,
-                  unitType: unitData?.room_type || null,
+                  unitType: unitData?.unit_type || null,
                   totalPrice: fullRes.total_price,
                   numberOfGuests: fullRes.number_of_guests,
                   adults: fullRes.adults,
