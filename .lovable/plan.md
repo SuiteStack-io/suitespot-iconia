@@ -1,43 +1,54 @@
 
 
-## Fix: Restore Sidebar Menu Spacing
+## Add Late Checkout Time Feature with OTA Availability Sync
 
-### Investigation
-The `SlideMenu.tsx` code is functionally identical to the original. The visual difference the user is seeing is likely caused by the `flex-1` class on the menu item text `<span>`, which was added to push the unread badge to the right. This makes the text span stretch to fill available space, subtly changing the perceived spacing.
+### What this does
+Adds a `late_checkout_time` column to reservations, and a shared hook + dialog component that blocks the unit on checkout day (via the `blocked_dates` table) when a late checkout time is set. The existing database trigger on `blocked_dates` automatically syncs availability to Channex/OTAs.
 
-### Fix (1 file)
+### Safety constraints
+- Late checkout blocks use reason prefix `"Late checkout - "` (e.g., `"Late checkout - 2:00 PM"`)
+- When removing a late checkout, the DELETE query filters by ALL three fields: `unit_id`, `date`, AND `reason ILIKE 'Late checkout%'`
+- This ensures manually created blocks (from the Blocked Dates Manager) are never affected
+- If a unit already has a separate manual block on the checkout date, the late checkout creates its own independent entry
 
-**`src/components/SlideMenu.tsx`**
+### Changes
 
-1. Change `gap-3` → `gap-2` on the Button className (line 193) to tighten icon-to-text spacing
-2. Remove `flex-1` from the text `<span>` (line 199) — instead, only add `flex-1` on the inbox item that needs the badge pushed right, or use a different approach for badge positioning
-
-Updated button markup:
-```tsx
-<Button
-  variant="ghost"
-  onClick={() => navigate(item.url)}
-  className={cn(
-    'w-full justify-start gap-2 h-10 px-3 rounded-md',
-    ...
-  )}
->
-  <Icon className={cn('h-4 w-4 shrink-0', isActive && 'text-cyan-400')} />
-  <span className="text-sm">{item.title}</span>
-  {item.url === '/admin/inbox' && unreadCount > 0 && ... && (
-    <span className="ml-auto ...">
-      {unreadCount > 99 ? '99+' : unreadCount}
-    </span>
-  )}
-</Button>
+#### 1. Database Migration
+```sql
+ALTER TABLE public.reservations ADD COLUMN IF NOT EXISTS late_checkout_time time WITHOUT time zone;
 ```
 
-- `gap-2` restores tighter 8px spacing between icon and text
-- Removing `flex-1` from the span restores natural text width for all items
-- `ml-auto` on the badge still pushes it right within the `w-full` flex container
-- `shrink-0` on icon prevents it from shrinking
+#### 2. New Hook: `src/hooks/useLateCheckout.ts`
+- Accepts: `reservation_id`, `unit_id`, `unit_name`, `checkout_date`
+- `applyLateCheckout(time)`:
+  1. Inserts into `blocked_dates` for `unit_id` on `checkout_date` with reason `"Late checkout - [time]"`
+  2. Updates `reservations.late_checkout_time = time`
+  3. DB trigger handles Channex sync
+- `removeLateCheckout()`:
+  1. Deletes from `blocked_dates` WHERE `unit_id = X` AND `blocked_date = checkout_date` AND `reason ILIKE 'Late checkout%'`
+  2. Sets `reservations.late_checkout_time = null`
+  3. DB trigger handles Channex sync
+
+#### 3. New Component: `src/components/LateCheckoutDialog.tsx`
+Reusable dialog for both Quick Actions and Reservation Details:
+- **Apply mode**: Time picker (1 PM–8 PM), info message with unit name and date, OTA sync warning, "Save Changes" / "Discard Changes" buttons
+- **Remove mode**: Confirmation message, same button pair
+- Success toasts with details
+
+#### 4. Update: `src/components/ReservationQuickActions.tsx`
+- Existing "Late Checkout" button opens `LateCheckoutDialog`
+- Button label toggles to "Remove Late Checkout" when `late_checkout_time` is set
+- Only for `confirmed` / `checked-in` status; disabled if no unit assigned
+
+#### 5. Update: `src/pages/ReservationDetail.tsx`
+- Add "Late Checkout" / "Remove Late Checkout" button in action area
+- Display "Late Checkout: [time]" in Booking Details when set
+- Same status/unit constraints as Quick Actions
 
 ### Summary
-- 1 file edited, 2 class changes
-- Badge functionality preserved
+- 1 migration (add column)
+- 2 new files (hook + dialog)
+- 2 files edited (ReservationQuickActions, ReservationDetail)
+- DELETE safety: always filters by `unit_id` + `date` + `reason ILIKE 'Late checkout%'`
+- Manual blocks are never touched
 
