@@ -426,7 +426,7 @@ Deno.serve(async (req: Request) => {
     console.error("[daily-sync] Fatal error:", err);
     try {
       await logSync("channex-daily-sync", "full-sync", null, null, null, false, err.message, null);
-    } catch { /* ignore */ }
+    } catch (_e) { /* ignore */ }
     return respond(500, { success: false, error: err.message, summary, duration_seconds: elapsed(startTime) });
   }
 });
