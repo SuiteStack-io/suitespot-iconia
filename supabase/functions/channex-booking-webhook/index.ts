@@ -800,7 +800,7 @@ Deno.serve(async (req: Request) => {
           error_message: availErr.message,
           property_id: localPropertyId,
         });
-      } catch { /* ignore logging failure */ }
+      } catch (_e) { /* ignore logging failure */ }
     }
 
     await logSync("channex-booking-webhook", "webhook", body, { status, booking_id, ack: ackSuccess, reservation: reservationResult, availability: availabilityPushResult }, 200, true, null, localPropertyId);
