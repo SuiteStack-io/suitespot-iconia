@@ -26,6 +26,8 @@ Deno.serve(async (req) => {
 
   const functionName = 'channex-delete-derived-rate-plan';
 
+  let resolvedPropertyId: string | null = null;
+
   try {
     if (req.method !== 'POST') {
       return new Response(
@@ -90,6 +92,13 @@ Deno.serve(async (req) => {
       );
     }
 
+    const { data: baseRp } = await supabaseAdmin
+      .from('rate_plans')
+      .select('property_id')
+      .eq('id', mapping.base_rate_plan_id)
+      .maybeSingle();
+    resolvedPropertyId = baseRp?.property_id || null;
+
     // Delete from Channex
     try {
       await channexRequest(
@@ -116,7 +125,7 @@ Deno.serve(async (req) => {
       .delete()
       .eq('id', derived_mapping_id);
 
-    await logSync(functionName, `/api/v1/rate_plans/${mapping.channex_derived_rate_plan_id}`, { derived_mapping_id }, null, 200, true, null, null);
+    await logSync(functionName, `/api/v1/rate_plans/${mapping.channex_derived_rate_plan_id}`, { derived_mapping_id }, null, 200, true, null, resolvedPropertyId);
 
     return new Response(
       JSON.stringify({ success: true, message: 'Derived rate plan deleted' }),
@@ -126,7 +135,7 @@ Deno.serve(async (req) => {
   } catch (error) {
     const errorMessage = error instanceof Error ? error.message : 'Unknown error';
     console.error('[DerivedRP] Error:', errorMessage);
-    await logSync(functionName, '/api/v1/rate_plans', null, null, null, false, errorMessage, null);
+    await logSync(functionName, '/api/v1/rate_plans', null, null, null, false, errorMessage, resolvedPropertyId);
     return new Response(
       JSON.stringify({ success: false, error: errorMessage }),
       { status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }

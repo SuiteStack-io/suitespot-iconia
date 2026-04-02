@@ -27,6 +27,8 @@ Deno.serve(async (req) => {
 
   const functionName = 'channex-create-derived-rate-plan';
 
+  let resolvedPropertyId: string | null = null;
+
   try {
     if (req.method !== 'POST') {
       return new Response(
@@ -106,6 +108,8 @@ Deno.serve(async (req) => {
         { status: 404, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
       );
     }
+
+    resolvedPropertyId = ratePlan.property_id || null;
 
     // Look up base rate plan's Channex mapping
     const { data: baseMapping } = await supabaseAdmin
@@ -234,7 +238,7 @@ Deno.serve(async (req) => {
     } catch (apiError) {
       const errorMessage = apiError instanceof Error ? apiError.message : 'Unknown error';
       console.error('[DerivedRP] Channex API error:', errorMessage);
-      await logSync(functionName, '/api/v1/rate_plans', channexPayload, null, null, false, errorMessage, null);
+      await logSync(functionName, '/api/v1/rate_plans', channexPayload, null, null, false, errorMessage, resolvedPropertyId);
       return new Response(
         JSON.stringify({ success: false, error: `Channex API error: ${errorMessage}` }),
         { status: 502, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
@@ -264,7 +268,7 @@ Deno.serve(async (req) => {
       markup_percentage: markupSettings.markup_percentage,
     });
 
-    await logSync(functionName, '/api/v1/rate_plans', channexPayload, channexResponse, 200, true, null, null);
+    await logSync(functionName, '/api/v1/rate_plans', channexPayload, channexResponse, 200, true, null, resolvedPropertyId);
 
     return new Response(
       JSON.stringify({
@@ -278,7 +282,7 @@ Deno.serve(async (req) => {
   } catch (error) {
     const errorMessage = error instanceof Error ? error.message : 'Unknown error';
     console.error('[DerivedRP] Error:', errorMessage);
-    await logSync(functionName, '/api/v1/rate_plans', null, null, null, false, errorMessage, null);
+    await logSync(functionName, '/api/v1/rate_plans', null, null, null, false, errorMessage, resolvedPropertyId);
     return new Response(
       JSON.stringify({ success: false, error: errorMessage }),
       { status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
