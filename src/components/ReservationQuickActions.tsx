@@ -153,7 +153,7 @@ export const ReservationQuickActions = ({
       // Reset modes when opening
       setExtendMode(false);
       setExtendAgainMode(false);
-      setLateCheckoutMode(false);
+      
       setEditLateCheckoutMode(false);
       setEditLateCheckoutFee("");
       setShowDeleteConfirm(false);
