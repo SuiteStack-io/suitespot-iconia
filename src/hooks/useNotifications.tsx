@@ -74,8 +74,11 @@ export const useNotifications = () => {
           schema: 'public',
           table: 'notifications'
         },
-        (payload) => {
+        async (payload) => {
           const newNotification = payload.new as Notification;
+          const { data: { user } } = await supabase.auth.getUser();
+          if (!user || newNotification.user_id !== user.id) return;
+          
           console.log('New notification received:', newNotification);
           
           setNotifications(prev => [newNotification, ...prev]);
