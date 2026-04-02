@@ -1,33 +1,39 @@
 
 
-## Fix: Channex Property ID Reading from Wrong Source
+## Fix Inconsistent Channex Property ID Across PMS
 
 ### Root Cause
-`PropertySync.tsx` reads the Channex Property ID from `properties.channex_property_id` (line 278) instead of from `channex_mappings`. The `channex_mappings` table has the correct production ID but the `properties` table column was never updated.
+Three separate sources store the Channex Property ID:
+1. `channex_mappings` table (correct: `6b4e4f35-...`) — authoritative
+2. `properties.channex_property_id` column — was just synced in previous fix
+3. `channex_property_config.channex_property_id` column — **still has the old value** (`67a25d0e-...`)
+
+The **Settings tab** reads from `channex_property_config` (source #3), which was never updated.
 
 ### Changes
 
-**File: `src/components/channex/PropertySync.tsx`**
-
-1. **Display the Channex ID from `channex_mappings`** — Change line 278 to use `propertyMapping?.channex_id` instead of `property.channex_property_id`
-
-2. **Fix the "Synced" badge logic** — Change line 234 from `!!property.channex_property_id` to `!!propertyMapping` so sync status is also derived from `channex_mappings`
-
-3. **Fix the "Full Sync (500 days)" visibility** — Same variable `isSynced` controls this, so it will automatically use the correct source after step 2
-
-**Database migration** — Update the stale `properties.channex_property_id` to match `channex_mappings`:
+**1. Database: Update stale value in `channex_property_config`**
 ```sql
-UPDATE properties p
-SET channex_property_id = cm.channex_id
-FROM channex_mappings cm
-WHERE cm.local_id = p.id
-  AND cm.entity_type = 'property'
-  AND cm.sync_status = 'synced';
+UPDATE channex_property_config
+SET channex_property_id = '6b4e4f35-6287-46ae-a588-a220484b05f6';
 ```
 
-### Summary of line changes
-- Line 234: `const isSynced = !!propertyMapping;`
-- Line 278: display `propertyMapping?.channex_id` instead of `property.channex_property_id`
+**2. UI: Settings tab reads from `channex_mappings` instead**
+**File: `src/components/channex/PropertySettings.tsx`**
 
-Two lines changed in one file, plus one data migration to sync the `properties` table.
+- The `channex_property_id` displayed at lines 267-276 currently comes from `config.channex_property_id` (the `channex_property_config` table)
+- Change the "Synced" badge and displayed ID to use the property mapping from `channex_mappings` (already fetched at line 107 into `mappings` state)
+- Derive the property mapping: `const propertyMapping = mappings.find(m => m.entity_type === 'property');`
+- Replace `config.channex_property_id` references in the display/badge (lines 267, 273, 275) with `propertyMapping?.channex_id`
+- Keep the reset handlers that clear `channex_property_id` on the config table (lines 182, 203) — they're fine for cleanup
+
+**3. Edge function: `channex-create-derived-rate-plan`**
+**File: `supabase/functions/channex-create-derived-rate-plan/index.ts`**
+
+- Lines 167-170 read `channex_property_id` from `channex_property_config` — change to read from `channex_mappings` where `entity_type = 'property'`
+
+### Summary
+- 1 data update (insert tool)
+- 2 file edits (`PropertySettings.tsx`, `channex-create-derived-rate-plan/index.ts`)
+- All other edge functions already use `channex_mappings` for property ID resolution
 
