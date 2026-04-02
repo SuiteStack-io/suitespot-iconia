@@ -75,7 +75,6 @@ Deno.serve(async (req: Request) => {
 
     const propertyWeekendDays: number[] = propertyExists.weekend_days || [4, 5];
     const propertyOffPeakDays: number[] = propertyExists.off_peak_days || [];
-    }
 
     const channexPropertyId = propMapping.channex_id;
     const today = new Date();
