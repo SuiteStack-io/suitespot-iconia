@@ -1,35 +1,37 @@
 
 
-## Add Unread Guest Message Badge to Nav Bar and Sidebar
+## Add Guest Inbox Permission Control
 
 ### What this does
-Adds a chat icon with red unread count badge in two locations: the top navigation bar (next to the bell icon) and the "Guest Inbox" sidebar menu item. Both stay in sync via a shared hook with real-time updates.
-
-### No database changes needed
-The `message_threads` table already has an `is_read` boolean column. The GuestInbox page already uses `threads.filter(t => !t.is_read).length` for unread count. We'll use the same thread-level unread tracking.
+Adds a `can_access_guest_inbox` permission to the existing granular permissions system, controlling visibility of the Guest Inbox menu item, unread badge, nav icon, and page access.
 
 ### Changes
 
-#### 1. New shared hook: `src/hooks/useUnreadMessages.tsx`
-- On mount: query `message_threads` where `is_read = false`, filtered by active property
-- Subscribe to Supabase Realtime on `message_threads` (INSERT/UPDATE) to update count live
-- Returns `{ unreadCount }` — both locations consume this single hook
-- Uses property context to scope the count
+#### 1. Database Migration
+Add `can_access_guest_inbox` boolean column (default `false`) to `user_permissions` table.
 
-#### 2. New component: `src/components/UnreadMessagesBadge.tsx`
-- MessageCircle icon (from lucide-react) with red badge (same style as NotificationBell: `Badge variant="destructive"` absolutely positioned)
-- Clicking navigates to `/admin/inbox`
-- Badge hidden when count is 0
+#### 2. Update: `src/lib/auth.tsx`
+- Add `can_access_guest_inbox` to the `UserPermissions` interface and `DEFAULT_PERMISSIONS`
 
-#### 3. Update: `src/pages/Index.tsx` (top nav bar)
-- Import and add `<UnreadMessagesBadge />` next to `<NotificationBell />` (line ~151)
+#### 3. Update: `src/components/EditPermissionsDialog.tsx`
+- Add `can_access_guest_inbox` to the `UserPermissions` interface and `PERMISSION_LABELS` with label "Access Guest Inbox" and description "View and reply to guest messages from OTA channels"
 
-#### 4. Update: `src/components/SlideMenu.tsx` (sidebar)
-- Import `useUnreadMessages` hook
-- Next to the "Guest Inbox" menu item, render a small red badge with the count when > 0
+#### 4. Update: `src/components/SlideMenu.tsx`
+- Add `showFor` condition on the Guest Inbox menu item: only show when `userRole === 'admin'` or `hasPermission('can_access_guest_inbox')`
+- Conditionally render the unread badge based on the same check
+
+#### 5. Update: `src/pages/Index.tsx`
+- Wrap `<UnreadMessagesBadge />` with permission check: only render when admin or has `can_access_guest_inbox`
+
+#### 6. Update: `src/pages/GuestInbox.tsx`
+- Add permission check on mount — if not admin and no `can_access_guest_inbox`, redirect to `/admin`
+
+#### 7. Update: `src/components/inbox/ConversationPanel.tsx`
+- Disable reply input when user lacks permission (defensive check)
 
 ### Summary
-- 2 new files (hook + component)
-- 2 files edited (Index.tsx, SlideMenu.tsx)
-- No migrations, no edge functions
+- 1 migration (add column)
+- 6 files edited
+- Follows exact same pattern as `can_access_front_desk` and `can_access_pms`
+- Admins always have access; other roles need the permission toggled on
 
