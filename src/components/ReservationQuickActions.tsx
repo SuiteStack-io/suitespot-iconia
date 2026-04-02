@@ -1580,7 +1580,7 @@ export const ReservationQuickActions = ({
                               className="gap-1"
                             >
                               <Clock className="h-3 w-3" />
-                              {fullReservation?.late_checkout_time ? 'Remove Late Checkout Time' : 'Late Checkout Time'}
+                              {fullReservation?.late_checkout_time ? 'Remove Late Checkout' : 'Late Checkout'}
                             </Button>
                           </span>
                         </TooltipTrigger>
