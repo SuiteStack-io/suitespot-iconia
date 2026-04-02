@@ -36,6 +36,7 @@ interface UserPermissions {
   can_access_pms: boolean;
   can_access_front_desk: boolean;
   can_override_rates: boolean;
+  can_access_guest_inbox: boolean;
 }
 
 const PERMISSION_LABELS: Record<keyof UserPermissions, { label: string; description: string }> = {
