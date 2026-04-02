@@ -196,7 +196,12 @@ export function SlideMenu({ userRole }: SlideMenuProps) {
                           )}
                         >
                           <Icon className={cn('h-4 w-4', isActive && 'text-cyan-400')} />
-                          <span className="text-sm">{item.title}</span>
+                          <span className="text-sm flex-1">{item.title}</span>
+                          {item.url === '/admin/inbox' && unreadCount > 0 && (
+                            <span className="ml-auto inline-flex items-center justify-center h-5 min-w-[20px] px-1 rounded-full bg-destructive text-destructive-foreground text-[11px] font-semibold leading-none">
+                              {unreadCount > 99 ? '99+' : unreadCount}
+                            </span>
+                          )}
                         </Button>
                       </SheetTrigger>
                     );

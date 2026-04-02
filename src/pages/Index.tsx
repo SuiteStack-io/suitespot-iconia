@@ -149,6 +149,7 @@ const Index = () => {
                 {propertyCtx.activeProperty.name}
               </Badge>
             )}
+            <UnreadMessagesBadge />
             <NotificationBell />
             <Button 
               variant="outline" 
