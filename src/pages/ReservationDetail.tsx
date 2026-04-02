@@ -285,9 +285,9 @@ const ReservationDetail = () => {
         contact_phone: data.contact_phone || '',
         price_per_night: data.price_per_night || 0,
         total_price: data.total_price,
-        commission_rate: data.commission_rate || 10,
-        commission_amount: data.commission_amount || 0,
-        net_revenue: data.net_revenue || 0,
+        commission_rate: data.commission_rate ?? (data.channel === 'Channex' ? null : 10),
+        commission_amount: data.commission_amount ?? null,
+        net_revenue: data.net_revenue ?? null,
         notes: data.notes || '',
         status: data.status,
         channel: data.channel,
@@ -1654,7 +1654,8 @@ Thank you for choosing SuiteSpot!`;
                 </div>
                 {(() => {
                   // Calculate pricing breakdown for display
-                  const pricePerNight = reservation?.price_per_night || 0;
+                  const pricePerNight = reservation?.price_per_night || 
+                    (reservation?.total_price && reservation?.nights ? Number((reservation.total_price / reservation.nights).toFixed(2)) : 0);
                   const nights = reservation?.nights || 0;
                   const subtotal = pricePerNight * nights;
                   
@@ -1731,21 +1732,25 @@ Thank you for choosing SuiteSpot!`;
                   <Label className="text-muted-foreground">Commission Rate</Label>
                   <p className="mt-1 font-medium">
                     {reservation.commission_amount && reservation.total_price 
-                      ? ((Number(reservation.commission_amount) / Number(reservation.total_price)) * 100).toFixed(2)
-                      : reservation.commission_rate || 'N/A'}%
+                      ? `${((Number(reservation.commission_amount) / Number(reservation.total_price)) * 100).toFixed(2)}%`
+                      : reservation.commission_rate != null
+                        ? `${reservation.commission_rate}%`
+                        : 'N/A'}
                   </p>
                 </div>
                 <div>
                   <Label className="text-muted-foreground">Commission Amount</Label>
                   <p className="mt-1 font-medium">
-                    ${reservation.commission_amount ? Number(reservation.commission_amount).toFixed(2) : 'N/A'}
+                    {reservation.commission_amount != null
+                      ? `USD ${Number(reservation.commission_amount).toFixed(2)}`
+                      : 'N/A'}
                   </p>
                 </div>
                 <div>
                   <Label className="text-muted-foreground">Net Revenue</Label>
                   <p className="mt-1 font-medium">
-                    {reservation.total_price && reservation.commission_amount
-                      ? `$${(Number(reservation.total_price) - Number(reservation.commission_amount)).toFixed(2)}`
+                    {reservation.total_price && reservation.commission_amount != null
+                      ? `USD ${(Number(reservation.total_price) - Number(reservation.commission_amount)).toFixed(2)}`
                       : 'N/A'}
                   </p>
                 </div>

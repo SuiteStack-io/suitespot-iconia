@@ -138,6 +138,10 @@ Deno.serve(async (req: Request) => {
     const amount = enrichedData.amount || enrichedData.total_amount || bookingData.amount || bookingData.total_amount;
     const currency = enrichedData.currency || bookingData.currency;
 
+    // Extract OTA commission if available
+    const otaCommissionRaw = enrichedData.ota_commission || enrichedData.commission || bookingData.ota_commission || null;
+    const otaCommission = otaCommissionRaw ? parseFloat(String(otaCommissionRaw)) || null : null;
+
     const arrival_hour =
       enrichedData.arrival_hour || enrichedData.arrivalHour ||
       enrichedData.check_in_time || bookingData.arrival_hour || null;
@@ -301,6 +305,21 @@ Deno.serve(async (req: Request) => {
             oldArrivalDate = existing.check_in_date;
             oldDepartureDate = existing.check_out_date;
             // Update existing reservation
+            // Calculate pricing fields for update
+            const updTotalAmount = parseFloat(amount) || null;
+            const updNightCount = (() => {
+              if (!arrival_date || !departure_date) return 0;
+              const d1 = new Date(arrival_date);
+              const d2 = new Date(departure_date);
+              return Math.max(1, Math.round((d2.getTime() - d1.getTime()) / 86400000));
+            })();
+            const updPricePerNight = updTotalAmount && updNightCount > 0 ? Number((updTotalAmount / updNightCount).toFixed(2)) : null;
+            const updCommissionAmount = otaCommission && otaCommission > 0 ? otaCommission : null;
+            const updCommissionRate = updCommissionAmount && updTotalAmount && updTotalAmount > 0
+              ? Number(((updCommissionAmount / updTotalAmount) * 100).toFixed(2)) : null;
+            const updNetRevenue = updTotalAmount && updCommissionAmount
+              ? Number((updTotalAmount - updCommissionAmount).toFixed(2)) : null;
+
             const { error: updateErr } = await supabase
               .from("reservations")
               .update({
@@ -310,7 +329,11 @@ Deno.serve(async (req: Request) => {
                 contact_email: guestEmail !== "unknown@unknown.com" ? guestEmail : null,
                 contact_phone: guestPhone,
                 guest_nationality: guestCountry,
-                total_price: parseFloat(amount) || null,
+                total_price: updTotalAmount,
+                price_per_night: updPricePerNight,
+                commission_amount: updCommissionAmount,
+                commission_rate: updCommissionRate,
+                net_revenue: updNetRevenue,
                 currency: currency || "USD",
                 number_of_guests: numberOfGuests,
                 adults: parseInt(adults) || 1,
@@ -375,6 +398,21 @@ Deno.serve(async (req: Request) => {
 
             const bookingRef = ota_reservation_code || booking_id;
 
+            // Calculate pricing fields for OTA reservations
+            const totalAmount = parseFloat(amount) || null;
+            const nightCount = (() => {
+              if (!arrival_date || !departure_date) return 0;
+              const d1 = new Date(arrival_date);
+              const d2 = new Date(departure_date);
+              return Math.max(1, Math.round((d2.getTime() - d1.getTime()) / 86400000));
+            })();
+            const calcPricePerNight = totalAmount && nightCount > 0 ? Number((totalAmount / nightCount).toFixed(2)) : null;
+            const calcCommissionAmount = otaCommission && otaCommission > 0 ? otaCommission : null;
+            const calcCommissionRate = calcCommissionAmount && totalAmount && totalAmount > 0
+              ? Number(((calcCommissionAmount / totalAmount) * 100).toFixed(2)) : null;
+            const calcNetRevenue = totalAmount && calcCommissionAmount
+              ? Number((totalAmount - calcCommissionAmount).toFixed(2)) : null;
+
             const reservationRecord = {
               channex_booking_id: booking_id,
               booking_reference: bookingRef,
@@ -389,7 +427,11 @@ Deno.serve(async (req: Request) => {
               source: ota_name || "Channex",
               property_id: localPropertyId,
               unit_id: allocatedUnitId,
-              total_price: parseFloat(amount) || null,
+              total_price: totalAmount,
+              price_per_night: calcPricePerNight,
+              commission_amount: calcCommissionAmount,
+              commission_rate: calcCommissionRate,
+              net_revenue: calcNetRevenue,
               currency: currency || "USD",
               number_of_guests: numberOfGuests,
               adults: parseInt(adults) || 1,
