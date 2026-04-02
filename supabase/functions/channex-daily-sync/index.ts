@@ -65,14 +65,25 @@ Deno.serve(async (req: Request) => {
       return respond(200, { success: true, message: "No synced properties found", summary, duration_seconds: elapsed(startTime) });
     }
 
-    console.log(`[daily-sync] Found ${propertyMappings.length} synced properties`);
+    // Filter to only properties that still exist in the properties table
+    const { data: activeProperties } = await supabase
+      .from("properties")
+      .select("id");
+    const activePropertyIds = new Set((activeProperties || []).map((p: any) => p.id));
+    const validMappings = propertyMappings.filter((m: any) => activePropertyIds.has(m.local_id));
+
+    console.log(`[daily-sync] Found ${propertyMappings.length} synced property mappings, ${validMappings.length} active`);
+
+    if (validMappings.length === 0) {
+      return respond(200, { success: true, message: "No active synced properties found", summary, duration_seconds: elapsed(startTime) });
+    }
 
     const today = new Date();
     today.setHours(0, 0, 0, 0);
     const endDate = addDays(today, 500);
 
     // ── 2. Process each property ─────────────────────────────────
-    for (const propMapping of propertyMappings) {
+    for (const propMapping of validMappings) {
       try {
         console.log(`[daily-sync] Processing property ${propMapping.local_id} (Channex: ${propMapping.channex_id})`);
 
