@@ -5,7 +5,7 @@ verify_jwt = false
 
 
 [functions.send-reservation-notification]
-verify_jwt = true
+verify_jwt = false
 
 [functions.allocate-unit]
 verify_jwt = false

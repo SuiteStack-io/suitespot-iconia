@@ -708,7 +708,7 @@ Deno.serve(async (req: Request) => {
                 : fullRes.nights || 0;
 
               console.log("[channex-booking-webhook] Sending cancellation notification for:", resId);
-              await fetch(`${supabaseUrl}/functions/v1/send-cancellation-notification`, {
+              const cancelResponse = await fetch(`${supabaseUrl}/functions/v1/send-cancellation-notification`, {
                 method: "POST",
                 headers: {
                   "Content-Type": "application/json",
@@ -730,7 +730,8 @@ Deno.serve(async (req: Request) => {
                   property_id: fullRes.property_id,
                 }),
               });
-              console.log("[channex-booking-webhook] Cancellation notification sent");
+              const cancelText = await cancelResponse.text();
+              console.log("[channex-booking-webhook] Cancellation notification response:", cancelResponse.status, cancelText);
             } catch (notifErr: any) {
               console.error("[channex-booking-webhook] Cancellation notification failed (non-fatal):", notifErr.message);
             }
