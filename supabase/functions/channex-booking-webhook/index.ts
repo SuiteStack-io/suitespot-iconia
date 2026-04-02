@@ -415,16 +415,18 @@ Deno.serve(async (req: Request) => {
             }
           }
         } else {
-          // Check if reservation already exists (idempotency) — direct match first, then fallback
+          // Check if reservation already exists (idempotency) — direct match first
           const { data: existingDirect } = await supabase
             .from("reservations")
-            .select("id, check_in_date, check_out_date")
+            .select("id, channex_booking_id, check_in_date, check_out_date")
             .eq("channex_booking_id", booking_id)
             .maybeSingle();
 
-          const existing = existingDirect || await findReservationByFallback(
-            supabase, ota_reservation_code, guestName, effectiveCheckIn, effectiveCheckOut, localPropertyId
-          );
+          // For NEW bookings: only use reference matching (Try 1), NEVER fuzzy matching
+          const existingByRef = !existingDirect
+            ? await findReservationByReference(supabase, ota_reservation_code, booking_id)
+            : null;
+          const existing = existingDirect || existingByRef;
 
           if (existing) {
             // Stamp channex_booking_id for future direct matching if found via fallback
