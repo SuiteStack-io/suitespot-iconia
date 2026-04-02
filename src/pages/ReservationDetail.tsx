@@ -184,6 +184,7 @@ const ReservationDetail = () => {
   const [deletingCharge, setDeletingCharge] = useState(false);
   const [downloadingConfirmation, setDownloadingConfirmation] = useState(false);
   const [showRoomTransferDialog, setShowRoomTransferDialog] = useState(false);
+  const [showLateCheckoutDialog, setShowLateCheckoutDialog] = useState(false);
   const confirmationRef = useRef<HTMLDivElement>(null);
   const [priceBreakdown, setPriceBreakdown] = useState<string>('');
   const [recalculatingPrice, setRecalculatingPrice] = useState(false);
