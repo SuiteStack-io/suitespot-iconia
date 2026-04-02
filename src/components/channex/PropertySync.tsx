@@ -275,7 +275,7 @@ function PropertyCard({
       <CardContent className="space-y-2">
         {isSynced && (
           <p className="text-xs text-muted-foreground">
-            Channex Property ID: <code className="bg-muted px-1 rounded">{property.channex_property_id}</code>
+            Channex Property ID: <code className="bg-muted px-1 rounded">{propertyMapping?.channex_id}</code>
           </p>
         )}
         {!isSynced && (
