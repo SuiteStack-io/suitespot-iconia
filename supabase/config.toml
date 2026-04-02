@@ -1,40 +1,23 @@
 project_id = "phvduifvymozqiqwvajj"
 
-[functions.send-kyc-completion-notification]
-verify_jwt = false
-
-
-[functions.send-reservation-notification]
-verify_jwt = false
+# IMPORTANT: Any edge function that is called by webhooks or by other edge functions
+# (not directly by the browser) MUST have verify_jwt = false.
+# Functions called directly by authenticated browser users should ALSO have
+# verify_jwt = false per Lovable Cloud conventions — they do in-code auth instead.
 
 [functions.allocate-unit]
 verify_jwt = false
 
-[functions.push-availability-booking-com]
+[functions.auto-assign-rooms]
 verify_jwt = false
 
-[functions.send-mid-stay-cleaning-notifications]
+[functions.auto-shuffle-rooms]
 verify_jwt = false
 
-[functions.send-checkin-notification]
+[functions.channex-booking-webhook]
 verify_jwt = false
 
-[functions.send-checkout-notification]
-verify_jwt = false
-
-[functions.send-cancellation-notification]
-verify_jwt = false
-
-[functions.send-room-change-notification]
-verify_jwt = false
-
-[functions.send-extension-notification]
-verify_jwt = false
-
-[functions.send-late-checkout-notification]
-verify_jwt = false
-
-[functions.send-modification-notification]
+[functions.channex-create-derived-rate-plan]
 verify_jwt = false
 
 [functions.channex-create-property]
@@ -43,25 +26,13 @@ verify_jwt = false
 [functions.channex-create-rate-plan]
 verify_jwt = false
 
-[functions.channex-sync-property]
-verify_jwt = false
-
-[functions.channex-push-availability]
-verify_jwt = false
-
-[functions.channex-push-rates]
-verify_jwt = false
-
-[functions.channex-booking-webhook]
-verify_jwt = false
-
-[functions.channex-test-connection]
-verify_jwt = false
-
-[functions.channex-process-sync-queue]
-verify_jwt = false
-
 [functions.channex-daily-sync]
+verify_jwt = false
+
+[functions.channex-delete-derived-rate-plan]
+verify_jwt = false
+
+[functions.channex-fetch-state]
 verify_jwt = false
 
 [functions.channex-full-sync]
@@ -70,50 +41,119 @@ verify_jwt = false
 [functions.channex-health-check]
 verify_jwt = false
 
-[functions.channex-fetch-state]
+[functions.channex-message-webhook]
 verify_jwt = false
 
-[functions.channex-reset-sync]
+[functions.channex-process-sync-queue]
 verify_jwt = false
 
-[functions.auto-shuffle-rooms]
+[functions.channex-push-availability]
 verify_jwt = false
 
-[functions.channex-create-derived-rate-plan]
-verify_jwt = false
-
-[functions.channex-delete-derived-rate-plan]
+[functions.channex-push-rates]
 verify_jwt = false
 
 [functions.channex-push-restrictions]
 verify_jwt = false
 
-[functions.channex-sync-rates]
-verify_jwt = false
-
-[functions.channex-message-webhook]
+[functions.channex-reset-sync]
 verify_jwt = false
 
 [functions.channex-send-message]
 verify_jwt = false
 
-[functions.sync-channex-to-reservations]
-verify_jwt = false
-
 [functions.channex-sync-messages]
 verify_jwt = false
 
-[functions.auto-assign-rooms]
+[functions.channex-sync-property]
+verify_jwt = false
+
+[functions.channex-sync-rates]
+verify_jwt = false
+
+[functions.channex-test-connection]
+verify_jwt = false
+
+[functions.create-admin-user]
+verify_jwt = false
+
+[functions.create-guest-account]
 verify_jwt = false
 
 [functions.generate-daily-summary]
 verify_jwt = false
 
-[functions.generate-weekly-summary]
-verify_jwt = false
-
 [functions.generate-monthly-summary]
 verify_jwt = false
 
+[functions.generate-selection-credentials]
+verify_jwt = false
+
+[functions.generate-weekly-summary]
+verify_jwt = false
+
+[functions.parse-reservation-screenshot]
+verify_jwt = false
+
+[functions.push-availability-booking-com]
+verify_jwt = false
+
+[functions.send-admin-notification]
+verify_jwt = false
+
+[functions.send-cancellation-notification]
+verify_jwt = false
+
+[functions.send-checkin-notification]
+verify_jwt = false
+
+[functions.send-checkout-notification]
+verify_jwt = false
+
+[functions.send-checkout-surveys]
+verify_jwt = false
+
+[functions.send-extension-notification]
+verify_jwt = false
+
+[functions.send-guest-credentials]
+verify_jwt = false
+
+[functions.send-kyc-completion-notification]
+verify_jwt = false
+
+[functions.send-kyc-reminder]
+verify_jwt = false
+
+[functions.send-late-checkout-notification]
+verify_jwt = false
+
 [functions.send-message-notification]
+verify_jwt = false
+
+[functions.send-mid-stay-cleaning-notifications]
+verify_jwt = false
+
+[functions.send-modification-notification]
+verify_jwt = false
+
+[functions.send-reservation-notification]
+verify_jwt = false
+
+[functions.send-room-change-notification]
+verify_jwt = false
+
+[functions.send-survey-notification]
+verify_jwt = false
+
+[functions.send-ticket-notification]
+verify_jwt = false
+
+[functions.sync-channex-to-reservations]
+verify_jwt = false
+
+[functions.update-user-email]
+verify_jwt = false
+
+[functions.verify-selection-password]
 verify_jwt = false
