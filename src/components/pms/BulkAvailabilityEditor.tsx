@@ -118,7 +118,7 @@ export function BulkAvailabilityEditor({ pendingAvailability, setPendingAvailabi
     const fetchCurrent = async () => {
       setIsLoadingAvailability(true);
       try {
-        const { data } = await supabase
+        const { data: units } = await supabase
           .from('units')
           .select('id')
           .eq('property_id', propertyId)
@@ -126,9 +126,40 @@ export function BulkAvailabilityEditor({ pendingAvailability, setPendingAvailabi
           .neq('status', 'maintenance');
 
         if (cancelled) return;
-        const count = data?.length || 0;
-        setCurrentAvailability(count);
-        setAvailability(count);
+        const unitIds = units?.map(u => u.id) || [];
+        const totalUnits = unitIds.length;
+
+        if (totalUnits === 0 || !dateFrom) {
+          setCurrentAvailability(totalUnits);
+          setAvailability(totalUnits);
+          return;
+        }
+
+        const checkDate = format(dateFrom, 'yyyy-MM-dd');
+
+        const { data: blockedData } = await supabase
+          .from('blocked_dates')
+          .select('unit_id')
+          .in('unit_id', unitIds)
+          .eq('blocked_date', checkDate);
+
+        const { data: reservedData } = await supabase
+          .from('reservations')
+          .select('unit_id')
+          .in('unit_id', unitIds)
+          .in('status', ['confirmed', 'checked-in'])
+          .lte('check_in_date', checkDate)
+          .gt('check_out_date', checkDate);
+
+        if (cancelled) return;
+
+        const blockedUnitIds = new Set(blockedData?.map(b => b.unit_id) || []);
+        const reservedUnitIds = new Set(reservedData?.map(r => r.unit_id) || []);
+        const unavailableIds = new Set([...blockedUnitIds, ...reservedUnitIds]);
+
+        const available = totalUnits - unavailableIds.size;
+        setCurrentAvailability(available);
+        setAvailability(available);
       } catch {
         if (!cancelled) setCurrentAvailability(null);
       } finally {
