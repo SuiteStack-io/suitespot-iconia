@@ -1,61 +1,100 @@
 
 
-## Consolidate Late Checkout into Single Dialog
+## Fix: Channex Webhook Fallback Matching for Pre-Connection Reservations
 
 ### Problem
-There are currently **two separate** late checkout buttons in Quick Actions:
-1. **"Late Checkout Fee"** → inline mode that creates a linked reservation with $50 fee (failing with error)
-2. **"Late Checkout Time"** → opens `LateCheckoutDialog` that sets time + blocks unit
+Cancellations (and modifications) from Channex for reservations created before the Channex connection fail silently because they lack a `channex_booking_id`. The webhook only matches by `channex_booking_id`.
 
-These need to be merged into ONE dialog that does everything.
+### Solution
+Add a `findReservationByFallback` helper function in the webhook that tries multiple matching strategies when `channex_booking_id` lookup returns nothing.
 
-### Root Cause of Fee Error
-The `handleLateCheckout` function (line 645-730 in `ReservationQuickActions.tsx`) creates a new reservation record as a linked fee entry. The error is likely an RLS or trigger issue during this insert. This entire approach will be replaced by the consolidated flow.
+### File: `supabase/functions/channex-booking-webhook/index.ts`
 
-### Plan
+#### 1. Add fallback matching helper (before the main handler or inside the try block)
 
-#### 1. Update `LateCheckoutDialog.tsx` — Add fee section to existing dialog
-Expand the existing dialog to include:
-- **Time picker** (already exists — 1-8 PM dropdown)
-- **Fee section** (new):
-  - Editable fee amount input (default $50)
-  - Auto-calculated breakdown: Base = fee/1.14, VAT = fee - base, Total
-  - "Charge late checkout fee" checkbox (default checked)
-  - Attribution line: "Late checkout attributed to: [Guest Name]. This creates a linked reservation. Commission (10%) will be credited to you."
-- **Unit block info** (already exists)
-- **OTA sync warning** (already exists)
-- **Save/Discard buttons** (already exists)
+A helper function `findReservationByFallback` that:
+- **Try 1**: Match by `booking_reference` = `ota_reservation_code` (already extracted from revision data), filtered to non-cancelled status and matching `property_id`
+- **Try 2**: Fuzzy match by `guest_names` (first guest name contains match) + `check_in_date` + `check_out_date` + source ILIKE `%booking%`, filtered to non-cancelled, matching `property_id`
+- Returns the matched reservation row or null
 
-New props: `guestName`, `bookingReference`, `currency`, `currentUserName`, `fullReservation` (for group_id, status, etc.)
+#### 2. Update cancellation logic (lines 262-294)
 
-#### 2. Update `useLateCheckout.ts` — Add fee creation to apply flow
-Extend `applyLateCheckout` to optionally create the linked reservation (fee entry):
-- Accept `feeEnabled`, `feeAmount`, `fullReservation`, `currentUserName` params
-- After blocking unit + setting time, if fee enabled:
-  - Create linked reservation with `-LC` suffix (same logic as current `handleLateCheckout`)
-  - Set `skip_channex_sync: true` on the fee reservation to avoid trigger issues
-  - Update original reservation's `group_id` if needed
-  - Invoke `send-late-checkout-notification`
+Current code only does:
+```typescript
+.eq("channex_booking_id", booking_id)
+```
 
-#### 3. Update `ReservationQuickActions.tsx` — Remove duplicate flows
-- **Remove**: `lateCheckoutMode` state and all its inline UI (lines 1812-1890)
-- **Remove**: The separate "Late Checkout Fee" button (line 1666-1675)
-- **Keep**: The "Late Checkout Time" button but rename to just "Late Checkout"
-- **Remove**: `handleLateCheckout` function (line 645-730), `LATE_CHECKOUT_FEE` constant, related state vars (`lateCheckoutMode`, `processingLateCheckout`)
-- Pass new props to `LateCheckoutDialog`: guest name, booking ref, currency, user name, full reservation data
+Change to:
+- First try existing `channex_booking_id` match
+- If no result, call `findReservationByFallback(supabase, ota_reservation_code, guestName, effectiveCheckIn, effectiveCheckOut, localPropertyId)`
+- If fallback finds a match:
+  - Cancel it (update status to "cancelled", set `cancelled_at`, `skip_channex_sync: true`)
+  - Store the `channex_booking_id` on the reservation for future matching
+  - Set `reservationResult = "cancelled:<id>"`
+  - Capture `oldArrivalDate`/`oldDepartureDate` for availability push
 
-#### 4. Update `ReservationDetail.tsx` — Same consolidation
-- Pass the same new props to `LateCheckoutDialog` on this page
-- Remove any separate late checkout fee UI if present
+#### 3. Update modification logic (lines 297-351)
 
-### Technical Details
-- Fee reservation insert will include `skip_channex_sync: true` to prevent channex trigger from firing on a 0-night reservation
-- The `property_id` will be explicitly set from `fullReservation.property_id` to avoid RLS issues
-- The dialog handles both apply and remove modes (remove only removes time + block, not the fee reservation)
+Same pattern — after the existing `.eq("channex_booking_id", booking_id)` check returns null:
+- Call `findReservationByFallback`
+- If found, update the reservation with new data AND set `channex_booking_id` on it
+- Set `reservationResult = "updated:<id>"`
 
-### Files Changed
-- `src/components/LateCheckoutDialog.tsx` — major expansion with fee section
-- `src/hooks/useLateCheckout.ts` — add fee creation logic
-- `src/components/ReservationQuickActions.tsx` — remove duplicate flow, pass new props
-- `src/pages/ReservationDetail.tsx` — pass new props to dialog
+#### 4. Handle complete miss (no match at all for cancellations)
+
+If cancellation finds no reservation via any method:
+- Send an "unmatched cancellation" alert email via `send-cancellation-notification` with a note that it couldn't be matched
+- Log via `createAlert` for visibility
+
+### Key implementation detail
+
+The fallback helper:
+```typescript
+async function findReservationByFallback(
+  supabase, otaReservationCode, guestName, checkIn, checkOut, propertyId
+) {
+  // Try 1: booking_reference match
+  if (otaReservationCode) {
+    const { data } = await supabase
+      .from("reservations")
+      .select("id, check_in_date, check_out_date, unit_id")
+      .eq("booking_reference", otaReservationCode)
+      .neq("status", "cancelled")
+      .maybeSingle();
+    if (data) return data;
+  }
+
+  // Try 2: guest name + dates + source
+  if (guestName && checkIn && checkOut && propertyId) {
+    const { data } = await supabase
+      .from("reservations")
+      .select("id, check_in_date, check_out_date, unit_id")
+      .eq("check_in_date", checkIn)
+      .eq("check_out_date", checkOut)
+      .eq("property_id", propertyId)
+      .neq("status", "cancelled")
+      .ilike("source", "%booking%");
+    // Filter client-side for guest name match
+    if (data?.length) {
+      const match = data.find(r => 
+        r.guest_names?.some(n => n.toLowerCase().includes(guestName.split(" ")[0].toLowerCase()))
+      );
+      if (match) return match;
+      // If only one result for those dates, use it
+      if (data.length === 1) return data[0];
+    }
+  }
+
+  return null;
+}
+```
+
+### What changes
+- 1 file edited (`channex-booking-webhook/index.ts`)
+- Adds ~60 lines for fallback helper + integration
+- No migration needed
+- Existing post-connection bookings unaffected (first try still matches by `channex_booking_id`)
+- Matched reservations get `channex_booking_id` stamped for future direct matching
+- Availability push and cancellation emails work for fallback-matched reservations
+- Unmatched cancellations generate an alert
 
