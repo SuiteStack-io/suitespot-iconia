@@ -313,37 +313,81 @@ Deno.serve(async (req: Request) => {
     if (arrival_date && departure_date && booking_id) {
       try {
         if (status === "cancelled") {
-          // Capture old dates before cancelling
+          // Capture old dates before cancelling — try by channex_booking_id first
           const { data: cancelExisting } = await supabase
             .from("reservations")
-            .select("id, check_in_date, check_out_date")
+            .select("id, check_in_date, check_out_date, unit_id, guest_names")
             .eq("channex_booking_id", booking_id)
             .maybeSingle();
 
-          if (cancelExisting) {
-            oldArrivalDate = cancelExisting.check_in_date;
-            oldDepartureDate = cancelExisting.check_out_date;
-          }
+          // Fallback matching if no direct match
+          const cancelTarget = cancelExisting || await findReservationByFallback(
+            supabase, ota_reservation_code, guestName, effectiveCheckIn, effectiveCheckOut, localPropertyId
+          );
 
-          // Cancel existing reservation
-          const { data: updated, error: cancelErr } = await supabase
-            .from("reservations")
-            .update({
-              status: "cancelled",
-              cancelled_at: new Date().toISOString(),
-              skip_channex_sync: true,
-            })
-            .eq("channex_booking_id", booking_id)
-            .select("id")
-            .maybeSingle();
+          if (cancelTarget) {
+            oldArrivalDate = cancelTarget.check_in_date;
+            oldDepartureDate = cancelTarget.check_out_date;
 
-          if (cancelErr) {
-            console.error("[channex-booking-webhook] Cancel reservation error:", cancelErr.message);
-          } else if (updated) {
-            reservationResult = `cancelled:${updated.id}`;
-            console.log("[channex-booking-webhook] Reservation cancelled:", updated.id);
+            // Cancel the reservation and stamp channex_booking_id for future matching
+            const { data: updated, error: cancelErr } = await supabase
+              .from("reservations")
+              .update({
+                status: "cancelled",
+                cancelled_at: new Date().toISOString(),
+                skip_channex_sync: true,
+                channex_booking_id: booking_id,
+              })
+              .eq("id", cancelTarget.id)
+              .select("id")
+              .maybeSingle();
+
+            if (cancelErr) {
+              console.error("[channex-booking-webhook] Cancel reservation error:", cancelErr.message);
+            } else if (updated) {
+              reservationResult = `cancelled:${updated.id}`;
+              console.log("[channex-booking-webhook] Reservation cancelled:", updated.id, cancelExisting ? "(direct match)" : "(fallback match)");
+            }
           } else {
-            console.log("[channex-booking-webhook] No reservation found to cancel for:", booking_id);
+            // No match at all — send unmatched cancellation alert
+            console.log("[channex-booking-webhook] No reservation found to cancel for:", booking_id, "— sending unmatched alert");
+            await createAlert(
+              "unmatched_cancellation",
+              `Channex cancellation could not be matched to a PMS reservation. Guest: ${guestName}, Dates: ${effectiveCheckIn} to ${effectiveCheckOut}, Ref: ${ota_reservation_code || booking_id}`,
+              localPropertyId
+            );
+
+            // Send alert email via cancellation notification with unmatched flag
+            const supabaseUrlForAlert = Deno.env.get("SUPABASE_URL")!;
+            const serviceKeyForAlert = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
+            try {
+              const alertNightCount = effectiveCheckIn && effectiveCheckOut
+                ? Math.ceil((new Date(effectiveCheckOut).getTime() - new Date(effectiveCheckIn).getTime()) / (1000 * 60 * 60 * 24))
+                : 0;
+              await fetch(`${supabaseUrlForAlert}/functions/v1/send-cancellation-notification`, {
+                method: "POST",
+                headers: {
+                  "Content-Type": "application/json",
+                  "Authorization": `Bearer ${serviceKeyForAlert}`,
+                },
+                body: JSON.stringify({
+                  reservation_id: null,
+                  booking_reference: ota_reservation_code || booking_id || "Unknown",
+                  guest_names: [guestName],
+                  check_in_date: effectiveCheckIn,
+                  check_out_date: effectiveCheckOut,
+                  nights: alertNightCount,
+                  total_price: parseFloat(String(amount)) || 0,
+                  currency: currency || "USD",
+                  channel: "Channex",
+                  source: ota_name || "Channex",
+                  property_id: localPropertyId,
+                }),
+              });
+              console.log("[channex-booking-webhook] Unmatched cancellation alert email sent");
+            } catch (alertErr: any) {
+              console.error("[channex-booking-webhook] Unmatched cancellation alert email failed:", alertErr.message);
+            }
           }
         } else {
           // Check if reservation already exists (idempotency)
