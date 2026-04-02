@@ -1187,6 +1187,16 @@ Thank you for choosing SuiteSpot!`;
             >
               <ArrowLeftRight className="h-4 w-4" />
             </Button>
+            {(reservation.status === 'confirmed' || reservation.status === 'checked-in') && (
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={() => setShowLateCheckoutDialog(true)}
+                disabled={!reservation.unit_id}
+              >
+                <Clock className="h-4 w-4" />
+              </Button>
+            )}
             <Button size="sm" onClick={() => setIsEditMode(true)}>
               <Edit2 className="h-4 w-4 mr-2" />
               Edit
