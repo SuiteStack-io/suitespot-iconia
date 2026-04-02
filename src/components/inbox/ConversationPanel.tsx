@@ -345,6 +345,8 @@ export function ConversationPanel({ thread, onBack }: ConversationPanelProps) {
           <p className="text-sm text-muted-foreground text-center py-1">This conversation is closed</p>
         ) : messagingUnsupported ? (
           <p className="text-sm text-muted-foreground text-center py-1">Messaging not supported for this OTA</p>
+        ) : !canReply ? (
+          <p className="text-sm text-muted-foreground text-center py-1">You don't have permission to reply to guest messages</p>
         ) : (
           <div className="flex items-center gap-2">
             <Textarea
