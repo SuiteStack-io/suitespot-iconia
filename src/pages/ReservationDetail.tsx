@@ -1654,7 +1654,8 @@ Thank you for choosing SuiteSpot!`;
                 </div>
                 {(() => {
                   // Calculate pricing breakdown for display
-                  const pricePerNight = reservation?.price_per_night || 0;
+                  const pricePerNight = reservation?.price_per_night || 
+                    (reservation?.total_price && reservation?.nights ? Number((reservation.total_price / reservation.nights).toFixed(2)) : 0);
                   const nights = reservation?.nights || 0;
                   const subtotal = pricePerNight * nights;
                   
