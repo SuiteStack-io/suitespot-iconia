@@ -1,43 +1,40 @@
 
 
-## Fix: Add Email Notifications to Channex Booking Webhook
+## Fix: Disable Edit/Cancel Buttons for OTA Reservations
 
 ### Problem
-The `channex-booking-webhook` edge function creates, modifies, and cancels reservations but never calls any email notification functions. Manual reservation management triggers these emails, but the webhook path bypasses them entirely.
-
-### Root Cause
-The webhook writes directly to the database and never invokes `send-reservation-notification`, `send-modification-notification`, or `send-cancellation-notification` edge functions.
+OTA reservations (via Channex) can be accidentally edited or cancelled from the PMS, creating mismatches with the OTA platform.
 
 ### Fix
-**File: `supabase/functions/channex-booking-webhook/index.ts`**
+**File: `src/pages/ReservationDetail.tsx`**
 
-Add three notification blocks after the reservation operations (around line 464, after the reservation try/catch block but before the ACK section):
+Add a helper constant after reservation data is loaded:
+```ts
+const isOtaReservation = reservation?.channel === 'Channex' || 
+  ['BookingCom', 'Booking.com', 'Airbnb', 'Expedia', 'VRBO', 'Agoda', 'Hotels.com'].includes(reservation?.source || '');
+const otaSourceLabel = reservation?.source || reservation?.channel || 'the OTA';
+```
 
-**1. New booking notification** (when `reservationResult` starts with `created:`):
-- Fetch the created reservation + unit details from DB
-- Invoke `send-reservation-notification` with the same payload shape the manual flow uses:
-  - `reservationId`, `guestNames`, `checkIn`, `checkOut`, `unitName`, `unitId`, `unitType`, `totalPrice`, `numberOfGuests`, `adults`, `children`, `source`, `notes`, `guestNationality`, `customerEmail`, `customerPhone`
+At line 1080, wrap the Edit Reservation button with a Tooltip and disable it when `isOtaReservation`:
+```tsx
+<Button onClick={() => setIsEditMode(true)} disabled={isOtaReservation}
+  title={isOtaReservation ? `This reservation was made through ${otaSourceLabel}. It can only be modified through the ${otaSourceLabel} platform.` : undefined}>
+  <Edit2 className="h-4 w-4 mr-2" />
+  Edit Reservation
+</Button>
+```
 
-**2. Modified booking notification** (when `reservationResult` starts with `updated:`):
-- Fetch the updated reservation + unit details
-- Invoke `send-modification-notification` with:
-  - `booking_reference`, `guest_names`, `room_name`, `room_number`, `old_check_in`, `old_check_out`, `new_check_in`, `new_check_out`, `old_total_price`, `new_total_price`, `currency`, `channel`, `source`, `property_id`
-- Uses `oldArrivalDate`/`oldDepartureDate` (already captured) for old dates
-
-**3. Cancelled booking notification** (when `reservationResult` starts with `cancelled:`):
-- Fetch the cancelled reservation + unit details
-- Invoke `send-cancellation-notification` with:
-  - `reservation_id`, `booking_reference`, `guest_names`, `check_in_date`, `check_out_date`, `nights`, `total_price`, `currency`, `channel`, `source`, `unit_name`, `unit_number`, `property_id`
-
-### Implementation details
-- All notification calls are wrapped in try/catch so a notification failure never blocks the webhook response or ACK
-- Each call uses `fetch()` to the edge function URL with service role auth (same pattern as existing `auto-assign-rooms` call)
-- The notifications are fired AFTER the reservation DB operation succeeds but BEFORE the Channex ACK
-- No new templates — uses the exact same edge functions and email templates as manual reservations
-- The `catch` at line 681 needs `(_e)` parameter (existing bug, same fix as before)
+At line 1096, same for Cancel Reservation button:
+```tsx
+<Button variant="destructive" onClick={() => setShowDeleteDialog(true)} disabled={isOtaReservation}
+  title={isOtaReservation ? `This reservation was made through ${otaSourceLabel}. It can only be cancelled through the ${otaSourceLabel} platform.` : undefined}>
+  <Trash2 className="h-4 w-4 mr-2" />
+  Cancel Reservation
+</Button>
+```
 
 ### Summary
-- 1 file edited: `channex-booking-webhook/index.ts`
-- ~60 lines added (3 notification blocks)
-- No new edge functions, no new templates, no database changes
+- 1 file edited
+- 2 buttons get `disabled` + `title` tooltip for OTA reservations
+- Manual/direct reservations unaffected
 
