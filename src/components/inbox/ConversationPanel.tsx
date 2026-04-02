@@ -75,6 +75,8 @@ interface ConversationPanelProps {
 export function ConversationPanel({ thread, onBack }: ConversationPanelProps) {
   const navigate = useNavigate();
   const isMobile = useIsMobile();
+  const { userRole, hasPermission } = useAuth();
+  const canReply = userRole === 'admin' || hasPermission('can_access_guest_inbox');
   const [messages, setMessages] = useState<Message[]>([]);
   const [loading, setLoading] = useState(true);
   const [replyText, setReplyText] = useState("");
