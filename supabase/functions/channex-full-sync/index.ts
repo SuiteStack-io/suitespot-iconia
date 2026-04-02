@@ -62,15 +62,19 @@ Deno.serve(async (req: Request) => {
       return respond(400, { success: false, error: "Property not synced to Channex. Sync it first." });
     }
 
-    // Validate property still exists in the properties table
+    // Validate property still exists and fetch pricing config
     const { data: propertyExists } = await supabase
       .from("properties")
-      .select("id")
+      .select("id, weekend_days, off_peak_days")
       .eq("id", propertyId)
       .maybeSingle();
 
     if (!propertyExists) {
       return respond(400, { success: false, error: "Property not found in properties table. It may have been deleted." });
+    }
+
+    const propertyWeekendDays: number[] = propertyExists.weekend_days || [4, 5];
+    const propertyOffPeakDays: number[] = propertyExists.off_peak_days || [];
     }
 
     const channexPropertyId = propMapping.channex_id;
@@ -269,47 +273,72 @@ Deno.serve(async (req: Request) => {
         const CHUNK_DAYS = 30;
         const todayStr = formatDate(today);
 
+        // Default restriction values
+        const defaultMinStayArr = ratePlan.default_min_stay_arrival;
+        const defaultMinStayVal = Array.isArray(defaultMinStayArr) && defaultMinStayArr.length > 0 ? defaultMinStayArr[0] : 1;
+        const defaultMinThroughArr = ratePlan.default_min_stay_through;
+        const defaultMinThroughVal = Array.isArray(defaultMinThroughArr) && defaultMinThroughArr.length > 0 ? defaultMinThroughArr[0] : 1;
+
         for (const p of prices) {
-          const rateInCents = Math.round(p.weekday_rate * 100);
-          let chunkStart = new Date(dateFrom);
-          const rangeEnd = new Date(dateTo);
+          const weekdayRateCents = Math.round(p.weekday_rate * 100);
+          const weekendRateCents = p.weekend_rate ? Math.round(p.weekend_rate * 100) : weekdayRateCents;
+          const offPeakRateCents = p.off_peak_rate ? Math.round(p.off_peak_rate * 100) : weekdayRateCents;
 
-          while (chunkStart < rangeEnd) {
-            const chunkEnd = new Date(Math.min(addDays(chunkStart, CHUNK_DAYS).getTime(), rangeEnd.getTime()));
-            const chunkFromStr = formatDate(chunkStart);
-            const chunkToStr = formatDate(chunkEnd);
+          // Build day-by-day rates across the valid range
+          const rateStart = new Date(dateFrom < todayStr ? todayStr : dateFrom);
+          const rateEnd = new Date(dateTo);
+          const dailyRates: { date: string; rate: number }[] = [];
 
-            if (chunkToStr <= todayStr) { chunkStart = chunkEnd; continue; }
+          for (let d = new Date(rateStart); d < rateEnd; d = addDays(d, 1)) {
+            const ds = formatDate(d);
+            const dow = d.getDay(); // 0=Sun, 6=Sat
+            let rateCents = weekdayRateCents;
+            if (propertyOffPeakDays.length > 0 && propertyOffPeakDays.includes(dow) && offPeakRateCents > 0) {
+              rateCents = offPeakRateCents;
+            } else if (propertyWeekendDays.includes(dow) && weekendRateCents > 0) {
+              rateCents = weekendRateCents;
+            }
+            dailyRates.push({ date: ds, rate: rateCents });
+          }
 
-            const effectiveFrom = chunkFromStr < todayStr ? todayStr : chunkFromStr;
+          // Collapse consecutive days with same rate into ranges, chunked at 30 days max
+          let rangeIdx = 0;
+          while (rangeIdx < dailyRates.length) {
+            const segStart = dailyRates[rangeIdx];
+            let segRate = segStart.rate;
+            let segLastDate = segStart.date;
+            let segDayCount = 1;
 
-            const chunkRestriction = dateRestrictions?.find(
-              (r: any) => r.date_from <= effectiveFrom && r.date_to >= chunkToStr
+            while (rangeIdx + segDayCount < dailyRates.length && segDayCount < CHUNK_DAYS) {
+              const next = dailyRates[rangeIdx + segDayCount];
+              if (next.rate !== segRate) break;
+              segLastDate = next.date;
+              segDayCount++;
+            }
+
+            // Find the applicable date-specific restriction for this segment
+            const segRestriction = dateRestrictions?.find(
+              (r: any) => r.date_from <= segStart.date && r.date_to >= segLastDate
             );
-
-            const defaultMinStayArr = ratePlan.default_min_stay_arrival;
-            const defaultMinStayVal = Array.isArray(defaultMinStayArr) && defaultMinStayArr.length > 0 ? defaultMinStayArr[0] : 1;
-            const defaultMinThroughArr = ratePlan.default_min_stay_through;
-            const defaultMinThroughVal = Array.isArray(defaultMinThroughArr) && defaultMinThroughArr.length > 0 ? defaultMinThroughArr[0] : 1;
 
             const value: Record<string, any> = {
               property_id: channexPropertyId,
               rate_plan_id: rpMapping.channex_id,
-              date_from: effectiveFrom,
-              date_to: chunkToStr,
-              rate: rateInCents,
-              min_stay_arrival: chunkRestriction?.min_stay_arrival ?? defaultMinStayVal,
-              min_stay_through: chunkRestriction?.min_stay_through ?? defaultMinThroughVal,
-              stop_sell: chunkRestriction?.stop_sell ?? ratePlan.default_stop_sell ?? false,
-              closed_to_arrival: chunkRestriction?.closed_to_arrival ?? ratePlan.default_closed_to_arrival ?? false,
-              closed_to_departure: chunkRestriction?.closed_to_departure ?? ratePlan.default_closed_to_departure ?? false,
+              date_from: segStart.date,
+              date_to: formatDate(addDays(new Date(segLastDate), 1)),
+              rate: segRate,
+              min_stay_arrival: segRestriction?.min_stay_arrival ?? defaultMinStayVal,
+              min_stay_through: segRestriction?.min_stay_through ?? defaultMinThroughVal,
+              stop_sell: segRestriction?.stop_sell ?? ratePlan.default_stop_sell ?? false,
+              closed_to_arrival: segRestriction?.closed_to_arrival ?? ratePlan.default_closed_to_arrival ?? false,
+              closed_to_departure: segRestriction?.closed_to_departure ?? ratePlan.default_closed_to_departure ?? false,
             };
 
-            const maxStay = chunkRestriction?.max_stay ?? ratePlan.default_max_stay ?? null;
+            const maxStay = segRestriction?.max_stay ?? ratePlan.default_max_stay ?? null;
             if (maxStay) value.max_stay = maxStay;
 
             allRateValues.push(value);
-            chunkStart = chunkEnd;
+            rangeIdx += segDayCount;
           }
         }
 
