@@ -195,6 +195,71 @@ Deno.serve(async (req: Request) => {
       localPropertyId
     );
 
+    // Send email notification for incoming guest messages (not operator replies)
+    if (sender !== "property" && sender !== "operator") {
+      try {
+        // Throttle: check if we sent a notification for this thread in the last 5 minutes
+        const { data: threadData } = await supabase
+          .from("message_threads")
+          .select("last_notification_sent_at, title, provider, channex_booking_id")
+          .eq("id", threadId)
+          .maybeSingle();
+
+        const lastNotifAt = threadData?.last_notification_sent_at
+          ? new Date(threadData.last_notification_sent_at).getTime()
+          : 0;
+        const fiveMinutesAgo = Date.now() - 5 * 60 * 1000;
+
+        if (lastNotifAt < fiveMinutesAgo) {
+          // Resolve guest name from thread title or booking
+          const guestName = threadData?.title || "Guest";
+          const msgProvider = threadData?.provider || "Unknown";
+          const bookingRef = threadData?.channex_booking_id || null;
+
+          const supabaseUrl = Deno.env.get("SUPABASE_URL")!;
+          const serviceRoleKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
+
+          const notifResponse = await fetch(
+            `${supabaseUrl}/functions/v1/send-message-notification`,
+            {
+              method: "POST",
+              headers: {
+                "Content-Type": "application/json",
+                Authorization: `Bearer ${serviceRoleKey}`,
+              },
+              body: JSON.stringify({
+                property_id: localPropertyId,
+                guest_name: guestName,
+                provider: msgProvider,
+                message_text: messageText,
+                booking_reference: bookingRef,
+                thread_id: threadId,
+              }),
+            }
+          );
+
+          console.log(
+            `[channex-message-webhook] Notification response: ${notifResponse.status}`
+          );
+
+          // Update throttle timestamp
+          await supabase
+            .from("message_threads")
+            .update({ last_notification_sent_at: new Date().toISOString() })
+            .eq("id", threadId);
+        } else {
+          console.log(
+            `[channex-message-webhook] Skipped notification — throttled (last sent ${Math.round((Date.now() - lastNotifAt) / 1000)}s ago)`
+          );
+        }
+      } catch (notifErr: any) {
+        console.error(
+          "[channex-message-webhook] Notification error (non-blocking):",
+          notifErr.message
+        );
+      }
+    }
+
     console.log(`[channex-message-webhook] Processed message ${channexMessageId} in thread ${threadId}`);
     return ok({ success: true, message_id: channexMessageId, thread_id: threadId });
   } catch (err: any) {

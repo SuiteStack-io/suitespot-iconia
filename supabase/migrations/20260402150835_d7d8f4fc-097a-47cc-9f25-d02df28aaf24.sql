@@ -1,0 +1,1 @@
+ALTER TABLE public.message_threads ADD COLUMN IF NOT EXISTS last_notification_sent_at timestamptz DEFAULT NULL;

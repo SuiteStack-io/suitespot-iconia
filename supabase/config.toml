@@ -114,3 +114,6 @@ verify_jwt = false
 
 [functions.generate-monthly-summary]
 verify_jwt = false
+
+[functions.send-message-notification]
+verify_jwt = false
