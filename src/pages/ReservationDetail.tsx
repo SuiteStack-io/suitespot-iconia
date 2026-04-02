@@ -2266,6 +2266,10 @@ Thank you for choosing SuiteSpot!`;
         unitId={reservation.unit_id}
         unitName={reservation.units ? `${reservation.units.booking_com_name || reservation.units.name} #${reservation.units.unit_number}` : 'Unknown'}
         checkoutDate={reservation.check_out_date}
+        guestName={reservation.guest_names?.[0]}
+        bookingReference={reservation.booking_reference}
+        currency={reservation.currency || 'USD'}
+        fullReservation={reservation}
         onSuccess={fetchReservation}
       />
 

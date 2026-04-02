@@ -9,6 +9,14 @@ interface UseLateCheckoutParams {
   checkoutDate: string;
 }
 
+interface FeeOptions {
+  feeEnabled?: boolean;
+  feeAmount?: number;
+  fullReservation?: any;
+  currentUserName?: string;
+  bookingReference?: string;
+}
+
 export const useLateCheckout = ({
   reservationId,
   unitId,
@@ -18,7 +26,7 @@ export const useLateCheckout = ({
   const [loading, setLoading] = useState(false);
   const { user } = useAuth();
 
-  const applyLateCheckout = async (time: string): Promise<{ success: boolean; error?: string }> => {
+  const applyLateCheckout = async (time: string, feeOptions?: FeeOptions): Promise<{ success: boolean; error?: string }> => {
     if (!unitId) return { success: false, error: 'No unit assigned' };
     setLoading(true);
     try {
@@ -41,6 +49,74 @@ export const useLateCheckout = ({
         .eq('id', reservationId);
 
       if (updateError) throw updateError;
+
+      // Create fee reservation if enabled
+      if (feeOptions?.feeEnabled && feeOptions.feeAmount && feeOptions.feeAmount > 0 && feeOptions.fullReservation) {
+        const fullRes = feeOptions.fullReservation;
+        const feeAmt = feeOptions.feeAmount;
+        const baseAmount = feeAmt / 1.14;
+        const commissionRate = 10;
+        const commissionAmount = baseAmount * (commissionRate / 100);
+        const netRevenue = feeAmt - commissionAmount;
+
+        const groupId = fullRes.group_id || crypto.randomUUID();
+        const bookingRef = feeOptions.bookingReference || fullRes.booking_reference || 'UNKNOWN';
+
+        const lateCheckoutReservation = {
+          unit_id: unitId,
+          check_in_date: checkoutDate,
+          check_out_date: checkoutDate,
+          guest_names: fullRes.guest_names || [],
+          contact_email: fullRes.contact_email || null,
+          contact_phone: fullRes.contact_phone || null,
+          booking_reference: `${bookingRef}-LC`,
+          source: feeOptions.currentUserName || 'Admin',
+          channel: 'Direct',
+          status: fullRes.status || 'confirmed',
+          number_of_guests: fullRes.number_of_guests || 1,
+          adults: fullRes.adults || 1,
+          children: fullRes.children || 0,
+          guest_nationality: fullRes.guest_nationality || null,
+          total_price: feeAmt,
+          price_per_night: 0,
+          commission_rate: commissionRate,
+          commission_amount: commissionAmount,
+          net_revenue: netRevenue,
+          group_id: groupId,
+          currency: fullRes.currency || 'USD',
+          notes: `Late checkout fee for booking ${bookingRef}`,
+          property_id: fullRes.property_id || null,
+          skip_channex_sync: true,
+        };
+
+        const { data: insertResult, error: insertError } = await supabase
+          .from('reservations')
+          .insert(lateCheckoutReservation)
+          .select('id')
+          .single();
+
+        if (insertError) throw insertError;
+
+        // Update original reservation's group_id if not already set
+        if (!fullRes.group_id) {
+          await supabase
+            .from('reservations')
+            .update({ group_id: groupId })
+            .eq('id', reservationId);
+        }
+
+        // Send notification (non-blocking)
+        try {
+          await supabase.functions.invoke('send-late-checkout-notification', {
+            body: {
+              lateCheckoutReservationId: insertResult.id,
+              originalBookingReference: bookingRef,
+            },
+          });
+        } catch (notifError) {
+          console.error('Failed to send late checkout notification:', notifError);
+        }
+      }
 
       return { success: true };
     } catch (err: any) {

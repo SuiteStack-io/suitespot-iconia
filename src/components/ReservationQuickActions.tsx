@@ -97,9 +97,7 @@ export const ReservationQuickActions = ({
   const [extensionCurrency, setExtensionCurrency] = useState<string>("USD");
   const [extensionPaymentMethod, setExtensionPaymentMethod] = useState<string>("");
   
-  // Late checkout state
-  const [lateCheckoutMode, setLateCheckoutMode] = useState(false);
-  const [processingLateCheckout, setProcessingLateCheckout] = useState(false);
+  // Late checkout state (consolidated into LateCheckoutDialog)
   
   // Edit/Delete late checkout state
   const [editLateCheckoutMode, setEditLateCheckoutMode] = useState(false);
@@ -155,7 +153,7 @@ export const ReservationQuickActions = ({
       // Reset modes when opening
       setExtendMode(false);
       setExtendAgainMode(false);
-      setLateCheckoutMode(false);
+      
       setEditLateCheckoutMode(false);
       setEditLateCheckoutFee("");
       setShowDeleteConfirm(false);
@@ -638,98 +636,6 @@ export const ReservationQuickActions = ({
     }
   };
 
-  const LATE_CHECKOUT_FEE = 50; // Flat $50 fee including VAT
-  const lateCheckoutBase = LATE_CHECKOUT_FEE / 1.14;
-  const lateCheckoutVAT = LATE_CHECKOUT_FEE - lateCheckoutBase;
-
-  const handleLateCheckout = async () => {
-    if (!reservation || !fullReservation) return;
-
-    setProcessingLateCheckout(true);
-    try {
-      const commissionRate = 10;
-      // Commission calculated on base amount (excluding VAT) - effective Jan 2026
-      const commissionAmount = lateCheckoutBase * (commissionRate / 100);
-      const netRevenue = LATE_CHECKOUT_FEE - commissionAmount;
-
-      // Generate or use existing group_id to link reservations
-      const groupId = fullReservation.group_id || crypto.randomUUID();
-
-      // Create a new reservation for the late checkout (attributed to current user)
-      const lateCheckoutReservation = {
-        unit_id: reservation.unit_id,
-        check_in_date: reservation.check_out_date,
-        check_out_date: reservation.check_out_date, // Same day
-        
-        guest_names: fullReservation.guest_names,
-        contact_email: fullReservation.contact_email,
-        contact_phone: fullReservation.contact_phone,
-        booking_reference: `${reservation.booking_reference}-LC`,
-        source: currentUserName || "Admin",
-        channel: "Direct",
-        status: fullReservation.status,
-        number_of_guests: fullReservation.number_of_guests,
-        adults: fullReservation.adults,
-        children: fullReservation.children,
-        guest_nationality: fullReservation.guest_nationality,
-        total_price: LATE_CHECKOUT_FEE,
-        price_per_night: 0,
-        commission_rate: commissionRate,
-        commission_amount: commissionAmount,
-        net_revenue: netRevenue,
-        group_id: groupId,
-        currency: fullReservation.currency || "USD",
-        notes: `Late checkout fee for booking ${reservation.booking_reference}`,
-      };
-
-      // Insert the late checkout reservation
-      const { data: insertResult, error: insertError } = await supabase
-        .from("reservations")
-        .insert(lateCheckoutReservation)
-        .select('id')
-        .single();
-
-      if (insertError) throw insertError;
-
-      // Update the original reservation's group_id if not already set
-      if (!fullReservation.group_id) {
-        await supabase
-          .from("reservations")
-          .update({ group_id: groupId })
-          .eq("id", reservation.id);
-      }
-
-      // Send admin notification for the late checkout
-      try {
-        await supabase.functions.invoke('send-late-checkout-notification', {
-          body: { 
-            lateCheckoutReservationId: insertResult.id,
-            originalBookingReference: reservation.booking_reference 
-          }
-        });
-      } catch (notifError) {
-        console.error('Failed to send late checkout notification:', notifError);
-        // Don't fail the late checkout if notification fails
-      }
-
-      toast({
-        title: "Late Checkout Added",
-        description: `$${LATE_CHECKOUT_FEE} late checkout fee attributed to ${currentUserName || "Admin"}`,
-      });
-
-      onOpenChange(false);
-      onMoveComplete();
-    } catch (error) {
-      console.error("Error adding late checkout:", error);
-      toast({
-        title: "Late Checkout Failed",
-        description: "Failed to add late checkout fee. Please try again.",
-        variant: "destructive",
-      });
-    } finally {
-      setProcessingLateCheckout(false);
-    }
-  };
 
   const handleEditLateCheckout = async () => {
     if (!reservation || !editLateCheckoutFee) return;
@@ -986,9 +892,7 @@ export const ReservationQuickActions = ({
                 ? "Manage stay extension"
                 : extendMode 
                   ? "Extend the guest's stay" 
-                  : lateCheckoutMode 
-                    ? "Add late checkout fee" 
-                    : "View details, update status, or move this reservation"}
+                  : "View details, update status, or move this reservation"}
           </DialogDescription>
         </DialogHeader>
 
@@ -1595,7 +1499,7 @@ export const ReservationQuickActions = ({
                 );
               })()}
             </div>
-          ) : !extendMode && !lateCheckoutMode ? (
+          ) : !extendMode ? (
             <>
               {/* Status Actions */}
               <div className="space-y-2">
@@ -1663,16 +1567,6 @@ export const ReservationQuickActions = ({
                     <Plus className="h-3 w-3" />
                     Extend Stay
                   </Button>
-                  <Button
-                    size="sm"
-                    variant="outline"
-                    onClick={() => setLateCheckoutMode(true)}
-                    disabled={updatingStatus}
-                    className="gap-1"
-                  >
-                    <Clock className="h-3 w-3" />
-                    Late Checkout Fee
-                  </Button>
                   {(reservation.status === 'confirmed' || reservation.status === 'checked-in') && (
                     <TooltipProvider>
                       <Tooltip>
@@ -1686,7 +1580,7 @@ export const ReservationQuickActions = ({
                               className="gap-1"
                             >
                               <Clock className="h-3 w-3" />
-                              {fullReservation?.late_checkout_time ? 'Remove Late Checkout Time' : 'Late Checkout Time'}
+                              {fullReservation?.late_checkout_time ? 'Remove Late Checkout' : 'Late Checkout'}
                             </Button>
                           </span>
                         </TooltipTrigger>
@@ -1809,73 +1703,6 @@ export const ReservationQuickActions = ({
                 </Button>
               </div>
             </>
-          ) : lateCheckoutMode ? (
-            /* Late Checkout Mode */
-            <div className="space-y-4">
-              <div className="p-3 bg-primary/5 border border-primary/20 rounded-lg">
-                <div className="text-sm font-medium mb-2">Checkout Date</div>
-                <div className="text-lg font-semibold">
-                  {format(currentCheckout, "EEEE, MMM d, yyyy")}
-                </div>
-              </div>
-
-              <div className="p-4 bg-muted/50 rounded-lg space-y-3">
-                <div className="text-center">
-                  <div className="text-sm text-muted-foreground mb-1">Late Checkout Fee</div>
-                  <div className="text-3xl font-bold text-primary">${LATE_CHECKOUT_FEE}</div>
-                  <div className="text-xs text-muted-foreground">(Flat fee, VAT included)</div>
-                </div>
-                <div className="border-t pt-3 space-y-1.5">
-                  <div className="flex justify-between text-sm">
-                    <span className="text-muted-foreground">Base Amount</span>
-                    <span>${lateCheckoutBase.toFixed(2)}</span>
-                  </div>
-                  <div className="flex justify-between text-sm">
-                    <span className="text-muted-foreground">VAT (14%)</span>
-                    <span>${lateCheckoutVAT.toFixed(2)}</span>
-                  </div>
-                  <div className="border-t pt-2 flex justify-between font-semibold">
-                    <span>Total</span>
-                    <span className="text-primary">${LATE_CHECKOUT_FEE.toFixed(2)}</span>
-                  </div>
-                </div>
-              </div>
-
-              {/* Attribution Notice */}
-              <div className="p-3 bg-primary/5 border border-primary/20 rounded-lg">
-                <div className="flex items-center gap-2 text-sm">
-                  <User className="h-4 w-4 text-primary" />
-                  <span className="text-muted-foreground">Late checkout attributed to:</span>
-                  <span className="font-medium">{currentUserName || "Admin"}</span>
-                </div>
-                <p className="text-xs text-muted-foreground mt-1">
-                  This creates a linked reservation. Commission (10%) will be credited to you.
-                </p>
-              </div>
-
-              <div className="flex gap-2 pt-2">
-                <Button 
-                  variant="outline" 
-                  className="flex-1"
-                  onClick={() => setLateCheckoutMode(false)}
-                >
-                  <X className="h-4 w-4 mr-2" />
-                  Cancel
-                </Button>
-                <Button
-                  className="flex-1"
-                  onClick={handleLateCheckout}
-                  disabled={processingLateCheckout}
-                >
-                  {processingLateCheckout ? (
-                    <Loader2 className="h-4 w-4 mr-2 animate-spin" />
-                  ) : (
-                    <Clock className="h-4 w-4 mr-2" />
-                  )}
-                  Confirm Late Checkout
-                </Button>
-              </div>
-            </div>
           ) : (
             /* Extend Stay Mode */
             <div className="space-y-4">
@@ -2187,7 +2014,7 @@ export const ReservationQuickActions = ({
         onSuccess={onMoveComplete}
       />
 
-      {/* Late Checkout Time Dialog */}
+      {/* Late Checkout Dialog */}
       {reservation && (
         <LateCheckoutDialog
           open={lateCheckoutTimeDialogOpen}
@@ -2197,6 +2024,11 @@ export const ReservationQuickActions = ({
           unitId={reservation.unit_id}
           unitName={currentUnit ? `${(currentUnit as any).booking_com_name || currentUnit.name} #${currentUnit.unit_number}` : 'Unknown'}
           checkoutDate={reservation.check_out_date}
+          guestName={reservation.guest_names?.[0]}
+          bookingReference={reservation.booking_reference}
+          currency={fullReservation?.currency || 'USD'}
+          currentUserName={currentUserName}
+          fullReservation={fullReservation}
           onSuccess={() => {
             fetchFullReservation();
             onMoveComplete();
