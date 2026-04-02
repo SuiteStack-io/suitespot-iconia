@@ -149,7 +149,7 @@ const Index = () => {
                 {propertyCtx.activeProperty.name}
               </Badge>
             )}
-            <UnreadMessagesBadge />
+            {(userRole === 'admin' || hasPermission('can_access_guest_inbox')) && <UnreadMessagesBadge />}
             <NotificationBell />
             <Button 
               variant="outline" 

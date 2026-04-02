@@ -54,7 +54,7 @@ function getRelativeTime(dateStr: string | null): string {
 
 export default function GuestInbox() {
   const navigate = useNavigate();
-  const { userRole } = useAuth();
+  const { userRole, hasPermission } = useAuth();
   const isMobile = useIsMobile();
   const propertyId = usePropertyId();
   const [threads, setThreads] = useState<MessageThread[]>([]);
