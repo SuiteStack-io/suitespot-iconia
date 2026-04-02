@@ -224,103 +224,71 @@ Deno.serve(async (req: Request) => {
           const payload = item.payload || {};
           const weekdayRate = payload.weekday_rate;
           const weekendRate = payload.weekend_rate;
+          const offPeakRate = payload.off_peak_rate;
 
           if (weekdayRate && weekdayRate > 0) {
-            const today = new Date().toISOString().split("T")[0];
-            const dateFrom = ratePlanData.valid_from || today;
+            // Fetch property's weekend/off-peak day config
+            const { data: propDayConfig } = await supabase
+              .from("properties")
+              .select("weekend_days, off_peak_days")
+              .eq("id", ratePlanData.property_id)
+              .maybeSingle();
+            const queueWeekendDays: number[] = propDayConfig?.weekend_days || [4, 5];
+            const queueOffPeakDays: number[] = propDayConfig?.off_peak_days || [];
+
+            const todayStr = new Date().toISOString().split("T")[0];
+            const dateFrom = ratePlanData.valid_from || todayStr;
             const dateTo = ratePlanData.valid_to || new Date(Date.now() + 365 * 86400000).toISOString().split("T")[0];
             const weekdayRateCents = Math.round(weekdayRate * 100);
             const weekendRateCents = weekendRate ? Math.round(weekendRate * 100) : weekdayRateCents;
-            const hasDifferentWeekendRate = weekendRateCents !== weekdayRateCents;
+            const offPeakRateCents = offPeakRate ? Math.round(offPeakRate * 100) : weekdayRateCents;
 
-            // Chunk into 30-day windows to avoid Channex 500 errors
+            // Build day-by-day rates
             const CHUNK_DAYS = 30;
-            let chunkStart = new Date(dateFrom);
-            const rangeEnd = new Date(dateTo);
-            rangeEnd.setDate(rangeEnd.getDate() + 1); // Make date_to inclusive
+            const rateStartDate = new Date(dateFrom < todayStr ? todayStr : dateFrom);
+            const rateEndDate = new Date(dateTo);
+            rateEndDate.setDate(rateEndDate.getDate() + 1);
+            const dailyRates: { date: string; rate: number }[] = [];
 
-            while (chunkStart < rangeEnd) {
-              const chunkEnd = new Date(Math.min(
-                new Date(chunkStart.getTime() + CHUNK_DAYS * 86400000).getTime(),
-                rangeEnd.getTime()
-              ));
-              const chunkFromStr = chunkStart.toISOString().split("T")[0];
-              const chunkToStr = chunkEnd.toISOString().split("T")[0];
-
-              // Skip chunks entirely in the past
-              if (chunkToStr <= today) {
-                chunkStart = chunkEnd;
-                continue;
+            for (let d = new Date(rateStartDate); d < rateEndDate; d = addDays(d, 1)) {
+              const ds = formatDate(d);
+              const dow = d.getDay();
+              let rateCents = weekdayRateCents;
+              if (queueOffPeakDays.length > 0 && queueOffPeakDays.includes(dow) && offPeakRateCents > 0) {
+                rateCents = offPeakRateCents;
+              } else if (queueWeekendDays.includes(dow) && weekendRateCents > 0) {
+                rateCents = weekendRateCents;
               }
-
-              const effectiveFrom = chunkFromStr < today ? today : chunkFromStr;
-
-              if (!hasDifferentWeekendRate) {
-                // Same rate every day — single push for the chunk
-                values.push({
-                  property_id: channexPropertyId,
-                  rate_plan_id: channexRatePlanId,
-                  date_from: effectiveFrom,
-                  date_to: chunkToStr,
-                  rate: weekdayRateCents,
-                });
-              } else {
-                // Split into weekday (Sun-Wed) and weekend (Thu-Sat) date ranges
-                const cursor = new Date(effectiveFrom);
-                const end = new Date(chunkToStr);
-                let weekdayStart: string | null = null;
-                let weekendStart: string | null = null;
-
-                const flushWeekday = (beforeDate: string) => {
-                  if (weekdayStart) {
-                    values.push({
-                      property_id: channexPropertyId,
-                      rate_plan_id: channexRatePlanId,
-                      date_from: weekdayStart,
-                      date_to: beforeDate,
-                      rate: weekdayRateCents,
-                    });
-                    weekdayStart = null;
-                  }
-                };
-                const flushWeekend = (beforeDate: string) => {
-                  if (weekendStart) {
-                    values.push({
-                      property_id: channexPropertyId,
-                      rate_plan_id: channexRatePlanId,
-                      date_from: weekendStart,
-                      date_to: beforeDate,
-                      rate: weekendRateCents,
-                    });
-                    weekendStart = null;
-                  }
-                };
-
-                while (cursor < end) {
-                  const dateStr = cursor.toISOString().split("T")[0];
-                  const dow = cursor.getDay(); // 0=Sun
-                  // Weekend = Thu(4), Fri(5), Sat(6)
-                  const isWeekend = dow === 4 || dow === 5 || dow === 6;
-
-                  if (isWeekend) {
-                    flushWeekday(dateStr);
-                    if (!weekendStart) weekendStart = dateStr;
-                  } else {
-                    flushWeekend(dateStr);
-                    if (!weekdayStart) weekdayStart = dateStr;
-                  }
-                  cursor.setDate(cursor.getDate() + 1);
-                }
-
-                const endStr = end.toISOString().split("T")[0];
-                flushWeekday(endStr);
-                flushWeekend(endStr);
-              }
-
-              chunkStart = chunkEnd;
+              dailyRates.push({ date: ds, rate: rateCents });
             }
 
-            console.log(`[process-sync-queue] Chunked rate plan ${item.entity_id}: ${values.length} chunks, weekday=${weekdayRateCents} weekend=${weekendRateCents} cents`);
+            // Collapse consecutive same-rate days into ranges (max 30 days each)
+            let rangeIdx = 0;
+            while (rangeIdx < dailyRates.length) {
+              const segStart = dailyRates[rangeIdx];
+              let segRate = segStart.rate;
+              let segLastDate = segStart.date;
+              let segDayCount = 1;
+
+              while (rangeIdx + segDayCount < dailyRates.length && segDayCount < CHUNK_DAYS) {
+                const nextDay = dailyRates[rangeIdx + segDayCount];
+                if (nextDay.rate !== segRate) break;
+                segLastDate = nextDay.date;
+                segDayCount++;
+              }
+
+              values.push({
+                property_id: channexPropertyId,
+                rate_plan_id: channexRatePlanId,
+                date_from: segStart.date,
+                date_to: formatDate(addDays(new Date(segLastDate), 1)),
+                rate: segRate,
+              });
+
+              rangeIdx += segDayCount;
+            }
+
+            console.log(`[process-sync-queue] Chunked rate plan ${item.entity_id}: ${values.length} chunks, weekday=${weekdayRateCents} weekend=${weekendRateCents} offpeak=${offPeakRateCents} cents`);
           }
 
           await markCompleted(supabase, item.id);
