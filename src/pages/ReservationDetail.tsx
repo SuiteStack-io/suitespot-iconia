@@ -1080,7 +1080,11 @@ Thank you for choosing SuiteSpot!`;
                 <ArrowLeftRight className="h-4 w-4 mr-2" />
                 Room Transfer
               </Button>
-              <Button onClick={() => setIsEditMode(true)}>
+              <Button 
+                onClick={() => setIsEditMode(true)} 
+                disabled={isOtaReservation}
+                title={isOtaReservation ? `This reservation was made through ${otaSourceLabel}. It can only be modified through the ${otaSourceLabel} platform.` : undefined}
+              >
                 <Edit2 className="h-4 w-4 mr-2" />
                 Edit Reservation
               </Button>
