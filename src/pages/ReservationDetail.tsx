@@ -1732,21 +1732,25 @@ Thank you for choosing SuiteSpot!`;
                   <Label className="text-muted-foreground">Commission Rate</Label>
                   <p className="mt-1 font-medium">
                     {reservation.commission_amount && reservation.total_price 
-                      ? ((Number(reservation.commission_amount) / Number(reservation.total_price)) * 100).toFixed(2)
-                      : reservation.commission_rate || 'N/A'}%
+                      ? `${((Number(reservation.commission_amount) / Number(reservation.total_price)) * 100).toFixed(2)}%`
+                      : reservation.commission_rate != null
+                        ? `${reservation.commission_rate}%`
+                        : 'N/A'}
                   </p>
                 </div>
                 <div>
                   <Label className="text-muted-foreground">Commission Amount</Label>
                   <p className="mt-1 font-medium">
-                    ${reservation.commission_amount ? Number(reservation.commission_amount).toFixed(2) : 'N/A'}
+                    {reservation.commission_amount != null
+                      ? `USD ${Number(reservation.commission_amount).toFixed(2)}`
+                      : 'N/A'}
                   </p>
                 </div>
                 <div>
                   <Label className="text-muted-foreground">Net Revenue</Label>
                   <p className="mt-1 font-medium">
-                    {reservation.total_price && reservation.commission_amount
-                      ? `$${(Number(reservation.total_price) - Number(reservation.commission_amount)).toFixed(2)}`
+                    {reservation.total_price && reservation.commission_amount != null
+                      ? `USD ${(Number(reservation.total_price) - Number(reservation.commission_amount)).toFixed(2)}`
                       : 'N/A'}
                   </p>
                 </div>

@@ -305,6 +305,21 @@ Deno.serve(async (req: Request) => {
             oldArrivalDate = existing.check_in_date;
             oldDepartureDate = existing.check_out_date;
             // Update existing reservation
+            // Calculate pricing fields for update
+            const updTotalAmount = parseFloat(amount) || null;
+            const updNightCount = (() => {
+              if (!arrival_date || !departure_date) return 0;
+              const d1 = new Date(arrival_date);
+              const d2 = new Date(departure_date);
+              return Math.max(1, Math.round((d2.getTime() - d1.getTime()) / 86400000));
+            })();
+            const updPricePerNight = updTotalAmount && updNightCount > 0 ? Number((updTotalAmount / updNightCount).toFixed(2)) : null;
+            const updCommissionAmount = otaCommission && otaCommission > 0 ? otaCommission : null;
+            const updCommissionRate = updCommissionAmount && updTotalAmount && updTotalAmount > 0
+              ? Number(((updCommissionAmount / updTotalAmount) * 100).toFixed(2)) : null;
+            const updNetRevenue = updTotalAmount && updCommissionAmount
+              ? Number((updTotalAmount - updCommissionAmount).toFixed(2)) : null;
+
             const { error: updateErr } = await supabase
               .from("reservations")
               .update({
@@ -314,7 +329,11 @@ Deno.serve(async (req: Request) => {
                 contact_email: guestEmail !== "unknown@unknown.com" ? guestEmail : null,
                 contact_phone: guestPhone,
                 guest_nationality: guestCountry,
-                total_price: parseFloat(amount) || null,
+                total_price: updTotalAmount,
+                price_per_night: updPricePerNight,
+                commission_amount: updCommissionAmount,
+                commission_rate: updCommissionRate,
+                net_revenue: updNetRevenue,
                 currency: currency || "USD",
                 number_of_guests: numberOfGuests,
                 adults: parseInt(adults) || 1,
