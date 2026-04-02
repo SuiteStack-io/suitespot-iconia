@@ -80,6 +80,10 @@ const PERMISSION_LABELS: Record<keyof UserPermissions, { label: string; descript
     label: 'Override Room Rates', 
     description: 'Ability to set prices below the standard room rate' 
   },
+  can_access_guest_inbox: {
+    label: 'Access Guest Inbox',
+    description: 'View and reply to guest messages from OTA channels',
+  },
 };
 
 interface EditPermissionsDialogProps {
