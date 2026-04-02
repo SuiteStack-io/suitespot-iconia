@@ -159,6 +159,9 @@ const ReservationDetail = () => {
   const propertyId = usePropertyId();
   const { userRole, hasPermission } = useAuth();
   const [reservation, setReservation] = useState<Reservation | null>(null);
+  const isOtaReservation = reservation?.channel === 'Channex' || 
+    ['BookingCom', 'Booking.com', 'Airbnb', 'Expedia', 'VRBO', 'Agoda', 'Hotels.com'].includes(reservation?.source || '');
+  const otaSourceLabel = reservation?.source || reservation?.channel || 'the OTA';
   const [units, setUnits] = useState<Unit[]>([]);
   const [unitAvailability, setUnitAvailability] = useState<UnitAvailability[]>([]);
   const [checkingAvailability, setCheckingAvailability] = useState(false);
