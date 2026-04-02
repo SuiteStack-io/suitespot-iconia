@@ -26,6 +26,8 @@ Deno.serve(async (req) => {
 
   const functionName = 'channex-delete-derived-rate-plan';
 
+  let resolvedPropertyId: string | null = null;
+
   try {
     if (req.method !== 'POST') {
       return new Response(

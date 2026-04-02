@@ -27,6 +27,8 @@ Deno.serve(async (req) => {
 
   const functionName = 'channex-create-derived-rate-plan';
 
+  let resolvedPropertyId: string | null = null;
+
   try {
     if (req.method !== 'POST') {
       return new Response(
