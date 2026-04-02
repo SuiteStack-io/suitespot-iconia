@@ -1671,8 +1671,33 @@ export const ReservationQuickActions = ({
                     className="gap-1"
                   >
                     <Clock className="h-3 w-3" />
-                    Late Checkout
+                    Late Checkout Fee
                   </Button>
+                  {(reservation.status === 'confirmed' || reservation.status === 'checked-in') && (
+                    <TooltipProvider>
+                      <Tooltip>
+                        <TooltipTrigger asChild>
+                          <span>
+                            <Button
+                              size="sm"
+                              variant="outline"
+                              onClick={() => setLateCheckoutTimeDialogOpen(true)}
+                              disabled={updatingStatus || !reservation.unit_id}
+                              className="gap-1"
+                            >
+                              <Clock className="h-3 w-3" />
+                              {fullReservation?.late_checkout_time ? 'Remove Late Checkout Time' : 'Late Checkout Time'}
+                            </Button>
+                          </span>
+                        </TooltipTrigger>
+                        {!reservation.unit_id && (
+                          <TooltipContent>
+                            <p>Assign a room first before setting late checkout</p>
+                          </TooltipContent>
+                        )}
+                      </Tooltip>
+                    </TooltipProvider>
+                  )}
                   {updatingStatus && <Loader2 className="h-4 w-4 animate-spin ml-2" />}
                 </div>
               </div>
