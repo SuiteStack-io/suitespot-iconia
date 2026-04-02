@@ -672,7 +672,7 @@ Deno.serve(async (req: Request) => {
             // --- Modified booking notification ---
             try {
               console.log("[channex-booking-webhook] Sending modification notification for:", resId);
-              await fetch(`${supabaseUrl}/functions/v1/send-modification-notification`, {
+              const modifResponse = await fetch(`${supabaseUrl}/functions/v1/send-modification-notification`, {
                 method: "POST",
                 headers: {
                   "Content-Type": "application/json",
@@ -695,7 +695,8 @@ Deno.serve(async (req: Request) => {
                   property_id: fullRes.property_id,
                 }),
               });
-              console.log("[channex-booking-webhook] Modification notification sent");
+              const modifText = await modifResponse.text();
+              console.log("[channex-booking-webhook] Modification notification response:", modifResponse.status, modifText);
             } catch (notifErr: any) {
               console.error("[channex-booking-webhook] Modification notification failed (non-fatal):", notifErr.message);
             }
