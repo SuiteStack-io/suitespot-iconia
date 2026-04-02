@@ -62,15 +62,19 @@ Deno.serve(async (req: Request) => {
       return respond(400, { success: false, error: "Property not synced to Channex. Sync it first." });
     }
 
-    // Validate property still exists in the properties table
+    // Validate property still exists and fetch pricing config
     const { data: propertyExists } = await supabase
       .from("properties")
-      .select("id")
+      .select("id, weekend_days, off_peak_days")
       .eq("id", propertyId)
       .maybeSingle();
 
     if (!propertyExists) {
       return respond(400, { success: false, error: "Property not found in properties table. It may have been deleted." });
+    }
+
+    const propertyWeekendDays: number[] = propertyExists.weekend_days || [4, 5];
+    const propertyOffPeakDays: number[] = propertyExists.off_peak_days || [];
     }
 
     const channexPropertyId = propMapping.channex_id;
