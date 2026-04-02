@@ -1,47 +1,78 @@
 
 
-## Fix: Duplicate Notifications Showing in Bell Icon
+## Fix: Bulk Availability Editor Not Accounting for Blocked Dates
 
 ### Root Cause
-The notifications are **not actually duplicated** — the `notify_new_reservation` database trigger correctly creates one notification per user (5 users with admin/manager/front_desk roles = 5 notifications). The bug is in the **query**: neither `NotificationCenter.tsx` nor `useNotifications.tsx` filters by `user_id`, and the RLS policy for admins/front_desk allows viewing ALL users' notifications. So the logged-in admin sees all 5 notifications instead of just their own.
+The block IS being created successfully in `blocked_dates` (confirmed in the database). The bug is in **BulkAvailabilityEditor.tsx** — its "Current availability" calculation only counts units not in maintenance status. It does NOT subtract units that have blocked dates or active reservations for the selected date range.
 
-### Fix (2 files)
+### Fix: `src/components/pms/BulkAvailabilityEditor.tsx`
 
-#### 1. `src/hooks/useNotifications.tsx` — Add user_id filter
-In `fetchNotifications()`, get the current user's ID and filter:
+Update the `fetchCurrent` function (around line 115) to subtract blocked units and reserved units for the selected date range:
+
 ```typescript
-const { data: { user } } = await supabase.auth.getUser();
-if (!user) return;
+const fetchCurrent = async () => {
+  setIsLoadingAvailability(true);
+  try {
+    // Get all non-maintenance units for this room type
+    const { data: units } = await supabase
+      .from('units')
+      .select('id')
+      .eq('property_id', propertyId)
+      .eq('booking_com_name', selectedRoomType)
+      .neq('status', 'maintenance');
 
-const { data, error } = await supabase
-  .from('notifications')
-  .select('*')
-  .eq('user_id', user.id)    // ← ADD THIS
-  .order('created_at', { ascending: false })
-  .limit(20);
+    if (cancelled) return;
+    const unitIds = units?.map(u => u.id) || [];
+    const totalUnits = unitIds.length;
+
+    if (totalUnits === 0 || !dateFrom) {
+      setCurrentAvailability(totalUnits);
+      setAvailability(totalUnits);
+      return;
+    }
+
+    const checkDate = format(dateFrom, 'yyyy-MM-dd');
+
+    // Count blocked units on this date
+    const { data: blockedData } = await supabase
+      .from('blocked_dates')
+      .select('unit_id')
+      .in('unit_id', unitIds)
+      .eq('blocked_date', checkDate);
+
+    // Count reserved units on this date (check_in <= date < check_out)
+    const { data: reservedData } = await supabase
+      .from('reservations')
+      .select('unit_id')
+      .in('unit_id', unitIds)
+      .in('status', ['confirmed', 'checked-in'])
+      .lte('check_in_date', checkDate)
+      .gt('check_out_date', checkDate);
+
+    if (cancelled) return;
+
+    const blockedUnitIds = new Set(blockedData?.map(b => b.unit_id) || []);
+    const reservedUnitIds = new Set(reservedData?.map(r => r.unit_id) || []);
+    // Merge both sets to avoid double-counting
+    const unavailableIds = new Set([...blockedUnitIds, ...reservedUnitIds]);
+
+    const available = totalUnits - unavailableIds.size;
+    setCurrentAvailability(available);
+    setAvailability(available);
+  } catch {
+    if (!cancelled) setCurrentAvailability(null);
+  } finally {
+    if (!cancelled) setIsLoadingAvailability(false);
+  }
+};
 ```
 
-#### 2. `src/components/NotificationCenter.tsx` — Add user_id filter
-Same fix in its `fetchNotifications()`:
-```typescript
-const { data: { user } } = await supabase.auth.getUser();
-if (!user) return;
+### What changes
+- 1 file edited (`BulkAvailabilityEditor.tsx`)
+- The "Current: X rooms" display now reflects actual availability (total units minus blocked dates minus active reservations)
+- Late checkout blocks, manual blocks, and reservations all reduce the displayed count
+- No database or migration changes needed
 
-const { data, error } = await supabase
-  .from('notifications')
-  .select('*')
-  .eq('user_id', user.id)    // ← ADD THIS
-  .order('created_at', { ascending: false })
-  .limit(20);
-```
-
-Also filter the realtime subscription to only show notifications for the current user (add a client-side check in the `postgres_changes` callback).
-
-### Result
-Each user sees exactly 1 "New Reservation" notification per booking — their own.
-
-### Summary
-- 2 files edited (add `.eq('user_id', user.id)` to queries)
-- No migration needed
-- No trigger changes needed
+### Verification
+After fix, setting a late checkout on a unit should cause the Bulk Editor to show one fewer available room for that date.
 
