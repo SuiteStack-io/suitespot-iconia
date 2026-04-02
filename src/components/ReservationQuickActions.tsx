@@ -2014,7 +2014,7 @@ export const ReservationQuickActions = ({
         onSuccess={onMoveComplete}
       />
 
-      {/* Late Checkout Time Dialog */}
+      {/* Late Checkout Dialog */}
       {reservation && (
         <LateCheckoutDialog
           open={lateCheckoutTimeDialogOpen}
@@ -2024,6 +2024,11 @@ export const ReservationQuickActions = ({
           unitId={reservation.unit_id}
           unitName={currentUnit ? `${(currentUnit as any).booking_com_name || currentUnit.name} #${currentUnit.unit_number}` : 'Unknown'}
           checkoutDate={reservation.check_out_date}
+          guestName={reservation.guest_names?.[0]}
+          bookingReference={reservation.booking_reference}
+          currency={fullReservation?.currency || 'USD'}
+          currentUserName={currentUserName}
+          fullReservation={fullReservation}
           onSuccess={() => {
             fetchFullReservation();
             onMoveComplete();
