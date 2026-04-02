@@ -1,4 +1,5 @@
 import { useState, useEffect, useRef, useCallback } from "react";
+import { useAuth } from "@/lib/auth";
 import { useNavigate } from "react-router-dom";
 import { supabase } from "@/integrations/supabase/client";
 import { Badge } from "@/components/ui/badge";
@@ -74,6 +75,8 @@ interface ConversationPanelProps {
 export function ConversationPanel({ thread, onBack }: ConversationPanelProps) {
   const navigate = useNavigate();
   const isMobile = useIsMobile();
+  const { userRole, hasPermission } = useAuth();
+  const canReply = userRole === 'admin' || hasPermission('can_access_guest_inbox');
   const [messages, setMessages] = useState<Message[]>([]);
   const [loading, setLoading] = useState(true);
   const [replyText, setReplyText] = useState("");
@@ -342,6 +345,8 @@ export function ConversationPanel({ thread, onBack }: ConversationPanelProps) {
           <p className="text-sm text-muted-foreground text-center py-1">This conversation is closed</p>
         ) : messagingUnsupported ? (
           <p className="text-sm text-muted-foreground text-center py-1">Messaging not supported for this OTA</p>
+        ) : !canReply ? (
+          <p className="text-sm text-muted-foreground text-center py-1">You don't have permission to reply to guest messages</p>
         ) : (
           <div className="flex items-center gap-2">
             <Textarea

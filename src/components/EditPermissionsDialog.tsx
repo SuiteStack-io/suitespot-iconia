@@ -36,6 +36,7 @@ interface UserPermissions {
   can_access_pms: boolean;
   can_access_front_desk: boolean;
   can_override_rates: boolean;
+  can_access_guest_inbox: boolean;
 }
 
 const PERMISSION_LABELS: Record<keyof UserPermissions, { label: string; description: string }> = {
@@ -79,6 +80,10 @@ const PERMISSION_LABELS: Record<keyof UserPermissions, { label: string; descript
     label: 'Override Room Rates', 
     description: 'Ability to set prices below the standard room rate' 
   },
+  can_access_guest_inbox: {
+    label: 'Access Guest Inbox',
+    description: 'View and reply to guest messages from OTA channels',
+  },
 };
 
 interface EditPermissionsDialogProps {
@@ -109,6 +114,7 @@ export function EditPermissionsDialog({
     can_access_pms: false,
     can_access_front_desk: false,
     can_override_rates: false,
+    can_access_guest_inbox: false,
   });
 
   useEffect(() => {
@@ -144,6 +150,7 @@ export function EditPermissionsDialog({
           can_access_pms: data.can_access_pms ?? false,
           can_access_front_desk: data.can_access_front_desk ?? false,
           can_override_rates: data.can_override_rates ?? false,
+          can_access_guest_inbox: data.can_access_guest_inbox ?? false,
         });
       } else {
         setPermissions({
@@ -157,6 +164,7 @@ export function EditPermissionsDialog({
           can_access_pms: false,
           can_access_front_desk: false,
           can_override_rates: false,
+          can_access_guest_inbox: false,
         });
       }
     } catch (error) {
@@ -239,6 +247,7 @@ export function EditPermissionsDialog({
       can_access_pms: newValue,
       can_access_front_desk: newValue,
       can_override_rates: newValue,
+      can_access_guest_inbox: newValue,
     });
   };
 

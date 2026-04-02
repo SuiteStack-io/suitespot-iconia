@@ -54,13 +54,21 @@ function getRelativeTime(dateStr: string | null): string {
 
 export default function GuestInbox() {
   const navigate = useNavigate();
-  const { userRole } = useAuth();
+  const { userRole, hasPermission } = useAuth();
   const isMobile = useIsMobile();
   const propertyId = usePropertyId();
   const [threads, setThreads] = useState<MessageThread[]>([]);
   const [loading, setLoading] = useState(true);
   const [activeTab, setActiveTab] = useState("all");
   const [selectedThreadId, setSelectedThreadId] = useState<string | null>(null);
+
+  const canAccessInbox = userRole === 'admin' || hasPermission('can_access_guest_inbox');
+
+  useEffect(() => {
+    if (!canAccessInbox) {
+      navigate('/admin');
+    }
+  }, [canAccessInbox, navigate]);
 
   const selectedThread = threads.find((t) => t.id === selectedThreadId) || null;
 
