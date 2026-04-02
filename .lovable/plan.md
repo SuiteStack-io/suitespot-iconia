@@ -1,54 +1,47 @@
 
 
-## Add Late Checkout Time Feature with OTA Availability Sync
+## Fix: Duplicate Notifications Showing in Bell Icon
 
-### What this does
-Adds a `late_checkout_time` column to reservations, and a shared hook + dialog component that blocks the unit on checkout day (via the `blocked_dates` table) when a late checkout time is set. The existing database trigger on `blocked_dates` automatically syncs availability to Channex/OTAs.
+### Root Cause
+The notifications are **not actually duplicated** — the `notify_new_reservation` database trigger correctly creates one notification per user (5 users with admin/manager/front_desk roles = 5 notifications). The bug is in the **query**: neither `NotificationCenter.tsx` nor `useNotifications.tsx` filters by `user_id`, and the RLS policy for admins/front_desk allows viewing ALL users' notifications. So the logged-in admin sees all 5 notifications instead of just their own.
 
-### Safety constraints
-- Late checkout blocks use reason prefix `"Late checkout - "` (e.g., `"Late checkout - 2:00 PM"`)
-- When removing a late checkout, the DELETE query filters by ALL three fields: `unit_id`, `date`, AND `reason ILIKE 'Late checkout%'`
-- This ensures manually created blocks (from the Blocked Dates Manager) are never affected
-- If a unit already has a separate manual block on the checkout date, the late checkout creates its own independent entry
+### Fix (2 files)
 
-### Changes
+#### 1. `src/hooks/useNotifications.tsx` — Add user_id filter
+In `fetchNotifications()`, get the current user's ID and filter:
+```typescript
+const { data: { user } } = await supabase.auth.getUser();
+if (!user) return;
 
-#### 1. Database Migration
-```sql
-ALTER TABLE public.reservations ADD COLUMN IF NOT EXISTS late_checkout_time time WITHOUT time zone;
+const { data, error } = await supabase
+  .from('notifications')
+  .select('*')
+  .eq('user_id', user.id)    // ← ADD THIS
+  .order('created_at', { ascending: false })
+  .limit(20);
 ```
 
-#### 2. New Hook: `src/hooks/useLateCheckout.ts`
-- Accepts: `reservation_id`, `unit_id`, `unit_name`, `checkout_date`
-- `applyLateCheckout(time)`:
-  1. Inserts into `blocked_dates` for `unit_id` on `checkout_date` with reason `"Late checkout - [time]"`
-  2. Updates `reservations.late_checkout_time = time`
-  3. DB trigger handles Channex sync
-- `removeLateCheckout()`:
-  1. Deletes from `blocked_dates` WHERE `unit_id = X` AND `blocked_date = checkout_date` AND `reason ILIKE 'Late checkout%'`
-  2. Sets `reservations.late_checkout_time = null`
-  3. DB trigger handles Channex sync
+#### 2. `src/components/NotificationCenter.tsx` — Add user_id filter
+Same fix in its `fetchNotifications()`:
+```typescript
+const { data: { user } } = await supabase.auth.getUser();
+if (!user) return;
 
-#### 3. New Component: `src/components/LateCheckoutDialog.tsx`
-Reusable dialog for both Quick Actions and Reservation Details:
-- **Apply mode**: Time picker (1 PM–8 PM), info message with unit name and date, OTA sync warning, "Save Changes" / "Discard Changes" buttons
-- **Remove mode**: Confirmation message, same button pair
-- Success toasts with details
+const { data, error } = await supabase
+  .from('notifications')
+  .select('*')
+  .eq('user_id', user.id)    // ← ADD THIS
+  .order('created_at', { ascending: false })
+  .limit(20);
+```
 
-#### 4. Update: `src/components/ReservationQuickActions.tsx`
-- Existing "Late Checkout" button opens `LateCheckoutDialog`
-- Button label toggles to "Remove Late Checkout" when `late_checkout_time` is set
-- Only for `confirmed` / `checked-in` status; disabled if no unit assigned
+Also filter the realtime subscription to only show notifications for the current user (add a client-side check in the `postgres_changes` callback).
 
-#### 5. Update: `src/pages/ReservationDetail.tsx`
-- Add "Late Checkout" / "Remove Late Checkout" button in action area
-- Display "Late Checkout: [time]" in Booking Details when set
-- Same status/unit constraints as Quick Actions
+### Result
+Each user sees exactly 1 "New Reservation" notification per booking — their own.
 
 ### Summary
-- 1 migration (add column)
-- 2 new files (hook + dialog)
-- 2 files edited (ReservationQuickActions, ReservationDetail)
-- DELETE safety: always filters by `unit_id` + `date` + `reason ILIKE 'Late checkout%'`
-- Manual blocks are never touched
+- 2 files edited (add `.eq('user_id', user.id)` to queries)
+- No migration needed
+- No trigger changes needed
 
