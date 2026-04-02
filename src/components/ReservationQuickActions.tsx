@@ -892,9 +892,7 @@ export const ReservationQuickActions = ({
                 ? "Manage stay extension"
                 : extendMode 
                   ? "Extend the guest's stay" 
-                  : lateCheckoutMode 
-                    ? "Add late checkout fee" 
-                    : "View details, update status, or move this reservation"}
+                  : "View details, update status, or move this reservation"}
           </DialogDescription>
         </DialogHeader>
 
