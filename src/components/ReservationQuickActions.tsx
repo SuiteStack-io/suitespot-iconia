@@ -18,6 +18,8 @@ import { useAuth } from "@/lib/auth";
 import { usePropertyId, withPropertyFilter } from "@/hooks/usePropertyFilter";
 import { usePropertySafe } from "@/lib/propertyContext";
 import { RoomSwapDialog } from "@/components/RoomSwapDialog";
+import { LateCheckoutDialog } from "@/components/LateCheckoutDialog";
+import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
 interface Reservation {
   id: string;
   unit_id: string;
@@ -119,6 +121,9 @@ export const ReservationQuickActions = ({
   
   // Swap room state
   const [swapDialogOpen, setSwapDialogOpen] = useState(false);
+  
+  // Late checkout time dialog state
+  const [lateCheckoutTimeDialogOpen, setLateCheckoutTimeDialogOpen] = useState(false);
   
   const { toast } = useToast();
   const navigate = useNavigate();
@@ -1666,8 +1671,33 @@ export const ReservationQuickActions = ({
                     className="gap-1"
                   >
                     <Clock className="h-3 w-3" />
-                    Late Checkout
+                    Late Checkout Fee
                   </Button>
+                  {(reservation.status === 'confirmed' || reservation.status === 'checked-in') && (
+                    <TooltipProvider>
+                      <Tooltip>
+                        <TooltipTrigger asChild>
+                          <span>
+                            <Button
+                              size="sm"
+                              variant="outline"
+                              onClick={() => setLateCheckoutTimeDialogOpen(true)}
+                              disabled={updatingStatus || !reservation.unit_id}
+                              className="gap-1"
+                            >
+                              <Clock className="h-3 w-3" />
+                              {fullReservation?.late_checkout_time ? 'Remove Late Checkout Time' : 'Late Checkout Time'}
+                            </Button>
+                          </span>
+                        </TooltipTrigger>
+                        {!reservation.unit_id && (
+                          <TooltipContent>
+                            <p>Assign a room first before setting late checkout</p>
+                          </TooltipContent>
+                        )}
+                      </Tooltip>
+                    </TooltipProvider>
+                  )}
                   {updatingStatus && <Loader2 className="h-4 w-4 animate-spin ml-2" />}
                 </div>
               </div>
@@ -2156,6 +2186,23 @@ export const ReservationQuickActions = ({
         currentUnit={currentUnit}
         onSuccess={onMoveComplete}
       />
+
+      {/* Late Checkout Time Dialog */}
+      {reservation && (
+        <LateCheckoutDialog
+          open={lateCheckoutTimeDialogOpen}
+          onOpenChange={setLateCheckoutTimeDialogOpen}
+          mode={fullReservation?.late_checkout_time ? 'remove' : 'apply'}
+          reservationId={reservation.id}
+          unitId={reservation.unit_id}
+          unitName={currentUnit ? `${(currentUnit as any).booking_com_name || currentUnit.name} #${currentUnit.unit_number}` : 'Unknown'}
+          checkoutDate={reservation.check_out_date}
+          onSuccess={() => {
+            fetchFullReservation();
+            onMoveComplete();
+          }}
+        />
+      )}
     </Dialog>
 
     {/* Hidden Extension Confirmation Card for Download */}

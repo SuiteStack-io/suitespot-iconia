@@ -34,6 +34,8 @@ import { cn } from '@/lib/utils';
 
 import { SlideMenu } from '@/components/SlideMenu';
 import { RoomTransferDialog } from '@/components/RoomTransferDialog';
+import { LateCheckoutDialog } from '@/components/LateCheckoutDialog';
+import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip';
 import { usePropertyId, withPropertyFilter } from '@/hooks/usePropertyFilter';
 import { getActiveRate } from '@/lib/rateResolver';
 import {
@@ -182,6 +184,7 @@ const ReservationDetail = () => {
   const [deletingCharge, setDeletingCharge] = useState(false);
   const [downloadingConfirmation, setDownloadingConfirmation] = useState(false);
   const [showRoomTransferDialog, setShowRoomTransferDialog] = useState(false);
+  const [showLateCheckoutDialog, setShowLateCheckoutDialog] = useState(false);
   const confirmationRef = useRef<HTMLDivElement>(null);
   const [priceBreakdown, setPriceBreakdown] = useState<string>('');
   const [recalculatingPrice, setRecalculatingPrice] = useState(false);
@@ -1080,6 +1083,29 @@ Thank you for choosing SuiteSpot!`;
                 <ArrowLeftRight className="h-4 w-4 mr-2" />
                 Room Transfer
               </Button>
+              {(reservation.status === 'confirmed' || reservation.status === 'checked-in') && (
+                <TooltipProvider>
+                  <Tooltip>
+                    <TooltipTrigger asChild>
+                      <span>
+                        <Button
+                          variant="outline"
+                          onClick={() => setShowLateCheckoutDialog(true)}
+                          disabled={!reservation.unit_id}
+                        >
+                          <Clock className="h-4 w-4 mr-2" />
+                          {(reservation as any).late_checkout_time ? 'Remove Late Checkout' : 'Late Checkout'}
+                        </Button>
+                      </span>
+                    </TooltipTrigger>
+                    {!reservation.unit_id && (
+                      <TooltipContent>
+                        <p>Assign a room first before setting late checkout</p>
+                      </TooltipContent>
+                    )}
+                  </Tooltip>
+                </TooltipProvider>
+              )}
               <Button 
                 onClick={() => setIsEditMode(true)} 
                 disabled={isOtaReservation}
@@ -1161,6 +1187,16 @@ Thank you for choosing SuiteSpot!`;
             >
               <ArrowLeftRight className="h-4 w-4" />
             </Button>
+            {(reservation.status === 'confirmed' || reservation.status === 'checked-in') && (
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={() => setShowLateCheckoutDialog(true)}
+                disabled={!reservation.unit_id}
+              >
+                <Clock className="h-4 w-4" />
+              </Button>
+            )}
             <Button size="sm" onClick={() => setIsEditMode(true)}>
               <Edit2 className="h-4 w-4 mr-2" />
               Edit
@@ -1780,6 +1816,12 @@ Thank you for choosing SuiteSpot!`;
                      'Not Set'}
                   </p>
                 </div>
+                {(reservation as any).late_checkout_time && (
+                  <div>
+                    <Label className="text-muted-foreground">Late Checkout</Label>
+                    <p className="mt-1 font-medium">{(reservation as any).late_checkout_time}</p>
+                  </div>
+                )}
               </>
             )}
           </CardContent>
@@ -2214,6 +2256,17 @@ Thank you for choosing SuiteSpot!`;
           fetchReservation();
           setShowRoomTransferDialog(false);
         }}
+      />
+
+      <LateCheckoutDialog
+        open={showLateCheckoutDialog}
+        onOpenChange={setShowLateCheckoutDialog}
+        mode={(reservation as any).late_checkout_time ? 'remove' : 'apply'}
+        reservationId={reservation.id}
+        unitId={reservation.unit_id}
+        unitName={reservation.units ? `${reservation.units.booking_com_name || reservation.units.name} #${reservation.units.unit_number}` : 'Unknown'}
+        checkoutDate={reservation.check_out_date}
+        onSuccess={fetchReservation}
       />
 
       <AlertDialog open={showDeleteDialog} onOpenChange={setShowDeleteDialog}>
