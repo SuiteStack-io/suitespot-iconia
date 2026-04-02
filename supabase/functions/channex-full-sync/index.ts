@@ -62,6 +62,17 @@ Deno.serve(async (req: Request) => {
       return respond(400, { success: false, error: "Property not synced to Channex. Sync it first." });
     }
 
+    // Validate property still exists in the properties table
+    const { data: propertyExists } = await supabase
+      .from("properties")
+      .select("id")
+      .eq("id", propertyId)
+      .maybeSingle();
+
+    if (!propertyExists) {
+      return respond(400, { success: false, error: "Property not found in properties table. It may have been deleted." });
+    }
+
     const channexPropertyId = propMapping.channex_id;
     const today = new Date();
     today.setHours(0, 0, 0, 0);
