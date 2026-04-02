@@ -1838,6 +1838,7 @@ export type Database = {
           id_passport_url: string | null
           id_passport_url_back: string | null
           last_cleaning_notification_date: string | null
+          late_checkout_time: string | null
           marriage_certificate_url: string | null
           mid_stay_cleaning_completed: boolean | null
           net_revenue: number | null
@@ -1899,6 +1900,7 @@ export type Database = {
           id_passport_url?: string | null
           id_passport_url_back?: string | null
           last_cleaning_notification_date?: string | null
+          late_checkout_time?: string | null
           marriage_certificate_url?: string | null
           mid_stay_cleaning_completed?: boolean | null
           net_revenue?: number | null
@@ -1960,6 +1962,7 @@ export type Database = {
           id_passport_url?: string | null
           id_passport_url_back?: string | null
           last_cleaning_notification_date?: string | null
+          late_checkout_time?: string | null
           marriage_certificate_url?: string | null
           mid_stay_cleaning_completed?: boolean | null
           net_revenue?: number | null
