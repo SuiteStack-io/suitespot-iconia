@@ -423,9 +423,7 @@ Deno.serve(async (req: Request) => {
             const updNetRevenue = updTotalAmount && updCommissionAmount
               ? Number((updTotalAmount - updCommissionAmount).toFixed(2)) : null;
 
-            const { error: updateErr } = await supabase
-              .from("reservations")
-              .update({
+            const updatePayload: Record<string, any> = {
                 check_in_date: arrival_date,
                 check_out_date: departure_date,
                 guest_names: [guestName],
@@ -443,7 +441,15 @@ Deno.serve(async (req: Request) => {
                 children: parseInt(children) || 0,
                 arrival_time: arrival_hour,
                 skip_channex_sync: true,
-              })
+              };
+            // Stamp channex_booking_id if matched via fallback
+            if (stampChannexId) {
+              updatePayload.channex_booking_id = stampChannexId;
+            }
+
+            const { error: updateErr } = await supabase
+              .from("reservations")
+              .update(updatePayload)
               .eq("id", existing.id);
 
             if (updateErr) {
