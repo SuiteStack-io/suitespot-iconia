@@ -2186,6 +2186,23 @@ export const ReservationQuickActions = ({
         currentUnit={currentUnit}
         onSuccess={onMoveComplete}
       />
+
+      {/* Late Checkout Time Dialog */}
+      {reservation && (
+        <LateCheckoutDialog
+          open={lateCheckoutTimeDialogOpen}
+          onOpenChange={setLateCheckoutTimeDialogOpen}
+          mode={fullReservation?.late_checkout_time ? 'remove' : 'apply'}
+          reservationId={reservation.id}
+          unitId={reservation.unit_id}
+          unitName={currentUnit ? `${(currentUnit as any).booking_com_name || currentUnit.name} #${currentUnit.unit_number}` : 'Unknown'}
+          checkoutDate={reservation.check_out_date}
+          onSuccess={() => {
+            fetchFullReservation();
+            onMoveComplete();
+          }}
+        />
+      )}
     </Dialog>
 
     {/* Hidden Extension Confirmation Card for Download */}
