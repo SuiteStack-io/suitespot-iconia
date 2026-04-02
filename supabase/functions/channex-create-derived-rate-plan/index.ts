@@ -195,7 +195,7 @@ Deno.serve(async (req) => {
     const channexPayload: Record<string, unknown> = {
       rate_plan: {
         title: derivedTitle,
-        property_id: propConfig.channex_property_id,
+        property_id: propMapping.channex_id,
         room_type_id: channexRoomTypeId,
         parent_rate_plan_id: baseMapping.channex_id,
         currency: ratePlan.currency || 'USD',
