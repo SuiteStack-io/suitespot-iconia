@@ -416,7 +416,7 @@ Deno.serve(async (req: Request) => {
     console.error("[full-sync] Fatal error:", err);
     try {
       await logSync("channex-full-sync", "full-sync", null, null, null, false, err.message, null);
-    } catch { /* ignore */ }
+    } catch (_e) { /* ignore */ }
     return respond(500, { success: false, error: err.message });
   }
 });
