@@ -7,6 +7,59 @@ const corsHeaders = {
     "authorization, x-client-info, apikey, content-type",
 };
 
+// Fallback matching for pre-connection reservations without channex_booking_id
+async function findReservationByFallback(
+  supabase: any,
+  otaReservationCode: string | null,
+  guestName: string | null,
+  checkIn: string | null,
+  checkOut: string | null,
+  propertyId: string | null
+): Promise<{ id: string; check_in_date: string; check_out_date: string; unit_id: string | null; guest_names: string[] } | null> {
+  // Try 1: Match by booking_reference = ota_reservation_code
+  if (otaReservationCode) {
+    const { data } = await supabase
+      .from("reservations")
+      .select("id, check_in_date, check_out_date, unit_id, guest_names")
+      .eq("booking_reference", otaReservationCode)
+      .neq("status", "cancelled")
+      .maybeSingle();
+    if (data) {
+      console.log("[channex-booking-webhook] Fallback match by booking_reference:", otaReservationCode, "→", data.id);
+      return data;
+    }
+  }
+
+  // Try 2: Fuzzy match by guest name + dates + source
+  if (guestName && checkIn && checkOut && propertyId) {
+    const { data } = await supabase
+      .from("reservations")
+      .select("id, check_in_date, check_out_date, unit_id, guest_names")
+      .eq("check_in_date", checkIn)
+      .eq("check_out_date", checkOut)
+      .eq("property_id", propertyId)
+      .neq("status", "cancelled")
+      .ilike("source", "%booking%");
+
+    if (data?.length) {
+      const firstName = guestName.split(" ")[0].toLowerCase();
+      const nameMatch = data.find((r: any) =>
+        r.guest_names?.some((n: string) => n.toLowerCase().includes(firstName))
+      );
+      if (nameMatch) {
+        console.log("[channex-booking-webhook] Fallback match by guest name + dates:", nameMatch.id);
+        return nameMatch;
+      }
+      if (data.length === 1) {
+        console.log("[channex-booking-webhook] Fallback match by dates (single result):", data[0].id);
+        return data[0];
+      }
+    }
+  }
+
+  return null;
+}
+
 Deno.serve(async (req: Request) => {
   if (req.method === "OPTIONS") {
     return new Response(null, { headers: corsHeaders });
