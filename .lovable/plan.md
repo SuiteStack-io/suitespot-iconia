@@ -1,49 +1,35 @@
 
 
-## Add Email Notification for New Guest Messages
+## Add Unread Guest Message Badge to Nav Bar and Sidebar
 
 ### What this does
-After the `channex-message-webhook` stores an incoming guest message, it will send an email notification to property operators via the existing `send-admin-notification` pattern (Resend + property-scoped user filtering).
+Adds a chat icon with red unread count badge in two locations: the top navigation bar (next to the bell icon) and the "Guest Inbox" sidebar menu item. Both stay in sync via a shared hook with real-time updates.
+
+### No database changes needed
+The `message_threads` table already has an `is_read` boolean column. The GuestInbox page already uses `threads.filter(t => !t.is_read).length` for unread count. We'll use the same thread-level unread tracking.
 
 ### Changes
 
-#### 1. New Edge Function: `supabase/functions/send-message-notification/index.ts`
-A lightweight notification function that:
-- Accepts: `property_id`, `guest_name`, `provider` (OTA source), `message_text`, `booking_reference`, `thread_id`
-- Fetches admin/front_desk users with property access (same pattern as `send-reservation-notification`)
-- Filters by notification preferences (can reuse existing `new_booking_email` pref or add a new one later)
-- Sends email via Resend with subject: `"New Message from [Guest Name] - [Property Name]"`
-- Email body includes: guest name, OTA source, booking reference (if available), message text, "Reply from your PMS Inbox" note
-- Rate-limits with 600ms delay between recipients (existing pattern)
+#### 1. New shared hook: `src/hooks/useUnreadMessages.tsx`
+- On mount: query `message_threads` where `is_read = false`, filtered by active property
+- Subscribe to Supabase Realtime on `message_threads` (INSERT/UPDATE) to update count live
+- Returns `{ unreadCount }` — both locations consume this single hook
+- Uses property context to scope the count
 
-#### 2. Update: `supabase/functions/channex-message-webhook/index.ts`
-After successfully storing the message (line ~185 and ~98), add a notification block:
-- **Only for incoming messages**: Check `sender !== 'property'` and `sender !== 'operator'` (only notify for guest messages)
-- **Throttle**: Check the thread's `last_message_at` — if last notification was sent <5 minutes ago for the same thread, skip the email. Use a simple query: check `message_threads.last_notification_sent_at` field
-- Fetch thread details (title, provider, reservation info) to populate the email
-- Call `send-message-notification` via `fetch()` with service role auth (same pattern as booking webhook notifications)
-- Wrap in try/catch so notification failure never blocks the webhook ACK
+#### 2. New component: `src/components/UnreadMessagesBadge.tsx`
+- MessageCircle icon (from lucide-react) with red badge (same style as NotificationBell: `Badge variant="destructive"` absolutely positioned)
+- Clicking navigates to `/admin/inbox`
+- Badge hidden when count is 0
 
-#### 3. Database Migration
-Add `last_notification_sent_at` (timestamptz, nullable) column to `message_threads` table for throttling. Updated by the webhook after sending a notification.
+#### 3. Update: `src/pages/Index.tsx` (top nav bar)
+- Import and add `<UnreadMessagesBadge />` next to `<NotificationBell />` (line ~151)
 
-#### 4. Config: `supabase/config.toml`
-Add `[functions.send-message-notification]` with `verify_jwt = false`
-
-### Email template style
-Matches existing notification emails (dark navy header, structured detail rows, Resend via `notifications@bookings.suitespoteg.com`).
-
-### Throttle logic
-```text
-For each incoming guest message:
-  if sender is 'property' or 'operator' → skip notification
-  if thread.last_notification_sent_at > (now - 5 minutes) → skip notification
-  else → send email, update last_notification_sent_at
-```
+#### 4. Update: `src/components/SlideMenu.tsx` (sidebar)
+- Import `useUnreadMessages` hook
+- Next to the "Guest Inbox" menu item, render a small red badge with the count when > 0
 
 ### Summary
-- 1 new edge function (`send-message-notification`)
-- 1 file edited (`channex-message-webhook`)
-- 1 migration (add throttle column)
-- 1 config entry
+- 2 new files (hook + component)
+- 2 files edited (Index.tsx, SlideMenu.tsx)
+- No migrations, no edge functions
 
