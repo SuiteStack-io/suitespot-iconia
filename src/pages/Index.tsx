@@ -24,7 +24,7 @@ import { Badge } from '@/components/ui/badge';
 import { usePropertySafe } from '@/lib/propertyContext';
 
 const Index = () => {
-  const { user, loading, signOut, userRole } = useAuth();
+  const { user, loading, signOut, userRole, hasPermission } = useAuth();
   const navigate = useNavigate();
   const isMobile = useIsMobile();
   const { toast } = useToast();
