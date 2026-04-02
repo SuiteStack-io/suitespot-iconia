@@ -163,14 +163,16 @@ Deno.serve(async (req) => {
       channexRoomTypeId = rtMapping?.channex_id || null;
     }
 
-    // Look up property Channex ID
-    const { data: propConfig } = await supabaseAdmin
-      .from('channex_property_config')
-      .select('channex_property_id')
+    // Look up property Channex ID from channex_mappings (single source of truth)
+    const { data: propMapping } = await supabaseAdmin
+      .from('channex_mappings')
+      .select('channex_id')
+      .eq('entity_type', 'property')
+      .eq('sync_status', 'synced')
       .limit(1)
       .maybeSingle();
 
-    if (!propConfig?.channex_property_id) {
+    if (!propMapping?.channex_id) {
       return new Response(
         JSON.stringify({ success: false, error: 'Property not synced to Channex' }),
         { status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }

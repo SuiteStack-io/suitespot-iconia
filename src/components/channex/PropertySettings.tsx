@@ -264,17 +264,15 @@ export function PropertySettings() {
               <CardTitle>Property Configuration</CardTitle>
               <CardDescription>Configure your Channex property details</CardDescription>
             </div>
-            {config.channex_property_id && (
-              <Badge className="bg-green-600 hover:bg-green-700">Synced</Badge>
-            )}
+            {(() => { const pm = mappings.find(m => m.entity_type === 'property'); return pm ? <Badge className="bg-green-600 hover:bg-green-700">Synced</Badge> : null; })()}
           </div>
         </CardHeader>
         <CardContent className="space-y-4">
-          {config.channex_property_id && (
+          {(() => { const pm = mappings.find(m => m.entity_type === 'property'); return pm ? (
             <div className="text-sm text-muted-foreground">
-              Channex Property ID: <code className="bg-muted px-1 rounded">{config.channex_property_id}</code>
+              Channex Property ID: <code className="bg-muted px-1 rounded">{pm.channex_id}</code>
             </div>
-          )}
+          ) : null; })()}
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
             <div className="md:col-span-2">
               <Label>Property Name *</Label>
