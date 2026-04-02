@@ -1,63 +1,38 @@
 
 
-## Fix: Remove Ghost Property and Prevent Future Ghost Syncs
+## Fix: Pass property_id to logSync in Derived Rate Plan Functions
 
-### Root Cause
-The `channex_mappings` table still has a property mapping row for the deleted property `4484e7cf-...`. The daily sync (`channex-daily-sync`) iterates ALL property mappings without checking if the property still exists in the `properties` table. The UI in `PropertySync.tsx` only shows properties from the `properties` table, so the ghost doesn't appear there — but backend syncs still process it.
+### Problem
+All `logSync()` calls in both `channex-create-derived-rate-plan` and `channex-delete-derived-rate-plan` pass `null` as the last argument (property_id), so the Property column in sync logs is empty.
 
 ### Changes
 
-#### 1. Database Cleanup (insert tool — 3 DELETE statements)
-```sql
--- Remove ghost property mapping
-DELETE FROM channex_mappings WHERE local_id = '4484e7cf-d0a0-42c8-bf96-94ca642c1eee';
+**File: `supabase/functions/channex-create-derived-rate-plan/index.ts`**
 
--- Remove ghost property config
-DELETE FROM channex_property_config WHERE property_id = '4484e7cf-d0a0-42c8-bf96-94ca642c1eee';
+The `ratePlan` object (fetched at line 112) has `ratePlan.property_id`. Use it in all 3 `logSync` calls:
 
--- Remove any pending/failed sync queue items for ghost property
-DELETE FROM channex_sync_queue WHERE property_id = '4484e7cf-d0a0-42c8-bf96-94ca642c1eee';
-```
+- Line 237: `await logSync(functionName, '/api/v1/rate_plans', channexPayload, null, null, false, errorMessage, null)` → change last `null` to `ratePlan.property_id`
+- Line 267: `await logSync(functionName, '/api/v1/rate_plans', channexPayload, channexResponse, 200, true, null, null)` → change last `null` to `ratePlan.property_id`
+- Line 281 (catch block): This runs before `ratePlan` may be available, so use `null` still — or wrap in a try. Safest: declare `let resolvedPropertyId: string | null = null;` early in the try block, set it to `ratePlan.property_id` after the rate plan fetch, and use `resolvedPropertyId` in all 3 logSync calls including the catch.
 
-#### 2. Fix `channex-daily-sync` — validate properties exist
-**File**: `supabase/functions/channex-daily-sync/index.ts`
+**File: `supabase/functions/channex-delete-derived-rate-plan/index.ts`**
 
-After fetching `propertyMappings` (line 61), add a validation step that filters out any mapping whose `local_id` doesn't exist in the `properties` table:
+The `mapping` object (fetched at line 80) comes from `derived_rate_plan_mappings` which doesn't have `property_id`. Need to look it up from the base rate plan:
 
-```ts
-// After line 66 (after the empty check)
-const { data: activeProperties } = await supabase
-  .from("properties")
-  .select("id");
-const activePropertyIds = new Set((activeProperties || []).map((p: any) => p.id));
-const validMappings = propertyMappings.filter((m: any) => activePropertyIds.has(m.local_id));
-
-if (validMappings.length === 0) {
-  return respond(200, { success: true, message: "No active synced properties", ... });
-}
-```
-
-Then iterate `validMappings` instead of `propertyMappings` in the `for` loop at line 75.
-
-#### 3. Fix `channex-full-sync` — validate property exists
-**File**: `supabase/functions/channex-full-sync/index.ts`
-
-After fetching `propMapping` (line 59), add a check that the property exists in the `properties` table:
-
-```ts
-const { data: propertyExists } = await supabase
-  .from("properties")
-  .select("id")
-  .eq("id", propertyId)
-  .maybeSingle();
-
-if (!propertyExists) {
-  return respond(400, { success: false, error: "Property not found in properties table" });
-}
-```
+- After fetching `mapping` (line 84), fetch the rate plan's property_id:
+  ```ts
+  const { data: baseRp } = await supabaseAdmin
+    .from('rate_plans')
+    .select('property_id')
+    .eq('id', mapping.base_rate_plan_id)
+    .maybeSingle();
+  const resolvedPropertyId = baseRp?.property_id || null;
+  ```
+- Line 119: change last `null` to `resolvedPropertyId`
+- Line 129 (catch block): declare `let resolvedPropertyId: string | null = null;` early, set after fetch, use in catch logSync
 
 ### Summary
-- 3 data deletions to clean ghost property references
-- 2 edge function edits to add property existence validation
-- No UI changes needed (UI already reads from `properties` table)
+- 2 files edited
+- No new tables, no migrations
+- All logSync calls will pass the correct local property_id
 
