@@ -390,14 +390,20 @@ Deno.serve(async (req: Request) => {
             }
           }
         } else {
-          // Check if reservation already exists (idempotency)
-          const { data: existing } = await supabase
+          // Check if reservation already exists (idempotency) — direct match first, then fallback
+          const { data: existingDirect } = await supabase
             .from("reservations")
             .select("id, check_in_date, check_out_date")
             .eq("channex_booking_id", booking_id)
             .maybeSingle();
 
+          const existing = existingDirect || await findReservationByFallback(
+            supabase, ota_reservation_code, guestName, effectiveCheckIn, effectiveCheckOut, localPropertyId
+          );
+
           if (existing) {
+            // Stamp channex_booking_id for future direct matching if found via fallback
+            const stampChannexId = !existingDirect ? booking_id : undefined;
             // Capture old dates before updating (for availability restoration)
             oldArrivalDate = existing.check_in_date;
             oldDepartureDate = existing.check_out_date;
