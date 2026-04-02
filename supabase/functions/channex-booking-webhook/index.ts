@@ -712,7 +712,7 @@ Deno.serve(async (req: Request) => {
                   booking_reference: fullRes.booking_reference,
                   guest_names: fullRes.guest_names,
                   room_name: unitData?.name || null,
-                  room_number: unitData?.room_number || null,
+                  room_number: unitData?.unit_number || null,
                   old_check_in: oldArrivalDate || fullRes.check_in_date,
                   old_check_out: oldDepartureDate || fullRes.check_out_date,
                   new_check_in: fullRes.check_in_date,
