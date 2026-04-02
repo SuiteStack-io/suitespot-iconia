@@ -135,7 +135,7 @@ Deno.serve(async (req) => {
   } catch (error) {
     const errorMessage = error instanceof Error ? error.message : 'Unknown error';
     console.error('[DerivedRP] Error:', errorMessage);
-    await logSync(functionName, '/api/v1/rate_plans', null, null, null, false, errorMessage, null);
+    await logSync(functionName, '/api/v1/rate_plans', null, null, null, false, errorMessage, resolvedPropertyId);
     return new Response(
       JSON.stringify({ success: false, error: errorMessage }),
       { status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
