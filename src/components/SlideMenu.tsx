@@ -91,7 +91,7 @@ export function SlideMenu({ userRole }: SlideMenuProps) {
         { title: 'Guest Forms', url: '/guest-forms', icon: FileSignature },
         { title: 'Guest Inbox', url: '/admin/inbox', icon: MessageCircle },
       ],
-      showFor: userRole === 'admin' || hasPermission('can_access_front_desk') ? undefined : [],
+      showFor: userRole === 'admin' || hasPermission('can_access_front_desk') || hasPermission('can_access_guest_inbox') ? undefined : [],
     },
     {
       label: 'PMS',
