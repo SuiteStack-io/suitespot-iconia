@@ -245,6 +245,7 @@ export function EditPermissionsDialog({
       can_access_pms: newValue,
       can_access_front_desk: newValue,
       can_override_rates: newValue,
+      can_access_guest_inbox: newValue,
     });
   };
 
