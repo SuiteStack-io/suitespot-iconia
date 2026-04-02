@@ -97,9 +97,7 @@ export const ReservationQuickActions = ({
   const [extensionCurrency, setExtensionCurrency] = useState<string>("USD");
   const [extensionPaymentMethod, setExtensionPaymentMethod] = useState<string>("");
   
-  // Late checkout state
-  const [lateCheckoutMode, setLateCheckoutMode] = useState(false);
-  const [processingLateCheckout, setProcessingLateCheckout] = useState(false);
+  // Late checkout state (consolidated into LateCheckoutDialog)
   
   // Edit/Delete late checkout state
   const [editLateCheckoutMode, setEditLateCheckoutMode] = useState(false);
