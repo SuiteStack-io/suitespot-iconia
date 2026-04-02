@@ -1083,6 +1083,29 @@ Thank you for choosing SuiteSpot!`;
                 <ArrowLeftRight className="h-4 w-4 mr-2" />
                 Room Transfer
               </Button>
+              {(reservation.status === 'confirmed' || reservation.status === 'checked-in') && (
+                <TooltipProvider>
+                  <Tooltip>
+                    <TooltipTrigger asChild>
+                      <span>
+                        <Button
+                          variant="outline"
+                          onClick={() => setShowLateCheckoutDialog(true)}
+                          disabled={!reservation.unit_id}
+                        >
+                          <Clock className="h-4 w-4 mr-2" />
+                          {(reservation as any).late_checkout_time ? 'Remove Late Checkout' : 'Late Checkout'}
+                        </Button>
+                      </span>
+                    </TooltipTrigger>
+                    {!reservation.unit_id && (
+                      <TooltipContent>
+                        <p>Assign a room first before setting late checkout</p>
+                      </TooltipContent>
+                    )}
+                  </Tooltip>
+                </TooltipProvider>
+              )}
               <Button 
                 onClick={() => setIsEditMode(true)} 
                 disabled={isOtaReservation}
