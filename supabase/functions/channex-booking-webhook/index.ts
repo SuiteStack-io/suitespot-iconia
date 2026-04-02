@@ -345,9 +345,9 @@ Deno.serve(async (req: Request) => {
             .eq("channex_booking_id", booking_id)
             .maybeSingle();
 
-          // Fallback matching if no direct match
+          // Fallback matching if no direct match (full fallback for cancellations)
           const cancelTarget = cancelExisting || await findReservationByFallback(
-            supabase, ota_reservation_code, guestName, effectiveCheckIn, effectiveCheckOut, localPropertyId
+            supabase, ota_reservation_code, guestName, effectiveCheckIn, effectiveCheckOut, localPropertyId, booking_id
           );
 
           if (cancelTarget) {
