@@ -34,6 +34,8 @@ import { cn } from '@/lib/utils';
 
 import { SlideMenu } from '@/components/SlideMenu';
 import { RoomTransferDialog } from '@/components/RoomTransferDialog';
+import { LateCheckoutDialog } from '@/components/LateCheckoutDialog';
+import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip';
 import { usePropertyId, withPropertyFilter } from '@/hooks/usePropertyFilter';
 import { getActiveRate } from '@/lib/rateResolver';
 import {
