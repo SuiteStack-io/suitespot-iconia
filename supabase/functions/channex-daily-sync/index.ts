@@ -87,6 +87,15 @@ Deno.serve(async (req: Request) => {
       try {
         console.log(`[daily-sync] Processing property ${propMapping.local_id} (Channex: ${propMapping.channex_id})`);
 
+        // Fetch property pricing config
+        const { data: propConfig } = await supabase
+          .from("properties")
+          .select("weekend_days, off_peak_days")
+          .eq("id", propMapping.local_id)
+          .maybeSingle();
+        const propWeekendDays: number[] = propConfig?.weekend_days || [4, 5];
+        const propOffPeakDays: number[] = propConfig?.off_peak_days || [];
+
         // ── 2a. AVAILABILITY ──────────────────────────────────────
         const { data: roomTypeMappings } = await supabase
           .from("channex_mappings")
