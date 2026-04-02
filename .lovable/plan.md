@@ -1,78 +1,61 @@
 
 
-## Fix: Bulk Availability Editor Not Accounting for Blocked Dates
+## Consolidate Late Checkout into Single Dialog
 
-### Root Cause
-The block IS being created successfully in `blocked_dates` (confirmed in the database). The bug is in **BulkAvailabilityEditor.tsx** — its "Current availability" calculation only counts units not in maintenance status. It does NOT subtract units that have blocked dates or active reservations for the selected date range.
+### Problem
+There are currently **two separate** late checkout buttons in Quick Actions:
+1. **"Late Checkout Fee"** → inline mode that creates a linked reservation with $50 fee (failing with error)
+2. **"Late Checkout Time"** → opens `LateCheckoutDialog` that sets time + blocks unit
 
-### Fix: `src/components/pms/BulkAvailabilityEditor.tsx`
+These need to be merged into ONE dialog that does everything.
 
-Update the `fetchCurrent` function (around line 115) to subtract blocked units and reserved units for the selected date range:
+### Root Cause of Fee Error
+The `handleLateCheckout` function (line 645-730 in `ReservationQuickActions.tsx`) creates a new reservation record as a linked fee entry. The error is likely an RLS or trigger issue during this insert. This entire approach will be replaced by the consolidated flow.
 
-```typescript
-const fetchCurrent = async () => {
-  setIsLoadingAvailability(true);
-  try {
-    // Get all non-maintenance units for this room type
-    const { data: units } = await supabase
-      .from('units')
-      .select('id')
-      .eq('property_id', propertyId)
-      .eq('booking_com_name', selectedRoomType)
-      .neq('status', 'maintenance');
+### Plan
 
-    if (cancelled) return;
-    const unitIds = units?.map(u => u.id) || [];
-    const totalUnits = unitIds.length;
+#### 1. Update `LateCheckoutDialog.tsx` — Add fee section to existing dialog
+Expand the existing dialog to include:
+- **Time picker** (already exists — 1-8 PM dropdown)
+- **Fee section** (new):
+  - Editable fee amount input (default $50)
+  - Auto-calculated breakdown: Base = fee/1.14, VAT = fee - base, Total
+  - "Charge late checkout fee" checkbox (default checked)
+  - Attribution line: "Late checkout attributed to: [Guest Name]. This creates a linked reservation. Commission (10%) will be credited to you."
+- **Unit block info** (already exists)
+- **OTA sync warning** (already exists)
+- **Save/Discard buttons** (already exists)
 
-    if (totalUnits === 0 || !dateFrom) {
-      setCurrentAvailability(totalUnits);
-      setAvailability(totalUnits);
-      return;
-    }
+New props: `guestName`, `bookingReference`, `currency`, `currentUserName`, `fullReservation` (for group_id, status, etc.)
 
-    const checkDate = format(dateFrom, 'yyyy-MM-dd');
+#### 2. Update `useLateCheckout.ts` — Add fee creation to apply flow
+Extend `applyLateCheckout` to optionally create the linked reservation (fee entry):
+- Accept `feeEnabled`, `feeAmount`, `fullReservation`, `currentUserName` params
+- After blocking unit + setting time, if fee enabled:
+  - Create linked reservation with `-LC` suffix (same logic as current `handleLateCheckout`)
+  - Set `skip_channex_sync: true` on the fee reservation to avoid trigger issues
+  - Update original reservation's `group_id` if needed
+  - Invoke `send-late-checkout-notification`
 
-    // Count blocked units on this date
-    const { data: blockedData } = await supabase
-      .from('blocked_dates')
-      .select('unit_id')
-      .in('unit_id', unitIds)
-      .eq('blocked_date', checkDate);
+#### 3. Update `ReservationQuickActions.tsx` — Remove duplicate flows
+- **Remove**: `lateCheckoutMode` state and all its inline UI (lines 1812-1890)
+- **Remove**: The separate "Late Checkout Fee" button (line 1666-1675)
+- **Keep**: The "Late Checkout Time" button but rename to just "Late Checkout"
+- **Remove**: `handleLateCheckout` function (line 645-730), `LATE_CHECKOUT_FEE` constant, related state vars (`lateCheckoutMode`, `processingLateCheckout`)
+- Pass new props to `LateCheckoutDialog`: guest name, booking ref, currency, user name, full reservation data
 
-    // Count reserved units on this date (check_in <= date < check_out)
-    const { data: reservedData } = await supabase
-      .from('reservations')
-      .select('unit_id')
-      .in('unit_id', unitIds)
-      .in('status', ['confirmed', 'checked-in'])
-      .lte('check_in_date', checkDate)
-      .gt('check_out_date', checkDate);
+#### 4. Update `ReservationDetail.tsx` — Same consolidation
+- Pass the same new props to `LateCheckoutDialog` on this page
+- Remove any separate late checkout fee UI if present
 
-    if (cancelled) return;
+### Technical Details
+- Fee reservation insert will include `skip_channex_sync: true` to prevent channex trigger from firing on a 0-night reservation
+- The `property_id` will be explicitly set from `fullReservation.property_id` to avoid RLS issues
+- The dialog handles both apply and remove modes (remove only removes time + block, not the fee reservation)
 
-    const blockedUnitIds = new Set(blockedData?.map(b => b.unit_id) || []);
-    const reservedUnitIds = new Set(reservedData?.map(r => r.unit_id) || []);
-    // Merge both sets to avoid double-counting
-    const unavailableIds = new Set([...blockedUnitIds, ...reservedUnitIds]);
-
-    const available = totalUnits - unavailableIds.size;
-    setCurrentAvailability(available);
-    setAvailability(available);
-  } catch {
-    if (!cancelled) setCurrentAvailability(null);
-  } finally {
-    if (!cancelled) setIsLoadingAvailability(false);
-  }
-};
-```
-
-### What changes
-- 1 file edited (`BulkAvailabilityEditor.tsx`)
-- The "Current: X rooms" display now reflects actual availability (total units minus blocked dates minus active reservations)
-- Late checkout blocks, manual blocks, and reservations all reduce the displayed count
-- No database or migration changes needed
-
-### Verification
-After fix, setting a late checkout on a unit should cause the Bulk Editor to show one fewer available room for that date.
+### Files Changed
+- `src/components/LateCheckoutDialog.tsx` — major expansion with fee section
+- `src/hooks/useLateCheckout.ts` — add fee creation logic
+- `src/components/ReservationQuickActions.tsx` — remove duplicate flow, pass new props
+- `src/pages/ReservationDetail.tsx` — pass new props to dialog
 
