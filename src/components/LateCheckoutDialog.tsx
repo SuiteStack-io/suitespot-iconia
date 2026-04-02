@@ -134,9 +134,9 @@ export const LateCheckoutDialog = ({
                 <span className="font-medium">{formattedDate}</span> so no new check-ins can be made that day.
               </p>
 
-              <Alert variant="default" className="border-blue-200 bg-blue-50">
-                <Info className="h-4 w-4 text-blue-600" />
-                <AlertDescription className="text-blue-700 text-xs">
+              <Alert variant="default" className="border-primary/20 bg-primary/5">
+                <Info className="h-4 w-4 text-primary" />
+                <AlertDescription className="text-primary/80 text-xs">
                   The availability calendar on all connected OTAs (Booking.com, Airbnb, etc.) will be updated automatically.
                 </AlertDescription>
               </Alert>
