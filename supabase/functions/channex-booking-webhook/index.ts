@@ -7,34 +7,52 @@ const corsHeaders = {
     "authorization, x-client-info, apikey, content-type",
 };
 
-// Fallback matching for pre-connection reservations without channex_booking_id
+// Reference-only matching: Try 1 only (booking_reference). Used for NEW bookings.
+async function findReservationByReference(
+  supabase: any,
+  otaReservationCode: string | null,
+  incomingChannexId: string | null
+): Promise<{ id: string; channex_booking_id: string | null; check_in_date: string; check_out_date: string; unit_id: string | null; guest_names: string[] } | null> {
+  if (!otaReservationCode) return null;
+
+  const { data } = await supabase
+    .from("reservations")
+    .select("id, channex_booking_id, check_in_date, check_out_date, unit_id, guest_names")
+    .eq("booking_reference", otaReservationCode)
+    .neq("status", "cancelled")
+    .maybeSingle();
+
+  if (data) {
+    // Safeguard: if reservation already has a DIFFERENT channex_booking_id, skip it
+    if (data.channex_booking_id && incomingChannexId && data.channex_booking_id !== incomingChannexId) {
+      console.log("[channex-booking-webhook] Reference match skipped — reservation already linked to different channex_booking_id:", data.channex_booking_id, "vs incoming:", incomingChannexId);
+      return null;
+    }
+    console.log("[channex-booking-webhook] Reference match by booking_reference:", otaReservationCode, "→", data.id);
+    return data;
+  }
+  return null;
+}
+
+// Full fallback matching: Try 1 + strict Try 2. Used for CANCELLATIONS and MODIFICATIONS only.
 async function findReservationByFallback(
   supabase: any,
   otaReservationCode: string | null,
   guestName: string | null,
   checkIn: string | null,
   checkOut: string | null,
-  propertyId: string | null
-): Promise<{ id: string; check_in_date: string; check_out_date: string; unit_id: string | null; guest_names: string[] } | null> {
+  propertyId: string | null,
+  incomingChannexId: string | null
+): Promise<{ id: string; channex_booking_id: string | null; check_in_date: string; check_out_date: string; unit_id: string | null; guest_names: string[] } | null> {
   // Try 1: Match by booking_reference = ota_reservation_code
-  if (otaReservationCode) {
-    const { data } = await supabase
-      .from("reservations")
-      .select("id, check_in_date, check_out_date, unit_id, guest_names")
-      .eq("booking_reference", otaReservationCode)
-      .neq("status", "cancelled")
-      .maybeSingle();
-    if (data) {
-      console.log("[channex-booking-webhook] Fallback match by booking_reference:", otaReservationCode, "→", data.id);
-      return data;
-    }
-  }
+  const refMatch = await findReservationByReference(supabase, otaReservationCode, incomingChannexId);
+  if (refMatch) return refMatch;
 
-  // Try 2: Fuzzy match by guest name + dates + source
+  // Try 2: Strict fuzzy match — guest name + EXACT check_in + EXACT check_out + source
   if (guestName && checkIn && checkOut && propertyId) {
     const { data } = await supabase
       .from("reservations")
-      .select("id, check_in_date, check_out_date, unit_id, guest_names")
+      .select("id, channex_booking_id, check_in_date, check_out_date, unit_id, guest_names")
       .eq("check_in_date", checkIn)
       .eq("check_out_date", checkOut)
       .eq("property_id", propertyId)
@@ -43,17 +61,24 @@ async function findReservationByFallback(
 
     if (data?.length) {
       const firstName = guestName.split(" ")[0].toLowerCase();
-      const nameMatch = data.find((r: any) =>
+      const nameMatches = data.filter((r: any) =>
         r.guest_names?.some((n: string) => n.toLowerCase().includes(firstName))
       );
-      if (nameMatch) {
-        console.log("[channex-booking-webhook] Fallback match by guest name + dates:", nameMatch.id);
-        return nameMatch;
+
+      // Only use if exactly ONE match — multiple matches = ambiguous, skip
+      if (nameMatches.length === 1) {
+        const match = nameMatches[0];
+        // Safeguard: skip if reservation already linked to a different channex_booking_id
+        if (match.channex_booking_id && incomingChannexId && match.channex_booking_id !== incomingChannexId) {
+          console.log("[channex-booking-webhook] Fuzzy match skipped — reservation already linked to different channex_booking_id:", match.channex_booking_id, "vs incoming:", incomingChannexId);
+          return null;
+        }
+        console.log("[channex-booking-webhook] Strict fuzzy match (1 of 1):", match.id);
+        return match;
+      } else if (nameMatches.length > 1) {
+        console.log("[channex-booking-webhook] Fuzzy match skipped — multiple matches found:", nameMatches.length);
       }
-      if (data.length === 1) {
-        console.log("[channex-booking-webhook] Fallback match by dates (single result):", data[0].id);
-        return data[0];
-      }
+      // No single-result fallback — if no name match or multiple, return null
     }
   }
 
