@@ -41,9 +41,12 @@ export const NotificationCenter = () => {
           schema: 'public',
           table: 'notifications'
         },
-        (payload) => {
-          console.log('New notification:', payload);
+        async (payload) => {
           const newNotification = payload.new as Notification;
+          const { data: { user } } = await supabase.auth.getUser();
+          if (!user || (newNotification as any).user_id !== user.id) return;
+          
+          console.log('New notification:', payload);
           setNotifications(prev => [newNotification, ...prev]);
           setUnreadCount(prev => prev + 1);
           
@@ -63,9 +66,13 @@ export const NotificationCenter = () => {
   }, [toast]);
 
   const fetchNotifications = async () => {
+    const { data: { user } } = await supabase.auth.getUser();
+    if (!user) return;
+
     const { data, error } = await supabase
       .from('notifications')
       .select('*')
+      .eq('user_id', user.id)
       .order('created_at', { ascending: false })
       .limit(20);
 

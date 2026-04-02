@@ -10,6 +10,7 @@ interface Notification {
   read: boolean;
   created_at: string;
   metadata?: any;
+  user_id?: string;
 }
 
 export const useNotifications = () => {
@@ -25,9 +26,13 @@ export const useNotifications = () => {
   }, []);
 
   const fetchNotifications = async () => {
+    const { data: { user } } = await supabase.auth.getUser();
+    if (!user) return;
+
     const { data, error } = await supabase
       .from('notifications')
       .select('*')
+      .eq('user_id', user.id)
       .order('created_at', { ascending: false })
       .limit(20);
 
@@ -70,8 +75,11 @@ export const useNotifications = () => {
           schema: 'public',
           table: 'notifications'
         },
-        (payload) => {
+        async (payload) => {
           const newNotification = payload.new as Notification;
+          const { data: { user } } = await supabase.auth.getUser();
+          if (!user || newNotification.user_id !== user.id) return;
+          
           console.log('New notification received:', newNotification);
           
           setNotifications(prev => [newNotification, ...prev]);
