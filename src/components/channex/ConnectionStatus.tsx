@@ -75,6 +75,7 @@ export function ConnectionStatus() {
   const [loading, setLoading] = useState(false);
   const [health, setHealth] = useState<HealthData | null>(null);
   const [copied, setCopied] = useState(false);
+  const [copiedMessage, setCopiedMessage] = useState(false);
   const [testing, setTesting] = useState(false);
   const [syncing, setSyncing] = useState(false);
   const [lastSyncAt, setLastSyncAt] = useState<string | null>(null);
