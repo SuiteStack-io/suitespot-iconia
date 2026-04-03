@@ -69,11 +69,13 @@ const checkLabels: Record<string, string> = {
 };
 
 const WEBHOOK_URL = `https://phvduifvymozqiqwvajj.supabase.co/functions/v1/channex-booking-webhook`;
+const MESSAGE_WEBHOOK_URL = `https://phvduifvymozqiqwvajj.supabase.co/functions/v1/channex-message-webhook`;
 
 export function ConnectionStatus() {
   const [loading, setLoading] = useState(false);
   const [health, setHealth] = useState<HealthData | null>(null);
   const [copied, setCopied] = useState(false);
+  const [copiedMessage, setCopiedMessage] = useState(false);
   const [testing, setTesting] = useState(false);
   const [syncing, setSyncing] = useState(false);
   const [lastSyncAt, setLastSyncAt] = useState<string | null>(null);
@@ -196,8 +198,15 @@ export function ConnectionStatus() {
   const copyWebhookUrl = async () => {
     await navigator.clipboard.writeText(WEBHOOK_URL);
     setCopied(true);
-    toast.success('Webhook URL copied to clipboard');
+    toast.success('Booking webhook URL copied to clipboard');
     setTimeout(() => setCopied(false), 2000);
+  };
+
+  const copyMessageWebhookUrl = async () => {
+    await navigator.clipboard.writeText(MESSAGE_WEBHOOK_URL);
+    setCopiedMessage(true);
+    toast.success('Message webhook URL copied to clipboard');
+    setTimeout(() => setCopiedMessage(false), 2000);
   };
 
   const runHealthCheck = async () => {
@@ -380,19 +389,39 @@ export function ConnectionStatus() {
           </CardDescription>
         </CardHeader>
         <CardContent className="space-y-6">
-          <div className="rounded-lg border border-border bg-muted/30 p-4 space-y-2">
-            <h4 className="text-sm font-semibold">Webhook URL</h4>
-            <p className="text-xs text-muted-foreground">
-              Register this URL in your Channex dashboard under Webhooks/Subscriptions and subscribe to the <code className="bg-muted px-1 rounded">booking</code> event.
-            </p>
-            <div className="flex items-center gap-2">
-              <code className="flex-1 text-xs bg-muted px-3 py-2 rounded-md break-all font-mono">
-                {WEBHOOK_URL}
-              </code>
-              <Button variant="outline" size="sm" onClick={copyWebhookUrl} className="shrink-0 gap-1.5">
-                {copied ? <Check className="h-3.5 w-3.5" /> : <Copy className="h-3.5 w-3.5" />}
-                {copied ? 'Copied' : 'Copy'}
-              </Button>
+          <div className="rounded-lg border border-border bg-muted/30 p-4 space-y-4">
+            <h4 className="text-sm font-semibold">Webhook URLs</h4>
+
+            <div className="space-y-2">
+              <p className="text-xs font-medium">Booking Webhook</p>
+              <div className="flex items-center gap-2">
+                <code className="flex-1 text-xs bg-muted px-3 py-2 rounded-md break-all font-mono">
+                  {WEBHOOK_URL}
+                </code>
+                <Button variant="outline" size="sm" onClick={copyWebhookUrl} className="shrink-0 gap-1.5">
+                  {copied ? <Check className="h-3.5 w-3.5" /> : <Copy className="h-3.5 w-3.5" />}
+                  {copied ? 'Copied' : 'Copy'}
+                </Button>
+              </div>
+              <p className="text-xs text-muted-foreground">
+                Register this URL in your Channex dashboard under Webhooks and subscribe to the <code className="bg-muted px-1 rounded">booking</code> event.
+              </p>
+            </div>
+
+            <div className="space-y-2">
+              <p className="text-xs font-medium">Message Webhook</p>
+              <div className="flex items-center gap-2">
+                <code className="flex-1 text-xs bg-muted px-3 py-2 rounded-md break-all font-mono">
+                  {MESSAGE_WEBHOOK_URL}
+                </code>
+                <Button variant="outline" size="sm" onClick={copyMessageWebhookUrl} className="shrink-0 gap-1.5">
+                  {copiedMessage ? <Check className="h-3.5 w-3.5" /> : <Copy className="h-3.5 w-3.5" />}
+                  {copiedMessage ? 'Copied' : 'Copy'}
+                </Button>
+              </div>
+              <p className="text-xs text-muted-foreground">
+                Register this URL in your Channex dashboard under Webhooks and subscribe to the <code className="bg-muted px-1 rounded">message</code> event.
+              </p>
             </div>
           </div>
 
