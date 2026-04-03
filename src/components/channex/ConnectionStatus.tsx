@@ -69,6 +69,7 @@ const checkLabels: Record<string, string> = {
 };
 
 const WEBHOOK_URL = `https://phvduifvymozqiqwvajj.supabase.co/functions/v1/channex-booking-webhook`;
+const MESSAGE_WEBHOOK_URL = `https://phvduifvymozqiqwvajj.supabase.co/functions/v1/channex-message-webhook`;
 
 export function ConnectionStatus() {
   const [loading, setLoading] = useState(false);
