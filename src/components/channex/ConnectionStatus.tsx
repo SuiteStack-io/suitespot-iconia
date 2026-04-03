@@ -198,8 +198,15 @@ export function ConnectionStatus() {
   const copyWebhookUrl = async () => {
     await navigator.clipboard.writeText(WEBHOOK_URL);
     setCopied(true);
-    toast.success('Webhook URL copied to clipboard');
+    toast.success('Booking webhook URL copied to clipboard');
     setTimeout(() => setCopied(false), 2000);
+  };
+
+  const copyMessageWebhookUrl = async () => {
+    await navigator.clipboard.writeText(MESSAGE_WEBHOOK_URL);
+    setCopiedMessage(true);
+    toast.success('Message webhook URL copied to clipboard');
+    setTimeout(() => setCopiedMessage(false), 2000);
   };
 
   const runHealthCheck = async () => {
