@@ -389,19 +389,39 @@ export function ConnectionStatus() {
           </CardDescription>
         </CardHeader>
         <CardContent className="space-y-6">
-          <div className="rounded-lg border border-border bg-muted/30 p-4 space-y-2">
-            <h4 className="text-sm font-semibold">Webhook URL</h4>
-            <p className="text-xs text-muted-foreground">
-              Register this URL in your Channex dashboard under Webhooks/Subscriptions and subscribe to the <code className="bg-muted px-1 rounded">booking</code> event.
-            </p>
-            <div className="flex items-center gap-2">
-              <code className="flex-1 text-xs bg-muted px-3 py-2 rounded-md break-all font-mono">
-                {WEBHOOK_URL}
-              </code>
-              <Button variant="outline" size="sm" onClick={copyWebhookUrl} className="shrink-0 gap-1.5">
-                {copied ? <Check className="h-3.5 w-3.5" /> : <Copy className="h-3.5 w-3.5" />}
-                {copied ? 'Copied' : 'Copy'}
-              </Button>
+          <div className="rounded-lg border border-border bg-muted/30 p-4 space-y-4">
+            <h4 className="text-sm font-semibold">Webhook URLs</h4>
+
+            <div className="space-y-2">
+              <p className="text-xs font-medium">Booking Webhook</p>
+              <div className="flex items-center gap-2">
+                <code className="flex-1 text-xs bg-muted px-3 py-2 rounded-md break-all font-mono">
+                  {WEBHOOK_URL}
+                </code>
+                <Button variant="outline" size="sm" onClick={copyWebhookUrl} className="shrink-0 gap-1.5">
+                  {copied ? <Check className="h-3.5 w-3.5" /> : <Copy className="h-3.5 w-3.5" />}
+                  {copied ? 'Copied' : 'Copy'}
+                </Button>
+              </div>
+              <p className="text-xs text-muted-foreground">
+                Register this URL in your Channex dashboard under Webhooks and subscribe to the <code className="bg-muted px-1 rounded">booking</code> event.
+              </p>
+            </div>
+
+            <div className="space-y-2">
+              <p className="text-xs font-medium">Message Webhook</p>
+              <div className="flex items-center gap-2">
+                <code className="flex-1 text-xs bg-muted px-3 py-2 rounded-md break-all font-mono">
+                  {MESSAGE_WEBHOOK_URL}
+                </code>
+                <Button variant="outline" size="sm" onClick={copyMessageWebhookUrl} className="shrink-0 gap-1.5">
+                  {copiedMessage ? <Check className="h-3.5 w-3.5" /> : <Copy className="h-3.5 w-3.5" />}
+                  {copiedMessage ? 'Copied' : 'Copy'}
+                </Button>
+              </div>
+              <p className="text-xs text-muted-foreground">
+                Register this URL in your Channex dashboard under Webhooks and subscribe to the <code className="bg-muted px-1 rounded">message</code> event.
+              </p>
             </div>
           </div>
 
