@@ -85,12 +85,12 @@ Deno.serve(async (req) => {
     const unitIds = units.map(u => u.id);
     const unitMap = new Map<string, UnitInfo>(units.map(u => [u.id, u]));
 
-    // 2. Get all moveable reservations on these units (confirmed or pending_assignment, never checked-in)
+    // 2. Get all reservations on these units (confirmed, pending_assignment, AND checked-in as immovable blockers)
     const { data: allReservations, error: resError } = await supabase
       .from('reservations')
       .select('id, unit_id, check_in_date, check_out_date, guest_names, booking_reference, status')
       .in('unit_id', unitIds)
-      .in('status', ['confirmed', 'pending_assignment'])
+      .in('status', ['confirmed', 'pending_assignment', 'checked-in'])
       .is('cancelled_at', null);
 
     if (resError) throw resError;
@@ -105,6 +105,13 @@ Deno.serve(async (req) => {
 
     const reservations: ReservationInfo[] = allReservations || [];
     const blocked = blockedDates || [];
+
+    // Diagnostic: log all loaded reservations per room
+    console.log('[AutoShuffle] Loaded reservations:', reservations.length);
+    for (const unit of units) {
+      const onUnit = reservations.filter(r => r.unit_id === unit.id);
+      console.log(`[AutoShuffle] Room ${unit.unit_number}: ${onUnit.map(r => `${r.guest_names?.[0] || 'Unknown'} (${r.check_in_date}→${r.check_out_date}, ${r.status})`).join(', ') || 'empty'}`);
+    }
 
     // Helper: check if a unit is free for a given date range (considering existing reservations and blocked dates)
     // excludeReservationIds: reservations we're hypothetically moving away
