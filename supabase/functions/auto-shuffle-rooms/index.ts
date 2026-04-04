@@ -200,6 +200,7 @@ Deno.serve(async (req) => {
         }) && !blocked.some(b => b.unit_id === unit.id && b.blocked_date >= checkInDate && b.blocked_date < checkOutDate);
 
         if (unitFree) {
+          console.log(`[AutoShuffle] SOLUTION: Unit ${unit.unit_number} freed after ${current.moves.length} moves`);
           solution = current;
           // The freed unit is this one
           (solution as any).freedUnitId = unit.id;
