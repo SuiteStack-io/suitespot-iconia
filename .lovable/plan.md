@@ -1,45 +1,60 @@
 
 
-## Fix: Auto-Assign Room Type Lookup for Channex Bookings + Re-run for Andrew Tadros
+## Fix: Auto-Shuffle BFS Missing Checked-In Reservations as Blockers + Execute 2-Move Chain Swap
 
-### Root Cause (Confirmed)
+### Root Cause
 
-Line 51 of `auto-assign-rooms/index.ts` selects reservation fields but **omits `channex_booking_id`**. Line 90 then tries to match `channex_bookings` using `res.booking_reference` (OTA code like `"6718675960"`), but `channex_bookings.channex_booking_id` stores the Channex UUID (`"3fc276f1-ee08-4c11-8238-43a41111cf8b"`). These never match → room type = null → "Unknown".
+**Line 93** of `auto-shuffle-rooms/index.ts` only queries reservations with `status IN ('confirmed', 'pending_assignment')`. This means:
+- Checked-in guests (like Alejandro Quiros Apr 3-6, Tyler Martin Apr 6-7 on Room 502) are **invisible** to the BFS
+- The BFS thinks Room 502 only has Ghaidaa (Apr 9 - May 8) and tries to move Sandrine there, not knowing the room is blocked by checked-in/completed guests
+- Line 209 (`if (res.status === 'checked-in') continue`) correctly prevents moving checked-in guests, but they must be **loaded first** to act as immovable blockers
 
-### Verified Data
-- Andrew Tadros reservation: `bf0d9807-613c-471e-b62c-c5b07cfa532c`, Apr 8–12, confirmed, no unit assigned
-- His `channex_booking_id`: `3fc276f1-ee08-4c11-8238-43a41111cf8b`
-- That maps to `room_type_id`: `3ca13973-c38c-4084-9a7a-f390cf20ee55` → "Suite with Terrace"
-- 3 units of that type: 501, 502, 505
+### Fix — 1 File, Then Execute Chain Swap
 
-### Fix — 1 File, Then Re-run
+**File: `supabase/functions/auto-shuffle-rooms/index.ts`**
 
-**File: `supabase/functions/auto-assign-rooms/index.ts`**
+#### Change 1: Include checked-in reservations in query (line 93)
+```typescript
+// Before:
+.in('status', ['confirmed', 'pending_assignment'])
 
-1. **Line 51**: Add `channex_booking_id` to the select:
-   ```
-   .select("id, check_in_date, check_out_date, guest_names, property_id, unit_id, booking_reference, channex_booking_id")
-   ```
+// After:
+.in('status', ['confirmed', 'pending_assignment', 'checked-in'])
+```
 
-2. **Line 78 (interface)**: Add `channex_booking_id` field:
-   ```typescript
-   channex_booking_id: string | null;
-   ```
+This loads checked-in guests as room blockers. Line 209 already prevents them from being moved.
 
-3. **Line 90**: Use `channex_booking_id` first, fall back to `booking_reference`:
-   ```typescript
-   .eq("channex_booking_id", (res as any).channex_booking_id || res.booking_reference)
-   ```
+#### Change 2: Add diagnostic logging after data fetch (~line 106)
+After `const reservations: ReservationInfo[] = allReservations || [];`, add:
+```typescript
+console.log('[AutoShuffle] Loaded reservations:', reservations.length);
+for (const unit of units) {
+  const onUnit = reservations.filter(r => r.unit_id === unit.id);
+  console.log(`[AutoShuffle] Room ${unit.unit_number}: ${onUnit.map(r => `${r.guest_names?.[0] || 'Unknown'} (${r.check_in_date}→${r.check_out_date}, ${r.status})`).join(', ') || 'empty'}`);
+}
+```
 
-4. **After line 128**: Add diagnostic log:
-   ```typescript
-   console.log(`[auto-assign-rooms] Reservation ${res.id}: channex_booking_id=${(res as any).channex_booking_id}, booking_ref=${res.booking_reference}, resolved room_type=${roomTypeName}`);
-   ```
+#### Change 3: Add BFS trace logging (inside the BFS loop, after line 223)
+After `if (!targetFree) continue;`, add:
+```typescript
+console.log(`[AutoShuffle] BFS: ${res.guest_names?.[0]} ${unitMap.get(currentUnitId)?.unit_number}→${targetUnit.unit_number} (${res.check_in_date}→${res.check_out_date}): fits`);
+```
 
-**Post-deploy**: Invoke `auto-assign-rooms` with `reservation_ids: ["bf0d9807-613c-471e-b62c-c5b07cfa532c"]` to assign Andrew Tadros to a Suite with Terrace.
+And when a solution is found (after line 195 `if (unitFree)`), add:
+```typescript
+console.log(`[AutoShuffle] SOLUTION: Unit ${unit.unit_number} freed after ${current.moves.length} moves`);
+```
+
+### Post-Fix: Execute 2-Move Chain Swap for Andrew Tadros
+
+After deploying the updated edge function, invoke `auto-assign-rooms` with `reservation_ids: ["bf0d9807-613c-471e-b62c-c5b07cfa532c"]`. With checked-in guests now visible as blockers, the BFS should find the correct 2-move chain:
+
+1. Ghaidaa Alkhdour (Apr 9 - May 8): Room 502 → Room 505
+2. Natasja Scholten (Apr 12 - Apr 18): Room 505 → Room 502
+3. Andrew Tadros assigned to Room 502
 
 ### Summary
-- 1 edge function edited (4 small changes)
-- 1 re-run via curl to resolve Andrew Tadros's booking
-- No changes to webhook, manual flow, calendar, or shuffle algorithm
+- 1 edge function edited: add `checked-in` to reservation query + BFS trace logging
+- 1 re-run of auto-assign for Tadros after deploy
+- No changes to the BFS algorithm structure, email templates, calendar UI, or manual booking flow
 
