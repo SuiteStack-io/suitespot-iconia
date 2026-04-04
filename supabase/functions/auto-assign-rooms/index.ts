@@ -88,7 +88,7 @@ Deno.serve(async (req: Request) => {
       const { data: channexBooking } = await supabase
         .from("channex_bookings")
         .select("room_type_id")
-        .eq("channex_booking_id", res.booking_reference)
+        .eq("channex_booking_id", res.channex_booking_id || res.booking_reference)
         .maybeSingle();
 
       let roomTypeName: string | null = null;
