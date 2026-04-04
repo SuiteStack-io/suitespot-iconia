@@ -258,16 +258,23 @@ export function ConnectionStatus() {
         toast.loading(`Syncing property ${i + 1} of ${properties.length}: ${propName}...`, { id: 'full-sync-progress' });
 
         try {
+          console.log('[full-sync] Invoking channex-full-sync for property:', prop.local_id, propName);
           const { data, error } = await supabase.functions.invoke('channex-full-sync', {
             body: { propertyId: prop.local_id },
           });
+          console.log('[full-sync] Response:', { data, error });
           if (error) throw error;
+          if (!data && !error) {
+            results.push({ name: propName, success: false, error: 'No response returned — function may have timed out' });
+            continue;
+          }
           if (data?.success) {
             results.push({ name: propName, success: true });
           } else {
             results.push({ name: propName, success: false, error: data?.error || 'Unknown' });
           }
         } catch (err: any) {
+          console.error('[full-sync] Error for property:', propName, err);
           results.push({ name: propName, success: false, error: err.message });
         }
         setSyncCompleted(i + 1);

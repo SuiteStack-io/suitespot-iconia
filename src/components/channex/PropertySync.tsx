@@ -121,10 +121,16 @@ export function PropertySync({ onSwitchToSettings }: PropertySyncProps) {
   const fullSyncProperty = async (propertyId: string) => {
     setFullSyncingPropertyId(propertyId);
     try {
+      console.log('[full-sync] Invoking channex-full-sync for property:', propertyId);
       const { data, error } = await supabase.functions.invoke('channex-full-sync', {
         body: { propertyId },
       });
+      console.log('[full-sync] Response:', { data, error });
       if (error) throw error;
+      if (!data && !error) {
+        toast.error('Full sync returned no response — the function may have timed out. Check edge function logs.');
+        return;
+      }
       if (data?.success) {
         setFullSyncResult({
           room_types_pushed: data.room_types_pushed || 0,
@@ -135,10 +141,11 @@ export function PropertySync({ onSwitchToSettings }: PropertySyncProps) {
         });
         setShowFullSyncDialog(true);
       } else {
-        toast.error(data?.error || 'Full sync failed');
+        toast.error(data?.error || 'Full sync failed — check edge function logs');
       }
       await fetchData();
     } catch (err: any) {
+      console.error('[full-sync] Error for property:', propertyId, err);
       toast.error(err.message || 'Full sync failed');
     } finally {
       setFullSyncingPropertyId(null);
