@@ -76,6 +76,7 @@ Deno.serve(async (req: Request) => {
       guest_names: string[];
       property_id: string | null;
       booking_reference: string;
+      channex_booking_id: string | null;
       room_type_name: string | null;
       room_type_unit_id: string | null;
     }
