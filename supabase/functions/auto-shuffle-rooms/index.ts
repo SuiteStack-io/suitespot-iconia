@@ -267,7 +267,11 @@ Deno.serve(async (req) => {
     }
 
     if (!solution) {
-      console.log('No valid shuffle combination found');
+      console.log('[AutoShuffle] FAILED: No valid shuffle found. BFS visited', visited.size, 'states.');
+      for (const unit of units) {
+        const onUnit = reservations.filter(r => r.unit_id === unit.id);
+        console.log(`[AutoShuffle] Final state Room ${unit.unit_number}: ${onUnit.map(r => `${r.guest_names?.[0]} (${r.check_in_date}→${r.check_out_date}, ${r.status})`).join(', ')}`);
+      }
       return new Response(JSON.stringify({ success: false, reason: 'no_valid_shuffle' }), {
         headers: { ...corsHeaders, 'Content-Type': 'application/json' }, status: 200,
       });
