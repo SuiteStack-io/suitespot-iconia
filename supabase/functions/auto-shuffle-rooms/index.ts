@@ -85,12 +85,12 @@ Deno.serve(async (req) => {
     const unitIds = units.map(u => u.id);
     const unitMap = new Map<string, UnitInfo>(units.map(u => [u.id, u]));
 
-    // 2. Get all moveable reservations on these units (confirmed or pending_assignment, never checked-in)
+    // 2. Get all reservations on these units (confirmed, pending_assignment, AND checked-in as immovable blockers)
     const { data: allReservations, error: resError } = await supabase
       .from('reservations')
       .select('id, unit_id, check_in_date, check_out_date, guest_names, booking_reference, status')
       .in('unit_id', unitIds)
-      .in('status', ['confirmed', 'pending_assignment'])
+      .in('status', ['confirmed', 'pending_assignment', 'checked-in'])
       .is('cancelled_at', null);
 
     if (resError) throw resError;
@@ -105,6 +105,13 @@ Deno.serve(async (req) => {
 
     const reservations: ReservationInfo[] = allReservations || [];
     const blocked = blockedDates || [];
+
+    // Diagnostic: log all loaded reservations per room
+    console.log('[AutoShuffle] Loaded reservations:', reservations.length);
+    for (const unit of units) {
+      const onUnit = reservations.filter(r => r.unit_id === unit.id);
+      console.log(`[AutoShuffle] Room ${unit.unit_number}: ${onUnit.map(r => `${r.guest_names?.[0] || 'Unknown'} (${r.check_in_date}→${r.check_out_date}, ${r.status})`).join(', ') || 'empty'}`);
+    }
 
     // Helper: check if a unit is free for a given date range (considering existing reservations and blocked dates)
     // excludeReservationIds: reservations we're hypothetically moving away
@@ -193,6 +200,7 @@ Deno.serve(async (req) => {
         }) && !blocked.some(b => b.unit_id === unit.id && b.blocked_date >= checkInDate && b.blocked_date < checkOutDate);
 
         if (unitFree) {
+          console.log(`[AutoShuffle] SOLUTION: Unit ${unit.unit_number} freed after ${current.moves.length} moves`);
           solution = current;
           // The freed unit is this one
           (solution as any).freedUnitId = unit.id;
@@ -222,6 +230,8 @@ Deno.serve(async (req) => {
           }) && !blocked.some(b => b.unit_id === targetUnit.id && b.blocked_date >= res.check_in_date && b.blocked_date < res.check_out_date);
 
           if (!targetFree) continue;
+
+          console.log(`[AutoShuffle] BFS depth ${current.moves.length + 1}: ${res.guest_names?.[0]} ${unitMap.get(currentUnitId)?.unit_number}→${targetUnit.unit_number} (${res.check_in_date}→${res.check_out_date}): fits`);
 
           // Create state key to avoid revisiting
           const newMoved = new Map(current.movedReservations);
@@ -254,10 +264,93 @@ Deno.serve(async (req) => {
           });
         }
       }
+
+      // Try pairwise SWAPS to handle circular dependencies
+      // (e.g., A needs B's room and B needs A's room simultaneously)
+      if (current.moves.length + 2 <= MAX_DEPTH) {
+        for (let i = 0; i < reservations.length; i++) {
+          const resA = reservations[i];
+          if (current.movedReservations.has(resA.id)) continue;
+          if (resA.status === 'checked-in') continue;
+          const unitA = effectiveAssignment.get(resA.id)!;
+
+          for (let j = i + 1; j < reservations.length; j++) {
+            const resB = reservations[j];
+            if (current.movedReservations.has(resB.id)) continue;
+            if (resB.status === 'checked-in') continue;
+            const unitB = effectiveAssignment.get(resB.id)!;
+            if (unitA === unitB) continue;
+
+            // Try A→unitB and B→unitA
+            const aFitsOnB = !reservations.some(r => {
+              if (r.id === resA.id || r.id === resB.id) return false;
+              const eu = effectiveAssignment.get(r.id)!;
+              if (eu !== unitB) return false;
+              return r.check_in_date < resA.check_out_date && r.check_out_date > resA.check_in_date;
+            }) && !blocked.some(b => b.unit_id === unitB && b.blocked_date >= resA.check_in_date && b.blocked_date < resA.check_out_date);
+
+            const bFitsOnA = !reservations.some(r => {
+              if (r.id === resA.id || r.id === resB.id) return false;
+              const eu = effectiveAssignment.get(r.id)!;
+              if (eu !== unitA) return false;
+              return r.check_in_date < resB.check_out_date && r.check_out_date > resB.check_in_date;
+            }) && !blocked.some(b => b.unit_id === unitA && b.blocked_date >= resB.check_in_date && b.blocked_date < resB.check_out_date);
+
+            if (!aFitsOnB || !bFitsOnA) continue;
+
+            const newMoved = new Map(current.movedReservations);
+            newMoved.set(resA.id, unitB);
+            newMoved.set(resB.id, unitA);
+            const stateKey = Array.from(newMoved.entries()).sort().map(([k, v]) => `${k}:${v}`).join('|');
+            if (visited.has(stateKey)) continue;
+            visited.add(stateKey);
+
+            console.log(`[AutoShuffle] BFS SWAP depth ${current.moves.length + 2}: ${resA.guest_names?.[0]} ${unitMap.get(unitA)?.unit_number}↔${unitMap.get(unitB)?.unit_number} ${resB.guest_names?.[0]}: fits`);
+
+            const fromA = unitMap.get(unitA)!;
+            const toA = unitMap.get(unitB)!;
+            const fromB = unitMap.get(unitB)!;
+            const toB = unitMap.get(unitA)!;
+
+            const newMoves: MoveDetail[] = [
+              ...current.moves,
+              {
+                reservation_id: resA.id,
+                guest_name: resA.guest_names[0] || 'Unknown',
+                from_room_id: unitA,
+                from_room_number: fromA?.unit_number || 'N/A',
+                to_room_id: unitB,
+                to_room_number: toA?.unit_number || 'N/A',
+                check_in: resA.check_in_date,
+                check_out: resA.check_out_date,
+              },
+              {
+                reservation_id: resB.id,
+                guest_name: resB.guest_names[0] || 'Unknown',
+                from_room_id: unitB,
+                from_room_number: fromB?.unit_number || 'N/A',
+                to_room_id: unitA,
+                to_room_number: toB?.unit_number || 'N/A',
+                check_in: resB.check_in_date,
+                check_out: resB.check_out_date,
+              },
+            ];
+
+            queue.push({
+              movedReservations: newMoved,
+              moves: newMoves,
+            });
+          }
+        }
+      }
     }
 
     if (!solution) {
-      console.log('No valid shuffle combination found');
+      console.log('[AutoShuffle] FAILED: No valid shuffle found. BFS visited', visited.size, 'states.');
+      for (const unit of units) {
+        const onUnit = reservations.filter(r => r.unit_id === unit.id);
+        console.log(`[AutoShuffle] Final state Room ${unit.unit_number}: ${onUnit.map(r => `${r.guest_names?.[0]} (${r.check_in_date}→${r.check_out_date}, ${r.status})`).join(', ')}`);
+      }
       return new Response(JSON.stringify({ success: false, reason: 'no_valid_shuffle' }), {
         headers: { ...corsHeaders, 'Content-Type': 'application/json' }, status: 200,
       });
