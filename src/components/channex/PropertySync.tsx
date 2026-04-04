@@ -99,6 +99,7 @@ export function PropertySync({ onSwitchToSettings }: PropertySyncProps) {
   };
 
   const syncProperty = async (propertyId: string) => {
+    console.log('[sync] Sync to Channex clicked for property:', propertyId);
     setSyncingPropertyId(propertyId);
     try {
       const { data, error } = await supabase.functions.invoke('channex-sync-property', {

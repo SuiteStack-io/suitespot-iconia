@@ -402,8 +402,26 @@ Deno.serve(async (req) => {
       }).eq('id', propertyId);
     }
 
-    // SUMMARY
+    // SUMMARY — always log so every button click produces a visible sync log entry
     console.log(`[Sync] Done. RT: ${roomTypeResults.length}, RP: ${ratePlanResults.length}, Errors: ${errors.length}`);
+
+    await logSync(
+      'channex-sync-property',
+      'sync-summary',
+      { propertyId: propConfig.id, propertyName: propConfig.property_name },
+      {
+        property_status: propertyStatus,
+        room_types_count: roomTypeResults.length,
+        rate_plans_count: ratePlanResults.length,
+        errors_count: errors.length,
+        room_types: roomTypeResults.map(r => ({ name: r.name, status: r.status })),
+        rate_plans: ratePlanResults.map(r => ({ name: r.name, status: r.status })),
+      },
+      200,
+      errors.length === 0,
+      errors.length > 0 ? JSON.stringify(errors) : null,
+      propConfig.id
+    );
 
     return new Response(JSON.stringify({
       success: true,
