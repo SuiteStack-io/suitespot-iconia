@@ -1,47 +1,45 @@
 
 
-## Fix: 406 Errors on user_permissions + Full Sync Button Diagnostics
+## Fix: Auto-Assign Room Type Lookup for Channex Bookings + Re-run for Andrew Tadros
 
-### Root Cause Analysis
+### Root Cause (Confirmed)
 
-The `user_permissions` table exists, but the query in `src/lib/auth.tsx` (line 122) uses `.single()` which returns a 406 error when the admin user has no row in `user_permissions`. This is cosmetic noise — the code handles it — but it creates 406 errors in the network tab on every page load.
+Line 51 of `auto-assign-rooms/index.ts` selects reservation fields but **omits `channex_booking_id`**. Line 90 then tries to match `channex_bookings` using `res.booking_reference` (OTA code like `"6718675960"`), but `channex_bookings.channex_booking_id` stores the Channex UUID (`"3fc276f1-ee08-4c11-8238-43a41111cf8b"`). These never match → room type = null → "Unknown".
 
-The Full Sync button code in `PropertySync.tsx` has the correct `console.log` and invoke call. The button only renders when `isSynced` is true (line 269). There's no permissions gate blocking it. However, the user reports the console.log never fires, suggesting the click handler may not be reaching `fullSyncProperty` — possibly due to a React rendering issue or event propagation problem.
+### Verified Data
+- Andrew Tadros reservation: `bf0d9807-613c-471e-b62c-c5b07cfa532c`, Apr 8–12, confirmed, no unit assigned
+- His `channex_booking_id`: `3fc276f1-ee08-4c11-8238-43a41111cf8b`
+- That maps to `room_type_id`: `3ca13973-c38c-4084-9a7a-f390cf20ee55` → "Suite with Terrace"
+- 3 units of that type: 501, 502, 505
 
-### Fix — 2 Changes
+### Fix — 1 File, Then Re-run
 
-#### 1. Fix 406 errors: Change `.single()` to `.maybeSingle()` in auth.tsx (line 123)
+**File: `supabase/functions/auto-assign-rooms/index.ts`**
 
-**File: `src/lib/auth.tsx`**, line 123
+1. **Line 51**: Add `channex_booking_id` to the select:
+   ```
+   .select("id, check_in_date, check_out_date, guest_names, property_id, unit_id, booking_reference, channex_booking_id")
+   ```
 
-Change:
-```typescript
-.single();
-```
-To:
-```typescript
-.maybeSingle();
-```
+2. **Line 78 (interface)**: Add `channex_booking_id` field:
+   ```typescript
+   channex_booking_id: string | null;
+   ```
 
-This eliminates the 406 error when no `user_permissions` row exists for the user. `.maybeSingle()` returns `{ data: null, error: null }` for 0 rows instead of a 406 error. The existing `if (!error && data)` check handles this correctly.
+3. **Line 90**: Use `channex_booking_id` first, fall back to `booking_reference`:
+   ```typescript
+   .eq("channex_booking_id", (res as any).channex_booking_id || res.booking_reference)
+   ```
 
-#### 2. Add click-level logging to PropertyCard's Full Sync button
+4. **After line 128**: Add diagnostic log:
+   ```typescript
+   console.log(`[auto-assign-rooms] Reservation ${res.id}: channex_booking_id=${(res as any).channex_booking_id}, booking_ref=${res.booking_reference}, resolved room_type=${roomTypeName}`);
+   ```
 
-**File: `src/components/channex/PropertySync.tsx`**, PropertyCard component (~line 270)
-
-Wrap the `onFullSync` call with a logging wrapper to confirm the click event reaches the handler:
-
-```typescript
-onClick={() => {
-  console.log('[full-sync] Full Sync button clicked for property:', property.id, property.name);
-  onFullSync();
-}}
-```
-
-This will confirm whether the issue is at the button click level or deeper in the invoke call.
+**Post-deploy**: Invoke `auto-assign-rooms` with `reservation_ids: ["bf0d9807-613c-471e-b62c-c5b07cfa532c"]` to assign Andrew Tadros to a Suite with Terrace.
 
 ### Summary
-- 1 line change in `auth.tsx`: `.single()` → `.maybeSingle()` (eliminates 406 errors)
-- 1 line change in `PropertySync.tsx`: add click-level console.log on Full Sync button
-- No edge function changes needed
+- 1 edge function edited (4 small changes)
+- 1 re-run via curl to resolve Andrew Tadros's booking
+- No changes to webhook, manual flow, calendar, or shuffle algorithm
 
