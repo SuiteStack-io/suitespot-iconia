@@ -231,6 +231,8 @@ Deno.serve(async (req) => {
 
           if (!targetFree) continue;
 
+          console.log(`[AutoShuffle] BFS depth ${current.moves.length + 1}: ${res.guest_names?.[0]} ${unitMap.get(currentUnitId)?.unit_number}→${targetUnit.unit_number} (${res.check_in_date}→${res.check_out_date}): fits`);
+
           // Create state key to avoid revisiting
           const newMoved = new Map(current.movedReservations);
           newMoved.set(res.id, targetUnit.id);
