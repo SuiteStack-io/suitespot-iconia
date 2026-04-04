@@ -108,7 +108,7 @@ Deno.serve(async (req: Request) => {
         const { data: channexByField } = await supabase
           .from("channex_bookings")
           .select("room_type_id")
-          .eq("channex_booking_id", (res as any).channex_booking_id || "")
+          .eq("channex_booking_id", res.channex_booking_id || res.booking_reference || "")
           .maybeSingle();
 
         if (channexByField?.room_type_id) {
