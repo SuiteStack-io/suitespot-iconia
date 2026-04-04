@@ -601,7 +601,7 @@ function resolveCountryName(code: string | null): string | null {
               guest_names: [guestName],
               contact_email: guestEmail !== "unknown@unknown.com" ? guestEmail : null,
               contact_phone: guestPhone,
-              guest_nationality: guestCountry,
+              guest_nationality: resolveCountryName(guestCountry),
               status: allocatedUnitId ? "confirmed" : "confirmed",
               channel: "Channex",
               source: ota_name || "Channex",
