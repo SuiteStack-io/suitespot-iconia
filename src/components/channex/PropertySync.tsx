@@ -267,7 +267,7 @@ function PropertyCard({
               Sync to Channex
             </Button>
             {isSynced && (
-              <Button variant="outline" size="sm" onClick={onFullSync} disabled={isFullSyncing} className="gap-2">
+              <Button variant="outline" size="sm" onClick={() => { console.log('[full-sync] Full Sync button clicked for property:', property.id, property.name); onFullSync(); }} disabled={isFullSyncing} className="gap-2">
                 {isFullSyncing ? <Loader2 className="h-4 w-4 animate-spin" /> : <Upload className="h-4 w-4" />}
                 Full Sync (500 days)
               </Button>
