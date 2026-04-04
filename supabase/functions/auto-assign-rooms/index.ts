@@ -48,7 +48,7 @@ Deno.serve(async (req: Request) => {
     // Fetch the unassigned reservations
     const { data: reservations, error: fetchErr } = await supabase
       .from("reservations")
-      .select("id, check_in_date, check_out_date, guest_names, property_id, unit_id, booking_reference")
+      .select("id, check_in_date, check_out_date, guest_names, property_id, unit_id, booking_reference, channex_booking_id")
       .in("id", reservation_ids)
       .is("unit_id", null)
       .in("status", ["confirmed", "pending_assignment"]);
