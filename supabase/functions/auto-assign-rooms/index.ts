@@ -122,6 +122,8 @@ Deno.serve(async (req: Request) => {
         }
       }
 
+      console.log(`[auto-assign-rooms] Reservation ${res.id}: channex_booking_id=${res.channex_booking_id}, booking_ref=${res.booking_reference}, resolved room_type=${roomTypeName}`);
+
       enriched.push({
         ...res,
         room_type_name: roomTypeName,
