@@ -48,7 +48,7 @@ Deno.serve(async (req: Request) => {
     // Fetch the unassigned reservations
     const { data: reservations, error: fetchErr } = await supabase
       .from("reservations")
-      .select("id, check_in_date, check_out_date, guest_names, property_id, unit_id, booking_reference")
+      .select("id, check_in_date, check_out_date, guest_names, property_id, unit_id, booking_reference, channex_booking_id")
       .in("id", reservation_ids)
       .is("unit_id", null)
       .in("status", ["confirmed", "pending_assignment"]);
@@ -76,6 +76,7 @@ Deno.serve(async (req: Request) => {
       guest_names: string[];
       property_id: string | null;
       booking_reference: string;
+      channex_booking_id: string | null;
       room_type_name: string | null;
       room_type_unit_id: string | null;
     }
@@ -87,7 +88,7 @@ Deno.serve(async (req: Request) => {
       const { data: channexBooking } = await supabase
         .from("channex_bookings")
         .select("room_type_id")
-        .eq("channex_booking_id", res.booking_reference)
+        .eq("channex_booking_id", res.channex_booking_id || res.booking_reference)
         .maybeSingle();
 
       let roomTypeName: string | null = null;
@@ -107,7 +108,7 @@ Deno.serve(async (req: Request) => {
         const { data: channexByField } = await supabase
           .from("channex_bookings")
           .select("room_type_id")
-          .eq("channex_booking_id", (res as any).channex_booking_id || "")
+          .eq("channex_booking_id", res.channex_booking_id || res.booking_reference || "")
           .maybeSingle();
 
         if (channexByField?.room_type_id) {
@@ -120,6 +121,8 @@ Deno.serve(async (req: Request) => {
           roomTypeName = unitData2?.booking_com_name || null;
         }
       }
+
+      console.log(`[auto-assign-rooms] Reservation ${res.id}: channex_booking_id=${res.channex_booking_id}, booking_ref=${res.booking_reference}, resolved room_type=${roomTypeName}`);
 
       enriched.push({
         ...res,
