@@ -1,60 +1,53 @@
 
 
-## Fix: Auto-Shuffle BFS Missing Checked-In Reservations as Blockers + Execute 2-Move Chain Swap
+## Fix: Add Summary Sync Log to channex-sync-property
 
-### Root Cause
+### Problem
+The "Sync to Channex" button works correctly but produces no sync log entry when all entities are already synced, making it appear broken.
 
-**Line 93** of `auto-shuffle-rooms/index.ts` only queries reservations with `status IN ('confirmed', 'pending_assignment')`. This means:
-- Checked-in guests (like Alejandro Quiros Apr 3-6, Tyler Martin Apr 6-7 on Room 502) are **invisible** to the BFS
-- The BFS thinks Room 502 only has Ghaidaa (Apr 9 - May 8) and tries to move Sandrine there, not knowing the room is blocked by checked-in/completed guests
-- Line 209 (`if (res.status === 'checked-in') continue`) correctly prevents moving checked-in guests, but they must be **loaded first** to act as immovable blockers
+### Changes
 
-### Fix — 1 File, Then Execute Chain Swap
+**File: `supabase/functions/channex-sync-property/index.ts`** — Lines 405-406
 
-**File: `supabase/functions/auto-shuffle-rooms/index.ts`**
-
-#### Change 1: Include checked-in reservations in query (line 93)
+Replace:
 ```typescript
-// Before:
-.in('status', ['confirmed', 'pending_assignment'])
-
-// After:
-.in('status', ['confirmed', 'pending_assignment', 'checked-in'])
+// SUMMARY
+console.log(`[Sync] Done. RT: ${roomTypeResults.length}, RP: ${ratePlanResults.length}, Errors: ${errors.length}`);
 ```
 
-This loads checked-in guests as room blockers. Line 209 already prevents them from being moved.
-
-#### Change 2: Add diagnostic logging after data fetch (~line 106)
-After `const reservations: ReservationInfo[] = allReservations || [];`, add:
+With:
 ```typescript
-console.log('[AutoShuffle] Loaded reservations:', reservations.length);
-for (const unit of units) {
-  const onUnit = reservations.filter(r => r.unit_id === unit.id);
-  console.log(`[AutoShuffle] Room ${unit.unit_number}: ${onUnit.map(r => `${r.guest_names?.[0] || 'Unknown'} (${r.check_in_date}→${r.check_out_date}, ${r.status})`).join(', ') || 'empty'}`);
-}
+// SUMMARY — always log so every button click produces a visible sync log entry
+console.log(`[Sync] Done. RT: ${roomTypeResults.length}, RP: ${ratePlanResults.length}, Errors: ${errors.length}`);
+
+await logSync(
+  'channex-sync-property',
+  'sync-summary',
+  { propertyId: propConfig.id, propertyName: propConfig.property_name },
+  {
+    property_status: propertyStatus,
+    room_types_count: roomTypeResults.length,
+    rate_plans_count: ratePlanResults.length,
+    errors_count: errors.length,
+    room_types: roomTypeResults.map(r => ({ name: r.name, status: r.status })),
+    rate_plans: ratePlanResults.map(r => ({ name: r.name, status: r.status })),
+  },
+  200,
+  errors.length === 0,
+  errors.length > 0 ? JSON.stringify(errors) : null,
+  propConfig.id
+);
 ```
 
-#### Change 3: Add BFS trace logging (inside the BFS loop, after line 223)
-After `if (!targetFree) continue;`, add:
+**File: `src/components/channex/PropertySync.tsx`** — Line 103 (inside `syncProperty`)
+
+Add before the invoke call:
 ```typescript
-console.log(`[AutoShuffle] BFS: ${res.guest_names?.[0]} ${unitMap.get(currentUnitId)?.unit_number}→${targetUnit.unit_number} (${res.check_in_date}→${res.check_out_date}): fits`);
+console.log('[sync] Sync to Channex clicked for property:', propertyId);
 ```
-
-And when a solution is found (after line 195 `if (unitFree)`), add:
-```typescript
-console.log(`[AutoShuffle] SOLUTION: Unit ${unit.unit_number} freed after ${current.moves.length} moves`);
-```
-
-### Post-Fix: Execute 2-Move Chain Swap for Andrew Tadros
-
-After deploying the updated edge function, invoke `auto-assign-rooms` with `reservation_ids: ["bf0d9807-613c-471e-b62c-c5b07cfa532c"]`. With checked-in guests now visible as blockers, the BFS should find the correct 2-move chain:
-
-1. Ghaidaa Alkhdour (Apr 9 - May 8): Room 502 → Room 505
-2. Natasja Scholten (Apr 12 - Apr 18): Room 505 → Room 502
-3. Andrew Tadros assigned to Room 502
 
 ### Summary
-- 1 edge function edited: add `checked-in` to reservation query + BFS trace logging
-- 1 re-run of auto-assign for Tadros after deploy
-- No changes to the BFS algorithm structure, email templates, calendar UI, or manual booking flow
+- 1 edge function: add `logSync()` call after summary so every sync produces a visible log entry
+- 1 frontend file: add diagnostic console.log
+- No other changes
 
