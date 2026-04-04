@@ -614,7 +614,7 @@ const handler = async (req: Request): Promise<Response> => {
                 ${customerPhone ? `
                 <div style="display: flex; padding: 12px 0; border-bottom: 1px solid #f3f4f6;">
                   <div style="font-weight: 600; width: 150px; color: #6b7280;">Mobile Number:</div>
-                  <div style="flex: 1; color: #111827;">+20 ${customerPhone}</div>
+                  <div style="flex: 1; color: #111827;">${customerPhone}</div>
                 </div>
                 ` : ''}
                 
