@@ -76,8 +76,8 @@ const Commissions = () => {
 
       // Fetch all reservations with commission (excluding booking.com and direct website)
       const { data, error } = await withPropertyFilter(supabase
-        .from('reservations'), propertyId)
-        .select('id, booking_reference, guest_names, check_in_date, check_out_date, status, total_price, commission_rate, commission_amount, net_revenue, source, payment_method, settled, commission_paid, commission_paid_at, price_per_night, nights, vat_exempt, units!unit_id(name, unit_number, booking_com_name)')
+        .from('reservations')
+        .select('id, booking_reference, guest_names, check_in_date, check_out_date, status, total_price, commission_rate, commission_amount, net_revenue, source, payment_method, settled, commission_paid, commission_paid_at, price_per_night, nights, vat_exempt, units!unit_id(name, unit_number, booking_com_name)'), propertyId)
         .not('source', 'in', '("booking.com","direct website","Booking.com")')
         .not('commission_amount', 'is', null)
         .gt('commission_amount', 0)

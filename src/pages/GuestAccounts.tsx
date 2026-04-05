@@ -112,8 +112,8 @@ export default function GuestAccounts() {
 
   const fetchReservations = async () => {
     const { data, error } = await withPropertyFilter(supabase
-      .from("reservations"), propertyId)
-      .select("id, booking_reference, guest_names, check_in_date, check_out_date, units!unit_id(name)")
+      .from("reservations")
+      .select("id, booking_reference, guest_names, check_in_date, check_out_date, units!unit_id(name)"), propertyId)
       .eq("status", "confirmed")
       .order("check_in_date", { ascending: false })
       .limit(100);

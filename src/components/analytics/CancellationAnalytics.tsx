@@ -93,8 +93,8 @@ export const CancellationAnalytics = ({ startDate, endDate }: CancellationAnalyt
 
       // Fetch cancelled reservations with details
       const { data: cancelledReservations } = await withPropertyFilter(supabase
-        .from('reservations'), propertyId)
-        .select('*, units!unit_id(name, unit_number)')
+        .from('reservations')
+        .select('*, units!unit_id(name, unit_number)'), propertyId)
         .eq('status', 'cancelled')
         .gte('check_in_date', startDate)
         .lte('check_in_date', endDate);
