@@ -1,59 +1,27 @@
 
 
-## Fix: Blocked Rooms Showing as Available in Move Room Dropdown
+## Fix: Equal-Width Metric Cards on Mobile
 
-### Root Cause
-
-In `fetchAvailableUnits` (line 300), the query filters units by `status = 'available'`, which excludes permanently blocked rooms. However, Room 512 likely has `status = 'available'` but has entries in the `blocked_dates` table overlapping with the reservation dates. The function never checks `blocked_dates`, so temporarily blocked rooms appear as available.
+### Problem
+Both the Occupancy and RevPAR cards have `max-w-[300px]`, which prevents them from stretching to full container width on mobile. The Occupancy card content is wider, making them appear different sizes.
 
 ### Fix — 1 File
 
-**File: `src/components/ReservationQuickActions.tsx`**
+**File: `src/components/AvailabilityCalendar.tsx`**
 
-In `fetchAvailableUnits` (after line 313), add a query to `blocked_dates` for dates overlapping the reservation period, then merge blocked status into the `conflicts` map:
-
-```typescript
-// After fetching conflicting reservations, also fetch blocked dates
-const { data: blockedDates } = await supabase
-  .from("blocked_dates")
-  .select("unit_id")
-  .lte("start_date", reservation.check_out_date)
-  .gte("end_date", reservation.check_in_date);
-
-const blockedUnitIds = new Set((blockedDates || []).map(b => b.unit_id));
+**Line 1902** — Change the container div class to stack cards vertically on mobile:
+```
+flex gap-4 mb-4 flex-wrap items-start
+→
+flex flex-col md:flex-row gap-4 mb-4 flex-wrap items-stretch
 ```
 
-Then in the conflicts loop (lines 316-325), extend the conflict check:
-
-```typescript
-units?.forEach((unit) => {
-  const unitResConflicts = conflictingReservations?.filter(
-    (r) => r.unit_id === unit.id
-  ) || [];
-  const isBlocked = blockedUnitIds.has(unit.id);
-  conflicts.set(unit.id, {
-    hasConflict: unitResConflicts.length > 0 || isBlocked,
-    conflictingReservations: unitResConflicts,
-    isBlocked,
-  });
-});
+**Lines 1905 and 1929** — Remove `max-w-[300px]` and add responsive max-width:
+```
+flex-1 min-w-[200px] max-w-[300px]
+→
+flex-1 min-w-[200px] md:max-w-[300px]
 ```
 
-Update the `ConflictInfo` interface (line 49) to add `isBlocked?: boolean`.
-
-In the dropdown render (line 1638), show "(Blocked)" instead of "(Conflict)" when `conflict?.isBlocked`:
-
-```tsx
-{conflict?.hasConflict && (
-  <span className="text-xs text-destructive ml-1">
-    {conflict.isBlocked ? "(Blocked)" : "(Conflict)"}
-  </span>
-)}
-```
-
-### Summary
-- 1 file edited: `ReservationQuickActions.tsx`
-- Add `blocked_dates` query in `fetchAvailableUnits`
-- Merge blocked status into conflict map
-- Show "(Blocked)" label for blocked rooms, disabled and styled like conflicts
+This makes both cards full-width on mobile (stacked) while keeping the current side-by-side capped layout on desktop.
 
