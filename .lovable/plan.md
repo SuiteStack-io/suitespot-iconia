@@ -1,25 +1,64 @@
 
 
-## Fix: Chat Text Selection Color + Auto-Expanding Textarea
+## Fix: withPropertyFilter Before .select() — 5 Broken Instances
 
-### Changes — 1 File
+### The Bug
+`withPropertyFilter(supabase.from('table'), propertyId).select(...)` calls `.eq()` on a `PostgrestQueryBuilder` (which doesn't have `.eq()`). The `.select()` must come BEFORE `withPropertyFilter` so `.eq()` is called on a `PostgrestFilterBuilder`.
 
-**File: `src/components/inbox/ConversationPanel.tsx`**
+### Files to Fix (5 total)
 
-#### Fix 1: Text Selection Color
-Add a CSS class with `::selection` styling to the outermost conversation wrapper div (line 223). Use Tailwind's arbitrary `[&_*::selection]` utility or add an inline `<style>` block scoped to the component. Selection color: light coral/orange (`bg: rgba(255, 166, 133, 0.4)`) so text remains readable on blue bubbles, dark bubbles, and white backgrounds.
+**1. `src/pages/CashSettlement.tsx` — Line 74-76**
+```typescript
+// Before:
+withPropertyFilter(supabase.from('reservations'), propertyId)
+  .select('*, units!unit_id(...)')
+// After:
+withPropertyFilter(supabase.from('reservations')
+  .select('*, units!unit_id(...)'), propertyId)
+```
 
-#### Fix 2: Auto-Expanding Textarea
-Replace the fixed-height textarea (lines 351-360) with an auto-resizing implementation:
+**2. `src/pages/Commissions.tsx` — Line 78-80**
+```typescript
+// Before:
+withPropertyFilter(supabase.from('reservations'), propertyId)
+  .select('id, booking_reference, ...')
+// After:
+withPropertyFilter(supabase.from('reservations')
+  .select('id, booking_reference, ...'), propertyId)
+```
 
-- Remove `max-h-[40px]` constraint; set `min-h-[40px]` and `max-h-[120px]`
-- Add a `ref` to the textarea
-- Add an `autoResize` function that runs on every input: sets `height = 'auto'` then `height = scrollHeight + 'px'`
-- Set `overflow-y: hidden` when content fits, `overflow-y: auto` when at max height
-- Call autoResize in the `onChange` handler
-- After sending (in `handleSend`), reset the textarea height back to initial
-- Change `items-center` to `items-end` on the flex container so the send button stays bottom-aligned as the textarea grows
-- Change border-radius from `rounded-full` to `rounded-2xl` so it looks natural when multi-line
+**3. `src/pages/GuestAccounts.tsx` — Line 114-116**
+```typescript
+// Before:
+withPropertyFilter(supabase.from("reservations"), propertyId)
+  .select("id, booking_reference, ...")
+// After:
+withPropertyFilter(supabase.from("reservations")
+  .select("id, booking_reference, ..."), propertyId)
+```
 
-No other files or components are changed.
+**4. `src/pages/Guests.tsx` — Line 151-156**
+```typescript
+// Before:
+withPropertyFilter(supabase.from("reservations"), propertyId)
+  .select(`*, units!unit_id (name)`)
+// After:
+withPropertyFilter(supabase.from("reservations")
+  .select(`*, units!unit_id (name)`), propertyId)
+```
+
+**5. `src/components/analytics/CancellationAnalytics.tsx` — Line 95-100**
+```typescript
+// Before:
+withPropertyFilter(supabase.from('reservations'), propertyId)
+  .select('*, units!unit_id(name, unit_number)')
+// After:
+withPropertyFilter(supabase.from('reservations')
+  .select('*, units!unit_id(name, unit_number)'), propertyId)
+```
+
+### What Does NOT Change
+- All other `withPropertyFilter` usages (52 instances) already have `.select()` inside and are correct
+- No layout, design, or logic changes
+- No database changes
 
