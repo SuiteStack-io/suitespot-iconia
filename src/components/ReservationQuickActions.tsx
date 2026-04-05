@@ -49,6 +49,7 @@ interface Unit {
 interface ConflictInfo {
   hasConflict: boolean;
   conflictingReservations: Reservation[];
+  isBlocked?: boolean;
 }
 
 interface ReservationQuickActionsProps {
@@ -312,15 +313,26 @@ export const ReservationQuickActions = ({
 
       if (resError) throw resError;
 
+      // Fetch blocked dates overlapping with reservation period
+      const { data: blockedDates } = await supabase
+        .from("blocked_dates")
+        .select("unit_id")
+        .gte("blocked_date", reservation.check_in_date)
+        .lt("blocked_date", reservation.check_out_date);
+
+      const blockedUnitIds = new Set((blockedDates || []).map(b => b.unit_id));
+
       // Check conflicts for each unit
       const conflicts = new Map<string, ConflictInfo>();
       units?.forEach((unit) => {
         const unitConflicts = conflictingReservations?.filter(
           (r) => r.unit_id === unit.id
         ) || [];
+        const isBlocked = blockedUnitIds.has(unit.id);
         conflicts.set(unit.id, {
-          hasConflict: unitConflicts.length > 0,
+          hasConflict: unitConflicts.length > 0 || isBlocked,
           conflictingReservations: unitConflicts,
+          isBlocked,
         });
       });
 
@@ -1637,7 +1649,7 @@ export const ReservationQuickActions = ({
                               <span>{unit.booking_com_name || unit.name} #{unit.unit_number}</span>
                               {conflict?.hasConflict && (
                                 <span className="text-xs text-destructive ml-1">
-                                  (Conflict)
+                                  {conflict.isBlocked ? "(Blocked)" : "(Conflict)"}
                                 </span>
                               )}
                             </div>
