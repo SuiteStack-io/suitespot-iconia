@@ -1899,10 +1899,10 @@ export const AvailabilityCalendar = () => {
 
         {/* Occupancy & RevPAR Cards - Hidden in fullscreen */}
         {!isFullscreen && (
-          <div className="flex gap-4 mb-4 flex-wrap items-start">
+          <div className="flex flex-col md:flex-row gap-4 mb-4 flex-wrap items-stretch">
             {/* Occupancy Rate Card */}
             <Card 
-              className="p-4 cursor-pointer hover:bg-muted/50 transition-colors flex-1 min-w-[200px] max-w-[300px]"
+              className="p-4 cursor-pointer hover:bg-muted/50 transition-colors flex-1 min-w-[200px] md:max-w-[300px]"
               onClick={() => setShowOccupancyModal(true)}
             >
               <div className="flex items-center justify-between">
@@ -1926,7 +1926,7 @@ export const AvailabilityCalendar = () => {
             {/* RevPAR Card - Admin Only */}
             {userRole === 'admin' && (
               <Card 
-                className="p-4 cursor-pointer hover:bg-muted/50 transition-colors flex-1 min-w-[200px] max-w-[300px]"
+                className="p-4 cursor-pointer hover:bg-muted/50 transition-colors flex-1 min-w-[200px] md:max-w-[300px]"
                 onClick={() => setShowRevPARModal(true)}
               >
                 <div className="flex items-center justify-between">
