@@ -149,11 +149,11 @@ const Guests = () => {
   const fetchGuests = async () => {
     try {
       const { data: reservations, error } = await withPropertyFilter(supabase
-        .from("reservations"), propertyId)
+        .from("reservations")
         .select(`
           *,
           units!unit_id (name)
-        `)
+        `), propertyId)
         .order("check_in_date", { ascending: false });
 
       if (error) throw error;

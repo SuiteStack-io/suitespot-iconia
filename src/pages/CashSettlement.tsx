@@ -72,8 +72,8 @@ export default function CashSettlement() {
     queryKey: ['cash-settlement-reservations', propertyId],
     queryFn: async () => {
       const { data, error } = await withPropertyFilter(supabase
-        .from('reservations'), propertyId)
-        .select('*, units!unit_id(name, unit_number, booking_com_name, tax_percentage)')
+        .from('reservations')
+        .select('*, units!unit_id(name, unit_number, booking_com_name, tax_percentage)'), propertyId)
         .in('payment_method', ['cash', 'credit_card'])
         .neq('source', 'booking.com')
         .not('status', 'ilike', '%cancelled%')
