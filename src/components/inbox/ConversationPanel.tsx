@@ -82,6 +82,16 @@ export function ConversationPanel({ thread, onBack }: ConversationPanelProps) {
   const [replyText, setReplyText] = useState("");
   const [sending, setSending] = useState(false);
   const bottomRef = useRef<HTMLDivElement>(null);
+  const textareaRef = useRef<HTMLTextAreaElement>(null);
+
+  const autoResize = useCallback(() => {
+    const ta = textareaRef.current;
+    if (!ta) return;
+    ta.style.height = 'auto';
+    const max = 120;
+    ta.style.height = `${Math.min(ta.scrollHeight, max)}px`;
+    ta.style.overflowY = ta.scrollHeight > max ? 'auto' : 'hidden';
+  }, []);
 
   const ota = OTA_CONFIG[thread.provider] || { label: thread.provider, color: "text-foreground", bg: "bg-muted" };
 
@@ -176,6 +186,11 @@ export function ConversationPanel({ thread, onBack }: ConversationPanelProps) {
     setMessages((prev) => [...prev, optimistic]);
     setReplyText("");
     setSending(true);
+    // Reset textarea height after send
+    if (textareaRef.current) {
+      textareaRef.current.style.height = 'auto';
+      textareaRef.current.style.overflowY = 'hidden';
+    }
     scrollToBottom();
 
     const { data, error } = await supabase.functions.invoke("channex-send-message", {
@@ -220,7 +235,7 @@ export function ConversationPanel({ thread, onBack }: ConversationPanelProps) {
   const messagingUnsupported = !thread.channex_booking_id;
 
   return (
-    <div className="flex flex-col h-full">
+    <div className="flex flex-col h-full [&_*::selection]:bg-[rgba(255,166,133,0.4)]">
       {/* Header */}
       <div className="border-b border-border bg-card px-4 py-3 flex items-center gap-3 shrink-0">
         {(isMobile || onBack) && (
@@ -348,20 +363,24 @@ export function ConversationPanel({ thread, onBack }: ConversationPanelProps) {
         ) : !canReply ? (
           <p className="text-sm text-muted-foreground text-center py-1">You don't have permission to reply to guest messages</p>
         ) : (
-          <div className="flex items-center gap-2">
+          <div className="flex items-end gap-2">
             <Textarea
+              ref={textareaRef}
               value={replyText}
-              onChange={(e) => setReplyText(e.target.value)}
+              onChange={(e) => {
+                setReplyText(e.target.value);
+                autoResize();
+              }}
               onKeyDown={handleKeyDown}
               placeholder="Type a message…"
-              className="min-h-[40px] max-h-[40px] resize-none rounded-full border-gray-300 bg-white px-4 py-2 text-[15px]"
+              className="min-h-[40px] max-h-[120px] resize-none rounded-2xl border-gray-300 bg-white px-4 py-2 text-[15px] overflow-y-hidden"
               rows={1}
               disabled={sending}
             />
             <button
               onClick={handleSend}
               disabled={!replyText.trim() || sending}
-              className="shrink-0 h-9 w-9 rounded-full bg-[#007AFF] text-white flex items-center justify-center disabled:opacity-40 hover:bg-[#0066DD] transition-colors"
+              className="shrink-0 h-9 w-9 mb-[2px] rounded-full bg-[#007AFF] text-white flex items-center justify-center disabled:opacity-40 hover:bg-[#0066DD] transition-colors"
             >
               <Send className="h-4 w-4" />
             </button>
