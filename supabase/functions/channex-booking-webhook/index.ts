@@ -379,9 +379,8 @@ function resolveCountryName(code: string | null): string | null {
     let oldArrivalDate: string | null = null;
     let oldDepartureDate: string | null = null;
 
-    if (arrival_date && departure_date && booking_id) {
+    if (booking_id && status === "cancelled") {
       try {
-        if (status === "cancelled") {
           // Capture old dates before cancelling — try by channex_booking_id first
           const { data: cancelExisting } = await supabase
             .from("reservations")
@@ -390,13 +389,30 @@ function resolveCountryName(code: string | null): string | null {
             .maybeSingle();
 
           // Fallback matching if no direct match (full fallback for cancellations)
-          const cancelTarget = cancelExisting || await findReservationByFallback(
+          let finalCancelTarget = cancelExisting || await findReservationByFallback(
             supabase, ota_reservation_code, guestName, effectiveCheckIn, effectiveCheckOut, localPropertyId, booking_id
           );
 
-          if (cancelTarget) {
-            oldArrivalDate = cancelTarget.check_in_date;
-            oldDepartureDate = cancelTarget.check_out_date;
+          // Last-resort fallback: fetch full booking from Channex API to get ota_reservation_code
+          if (!finalCancelTarget && booking_id) {
+            try {
+              const fullBooking = await channexRequest<any>("GET", `/api/v1/bookings/${booking_id}`);
+              const bookingAttrs = fullBooking?.data?.attributes || fullBooking?.data || {};
+              const fallbackOtaRef = bookingAttrs.ota_reservation_code;
+              if (fallbackOtaRef) {
+                finalCancelTarget = await findReservationByReference(supabase, fallbackOtaRef, booking_id);
+                if (finalCancelTarget) {
+                  console.log("[channex-booking-webhook] Matched cancellation via full booking API, ref:", fallbackOtaRef);
+                }
+              }
+            } catch (fetchErr: any) {
+              console.warn("[channex-booking-webhook] Could not fetch full booking for cancellation match:", fetchErr.message);
+            }
+          }
+
+          if (finalCancelTarget) {
+            oldArrivalDate = finalCancelTarget.check_in_date;
+            oldDepartureDate = finalCancelTarget.check_out_date;
 
             // Cancel the reservation and stamp channex_booking_id for future matching
             const { data: updated, error: cancelErr } = await supabase
@@ -407,7 +423,7 @@ function resolveCountryName(code: string | null): string | null {
                 skip_channex_sync: true,
                 channex_booking_id: booking_id,
               })
-              .eq("id", cancelTarget.id)
+              .eq("id", finalCancelTarget.id)
               .select("id")
               .maybeSingle();
 
@@ -458,7 +474,12 @@ function resolveCountryName(code: string | null): string | null {
               console.error("[channex-booking-webhook] Unmatched cancellation alert email failed:", alertErr.message);
             }
           }
-        } else {
+      } catch (cancelResErr: any) {
+        console.error("[channex-booking-webhook] Cancellation processing error:", cancelResErr.message);
+        await createAlert("webhook_error", `Exception cancelling reservation for ${booking_id}: ${cancelResErr.message}`, localPropertyId);
+      }
+    } else if (arrival_date && departure_date && booking_id) {
+      try {
           // Check if reservation already exists (idempotency) — direct match first
           const { data: existingDirect } = await supabase
             .from("reservations")
@@ -675,7 +696,6 @@ function resolveCountryName(code: string | null): string | null {
               }
             }
           }
-        }
       } catch (resErr: any) {
         console.error("[channex-booking-webhook] Reservation creation error:", resErr.message);
         await createAlert(
@@ -684,136 +704,136 @@ function resolveCountryName(code: string | null): string | null {
           localPropertyId
         );
       }
+    } else {
+      console.warn("[channex-booking-webhook] Missing dates or booking_id, skipping reservation creation");
+    }
 
-      // ================================================================
-      // SEND EMAIL NOTIFICATIONS (same templates as manual reservations)
-      // ================================================================
-      const supabaseUrl = Deno.env.get("SUPABASE_URL")!;
-      const serviceRoleKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
+    // ================================================================
+    // SEND EMAIL NOTIFICATIONS (same templates as manual reservations)
+    // ================================================================
+    const supabaseUrl = Deno.env.get("SUPABASE_URL")!;
+    const serviceRoleKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
 
-      if (reservationResult) {
-        const resId = reservationResult.split(":")[1];
+    if (reservationResult) {
+      const resId = reservationResult.split(":")[1];
 
-        // Fetch full reservation + unit for notification payload
-        const { data: fullRes } = await supabase
-          .from("reservations")
-          .select("*, units:unit_id(name, unit_number, unit_type)")
-          .eq("id", resId)
-          .maybeSingle();
+      // Fetch full reservation + unit for notification payload
+      const { data: fullRes } = await supabase
+        .from("reservations")
+        .select("*, units:unit_id(name, unit_number, unit_type)")
+        .eq("id", resId)
+        .maybeSingle();
 
-        if (!fullRes) {
-          console.error("[channex-booking-webhook] Failed to fetch reservation for notification:", resId);
-        }
-        if (fullRes) {
-          const unitData = fullRes.units as any;
+      if (!fullRes) {
+        console.error("[channex-booking-webhook] Failed to fetch reservation for notification:", resId);
+      }
+      if (fullRes) {
+        const unitData = fullRes.units as any;
 
-          if (reservationResult.startsWith("created:")) {
-            // --- New booking notification ---
-            try {
-              console.log("[channex-booking-webhook] Sending new reservation notification for:", resId);
-              const notifResponse = await fetch(`${supabaseUrl}/functions/v1/send-reservation-notification`, {
-                method: "POST",
-                headers: {
-                  "Content-Type": "application/json",
-                  "Authorization": `Bearer ${serviceRoleKey}`,
-                },
-                body: JSON.stringify({
-                  reservationId: fullRes.id,
-                  guestNames: fullRes.guest_names,
-                  checkIn: fullRes.check_in_date,
-                  checkOut: fullRes.check_out_date,
-                  unitName: unitData?.name || null,
-                  unitId: fullRes.unit_id,
-                  unitType: unitData?.unit_type || null,
-                  totalPrice: fullRes.total_price,
-                  numberOfGuests: fullRes.number_of_guests,
-                  adults: fullRes.adults,
-                  children: fullRes.children,
-                  source: fullRes.source,
-                  notes: fullRes.notes,
-                  guestNationality: fullRes.guest_nationality,
-                  customerEmail: fullRes.contact_email,
-                  customerPhone: fullRes.contact_phone,
-                  property_id: fullRes.property_id,
-                }),
-              });
-              const notifText = await notifResponse.text();
-              console.log("[channex-booking-webhook] New reservation notification response:", notifResponse.status, notifText);
-            } catch (notifErr: any) {
-              console.error("[channex-booking-webhook] New reservation notification failed (non-fatal):", notifErr.message);
-            }
-          } else if (reservationResult.startsWith("updated:")) {
-            // --- Modified booking notification ---
-            try {
-              console.log("[channex-booking-webhook] Sending modification notification for:", resId);
-              const modifResponse = await fetch(`${supabaseUrl}/functions/v1/send-modification-notification`, {
-                method: "POST",
-                headers: {
-                  "Content-Type": "application/json",
-                  "Authorization": `Bearer ${serviceRoleKey}`,
-                },
-                body: JSON.stringify({
-                  booking_reference: fullRes.booking_reference,
-                  guest_names: fullRes.guest_names,
-                  room_name: unitData?.name || null,
-                  room_number: unitData?.unit_number || null,
-                  old_check_in: oldArrivalDate || fullRes.check_in_date,
-                  old_check_out: oldDepartureDate || fullRes.check_out_date,
-                  new_check_in: fullRes.check_in_date,
-                  new_check_out: fullRes.check_out_date,
-                  old_total_price: fullRes.total_price,
-                  new_total_price: fullRes.total_price,
-                  currency: fullRes.currency || "USD",
-                  channel: fullRes.channel,
-                  source: fullRes.source,
-                  property_id: fullRes.property_id,
-                }),
-              });
-              const modifText = await modifResponse.text();
-              console.log("[channex-booking-webhook] Modification notification response:", modifResponse.status, modifText);
-            } catch (notifErr: any) {
-              console.error("[channex-booking-webhook] Modification notification failed (non-fatal):", notifErr.message);
-            }
-          } else if (reservationResult.startsWith("cancelled:")) {
-            // --- Cancelled booking notification ---
-            try {
-              const nightCount = effectiveCheckIn && effectiveCheckOut
-                ? Math.ceil((new Date(effectiveCheckOut).getTime() - new Date(effectiveCheckIn).getTime()) / (1000 * 60 * 60 * 24))
-                : fullRes.nights || 0;
+        if (reservationResult.startsWith("created:")) {
+          // --- New booking notification ---
+          try {
+            console.log("[channex-booking-webhook] Sending new reservation notification for:", resId);
+            const notifResponse = await fetch(`${supabaseUrl}/functions/v1/send-reservation-notification`, {
+              method: "POST",
+              headers: {
+                "Content-Type": "application/json",
+                "Authorization": `Bearer ${serviceRoleKey}`,
+              },
+              body: JSON.stringify({
+                reservationId: fullRes.id,
+                guestNames: fullRes.guest_names,
+                checkIn: fullRes.check_in_date,
+                checkOut: fullRes.check_out_date,
+                unitName: unitData?.name || null,
+                unitId: fullRes.unit_id,
+                unitType: unitData?.unit_type || null,
+                totalPrice: fullRes.total_price,
+                numberOfGuests: fullRes.number_of_guests,
+                adults: fullRes.adults,
+                children: fullRes.children,
+                source: fullRes.source,
+                notes: fullRes.notes,
+                guestNationality: fullRes.guest_nationality,
+                customerEmail: fullRes.contact_email,
+                customerPhone: fullRes.contact_phone,
+                property_id: fullRes.property_id,
+              }),
+            });
+            const notifText = await notifResponse.text();
+            console.log("[channex-booking-webhook] New reservation notification response:", notifResponse.status, notifText);
+          } catch (notifErr: any) {
+            console.error("[channex-booking-webhook] New reservation notification failed (non-fatal):", notifErr.message);
+          }
+        } else if (reservationResult.startsWith("updated:")) {
+          // --- Modified booking notification ---
+          try {
+            console.log("[channex-booking-webhook] Sending modification notification for:", resId);
+            const modifResponse = await fetch(`${supabaseUrl}/functions/v1/send-modification-notification`, {
+              method: "POST",
+              headers: {
+                "Content-Type": "application/json",
+                "Authorization": `Bearer ${serviceRoleKey}`,
+              },
+              body: JSON.stringify({
+                booking_reference: fullRes.booking_reference,
+                guest_names: fullRes.guest_names,
+                room_name: unitData?.name || null,
+                room_number: unitData?.unit_number || null,
+                old_check_in: oldArrivalDate || fullRes.check_in_date,
+                old_check_out: oldDepartureDate || fullRes.check_out_date,
+                new_check_in: fullRes.check_in_date,
+                new_check_out: fullRes.check_out_date,
+                old_total_price: fullRes.total_price,
+                new_total_price: fullRes.total_price,
+                currency: fullRes.currency || "USD",
+                channel: fullRes.channel,
+                source: fullRes.source,
+                property_id: fullRes.property_id,
+              }),
+            });
+            const modifText = await modifResponse.text();
+            console.log("[channex-booking-webhook] Modification notification response:", modifResponse.status, modifText);
+          } catch (notifErr: any) {
+            console.error("[channex-booking-webhook] Modification notification failed (non-fatal):", notifErr.message);
+          }
+        } else if (reservationResult.startsWith("cancelled:")) {
+          // --- Cancelled booking notification ---
+          try {
+            const nightCount = effectiveCheckIn && effectiveCheckOut
+              ? Math.ceil((new Date(effectiveCheckOut).getTime() - new Date(effectiveCheckIn).getTime()) / (1000 * 60 * 60 * 24))
+              : fullRes.nights || 0;
 
-              console.log("[channex-booking-webhook] Sending cancellation notification for:", resId);
-              const cancelResponse = await fetch(`${supabaseUrl}/functions/v1/send-cancellation-notification`, {
-                method: "POST",
-                headers: {
-                  "Content-Type": "application/json",
-                  "Authorization": `Bearer ${serviceRoleKey}`,
-                },
-                body: JSON.stringify({
-                  reservation_id: fullRes.id,
-                  booking_reference: fullRes.booking_reference,
-                  guest_names: fullRes.guest_names,
-                  check_in_date: oldArrivalDate || fullRes.check_in_date,
-                  check_out_date: oldDepartureDate || fullRes.check_out_date,
-                  nights: nightCount,
-                  total_price: fullRes.total_price,
-                  currency: fullRes.currency || "USD",
-                  channel: fullRes.channel,
-                  source: fullRes.source,
-                  unit_name: unitData?.name || null,
-                  unit_number: unitData?.room_number || null,
-                  property_id: fullRes.property_id,
-                }),
-              });
-              const cancelText = await cancelResponse.text();
-              console.log("[channex-booking-webhook] Cancellation notification response:", cancelResponse.status, cancelText);
-            } catch (notifErr: any) {
-              console.error("[channex-booking-webhook] Cancellation notification failed (non-fatal):", notifErr.message);
-            }
+            console.log("[channex-booking-webhook] Sending cancellation notification for:", resId);
+            const cancelResponse = await fetch(`${supabaseUrl}/functions/v1/send-cancellation-notification`, {
+              method: "POST",
+              headers: {
+                "Content-Type": "application/json",
+                "Authorization": `Bearer ${serviceRoleKey}`,
+              },
+              body: JSON.stringify({
+                reservation_id: fullRes.id,
+                booking_reference: fullRes.booking_reference,
+                guest_names: fullRes.guest_names,
+                check_in_date: oldArrivalDate || fullRes.check_in_date,
+                check_out_date: oldDepartureDate || fullRes.check_out_date,
+                nights: nightCount,
+                total_price: fullRes.total_price,
+                currency: fullRes.currency || "USD",
+                channel: fullRes.channel,
+                source: fullRes.source,
+                unit_name: unitData?.name || null,
+                unit_number: unitData?.room_number || null,
+                property_id: fullRes.property_id,
+              }),
+            });
+            const cancelText = await cancelResponse.text();
+            console.log("[channex-booking-webhook] Cancellation notification response:", cancelResponse.status, cancelText);
+          } catch (notifErr: any) {
+            console.error("[channex-booking-webhook] Cancellation notification failed (non-fatal):", notifErr.message);
           }
         }
       }
-    } else {
-      console.warn("[channex-booking-webhook] Missing dates or booking_id, skipping reservation creation");
     }
 
     // --- ACK the revision ---
@@ -1031,7 +1051,9 @@ function resolveCountryName(code: string | null): string | null {
       } catch (_e) { /* ignore logging failure */ }
     }
 
-    await logSync("channex-booking-webhook", "webhook", body, { status, booking_id, ack: ackSuccess, reservation: reservationResult, availability: availabilityPushResult }, 200, true, null, localPropertyId);
+    const webhookSuccess = !(status === "cancelled" && !reservationResult);
+    const webhookError = (!webhookSuccess) ? `Cancellation for booking ${booking_id} could not be matched to any PMS reservation` : null;
+    await logSync("channex-booking-webhook", "webhook", body, { status, booking_id, ack: ackSuccess, reservation: reservationResult, availability: availabilityPushResult }, 200, webhookSuccess, webhookError, localPropertyId);
 
     return ok({ success: true, booking_id, status, acknowledged: ackSuccess, reservation: reservationResult });
   } catch (err: any) {
