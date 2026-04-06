@@ -379,9 +379,8 @@ function resolveCountryName(code: string | null): string | null {
     let oldArrivalDate: string | null = null;
     let oldDepartureDate: string | null = null;
 
-    if (arrival_date && departure_date && booking_id) {
+    if (booking_id && status === "cancelled") {
       try {
-        if (status === "cancelled") {
           // Capture old dates before cancelling — try by channex_booking_id first
           const { data: cancelExisting } = await supabase
             .from("reservations")
