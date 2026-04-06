@@ -696,7 +696,6 @@ function resolveCountryName(code: string | null): string | null {
               }
             }
           }
-        }
       } catch (resErr: any) {
         console.error("[channex-booking-webhook] Reservation creation error:", resErr.message);
         await createAlert(
