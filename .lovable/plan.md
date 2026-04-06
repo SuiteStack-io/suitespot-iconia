@@ -1,64 +1,75 @@
 
 
-## Fix: withPropertyFilter Before .select() — 5 Broken Instances
+## Fix: Channex Cancellation Matching — Move Outside Date Guard + Add Full Booking API Fallback
 
-### The Bug
-`withPropertyFilter(supabase.from('table'), propertyId).select(...)` calls `.eq()` on a `PostgrestQueryBuilder` (which doesn't have `.eq()`). The `.select()` must come BEFORE `withPropertyFilter` so `.eq()` is called on a `PostgrestFilterBuilder`.
+### Current State
+The previous plan was proposed but **never implemented**. The code at line 382 still gates everything (including cancellation) behind `if (arrival_date && departure_date && booking_id)`. The GET `/api/v1/bookings/{booking_id}` fallback does not exist yet.
 
-### Files to Fix (5 total)
+### Changes — 1 File
 
-**1. `src/pages/CashSettlement.tsx` — Line 74-76**
+**File: `supabase/functions/channex-booking-webhook/index.ts`**
+
+#### Change 1: Restructure the main conditional (line 382)
+
+Replace:
 ```typescript
-// Before:
-withPropertyFilter(supabase.from('reservations'), propertyId)
-  .select('*, units!unit_id(...)')
-// After:
-withPropertyFilter(supabase.from('reservations')
-  .select('*, units!unit_id(...)'), propertyId)
+if (arrival_date && departure_date && booking_id) {
+  if (status === "cancelled") { ... }
+  else { /* new/modified booking */ }
+}
 ```
 
-**2. `src/pages/Commissions.tsx` — Line 78-80**
+With:
 ```typescript
-// Before:
-withPropertyFilter(supabase.from('reservations'), propertyId)
-  .select('id, booking_reference, ...')
-// After:
-withPropertyFilter(supabase.from('reservations')
-  .select('id, booking_reference, ...'), propertyId)
+if (booking_id && status === "cancelled") {
+  // Cancellation block — only needs booking_id, NOT dates
+  // (existing cancellation code from lines 384-460, unchanged)
+  // Plus: new full-booking API fallback (Change 2 below)
+} else if (arrival_date && departure_date && booking_id) {
+  // New/modified booking block — needs dates
+  // (existing code from lines 461 onward, unchanged)
+}
 ```
 
-**3. `src/pages/GuestAccounts.tsx` — Line 114-116**
+#### Change 2: Add GET full-booking fallback INSIDE the cancellation block only
+
+After the existing `cancelTarget` resolution (line 393-395) and before the `if (cancelTarget)` check (line 397), add:
+
 ```typescript
-// Before:
-withPropertyFilter(supabase.from("reservations"), propertyId)
-  .select("id, booking_reference, ...")
-// After:
-withPropertyFilter(supabase.from("reservations")
-  .select("id, booking_reference, ..."), propertyId)
+// Last-resort fallback: fetch full booking from Channex API to get ota_reservation_code
+let finalCancelTarget = cancelTarget;
+if (!finalCancelTarget && booking_id) {
+  try {
+    const fullBooking = await channexRequest<any>("GET", `/api/v1/bookings/${booking_id}`);
+    const bookingAttrs = fullBooking?.data?.attributes || fullBooking?.data || {};
+    const fallbackOtaRef = bookingAttrs.ota_reservation_code;
+    if (fallbackOtaRef) {
+      finalCancelTarget = await findReservationByReference(supabase, fallbackOtaRef, booking_id);
+      if (finalCancelTarget) {
+        console.log("[channex-booking-webhook] Matched cancellation via full booking API, ref:", fallbackOtaRef);
+      }
+    }
+  } catch (fetchErr: any) {
+    console.warn("[channex-booking-webhook] Could not fetch full booking for cancellation match:", fetchErr.message);
+  }
+}
 ```
 
-**4. `src/pages/Guests.tsx` — Line 151-156**
-```typescript
-// Before:
-withPropertyFilter(supabase.from("reservations"), propertyId)
-  .select(`*, units!unit_id (name)`)
-// After:
-withPropertyFilter(supabase.from("reservations")
-  .select(`*, units!unit_id (name)`), propertyId)
-```
+Then use `finalCancelTarget` instead of `cancelTarget` for the rest of the cancellation block.
 
-**5. `src/components/analytics/CancellationAnalytics.tsx` — Line 95-100**
-```typescript
-// Before:
-withPropertyFilter(supabase.from('reservations'), propertyId)
-  .select('*, units!unit_id(name, unit_number)')
-// After:
-withPropertyFilter(supabase.from('reservations')
-  .select('*, units!unit_id(name, unit_number)'), propertyId)
-```
+#### Change 3: Log unmatched cancellations as `success: false`
+
+At the final `logSync` call (near end of file), when `status === "cancelled"` and `reservationResult === null`, set `success: false` and include an error message.
+
+### Guard Verification
+- ✅ GET `/api/v1/bookings/{booking_id}` is ONLY inside the cancellation block (`status === "cancelled"`)
+- ✅ Wrapped in `if (!finalCancelTarget && booking_id)` — only fires after both direct match AND revision-based fallback failed
+- ✅ Does NOT appear in new/modified booking code paths
+- ✅ No duplicate variable declarations — uses `finalCancelTarget` (new name) distinct from `cancelTarget`
 
 ### What Does NOT Change
-- All other `withPropertyFilter` usages (52 instances) already have `.select()` inside and are correct
-- No layout, design, or logic changes
-- No database changes
+- Matching logic for new or modified bookings
+- Email notification templates or layout
+- Database schema
+- Any other edge function
 
