@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback, useRef } from 'react';
+import { useState, useEffect, useCallback } from 'react';
 import { supabase } from '@/integrations/supabase/client';
 import { SlideMenu } from '@/components/SlideMenu';
 import { AdminBreadcrumb } from '@/components/AdminBreadcrumb';
@@ -12,9 +12,11 @@ import { Label } from '@/components/ui/label';
 import { RadioGroup, RadioGroupItem } from '@/components/ui/radio-group';
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from '@/components/ui/collapsible';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
-import { Loader2, ChevronDown, RefreshCw, Info, RotateCcw } from 'lucide-react';
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from '@/components/ui/dialog';
+import { Loader2, ChevronDown, RefreshCw, Info, RotateCcw, Save } from 'lucide-react';
 import { toast } from 'sonner';
 import { NotificationBell } from '@/components/NotificationBell';
+import { cn } from '@/lib/utils';
 import type { Json } from '@/integrations/supabase/types';
 
 // ---------- types ----------
@@ -53,6 +55,11 @@ const DEFAULT_DOW: Record<string, number> = {
 };
 const DAY_LABELS = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
 
+function formatWithCommas(n: number | null): string {
+  if (n === null || n === undefined) return '';
+  return n.toLocaleString('en-US');
+}
+
 // ---------- component ----------
 export default function DynamicPricing() {
   const { userRole } = useAuth();
@@ -62,10 +69,52 @@ export default function DynamicPricing() {
   const [rules, setRules] = useState<PricingRules | null>(null);
   const [rateBounds, setRateBounds] = useState<RoomRateBound[]>([]);
   const [boundsErrors, setBoundsErrors] = useState<Record<string, string>>({});
-  const [syncing, setSyncing] = useState(false);
   const [advancedOpen, setAdvancedOpen] = useState(false);
 
-  const saveTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  // Pending changes tracking
+  const [pendingRulesChanges, setPendingRulesChanges] = useState<Partial<PricingRules>>({});
+  const [pendingBoundsChanges, setPendingBoundsChanges] = useState<Record<string, { min_rate: number | null; max_rate: number | null }>>({});
+
+  // Save status
+  const [saveStatus, setSaveStatus] = useState<'idle' | 'saving' | 'success' | 'error'>('idle');
+  const [saveProgress, setSaveProgress] = useState(0);
+
+  // Channex sync
+  const [channexSyncStatus, setChannexSyncStatus] = useState<'idle' | 'syncing' | 'success' | 'error'>('idle');
+  const [channexSyncProgress, setChannexSyncProgress] = useState(0);
+  const [channexSyncStep, setChannexSyncStep] = useState('');
+  const [lastChannexSync, setLastChannexSync] = useState<string | null>(null);
+
+  // Revenue input focus state
+  const [revenueTargetFocused, setRevenueTargetFocused] = useState(false);
+  const [stretchTargetFocused, setStretchTargetFocused] = useState(false);
+
+  // Pace info dialog
+  const [paceInfoOpen, setPaceInfoOpen] = useState(false);
+
+  const pendingRulesCount = Object.keys(pendingRulesChanges).length;
+  const pendingBoundsCount = Object.keys(pendingBoundsChanges).length;
+  const totalPendingChanges = pendingRulesCount + pendingBoundsCount;
+
+  // Load last channex sync from localStorage
+  useEffect(() => {
+    if (propertyId) {
+      const stored = localStorage.getItem(`dynamic_pricing_last_channex_sync_${propertyId}`);
+      setLastChannexSync(stored);
+    }
+  }, [propertyId]);
+
+  // beforeunload warning
+  useEffect(() => {
+    const handleBeforeUnload = (e: BeforeUnloadEvent) => {
+      if (totalPendingChanges > 0) {
+        e.preventDefault();
+        e.returnValue = 'You have unsaved pricing changes that will be lost.';
+      }
+    };
+    window.addEventListener('beforeunload', handleBeforeUnload);
+    return () => window.removeEventListener('beforeunload', handleBeforeUnload);
+  }, [totalPendingChanges]);
 
   // ---- load pricing_rules ----
   const loadRules = useCallback(async () => {
@@ -88,7 +137,6 @@ export default function DynamicPricing() {
     if (data) {
       setRules(mapRulesRow(data));
     } else {
-      // create default row
       const { data: created, error: createErr } = await supabase
         .from('pricing_rules')
         .insert({ property_id: propertyId })
@@ -117,7 +165,6 @@ export default function DynamicPricing() {
       return;
     }
 
-    // group by room_type — pick first row per type (they share bounds)
     const byType: Record<string, RoomRateBound> = {};
     for (const row of (data ?? []) as any[]) {
       if (!byType[row.room_type]) {
@@ -139,57 +186,102 @@ export default function DynamicPricing() {
     loadBounds();
   }, [loadRules, loadBounds]);
 
-  // ---- auto-save helpers ----
-  function debouncedSaveRules(patch: Partial<PricingRules>) {
+  // ---- local change handlers (no DB writes) ----
+  function updateRules(patch: Partial<PricingRules>) {
     if (!rules) return;
-    const updated = { ...rules, ...patch };
-    setRules(updated);
-
-    if (saveTimerRef.current) clearTimeout(saveTimerRef.current);
-    saveTimerRef.current = setTimeout(async () => {
-      const { error } = await supabase
-        .from('pricing_rules')
-        .update(toDbRow(patch))
-        .eq('id', rules.id);
-      if (error) {
-        console.error('Save failed', error);
-        toast.error('Failed to save pricing settings');
-      } else {
-        toast.success('Pricing settings updated');
-      }
-    }, 500);
+    setRules({ ...rules, ...patch });
+    setPendingRulesChanges((prev) => ({ ...prev, ...patch }));
   }
 
-  async function saveBound(bound: RoomRateBound) {
-    // validate
-    if (bound.min_rate !== null && bound.max_rate !== null && bound.min_rate >= bound.max_rate) {
-      setBoundsErrors((prev) => ({ ...prev, [bound.room_type]: 'Min must be less than Max' }));
-      return;
-    }
-    setBoundsErrors((prev) => {
-      const copy = { ...prev };
-      delete copy[bound.room_type];
-      return copy;
+  function updateBound(roomType: string, field: 'min_rate' | 'max_rate', value: number | null) {
+    setRateBounds((prev) => prev.map((b) => (b.room_type === roomType ? { ...b, [field]: value } : b)));
+    setPendingBoundsChanges((prev) => {
+      const existing = prev[roomType] || { min_rate: rateBounds.find((b) => b.room_type === roomType)?.min_rate ?? null, max_rate: rateBounds.find((b) => b.room_type === roomType)?.max_rate ?? null };
+      return { ...prev, [roomType]: { ...existing, [field]: value } };
     });
+  }
 
-    // update all rate_plan_prices rows with this room_type for this property
-    const { error } = await supabase
-      .from('rate_plan_prices')
-      .update({ min_rate: bound.min_rate, max_rate: bound.max_rate } as any)
-      .eq('id', bound.id);
+  // ---- save all pending changes ----
+  async function saveAllChanges() {
+    if (!rules || totalPendingChanges === 0) return;
+    setSaveStatus('saving');
+    setSaveProgress(10);
 
-    if (error) {
-      console.error('Save bound failed', error);
-      toast.error('Failed to save rate bound');
-    } else {
-      toast.success('Rate bound updated');
+    try {
+      // Validate bounds
+      for (const [roomType, bounds] of Object.entries(pendingBoundsChanges)) {
+        const current = rateBounds.find((b) => b.room_type === roomType);
+        const minVal = bounds.min_rate;
+        const maxVal = bounds.max_rate;
+        if (minVal !== null && maxVal !== null && minVal >= maxVal) {
+          setBoundsErrors((prev) => ({ ...prev, [roomType]: 'Min must be less than Max' }));
+          setSaveStatus('error');
+          setSaveProgress(0);
+          toast.error(`Invalid bounds for ${roomType}: Min must be less than Max`);
+          return;
+        }
+        setBoundsErrors((prev) => {
+          const copy = { ...prev };
+          delete copy[roomType];
+          return copy;
+        });
+      }
+
+      setSaveProgress(30);
+
+      // Save pricing_rules changes
+      if (pendingRulesCount > 0) {
+        const { error } = await supabase
+          .from('pricing_rules')
+          .update(toDbRow(pendingRulesChanges))
+          .eq('id', rules.id);
+        if (error) throw error;
+      }
+
+      setSaveProgress(60);
+
+      // Save rate bounds changes
+      const boundEntries = Object.entries(pendingBoundsChanges);
+      for (let i = 0; i < boundEntries.length; i++) {
+        const [roomType] = boundEntries[i];
+        const bound = rateBounds.find((b) => b.room_type === roomType);
+        if (!bound) continue;
+        const { error } = await supabase
+          .from('rate_plan_prices')
+          .update({ min_rate: bound.min_rate, max_rate: bound.max_rate } as any)
+          .eq('id', bound.id);
+        if (error) throw error;
+        setSaveProgress(60 + Math.round(((i + 1) / boundEntries.length) * 30));
+      }
+
+      setSaveProgress(100);
+      setSaveStatus('success');
+      setPendingRulesChanges({});
+      setPendingBoundsChanges({});
+      toast.success('Pricing settings saved');
+
+      setTimeout(() => {
+        setSaveStatus('idle');
+        setSaveProgress(0);
+      }, 2000);
+    } catch (err: any) {
+      console.error('Save failed', err);
+      setSaveStatus('error');
+      toast.error(err.message || 'Failed to save pricing settings');
+      setTimeout(() => {
+        setSaveStatus('idle');
+        setSaveProgress(0);
+      }, 3000);
     }
   }
 
   // ---- channex sync ----
   async function syncToChannex() {
     if (!propertyId) return;
-    setSyncing(true);
+    setChannexSyncStatus('syncing');
+    setChannexSyncProgress(10);
+    setChannexSyncStep('Preparing rate bounds...');
+
     try {
       const allMinRates = rateBounds.filter((b) => b.min_rate !== null).map((b) => b.min_rate!);
       const allMaxRates = rateBounds.filter((b) => b.max_rate !== null).map((b) => b.max_rate!);
@@ -198,9 +290,13 @@ export default function DynamicPricing() {
 
       if (floorValue === null && ceilingValue === null) {
         toast.error('No min/max rates set. Configure rate guardrails first.');
-        setSyncing(false);
+        setChannexSyncStatus('idle');
+        setChannexSyncProgress(0);
         return;
       }
+
+      setChannexSyncProgress(30);
+      setChannexSyncStep('Pushing to Channex...');
 
       const { data, error } = await supabase.functions.invoke('channex-update-property-settings', {
         body: { property_id: propertyId, min_price: floorValue, max_price: ceilingValue },
@@ -208,6 +304,9 @@ export default function DynamicPricing() {
 
       if (error) throw error;
       if (data?.error) throw new Error(data.error);
+
+      setChannexSyncProgress(70);
+      setChannexSyncStep('Updating sync status...');
 
       await supabase
         .from('pricing_rules')
@@ -217,12 +316,33 @@ export default function DynamicPricing() {
       setRules((prev) =>
         prev ? { ...prev, channex_min_price_synced: floorValue !== null, channex_max_price_synced: ceilingValue !== null } : prev
       );
+
+      const timestamp = new Date().toLocaleString('en-US', {
+        month: 'short', day: 'numeric', year: 'numeric', hour: 'numeric', minute: '2-digit', hour12: true,
+      });
+      localStorage.setItem(`dynamic_pricing_last_channex_sync_${propertyId}`, timestamp);
+      setLastChannexSync(timestamp);
+
+      setChannexSyncProgress(100);
+      setChannexSyncStep('Done');
+      setChannexSyncStatus('success');
       toast.success('Rate bounds synced to Channex');
+
+      setTimeout(() => {
+        setChannexSyncStatus('idle');
+        setChannexSyncProgress(0);
+        setChannexSyncStep('');
+      }, 3000);
     } catch (err: any) {
       console.error('Channex sync failed', err);
+      setChannexSyncStep(err.message || 'Sync failed');
+      setChannexSyncStatus('error');
       toast.error(err.message || 'Failed to sync to Channex');
-    } finally {
-      setSyncing(false);
+      setTimeout(() => {
+        setChannexSyncStatus('idle');
+        setChannexSyncProgress(0);
+        setChannexSyncStep('');
+      }, 5000);
     }
   }
 
@@ -262,6 +382,39 @@ export default function DynamicPricing() {
           <NotificationBell />
         </div>
 
+        {/* Sticky save bar */}
+        {totalPendingChanges > 0 && (
+          <div className="sticky top-0 z-20 mb-4">
+            <div className="flex items-center justify-between bg-card border rounded-lg px-4 py-3 shadow-sm">
+              <span className="text-sm font-medium">
+                {totalPendingChanges} unsaved change{totalPendingChanges !== 1 ? 's' : ''}
+              </span>
+              <Button onClick={saveAllChanges} disabled={saveStatus === 'saving'} size="sm">
+                {saveStatus === 'saving' ? (
+                  <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+                ) : (
+                  <Save className="h-4 w-4 mr-2" />
+                )}
+                Save Changes ({totalPendingChanges})
+              </Button>
+            </div>
+            {saveStatus !== 'idle' && (
+              <div className="mt-1 space-y-1">
+                <div className="h-1.5 w-full rounded-full bg-secondary overflow-hidden">
+                  <div
+                    className={cn(
+                      "h-full rounded-full transition-all duration-500",
+                      saveStatus === 'error' ? 'bg-destructive' :
+                      saveStatus === 'success' ? 'bg-green-500' : 'bg-primary'
+                    )}
+                    style={{ width: `${saveProgress}%` }}
+                  />
+                </div>
+              </div>
+            )}
+          </div>
+        )}
+
         <h1 className="text-2xl font-bold mb-6">Dynamic Pricing</h1>
 
         <div className="space-y-6 max-w-4xl">
@@ -275,12 +428,7 @@ export default function DynamicPricing() {
                 </div>
                 <Switch
                   checked={rules.is_enabled}
-                  onCheckedChange={(checked) => {
-                    debouncedSaveRules({ is_enabled: checked });
-                    if (checked && rateBounds.some((b) => b.min_rate !== null || b.max_rate !== null)) {
-                      syncToChannex();
-                    }
-                  }}
+                  onCheckedChange={(checked) => updateRules({ is_enabled: checked })}
                 />
               </div>
             </CardHeader>
@@ -331,11 +479,7 @@ export default function DynamicPricing() {
                                 value={bound.min_rate ?? ''}
                                 onChange={(e) => {
                                   const val = e.target.value === '' ? null : parseFloat(e.target.value);
-                                  setRateBounds((prev) => prev.map((b) => (b.room_type === bound.room_type ? { ...b, min_rate: val } : b)));
-                                }}
-                                onBlur={() => {
-                                  const current = rateBounds.find((b) => b.room_type === bound.room_type);
-                                  if (current) saveBound(current);
+                                  updateBound(bound.room_type, 'min_rate', val);
                                 }}
                               />
                               {boundsErrors[bound.room_type] && (
@@ -351,11 +495,7 @@ export default function DynamicPricing() {
                                 value={bound.max_rate ?? ''}
                                 onChange={(e) => {
                                   const val = e.target.value === '' ? null : parseFloat(e.target.value);
-                                  setRateBounds((prev) => prev.map((b) => (b.room_type === bound.room_type ? { ...b, max_rate: val } : b)));
-                                }}
-                                onBlur={() => {
-                                  const current = rateBounds.find((b) => b.room_type === bound.room_type);
-                                  if (current) saveBound(current);
+                                  updateBound(bound.room_type, 'max_rate', val);
                                 }}
                               />
                             </TableCell>
@@ -377,15 +517,38 @@ export default function DynamicPricing() {
                   <CardTitle>Channex Rate Bounds Sync</CardTitle>
                   <CardDescription>Push your property-level min/max rate bounds to Channex for safety enforcement.</CardDescription>
                 </CardHeader>
-                <CardContent className="flex items-center gap-4">
-                  <Button onClick={syncToChannex} disabled={syncing}>
-                    {syncing ? <Loader2 className="h-4 w-4 mr-2 animate-spin" /> : <RefreshCw className="h-4 w-4 mr-2" />}
-                    Sync Rate Bounds to Channex
-                  </Button>
-                  <div className="text-xs text-muted-foreground space-x-3">
-                    <span>Min synced: {rules.channex_min_price_synced ? '✓' : '—'}</span>
-                    <span>Max synced: {rules.channex_max_price_synced ? '✓' : '—'}</span>
+                <CardContent className="space-y-3">
+                  <div className="flex items-center gap-4">
+                    <Button onClick={syncToChannex} disabled={channexSyncStatus === 'syncing'}>
+                      {channexSyncStatus === 'syncing' ? <Loader2 className="h-4 w-4 mr-2 animate-spin" /> : <RefreshCw className="h-4 w-4 mr-2" />}
+                      {channexSyncStatus === 'syncing' ? 'Syncing...' : 'Sync Rate Bounds to Channex'}
+                    </Button>
+                    <div className="text-xs text-muted-foreground space-x-3">
+                      <span>Min synced: {rules.channex_min_price_synced ? '✓' : '—'}</span>
+                      <span>Max synced: {rules.channex_max_price_synced ? '✓' : '—'}</span>
+                    </div>
                   </div>
+                  {channexSyncStatus !== 'idle' && (
+                    <div className="space-y-1">
+                      <div className="flex justify-between text-xs text-muted-foreground">
+                        <span>{channexSyncStep}</span>
+                        <span>{channexSyncProgress}%</span>
+                      </div>
+                      <div className="h-1.5 w-full rounded-full bg-secondary overflow-hidden">
+                        <div
+                          className={cn(
+                            "h-full rounded-full transition-all duration-500",
+                            channexSyncStatus === 'error' ? 'bg-destructive' :
+                            channexSyncStatus === 'success' ? 'bg-green-500' : 'bg-primary'
+                          )}
+                          style={{ width: `${channexSyncProgress}%` }}
+                        />
+                      </div>
+                    </div>
+                  )}
+                  {lastChannexSync && (
+                    <p className="text-xs text-muted-foreground">Last synced: {lastChannexSync}</p>
+                  )}
                 </CardContent>
               </Card>
 
@@ -400,7 +563,7 @@ export default function DynamicPricing() {
                     <Button
                       variant="outline"
                       size="sm"
-                      onClick={() => debouncedSaveRules({ day_of_week_multipliers: DEFAULT_DOW })}
+                      onClick={() => updateRules({ day_of_week_multipliers: DEFAULT_DOW })}
                     >
                       <RotateCcw className="h-3 w-3 mr-1" /> Reset
                     </Button>
@@ -418,7 +581,7 @@ export default function DynamicPricing() {
                           value={dow[String(i)] ?? 1}
                           onChange={(e) => {
                             const val = parseFloat(e.target.value) || 1;
-                            debouncedSaveRules({ day_of_week_multipliers: { ...dow, [String(i)]: val } });
+                            updateRules({ day_of_week_multipliers: { ...dow, [String(i)]: val } });
                           }}
                         />
                       </div>
@@ -436,13 +599,15 @@ export default function DynamicPricing() {
                   <div className="space-y-2">
                     <Label>Monthly Revenue Target</Label>
                     <Input
-                      type="number"
+                      type={revenueTargetFocused ? 'number' : 'text'}
                       step="100"
-                      placeholder="e.g. 50000"
-                      value={rules.monthly_revenue_target ?? ''}
+                      placeholder="e.g. 50,000"
+                      value={revenueTargetFocused ? (rules.monthly_revenue_target ?? '') : formatWithCommas(rules.monthly_revenue_target)}
+                      onFocus={() => setRevenueTargetFocused(true)}
+                      onBlur={() => setRevenueTargetFocused(false)}
                       onChange={(e) => {
                         const val = e.target.value === '' ? null : parseFloat(e.target.value);
-                        debouncedSaveRules({ monthly_revenue_target: val });
+                        updateRules({ monthly_revenue_target: val });
                       }}
                     />
                     <p className="text-xs text-muted-foreground">Target revenue to cover costs and margin</p>
@@ -450,13 +615,15 @@ export default function DynamicPricing() {
                   <div className="space-y-2">
                     <Label>Stretch Target</Label>
                     <Input
-                      type="number"
+                      type={stretchTargetFocused ? 'number' : 'text'}
                       step="100"
-                      placeholder="e.g. 65000"
-                      value={rules.monthly_revenue_stretch ?? ''}
+                      placeholder="e.g. 65,000"
+                      value={stretchTargetFocused ? (rules.monthly_revenue_stretch ?? '') : formatWithCommas(rules.monthly_revenue_stretch)}
+                      onFocus={() => setStretchTargetFocused(true)}
+                      onBlur={() => setStretchTargetFocused(false)}
                       onChange={(e) => {
                         const val = e.target.value === '' ? null : parseFloat(e.target.value);
-                        debouncedSaveRules({ monthly_revenue_stretch: val });
+                        updateRules({ monthly_revenue_stretch: val });
                       }}
                     />
                     <p className="text-xs text-muted-foreground">Aspirational target (typically 120-130% of base)</p>
@@ -473,7 +640,7 @@ export default function DynamicPricing() {
                 <CardContent>
                   <RadioGroup
                     value={rules.last_minute_strategy}
-                    onValueChange={(val) => debouncedSaveRules({ last_minute_strategy: val })}
+                    onValueChange={(val) => updateRules({ last_minute_strategy: val })}
                   >
                     <div className="flex items-start space-x-2 mb-3">
                       <RadioGroupItem value="discount" id="lm-discount" />
@@ -536,7 +703,7 @@ export default function DynamicPricing() {
                                       onChange={(e) => {
                                         const newAdj = [...rules.occupancy_adjustments];
                                         newAdj[idx] = parseFloat(e.target.value) || 0;
-                                        debouncedSaveRules({ occupancy_adjustments: newAdj });
+                                        updateRules({ occupancy_adjustments: newAdj });
                                       }}
                                     />
                                   </TableCell>
@@ -549,13 +716,19 @@ export default function DynamicPricing() {
 
                       {/* Pace Index */}
                       <div className="space-y-2">
-                        <Label>Pace Index Bump Threshold</Label>
+                        <div className="flex items-center gap-2">
+                          <Label>Pace Index Bump Threshold</Label>
+                          <Info
+                            className="h-4 w-4 text-muted-foreground cursor-pointer"
+                            onClick={() => setPaceInfoOpen(true)}
+                          />
+                        </div>
                         <Input
                           type="number"
                           step="0.01"
                           className="w-32"
                           value={rules.pace_index_bump_threshold}
-                          onChange={(e) => debouncedSaveRules({ pace_index_bump_threshold: parseFloat(e.target.value) || 1.3 })}
+                          onChange={(e) => updateRules({ pace_index_bump_threshold: parseFloat(e.target.value) || 1.3 })}
                         />
                         <p className="text-xs text-muted-foreground">Bump occupancy tier by +1 when pace index exceeds this value (default 1.30)</p>
                       </div>
@@ -583,7 +756,7 @@ export default function DynamicPricing() {
                                     onChange={(e) => {
                                       const newA = [...rules.revenue_adjustments_phase_a];
                                       newA[idx] = parseFloat(e.target.value) || 0;
-                                      debouncedSaveRules({ revenue_adjustments_phase_a: newA });
+                                      updateRules({ revenue_adjustments_phase_a: newA });
                                     }}
                                   />
                                 </TableCell>
@@ -595,7 +768,7 @@ export default function DynamicPricing() {
                                     onChange={(e) => {
                                       const newB = [...rules.revenue_adjustments_phase_b];
                                       newB[idx] = parseFloat(e.target.value) || 0;
-                                      debouncedSaveRules({ revenue_adjustments_phase_b: newB });
+                                      updateRules({ revenue_adjustments_phase_b: newB });
                                     }}
                                   />
                                 </TableCell>
@@ -612,6 +785,31 @@ export default function DynamicPricing() {
           )}
         </div>
       </div>
+
+      {/* Pace Index Info Dialog */}
+      <Dialog open={paceInfoOpen} onOpenChange={setPaceInfoOpen}>
+        <DialogContent className="max-w-lg">
+          <DialogHeader>
+            <DialogTitle>What is the Pace Index?</DialogTitle>
+          </DialogHeader>
+          <DialogDescription asChild>
+            <div className="space-y-3 text-sm text-muted-foreground">
+              <p>The Pace Index measures how fast your property is filling up compared to how much of the month has passed.</p>
+              <p className="font-medium text-foreground">How it works:</p>
+              <ul className="list-disc pl-5 space-y-1">
+                <li>If your property is 60% booked and only 40% of the month has passed, your Pace Index is 1.5 — meaning you're filling 50% faster than expected.</li>
+                <li>A Pace Index of 1.0 means you're filling exactly on track.</li>
+                <li>Below 1.0 means you're behind pace.</li>
+              </ul>
+              <p>The Bump Threshold (default 1.30) controls when the algorithm gets more aggressive with pricing. When the Pace Index exceeds this threshold, the algorithm bumps the occupancy adjustment up one tier — for example, from +10% to +18%.</p>
+              <p>A lower threshold (e.g., 1.1) makes pricing more aggressive earlier. A higher threshold (e.g., 1.5) waits longer before bumping up. Most properties should keep the default of 1.30.</p>
+            </div>
+          </DialogDescription>
+          <div className="flex justify-end mt-2">
+            <Button onClick={() => setPaceInfoOpen(false)}>Got it</Button>
+          </div>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }
