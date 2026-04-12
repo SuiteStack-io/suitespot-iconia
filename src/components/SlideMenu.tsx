@@ -74,7 +74,6 @@ export function SlideMenu({ userRole }: SlideMenuProps) {
         { title: 'Rooms', url: '/rooms', icon: DoorOpen, showFor: ['admin'] },
         { title: 'Room Types', url: '/room-types', icon: Layers, showFor: ['admin'] },
         { title: 'Room Rates', url: '/room-rates', icon: DollarSign, showFor: ['admin'] },
-        { title: 'Dynamic Pricing', url: '/dynamic-pricing', icon: TrendingUp, showFor: ['admin'] },
         { title: 'Reservations List', url: '/reservations-list', icon: ClipboardList },
         { title: 'Check-In/Out', url: '/check-in-out', icon: DoorClosed },
         { title: 'Housekeeping', url: '/housekeeping', icon: Sparkles },
@@ -100,6 +99,7 @@ export function SlideMenu({ userRole }: SlideMenuProps) {
       items: [
         { title: 'Availability', url: '/pms/availability', icon: CalendarDays },
         { title: 'Prices', url: '/pms/prices', icon: DollarSign },
+        { title: 'Dynamic Pricing', url: '/dynamic-pricing', icon: TrendingUp, showFor: ['admin'] },
         { title: 'Restrictions', url: '/pms/restrictions', icon: Lock },
         { title: 'Channel Markup', url: '/pms/channel-markup', icon: Tag },
         { title: 'Channex Integration', url: '/channex', icon: Radio },
