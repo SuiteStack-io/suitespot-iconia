@@ -73,6 +73,7 @@ import FrontDeskRoomRates from "./pages/front-desk/RoomRates";
 import ChannelMarkup from "./pages/pms/ChannelMarkup";
 import MyNotifications from "./pages/MyNotifications";
 import GuestInbox from "./pages/GuestInbox";
+import DynamicPricing from "./pages/DynamicPricing";
 const queryClient = new QueryClient();
 
 const App = () => (
@@ -140,6 +141,7 @@ const App = () => (
               <Route path="/my-commissions" element={<ProtectedRoute><MyReservations /></ProtectedRoute>} />
               <Route path="/rooms" element={<ProtectedRoute><AdminRoute><Rooms /></AdminRoute></ProtectedRoute>} />
               <Route path="/room-rates" element={<ProtectedRoute><AdminRoute><RoomRates /></AdminRoute></ProtectedRoute>} />
+              <Route path="/dynamic-pricing" element={<ProtectedRoute><AdminRoute><DynamicPricing /></AdminRoute></ProtectedRoute>} />
               <Route path="/room-types" element={<ProtectedRoute><AdminRoute><RoomTypes /></AdminRoute></ProtectedRoute>} />
               <Route path="/homepage-management" element={<ProtectedRoute><HomepageManagement /></ProtectedRoute>} />
               <Route path="/settings" element={<ProtectedRoute><Settings /></ProtectedRoute>} />
