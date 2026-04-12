@@ -35,6 +35,7 @@ import {
   ArrowLeftRight,
   Tag,
   MessageCircle,
+  TrendingUp,
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { useAuth } from '@/lib/auth';
@@ -73,6 +74,7 @@ export function SlideMenu({ userRole }: SlideMenuProps) {
         { title: 'Rooms', url: '/rooms', icon: DoorOpen, showFor: ['admin'] },
         { title: 'Room Types', url: '/room-types', icon: Layers, showFor: ['admin'] },
         { title: 'Room Rates', url: '/room-rates', icon: DollarSign, showFor: ['admin'] },
+        { title: 'Dynamic Pricing', url: '/dynamic-pricing', icon: TrendingUp, showFor: ['admin'] },
         { title: 'Reservations List', url: '/reservations-list', icon: ClipboardList },
         { title: 'Check-In/Out', url: '/check-in-out', icon: DoorClosed },
         { title: 'Housekeeping', url: '/housekeeping', icon: Sparkles },
