@@ -1,36 +1,39 @@
 
 
-## Database Foundation for Dynamic Pricing Algorithm
+## Build Dynamic Pricing Settings Page
 
-### Changes — 1 Migration (5 parts)
+### Overview
+Create a new admin page at `/dynamic-pricing` for configuring the per-property pricing algorithm, plus an Edge Function to sync rate bounds to Channex.
 
-**Part 1: Add columns to `rate_plan_prices`**
-- `min_rate NUMERIC(10,2) DEFAULT NULL`
-- `max_rate NUMERIC(10,2) DEFAULT NULL`
+### Changes
 
-**Part 2: Create `pricing_rules` table**
-- One row per property with all algorithm config (day-of-week multipliers, occupancy thresholds/adjustments, revenue targets, lead-time strategy, conflict rules, etc.)
-- UNIQUE on `property_id`
-- RLS: SELECT `USING (true)`, INSERT/UPDATE/DELETE via `user_has_property_access(property_id, 'manager')`
-- `updated_at` trigger using existing `update_updated_at_column()`
+**1. New file: `src/pages/DynamicPricing.tsx`**
+- Full settings page with SlideMenu, AdminBreadcrumb
+- Uses `usePropertyId()` to scope to active property
+- Loads/creates `pricing_rules` row on mount
+- Sections A–G as specified: master toggle, rate guardrails table, Channex sync button, day-of-week multipliers, revenue targets, last-minute strategy radio, collapsible advanced tiers
+- Auto-save on blur with 500ms debounce via `setTimeout`
+- Rate bounds table: queries `rate_plan_prices` joined with `rate_plans` grouped by `room_type`, editable `min_rate`/`max_rate` inputs with inline validation
+- Channex sync button calls the new Edge Function
 
-**Part 3: Create `pricing_overrides` table**
-- Manual date-level overrides (fixed_rate, percentage_adjustment, multiplier)
-- `UNIQUE(property_id, override_date, room_type)` for non-null room types
-- Partial unique index for NULL room_type: `CREATE UNIQUE INDEX pricing_overrides_unique_all_rooms ON pricing_overrides (property_id, override_date) WHERE room_type IS NULL`
-- RLS: SELECT `USING (true)`, INSERT/UPDATE/DELETE via `user_has_property_access(property_id, 'manager')`
+**2. New file: `supabase/functions/channex-update-property-settings/index.ts`**
+- POST endpoint, same auth pattern as `channex-push-rates` (Bearer token + admin role check)
+- Accepts `{ property_id, min_price, max_price }`
+- Looks up Channex property ID from `channex_mappings`
+- PUTs to Channex API `/api/v1/properties/:id` with `{ property: { settings: { min_price, max_price } } }` in cents
+- Logs to `channex_sync_logs`
+- Returns success/error with CORS headers
 
-**Part 4: Create `pricing_log` table**
-- Append-only audit log with all calculation inputs/outputs
-- Indexes on `(property_id, date_priced)` and `(property_id, calculated_at)`
-- RLS: SELECT for authenticated, INSERT open (service role), no UPDATE/DELETE
+**3. Edit: `src/App.tsx`**
+- Import `DynamicPricing` from `./pages/DynamicPricing`
+- Add route: `<Route path="/dynamic-pricing" element={<ProtectedRoute><AdminRoute><DynamicPricing /></AdminRoute></ProtectedRoute>} />`
 
-**Part 5: Backfill**
-- Insert disabled `pricing_rules` row for every existing property
+**4. Edit: `src/components/SlideMenu.tsx`**
+- Import `TrendingUp` from lucide-react
+- Add menu item `{ title: 'Dynamic Pricing', url: '/dynamic-pricing', icon: TrendingUp, showFor: ['admin'] }` after "Room Rates" in OPERATIONS section
 
 ### What Does NOT Change
-- `rate_plans`, `rate_plan_restrictions`, `reservations`, `properties` tables
-- Existing columns on `rate_plan_prices`
-- Edge Functions, Channex sync, UI components
-- Existing RLS policies
+- RoomRates.tsx, Analytics.tsx, any existing Edge Functions
+- rate_plans, rate_plan_restrictions tables
+- Channex sync logic, any other pages/components
 
