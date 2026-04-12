@@ -1293,6 +1293,255 @@ export type Database = {
         }
         Relationships: []
       }
+      pricing_log: {
+        Row: {
+          base_rate: number | null
+          calculated_at: string
+          calculated_rate: number | null
+          clamp_direction: string | null
+          created_at: string
+          date_priced: string
+          day_of_week_multiplier: number | null
+          final_rate: number | null
+          id: string
+          lead_time_adjustment_percent: number | null
+          lead_time_days: number | null
+          month_phase: string
+          occupancy_adjustment_percent: number | null
+          occupancy_percent: number | null
+          occupancy_tier: number | null
+          orphan_modifier: number | null
+          orphan_status: string | null
+          override_active: boolean | null
+          override_id: string | null
+          pace_index: number | null
+          property_id: string
+          rate_plan_id: string | null
+          revenue_achievement_percent: number | null
+          revenue_adjustment_percent: number | null
+          revenue_total: number | null
+          room_type: string | null
+          room_type_max_rate: number | null
+          room_type_min_rate: number | null
+          target_month: string
+          was_clamped: boolean | null
+        }
+        Insert: {
+          base_rate?: number | null
+          calculated_at?: string
+          calculated_rate?: number | null
+          clamp_direction?: string | null
+          created_at?: string
+          date_priced: string
+          day_of_week_multiplier?: number | null
+          final_rate?: number | null
+          id?: string
+          lead_time_adjustment_percent?: number | null
+          lead_time_days?: number | null
+          month_phase: string
+          occupancy_adjustment_percent?: number | null
+          occupancy_percent?: number | null
+          occupancy_tier?: number | null
+          orphan_modifier?: number | null
+          orphan_status?: string | null
+          override_active?: boolean | null
+          override_id?: string | null
+          pace_index?: number | null
+          property_id: string
+          rate_plan_id?: string | null
+          revenue_achievement_percent?: number | null
+          revenue_adjustment_percent?: number | null
+          revenue_total?: number | null
+          room_type?: string | null
+          room_type_max_rate?: number | null
+          room_type_min_rate?: number | null
+          target_month: string
+          was_clamped?: boolean | null
+        }
+        Update: {
+          base_rate?: number | null
+          calculated_at?: string
+          calculated_rate?: number | null
+          clamp_direction?: string | null
+          created_at?: string
+          date_priced?: string
+          day_of_week_multiplier?: number | null
+          final_rate?: number | null
+          id?: string
+          lead_time_adjustment_percent?: number | null
+          lead_time_days?: number | null
+          month_phase?: string
+          occupancy_adjustment_percent?: number | null
+          occupancy_percent?: number | null
+          occupancy_tier?: number | null
+          orphan_modifier?: number | null
+          orphan_status?: string | null
+          override_active?: boolean | null
+          override_id?: string | null
+          pace_index?: number | null
+          property_id?: string
+          rate_plan_id?: string | null
+          revenue_achievement_percent?: number | null
+          revenue_adjustment_percent?: number | null
+          revenue_total?: number | null
+          room_type?: string | null
+          room_type_max_rate?: number | null
+          room_type_min_rate?: number | null
+          target_month?: string
+          was_clamped?: boolean | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "pricing_log_override_id_fkey"
+            columns: ["override_id"]
+            isOneToOne: false
+            referencedRelation: "pricing_overrides"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "pricing_log_property_id_fkey"
+            columns: ["property_id"]
+            isOneToOne: false
+            referencedRelation: "properties"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "pricing_log_rate_plan_id_fkey"
+            columns: ["rate_plan_id"]
+            isOneToOne: false
+            referencedRelation: "rate_plans"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      pricing_overrides: {
+        Row: {
+          created_at: string
+          created_by: string | null
+          id: string
+          override_date: string
+          override_type: string
+          property_id: string
+          reason: string | null
+          room_type: string | null
+          value: number
+        }
+        Insert: {
+          created_at?: string
+          created_by?: string | null
+          id?: string
+          override_date: string
+          override_type?: string
+          property_id: string
+          reason?: string | null
+          room_type?: string | null
+          value: number
+        }
+        Update: {
+          created_at?: string
+          created_by?: string | null
+          id?: string
+          override_date?: string
+          override_type?: string
+          property_id?: string
+          reason?: string | null
+          room_type?: string | null
+          value?: number
+        }
+        Relationships: [
+          {
+            foreignKeyName: "pricing_overrides_created_by_fkey"
+            columns: ["created_by"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "pricing_overrides_property_id_fkey"
+            columns: ["property_id"]
+            isOneToOne: false
+            referencedRelation: "properties"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      pricing_rules: {
+        Row: {
+          channex_max_price_synced: boolean
+          channex_min_price_synced: boolean
+          created_at: string
+          day_of_week_multipliers: Json
+          id: string
+          is_enabled: boolean
+          last_minute_strategy: string
+          monthly_revenue_stretch: number | null
+          monthly_revenue_target: number | null
+          occupancy_adjustments: Json
+          occupancy_thresholds: Json
+          pace_index_bump_threshold: number
+          property_id: string
+          revenue_adjustments_phase_a: Json
+          revenue_adjustments_phase_b: Json
+          revenue_occupancy_conflict_cap: number
+          revenue_occupancy_conflict_occupancy_max: number
+          revenue_occupancy_conflict_revenue_min: number
+          revenue_thresholds: Json
+          updated_at: string
+        }
+        Insert: {
+          channex_max_price_synced?: boolean
+          channex_min_price_synced?: boolean
+          created_at?: string
+          day_of_week_multipliers?: Json
+          id?: string
+          is_enabled?: boolean
+          last_minute_strategy?: string
+          monthly_revenue_stretch?: number | null
+          monthly_revenue_target?: number | null
+          occupancy_adjustments?: Json
+          occupancy_thresholds?: Json
+          pace_index_bump_threshold?: number
+          property_id: string
+          revenue_adjustments_phase_a?: Json
+          revenue_adjustments_phase_b?: Json
+          revenue_occupancy_conflict_cap?: number
+          revenue_occupancy_conflict_occupancy_max?: number
+          revenue_occupancy_conflict_revenue_min?: number
+          revenue_thresholds?: Json
+          updated_at?: string
+        }
+        Update: {
+          channex_max_price_synced?: boolean
+          channex_min_price_synced?: boolean
+          created_at?: string
+          day_of_week_multipliers?: Json
+          id?: string
+          is_enabled?: boolean
+          last_minute_strategy?: string
+          monthly_revenue_stretch?: number | null
+          monthly_revenue_target?: number | null
+          occupancy_adjustments?: Json
+          occupancy_thresholds?: Json
+          pace_index_bump_threshold?: number
+          property_id?: string
+          revenue_adjustments_phase_a?: Json
+          revenue_adjustments_phase_b?: Json
+          revenue_occupancy_conflict_cap?: number
+          revenue_occupancy_conflict_occupancy_max?: number
+          revenue_occupancy_conflict_revenue_min?: number
+          revenue_thresholds?: Json
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "pricing_rules_property_id_fkey"
+            columns: ["property_id"]
+            isOneToOne: true
+            referencedRelation: "properties"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       profiles: {
         Row: {
           company_id: string | null
@@ -1527,6 +1776,8 @@ export type Database = {
           created_at: string
           id: string
           max_occupancy: number | null
+          max_rate: number | null
+          min_rate: number | null
           min_stay: number
           off_peak_rate: number | null
           rate_plan_id: string
@@ -1540,6 +1791,8 @@ export type Database = {
           created_at?: string
           id?: string
           max_occupancy?: number | null
+          max_rate?: number | null
+          min_rate?: number | null
           min_stay?: number
           off_peak_rate?: number | null
           rate_plan_id: string
@@ -1553,6 +1806,8 @@ export type Database = {
           created_at?: string
           id?: string
           max_occupancy?: number | null
+          max_rate?: number | null
+          min_rate?: number | null
           min_stay?: number
           off_peak_rate?: number | null
           rate_plan_id?: string
