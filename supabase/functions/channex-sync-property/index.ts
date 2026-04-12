@@ -271,7 +271,60 @@ Deno.serve(async (req) => {
           const { data: existing } = await supabaseAdmin.from('channex_mappings').select('channex_id').eq('local_id', rt.unitId).eq('entity_type', 'room_type').maybeSingle();
 
           if (existing) {
-            roomTypeResults.push({ local_id: rt.unitId, channex_id: existing.channex_id, name: displayName, status: 'already_synced' });
+            // UPDATE existing room type with current values
+            const updatePayload = {
+              room_type: {
+                title: displayName,
+                count_of_rooms: rt.count,
+                occ_adults: rt.max_guests,
+                occ_children: rt.max_children,
+                occ_infants: rt.max_infants,
+                default_occupancy: rt.default_occupancy,
+                kind: rt.room_kind,
+              }
+            };
+
+            try {
+              const updateRes = await channexRequest<{ data: { id: string } }>(
+                'PUT',
+                `/api/v1/room_types/${existing.channex_id}`,
+                updatePayload
+              );
+              console.log(`[RoomTypes] Updated: ${displayName} -> ${existing.channex_id}`);
+
+              await supabaseAdmin.from('channex_mappings').update({
+                last_synced_at: new Date().toISOString(),
+                channex_data: updateRes.data,
+              }).eq('local_id', rt.unitId).eq('entity_type', 'room_type');
+
+              roomTypeResults.push({
+                local_id: rt.unitId,
+                channex_id: existing.channex_id,
+                name: displayName,
+                status: 'updated',
+              });
+
+              await logSync(
+                'channex-sync-property',
+                `PUT /api/v1/room_types/${existing.channex_id}`,
+                updatePayload, updateRes, 200, true, null, propConfig.id
+              );
+            } catch (updateErr) {
+              const msg = updateErr instanceof Error ? updateErr.message : String(updateErr);
+              console.error(`[RoomTypes] Update failed for ${displayName}:`, msg);
+              errors.push({ entity: 'room_type', local_id: rt.unitId, name: displayName, error: msg });
+              roomTypeResults.push({
+                local_id: rt.unitId,
+                channex_id: existing.channex_id,
+                name: displayName,
+                status: 'update_failed',
+              });
+              await logSync(
+                'channex-sync-property',
+                `PUT /api/v1/room_types/${existing.channex_id}`,
+                updatePayload, null, 500, false, msg, propConfig.id
+              );
+            }
             continue;
           }
 
