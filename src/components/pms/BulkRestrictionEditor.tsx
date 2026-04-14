@@ -521,7 +521,7 @@ export function BulkRestrictionEditor({ ratePlans, onSaved, onRatePlanFocused, p
               </Label>
               {enableRate && (
                 <div className="flex items-center gap-2">
-                  <Input type="number" min={0} step={0.01} value={rate} onChange={(e) => setRate(parseFloat(e.target.value) || 0)} className="w-24 h-9 text-right" />
+                  <Input type="number" min={0} step={1} value={rate} onChange={(e) => setRate(parseFloat(e.target.value) || 0)} className="w-24 h-9 text-right" />
                   <span className="text-sm text-muted-foreground w-12">USD</span>
                 </div>
               )}
