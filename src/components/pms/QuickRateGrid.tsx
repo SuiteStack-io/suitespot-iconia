@@ -56,9 +56,14 @@ interface PendingChange {
   isWeekend: boolean;
 }
 
+interface DerivedChannel {
+  channelName: string;
+  markupPercentage: number;
+  basePlanIds: Set<string>;
+}
+
 const DAY_NAMES = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
 
-// Color-coded cells based on price variance from base rate
 const getCellColor = (currentRate: number, baseRate: number, isWeekend: boolean, isOffPeak: boolean): string => {
   if (baseRate === 0) {
     if (isOffPeak) return '#E3F2FD';
@@ -78,7 +83,6 @@ const getCellColor = (currentRate: number, baseRate: number, isWeekend: boolean,
   return '';
 };
 
-// Variance arrow indicator
 const getVarianceArrow = (currentRate: number, baseRate: number): string => {
   if (baseRate === 0) return '';
   const pct = ((currentRate - baseRate) / baseRate) * 100;
@@ -104,16 +108,17 @@ export const QuickRateGrid = ({ onSyncQueueCount }: QuickRateGridProps) => {
   const { activeProperty } = useProperty();
   const isMobile = useIsMobile();
 
-  // Property-aware day classification
   const weekendDays = useMemo(() => (activeProperty as any)?.weekend_days ?? [4, 5], [activeProperty]);
   const offPeakDays = useMemo(() => (activeProperty as any)?.off_peak_days ?? [], [activeProperty]);
   const isWeekendRate = useCallback((date: Date) => weekendDays.includes(date.getDay()), [weekendDays]);
   const isOffPeakDay = useCallback((date: Date) => offPeakDays.includes(date.getDay()), [offPeakDays]);
   const isWeekendHighlight = useCallback((date: Date) => weekendDays.includes(date.getDay()), [weekendDays]);
+
   const [loading, setLoading] = useState(true);
   const [ratePlans, setRatePlans] = useState<RatePlan[]>([]);
   const [prices, setPrices] = useState<Record<string, RatePlanPrice>>({});
   const [dateOverrides, setDateOverrides] = useState<Record<string, number>>({});
+  const [overrideSources, setOverrideSources] = useState<Set<string>>(new Set()); // keys that have any override
   const [weekStart, setWeekStart] = useState(() => startOfWeek(new Date(), { weekStartsOn: 0 }));
   const [pendingChanges, setPendingChanges] = useState<Map<string, PendingChange>>(new Map());
   const [activeCell, setActiveCell] = useState<string | null>(null);
@@ -131,9 +136,9 @@ export const QuickRateGrid = ({ onSyncQueueCount }: QuickRateGridProps) => {
   const [bulkDateTo, setBulkDateTo] = useState<Date | undefined>();
   const [lastCommittedCell, setLastCommittedCell] = useState<{ planId: string; colIdx: number; value: number } | null>(null);
   const [viewMode, setViewMode] = useState<'14days' | 'month'>('14days');
+  const [derivedChannels, setDerivedChannels] = useState<DerivedChannel[]>([]);
   const inputRefs = useRef<Record<string, HTMLInputElement | null>>({});
 
-  // Drag-to-fill state
   const [drag, setDrag] = useState<DragState>({ isDragging: false, planId: null, value: null, startColIdx: 0, currentColIdx: 0 });
 
   const days = useMemo(() => {
@@ -150,7 +155,6 @@ export const QuickRateGrid = ({ onSyncQueueCount }: QuickRateGridProps) => {
     fetchData();
   }, [propertyId]);
 
-  // Warn on unsaved changes
   useEffect(() => {
     const handleBeforeUnload = (e: BeforeUnloadEvent) => {
       if (pendingChanges.size > 0) {
@@ -162,7 +166,6 @@ export const QuickRateGrid = ({ onSyncQueueCount }: QuickRateGridProps) => {
     return () => window.removeEventListener('beforeunload', handleBeforeUnload);
   }, [pendingChanges.size]);
 
-  // Re-fetch date overrides when visible date range changes
   useEffect(() => {
     if (ratePlans.length > 0) {
       fetchDateOverrides();
@@ -179,20 +182,58 @@ export const QuickRateGrid = ({ onSyncQueueCount }: QuickRateGridProps) => {
       const planIds = ratePlans.map(p => p.id);
       if (planIds.length === 0) return;
 
-      const { data, error } = await supabase
+      // Fetch from rate_plan_date_overrides (higher priority)
+      const { data: dateOverrideData, error: doError } = await supabase
         .from('rate_plan_date_overrides')
         .select('rate_plan_id, override_date, rate')
         .in('rate_plan_id', planIds)
         .gte('override_date', startDate)
         .lte('override_date', endDate);
 
-      if (error) throw error;
+      if (doError) throw doError;
+
+      // Fetch from rate_plan_restrictions where rate IS NOT NULL
+      const { data: restrictionData, error: rError } = await supabase
+        .from('rate_plan_restrictions')
+        .select('rate_plan_id, date_from, date_to, rate')
+        .in('rate_plan_id', planIds)
+        .not('rate', 'is', null)
+        .lte('date_from', endDate)
+        .gte('date_to', startDate);
+
+      if (rError) throw rError;
 
       const overrideMap: Record<string, number> = {};
-      (data || []).forEach(row => {
-        overrideMap[`${row.rate_plan_id}:${row.override_date}`] = Number(row.rate);
+      const sourceSet = new Set<string>();
+
+      // First, expand restriction date ranges (lower priority)
+      (restrictionData || []).forEach(row => {
+        const from = new Date(row.date_from + 'T00:00:00');
+        const to = new Date(row.date_to + 'T00:00:00');
+        const visStart = new Date(startDate + 'T00:00:00');
+        const visEnd = new Date(endDate + 'T00:00:00');
+        const effectiveFrom = from < visStart ? visStart : from;
+        const effectiveTo = to > visEnd ? visEnd : to;
+
+        let current = new Date(effectiveFrom);
+        while (current <= effectiveTo) {
+          const ds = format(current, 'yyyy-MM-dd');
+          const key = `${row.rate_plan_id}:${ds}`;
+          overrideMap[key] = Number(row.rate);
+          sourceSet.add(key);
+          current = addDays(current, 1);
+        }
       });
+
+      // Then, overlay date_overrides (higher priority — overwrites restriction rates)
+      (dateOverrideData || []).forEach(row => {
+        const key = `${row.rate_plan_id}:${row.override_date}`;
+        overrideMap[key] = Number(row.rate);
+        sourceSet.add(key);
+      });
+
       setDateOverrides(overrideMap);
+      setOverrideSources(sourceSet);
     } catch (err) {
       console.error('Error fetching date overrides:', err);
     }
@@ -201,12 +242,14 @@ export const QuickRateGrid = ({ onSyncQueueCount }: QuickRateGridProps) => {
   const fetchData = async () => {
     setLoading(true);
     try {
-      const [plansRes, pricesRes] = await Promise.all([
+      const [plansRes, pricesRes, markupsRes, derivedRes] = await Promise.all([
         withPropertyFilter(
           supabase.from('rate_plans').select('id, name, room_type, valid_from, valid_to, property_id').eq('is_active', true).order('room_type').order('name'),
           propertyId
         ),
         supabase.from('rate_plan_prices').select('*').is('unit_id', null),
+        withPropertyFilter(supabase.from('channel_markup_settings').select('id, channel_name, markup_percentage').eq('is_active', true), propertyId),
+        withPropertyFilter(supabase.from('derived_rate_plan_mappings').select('id, base_rate_plan_id, channel_markup_id, channel_name, markup_percentage'), propertyId),
       ]);
       if (plansRes.error) throw plansRes.error;
       if (pricesRes.error) throw pricesRes.error;
@@ -219,6 +262,21 @@ export const QuickRateGrid = ({ onSyncQueueCount }: QuickRateGridProps) => {
         priceMap[p.rate_plan_id] = p;
       });
       setPrices(priceMap);
+
+      // Build derived channels from actual DB data
+      const channelMap = new Map<string, DerivedChannel>();
+      ((derivedRes.data as any[]) || []).forEach((dm: any) => {
+        const key = dm.channel_name;
+        if (!channelMap.has(key)) {
+          channelMap.set(key, {
+            channelName: dm.channel_name,
+            markupPercentage: Number(dm.markup_percentage),
+            basePlanIds: new Set(),
+          });
+        }
+        channelMap.get(key)!.basePlanIds.add(dm.base_rate_plan_id);
+      });
+      setDerivedChannels(Array.from(channelMap.values()));
     } catch (err) {
       console.error('Error fetching rate data:', err);
       toast.error('Failed to load rate data');
@@ -254,17 +312,14 @@ export const QuickRateGrid = ({ onSyncQueueCount }: QuickRateGridProps) => {
     const key = getCellKey(planId, dateStr);
     const pending = pendingChanges.get(key);
     if (pending) return pending.newRate;
-    // Check date-specific override before base rate
     const override = dateOverrides[key];
     if (override !== undefined) return override;
     if (!price) return 0;
-    // Priority: off-peak > weekend > weekday
     if (isOffPeakDay(date) && price.off_peak_rate != null) return price.off_peak_rate;
     if (isWeekendRate(date)) return price.weekend_rate;
     return price.weekday_rate;
   };
 
-  // Get base rate for a plan (weekday_rate from rate_plan_prices)
   const getBaseRate = (planId: string): number => {
     const price = prices[planId];
     return price ? price.weekday_rate : 0;
@@ -326,7 +381,6 @@ export const QuickRateGrid = ({ onSyncQueueCount }: QuickRateGridProps) => {
   }, [drag, days, ratePlans, prices, pendingChanges]);
 
   const handleCellClick = (planId: string, date: Date, price: RatePlanPrice | null, colIdx: number, shiftKey?: boolean) => {
-    // Shift+Click range fill
     if (shiftKey && lastCommittedCell && lastCommittedCell.planId === planId) {
       const plan = ratePlans.find(p => p.id === planId);
       if (!plan) return;
@@ -497,7 +551,6 @@ export const QuickRateGrid = ({ onSyncQueueCount }: QuickRateGridProps) => {
         byPlan.set(change.ratePlanId, list);
       });
 
-      // Step 1: Persist rate changes to rate_plan_date_overrides table (not base rates)
       setSyncProgress(30);
       const overrideRows = Array.from(pendingChanges.values()).map(change => ({
         rate_plan_id: change.ratePlanId,
@@ -515,7 +568,6 @@ export const QuickRateGrid = ({ onSyncQueueCount }: QuickRateGridProps) => {
 
       setSyncProgress(50);
 
-      // Step 2: Push to Channex directly (no queue, no timers)
       const updates = Array.from(pendingChanges.values()).map(change => ({
         property_id: propertyId,
         rate_plan_id: change.ratePlanId,
@@ -534,7 +586,6 @@ export const QuickRateGrid = ({ onSyncQueueCount }: QuickRateGridProps) => {
 
       setSyncProgress(80);
 
-      // Step 3: Update local dateOverrides state so grid keeps showing new values
       setDateOverrides(prev => {
         const updated = { ...prev };
         pendingChanges.forEach(change => {
@@ -543,7 +594,14 @@ export const QuickRateGrid = ({ onSyncQueueCount }: QuickRateGridProps) => {
         return updated;
       });
 
-      // Step 4: Clear pending changes
+      setOverrideSources(prev => {
+        const next = new Set(prev);
+        pendingChanges.forEach(change => {
+          next.add(`${change.ratePlanId}:${change.date}`);
+        });
+        return next;
+      });
+
       const changeCount = pendingChanges.size;
       setPendingChanges(new Map());
 
@@ -614,7 +672,6 @@ export const QuickRateGrid = ({ onSyncQueueCount }: QuickRateGridProps) => {
     toast.success(`${count} cell(s) updated`);
   };
 
-  // Drag helpers
   const getDraggedColRange = (): [number, number] | null => {
     if (!drag.isDragging) return null;
     return [Math.min(drag.startColIdx, drag.currentColIdx), Math.max(drag.startColIdx, drag.currentColIdx)];
@@ -638,7 +695,6 @@ export const QuickRateGrid = ({ onSyncQueueCount }: QuickRateGridProps) => {
 
   const formatCurrency = (v: number) => `$${v.toLocaleString()}`;
 
-  // Navigation handlers
   const handlePrev = () => {
     if (viewMode === 'month') {
       setWeekStart(prev => subMonths(prev, 1));
@@ -664,6 +720,147 @@ export const QuickRateGrid = ({ onSyncQueueCount }: QuickRateGridProps) => {
   };
 
   const cellMinWidth = viewMode === 'month' ? 'min-w-[70px]' : 'min-w-[90px]';
+
+  // Render a calendar grid section (reused for Direct + OTA)
+  const renderCalendarGrid = (
+    gridRows: typeof rows,
+    options: {
+      editable: boolean;
+      markupPct?: number;
+      headerLabel: string;
+      headerSubtitle?: string;
+      headerClassName?: string;
+    }
+  ) => {
+    const { editable, markupPct, headerLabel, headerSubtitle, headerClassName } = options;
+    const applyMarkup = (rate: number) => markupPct ? Math.round(rate * (1 + markupPct / 100)) : rate;
+
+    return (
+      <div className="space-y-2">
+        <div className={cn("px-3 py-2 rounded-md", headerClassName || "bg-muted/50")}>
+          <h3 className="text-sm font-semibold">{headerLabel}</h3>
+          {headerSubtitle && <p className="text-[11px] text-muted-foreground">{headerSubtitle}</p>}
+        </div>
+
+        {gridRows.length === 0 ? (
+          <p className="text-center text-muted-foreground py-4 text-sm">No rate plans found.</p>
+        ) : (
+          <ScrollArea className="w-full">
+            <table className="w-full border-collapse text-sm select-none">
+              <thead>
+                <tr>
+                  <th className="text-left p-2 border-b bg-muted/50 sticky left-0 z-10 min-w-[160px]" style={{ boxShadow: '2px 0 4px rgba(0,0,0,0.1)' }}>Room / Plan</th>
+                  {days.map((d) => (
+                    <th key={d.toISOString()} className={`text-center p-2 border-b ${cellMinWidth} ${isWeekendHighlight(d) ? 'bg-accent/30' : isOffPeakDay(d) ? 'bg-blue-50 dark:bg-blue-900/20' : 'bg-muted/50'}`}>
+                      <div className="font-medium">{format(d, viewMode === 'month' ? 'd' : 'MMM d')}</div>
+                      <div className="text-[10px] text-muted-foreground font-normal">{format(d, 'EEE')}</div>
+                    </th>
+                  ))}
+                </tr>
+              </thead>
+              <tbody>
+                {gridRows.map(({ plan, price }) => {
+                  const baseRate = getBaseRate(plan.id);
+                  const effectiveBaseRate = markupPct ? Math.round(baseRate * (1 + markupPct / 100)) : baseRate;
+                  return (
+                    <tr key={plan.id} className="border-b hover:bg-muted/10">
+                      <td className="p-2 sticky left-0 bg-background z-10 border-r" style={{ boxShadow: '2px 0 4px rgba(0,0,0,0.1)' }}>
+                        <div className="font-medium text-xs leading-tight">{plan.room_type}</div>
+                        <div className="text-[10px] text-muted-foreground">{plan.name}</div>
+                      </td>
+                      {days.map((d, colIdx) => {
+                        const dateStr = format(d, 'yyyy-MM-dd');
+                        const key = getCellKey(plan.id, dateStr);
+                        const directRate = getEffectiveRate(price, d, plan.id);
+                        const rate = applyMarkup(directRate);
+                        const isPending = editable && pendingChanges.has(key);
+                        const isActive = editable && activeCell === key;
+                        const weekend = isWeekendHighlight(d);
+                        const inDragRange = editable && isCellInDragRange(plan.id, colIdx);
+                        const offPeak = isOffPeakDay(d);
+                        const hasOverride = overrideSources.has(key);
+                        const varianceColor = !isPending && !inDragRange && rate > 0 ? getCellColor(rate, effectiveBaseRate, weekend, offPeak) : '';
+                        const arrow = !isPending && rate > 0 ? getVarianceArrow(rate, effectiveBaseRate) : '';
+
+                        return (
+                          <td
+                            key={key}
+                            className={cn(
+                              `text-center p-0.5 ${cellMinWidth}`,
+                              editable && 'cursor-pointer',
+                              inDragRange && 'border-2 border-dashed border-primary/60 bg-primary/10',
+                              !inDragRange && isPending && 'bg-yellow-100 dark:bg-yellow-900/30',
+                              !editable && 'cursor-default'
+                            )}
+                            style={!inDragRange && !isPending && varianceColor ? { backgroundColor: varianceColor } : undefined}
+                            onClick={editable ? (e) => !isActive && !drag.isDragging && handleCellClick(plan.id, d, price, colIdx, e.shiftKey) : undefined}
+                            onMouseEnter={editable ? () => handleDragEnter(plan.id, colIdx) : undefined}
+                          >
+                            {isActive ? (
+                              <div className="flex items-center">
+                                <input
+                                  ref={el => { inputRefs.current[key] = el; }}
+                                  type="number"
+                                  className="w-full h-8 text-center text-sm border rounded bg-background focus:ring-2 focus:ring-primary [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none"
+                                  value={editValue}
+                                  onChange={e => setEditValue(e.target.value)}
+                                  onBlur={() => commitCell(key)}
+                                  onKeyDown={e => {
+                                    if (e.key === 'Enter') navigateCell(key, 'down');
+                                    else if (e.key === 'Tab') { e.preventDefault(); navigateCell(key, e.shiftKey ? 'left' : 'right'); }
+                                    else if (e.key === 'Escape') setActiveCell(null);
+                                    else if (e.key === 'ArrowDown') { e.preventDefault(); navigateCell(key, 'down'); }
+                                    else if (e.key === 'ArrowUp') { e.preventDefault(); navigateCell(key, 'up'); }
+                                    else if ((e.ctrlKey || e.metaKey) && e.key === 'ArrowRight') {
+                                      e.preventDefault();
+                                      copyToNextCell(key, e.shiftKey);
+                                    }
+                                    else if (e.key === 'ArrowRight' && (e.target as HTMLInputElement).selectionStart === editValue.length) { e.preventDefault(); navigateCell(key, 'right'); }
+                                    else if (e.key === 'ArrowLeft' && (e.target as HTMLInputElement).selectionStart === 0) { e.preventDefault(); navigateCell(key, 'left'); }
+                                  }}
+                                  autoFocus
+                                />
+                              </div>
+                            ) : (
+                              <div className="h-8 flex items-center justify-center text-sm font-mono group relative">
+                                <span>
+                                  {inDragRange && drag.value !== null
+                                    ? formatCurrency(applyMarkup(drag.value))
+                                    : rate > 0 ? formatCurrency(rate) : '—'}
+                                  {arrow && <span className={`ml-0.5 text-[10px] ${arrow === '▲' ? 'text-green-600' : 'text-orange-600'}`}>{arrow}</span>}
+                                </span>
+                                {hasOverride && !isPending && rate > 0 && (
+                                  <span className="absolute top-0 left-0.5 text-[8px] text-blue-600 dark:text-blue-400 leading-none">◆</span>
+                                )}
+                                {isPending && <span className="absolute top-0.5 right-0.5 w-1.5 h-1.5 rounded-full bg-yellow-500" />}
+                                {editable && rate > 0 && !drag.isDragging && (
+                                  <div
+                                    className="absolute right-0 top-0 bottom-0 w-4 flex items-center justify-center opacity-0 group-hover:opacity-60 hover:!opacity-100 cursor-grab"
+                                    onMouseDown={(e) => {
+                                      e.preventDefault();
+                                      e.stopPropagation();
+                                      handleDragStart(plan.id, colIdx, directRate);
+                                    }}
+                                  >
+                                    <GripVertical className="h-3 w-3 text-muted-foreground rotate-90" />
+                                  </div>
+                                )}
+                              </div>
+                            )}
+                          </td>
+                        );
+                      })}
+                    </tr>
+                  );
+                })}
+              </tbody>
+            </table>
+            <ScrollBar orientation="horizontal" />
+          </ScrollArea>
+        )}
+      </div>
+    );
+  };
 
   if (loading) {
     return <div className="flex items-center justify-center py-16 text-muted-foreground">Loading rates...</div>;
@@ -789,117 +986,36 @@ export const QuickRateGrid = ({ onSyncQueueCount }: QuickRateGridProps) => {
             <span>Off-Peak ({offPeakDays.map(d => DAY_NAMES[d]).join('–')})</span>
           </div>
         )}
+        <div className="flex items-center gap-1.5">
+          <span className="text-blue-600 dark:text-blue-400 text-xs leading-none">◆</span>
+          <span>Custom Rate</span>
+        </div>
       </div>
 
-      {/* Grid */}
-      {rows.length === 0 ? (
-        <p className="text-center text-muted-foreground py-8">No rate plans found. Create rate plans in the Rate Plans tab first.</p>
-      ) : (
-        <ScrollArea className="w-full">
-          <table className="w-full border-collapse text-sm select-none">
-            <thead>
-              <tr>
-                <th className="text-left p-2 border-b bg-muted/50 sticky left-0 z-10 min-w-[160px]" style={{ boxShadow: '2px 0 4px rgba(0,0,0,0.1)' }}>Room / Plan</th>
-                {days.map((d, colIdx) => (
-                  <th key={d.toISOString()} className={`text-center p-2 border-b ${cellMinWidth} ${isWeekendHighlight(d) ? 'bg-accent/30' : isOffPeakDay(d) ? 'bg-blue-50 dark:bg-blue-900/20' : 'bg-muted/50'}`}>
-                    <div className="font-medium">{format(d, viewMode === 'month' ? 'd' : 'MMM d')}</div>
-                    <div className="text-[10px] text-muted-foreground font-normal">{format(d, 'EEE')}</div>
-                  </th>
-                ))}
-              </tr>
-            </thead>
-            <tbody>
-              {rows.map(({ plan, price }) => {
-                const baseRate = getBaseRate(plan.id);
-                return (
-                <tr key={plan.id} className="border-b hover:bg-muted/10">
-                  <td className="p-2 sticky left-0 bg-background z-10 border-r" style={{ boxShadow: '2px 0 4px rgba(0,0,0,0.1)' }}>
-                    <div className="font-medium text-xs leading-tight">{plan.room_type}</div>
-                    <div className="text-[10px] text-muted-foreground">{plan.name}</div>
-                  </td>
-                  {days.map((d, colIdx) => {
-                    const dateStr = format(d, 'yyyy-MM-dd');
-                    const key = getCellKey(plan.id, dateStr);
-                    const rate = getEffectiveRate(price, d, plan.id);
-                    const isPending = pendingChanges.has(key);
-                    const isActive = activeCell === key;
-                    const weekend = isWeekendHighlight(d);
-                    const inDragRange = isCellInDragRange(plan.id, colIdx);
-                    const offPeak = isOffPeakDay(d);
-                    const varianceColor = !isPending && !inDragRange && rate > 0 ? getCellColor(rate, baseRate, weekend, offPeak) : '';
-                    const arrow = !isPending && rate > 0 ? getVarianceArrow(rate, baseRate) : '';
+      {/* Direct Booking Rates Calendar */}
+      {renderCalendarGrid(rows, {
+        editable: true,
+        headerLabel: 'Direct Booking Rates',
+        headerSubtitle: 'Net rates for direct bookings',
+        headerClassName: 'bg-muted/50',
+      })}
 
-                    return (
-                      <td
-                        key={key}
-                        className={`text-center p-0.5 cursor-pointer transition-colors relative ${cellMinWidth} ${
-                          inDragRange
-                            ? 'border-2 border-dashed border-primary/60 bg-primary/10'
-                            : isPending
-                              ? 'bg-yellow-100 dark:bg-yellow-900/30'
-                              : ''
-                        }`}
-                        style={!inDragRange && !isPending && varianceColor ? { backgroundColor: varianceColor } : undefined}
-                        onClick={(e) => !isActive && !drag.isDragging && handleCellClick(plan.id, d, price, colIdx, e.shiftKey)}
-                        onMouseEnter={() => handleDragEnter(plan.id, colIdx)}
-                      >
-                        {isActive ? (
-                          <div className="flex items-center">
-                            <input
-                              ref={el => { inputRefs.current[key] = el; }}
-                              type="number"
-                              className="w-full h-8 text-center text-sm border rounded bg-background focus:ring-2 focus:ring-primary [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none"
-                              value={editValue}
-                              onChange={e => setEditValue(e.target.value)}
-                              onBlur={() => commitCell(key)}
-                              onKeyDown={e => {
-                                if (e.key === 'Enter') navigateCell(key, 'down');
-                                else if (e.key === 'Tab') { e.preventDefault(); navigateCell(key, e.shiftKey ? 'left' : 'right'); }
-                                else if (e.key === 'Escape') setActiveCell(null);
-                                else if (e.key === 'ArrowDown') { e.preventDefault(); navigateCell(key, 'down'); }
-                                else if (e.key === 'ArrowUp') { e.preventDefault(); navigateCell(key, 'up'); }
-                                else if ((e.ctrlKey || e.metaKey) && e.key === 'ArrowRight') {
-                                  e.preventDefault();
-                                  copyToNextCell(key, e.shiftKey);
-                                }
-                                else if (e.key === 'ArrowRight' && (e.target as HTMLInputElement).selectionStart === editValue.length) { e.preventDefault(); navigateCell(key, 'right'); }
-                                else if (e.key === 'ArrowLeft' && (e.target as HTMLInputElement).selectionStart === 0) { e.preventDefault(); navigateCell(key, 'left'); }
-                              }}
-                              autoFocus
-                            />
-                          </div>
-                        ) : (
-                          <div className="h-8 flex items-center justify-center text-sm font-mono group relative">
-                            <span>
-                              {inDragRange && drag.value !== null ? formatCurrency(drag.value) : rate > 0 ? formatCurrency(rate) : '—'}
-                              {arrow && <span className={`ml-0.5 text-[10px] ${arrow === '▲' ? 'text-green-600' : 'text-orange-600'}`}>{arrow}</span>}
-                            </span>
-                            {isPending && <span className="absolute top-0.5 right-0.5 w-1.5 h-1.5 rounded-full bg-yellow-500" />}
-                            {/* Drag handle */}
-                            {rate > 0 && !drag.isDragging && (
-                              <div
-                                className="absolute right-0 top-0 bottom-0 w-4 flex items-center justify-center opacity-0 group-hover:opacity-60 hover:!opacity-100 cursor-grab"
-                                onMouseDown={(e) => {
-                                  e.preventDefault();
-                                  e.stopPropagation();
-                                  handleDragStart(plan.id, colIdx, rate);
-                                }}
-                              >
-                                <GripVertical className="h-3 w-3 text-muted-foreground rotate-90" />
-                              </div>
-                            )}
-                          </div>
-                        )}
-                      </td>
-                    );
-                  })}
-                </tr>
-              )})}
-            </tbody>
-          </table>
-          <ScrollBar orientation="horizontal" />
-        </ScrollArea>
-      )}
+      {/* OTA Calendars - one per derived channel */}
+      {derivedChannels.map(channel => {
+        const channelRows = rows.filter(r => channel.basePlanIds.has(r.plan.id));
+        if (channelRows.length === 0) return null;
+        return (
+          <div key={channel.channelName} className="mt-6">
+            {renderCalendarGrid(channelRows, {
+              editable: false,
+              markupPct: channel.markupPercentage,
+              headerLabel: `${channel.channelName} Rates`,
+              headerSubtitle: `Standard Rate + ${channel.markupPercentage}% markup`,
+              headerClassName: 'bg-blue-50 dark:bg-blue-900/20',
+            })}
+          </div>
+        );
+      })}
 
       {/* Pending changes panel */}
       {pendingChanges.size > 0 && (
