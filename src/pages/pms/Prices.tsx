@@ -413,11 +413,11 @@ const PMSPrices = () => {
         <Tabs defaultValue="rate-plans">
           <TabsList className="mb-4">
             <TabsTrigger value="rate-plans">Rate Plans</TabsTrigger>
-            <TabsTrigger value="price-lab">Price Lab</TabsTrigger>
             <TabsTrigger value="pricing-rules">Pricing Rules</TabsTrigger>
+            <TabsTrigger value="rate-calendar">Rate Calendar</TabsTrigger>
           </TabsList>
 
-          <TabsContent value="price-lab">
+          <TabsContent value="rate-calendar">
             <QuickRateGrid />
           </TabsContent>
 
