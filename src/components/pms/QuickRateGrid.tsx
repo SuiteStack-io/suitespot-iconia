@@ -921,6 +921,136 @@ export const QuickRateGrid = ({ onSyncQueueCount }: QuickRateGridProps) => {
     );
   };
 
+  if (loading) {
+    return <div className="flex items-center justify-center py-16 text-muted-foreground">Loading rates...</div>;
+  }
+
+  return (
+    <div className="space-y-4">
+      {/* Toolbar */}
+      <div className="flex flex-wrap items-center gap-3">
+        <Select value={filterRoomType} onValueChange={setFilterRoomType}>
+          <SelectTrigger className="w-[180px]">
+            <SelectValue placeholder="Room Type" />
+          </SelectTrigger>
+          <SelectContent>
+            <SelectItem value="all">All Room Types</SelectItem>
+            {roomTypes.map(rt => (
+              <SelectItem key={rt} value={rt}>{rt}</SelectItem>
+            ))}
+          </SelectContent>
+        </Select>
+
+        <Select value={filterRatePlan} onValueChange={setFilterRatePlan}>
+          <SelectTrigger className="w-[180px]">
+            <SelectValue placeholder="Rate Plan" />
+          </SelectTrigger>
+          <SelectContent>
+            <SelectItem value="all">All Rate Plans</SelectItem>
+            {ratePlans.map(rp => (
+              <SelectItem key={rp.id} value={rp.id}>{rp.room_type} / {rp.name}</SelectItem>
+            ))}
+          </SelectContent>
+        </Select>
+
+        <Button variant="outline" size="sm" onClick={() => setBulkOpen(true)} className="gap-1.5">
+          <Pencil className="h-3.5 w-3.5" />
+          Bulk Edit
+        </Button>
+
+        <div className="ml-auto flex items-center gap-2">
+          {syncSuccess && (
+            <Badge className="gap-1 bg-green-100 text-green-800 dark:bg-green-900/30 dark:text-green-400 border-green-200">
+              <Check className="h-3 w-3" />
+              Synced
+            </Badge>
+          )}
+          {pendingChanges.size > 0 && (
+            <>
+              <Badge variant="secondary" className="gap-1 bg-yellow-100 text-yellow-800 dark:bg-yellow-900/30 dark:text-yellow-400 border-yellow-300">
+                {pendingChanges.size} pending
+              </Badge>
+              <Button size="sm" onClick={syncNow} disabled={syncing} className="gap-1.5 bg-black text-white hover:bg-black/90">
+                <Save className="h-3.5 w-3.5" />
+                {syncing ? 'Saving...' : 'Save Changes'}
+              </Button>
+            </>
+          )}
+        </div>
+      </div>
+
+      {/* Progress bar */}
+      {(syncing || syncProgress > 0) && (
+        <Progress value={syncProgress} className="h-2 [&>div]:bg-black" />
+      )}
+
+      {/* Date nav + View toggle */}
+      <div className="flex items-center gap-2 flex-wrap">
+        <Button variant="ghost" size="icon" onClick={handlePrev}>
+          <ChevronLeft className="h-4 w-4" />
+        </Button>
+        <span className="text-sm font-medium">
+          {viewMode === 'month'
+            ? format(startOfMonth(weekStart), 'MMMM yyyy')
+            : `${format(days[0], 'MMM d')} – ${format(days[days.length - 1], 'MMM d, yyyy')}`
+          }
+        </span>
+        <Button variant="ghost" size="icon" onClick={handleNext}>
+          <ChevronRight className="h-4 w-4" />
+        </Button>
+        <Button variant="ghost" size="sm" className="text-xs" onClick={handleToday}>
+          {viewMode === 'month' ? 'This Month' : 'Today'}
+        </Button>
+
+        <div className="ml-auto flex items-center gap-1 border rounded-md p-0.5">
+          <Button
+            variant={viewMode === '14days' ? 'default' : 'ghost'}
+            size="sm"
+            className="text-xs h-7 px-3"
+            onClick={() => setViewMode('14days')}
+          >
+            14 Days
+          </Button>
+          <Button
+            variant={viewMode === 'month' ? 'default' : 'ghost'}
+            size="sm"
+            className="text-xs h-7 px-3"
+            onClick={() => {
+              setViewMode('month');
+              setWeekStart(startOfMonth(weekStart));
+            }}
+          >
+            Month
+          </Button>
+        </div>
+      </div>
+
+      {/* Price variance legend */}
+      <div className="flex items-center gap-4 text-[11px] text-muted-foreground flex-wrap">
+        <div className="flex items-center gap-1.5">
+          <span className="inline-block w-3 h-3 rounded-sm" style={{ backgroundColor: '#C8E6C9' }} />
+          <span>Above base rate</span>
+        </div>
+        <div className="flex items-center gap-1.5">
+          <span className="inline-block w-3 h-3 rounded-sm" style={{ backgroundColor: '#FFE0B2' }} />
+          <span>Below base rate</span>
+        </div>
+        <div className="flex items-center gap-1.5">
+          <span className="inline-block w-3 h-3 rounded-sm" style={{ backgroundColor: 'hsl(0 70% 97%)' }} />
+          <span>Weekend ({weekendDays.map(d => DAY_NAMES[d]).join('–')})</span>
+        </div>
+        {offPeakDays.length > 0 && (
+          <div className="flex items-center gap-1.5">
+            <span className="inline-block w-3 h-3 rounded-sm" style={{ backgroundColor: '#E3F2FD' }} />
+            <span>Off-Peak ({offPeakDays.map(d => DAY_NAMES[d]).join('–')})</span>
+          </div>
+        )}
+        <div className="flex items-center gap-1.5">
+          <span className="text-blue-600 dark:text-blue-400 text-xs leading-none">◆</span>
+          <span>Custom Rate</span>
+        </div>
+      </div>
+
       {/* Combined Rate Calendar */}
       {renderCombinedTable()}
 
