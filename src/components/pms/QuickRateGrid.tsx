@@ -1,4 +1,4 @@
-import { useState, useEffect, useRef, useCallback, useMemo } from 'react';
+import React, { useState, useEffect, useRef, useCallback, useMemo } from 'react';
 import { format, addDays, startOfWeek, startOfMonth, endOfMonth, eachDayOfInterval, differenceInDays, addMonths, subMonths } from 'date-fns';
 import { ChevronLeft, ChevronRight, Send, Trash2, Pencil, GripVertical, Check, CalendarIcon, Save } from 'lucide-react';
 import { Progress } from '@/components/ui/progress';
@@ -920,6 +920,9 @@ export const QuickRateGrid = ({ onSyncQueueCount }: QuickRateGridProps) => {
       </ScrollArea>
     );
   };
+
+      {/* Combined Rate Calendar */}
+      {renderCombinedTable()}
 
       {/* Pending changes panel */}
       {pendingChanges.size > 0 && (
