@@ -1,36 +1,30 @@
 
 
-## Add Sortable "Created" Column to Current Restrictions Table
+## Fix: Convert Restriction Rates from Cents to Dollars in Rate Calendar
 
-### File: `src/components/pms/RestrictionsLogTable.tsx`
+### Problem
+`rate_plan_restrictions.rate` is stored in cents (e.g., 9900 = $99). Line 222 of `QuickRateGrid.tsx` uses the raw value, causing $9,900 to display instead of $99.
 
-**1. Add `created_at` to the `RestrictionRow` interface**
-- Add `created_at: string | null` field
+### Fix
 
-**2. Add sort state**
-- `sortDirection`: `'desc' | 'asc' | null` — defaults to `'desc'` (newest first)
-- Sort the displayed restrictions array based on this state before rendering
+**File:** `src/components/pms/QuickRateGrid.tsx`, line 222
 
-**3. Change default fetch order**
-- Change `.order('date_from', { ascending: true })` to `.order('created_at', { ascending: false })` so the default data arrives newest-first
+Change:
+```typescript
+overrideMap[key] = Number(row.rate);
+```
+To:
+```typescript
+overrideMap[key] = Number(row.rate) / 100;
+```
 
-**4. Add "Created" column to the table**
-- Insert a new `<TableHead>` between "Restrictions" and "Sync" columns
-- Make it clickable with a cursor-pointer style
-- Show arrow indicator: `↓` for desc, `↑` for asc, nothing for default
-- On click: cycle through desc → asc → default (reset to date_from order)
-- Display: `format(new Date(r.created_at), 'MMM d, yyyy h:mm a')` or "—" if null
+### Why only this line
+- `rate_plan_date_overrides` stores rates in dollars (and is currently empty) — no conversion needed there
+- The rest of the grid reads from `rate_plan_prices` which also stores in dollars
+- This single-line fix affects both Direct and OTA calendars since OTA derives from the same `overrideMap`
 
-**5. Add corresponding `<TableCell>`**
-- Between the Restrictions cell and the Sync cell
-- Format the timestamp readably
-
-### No Database Changes
-The `created_at` column already exists with `DEFAULT now()`. No migration needed.
-
-### No Other Changes
-- Other columns unchanged
-- Calendar grid unchanged
-- Bulk Editor unchanged
-- Save/sync logic unchanged
+### No other changes
+- No database changes
+- No changes to Channex sync
+- No changes to other tabs
 
