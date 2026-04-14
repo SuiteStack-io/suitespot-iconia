@@ -54,6 +54,17 @@ interface BulkRestrictionEditorProps {
   setPendingRestrictions: React.Dispatch<React.SetStateAction<PendingRestriction[]>>;
 }
 
+interface CurrentRates {
+  weekday_rate: number;
+  weekend_rate: number;
+  off_peak_rate: number | null;
+}
+
+interface DerivedMarkup {
+  channel_name: string;
+  markup_percentage: number;
+}
+
 export function BulkRestrictionEditor({ ratePlans, onSaved, onRatePlanFocused, pendingRestrictions, setPendingRestrictions }: BulkRestrictionEditorProps) {
   const { toast } = useToast();
   const [selectedRoomType, setSelectedRoomType] = useState<string>('all');
@@ -62,6 +73,12 @@ export function BulkRestrictionEditor({ ratePlans, onSaved, onRatePlanFocused, p
   const [dateTo, setDateTo] = useState<Date>();
   const [clearing, setClearing] = useState(false);
   const [isSaving, setIsSaving] = useState(false);
+
+  // Current rates display state
+  const [currentRates, setCurrentRates] = useState<CurrentRates | null>(null);
+  const [derivedMarkups, setDerivedMarkups] = useState<DerivedMarkup[]>([]);
+  const [hasDateOverrides, setHasDateOverrides] = useState(false);
+  const [ratesLoading, setRatesLoading] = useState(false);
 
   // Derived room types
   const roomTypes = useMemo(
@@ -79,6 +96,73 @@ export function BulkRestrictionEditor({ ratePlans, onSaved, onRatePlanFocused, p
   useEffect(() => {
     setSelectedPlanId('all');
   }, [selectedRoomType]);
+
+  // Fetch current rates when room type changes
+  useEffect(() => {
+    if (selectedRoomType === 'all') {
+      setCurrentRates(null);
+      setDerivedMarkups([]);
+      setHasDateOverrides(false);
+      return;
+    }
+
+    const fetchRates = async () => {
+      setRatesLoading(true);
+      try {
+        // Find rate plans for this room type
+        const matchingPlans = ratePlans.filter((p) => p.room_type === selectedRoomType);
+        if (matchingPlans.length === 0) {
+          setCurrentRates(null);
+          setDerivedMarkups([]);
+          setHasDateOverrides(false);
+          return;
+        }
+
+        const planIds = matchingPlans.map((p) => p.id);
+
+        // Fetch base rates, derived markups, and date overrides in parallel
+        const [pricesRes, markupsRes, overridesRes] = await Promise.all([
+          supabase
+            .from('rate_plan_prices')
+            .select('weekday_rate, weekend_rate, off_peak_rate')
+            .in('rate_plan_id', planIds)
+            .is('unit_id', null)
+            .limit(1)
+            .maybeSingle(),
+          supabase
+            .from('derived_rate_plan_mappings')
+            .select('channel_name, markup_percentage')
+            .in('base_rate_plan_id', planIds),
+          supabase
+            .from('rate_plan_date_overrides')
+            .select('id', { count: 'exact', head: true })
+            .in('rate_plan_id', planIds),
+        ]);
+
+        if (pricesRes.data) {
+          setCurrentRates({
+            weekday_rate: Number(pricesRes.data.weekday_rate),
+            weekend_rate: Number(pricesRes.data.weekend_rate),
+            off_peak_rate: pricesRes.data.off_peak_rate != null ? Number(pricesRes.data.off_peak_rate) : null,
+          });
+        } else {
+          setCurrentRates(null);
+        }
+
+        setDerivedMarkups(markupsRes.data || []);
+        setHasDateOverrides((overridesRes.count ?? 0) > 0);
+      } catch (err) {
+        console.error('Error fetching current rates:', err);
+        setCurrentRates(null);
+        setDerivedMarkups([]);
+        setHasDateOverrides(false);
+      } finally {
+        setRatesLoading(false);
+      }
+    };
+
+    fetchRates();
+  }, [selectedRoomType, ratePlans]);
 
   // Restriction toggles
   const [enableRate, setEnableRate] = useState(false);
