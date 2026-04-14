@@ -1,30 +1,53 @@
 
 
-## Update default_min_stay_arrival to 2-Night Minimum
+## Three Changes to the Prices Page
 
-### Database Migration
+### 1. Show Date-Specific Rate Overrides from `rate_plan_restrictions`
 
-Run a single UPDATE to change `default_min_stay_arrival` from `{1,1,1,1,1,1,1}` to `{2,2,2,2,2,2,2}` on all rate plans where it's currently `{1,1,1,1,1,1,1}`:
+**Current state:** `QuickRateGrid` already fetches from `rate_plan_date_overrides` and shows those overrides. However, it does NOT check `rate_plan_restrictions.rate` — rates set via the Bulk Restriction Editor are invisible in the calendar.
 
-```sql
-UPDATE rate_plans 
-SET default_min_stay_arrival = '{2,2,2,2,2,2,2}'::integer[] 
-WHERE default_min_stay_arrival = '{1,1,1,1,1,1,1}'::integer[];
-```
+**Fix in `src/components/pms/QuickRateGrid.tsx`:**
+- In `fetchDateOverrides()`, also query `rate_plan_restrictions` for rows where `rate IS NOT NULL` and date ranges overlap the visible range
+- Merge restriction-based rates into the `dateOverrides` map (date overrides from `rate_plan_date_overrides` take priority if both exist for the same date)
+- Expand dates from `date_from`/`date_to` ranges into individual date entries
+- In `getEffectiveRate()`, no changes needed — it already reads from `dateOverrides`
+- Add visual distinction: cells with an override get a small diamond indicator (◆) and the legend gets a "Custom Rate" entry with the indicator
 
-This updates all 6 rate plans (5 active + 1 archived). The archived one won't affect anything since it's not synced to Channex.
+### 2. Rename and Reorder Tabs
 
-### Verification
+**File:** `src/pages/pms/Prices.tsx` (lines 413-418)
 
-After migration, confirm both arrays match:
-- `default_min_stay_arrival`: `{2,2,2,2,2,2,2}`
-- `default_min_stay_through`: `{2,2,2,2,2,2,2}` (already correct on 5 active plans)
+Change tab order from:
+- Rate Plans | Price Lab | Pricing Rules
 
-### No Code Changes
+To:
+- Rate Plans | Pricing Rules | Rate Calendar
 
-No edge functions, UI components, or other files are modified.
+Just reorder the `TabsTrigger` elements and rename "Price Lab" to "Rate Calendar". Keep `TabsContent` values unchanged (just rename the value key).
 
-### After Migration
+### 3. Add Separate Direct + OTA Calendars
 
-You'll need to manually click "Run Full Sync Now" to push `min_stay_arrival: 2` to Channex for all 500 days.
+**File:** `src/components/pms/QuickRateGrid.tsx`
+
+- Fetch `channel_markup_settings` (active) and `derived_rate_plan_mappings` to get OTA channels and their markup percentages
+- Build a mapping: for each base rate plan, find its derived plans and markup %
+- Render TWO calendar sections stacked vertically:
+  1. **"Direct Booking Rates"** — the existing grid (unchanged behavior)
+  2. **"Booking.com Rates"** (or whatever channel name is in the DB) — same grid layout but each cell shows `base_rate × (1 + markup/100)`, read-only (no editing)
+- Dynamic: read channel names and markups from DB, not hardcoded
+- OTA calendars reflect date overrides (the derived rate is calculated from the actual/effective base rate, not the default)
+- Visually distinguish with a subtle header color difference (e.g., blue-tinted header for Booking.com)
+- OTA grid cells are read-only (no click-to-edit, no drag-to-fill)
+
+### Files Modified
+1. `src/pages/pms/Prices.tsx` — tab rename + reorder
+2. `src/components/pms/QuickRateGrid.tsx` — fetch restriction rates, add override indicator, add OTA calendar sections
+
+### What Does NOT Change
+- Rate Plans tab content
+- Pricing Rules tab content
+- Rate saving/syncing logic
+- Bulk Edit functionality
+- Restrictions page
+- Room type/rate plan filters
 
