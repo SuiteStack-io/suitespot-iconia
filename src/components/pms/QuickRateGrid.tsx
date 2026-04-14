@@ -219,7 +219,7 @@ export const QuickRateGrid = ({ onSyncQueueCount }: QuickRateGridProps) => {
         while (current <= effectiveTo) {
           const ds = format(current, 'yyyy-MM-dd');
           const key = `${row.rate_plan_id}:${ds}`;
-          overrideMap[key] = Number(row.rate);
+          overrideMap[key] = Number(row.rate) / 100;
           sourceSet.add(key);
           current = addDays(current, 1);
         }
