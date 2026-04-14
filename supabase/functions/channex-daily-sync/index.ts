@@ -285,6 +285,14 @@ Deno.serve(async (req: Request) => {
                 .lt("date_from", formatDate(endDate))
                 .gt("date_to", formatDate(today));
 
+              // Get date-specific rate overrides for this rate plan
+              const { data: dateOverrides } = await supabase
+                .from("rate_plan_date_overrides")
+                .select("*")
+                .eq("rate_plan_id", rpMapping.local_id)
+                .gte("override_date", formatDate(today))
+                .lt("override_date", formatDate(endDate));
+
               const dateFrom = ratePlan.valid_from || formatDate(today);
               const dateTo = ratePlan.valid_to || formatDate(endDate);
 
@@ -305,7 +313,7 @@ Deno.serve(async (req: Request) => {
                 const offPeakRateCents = p.off_peak_rate ? Math.round(p.off_peak_rate * 100) : weekdayRateCents;
                 console.log(`[daily-sync] Rate plan ${ratePlan.name}: weekday=${weekdayRateCents} weekend=${weekendRateCents} offpeak=${offPeakRateCents} cents`);
 
-                // Build day-by-day rates
+                // Build day-by-day rates (default from rate_plan_prices)
                 const rateStart = new Date(dateFrom < todayStr ? todayStr : dateFrom);
                 const rateEnd = new Date(dateTo);
                 const dailyRates: { date: string; rate: number }[] = [];
@@ -320,6 +328,26 @@ Deno.serve(async (req: Request) => {
                     rateCents = weekendRateCents;
                   }
                   dailyRates.push({ date: ds, rate: rateCents });
+                }
+
+                // Overlay rate overrides: priority 1 = rate_plan_restrictions, priority 2 = rate_plan_date_overrides
+                // Both tables now store rates in DOLLARS — convert to cents for Channex
+                for (const day of dailyRates) {
+                  // Check rate_plan_restrictions for a rate override (highest priority)
+                  const restrictionOverride = dateRestrictions?.find(
+                    (r: any) => r.rate != null && r.date_from <= day.date && r.date_to > day.date
+                  );
+                  if (restrictionOverride) {
+                    day.rate = Math.round(restrictionOverride.rate * 100);
+                    continue;
+                  }
+                  // Check rate_plan_date_overrides (second priority, stored in dollars)
+                  const dateOverride = dateOverrides?.find(
+                    (o: any) => o.override_date === day.date
+                  );
+                  if (dateOverride) {
+                    day.rate = Math.round(dateOverride.rate * 100);
+                  }
                 }
 
                 // Collapse consecutive same-rate days into ranges (max 30 days each)

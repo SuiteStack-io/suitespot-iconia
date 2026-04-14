@@ -91,7 +91,7 @@ Deno.serve(async (req: Request) => {
         date_from: r.date_from,
         date_to: inclusiveDateTo,
       };
-      if (r.rate != null) value.rate = r.rate;
+      if (r.rate != null) value.rate = Math.round(r.rate * 100);
       if (r.min_stay_arrival != null) value.min_stay_arrival = r.min_stay_arrival;
       if (r.min_stay_through != null) value.min_stay_through = r.min_stay_through;
       if (r.max_stay != null) value.max_stay = r.max_stay;
