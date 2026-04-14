@@ -1,5 +1,5 @@
-import { useState, useEffect, useCallback } from 'react';
-import { format, subDays } from 'date-fns';
+import { useState, useEffect, useCallback, useMemo } from 'react';
+import { format, subDays, eachDayOfInterval, parseISO } from 'date-fns';
 import { supabase } from '@/integrations/supabase/client';
 import { useToast } from '@/hooks/use-toast';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
@@ -7,7 +7,7 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Skeleton } from '@/components/ui/skeleton';
-import { Trash2, CheckCircle, Clock } from 'lucide-react';
+import { Trash2, CheckCircle, Clock, ArrowUp, ArrowDown } from 'lucide-react';
 
 interface RatePlanOption {
   id: string;
@@ -33,14 +33,18 @@ interface RestrictionRow {
   closed_to_arrival: boolean | null;
   closed_to_departure: boolean | null;
   synced_to_channex: boolean | null;
+  created_at: string | null;
   ratePlanName: string;
   roomType: string | null;
 }
+
+type SortDirection = 'desc' | 'asc' | null;
 
 export function RestrictionsLogTable({ ratePlans, refreshKey }: RestrictionsLogTableProps) {
   const { toast } = useToast();
   const [restrictions, setRestrictions] = useState<RestrictionRow[]>([]);
   const [loading, setLoading] = useState(true);
+  const [sortDirection, setSortDirection] = useState<SortDirection>('desc');
 
   const fetchRestrictions = useCallback(async () => {
     if (ratePlans.length === 0) {
@@ -55,7 +59,7 @@ export function RestrictionsLogTable({ ratePlans, refreshKey }: RestrictionsLogT
       .from('rate_plan_restrictions')
       .select('*')
       .in('rate_plan_id', planIds)
-      .order('date_from', { ascending: true });
+      .order('created_at', { ascending: false });
 
     if (error) {
       console.error('Error fetching restrictions:', error);
@@ -91,6 +95,27 @@ export function RestrictionsLogTable({ ratePlans, refreshKey }: RestrictionsLogT
     setRestrictions((prev) => prev.filter((r) => r.id !== id));
   };
 
+  const handleSortClick = () => {
+    setSortDirection((prev) => {
+      if (prev === 'desc') return 'asc';
+      if (prev === 'asc') return null;
+      return 'desc';
+    });
+  };
+
+  const sortedRestrictions = useMemo(() => {
+    if (sortDirection === null) {
+      // Default: sort by date_from ascending
+      return [...restrictions].sort((a, b) => a.date_from.localeCompare(b.date_from));
+    }
+    const asc = sortDirection === 'asc';
+    return [...restrictions].sort((a, b) => {
+      const aVal = a.created_at || '';
+      const bVal = b.created_at || '';
+      return asc ? aVal.localeCompare(bVal) : bVal.localeCompare(aVal);
+    });
+  }, [restrictions, sortDirection]);
+
   if (loading) {
     return (
       <Card className="mt-6">
@@ -123,12 +148,22 @@ export function RestrictionsLogTable({ ratePlans, refreshKey }: RestrictionsLogT
                 <TableHead className="hidden md:table-cell">Room Type</TableHead>
                 <TableHead>Date Range</TableHead>
                 <TableHead>Restrictions</TableHead>
+                <TableHead
+                  className="cursor-pointer select-none whitespace-nowrap"
+                  onClick={handleSortClick}
+                >
+                  <span className="inline-flex items-center gap-1">
+                    Created
+                    {sortDirection === 'desc' && <ArrowDown className="h-3 w-3" />}
+                    {sortDirection === 'asc' && <ArrowUp className="h-3 w-3" />}
+                  </span>
+                </TableHead>
                 <TableHead className="w-10">Sync</TableHead>
                 <TableHead className="w-10"></TableHead>
               </TableRow>
             </TableHeader>
             <TableBody>
-              {restrictions.map((r) => (
+              {sortedRestrictions.map((r) => (
                 <TableRow key={r.id}>
                   <TableCell className="text-sm font-medium">{r.ratePlanName}</TableCell>
                   <TableCell className="hidden md:table-cell text-sm text-muted-foreground">
@@ -157,6 +192,11 @@ export function RestrictionsLogTable({ ratePlans, refreshKey }: RestrictionsLogT
                       {r.closed_to_arrival && <Badge variant="outline">Closed to Arrival</Badge>}
                       {r.closed_to_departure && <Badge variant="outline">Closed to Departure</Badge>}
                     </div>
+                  </TableCell>
+                  <TableCell className="text-sm text-muted-foreground whitespace-nowrap">
+                    {r.created_at
+                      ? format(new Date(r.created_at), 'MMM d, yyyy h:mm a')
+                      : '—'}
                   </TableCell>
                   <TableCell>
                     {r.synced_to_channex ? (
