@@ -444,6 +444,39 @@ export function BulkRestrictionEditor({ ratePlans, onSaved, onRatePlanFocused, p
             </div>
           </div>
 
+          {/* Current Rates Display */}
+          {selectedRoomType !== 'all' && (
+            <div className="bg-muted/50 border rounded-md p-3 space-y-1">
+              <p className="text-sm font-medium">Current Rates — {selectedRoomType}</p>
+              {ratesLoading ? (
+                <p className="text-xs text-muted-foreground">Loading rates…</p>
+              ) : currentRates ? (
+                <>
+                  <p className="text-sm text-muted-foreground">
+                    Standard: Weekday ${currentRates.weekday_rate} · Weekend ${currentRates.weekend_rate}
+                    {currentRates.off_peak_rate != null && ` · Off-Peak $${currentRates.off_peak_rate}`}
+                  </p>
+                  {derivedMarkups.map((dm) => (
+                    <p key={dm.channel_name} className="text-sm text-muted-foreground">
+                      {dm.channel_name} (+{dm.markup_percentage}%): Weekday $
+                      {Math.round(currentRates.weekday_rate * (1 + dm.markup_percentage / 100))} · Weekend $
+                      {Math.round(currentRates.weekend_rate * (1 + dm.markup_percentage / 100))}
+                      {currentRates.off_peak_rate != null &&
+                        ` · Off-Peak $${Math.round(currentRates.off_peak_rate * (1 + dm.markup_percentage / 100))}`}
+                    </p>
+                  ))}
+                  {hasDateOverrides && (
+                    <p className="text-xs text-muted-foreground italic mt-1">
+                      Note: Date-specific overrides may apply for some dates in this range
+                    </p>
+                  )}
+                </>
+              ) : (
+                <p className="text-xs text-muted-foreground">No rates configured for this room type</p>
+              )}
+            </div>
+          )}
+
           {/* Date Range */}
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
             <div className="space-y-1.5">
