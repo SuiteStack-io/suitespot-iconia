@@ -316,7 +316,7 @@ export function BulkRestrictionEditor({ ratePlans, onSaved, onRatePlanFocused, p
           date_to: format(addDays(new Date(p.dateTo), 1), 'yyyy-MM-dd'),
           synced_to_channex: false,
         };
-        if (p.restrictions.rate !== undefined) row.rate = Math.round(p.restrictions.rate * 100);
+        if (p.restrictions.rate !== undefined) row.rate = p.restrictions.rate;
         if (p.restrictions.minStayArrival !== undefined) row.min_stay_arrival = p.restrictions.minStayArrival;
         if (p.restrictions.minStayThrough !== undefined) row.min_stay_through = p.restrictions.minStayThrough;
         if (p.restrictions.maxStay !== undefined) row.max_stay = p.restrictions.maxStay;
