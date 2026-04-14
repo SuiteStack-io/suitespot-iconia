@@ -721,301 +721,205 @@ export const QuickRateGrid = ({ onSyncQueueCount }: QuickRateGridProps) => {
 
   const cellMinWidth = viewMode === 'month' ? 'min-w-[70px]' : 'min-w-[90px]';
 
-  // Render a calendar grid section (reused for Direct + OTA)
-  const renderCalendarGrid = (
-    gridRows: typeof rows,
-    options: {
-      editable: boolean;
-      markupPct?: number;
-      headerLabel: string;
-      headerSubtitle?: string;
-      headerClassName?: string;
+  // Build grouped rows: room type header → standard rate row → OTA rows
+  const groupedRows = useMemo(() => {
+    const groups: Array<{
+      roomType: string;
+      plans: typeof rows;
+    }> = [];
+
+    const roomTypeOrder: string[] = [];
+    const byRoomType = new Map<string, typeof rows>();
+
+    rows.forEach(row => {
+      const rt = row.plan.room_type || 'Unknown';
+      if (!byRoomType.has(rt)) {
+        byRoomType.set(rt, []);
+        roomTypeOrder.push(rt);
+      }
+      byRoomType.get(rt)!.push(row);
+    });
+
+    roomTypeOrder.forEach(rt => {
+      groups.push({ roomType: rt, plans: byRoomType.get(rt)! });
+    });
+
+    return groups;
+  }, [rows]);
+
+  // Render the combined calendar table
+  const renderCombinedTable = () => {
+    if (groupedRows.length === 0) {
+      return <p className="text-center text-muted-foreground py-8 text-sm">No rate plans found.</p>;
     }
-  ) => {
-    const { editable, markupPct, headerLabel, headerSubtitle, headerClassName } = options;
-    const applyMarkup = (rate: number) => markupPct ? Math.round(rate * (1 + markupPct / 100)) : rate;
 
     return (
-      <div className="space-y-2">
-        <div className={cn("px-3 py-2 rounded-md", headerClassName || "bg-muted/50")}>
-          <h3 className="text-sm font-semibold">{headerLabel}</h3>
-          {headerSubtitle && <p className="text-[11px] text-muted-foreground">{headerSubtitle}</p>}
-        </div>
-
-        {gridRows.length === 0 ? (
-          <p className="text-center text-muted-foreground py-4 text-sm">No rate plans found.</p>
-        ) : (
-          <ScrollArea className="w-full">
-            <table className="w-full border-collapse text-sm select-none">
-              <thead>
-                <tr>
-                  <th className="text-left p-2 border-b bg-muted/50 sticky left-0 z-10 min-w-[160px]" style={{ boxShadow: '2px 0 4px rgba(0,0,0,0.1)' }}>Room / Plan</th>
-                  {days.map((d) => (
-                    <th key={d.toISOString()} className={`text-center p-2 border-b ${cellMinWidth} ${isWeekendHighlight(d) ? 'bg-accent/30' : isOffPeakDay(d) ? 'bg-blue-50 dark:bg-blue-900/20' : 'bg-muted/50'}`}>
-                      <div className="font-medium">{format(d, viewMode === 'month' ? 'd' : 'MMM d')}</div>
-                      <div className="text-[10px] text-muted-foreground font-normal">{format(d, 'EEE')}</div>
-                    </th>
-                  ))}
+      <ScrollArea className="w-full">
+        <table className="w-full border-collapse text-sm select-none">
+          <thead>
+            <tr>
+              <th className="text-left p-2 border-b bg-muted/50 sticky left-0 z-10 min-w-[220px]" style={{ boxShadow: '2px 0 4px rgba(0,0,0,0.1)' }}>Room / Plan</th>
+              {days.map((d) => (
+                <th key={d.toISOString()} className={`text-center p-2 border-b ${cellMinWidth} ${isWeekendHighlight(d) ? 'bg-accent/30' : isOffPeakDay(d) ? 'bg-blue-50 dark:bg-blue-900/20' : 'bg-muted/50'}`}>
+                  <div className="font-medium">{format(d, viewMode === 'month' ? 'd' : 'MMM d')}</div>
+                  <div className="text-[10px] text-muted-foreground font-normal">{format(d, 'EEE')}</div>
+                </th>
+              ))}
+            </tr>
+          </thead>
+          <tbody>
+            {groupedRows.map(({ roomType, plans: groupPlans }) => (
+              <React.Fragment key={roomType}>
+                {/* Room type header row */}
+                <tr className="bg-muted/30">
+                  <td
+                    colSpan={days.length + 1}
+                    className="p-2 font-semibold text-sm border-b border-t"
+                  >
+                    {roomType}
+                  </td>
                 </tr>
-              </thead>
-              <tbody>
-                {gridRows.map(({ plan, price }) => {
-                  const baseRate = getBaseRate(plan.id);
-                  const effectiveBaseRate = markupPct ? Math.round(baseRate * (1 + markupPct / 100)) : baseRate;
-                  return (
-                    <tr key={plan.id} className="border-b hover:bg-muted/10">
-                      <td className="p-2 sticky left-0 bg-background z-10 border-r" style={{ boxShadow: '2px 0 4px rgba(0,0,0,0.1)' }}>
-                        <div className="font-medium text-xs leading-tight">{plan.room_type}</div>
-                        <div className="text-[10px] text-muted-foreground">{plan.name}</div>
-                      </td>
-                      {days.map((d, colIdx) => {
-                        const dateStr = format(d, 'yyyy-MM-dd');
-                        const key = getCellKey(plan.id, dateStr);
-                        const directRate = getEffectiveRate(price, d, plan.id);
-                        const rate = applyMarkup(directRate);
-                        const isPending = editable && pendingChanges.has(key);
-                        const isActive = editable && activeCell === key;
-                        const weekend = isWeekendHighlight(d);
-                        const inDragRange = editable && isCellInDragRange(plan.id, colIdx);
-                        const offPeak = isOffPeakDay(d);
-                        const hasOverride = overrideSources.has(key);
-                        const varianceColor = !isPending && !inDragRange && rate > 0 ? getCellColor(rate, effectiveBaseRate, weekend, offPeak) : '';
-                        const arrow = !isPending && rate > 0 ? getVarianceArrow(rate, effectiveBaseRate) : '';
 
-                        return (
-                          <td
-                            key={key}
-                            className={cn(
-                              `text-center p-0.5 ${cellMinWidth}`,
-                              editable && 'cursor-pointer',
-                              inDragRange && 'border-2 border-dashed border-primary/60 bg-primary/10',
-                              !inDragRange && isPending && 'bg-yellow-100 dark:bg-yellow-900/30',
-                              !editable && 'cursor-default'
-                            )}
-                            style={!inDragRange && !isPending && varianceColor ? { backgroundColor: varianceColor } : undefined}
-                            onClick={editable ? (e) => !isActive && !drag.isDragging && handleCellClick(plan.id, d, price, colIdx, e.shiftKey) : undefined}
-                            onMouseEnter={editable ? () => handleDragEnter(plan.id, colIdx) : undefined}
-                          >
-                            {isActive ? (
-                              <div className="flex items-center">
-                                <input
-                                  ref={el => { inputRefs.current[key] = el; }}
-                                  type="number"
-                                  className="w-full h-8 text-center text-sm border rounded bg-background focus:ring-2 focus:ring-primary [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none"
-                                  value={editValue}
-                                  onChange={e => setEditValue(e.target.value)}
-                                  onBlur={() => commitCell(key)}
-                                  onKeyDown={e => {
-                                    if (e.key === 'Enter') navigateCell(key, 'down');
-                                    else if (e.key === 'Tab') { e.preventDefault(); navigateCell(key, e.shiftKey ? 'left' : 'right'); }
-                                    else if (e.key === 'Escape') setActiveCell(null);
-                                    else if (e.key === 'ArrowDown') { e.preventDefault(); navigateCell(key, 'down'); }
-                                    else if (e.key === 'ArrowUp') { e.preventDefault(); navigateCell(key, 'up'); }
-                                    else if ((e.ctrlKey || e.metaKey) && e.key === 'ArrowRight') {
-                                      e.preventDefault();
-                                      copyToNextCell(key, e.shiftKey);
-                                    }
-                                    else if (e.key === 'ArrowRight' && (e.target as HTMLInputElement).selectionStart === editValue.length) { e.preventDefault(); navigateCell(key, 'right'); }
-                                    else if (e.key === 'ArrowLeft' && (e.target as HTMLInputElement).selectionStart === 0) { e.preventDefault(); navigateCell(key, 'left'); }
-                                  }}
-                                  autoFocus
-                                />
-                              </div>
-                            ) : (
-                              <div className="h-8 flex items-center justify-center text-sm font-mono group relative">
-                                <span>
-                                  {inDragRange && drag.value !== null
-                                    ? formatCurrency(applyMarkup(drag.value))
-                                    : rate > 0 ? formatCurrency(rate) : '—'}
-                                  {arrow && <span className={`ml-0.5 text-[10px] ${arrow === '▲' ? 'text-green-600' : 'text-orange-600'}`}>{arrow}</span>}
-                                </span>
-                                {hasOverride && !isPending && rate > 0 && (
-                                  <span className="absolute top-0 left-0.5 text-[8px] text-blue-600 dark:text-blue-400 leading-none">◆</span>
-                                )}
-                                {isPending && <span className="absolute top-0.5 right-0.5 w-1.5 h-1.5 rounded-full bg-yellow-500" />}
-                                {editable && rate > 0 && !drag.isDragging && (
-                                  <div
-                                    className="absolute right-0 top-0 bottom-0 w-4 flex items-center justify-center opacity-0 group-hover:opacity-60 hover:!opacity-100 cursor-grab"
-                                    onMouseDown={(e) => {
-                                      e.preventDefault();
-                                      e.stopPropagation();
-                                      handleDragStart(plan.id, colIdx, directRate);
+                {/* Standard rate rows + OTA rows for each plan */}
+                {groupPlans.map(({ plan, price }) => {
+                  const baseRate = getBaseRate(plan.id);
+
+                  // Find derived channels for this plan
+                  const planChannels = derivedChannels.filter(ch => ch.basePlanIds.has(plan.id));
+
+                  return (
+                    <React.Fragment key={plan.id}>
+                      {/* Standard rate row — editable */}
+                      <tr className="border-b hover:bg-muted/10">
+                        <td className="p-2 pl-4 sticky left-0 bg-background z-10 border-r" style={{ boxShadow: '2px 0 4px rgba(0,0,0,0.1)' }}>
+                          <div className="font-medium text-xs leading-tight">Standard Rate – {plan.room_type}</div>
+                          <div className="text-[10px] text-muted-foreground">{plan.name}</div>
+                        </td>
+                        {days.map((d, colIdx) => {
+                          const dateStr = format(d, 'yyyy-MM-dd');
+                          const key = getCellKey(plan.id, dateStr);
+                          const rate = getEffectiveRate(price, d, plan.id);
+                          const isPending = pendingChanges.has(key);
+                          const isActive = activeCell === key;
+                          const weekend = isWeekendHighlight(d);
+                          const inDragRange = isCellInDragRange(plan.id, colIdx);
+                          const offPeak = isOffPeakDay(d);
+                          const hasOverride = overrideSources.has(key);
+                          const varianceColor = !isPending && !inDragRange && rate > 0 ? getCellColor(rate, baseRate, weekend, offPeak) : '';
+                          const arrow = !isPending && rate > 0 ? getVarianceArrow(rate, baseRate) : '';
+
+                          return (
+                            <td
+                              key={key}
+                              className={cn(
+                                `text-center p-0.5 ${cellMinWidth} cursor-pointer`,
+                                inDragRange && 'border-2 border-dashed border-primary/60 bg-primary/10',
+                                !inDragRange && isPending && 'bg-yellow-100 dark:bg-yellow-900/30',
+                              )}
+                              style={!inDragRange && !isPending && varianceColor ? { backgroundColor: varianceColor } : undefined}
+                              onClick={(e) => !isActive && !drag.isDragging && handleCellClick(plan.id, d, price, colIdx, e.shiftKey)}
+                              onMouseEnter={() => handleDragEnter(plan.id, colIdx)}
+                            >
+                              {isActive ? (
+                                <div className="flex items-center">
+                                  <input
+                                    ref={el => { inputRefs.current[key] = el; }}
+                                    type="number"
+                                    className="w-full h-8 text-center text-sm border rounded bg-background focus:ring-2 focus:ring-primary [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none"
+                                    value={editValue}
+                                    onChange={e => setEditValue(e.target.value)}
+                                    onBlur={() => commitCell(key)}
+                                    onKeyDown={e => {
+                                      if (e.key === 'Enter') navigateCell(key, 'down');
+                                      else if (e.key === 'Tab') { e.preventDefault(); navigateCell(key, e.shiftKey ? 'left' : 'right'); }
+                                      else if (e.key === 'Escape') setActiveCell(null);
+                                      else if (e.key === 'ArrowDown') { e.preventDefault(); navigateCell(key, 'down'); }
+                                      else if (e.key === 'ArrowUp') { e.preventDefault(); navigateCell(key, 'up'); }
+                                      else if ((e.ctrlKey || e.metaKey) && e.key === 'ArrowRight') {
+                                        e.preventDefault();
+                                        copyToNextCell(key, e.shiftKey);
+                                      }
+                                      else if (e.key === 'ArrowRight' && (e.target as HTMLInputElement).selectionStart === editValue.length) { e.preventDefault(); navigateCell(key, 'right'); }
+                                      else if (e.key === 'ArrowLeft' && (e.target as HTMLInputElement).selectionStart === 0) { e.preventDefault(); navigateCell(key, 'left'); }
                                     }}
-                                  >
-                                    <GripVertical className="h-3 w-3 text-muted-foreground rotate-90" />
-                                  </div>
-                                )}
-                              </div>
-                            )}
+                                    autoFocus
+                                  />
+                                </div>
+                              ) : (
+                                <div className="h-8 flex items-center justify-center text-sm font-mono group relative">
+                                  <span>
+                                    {inDragRange && drag.value !== null
+                                      ? formatCurrency(drag.value)
+                                      : rate > 0 ? formatCurrency(rate) : '—'}
+                                    {arrow && <span className={`ml-0.5 text-[10px] ${arrow === '▲' ? 'text-green-600' : 'text-orange-600'}`}>{arrow}</span>}
+                                  </span>
+                                  {hasOverride && !isPending && rate > 0 && (
+                                    <span className="absolute top-0 left-0.5 text-[8px] text-blue-600 dark:text-blue-400 leading-none">◆</span>
+                                  )}
+                                  {isPending && <span className="absolute top-0.5 right-0.5 w-1.5 h-1.5 rounded-full bg-yellow-500" />}
+                                  {rate > 0 && !drag.isDragging && (
+                                    <div
+                                      className="absolute right-0 top-0 bottom-0 w-4 flex items-center justify-center opacity-0 group-hover:opacity-60 hover:!opacity-100 cursor-grab"
+                                      onMouseDown={(e) => {
+                                        e.preventDefault();
+                                        e.stopPropagation();
+                                        handleDragStart(plan.id, colIdx, rate);
+                                      }}
+                                    >
+                                      <GripVertical className="h-3 w-3 text-muted-foreground rotate-90" />
+                                    </div>
+                                  )}
+                                </div>
+                              )}
+                            </td>
+                          );
+                        })}
+                      </tr>
+
+                      {/* OTA rate rows — read-only, derived from standard rate */}
+                      {planChannels.map(channel => (
+                        <tr key={`${plan.id}-${channel.channelName}`} className="border-b">
+                          <td className="p-2 pl-4 sticky left-0 bg-background z-10 border-r" style={{ boxShadow: '2px 0 4px rgba(0,0,0,0.1)' }}>
+                            <div className="text-xs text-muted-foreground leading-tight">
+                              {channel.channelName} Rate
+                            </div>
+                            <div className="text-[10px] text-muted-foreground/70">
+                              Standard Rate + {channel.markupPercentage}% markup
+                            </div>
                           </td>
-                        );
-                      })}
-                    </tr>
+                          {days.map((d) => {
+                            const directRate = getEffectiveRate(price, d, plan.id);
+                            const otaRate = directRate > 0 ? Math.round(directRate * (1 + channel.markupPercentage / 100)) : 0;
+                            const weekend = isWeekendHighlight(d);
+                            const offPeak = isOffPeakDay(d);
+                            const otaBaseRate = baseRate > 0 ? Math.round(baseRate * (1 + channel.markupPercentage / 100)) : 0;
+                            const varianceColor = otaRate > 0 ? getCellColor(otaRate, otaBaseRate, weekend, offPeak) : '';
+
+                            return (
+                              <td
+                                key={d.toISOString()}
+                                className={cn(`text-center p-0.5 ${cellMinWidth} cursor-default`)}
+                                style={varianceColor ? { backgroundColor: varianceColor } : undefined}
+                              >
+                                <div className="h-8 flex items-center justify-center text-sm font-mono text-muted-foreground">
+                                  {otaRate > 0 ? formatCurrency(otaRate) : '—'}
+                                </div>
+                              </td>
+                            );
+                          })}
+                        </tr>
+                      ))}
+                    </React.Fragment>
                   );
                 })}
-              </tbody>
-            </table>
-            <ScrollBar orientation="horizontal" />
-          </ScrollArea>
-        )}
-      </div>
+              </React.Fragment>
+            ))}
+          </tbody>
+        </table>
+        <ScrollBar orientation="horizontal" />
+      </ScrollArea>
     );
   };
-
-  if (loading) {
-    return <div className="flex items-center justify-center py-16 text-muted-foreground">Loading rates...</div>;
-  }
-
-  return (
-    <div className="space-y-4">
-      {/* Toolbar */}
-      <div className="flex flex-wrap items-center gap-3">
-        <Select value={filterRoomType} onValueChange={setFilterRoomType}>
-          <SelectTrigger className="w-[180px]">
-            <SelectValue placeholder="Room Type" />
-          </SelectTrigger>
-          <SelectContent>
-            <SelectItem value="all">All Room Types</SelectItem>
-            {roomTypes.map(rt => (
-              <SelectItem key={rt} value={rt}>{rt}</SelectItem>
-            ))}
-          </SelectContent>
-        </Select>
-
-        <Select value={filterRatePlan} onValueChange={setFilterRatePlan}>
-          <SelectTrigger className="w-[180px]">
-            <SelectValue placeholder="Rate Plan" />
-          </SelectTrigger>
-          <SelectContent>
-            <SelectItem value="all">All Rate Plans</SelectItem>
-            {ratePlans.map(rp => (
-              <SelectItem key={rp.id} value={rp.id}>{rp.room_type} / {rp.name}</SelectItem>
-            ))}
-          </SelectContent>
-        </Select>
-
-        <Button variant="outline" size="sm" onClick={() => setBulkOpen(true)} className="gap-1.5">
-          <Pencil className="h-3.5 w-3.5" />
-          Bulk Edit
-        </Button>
-
-        <div className="ml-auto flex items-center gap-2">
-          {syncSuccess && (
-            <Badge className="gap-1 bg-green-100 text-green-800 dark:bg-green-900/30 dark:text-green-400 border-green-200">
-              <Check className="h-3 w-3" />
-              Synced
-            </Badge>
-          )}
-          {pendingChanges.size > 0 && (
-            <>
-              <Badge variant="secondary" className="gap-1 bg-yellow-100 text-yellow-800 dark:bg-yellow-900/30 dark:text-yellow-400 border-yellow-300">
-                {pendingChanges.size} pending
-              </Badge>
-              <Button size="sm" onClick={syncNow} disabled={syncing} className="gap-1.5 bg-black text-white hover:bg-black/90">
-                <Save className="h-3.5 w-3.5" />
-                {syncing ? 'Saving...' : 'Save Changes'}
-              </Button>
-            </>
-          )}
-        </div>
-      </div>
-
-      {/* Progress bar */}
-      {(syncing || syncProgress > 0) && (
-        <Progress value={syncProgress} className="h-2 [&>div]:bg-black" />
-      )}
-
-      {/* Date nav + View toggle */}
-      <div className="flex items-center gap-2 flex-wrap">
-        <Button variant="ghost" size="icon" onClick={handlePrev}>
-          <ChevronLeft className="h-4 w-4" />
-        </Button>
-        <span className="text-sm font-medium">
-          {viewMode === 'month'
-            ? format(startOfMonth(weekStart), 'MMMM yyyy')
-            : `${format(days[0], 'MMM d')} – ${format(days[days.length - 1], 'MMM d, yyyy')}`
-          }
-        </span>
-        <Button variant="ghost" size="icon" onClick={handleNext}>
-          <ChevronRight className="h-4 w-4" />
-        </Button>
-        <Button variant="ghost" size="sm" className="text-xs" onClick={handleToday}>
-          {viewMode === 'month' ? 'This Month' : 'Today'}
-        </Button>
-
-        <div className="ml-auto flex items-center gap-1 border rounded-md p-0.5">
-          <Button
-            variant={viewMode === '14days' ? 'default' : 'ghost'}
-            size="sm"
-            className="text-xs h-7 px-3"
-            onClick={() => setViewMode('14days')}
-          >
-            14 Days
-          </Button>
-          <Button
-            variant={viewMode === 'month' ? 'default' : 'ghost'}
-            size="sm"
-            className="text-xs h-7 px-3"
-            onClick={() => {
-              setViewMode('month');
-              setWeekStart(startOfMonth(weekStart));
-            }}
-          >
-            Month
-          </Button>
-        </div>
-      </div>
-
-      {/* Price variance legend */}
-      <div className="flex items-center gap-4 text-[11px] text-muted-foreground flex-wrap">
-        <div className="flex items-center gap-1.5">
-          <span className="inline-block w-3 h-3 rounded-sm" style={{ backgroundColor: '#C8E6C9' }} />
-          <span>Above base rate</span>
-        </div>
-        <div className="flex items-center gap-1.5">
-          <span className="inline-block w-3 h-3 rounded-sm" style={{ backgroundColor: '#FFE0B2' }} />
-          <span>Below base rate</span>
-        </div>
-        <div className="flex items-center gap-1.5">
-          <span className="inline-block w-3 h-3 rounded-sm" style={{ backgroundColor: 'hsl(0 70% 97%)' }} />
-          <span>Weekend ({weekendDays.map(d => DAY_NAMES[d]).join('–')})</span>
-        </div>
-        {offPeakDays.length > 0 && (
-          <div className="flex items-center gap-1.5">
-            <span className="inline-block w-3 h-3 rounded-sm" style={{ backgroundColor: '#E3F2FD' }} />
-            <span>Off-Peak ({offPeakDays.map(d => DAY_NAMES[d]).join('–')})</span>
-          </div>
-        )}
-        <div className="flex items-center gap-1.5">
-          <span className="text-blue-600 dark:text-blue-400 text-xs leading-none">◆</span>
-          <span>Custom Rate</span>
-        </div>
-      </div>
-
-      {/* Direct Booking Rates Calendar */}
-      {renderCalendarGrid(rows, {
-        editable: true,
-        headerLabel: 'Direct Booking Rates',
-        headerSubtitle: 'Net rates for direct bookings',
-        headerClassName: 'bg-muted/50',
-      })}
-
-      {/* OTA Calendars - one per derived channel */}
-      {derivedChannels.map(channel => {
-        const channelRows = rows.filter(r => channel.basePlanIds.has(r.plan.id));
-        if (channelRows.length === 0) return null;
-        return (
-          <div key={channel.channelName} className="mt-6">
-            {renderCalendarGrid(channelRows, {
-              editable: false,
-              markupPct: channel.markupPercentage,
-              headerLabel: `${channel.channelName} Rates`,
-              headerSubtitle: `Standard Rate + ${channel.markupPercentage}% markup`,
-              headerClassName: 'bg-blue-50 dark:bg-blue-900/20',
-            })}
-          </div>
-        );
-      })}
 
       {/* Pending changes panel */}
       {pendingChanges.size > 0 && (
