@@ -188,18 +188,18 @@ export function PropertyForm({ property, open, onClose, onSaved }: PropertyFormP
   const totalSteps = isEdit ? 3 : 4;
 
   return (
-    <Dialog open={open} onOpenChange={() => { if (step !== 3) onClose(); }}>
+    <Dialog open={open} onOpenChange={() => { if (step !== 4) onClose(); }}>
       <DialogContent className="max-w-2xl max-h-[90vh]">
         <DialogHeader>
           <DialogTitle>
-            {step === 3 ? 'Property Created!' : isEdit ? 'Edit Property' : `Add Property — Step ${step} of ${totalSteps}`}
+            {step === 4 ? 'Property Created!' : isEdit ? `Edit Property — Step ${step} of ${totalSteps}` : `Add Property — Step ${step} of ${totalSteps}`}
           </DialogTitle>
         </DialogHeader>
 
         {/* Step indicators */}
-        {!isEdit && step < 3 && (
+        {step < 4 && (
           <div className="flex items-center gap-2 mb-2">
-            {[1, 2].map(s => (
+            {Array.from({ length: totalSteps }, (_, i) => i + 1).map(s => (
               <div key={s} className={`h-1.5 flex-1 rounded-full transition-colors ${s <= step ? 'bg-primary' : 'bg-muted'}`} />
             ))}
           </div>
