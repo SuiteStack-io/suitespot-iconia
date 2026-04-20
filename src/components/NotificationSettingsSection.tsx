@@ -1,4 +1,4 @@
-import { useState, useEffect, useRef } from 'react';
+import { useState, useEffect, forwardRef, useImperativeHandle } from 'react';
 import { supabase } from '@/integrations/supabase/client';
 import { Switch } from '@/components/ui/switch';
 import { Label } from '@/components/ui/label';
@@ -57,60 +57,30 @@ const DEFAULT_SETTINGS: NotificationSettings = {
   weekly_monthly_summary_email: false,
 };
 
+export interface NotificationSettingsSectionHandle {
+  save: () => Promise<void>;
+}
+
 interface NotificationSettingsSectionProps {
   userId: string;
   /** If true, saves are handled internally (auto-save mode for MyNotifications page) */
   standalone?: boolean;
-  /** Expose settings to parent for combined save */
-  onSettingsChange?: (settings: NotificationSettings) => void;
-  /** Parent triggers save */
-  triggerSave?: number;
   /** Use two-column grid layout for toggles on desktop */
   twoColumn?: boolean;
 }
 
-export function NotificationSettingsSection({
-  userId,
-  standalone = false,
-  onSettingsChange,
-  triggerSave,
-  twoColumn = false,
-}: NotificationSettingsSectionProps) {
+export const NotificationSettingsSection = forwardRef<
+  NotificationSettingsSectionHandle,
+  NotificationSettingsSectionProps
+>(({ userId, standalone = false, twoColumn = false }, ref) => {
   const { toast } = useToast();
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [settings, setSettings] = useState<NotificationSettings>(DEFAULT_SETTINGS);
-  const settingsRef = useRef(settings);
-  useEffect(() => { settingsRef.current = settings; }, [settings]);
 
   useEffect(() => {
     fetchSettings();
   }, [userId]);
-
-  useEffect(() => {
-    onSettingsChange?.(settings);
-  }, [settings]);
-
-  useEffect(() => {
-    if (triggerSave && triggerSave > 0) {
-      const currentSettings = settingsRef.current;
-      (async () => {
-        try {
-          const { error } = await supabase
-            .from('user_notification_settings')
-            .upsert({
-              user_id: userId,
-              ...currentSettings,
-              updated_at: new Date().toISOString(),
-            }, { onConflict: 'user_id' });
-          if (error) throw error;
-        } catch (error) {
-          console.error('Error saving notification settings:', error);
-          toast({ title: 'Error', description: 'Failed to save notification settings', variant: 'destructive' });
-        }
-      })();
-    }
-  }, [triggerSave]);
 
   const fetchSettings = async () => {
     setLoading(true);
@@ -122,6 +92,8 @@ export function NotificationSettingsSection({
         .single();
 
       if (error && error.code !== 'PGRST116') throw error;
+
+      console.log('[NotifSettings] fetched', data);
 
       if (data) {
         setSettings({
@@ -143,19 +115,30 @@ export function NotificationSettingsSection({
     }
   };
 
+  const performSave = async (currentSettings: NotificationSettings) => {
+    const payload = {
+      user_id: userId,
+      ...currentSettings,
+      updated_at: new Date().toISOString(),
+    };
+    console.log('[NotifSettings] saving payload', payload);
+    const { error, status } = await supabase
+      .from('user_notification_settings')
+      .upsert(payload, { onConflict: 'user_id' });
+    console.log('[NotifSettings] save result', { error, status });
+    if (error) throw error;
+  };
+
+  useImperativeHandle(ref, () => ({
+    save: async () => {
+      await performSave(settings);
+    },
+  }), [settings, userId]);
+
   const saveSettings = async () => {
     setSaving(true);
     try {
-      const { error } = await supabase
-        .from('user_notification_settings')
-        .upsert({
-          user_id: userId,
-          ...settings,
-          updated_at: new Date().toISOString(),
-        }, { onConflict: 'user_id' });
-
-      if (error) throw error;
-
+      await performSave(settings);
       if (standalone) {
         toast({ title: 'Saved', description: 'Notification preferences updated' });
       }
@@ -168,7 +151,11 @@ export function NotificationSettingsSection({
   };
 
   const handleToggle = (key: keyof NotificationSettings) => {
-    setSettings(prev => ({ ...prev, [key]: !prev[key] }));
+    setSettings(prev => {
+      const newValue = !prev[key];
+      console.log(`[NotifSettings] toggling ${key} -> ${newValue}`);
+      return { ...prev, [key]: newValue };
+    });
   };
 
   const allEnabled = Object.values(settings).every(Boolean);
@@ -268,4 +255,6 @@ export function NotificationSettingsSection({
       )}
     </div>
   );
-}
+});
+
+NotificationSettingsSection.displayName = 'NotificationSettingsSection';

@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import { supabase } from '@/integrations/supabase/client';
 import {
   Dialog,
@@ -16,7 +16,7 @@ import { useToast } from '@/hooks/use-toast';
 import { Loader2, Shield } from 'lucide-react';
 import { PropertyAccessSection } from './PropertyAccessSection';
 import { Separator } from '@/components/ui/separator';
-import { NotificationSettingsSection } from './NotificationSettingsSection';
+import { NotificationSettingsSection, type NotificationSettingsSectionHandle } from './NotificationSettingsSection';
 
 interface User {
   id: string;
@@ -102,7 +102,7 @@ export function EditPermissionsDialog({
   const { toast } = useToast();
   const [loading, setLoading] = useState(false);
   const [saving, setSaving] = useState(false);
-  const [notifSaveTrigger, setNotifSaveTrigger] = useState(0);
+  const notifRef = useRef<NotificationSettingsSectionHandle>(null);
   const [permissions, setPermissions] = useState<UserPermissions>({
     can_check_in: false,
     can_check_out: false,
@@ -199,19 +199,15 @@ export function EditPermissionsDialog({
         if (error) throw error;
       }
 
-      // Trigger notification settings save for all users
-      // Trigger notification settings save for all users
-      setNotifSaveTrigger(prev => prev + 1);
+      // Await notification settings save explicitly
+      await notifRef.current?.save();
 
-      // Delay close to allow the notification save useEffect to fire
-      setTimeout(() => {
-        toast({
-          title: 'Success',
-          description: `Settings updated for ${user.full_name || user.email}`,
-        });
-        onOpenChange(false);
-        onSuccess?.();
-      }, 500);
+      toast({
+        title: 'Success',
+        description: `Settings updated for ${user.full_name || user.email}`,
+      });
+      onOpenChange(false);
+      onSuccess?.();
     } catch (error) {
       console.error('Error saving permissions:', error);
       toast({
@@ -329,7 +325,7 @@ export function EditPermissionsDialog({
             <Separator />
             <PropertyAccessSection userId={user.id} isAdmin={isAdmin} />
             <Separator />
-            <NotificationSettingsSection userId={user.id} triggerSave={notifSaveTrigger} twoColumn />
+            <NotificationSettingsSection ref={notifRef} userId={user.id} twoColumn />
           </>
         )}
 
