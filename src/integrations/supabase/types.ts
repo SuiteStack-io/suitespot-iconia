@@ -1592,8 +1592,15 @@ export type Database = {
           currency: string
           default_checkin_time: string | null
           default_checkout_time: string | null
+          default_commission_rate: number | null
           description: string | null
           email: string
+          from_email_ai: string | null
+          from_email_frontdesk: string | null
+          from_email_housekeeping: string | null
+          from_email_notifications: string | null
+          from_email_reservations: string | null
+          from_name: string | null
           id: string
           is_active: boolean | null
           is_default: boolean | null
@@ -1605,10 +1612,16 @@ export type Database = {
           phone: string | null
           property_type: string | null
           state: string | null
+          support_email: string | null
+          support_phone: string | null
+          support_whatsapp: string | null
           timezone: string
           updated_at: string | null
+          vat_rate: number | null
           website: string | null
           weekend_days: number[] | null
+          wifi_network: string | null
+          wifi_password: string | null
           zip_code: string | null
         }
         Insert: {
@@ -1625,8 +1638,15 @@ export type Database = {
           currency?: string
           default_checkin_time?: string | null
           default_checkout_time?: string | null
+          default_commission_rate?: number | null
           description?: string | null
           email: string
+          from_email_ai?: string | null
+          from_email_frontdesk?: string | null
+          from_email_housekeeping?: string | null
+          from_email_notifications?: string | null
+          from_email_reservations?: string | null
+          from_name?: string | null
           id?: string
           is_active?: boolean | null
           is_default?: boolean | null
@@ -1638,10 +1658,16 @@ export type Database = {
           phone?: string | null
           property_type?: string | null
           state?: string | null
+          support_email?: string | null
+          support_phone?: string | null
+          support_whatsapp?: string | null
           timezone?: string
           updated_at?: string | null
+          vat_rate?: number | null
           website?: string | null
           weekend_days?: number[] | null
+          wifi_network?: string | null
+          wifi_password?: string | null
           zip_code?: string | null
         }
         Update: {
@@ -1658,8 +1684,15 @@ export type Database = {
           currency?: string
           default_checkin_time?: string | null
           default_checkout_time?: string | null
+          default_commission_rate?: number | null
           description?: string | null
           email?: string
+          from_email_ai?: string | null
+          from_email_frontdesk?: string | null
+          from_email_housekeeping?: string | null
+          from_email_notifications?: string | null
+          from_email_reservations?: string | null
+          from_name?: string | null
           id?: string
           is_active?: boolean | null
           is_default?: boolean | null
@@ -1671,10 +1704,16 @@ export type Database = {
           phone?: string | null
           property_type?: string | null
           state?: string | null
+          support_email?: string | null
+          support_phone?: string | null
+          support_whatsapp?: string | null
           timezone?: string
           updated_at?: string | null
+          vat_rate?: number | null
           website?: string | null
           weekend_days?: number[] | null
+          wifi_network?: string | null
+          wifi_password?: string | null
           zip_code?: string | null
         }
         Relationships: [
