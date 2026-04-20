@@ -125,6 +125,19 @@ export function PropertyForm({ property, open, onClose, onSaved }: PropertyFormP
         default_checkout_time: form.default_checkout_time,
         weekend_days: form.weekend_days,
         off_peak_days: form.off_peak_days,
+        from_email_reservations: form.from_email_reservations || null,
+        from_email_frontdesk: form.from_email_frontdesk || null,
+        from_email_notifications: form.from_email_notifications || null,
+        from_email_housekeeping: form.from_email_housekeeping || null,
+        from_email_ai: form.from_email_ai || null,
+        from_name: form.from_name || null,
+        support_email: form.support_email || null,
+        support_phone: form.support_phone || null,
+        support_whatsapp: form.support_whatsapp || null,
+        wifi_network: form.wifi_network || null,
+        wifi_password: form.wifi_password || null,
+        vat_rate: form.vat_rate !== '' ? parseFloat(form.vat_rate) : null,
+        default_commission_rate: form.default_commission_rate !== '' ? parseFloat(form.default_commission_rate) : null,
       };
 
       if (isEdit) {
@@ -147,7 +160,7 @@ export function PropertyForm({ property, open, onClose, onSaved }: PropertyFormP
           .single();
         if (error) throw error;
         setCreatedPropertyId(data.id);
-        setStep(3);
+        setStep(4);
         // Refresh properties list so it appears in switcher
         propertyContext?.refreshProperties?.();
       }
@@ -172,7 +185,7 @@ export function PropertyForm({ property, open, onClose, onSaved }: PropertyFormP
     navigate('/admin');
   };
 
-  const totalSteps = isEdit ? 2 : 3;
+  const totalSteps = isEdit ? 3 : 4;
 
   return (
     <Dialog open={open} onOpenChange={() => { if (step !== 3) onClose(); }}>
