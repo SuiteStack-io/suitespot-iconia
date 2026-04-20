@@ -33,7 +33,7 @@ export interface PropertySettings {
   longitude: number | null;
 }
 
-const GENERIC_FROM_EMAIL = 'notifications@hostbase.io';
+const GENERIC_FROM_EMAIL = 'notifications@hostbase.ai';
 
 function buildFallback(name: string = 'Your Property'): PropertySettings {
   return {
