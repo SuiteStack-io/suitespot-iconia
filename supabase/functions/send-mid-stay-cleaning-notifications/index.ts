@@ -1,6 +1,7 @@
 
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2.75.0';
 import { Resend } from "https://esm.sh/resend@4.0.0";
+import { getPropertySettings } from "../_shared/property-settings.ts";
 
 const resend = new Resend(Deno.env.get('RESEND_API_KEY'));
 
@@ -174,6 +175,11 @@ Deno.serve(async (req) => {
       })
       .filter((u: any) => u.email && (u.role === 'admin' || u.role === 'manager' || u.role === 'housekeeping'));
 
+    // Resolve per-property settings — this function processes multiple reservations potentially
+    // across properties; use the property of the first reservation as the sender, fallback to generic.
+    const firstResPropId = (reservationsNeedingCleaning[0] as any)?.property_id || null;
+    const settings = await getPropertySettings(supabase, firstResPropId);
+
     console.log(`Sending emails to ${targetUsers.length} users (admins and housekeeping)`);
 
     if (targetUsers.length === 0) {
@@ -236,7 +242,7 @@ Deno.serve(async (req) => {
 
       try {
         const { error: emailError } = await resend.emails.send({
-          from: 'SuiteSpot Housekeeping <housekeeping@bookings.suitespoteg.com>',
+          from: `${settings.from_name} Housekeeping <${settings.from_email_housekeeping}>`,
           to: [user.email],
           subject: emailSubject,
           html: emailHtml,

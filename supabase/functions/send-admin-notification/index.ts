@@ -1,6 +1,7 @@
 
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2.75.0";
 import { Resend } from "https://esm.sh/resend@4.0.0";
+import { getPropertySettings } from "../_shared/property-settings.ts";
 
 const resend = new Resend(Deno.env.get("RESEND_API_KEY"));
 
@@ -27,6 +28,10 @@ Deno.serve(async (req) => {
     const supabase = createClient(supabaseUrl, supabaseServiceKey);
 
     const { type, title, message, metadata }: NotificationRequest = await req.json();
+
+    // Resolve per-property settings if metadata.property_id is provided; otherwise generic fallback
+    const propertyId = (metadata as any)?.property_id || null;
+    const settings = await getPropertySettings(supabase, propertyId);
 
     console.log('Sending admin notification:', { type, title });
 
@@ -129,7 +134,7 @@ Deno.serve(async (req) => {
     const emailPromises = admins.map(async (admin: any) => {
       try {
         const emailResponse = await resend.emails.send({
-          from: "SuiteSpot Notifications <notifications@bookings.suitespoteg.com>",
+          from: `${settings.from_name} <${settings.from_email_notifications}>`,
           to: [admin.email],
           subject: `🚨 ${title}`,
           html: `

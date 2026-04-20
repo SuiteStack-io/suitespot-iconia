@@ -2,6 +2,7 @@
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2.39.3";
 import { Resend } from "https://esm.sh/resend@4.0.0";
 import { getPropertyName } from "../_shared/property-utils.ts";
+import { getPropertySettings } from "../_shared/property-settings.ts";
 
 const resend = new Resend(Deno.env.get("RESEND_API_KEY"));
 
@@ -14,6 +15,7 @@ const corsHeaders = {
 interface NotificationRequest {
   guestName: string;
   propertyName?: string;
+  propertyId?: string;
   completedAt: string;
   kycLinkId: string;
 }
@@ -24,7 +26,7 @@ const handler = async (req: Request): Promise<Response> => {
   }
 
   try {
-    const { guestName, propertyName, completedAt, kycLinkId }: NotificationRequest = await req.json();
+    const { guestName, propertyName, propertyId, completedAt, kycLinkId }: NotificationRequest = await req.json();
 
     console.log("Sending KYC completion notification for:", guestName);
 
@@ -104,13 +106,14 @@ const handler = async (req: Request): Promise<Response> => {
     const typeformLink = "https://admin.typeform.com/form/HB53DCc4/results";
     const kycManagementLink = `https://${Deno.env.get("SUPABASE_URL")?.split("//")[1]?.split(".")[0]}.lovable.app/kyc-management`;
 
-    const displayName = propertyName || 'SuiteSpot';
+    const displayName = propertyName || 'Your Property';
+    const settings = await getPropertySettings(supabase, propertyId || null);
 
     // Send email to each admin
     const emailPromises = adminUsers.map(async (admin: any) => {
       try {
         const emailResponse = await resend.emails.send({
-          from: `${displayName} <almaza@bookings.suitespoteg.com>`,
+          from: `${displayName} <${settings.from_email_notifications}>`,
           to: [admin.email],
           subject: "🎉 New KYC Questionnaire Completed",
           html: `
