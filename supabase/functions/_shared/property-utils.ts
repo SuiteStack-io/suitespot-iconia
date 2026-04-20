@@ -6,11 +6,11 @@ export async function getPropertyName(
   supabase: any,
   propertyId: string | null
 ): Promise<string> {
-  if (!propertyId) return 'SuiteSpot';
+  if (!propertyId) return 'Your Property';
   const { data } = await supabase
     .from('properties')
     .select('name')
     .eq('id', propertyId)
     .maybeSingle();
-  return data?.name || 'SuiteSpot';
+  return data?.name || 'Your Property';
 }
