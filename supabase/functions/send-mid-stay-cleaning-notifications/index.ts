@@ -172,7 +172,7 @@ Deno.serve(async (req) => {
           role: roleRecord?.role
         };
       })
-      .filter((u: any) => u.email && (u.role === 'admin' || u.role === 'housekeeping'));
+      .filter((u: any) => u.email && (u.role === 'admin' || u.role === 'manager' || u.role === 'housekeeping'));
 
     console.log(`Sending emails to ${targetUsers.length} users (admins and housekeeping)`);
 

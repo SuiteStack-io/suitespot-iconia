@@ -429,7 +429,7 @@ Deno.serve(async (req) => {
       const { data: adminRoles } = await supabase
         .from('user_roles')
         .select('user_id, role')
-        .in('role', ['admin', 'front_desk']);
+        .in('role', ['admin', 'manager', 'front_desk']);
 
       const adminUserIds = (adminRoles || []).map((r: any) => r.user_id);
 
