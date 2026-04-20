@@ -1,5 +1,6 @@
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2.39.3";
 import { Resend } from "https://esm.sh/resend@3.2.0";
+import { getPropertySettings } from "../_shared/property-settings.ts";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
