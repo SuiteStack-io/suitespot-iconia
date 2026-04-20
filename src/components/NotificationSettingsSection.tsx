@@ -13,6 +13,7 @@ interface NotificationSettings {
   cancelled_booking_email: boolean;
   room_shuffle_email: boolean;
   daily_summary_email: boolean;
+  weekly_monthly_summary_email: boolean;
 }
 
 const NOTIFICATION_LABELS: Record<keyof NotificationSettings, { label: string; description: string }> = {
@@ -37,8 +38,12 @@ const NOTIFICATION_LABELS: Record<keyof NotificationSettings, { label: string; d
     description: 'Receive an email when rooms are auto-shuffled',
   },
   daily_summary_email: {
-    label: 'Summary Reports (Daily, Weekly, Monthly)',
-    description: 'Receive automated daily, weekly, and monthly summary reports by email',
+    label: 'Daily Reports',
+    description: 'Receive automated daily summary reports by email',
+  },
+  weekly_monthly_summary_email: {
+    label: 'Weekly & Monthly Reports',
+    description: 'Receive automated weekly and monthly summary reports by email (includes financial data)',
   },
 };
 
@@ -49,6 +54,7 @@ const DEFAULT_SETTINGS: NotificationSettings = {
   cancelled_booking_email: true,
   room_shuffle_email: true,
   daily_summary_email: false,
+  weekly_monthly_summary_email: false,
 };
 
 interface NotificationSettingsSectionProps {
@@ -125,6 +131,7 @@ export function NotificationSettingsSection({
           cancelled_booking_email: data.cancelled_booking_email ?? true,
           room_shuffle_email: data.room_shuffle_email ?? true,
           daily_summary_email: data.daily_summary_email ?? false,
+          weekly_monthly_summary_email: (data as any).weekly_monthly_summary_email ?? false,
         });
       } else {
         setSettings(DEFAULT_SETTINGS);
@@ -167,19 +174,26 @@ export function NotificationSettingsSection({
   const allEnabled = Object.values(settings).every(Boolean);
   const allDisabled = Object.values(settings).every(v => !v);
 
-  const handleEnableAll = () => setSettings(prev => ({
-    ...DEFAULT_SETTINGS,
-    daily_summary_email: prev.daily_summary_email, // Keep admin-controlled toggle unchanged
-  }));
+  const handleEnableAll = () =>
+    setSettings({
+      checkin_email: true,
+      checkout_email: true,
+      new_booking_email: true,
+      cancelled_booking_email: true,
+      room_shuffle_email: true,
+      daily_summary_email: true,
+      weekly_monthly_summary_email: true,
+    });
   const handleDisableAll = () =>
-    setSettings(prev => ({
+    setSettings({
       checkin_email: false,
       checkout_email: false,
       new_booking_email: false,
       cancelled_booking_email: false,
       room_shuffle_email: false,
-      daily_summary_email: prev.daily_summary_email, // Keep admin-controlled toggle unchanged
-    }));
+      daily_summary_email: false,
+      weekly_monthly_summary_email: false,
+    });
 
   if (loading) {
     return (
