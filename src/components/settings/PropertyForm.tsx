@@ -400,12 +400,126 @@ export function PropertyForm({ property, open, onClose, onSaved }: PropertyFormP
               </div>
             </div>
 
-            <p className="text-xs text-muted-foreground">VAT rate is inherited from your company settings.</p>
           </div>
         )}
 
-        {/* STEP 3: Success */}
+        {/* STEP 3: Email & Business Settings */}
         {step === 3 && (
+          <div className="space-y-4 py-2 max-h-[60vh] overflow-y-auto pr-2">
+            <p className="text-sm text-muted-foreground">
+              Configure email senders, contact info, guest WiFi, and business defaults. All fields are optional.
+            </p>
+
+            {/* Email Addresses */}
+            <div className="border rounded-lg p-4 space-y-3">
+              <h3 className="text-sm font-semibold">Email Addresses</h3>
+              <div className="grid gap-3 sm:grid-cols-2">
+                <div>
+                  <Label>Reservations Email</Label>
+                  <Input type="email" value={form.from_email_reservations} onChange={e => update('from_email_reservations', e.target.value)} placeholder="reservations@yourdomain.com" />
+                </div>
+                <div>
+                  <Label>Front Desk Email</Label>
+                  <Input type="email" value={form.from_email_frontdesk} onChange={e => update('from_email_frontdesk', e.target.value)} placeholder="frontdesk@yourdomain.com" />
+                </div>
+                <div>
+                  <Label>Notifications Email</Label>
+                  <Input type="email" value={form.from_email_notifications} onChange={e => update('from_email_notifications', e.target.value)} placeholder="notifications@yourdomain.com" />
+                </div>
+                <div>
+                  <Label>Housekeeping Email</Label>
+                  <Input type="email" value={form.from_email_housekeeping} onChange={e => update('from_email_housekeeping', e.target.value)} placeholder="housekeeping@yourdomain.com" />
+                </div>
+                <div>
+                  <Label>AI Assistant Email</Label>
+                  <Input type="email" value={form.from_email_ai} onChange={e => update('from_email_ai', e.target.value)} placeholder="ai-assistant@yourdomain.com" />
+                </div>
+                <div>
+                  <Label>Display Name (From Name)</Label>
+                  <Input value={form.from_name} onChange={e => update('from_name', e.target.value)} placeholder="Your Brand Name" />
+                </div>
+              </div>
+            </div>
+
+            {/* Contact Information */}
+            <div className="border rounded-lg p-4 space-y-3">
+              <h3 className="text-sm font-semibold">Contact Information</h3>
+              <div className="grid gap-3">
+                <div>
+                  <Label>Support Email</Label>
+                  <Input type="email" value={form.support_email} onChange={e => update('support_email', e.target.value)} placeholder="info@yourdomain.com" />
+                </div>
+                <div className="grid gap-3 sm:grid-cols-2">
+                  <div>
+                    <Label>Support Phone</Label>
+                    <PhoneInput value={form.support_phone} onChange={v => update('support_phone', v)} placeholder="Support phone" />
+                  </div>
+                  <div>
+                    <Label>WhatsApp Number</Label>
+                    <PhoneInput value={form.support_whatsapp} onChange={v => update('support_whatsapp', v)} placeholder="WhatsApp number" />
+                  </div>
+                </div>
+              </div>
+            </div>
+
+            {/* Guest WiFi */}
+            <div className="border rounded-lg p-4 space-y-3">
+              <h3 className="text-sm font-semibold">Guest WiFi</h3>
+              <div className="grid gap-3 sm:grid-cols-2">
+                <div>
+                  <Label>WiFi Network Name</Label>
+                  <Input value={form.wifi_network} onChange={e => update('wifi_network', e.target.value)} placeholder="Guest_WiFi" />
+                </div>
+                <div>
+                  <Label>WiFi Password</Label>
+                  <Input value={form.wifi_password} onChange={e => update('wifi_password', e.target.value)} placeholder="••••••••" />
+                </div>
+              </div>
+            </div>
+
+            {/* Business Settings */}
+            <div className="border rounded-lg p-4 space-y-3">
+              <h3 className="text-sm font-semibold">Business Settings</h3>
+              <div className="grid gap-3 sm:grid-cols-2">
+                <div>
+                  <Label>VAT Rate (%)</Label>
+                  <div className="relative">
+                    <Input
+                      type="number"
+                      step="0.01"
+                      min="0"
+                      value={form.vat_rate}
+                      onChange={e => update('vat_rate', e.target.value)}
+                      placeholder="14"
+                      className="pr-8"
+                    />
+                    <span className="absolute right-3 top-1/2 -translate-y-1/2 text-sm text-muted-foreground">%</span>
+                  </div>
+                  <p className="text-xs text-muted-foreground mt-1">Egypt: 14, UAE: 5, UK: 20</p>
+                </div>
+                <div>
+                  <Label>Default Commission Rate (%)</Label>
+                  <div className="relative">
+                    <Input
+                      type="number"
+                      step="0.01"
+                      min="0"
+                      value={form.default_commission_rate}
+                      onChange={e => update('default_commission_rate', e.target.value)}
+                      placeholder="10"
+                      className="pr-8"
+                    />
+                    <span className="absolute right-3 top-1/2 -translate-y-1/2 text-sm text-muted-foreground">%</span>
+                  </div>
+                  <p className="text-xs text-muted-foreground mt-1">Used as the default for manual bookings</p>
+                </div>
+              </div>
+            </div>
+          </div>
+        )}
+
+        {/* STEP 4: Success */}
+        {step === 4 && (
           <div className="py-8 text-center space-y-4">
             <CheckCircle2 className="h-16 w-16 mx-auto text-green-500" />
             <h3 className="text-lg font-semibold">Property Created Successfully!</h3>
@@ -422,7 +536,7 @@ export function PropertyForm({ property, open, onClose, onSaved }: PropertyFormP
         )}
 
         {/* Navigation buttons */}
-        {step < 3 && (
+        {step < 4 && (
           <div className="flex justify-between pt-4 border-t">
             <div>
               {step > 1 && (
@@ -433,17 +547,17 @@ export function PropertyForm({ property, open, onClose, onSaved }: PropertyFormP
             </div>
             <div className="flex gap-2">
               <Button variant="outline" onClick={onClose}>Cancel</Button>
-              {step === 1 && !isEdit && (
-                <Button onClick={() => validateStep1() && setStep(2)}>
-                  Next <ArrowRight className="h-4 w-4 ml-2" />
-                </Button>
-              )}
-              {step === 1 && isEdit && (
+              {step === 1 && (
                 <Button onClick={() => { if (validateStep1()) setStep(2); }}>
                   Next <ArrowRight className="h-4 w-4 ml-2" />
                 </Button>
               )}
               {step === 2 && (
+                <Button onClick={() => setStep(3)}>
+                  Next <ArrowRight className="h-4 w-4 ml-2" />
+                </Button>
+              )}
+              {step === 3 && (
                 <Button onClick={handleSave} disabled={saving}>
                   {saving ? 'Saving...' : isEdit ? 'Update Property' : 'Create Property'}
                 </Button>
