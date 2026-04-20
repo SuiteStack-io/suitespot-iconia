@@ -1,121 +1,64 @@
 
 
-## Replace Hardcoded Email/Phone/Brand Values in Edge Functions with Per-Property Settings
+## Split Summary Reports Toggle Into Daily vs Weekly/Monthly
 
-### Overview
-Create a shared `property-settings.ts` helper that reads per-property contact and branding fields from the `properties` table. Refactor 17 Edge Functions to use this helper instead of hardcoded `suitespoteg.com` email aliases, hardcoded phone numbers, and "SuiteSpot" brand strings. Update the existing `property-utils.ts` fallback to be operator-neutral.
+### 1. Database migration
 
----
+Add a new column and backfill from the existing one:
 
-### 1. New Shared Helper — `supabase/functions/_shared/property-settings.ts`
+```sql
+ALTER TABLE public.user_notification_settings
+  ADD COLUMN weekly_monthly_summary_email boolean NOT NULL DEFAULT false;
 
-```typescript
-export interface PropertySettings {
-  property_name: string;
-  from_name: string;
-  from_email_reservations: string;
-  from_email_frontdesk: string;
-  from_email_notifications: string;
-  from_email_housekeeping: string;
-  from_email_ai: string;
-  support_email: string;
-  support_phone: string;
-  support_whatsapp: string;
-  wifi_network: string;
-  wifi_password: string;
-  vat_rate: number;
-  default_commission_rate: number;
-  // Channex / address fields needed by channex-create-property
-  address: string;
-  city: string;
-  zip_code: string;
-  country: string;
-  phone: string;
-  email: string;
-  timezone: string;
-  currency: string;
-  latitude: number | null;
-  longitude: number | null;
-}
-
-export async function getPropertySettings(
-  supabase: any,
-  propertyId: string | null
-): Promise<PropertySettings>
+-- Preserve existing preferences
+UPDATE public.user_notification_settings
+  SET weekly_monthly_summary_email = true
+  WHERE daily_summary_email = true;
 ```
 
-**Behavior**
-- Single query against `properties` selecting all needed columns
-- Generic fallbacks (no SuiteSpot branding):
-  - `from_email_*` → `'notifications@hostbase.io'`
-  - `from_name` → property name (or `'Your Property'`)
-  - `support_email`, `support_phone`, `support_whatsapp`, `wifi_*` → `''`
-  - `vat_rate` → `0`
-  - `default_commission_rate` → `10`
-  - `timezone` → `'UTC'`, `currency` → `'USD'`, `country` → `'EG'`
-- Returns the fallback object if `propertyId` is null or query fails (logs error, never throws)
+The existing `daily_summary_email` column is kept untouched (still defaults to `false`).
 
-### 2. Update `supabase/functions/_shared/property-utils.ts`
-- Change fallback from `'SuiteSpot'` to `'Your Property'`
+### 2. UI — `src/components/NotificationSettingsSection.tsx`
 
-### 3. Edge Function Refactors — Pattern
+- Extend `NotificationSettings` interface and `DEFAULT_SETTINGS` with `weekly_monthly_summary_email: false`.
+- Replace the single `daily_summary_email` entry in `NOTIFICATION_LABELS` with two entries:
+  - **`daily_summary_email`** — label: *"Daily Reports"*, description: *"Receive automated daily summary reports by email"*
+  - **`weekly_monthly_summary_email`** — label: *"Weekly & Monthly Reports"*, description: *"Receive automated weekly and monthly summary reports by email (includes financial data)"*
+- Update `fetchSettings` to read both columns (defaulting each to `false`).
+- Update the upsert payload in both `saveSettings` and the `triggerSave` effect to include `weekly_monthly_summary_email`.
+- Update `handleEnableAll` to set both toggles to `true` (remove the carve-out that preserved the old admin-controlled value) and `handleDisableAll` to set both to `false`, so Enable All / Disable All now cover all six toggles.
+- Order in the two-column grid: keep pairs together — Check-in/Check-out, New Booking/Cancelled Booking, Room Shuffle/Daily Reports, Weekly & Monthly Reports (single trailing item on its own row, matching the current layout pattern).
 
-For each function below, immediately after `propertyId` is resolved (typically after fetching the reservation/booking), call:
-```typescript
-const settings = await getPropertySettings(supabaseAdmin, propertyId);
-```
-Then replace hardcoded `from:` strings using template literals.
+No changes to `EditPermissionsDialog.tsx` — it consumes `NotificationSettingsSection` and will pick up the new toggle automatically.
 
-| # | File | Hardcoded → Replacement |
-|---|---|---|
-| 1 | `send-reservation-notification/index.ts` (lines 164, 270, 536) | `from:` → `${settings.from_name} Reservations <${settings.from_email_reservations}>`; body `youssef@…` → `settings.support_email`; body `+201003901516` → `settings.support_phone` |
-| 2 | `send-cancellation-notification/index.ts` (310) | `from:` → `${settings.from_name} Reservations <${settings.from_email_reservations}>` |
-| 3 | `send-modification-notification/index.ts` (326) | same pattern |
-| 4 | `send-room-change-notification/index.ts` (287) | same pattern |
-| 5 | `send-checkin-notification/index.ts` (162) | `from:` → `${settings.from_name} Front Desk <${settings.from_email_frontdesk}>` |
-| 6 | `send-checkout-notification/index.ts` (174) | same pattern |
-| 7 | `send-extension-notification/index.ts` (118) | `from:` → `${settings.from_name} <${settings.from_email_notifications}>` |
-| 8 | `send-late-checkout-notification/index.ts` (110) | same pattern |
-| 9 | `send-admin-notification/index.ts` (132) | same pattern |
-| 10 | `send-message-notification/index.ts` (173) | `${propertyName} Inbox <${settings.from_email_notifications}>` |
-| 11 | `send-mid-stay-cleaning-notifications/index.ts` (239) | `${settings.from_name} Housekeeping <${settings.from_email_housekeeping}>` |
-| 12 | `send-kyc-reminder/index.ts` (33) | `<${settings.from_email_notifications}>` |
-| 13 | `send-kyc-completion-notification/index.ts` (113) | same pattern |
-| 14 | `auto-shuffle-rooms/index.ts` (672) | `${settings.from_name} Front Desk <${settings.from_email_frontdesk}>` |
-| 15 | `auto-assign-rooms/index.ts` (468) | `${settings.from_name} <${settings.from_email_notifications}>` |
-| 16 | `generate-weekly-summary/index.ts` (410) | `${settings.from_name} AI Assistant <${settings.from_email_ai}>` |
-| 17 | `generate-monthly-summary/index.ts` (517) | same pattern |
+### 3. Edge Functions
 
-### 4. `channex-create-property/index.ts` Special Case
+- **`supabase/functions/generate-daily-summary/index.ts`** — no change. Continues to filter by `daily_summary_email = true`.
+- **`supabase/functions/generate-weekly-summary/index.ts`** — change `.eq("daily_summary_email", true)` → `.eq("weekly_monthly_summary_email", true)`.
+- **`supabase/functions/generate-monthly-summary/index.ts`** — same change as weekly.
 
-Remove constants:
-```diff
-- const PROPERTY_EMAIL = 'youssef@suitespotegypt.com';
-- const PROPERTY_PHONE = '+201288444086';
-- const PROPERTY_ZIP_CODE = '11211';
-```
-Use the property's own values from `getPropertySettings(supabaseAdmin, property_id)`:
-- `email` → `settings.support_email || settings.from_email_reservations`
-- `phone` → `settings.support_phone || settings.phone` (use `properties.phone` column too)
-- `zip_code` → `settings.zip_code` (from `properties.zip_code`)
-- `timezone` → `settings.timezone` (replaces hardcoded `'Africa/Cairo'`)
-- `currency` → `settings.currency` (already from property; keep)
-- `address`, `city`, `country` → from settings
-- Keep validation: if any required field is empty, return 400 with clear message asking the operator to complete property settings first
+No changes to report content, schedules, templates, or sender addresses.
 
-### 5. KYC Functions — Additional Adjustments
+### 4. Out of scope (explicitly unchanged)
 
-`send-kyc-completion-notification` and `send-kyc-reminder` currently don't accept `propertyId`. Both already accept a `propertyName` arg in their request body. Add optional `propertyId` to the request payload (callers can be updated later); when provided, use it to fetch settings; when missing, fall back to a query that resolves the property by name OR uses the generic fallback. **No caller changes required in this prompt** — fallbacks ensure existing calls keep working.
+- Report HTML content, layout, and sender email.
+- Cron schedules (daily 8 AM, weekly Thursdays, monthly last working day).
+- Other notification toggles (check-in, check-out, new booking, cancelled, room shuffle).
+- `EditPermissionsDialog.tsx`, `MyNotifications.tsx`, `PropertyAccessSection`.
 
-### 6. Out of Scope (Unchanged)
-- Email template HTML/design
-- Recipient filtering logic (admin/manager/front_desk arrays already fixed)
-- Notification trigger points
-- Frontend / `properties` schema (already done)
-- Edge function `verify_jwt` settings or `config.toml`
+### Files changed
 
-### Files Modified
-1. **New**: `supabase/functions/_shared/property-settings.ts`
-2. **Updated**: `supabase/functions/_shared/property-utils.ts` (fallback string)
-3. **Updated**: 17 edge functions listed above
+1. **New migration** — adds `weekly_monthly_summary_email` column.
+2. **Data update** — backfills `weekly_monthly_summary_email = true` where `daily_summary_email = true`.
+3. **`src/components/NotificationSettingsSection.tsx`** — two toggles, updated Enable/Disable All, read/write both columns.
+4. **`supabase/functions/generate-weekly-summary/index.ts`** — switch recipient filter column.
+5. **`supabase/functions/generate-monthly-summary/index.ts`** — switch recipient filter column.
+
+### Verification
+
+After implementation:
+- Edit Permissions modal shows two separate toggles with the correct labels and descriptions in the same two-column grid.
+- Existing users who had summary reports enabled still receive all three (no silent opt-out).
+- A user with only "Daily Reports" enabled receives the 8 AM daily summary but is excluded from Thursday's weekly and the monthly report.
+- A user with only "Weekly & Monthly Reports" enabled receives Thursday + monthly but not the daily summary.
 
