@@ -2,6 +2,7 @@
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2.75.0";
 import { Resend } from "https://esm.sh/resend@4.0.0";
 import { getPropertyName } from "../_shared/property-utils.ts";
+import { getPropertySettings } from "../_shared/property-settings.ts";
 
 const resend = new Resend(Deno.env.get("RESEND_API_KEY"));
 
@@ -84,8 +85,9 @@ const handler = async (req: Request): Promise<Response> => {
     }
     console.log('Cancellation property_id:', propertyId);
 
-    // Dynamic property name lookup
+    // Dynamic property name lookup + settings
     const cancellationPropertyName = await getPropertyName(supabase, propertyId);
+    const settings = await getPropertySettings(supabase, propertyId);
 
     // Fetch admin users
     const { data: userRoles, error: rolesError } = await supabase
@@ -307,7 +309,7 @@ const handler = async (req: Request): Promise<Response> => {
         console.log(`Attempting to send cancellation email to: ${admin.email}`);
         
         const result = await resend.emails.send({
-          from: "SuiteSpot Reservations <reservations@bookings.suitespoteg.com>",
+          from: `${settings.from_name} Reservations <${settings.from_email_reservations}>`,
           to: [admin.email as string],
           subject: `Cancelled Booking - ${guest_names?.[0] || "Guest"} - ${checkInShort} to ${checkOutShort}${unit_number ? ` - Room #${unit_number}` : ''} at ${cancellationPropertyName}`,
           html: emailHtml,

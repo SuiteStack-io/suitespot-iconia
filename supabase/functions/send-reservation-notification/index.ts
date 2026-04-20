@@ -2,6 +2,7 @@
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2.75.0";
 import { Resend } from "https://esm.sh/resend@4.0.0";
 import { getPropertyName } from "../_shared/property-utils.ts";
+import { getPropertySettings } from "../_shared/property-settings.ts";
 
 const resend = new Resend(Deno.env.get("RESEND_API_KEY"));
 
@@ -112,8 +113,9 @@ const handler = async (req: Request): Promise<Response> => {
       }
     }
 
-    // Fetch dynamic property name
+    // Fetch dynamic property name + settings
     const propertyName = await getPropertyName(supabaseClient, unitPropertyId);
+    const settings = await getPropertySettings(supabaseClient, unitPropertyId);
     console.log("Dynamic property name:", propertyName);
     
     // Calculate proper adult/children counts if they're both 0 or undefined
@@ -161,7 +163,7 @@ const handler = async (req: Request): Promise<Response> => {
       console.log(`Sending customer confirmation to: ${customerEmail}`);
       try {
         const customerResult = await resend.emails.send({
-          from: "SuiteSpot Reservations <reservations@bookings.suitespoteg.com>",
+          from: `${settings.from_name} Reservations <${settings.from_email_reservations}>`,
           to: [customerEmail],
           subject: `Booking Confirmation - ${unitName} at ${propertyName}`,
           html: `
@@ -267,8 +269,8 @@ const handler = async (req: Request): Promise<Response> => {
                     Our team is here to help! If you have any questions or special requests, please don't hesitate to contact us:
                   </p>
                   <p style="color: #333; font-size: 14px; margin: 10px 0;">
-                    📧 Email: <a href="mailto:youssef@suitespotegypt.com" style="color: #0f172a;">youssef@suitespotegypt.com</a><br/>
-                    📱 Phone: +201003901516
+                    ${settings.support_email ? `📧 Email: <a href="mailto:${settings.support_email}" style="color: #0f172a;">${settings.support_email}</a><br/>` : ''}
+                    ${settings.support_phone ? `📱 Phone: ${settings.support_phone}` : ''}
                   </p>
                   
                   <p style="color: #333; font-size: 14px; line-height: 1.6; margin-top: 30px;">
@@ -533,7 +535,7 @@ const handler = async (req: Request): Promise<Response> => {
         ` : '';
         
         const result = await resend.emails.send({
-          from: "SuiteSpot Bookings <reservations@bookings.suitespoteg.com>",
+          from: `${settings.from_name} Bookings <${settings.from_email_reservations}>`,
           to: [user.email],
           subject: subject,
         html: `
