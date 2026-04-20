@@ -36,7 +36,7 @@ async function getRecipients(supabase: any, propertyId?: string): Promise<{ emai
   const { data: settings } = await supabase
     .from("user_notification_settings")
     .select("user_id")
-    .eq("daily_summary_email", true);
+    .eq("weekly_monthly_summary_email", true);
 
   if (!settings || settings.length === 0) return [];
 

@@ -2898,6 +2898,7 @@ export type Database = {
           room_shuffle_email: boolean
           updated_at: string
           user_id: string
+          weekly_monthly_summary_email: boolean
         }
         Insert: {
           cancelled_booking_email?: boolean
@@ -2910,6 +2911,7 @@ export type Database = {
           room_shuffle_email?: boolean
           updated_at?: string
           user_id: string
+          weekly_monthly_summary_email?: boolean
         }
         Update: {
           cancelled_booking_email?: boolean
@@ -2922,6 +2924,7 @@ export type Database = {
           room_shuffle_email?: boolean
           updated_at?: string
           user_id?: string
+          weekly_monthly_summary_email?: boolean
         }
         Relationships: []
       }
