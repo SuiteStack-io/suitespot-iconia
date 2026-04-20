@@ -73,6 +73,20 @@ export function PropertyForm({ property, open, onClose, onSaved }: PropertyFormP
     default_checkout_time: property?.default_checkout_time || '11:00',
     weekend_days: (property as any)?.weekend_days ?? [4, 5],
     off_peak_days: (property as any)?.off_peak_days ?? [],
+    // Email & Business Settings
+    from_email_reservations: (property as any)?.from_email_reservations || '',
+    from_email_frontdesk: (property as any)?.from_email_frontdesk || '',
+    from_email_notifications: (property as any)?.from_email_notifications || '',
+    from_email_housekeeping: (property as any)?.from_email_housekeeping || '',
+    from_email_ai: (property as any)?.from_email_ai || '',
+    from_name: (property as any)?.from_name || '',
+    support_email: (property as any)?.support_email || '',
+    support_phone: (property as any)?.support_phone || '',
+    support_whatsapp: (property as any)?.support_whatsapp || '',
+    wifi_network: (property as any)?.wifi_network || '',
+    wifi_password: (property as any)?.wifi_password || '',
+    vat_rate: (property as any)?.vat_rate?.toString() ?? '',
+    default_commission_rate: (property as any)?.default_commission_rate?.toString() ?? '',
   });
   const [saving, setSaving] = useState(false);
 
