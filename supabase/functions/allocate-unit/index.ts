@@ -220,7 +220,7 @@ Deno.serve(async (req) => {
     const { data: adminRoles } = await supabase
       .from('user_roles')
       .select('user_id')
-      .in('role', ['admin', 'front_desk']);
+      .in('role', ['admin', 'manager', 'front_desk']);
 
     if (adminRoles && adminRoles.length > 0) {
       const notifications = adminRoles.map(admin => ({
