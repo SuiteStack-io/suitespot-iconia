@@ -100,7 +100,7 @@ Deno.serve(async (req) => {
     }).filter((u: any) => u.email);
 
     // Get admins and front desk for notification
-    const admins = userData.filter((user: any) => ['admin', 'front_desk'].includes(user.role));
+    const admins = userData.filter((user: any) => ['admin', 'manager', 'front_desk'].includes(user.role));
     console.log(`Found ${admins.length} admin users`);
 
     // Get housekeeping staff for cleaning notification

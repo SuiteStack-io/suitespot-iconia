@@ -80,7 +80,7 @@ Deno.serve(async (req) => {
           role: roleRecord?.role
         };
       })
-      .filter((u: any) => u.email && ['admin', 'front_desk'].includes(u.role));
+      .filter((u: any) => u.email && ['admin', 'manager', 'front_desk'].includes(u.role));
 
     // Filter by property access
     const filteredAdmins = await filterByPropertyAccess(supabase, admins, propertyId);
