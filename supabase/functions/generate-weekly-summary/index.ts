@@ -1,5 +1,6 @@
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2.39.3";
 import { Resend } from "https://esm.sh/resend@3.2.0";
+import { getPropertySettings } from "../_shared/property-settings.ts";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
@@ -234,6 +235,7 @@ const handler = async (req: Request): Promise<Response> => {
     }
 
     const currency = property.currency || "USD";
+    const settings = await getPropertySettings(supabase, property.id);
     const recipients = await getRecipients(supabase, property.id);
     if (recipients.length === 0) {
       await supabase.from("summary_report_log").insert({
@@ -407,7 +409,7 @@ const handler = async (req: Request): Promise<Response> => {
         const personalizedHTML = `${dmHead}${weeklyHeaderHTML}<div style="padding:24px;background:#fff;border:1px solid #e5e7eb;border-top:none;border-radius:0 0 8px 8px;">${greeting}${weeklyBodyHTML}</div></div></body></html>`;
 
         const resp = await resend.emails.send({
-          from: "Mia — SuiteSpot AI <ai-assistant@bookings.suitespoteg.com>",
+          from: `Mia — ${settings.from_name} AI <${settings.from_email_ai}>`,
           to: [recipient.email],
           subject: `Weekly Summary — ${property.name} — ${formatDateFull(startDate)} to ${formatDateFull(endDate)}`,
           html: personalizedHTML,

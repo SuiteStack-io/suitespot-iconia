@@ -10,6 +10,7 @@
 
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
 import { channexRequest, logSync } from "../_shared/channex-client.ts";
+import { getPropertySettings } from "../_shared/property-settings.ts";
 
 // CORS headers for browser requests
 const corsHeaders = {
@@ -21,11 +22,6 @@ const corsHeaders = {
 const SUPABASE_URL = Deno.env.get('SUPABASE_URL')!;
 const SUPABASE_ANON_KEY = Deno.env.get('SUPABASE_ANON_KEY')!;
 const SUPABASE_SERVICE_ROLE_KEY = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!;
-
-// Contact details for Channex property
-const PROPERTY_EMAIL = 'youssef@suitespotegypt.com';
-const PROPERTY_PHONE = '+201288444086';
-const PROPERTY_ZIP_CODE = '11211';
 
 Deno.serve(async (req) => {
   // Handle CORS preflight requests
@@ -189,23 +185,52 @@ Deno.serve(async (req) => {
     }
 
     // =========================================================================
-    // 7. TRANSFORM DATA TO CHANNEX FORMAT
+    // 7. TRANSFORM DATA TO CHANNEX FORMAT (use per-property settings)
     // =========================================================================
+    const settings = await getPropertySettings(supabaseAdmin, property_id);
+
+    const channexEmail = settings.support_email || settings.from_email_reservations || settings.email;
+    const channexPhone = settings.support_phone || settings.phone;
+    const channexZip = settings.zip_code;
+    const channexCity = settings.city || (property as any).location || '';
+    const channexAddress = settings.address || property.address || '';
+    const channexCountry = settings.country || 'EG';
+    const channexTimezone = settings.timezone || 'UTC';
+    const channexCurrency = settings.currency || 'USD';
+
+    // Validate required fields
+    const missing: string[] = [];
+    if (!channexEmail) missing.push('email');
+    if (!channexPhone) missing.push('phone');
+    if (!channexZip) missing.push('zip_code');
+    if (!channexCity) missing.push('city');
+    if (!channexAddress) missing.push('address');
+
+    if (missing.length > 0) {
+      const message = `Cannot create Channex property — missing required property settings: ${missing.join(', ')}. Please complete the property settings (Email, Contact Information, Address) before syncing.`;
+      console.error('[Property] ' + message);
+      await logSync(functionName, '/api/v1/properties', { property_id }, null, null, false, message, property_id);
+      return new Response(
+        JSON.stringify({ success: false, error: message }),
+        { status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+      );
+    }
+
     const channexPropertyData = {
       property: {
         title: property.name,
-        currency: 'EGP',
-        email: PROPERTY_EMAIL,
-        phone: PROPERTY_PHONE,
-        country: 'EG',
-        city: property.location || 'Cairo',
-        address: property.address || '',
-        zip_code: PROPERTY_ZIP_CODE,
-        timezone: 'Africa/Cairo',
-        latitude: property.latitude || null,
-        longitude: property.longitude || null,
+        currency: channexCurrency,
+        email: channexEmail,
+        phone: channexPhone,
+        country: channexCountry,
+        city: channexCity,
+        address: channexAddress,
+        zip_code: channexZip,
+        timezone: channexTimezone,
+        latitude: settings.latitude ?? property.latitude ?? null,
+        longitude: settings.longitude ?? property.longitude ?? null,
         content: {
-          description: property.map_description || property.name || ''
+          description: (property as any).map_description || property.name || ''
         }
       }
     };

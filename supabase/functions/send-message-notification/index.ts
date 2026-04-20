@@ -2,6 +2,7 @@
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2.75.0";
 import { Resend } from "https://esm.sh/resend@4.0.0";
 import { getPropertyName } from "../_shared/property-utils.ts";
+import { getPropertySettings } from "../_shared/property-settings.ts";
 
 const resend = new Resend(Deno.env.get("RESEND_API_KEY"));
 
@@ -74,6 +75,7 @@ Deno.serve(async (req: Request) => {
     );
 
     const propertyName = await getPropertyName(supabase, property_id);
+    const settings = await getPropertySettings(supabase, property_id);
 
     // Fetch admin/front_desk users
     const { data: userRoles, error: rolesError } = await supabase
@@ -170,7 +172,7 @@ Deno.serve(async (req: Request) => {
 
       try {
         const emailResult = await resend.emails.send({
-          from: `${propertyName} Inbox <notifications@bookings.suitespoteg.com>`,
+          from: `${propertyName} Inbox <${settings.from_email_notifications}>`,
           to: [user.email],
           subject,
           html: `

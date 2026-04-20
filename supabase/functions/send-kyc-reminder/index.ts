@@ -1,5 +1,7 @@
 
+import { createClient } from "https://esm.sh/@supabase/supabase-js@2.75.0";
 import { Resend } from "https://esm.sh/resend@4.0.0";
+import { getPropertySettings } from "../_shared/property-settings.ts";
 
 const resend = new Resend(Deno.env.get("RESEND_API_KEY"));
 
@@ -14,6 +16,7 @@ interface KYCReminderRequest {
   guestEmail: string;
   kycLink: string;
   propertyName?: string;
+  propertyId?: string;
 }
 
 const handler = async (req: Request): Promise<Response> => {
@@ -23,14 +26,20 @@ const handler = async (req: Request): Promise<Response> => {
   }
 
   try {
-    const { guestName, guestEmail, kycLink, propertyName }: KYCReminderRequest = await req.json();
+    const { guestName, guestEmail, kycLink, propertyName, propertyId }: KYCReminderRequest = await req.json();
 
     console.log("Sending KYC reminder to:", guestEmail);
 
-    const displayName = propertyName || 'SuiteSpot';
+    const supabase = createClient(
+      Deno.env.get("SUPABASE_URL")!,
+      Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!
+    );
+    const settings = await getPropertySettings(supabase, propertyId || null);
+
+    const displayName = propertyName || settings.from_name || 'Your Property';
 
     const emailResponse = await resend.emails.send({
-      from: `${displayName} <almaza@bookings.suitespoteg.com>`,
+      from: `${displayName} <${settings.from_email_notifications}>`,
       to: [guestEmail],
       subject: `Complete Your ${displayName} Questionnaire`,
       html: `

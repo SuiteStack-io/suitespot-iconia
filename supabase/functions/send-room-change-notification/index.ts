@@ -1,6 +1,7 @@
 
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2.75.0";
 import { Resend } from "https://esm.sh/resend@4.0.0";
+import { getPropertySettings } from "../_shared/property-settings.ts";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
@@ -67,6 +68,8 @@ const handler = async (req: Request): Promise<Response> => {
       propertyId = resData?.property_id || null;
     }
     console.log('Room change property_id:', propertyId);
+
+    const settings = await getPropertySettings(supabase, propertyId);
 
     // Get all admin/manager users
     const { data: adminRoles, error: rolesError } = await supabase
@@ -284,7 +287,7 @@ const handler = async (req: Request): Promise<Response> => {
     for (const admin of adminEmails) {
       try {
         const result = await resend.emails.send({
-          from: "SuiteSpot Reservations <reservations@bookings.suitespoteg.com>",
+          from: `${settings.from_name} Reservations <${settings.from_email_reservations}>`,
           to: [admin.email as string],
           subject: `Room Change - ${guest_names?.[0] || "Guest"} (${booking_reference})`,
           html: emailHtml,

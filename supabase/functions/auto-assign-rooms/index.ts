@@ -1,6 +1,7 @@
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
 import { Resend } from "https://esm.sh/resend@4.0.0";
 import { getPropertyName } from "../_shared/property-utils.ts";
+import { getPropertySettings } from "../_shared/property-settings.ts";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
@@ -417,6 +418,7 @@ Deno.serve(async (req: Request) => {
         const firstConflictRes = enriched.find(r => r.id === conflicts[0].reservation_id);
         const propertyId = firstConflictRes?.property_id || null;
         const propertyName = await getPropertyName(supabase, propertyId);
+        const settings = await getPropertySettings(supabase, propertyId);
 
         // Get admin emails
         const { data: profiles } = await supabase.from("profiles").select("id, full_name");
@@ -465,7 +467,7 @@ Deno.serve(async (req: Request) => {
           for (const email of adminEmails) {
             try {
               await resend.emails.send({
-                from: "SuiteSpot Notifications <notifications@bookings.suitespoteg.com>",
+                from: `${settings.from_name} <${settings.from_email_notifications}>`,
                 to: [email],
                 subject: `🚨 Room Conflict Cannot Be Resolved - ${conflict.guest_name} at ${propertyName}`,
                 html: emailHtml,

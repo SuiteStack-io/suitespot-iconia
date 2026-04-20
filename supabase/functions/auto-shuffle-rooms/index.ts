@@ -1,6 +1,7 @@
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2.75.0';
 import { Resend } from 'https://esm.sh/resend@4.0.0';
 import { getPropertyName } from '../_shared/property-utils.ts';
+import { getPropertySettings } from '../_shared/property-settings.ts';
 
 const corsHeaders = {
   'Access-Control-Allow-Origin': '*',
@@ -424,6 +425,7 @@ Deno.serve(async (req) => {
       console.log('Shuffle property_id:', shufflePropertyId);
 
       const shufflePropertyName = await getPropertyName(supabase, shufflePropertyId);
+      const settings = await getPropertySettings(supabase, shufflePropertyId);
 
       // Fetch admin/front_desk emails
       const { data: adminRoles } = await supabase
@@ -669,7 +671,7 @@ Deno.serve(async (req) => {
           for (const email of adminEmails) {
             try {
               const result = await resend.emails.send({
-                from: 'SuiteSpot Front Desk <frontdesk@bookings.suitespoteg.com>',
+                from: `${settings.from_name} Front Desk <${settings.from_email_frontdesk}>`,
                 to: [email],
                 subject: `Room Shuffle Alert - ${solution.moves[0]?.guest_name || guestNames[0] || 'Guest'} - Room #${solution.moves[0]?.from_room_number} to #${solution.moves[0]?.to_room_number} at ${shufflePropertyName}`,
                 html: emailHtml,
