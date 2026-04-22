@@ -2938,9 +2938,12 @@ export type Database = {
           can_check_in: boolean | null
           can_check_out: boolean | null
           can_create_booking: boolean | null
+          can_delete_reservation: boolean
           can_export_calendar: boolean | null
+          can_manage_rooms: boolean
           can_override_rates: boolean
           can_submit_forms: boolean | null
+          can_view_revenue: boolean
           created_at: string | null
           id: string
           updated_at: string | null
@@ -2955,9 +2958,12 @@ export type Database = {
           can_check_in?: boolean | null
           can_check_out?: boolean | null
           can_create_booking?: boolean | null
+          can_delete_reservation?: boolean
           can_export_calendar?: boolean | null
+          can_manage_rooms?: boolean
           can_override_rates?: boolean
           can_submit_forms?: boolean | null
+          can_view_revenue?: boolean
           created_at?: string | null
           id?: string
           updated_at?: string | null
@@ -2972,9 +2978,12 @@ export type Database = {
           can_check_in?: boolean | null
           can_check_out?: boolean | null
           can_create_booking?: boolean | null
+          can_delete_reservation?: boolean
           can_export_calendar?: boolean | null
+          can_manage_rooms?: boolean
           can_override_rates?: boolean
           can_submit_forms?: boolean | null
+          can_view_revenue?: boolean
           created_at?: string | null
           id?: string
           updated_at?: string | null

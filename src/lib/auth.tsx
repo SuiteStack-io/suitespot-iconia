@@ -15,6 +15,9 @@ export interface UserPermissions {
   can_access_front_desk: boolean;
   can_override_rates: boolean;
   can_access_guest_inbox: boolean;
+  can_delete_reservation: boolean;
+  can_view_revenue: boolean;
+  can_manage_rooms: boolean;
 }
 
 const DEFAULT_PERMISSIONS: UserPermissions = {
@@ -29,6 +32,9 @@ const DEFAULT_PERMISSIONS: UserPermissions = {
   can_access_front_desk: false,
   can_override_rates: false,
   can_access_guest_inbox: false,
+  can_delete_reservation: false,
+  can_view_revenue: false,
+  can_manage_rooms: false,
 };
 
 interface AuthContextType {
@@ -135,6 +141,9 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
         can_access_front_desk: data.can_access_front_desk ?? false,
         can_override_rates: data.can_override_rates ?? false,
         can_access_guest_inbox: data.can_access_guest_inbox ?? false,
+        can_delete_reservation: data.can_delete_reservation ?? false,
+        can_view_revenue: data.can_view_revenue ?? false,
+        can_manage_rooms: data.can_manage_rooms ?? false,
       });
     } else {
       setPermissions(DEFAULT_PERMISSIONS);

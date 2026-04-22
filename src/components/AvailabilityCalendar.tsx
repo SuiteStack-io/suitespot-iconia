@@ -272,7 +272,7 @@ export const AvailabilityCalendar = () => {
   const { toast, dismiss } = useToast();
   const isMobile = useIsMobile();
   const [isFullscreen, setIsFullscreen] = useState(false);
-  const { userRole } = useAuth();
+  const { userRole, hasPermission } = useAuth();
   
   // Metrics state for Occupancy and RevPAR
   const [occupancyRate, setOccupancyRate] = useState<number>(0);
@@ -1923,8 +1923,8 @@ export const AvailabilityCalendar = () => {
               </p>
             </Card>
             
-            {/* RevPAR Card - Admin Only */}
-            {userRole === 'admin' && (
+            {/* RevPAR Card - Permission gated */}
+            {hasPermission('can_view_revenue') && (
               <Card 
                 className="p-4 cursor-pointer hover:bg-muted/50 transition-colors flex-1 min-w-[200px] md:max-w-[300px]"
                 onClick={() => setShowRevPARModal(true)}

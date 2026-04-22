@@ -37,6 +37,9 @@ interface UserPermissions {
   can_access_front_desk: boolean;
   can_override_rates: boolean;
   can_access_guest_inbox: boolean;
+  can_delete_reservation: boolean;
+  can_view_revenue: boolean;
+  can_manage_rooms: boolean;
 }
 
 const PERMISSION_LABELS: Record<keyof UserPermissions, { label: string; description: string }> = {
@@ -84,6 +87,18 @@ const PERMISSION_LABELS: Record<keyof UserPermissions, { label: string; descript
     label: 'Access Guest Inbox',
     description: 'View and reply to guest messages from OTA channels',
   },
+  can_delete_reservation: {
+    label: 'Delete Reservations',
+    description: 'Ability to permanently delete reservations',
+  },
+  can_view_revenue: {
+    label: 'View Revenue Data',
+    description: 'Access to revenue metrics like RevPAR and net revenue',
+  },
+  can_manage_rooms: {
+    label: 'Manage Rooms',
+    description: 'Ability to manage room types, units, and room settings',
+  },
 };
 
 interface EditPermissionsDialogProps {
@@ -115,6 +130,9 @@ export function EditPermissionsDialog({
     can_access_front_desk: false,
     can_override_rates: false,
     can_access_guest_inbox: false,
+    can_delete_reservation: false,
+    can_view_revenue: false,
+    can_manage_rooms: false,
   });
 
   useEffect(() => {
@@ -151,6 +169,9 @@ export function EditPermissionsDialog({
           can_access_front_desk: data.can_access_front_desk ?? false,
           can_override_rates: data.can_override_rates ?? false,
           can_access_guest_inbox: data.can_access_guest_inbox ?? false,
+          can_delete_reservation: data.can_delete_reservation ?? false,
+          can_view_revenue: data.can_view_revenue ?? false,
+          can_manage_rooms: data.can_manage_rooms ?? false,
         });
       } else {
         setPermissions({
@@ -165,6 +186,9 @@ export function EditPermissionsDialog({
           can_access_front_desk: false,
           can_override_rates: false,
           can_access_guest_inbox: false,
+          can_delete_reservation: false,
+          can_view_revenue: false,
+          can_manage_rooms: false,
         });
       }
     } catch (error) {
@@ -244,6 +268,9 @@ export function EditPermissionsDialog({
       can_access_front_desk: newValue,
       can_override_rates: newValue,
       can_access_guest_inbox: newValue,
+      can_delete_reservation: newValue,
+      can_view_revenue: newValue,
+      can_manage_rooms: newValue,
     });
   };
 

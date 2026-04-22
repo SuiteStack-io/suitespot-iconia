@@ -45,6 +45,7 @@ import {
   AlertDialogTitle,
 } from '@/components/ui/alert-dialog';
 import { useNavigate } from 'react-router-dom';
+import { useAuth } from '@/lib/auth';
 import { toast } from 'sonner';
 import { cn } from '@/lib/utils';
 import * as XLSX from 'xlsx';
@@ -127,6 +128,7 @@ interface ReservationsListProps {
 }
 
 export const ReservationsList = ({ userRole }: ReservationsListProps) => {
+  const { hasPermission } = useAuth();
   const propertyId = usePropertyId();
   const { activeProperty } = usePropertyCtx();
   const vatRate = activeProperty?.vat_rate ?? 0;
@@ -1118,7 +1120,7 @@ export const ReservationsList = ({ userRole }: ReservationsListProps) => {
                 Cancel Reservations
               </Button>
               
-              {userRole === 'admin' && (
+              {hasPermission('can_delete_reservation') && (
                 <Button 
                   variant="destructive" 
                   onClick={() => setShowDeleteConfirm(true)}
