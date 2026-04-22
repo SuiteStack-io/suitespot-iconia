@@ -2,9 +2,8 @@ import { createContext, useContext, useEffect, useState, ReactNode } from 'react
 import { User, Session } from '@supabase/supabase-js';
 import { supabase } from '@/integrations/supabase/client';
 import { useNavigate } from 'react-router-dom';
-import type { PropertyRole } from '@/lib/authTypes';
 
-export type { PropertyRole };
+export type PropertyRole = 'admin' | 'manager' | 'staff' | 'viewer';
 
 export interface UserPermissions {
   can_check_in: boolean;
@@ -201,10 +200,10 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
     }
   };
 
-  // Admins (system) and property owners always have all permissions
+  // System admins and Hostbase super admins always have all permissions
   const hasPermission = (permission: keyof UserPermissions): boolean => {
+    if (userRole === 'super_admin') return true;
     if (userRole === 'admin') return true;
-    if (propertyRole === 'owner') return true;
     return permissions[permission];
   };
 

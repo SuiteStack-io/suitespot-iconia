@@ -20,7 +20,7 @@ interface UserAccess {
   email: string | null;
 }
 
-const ROLES: PropertyRole[] = ['owner', 'admin', 'manager', 'staff', 'viewer'];
+const ROLES: PropertyRole[] = ['admin', 'manager', 'staff', 'viewer'];
 
 interface ManagePropertyUsersDialogProps {
   property: Property;
@@ -210,7 +210,7 @@ export function ManagePropertyUsersDialog({ property, open, onClose }: ManagePro
                       <SelectValue />
                     </SelectTrigger>
                     <SelectContent>
-                      {ROLES.filter(r => r !== 'owner').map(r => (
+                      {ROLES.map(r => (
                         <SelectItem key={r} value={r}><span className="capitalize">{r}</span></SelectItem>
                       ))}
                     </SelectContent>
