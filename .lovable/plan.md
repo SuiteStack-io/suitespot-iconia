@@ -1,61 +1,56 @@
 
 
-## Hide OTA (Channex) Reservations from Commissions Page
-
-### Problem
-The Commissions Management page currently shows BookingCom reservations (visible in the screenshot). OTAs deduct their commission before paying out — there is no commission for the PMS to track or settle on these bookings.
+## Fix: OTA Reservations Still Showing on Commissions Page
 
 ### Root cause
-The query in `src/pages/Commissions.tsx` (`fetchReservations`, lines 83–90) filters out a hardcoded list of source strings (`"booking.com"`, `"direct website"`, `"Booking.com"`), but OTA bookings created by the Channex webhook arrive with `source = "Channex"` or the OTA name (`"BookingCom"`, `"Airbnb"`, etc.) — none of which match that list. So they pass through.
+The previous fix added `.is('channex_booking_id', null)` to the query, but Booking.com reservations created via the **manual screenshot upload flow** (`parse-reservation-screenshot` edge function) do NOT have a `channex_booking_id` — they're inserted directly into `reservations` with `source = "Booking.com"` (or similar). They bypass the Channex filter entirely.
+
+The visible rows (Daphne Dimitria, Gouhier Benoit, etc.) all have `Team Member: booking.com`, confirming they were uploaded as Booking.com screenshots.
 
 ### Fix (single file: `src/pages/Commissions.tsx`)
 
-Replace the brittle source-string blocklist on line 86 with a single reliable filter:
+Add OTA source-name exclusions alongside the existing `channex_booking_id` filter in `fetchReservations`. Both filters work together:
+- `.is('channex_booking_id', null)` — excludes Channex webhook bookings
+- `.not('source', 'ilike', '%booking%')` — excludes manually uploaded Booking.com reservations
+- `.not('source', 'ilike', '%airbnb%')` — excludes Airbnb
+- `.not('source', 'ilike', '%expedia%')` — excludes Expedia
 
-```ts
-.is('channex_booking_id', null)
-```
-
-Final query becomes:
+### Final query
 
 ```ts
 const { data, error } = await withPropertyFilter(supabase
   .from('reservations')
   .select('id, booking_reference, ... , units!unit_id(name, unit_number, booking_com_name)'), propertyId)
-  .is('channex_booking_id', null)          // ← only manual / direct bookings
+  .is('channex_booking_id', null)
+  .not('source', 'ilike', '%booking%')
+  .not('source', 'ilike', '%airbnb%')
+  .not('source', 'ilike', '%expedia%')
   .not('commission_amount', 'is', null)
   .gt('commission_amount', 0)
   .is('cancelled_at', null)
   .order('check_in_date', { ascending: false });
 ```
 
-Update the inline comment on line 82 to read: `// Fetch manual/direct booking commissions only (excludes all Channex/OTA reservations)`.
+Update the inline comment on line 82 to: `// Fetch manual/direct booking commissions only (excludes Channex bookings AND manually-uploaded OTA reservations by source name)`.
 
 ### Why this covers everything on the page
-
-All downstream UI — summary cards (Unpaid / Paid / Total), the Unpaid and Paid tables, the source dropdown, and the "Export to Excel" handler — derive from the same `reservations` state. Filtering at the source query automatically excludes OTA rows from:
-
-- Summary card totals
-- Unpaid / Paid tables
-- Source filter dropdown options
-- Excel export
-- Bulk "mark as paid" selection
-
-No other code paths need to change.
+All UI (summary cards, Unpaid/Paid tables, source dropdown, Excel export, bulk mark-as-paid) derives from the same `reservations` state — filtering at the query excludes OTA rows from every downstream surface automatically.
 
 ### Future-proofing
-Any new OTA connected via Channex (Expedia, Agoda, VRBO, etc.) will be auto-excluded because every Channex-sourced reservation carries a `channex_booking_id`, set by the `channex-booking-webhook` and the `sync-channex-to-reservations` backfill function.
+- Any new OTA via Channex → auto-excluded by `channex_booking_id` filter.
+- Any manually-uploaded Booking.com / Airbnb / Expedia screenshot → auto-excluded by source-name filter.
+- New OTAs uploaded manually in the future would need their source pattern added — acceptable trade-off given the small number of OTAs that support screenshot import.
 
 ### Out of scope (unchanged)
 - Page layout, design, calculation logic for manual bookings
-- ReservationsList, Analytics, Dashboard, or any other page that intentionally shows OTA bookings
+- ReservationsList, Analytics, Dashboard, or any other page
 - `commission_amount` / `commission_rate` values stored on existing rows
-- Database schema, RLS, edge functions
+- Database schema, RLS, edge functions, screenshot parser
 
 ### Verification
-1. Open `/commissions` for ICONIA Zamalek for April 2026 → BookingCom rows in the screenshot disappear.
-2. Summary cards recompute to manual-bookings-only totals.
-3. The "Source" dropdown no longer lists `BookingCom` / `Channex`.
-4. Export to Excel produces a file with no OTA rows.
-5. Manual bookings (`source` = `Manual`, `Direct`, `Walk-in`, etc.) continue to appear and behave exactly as before.
+1. Open `/commissions` for ICONIA Zamalek for April 2026 → all rows with "Team Member: booking.com" disappear (Daphne Dimitria, Gouhier Benoit, etc.).
+2. Rows with "Team Member: Others - Nicola" and other manual entries remain.
+3. Summary cards recompute to manual-only totals.
+4. Source dropdown no longer lists `Booking.com`.
+5. Excel export contains no OTA rows.
 
