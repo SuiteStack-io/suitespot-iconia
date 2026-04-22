@@ -10,7 +10,7 @@ export const AdminRoute = ({ children }: AdminRouteProps) => {
   const { userRole, loading } = useAuth();
   const navigate = useNavigate();
 
-  const allowed = userRole === 'super_admin' || userRole === 'admin';
+  const allowed = userRole === 'admin';
 
   useEffect(() => {
     if (!loading && !allowed) {

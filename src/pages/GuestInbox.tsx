@@ -62,7 +62,7 @@ export default function GuestInbox() {
   const [activeTab, setActiveTab] = useState("all");
   const [selectedThreadId, setSelectedThreadId] = useState<string | null>(null);
 
-  const canAccessInbox = userRole === 'admin' || userRole === 'super_admin' || hasPermission('can_access_guest_inbox');
+  const canAccessInbox = userRole === 'admin' || hasPermission('can_access_guest_inbox');
 
   useEffect(() => {
     if (!canAccessInbox) {

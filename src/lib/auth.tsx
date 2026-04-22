@@ -43,6 +43,7 @@ interface AuthContextType {
   user: User | null;
   session: Session | null;
   userRole: string | null;
+  systemRole: string | null;
   propertyRole: PropertyRole | null;
   isSystemAdmin: boolean;
   permissions: UserPermissions;
@@ -60,6 +61,7 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
   const [user, setUser] = useState<User | null>(null);
   const [session, setSession] = useState<Session | null>(null);
   const [userRole, setUserRole] = useState<string | null>(null);
+  const [systemRole, setSystemRole] = useState<string | null>(null);
   const [propertyRole, setPropertyRole] = useState<PropertyRole | null>(null);
   const [permissions, setPermissions] = useState<UserPermissions>(DEFAULT_PERMISSIONS);
   const [isSystemAdmin, setIsSystemAdmin] = useState(false);
@@ -73,7 +75,6 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
         fetchSystemAdmin(userId),
         fetchPropertyRole(userId),
       ]);
-      console.log('[auth] hydration complete for user:', userId);
       setLoading(false);
     };
 
@@ -90,6 +91,7 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
           }, 0);
         } else {
           setUserRole(null);
+          setSystemRole(null);
           setPropertyRole(null);
           setPermissions(DEFAULT_PERMISSIONS);
           setIsSystemAdmin(false);
@@ -166,7 +168,8 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
       .single();
     
     if (!error && data) {
-      setUserRole(data.role);
+      setSystemRole(data.role);
+      setUserRole(data.role === 'super_admin' ? 'admin' : data.role);
     }
   };
 
@@ -207,8 +210,7 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
 
   // System admins and Hostbase super admins always have all permissions
   const hasPermission = (permission: keyof UserPermissions): boolean => {
-    if (userRole === 'super_admin') return true;
-    if (userRole === 'admin') return true;
+    if (systemRole === 'super_admin' || systemRole === 'admin') return true;
     return permissions[permission];
   };
 
@@ -239,6 +241,7 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
   const signOut = async () => {
     await supabase.auth.signOut();
     setUserRole(null);
+    setSystemRole(null);
     setPropertyRole(null);
     setPermissions(DEFAULT_PERMISSIONS);
     setIsSystemAdmin(false);
@@ -249,6 +252,7 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
       user, 
       session, 
       userRole, 
+      systemRole,
       propertyRole,
       isSystemAdmin,
       permissions,

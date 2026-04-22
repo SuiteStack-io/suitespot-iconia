@@ -45,13 +45,13 @@ const Users = () => {
   }, []);
 
   useEffect(() => {
-    if (!loading && userRole !== 'admin' && userRole !== 'super_admin') {
+    if (!loading && userRole !== 'admin') {
       navigate('/admin');
     }
   }, [userRole, loading, navigate]);
 
   useEffect(() => {
-    if (userRole === 'admin' || userRole === 'super_admin') {
+    if (userRole === 'admin') {
       fetchUsers();
     }
   }, [userRole]);
@@ -186,7 +186,7 @@ const Users = () => {
     }
   };
 
-  if (loading || (userRole !== 'admin' && userRole !== 'super_admin')) {
+  if (loading || userRole !== 'admin') {
     return null;
   }
 
