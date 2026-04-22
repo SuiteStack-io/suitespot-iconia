@@ -5,6 +5,7 @@ import { ArrowUpDown, ArrowUp, ArrowDown } from 'lucide-react';
 import { supabase } from '@/integrations/supabase/client';
 import { format } from 'date-fns';
 import { DateRange } from 'react-day-picker';
+import { useProperty } from '@/lib/propertyContext';
 
 interface NationalityRevenue {
   nationality: string;
@@ -24,6 +25,10 @@ interface RevenueByNationalityProps {
 }
 
 export const RevenueByNationality = ({ mainDateRange }: RevenueByNationalityProps) => {
+  const { activeProperty } = useProperty();
+  const vatRate = activeProperty?.vat_rate ?? 0;
+  const vatDivisor = 1 + vatRate / 100;
+
   const [dateRange, setDateRange] = useState<DateRange | undefined>(() => {
     if (mainDateRange?.from && mainDateRange?.to) {
       return mainDateRange;
@@ -96,8 +101,8 @@ export const RevenueByNationality = ({ mainDateRange }: RevenueByNationalityProp
       const source = reservation.source || 'Unknown';
       const payment = reservation.payment_method || 'Unknown';
 
-      // Calculate revenue excluding VAT (14% VAT rate)
-      const revenueExVat = vatExempt ? totalPrice : totalPrice / 1.14;
+      // Calculate revenue excluding VAT (using property's VAT rate)
+      const revenueExVat = vatExempt ? totalPrice : totalPrice / vatDivisor;
 
       if (!nationalityMap[nationality]) {
         nationalityMap[nationality] = {

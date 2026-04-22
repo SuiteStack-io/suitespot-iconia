@@ -2,6 +2,7 @@ import { useEffect, useState } from 'react';
 import { CreateReservationDialog } from '@/components/CreateReservationDialog';
 import { supabase } from '@/integrations/supabase/client';
 import { usePropertyId, withPropertyFilter } from '@/hooks/usePropertyFilter';
+import { useProperty as usePropertyCtx } from '@/lib/propertyContext';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -127,6 +128,9 @@ interface ReservationsListProps {
 
 export const ReservationsList = ({ userRole }: ReservationsListProps) => {
   const propertyId = usePropertyId();
+  const { activeProperty } = usePropertyCtx();
+  const vatRate = activeProperty?.vat_rate ?? 0;
+  const vatDivisor = 1 + vatRate / 100;
   const [reservations, setReservations] = useState<Reservation[]>([]);
   const [filteredReservations, setFilteredReservations] = useState<GroupedReservation[]>([]);
   const [searchQuery, setSearchQuery] = useState('');
@@ -670,10 +674,10 @@ export const ReservationsList = ({ userRole }: ReservationsListProps) => {
     return dataToExport.map(r => {
       const isVatExempt = r.vat_exempt === true;
       const netRevenue = r.total_price 
-        ? (isVatExempt ? Number(r.total_price) : Number(r.total_price) / 1.14)
+        ? (isVatExempt ? Number(r.total_price) : Number(r.total_price) / vatDivisor)
         : null;
       const vatAmount = r.total_price 
-        ? (isVatExempt ? 0 : Number(r.total_price) - Number(r.total_price) / 1.14)
+        ? (isVatExempt ? 0 : Number(r.total_price) - Number(r.total_price) / vatDivisor)
         : null;
       
       return {
@@ -690,7 +694,7 @@ export const ReservationsList = ({ userRole }: ReservationsListProps) => {
         'Source': r.source,
         'Price/Night': r.price_per_night ? `$${Number(r.price_per_night).toFixed(2)}` : '-',
         'Net Revenue': netRevenue !== null ? `$${netRevenue.toFixed(2)}` : '-',
-        'VAT (14%)': vatAmount !== null ? `$${vatAmount.toFixed(2)}` : '-',
+        [`VAT (${vatRate}%)`]: vatAmount !== null ? `$${vatAmount.toFixed(2)}` : '-',
         'Total Revenue': r.total_price ? `$${Number(r.total_price).toFixed(2)}` : '-',
         'Payment': formatPaymentMethod(r.payment_method),
         'Currency': getCurrencyLabel(r.currency),
@@ -1300,7 +1304,7 @@ export const ReservationsList = ({ userRole }: ReservationsListProps) => {
                 </div>
               </TableHead>
               <TableHead className="text-right">
-                VAT (14%)
+                VAT ({vatRate}%)
               </TableHead>
               <TableHead className="text-right">
                 Total Revenue
@@ -1505,7 +1509,7 @@ export const ReservationsList = ({ userRole }: ReservationsListProps) => {
                     onClick={() => navigate(`/reservation/${reservation.id}`)}
                   >
                     {reservation.total_price 
-                      ? `$${(reservation.vat_exempt ? Number(reservation.total_price) : Number(reservation.total_price) / 1.14).toFixed(2)}` 
+                      ? `$${(reservation.vat_exempt ? Number(reservation.total_price) : Number(reservation.total_price) / vatDivisor).toFixed(2)}` 
                       : '-'}
                   </TableCell>
                   <TableCell 
@@ -1513,7 +1517,7 @@ export const ReservationsList = ({ userRole }: ReservationsListProps) => {
                     onClick={() => navigate(`/reservation/${reservation.id}`)}
                   >
                     {reservation.total_price 
-                      ? `$${(reservation.vat_exempt ? 0 : Number(reservation.total_price) - Number(reservation.total_price) / 1.14).toFixed(2)}` 
+                      ? `$${(reservation.vat_exempt ? 0 : Number(reservation.total_price) - Number(reservation.total_price) / vatDivisor).toFixed(2)}` 
                       : '-'}
                   </TableCell>
                   <TableCell 

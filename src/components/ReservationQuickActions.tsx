@@ -70,6 +70,9 @@ export const ReservationQuickActions = ({
   const [availableUnits, setAvailableUnits] = useState<Unit[]>([]);
   const propertyCtx = usePropertySafe();
   const activeProperty = propertyCtx?.activeProperty;
+  const vatRate = activeProperty?.vat_rate ?? 0;
+  const propertyCommissionRate = activeProperty?.default_commission_rate ?? 10;
+  const vatDivisor = 1 + vatRate / 100;
   const [selectedUnitId, setSelectedUnitId] = useState<string>("");
   const [unitConflicts, setUnitConflicts] = useState<Map<string, ConflictInfo>>(new Map());
   const [loading, setLoading] = useState(false);
@@ -538,9 +541,9 @@ export const ReservationQuickActions = ({
     try {
       const pricePerNight = parseFloat(extensionPricePerNight);
       const extensionSubtotalCalc = additionalNights * pricePerNight;
-      const extensionVATCalc = extensionSubtotalCalc * 0.14;
+      const extensionVATCalc = extensionSubtotalCalc * (vatRate / 100);
       const extensionTotalCalc = extensionSubtotalCalc + extensionVATCalc;
-      const extensionCommissionRate = 10; // Standard direct rate for extensions
+      const extensionCommissionRate = propertyCommissionRate; // From property settings
       // Commission calculated on subtotal (excluding VAT) - effective Jan 2026
       const extensionCommission = extensionSubtotalCalc * (extensionCommissionRate / 100);
       const extensionNetRevenue = extensionTotalCalc - extensionCommission;
@@ -655,10 +658,10 @@ export const ReservationQuickActions = ({
     setSavingLateCheckoutEdit(true);
     try {
       const newFee = parseFloat(editLateCheckoutFee);
-      const baseAmount = newFee / 1.14; // Extract base excluding VAT
-      const commissionRate = 10;
+      const baseAmount = newFee / vatDivisor; // Extract base excluding VAT
+      const editCommissionRate = propertyCommissionRate;
       // Commission calculated on base amount (excluding VAT) - effective Jan 2026
-      const commissionAmount = baseAmount * (commissionRate / 100);
+      const commissionAmount = baseAmount * (editCommissionRate / 100);
       const netRevenue = newFee - commissionAmount;
 
       const { error } = await supabase
@@ -729,10 +732,10 @@ export const ReservationQuickActions = ({
     setSavingExtensionEdit(true);
     try {
       const newTotal = parseFloat(editExtensionFee);
-      const baseAmount = newTotal / 1.14; // Extract base excluding VAT
-      const commissionRate = 10;
+      const baseAmount = newTotal / vatDivisor; // Extract base excluding VAT
+      const editCommissionRate = propertyCommissionRate;
       // Commission calculated on base amount (excluding VAT) - effective Jan 2026
-      const commissionAmount = baseAmount * (commissionRate / 100);
+      const commissionAmount = baseAmount * (editCommissionRate / 100);
       const netRevenue = newTotal - commissionAmount;
 
       const { error } = await supabase
@@ -858,7 +861,7 @@ export const ReservationQuickActions = ({
   const extensionSubtotal = additionalNights > 0 && extensionPricePerNight 
     ? additionalNights * parseFloat(extensionPricePerNight) 
     : 0;
-  const extensionVAT = extensionSubtotal * 0.14;
+  const extensionVAT = extensionSubtotal * (vatRate / 100);
   const extensionTotal = extensionSubtotal + extensionVAT;
 
   const getSourceBadgeColor = (source?: string) => {
