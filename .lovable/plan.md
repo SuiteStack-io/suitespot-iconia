@@ -1,58 +1,73 @@
 
 
-## Auto-Grant All Permissions to Property Owners
+## Promote `owner` → System `super_admin` Role
 
-Property owners are currently locked out of most features because `hasPermission()` only short-circuits for system `admin`. This change extends that shortcut to property `owner` for the currently active property, and opens `AdminRoute` to owners as well.
+Replace the property-scoped `owner` role with a new system-level `super_admin` app_role for the Hostbase platform operator. `admin` stays unchanged.
 
-### 1. Expose `propertyRole` in `AuthContext` — `src/lib/auth.tsx`
+### 1. Database migration
 
-- Add `propertyRole: PropertyRole | null` to `AuthContextType`.
-- After the existing `fetchUserRole` / `fetchUserPermissions` / `fetchSystemAdmin` calls, fetch the user's property role:
-  - Read the active property id from `localStorage.getItem('activePropertyId')` (the same key `PropertyProvider` uses).
-  - If a saved id exists, query `user_property_access` for `(user_id, property_id)` → set `propertyRole` to `data.role` (or `null`).
-  - If no saved id, look up the user's first/default access row (single result) and use that role; fall back to `null`.
-- Listen for active-property changes so the role stays in sync:
-  - Add a `window` event `activePropertyChanged` (CustomEvent with `propertyId`). The auth provider re-fetches the role on this event.
-  - In `src/lib/propertyContext.tsx`, dispatch this event inside `setActiveProperty` and at the end of `fetchProperties` once the active property is resolved. (No structural change to `PropertyProvider`; just a `window.dispatchEvent` call.)
-- On `signOut`, clear `propertyRole` to `null`.
+**Enum + helper functions**
+- `ALTER TYPE public.app_role ADD VALUE 'super_admin';` (must run in its own statement before any usage).
+- Update `public.user_has_property_access(...)` — drop `'owner'` from each role-array branch, drop the `WHEN 'owner'` arm. Add an early-return for `has_role(auth.uid(), 'super_admin'::app_role)`.
+- Update `public.is_system_admin(...)` (or add a parallel check) so super_admins are treated as system admins. Simplest: keep `is_system_admin` as-is (profiles flag) and have all RLS use `has_role(..., 'super_admin')` alongside it.
 
-### 2. Extend the `hasPermission` shortcut — `src/lib/auth.tsx`
+**Trigger**
+- `DROP TRIGGER trigger_auto_assign_property_owner ON public.properties;`
+- `DROP FUNCTION public.auto_assign_property_owner();`
+- Replace with a new trigger function `auto_assign_property_admin` that inserts the creator as `'admin'` (property-scoped) — only if the creator is NOT a super_admin (super_admins don't need a row to access).
 
-```ts
-const hasPermission = (permission: keyof UserPermissions): boolean => {
-  if (userRole === 'admin') return true;
-  if (propertyRole === 'owner') return true;
-  return permissions[permission];
-};
-```
+**RLS policies (rewrite, drop `owner` everywhere)**
+- `properties` — "Property owners and admins can update": replace with `has_property_role(auth.uid(), id, ARRAY['admin']) OR has_role(auth.uid(),'super_admin') OR is_system_admin(auth.uid())`.
+- `properties` — "Admins can update properties": same swap (drop `'owner'` from array, add `super_admin`).
+- `properties` — "Property owners can delete": rename concept to "Super admins and system admins can delete", remove `'owner'`. Property-level `admin` does NOT get delete (deletion is now reserved for super_admin / is_system_admin).
+- `user_property_access` SELECT/INSERT/UPDATE/DELETE — drop `'owner'` from arrays, leave `'admin'`, add `has_role(...,'super_admin')`.
 
-The existing admin behavior is preserved verbatim; owner is added as a second short-circuit.
+**Data updates (via insert tool)**
+- `UPDATE public.user_roles SET role = 'super_admin' WHERE user_id = 'd540b87e-f856-4ef1-9193-2fb077366ef9';`
+- `DELETE FROM public.user_property_access WHERE role = 'owner';` (only Youssef's row).
 
-### 3. Open `AdminRoute` to property owners — `src/components/AdminRoute.tsx`
-
-- Pull `propertyRole` from `useAuth()`.
-- Replace the gate:
+### 2. `src/lib/auth.tsx`
+- `PropertyRole` type → `'admin' | 'manager' | 'staff' | 'viewer'` (drop `'owner'`).
+- `hasPermission`:
   ```ts
-  if (!loading && userRole !== 'admin' && propertyRole !== 'owner') {
-    navigate('/admin', { replace: true });
-  }
+  if (userRole === 'super_admin') return true;
+  if (userRole === 'admin') return true;
+  return permissions[permission];
   ```
-- Mirror the same condition in the render-null guard.
+- `propertyRole` state stays (still surfaced to consumers like `propertyContext`/`AdminRoute`); we just no longer compare it to `'owner'`.
 
-### 4. Type definition
+### 3. `src/components/AdminRoute.tsx`
+```ts
+const { userRole, loading } = useAuth();
+const allowed = userRole === 'super_admin' || userRole === 'admin';
+```
+Drop `propertyRole` from the destructure.
 
-Add a `PropertyRole` type alias inside `src/lib/auth.tsx` (`'owner' | 'admin' | 'manager' | 'staff' | 'viewer'`) so we don't import from `propertyContext` and create a circular dependency. The string union is intentionally duplicated (both files already declare it independently).
+### 4. `src/lib/propertyContext.tsx`
+- `PropertyRole` type → `'admin' | 'manager' | 'staff' | 'viewer'`.
+- Add `isSuperAdmin` derived from `userRole === 'super_admin'` (read from auth context — convert provider to consume `useAuth().userRole`).
+- Update derivations:
+  ```ts
+  const canEditProperty   = isSystemAdmin || isSuperAdmin || propertyRole === 'admin';
+  const canDeleteProperty = isSystemAdmin || isSuperAdmin;             // owner-only action moves to super_admin
+  const canManageUsers    = isSystemAdmin || isSuperAdmin || propertyRole === 'admin';
+  ```
+- In `fetchProperties`, treat super_admins like the existing system-admin branch (fetch all properties, skip access filter). Update the local `isAppAdmin` check to also include `super_admin`.
 
-### Out of scope (per instructions)
-- No changes to `user_permissions` table, granular permissions, RLS, edge functions, or the owner auto-assign trigger.
-- No changes to the "Add user to property" dropdown (owner stays auto-assign only).
-- No changes to `front_desk` / `manager` / `housekeeping` / `staff` behavior.
-- No changes to hardcoded `userRole === 'admin'` checks elsewhere — those are tracked separately and follow the granular-permissions migration pattern. Owners now pass `hasPermission(...)` checks automatically; pages still gated by raw `userRole === 'admin'` will be addressed in follow-up work.
+### 5. UI components
+- `src/components/settings/ManagePropertyUsersDialog.tsx`
+  - `ROLES: PropertyRole[] = ['admin', 'manager', 'staff', 'viewer']`.
+  - Remove the `.filter(r => r !== 'owner')` line — no longer needed; render full list in the add dropdown.
+- `src/components/PropertyAccessSection.tsx`
+  - `ROLES = ['admin', 'manager', 'staff', 'viewer'] as const`.
+
+### 6. Out of scope (per instructions)
+- `admin` app_role behavior, Ahmed's role, `manager`/`front_desk`/`housekeeping`, granular permissions, edge functions — all unchanged.
 
 ### Verification
-1. New user, no system role, `owner` of a test property → `hasPermission('can_delete_reservation')` and `hasPermission('can_view_revenue')` both return `true`; can access `AdminRoute`-gated pages.
-2. `manager` (not owner) → still gated by granular permissions only.
-3. System `admin` → unchanged behavior.
-4. Switching active property in `PropertySwitcher` updates `propertyRole` immediately (event-driven re-fetch).
-5. Sign out clears `propertyRole`.
+1. Youssef (`super_admin`) → `hasPermission(...)` returns true; `AdminRoute` allows; `propertyContext` lists every property.
+2. Ahmed (`admin`) → unchanged behavior; full access to ICONIA.
+3. Creating a new property as Ahmed → trigger auto-assigns him as `user_property_access.role = 'admin'` (not `owner`).
+4. Codebase grep for `'owner'` as a role returns zero matches in `src/`.
+5. `SELECT * FROM user_property_access WHERE role = 'owner'` returns zero rows.
 
