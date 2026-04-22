@@ -25,8 +25,6 @@ const ReservationsListPage = () => {
 
   if (!user) return null;
 
-  const isAdmin = userRole === 'admin';
-
   return (
     <div className="min-h-screen bg-background p-2 md:p-6">
       <div className="container mx-auto">

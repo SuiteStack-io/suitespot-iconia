@@ -96,7 +96,7 @@ const STATUS_OPTIONS = ['available', 'occupied', 'maintenance', 'reserved'];
 
 
 const Rooms = () => {
-  const { user, loading, userRole } = useAuth();
+  const { user, loading, userRole, hasPermission } = useAuth();
   const propertyId = usePropertyId();
   const { activeProperty } = useProperty();
   const navigate = useNavigate();
@@ -215,15 +215,15 @@ const Rooms = () => {
     if (!loading && !user) {
       navigate('/auth');
     }
-    if (!loading && user && userRole && userRole !== 'admin') {
+    if (!loading && user && !hasPermission('can_manage_rooms')) {
       toast({
         variant: 'destructive',
         title: 'Access Denied',
-        description: 'Only administrators can access room management',
+        description: 'You do not have permission to access room management',
       });
       navigate('/admin');
     }
-  }, [user, loading, userRole, navigate, toast]);
+  }, [user, loading, hasPermission, navigate, toast]);
 
   useEffect(() => {
     if (user) {
@@ -1129,7 +1129,7 @@ const Rooms = () => {
     return null;
   }
 
-  const isAdmin = userRole === 'admin';
+  const canManageRooms = hasPermission('can_manage_rooms');
 
   const StatusBadge = ({ status }: { status: string }) => {
     const config: Record<string, { color: string; label: string }> = {
@@ -1170,7 +1170,7 @@ const Rooms = () => {
                 </p>
               </div>
             </div>
-            {isAdmin && (
+            {canManageRooms && (
               <div className="flex gap-2">
                 {isBulkEdit ? (
                   <>
@@ -1350,7 +1350,7 @@ const Rooms = () => {
                               <TableHead className="px-3 py-2 text-xs font-medium uppercase tracking-wider text-muted-foreground">View</TableHead>
                               <TableHead className="px-3 py-2 text-xs font-medium uppercase tracking-wider text-muted-foreground text-center">Photos</TableHead>
                               <TableHead className="px-3 py-2 text-xs font-medium uppercase tracking-wider text-muted-foreground">Status</TableHead>
-                              {isAdmin && <TableHead className="w-28 px-3 py-2 text-xs font-medium uppercase tracking-wider text-muted-foreground">Actions</TableHead>}
+                              {canManageRooms && <TableHead className="w-28 px-3 py-2 text-xs font-medium uppercase tracking-wider text-muted-foreground">Actions</TableHead>}
                             </TableRow>
                           </TableHeader>
                           <TableBody>
@@ -1448,7 +1448,7 @@ const Rooms = () => {
                                       <StatusBadge status={unit.status} />
                                     )}
                                   </TableCell>
-                                  {isAdmin && (
+                                  {canManageRooms && (
                                     <TableCell className="px-3 py-2">
                                       {editingId === unit.id ? (
                                         <div className="flex items-center gap-1">
@@ -1500,7 +1500,7 @@ const Rooms = () => {
                             </div>
                             <div className="flex items-center gap-2">
                               <StatusBadge status={unit.status} />
-                              {isAdmin && (
+                              {canManageRooms && (
                                 <DropdownMenu>
                                   <DropdownMenuTrigger asChild>
                                     <Button variant="ghost" size="icon" className="h-8 w-8">
@@ -1521,7 +1521,7 @@ const Rooms = () => {
                       </div>
 
                       {/* Room type footer actions */}
-                      {isAdmin && (
+                      {canManageRooms && (
                         <div className="flex gap-2 mt-4 pt-4 border-t">
                           <Button variant="outline" size="sm" onClick={() => {
                             handleCloneClick(representative);

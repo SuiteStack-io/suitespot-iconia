@@ -128,6 +128,7 @@ interface ReservationsListProps {
 }
 
 export const ReservationsList = ({ userRole }: ReservationsListProps) => {
+  const { hasPermission } = useAuth();
   const propertyId = usePropertyId();
   const { activeProperty } = usePropertyCtx();
   const vatRate = activeProperty?.vat_rate ?? 0;
@@ -1119,7 +1120,7 @@ export const ReservationsList = ({ userRole }: ReservationsListProps) => {
                 Cancel Reservations
               </Button>
               
-              {userRole === 'admin' && (
+              {hasPermission('can_delete_reservation') && (
                 <Button 
                   variant="destructive" 
                   onClick={() => setShowDeleteConfirm(true)}
