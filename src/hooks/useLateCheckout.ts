@@ -7,6 +7,8 @@ interface UseLateCheckoutParams {
   unitId: string | null;
   unitName: string;
   checkoutDate: string;
+  vatRate?: number;
+  commissionRate?: number;
 }
 
 interface FeeOptions {
@@ -22,6 +24,8 @@ export const useLateCheckout = ({
   unitId,
   unitName,
   checkoutDate,
+  vatRate = 0,
+  commissionRate = 10,
 }: UseLateCheckoutParams) => {
   const [loading, setLoading] = useState(false);
   const { user } = useAuth();
@@ -54,8 +58,7 @@ export const useLateCheckout = ({
       if (feeOptions?.feeEnabled && feeOptions.feeAmount && feeOptions.feeAmount > 0 && feeOptions.fullReservation) {
         const fullRes = feeOptions.fullReservation;
         const feeAmt = feeOptions.feeAmount;
-        const baseAmount = feeAmt / 1.14;
-        const commissionRate = 10;
+        const baseAmount = feeAmt / (1 + vatRate / 100);
         const commissionAmount = baseAmount * (commissionRate / 100);
         const netRevenue = feeAmt - commissionAmount;
 

@@ -9,6 +9,7 @@ import { Checkbox } from '@/components/ui/checkbox';
 import { Info, Loader2, User } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
 import { useLateCheckout } from '@/hooks/useLateCheckout';
+import { usePropertySafe } from '@/lib/propertyContext';
 
 const LATE_CHECKOUT_TIMES = [
   '13:00', '14:00', '15:00', '16:00', '17:00', '18:00', '19:00', '20:00',
@@ -61,11 +62,18 @@ export const LateCheckoutDialog = ({
   const [feeEnabled, setFeeEnabled] = useState(true);
   const [feeAmount, setFeeAmount] = useState<string>('50');
   const { toast } = useToast();
+  const propertyCtx = usePropertySafe();
+  const activeProperty = propertyCtx?.activeProperty;
+  const vatRate = activeProperty?.vat_rate ?? 0;
+  const commissionRate = activeProperty?.default_commission_rate ?? 10;
+  const vatDivisor = 1 + vatRate / 100;
   const { applyLateCheckout, removeLateCheckout, loading } = useLateCheckout({
     reservationId,
     unitId,
     unitName,
     checkoutDate,
+    vatRate,
+    commissionRate,
   });
 
   const formattedDate = (() => {
@@ -77,7 +85,7 @@ export const LateCheckoutDialog = ({
   })();
 
   const fee = parseFloat(feeAmount) || 0;
-  const feeBase = fee / 1.14;
+  const feeBase = fee / vatDivisor;
   const feeVAT = fee - feeBase;
 
   const handleSave = async () => {
@@ -190,7 +198,7 @@ export const LateCheckoutDialog = ({
                         <span>${feeBase.toFixed(2)}</span>
                       </div>
                       <div className="flex justify-between">
-                        <span className="text-muted-foreground">VAT (14%)</span>
+                        <span className="text-muted-foreground">VAT ({vatRate}%)</span>
                         <span>${feeVAT.toFixed(2)}</span>
                       </div>
                       <div className="border-t pt-1.5 flex justify-between font-semibold">
