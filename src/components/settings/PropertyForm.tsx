@@ -486,7 +486,7 @@ export function PropertyForm({ property, open, onClose, onSaved }: PropertyFormP
                   <div className="relative">
                     <Input
                       type="number"
-                      step="0.01"
+                      step="1"
                       min="0"
                       value={form.vat_rate}
                       onChange={e => update('vat_rate', e.target.value)}
@@ -502,7 +502,7 @@ export function PropertyForm({ property, open, onClose, onSaved }: PropertyFormP
                   <div className="relative">
                     <Input
                       type="number"
-                      step="0.01"
+                      step="0.5"
                       min="0"
                       value={form.default_commission_rate}
                       onChange={e => update('default_commission_rate', e.target.value)}
