@@ -1,46 +1,67 @@
 
 
-## Audit: Admin RLS Policies & RPCs Missing `super_admin`
+## Restructure Account Setup: Split Personal Admin from Hostbase Super Admin
 
-### What I found
+### Pre-flight findings (verified just now)
 
-**46 RLS policies** across 33 tables guard access with `has_role(auth.uid(), 'admin'::app_role)` but never check `'super_admin'`. **7 functions** do the same. Super admins currently fail every one of these checks at the DB layer.
-
-#### Functions to update
-| Function | Treatment |
+| Check | Result |
 |---|---|
-| `has_permission(_user_id, _permission)` | Add `super_admin` short-circuit (mirrors `admin`). Fixes every permission gate app-wide in one shot. |
-| `reset_guest_password` | Add `super_admin` to guard. |
-| `notify_new_reservation` | Add `super_admin` to recipient role list so super admins receive in-app notifications. |
-| `notify_new_ticket` | Same. |
-| `notify_room_reassignment` | Same. |
-| `notify_admins_on_sync_error` | Same. |
-| `auto_grant_admin_property_access` | Skip super admins (they don't need rows in `user_property_access`); only grant to `admin` role. |
+| Your actual user_id | `d540b87e-f856-4ef1-9193-2fb077366ef9` (the ID in your prompt, `...b284-b0ba8a813a58`, is the **Lovable project ID** — typo) |
+| Your current role | `super_admin` (sole holder) |
+| Your current `user_property_access` rows | None (super_admin has global access) |
+| `founders@hostbase.ai` already exists? | No |
+| ICONIA Zamalek property_id | `c98a2256-1787-47a4-bf0f-61942b4e87d5` |
+| RLS policies referencing `super_admin` | 56 (audit migration is in place) |
 
-#### RLS policies to update (add `OR has_role(auth.uid(), 'super_admin'::app_role)`)
+### ⚠️ Confirm before I proceed
 
-Tables (full list, all currently admin-gated only):
-`audit_logs`, `blocked_dates` (3), `blog_posts`, `booking_com_sync_log`, `channel_markup_settings`, `channex_alerts`, `channex_bookings`, `channex_mappings`, `channex_property_config`, `check_in_agreements`, `companies`, `derived_rate_plan_mappings`, `faq_items`, `guest_accounts`, `guest_inventory_access`, `guest_tickets`, `housekeeping_logs`, `kyc_links`, `media_library`, `nearby_amenities`, `notifications`, `properties` (2 INSERT policies), `property_amenities`, `rate_plan_prices`, `rate_plan_value_adds` (3), `room_shuffle_log`, `selection_accounts`, `slideshow_images` (3), `stay_surveys`, `summary_report_log`, `sync_logs`, `sync_status`, `ticket_surveys`, `user_notification_settings`, `user_permissions`, `user_roles` (4), `whatsapp_message_log`, `whatsapp_message_templates`.
+The user_id in your prompt (`d540b87e-f21f-48c2-b284-b0ba8a813a58`) does **not** exist. Your real account is `d540b87e-f856-4ef1-9193-2fb077366ef9` (Youssef Noureldin / youssef@suitespotegypt.com). I'll proceed with that one — please confirm or correct.
 
-### Strategy
+### STOP — I need the password
 
-Single migration that:
+Per your instructions, I will not hardcode a placeholder. **Please reply in chat with the password for `founders@hostbase.ai`** (min 6 chars, ideally strong). I will use it once and discard it.
 
-1. **Patches `has_permission`** to short-circuit on `super_admin` as well as `admin`. This alone covers any policy or RPC that calls `has_permission()` — no further work needed for those.
-2. **Patches the 6 other admin-gated functions** to include `super_admin` in their role guards / recipient queries.
-3. **DROP + CREATE each of the 46 policies** with the new check `has_role(auth.uid(), 'admin'::app_role) OR has_role(auth.uid(), 'super_admin'::app_role)`. Existing extra clauses (e.g. `OR has_permission(...)`, `OR is_system_admin(...)`, `EXISTS (... role IN ('admin','manager') ...)`) are preserved verbatim — only the admin check is widened. For policies with array role lists (`rate_plan_prices`), `'super_admin'::app_role` is added to the array.
+### What I'll do once you reply with the password
 
-### Out of scope (intentionally untouched)
+A single edge function (`create-super-admin-account`, one-shot, deleted after success) executes everything atomically with the service role key:
 
-- `is_system_admin`, `has_role`, `has_property_access`, `has_property_role`, `user_has_property_access`, `auto_assign_property_admin` — already handle super_admin correctly or are role-agnostic.
-- `app_role` enum, `user_roles` data, Edge Functions (already updated separately, read raw DB role).
-- Frontend code (already normalized via `userRole='admin'` shim in `auth.tsx`).
+1. **Create new auth user** via `supabase.auth.admin.createUser({ email: 'founders@hostbase.ai', password: <yours>, email_confirm: true, user_metadata: { full_name: 'Youssef Noureldin' } })`. Capture `NEW_SUPER_ADMIN_ID`.
+2. **Insert profile** (or rely on `handle_new_user` trigger; will upsert `full_name` to be safe).
+3. **Insert `user_roles`** row → `(NEW_SUPER_ADMIN_ID, 'super_admin')`.
+4. **Demote your account** → `UPDATE user_roles SET role = 'admin' WHERE user_id = 'd540b87e-f856-4ef1-9193-2fb077366ef9'`.
+5. **Grant your account explicit ICONIA admin access** → `INSERT INTO user_property_access (user_id, property_id, role, granted_by) VALUES ('d540b87e-f856-4ef1-9193-2fb077366ef9', 'c98a2256-1787-47a4-bf0f-61942b4e87d5', 'admin', NEW_SUPER_ADMIN_ID) ON CONFLICT (user_id, property_id) DO UPDATE SET role = 'admin'`.
+6. **Skip** any insert into `user_property_access` for the new super_admin (auto_assign trigger already skips super_admins).
 
-### Verification
+If any step throws, the function rolls back: deletes the new auth user (if created) and restores `user_roles` back to `super_admin` for your account. No partial state.
 
-1. Logged in as Youssef (`super_admin`), open any of: KYC management, slideshow editor, blog editor, FAQ manager, channel markup, derived rate plans, audit logs, sync logs → all load and allow CRUD.
-2. New reservation / ticket / room reassignment / sync error → Youssef receives in-app notification.
-3. `auto_grant_admin_property_access` no longer creates redundant rows for super admins on new property creation.
-4. Logged in as Ahmed (`admin`) → behavior unchanged across the board.
-5. Manager / front_desk / housekeeping → unchanged (no policies were widened beyond admin/super_admin).
+### What stays untouched
+
+- `app_role` enum, `has_permission`, `auto_assign_property_admin`, all 56 RLS policies, `auth.tsx`, `propertyContext.tsx`, `AdminRoute.tsx`, every other user.
+
+### Verification I'll run after the migration
+
+```sql
+-- Should show: founders@hostbase.ai → super_admin, your account → admin
+SELECT au.email, ur.role FROM user_roles ur JOIN auth.users au ON au.id = ur.user_id;
+
+-- Should show: 1 row for your account on ICONIA, 0 for the new super_admin
+SELECT user_id, property_id, role FROM user_property_access
+WHERE user_id IN ('d540b87e-f856-4ef1-9193-2fb077366ef9',
+                  (SELECT id FROM auth.users WHERE email='founders@hostbase.ai'));
+```
+
+Then your manual checklist:
+1. Log out, log in as `founders@hostbase.ai` → sees all properties, all admin pages, Manage Users shows real names.
+2. Log out, log in as your original account → sees only ICONIA in property switcher, all ICONIA admin actions still work.
+3. Ahmed's session → unchanged.
+4. No "No properties assigned" banner anywhere.
+
+### Fallback
+
+Built into the edge function — on any thrown error, auth user is deleted and your role is restored to `super_admin`. I'll then report the failure and we'll debug before retrying.
+
+### Awaiting your reply
+
+1. **Password for `founders@hostbase.ai`** (required to proceed)
+2. **Confirm** the corrected user_id `d540b87e-f856-4ef1-9193-2fb077366ef9` is your account (it is — youssef@suitespotegypt.com / Youssef Noureldin)
 
