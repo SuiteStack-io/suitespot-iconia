@@ -18,6 +18,7 @@ import { DateRange } from 'react-day-picker';
 import { toast } from 'sonner';
 import * as XLSX from 'xlsx';
 import { usePropertyId, withPropertyFilter } from '@/hooks/usePropertyFilter';
+import { useProperty } from '@/lib/propertyContext';
 
 interface Reservation {
   id: string;
@@ -45,6 +46,10 @@ const Commissions = () => {
   const { user, loading, userRole } = useAuth();
   const navigate = useNavigate();
   const propertyId = usePropertyId();
+  const { activeProperty } = useProperty();
+  const vatRate = activeProperty?.vat_rate ?? 0;
+  const commissionRate = activeProperty?.default_commission_rate ?? 10;
+  const vatDivisor = 1 + vatRate / 100;
   const [reservations, setReservations] = useState<Reservation[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [dateRange, setDateRange] = useState<DateRange | undefined>(undefined);
@@ -125,12 +130,12 @@ const Commissions = () => {
   const unpaidCommissions = filteredReservations.filter(r => !r.commission_paid || r.commission_paid !== 'yes');
   const paidCommissions = filteredReservations.filter(r => r.commission_paid === 'yes');
 
-  // Calculate commission: 10% of Net Revenue (total_price / 1.14 for non-VAT exempt)
+  // Calculate commission: % of Net Revenue (total_price / vatDivisor for non-VAT exempt)
   const calculateCommission = (r: Reservation) => {
     const totalPrice = r.total_price || 0;
     const vatExempt = r.vat_exempt || false;
-    const netRevenue = vatExempt ? totalPrice : totalPrice / 1.14;
-    return netRevenue * 0.10;
+    const netRevenue = vatExempt ? totalPrice : totalPrice / vatDivisor;
+    return netRevenue * (commissionRate / 100);
   };
 
   // For unpaid: recalculate commission; for paid: use stored commission_amount
@@ -248,7 +253,7 @@ const Commissions = () => {
       if (vatExempt) {
         return { netAmount: totalPrice, vatAmount: 0 };
       }
-      const netAmount = totalPrice / 1.14;
+      const netAmount = totalPrice / vatDivisor;
       const vatAmount = totalPrice - netAmount;
       return { netAmount, vatAmount };
     };
@@ -266,7 +271,7 @@ const Commissions = () => {
         'Check-in': format(new Date(r.check_in_date), 'MMM d, yyyy'),
         'Check-out': format(new Date(r.check_out_date), 'MMM d, yyyy'),
         'Net Revenue': vat.netAmount,
-        'VAT (14%)': vat.vatAmount,
+        [`VAT (${vatRate}%)`]: vat.vatAmount,
         'Commission': calculateCommission(r),
         'Status': 'Unpaid',
         'Paid On': '-',
@@ -286,7 +291,7 @@ const Commissions = () => {
         'Check-in': format(new Date(r.check_in_date), 'MMM d, yyyy'),
         'Check-out': format(new Date(r.check_out_date), 'MMM d, yyyy'),
         'Net Revenue': vat.netAmount,
-        'VAT (14%)': vat.vatAmount,
+        [`VAT (${vatRate}%)`]: vat.vatAmount,
         'Commission': r.commission_amount || 0,
         'Status': 'Paid',
         'Paid On': r.commission_paid_at ? format(new Date(r.commission_paid_at), 'MMM d, yyyy') : '-',
@@ -309,7 +314,7 @@ const Commissions = () => {
         'Check-in': '', 
         'Check-out': '', 
         'Net Revenue': unpaidCommissions.reduce((sum, r) => sum + calcVAT(r.total_price || 0, r.vat_exempt || false).netAmount, 0), 
-        'VAT (14%)': unpaidCommissions.reduce((sum, r) => sum + calcVAT(r.total_price || 0, r.vat_exempt || false).vatAmount, 0),
+        [`VAT (${vatRate}%)`]: unpaidCommissions.reduce((sum, r) => sum + calcVAT(r.total_price || 0, r.vat_exempt || false).vatAmount, 0),
         'Commission': totalUnpaid,
         'Status': '',
         'Paid On': ''
@@ -332,7 +337,7 @@ const Commissions = () => {
         'Check-in': '', 
         'Check-out': '', 
         'Net Revenue': paidCommissions.reduce((sum, r) => sum + calcVAT(r.total_price || 0, r.vat_exempt || false).netAmount, 0), 
-        'VAT (14%)': paidCommissions.reduce((sum, r) => sum + calcVAT(r.total_price || 0, r.vat_exempt || false).vatAmount, 0),
+        [`VAT (${vatRate}%)`]: paidCommissions.reduce((sum, r) => sum + calcVAT(r.total_price || 0, r.vat_exempt || false).vatAmount, 0),
         'Commission': totalPaid,
         'Status': '',
         'Paid On': ''
@@ -381,7 +386,7 @@ const Commissions = () => {
     if (vatExempt) {
       return { netAmount: totalPrice, vatAmount: 0 };
     }
-    const netAmount = totalPrice / 1.14;
+    const netAmount = totalPrice / vatDivisor;
     const vatAmount = totalPrice - netAmount;
     return { netAmount, vatAmount };
   };
@@ -636,7 +641,7 @@ const Commissions = () => {
                       <TableHead className="hidden lg:table-cell">Check-in</TableHead>
                       <TableHead className="hidden lg:table-cell">Check-out</TableHead>
                       <TableHead className="text-right">Net Revenue</TableHead>
-                      <TableHead className="text-right hidden lg:table-cell">VAT (14%)</TableHead>
+                      <TableHead className="text-right hidden lg:table-cell">VAT ({vatRate}%)</TableHead>
                       <TableHead className="text-right">Commission</TableHead>
                       <TableHead>Action</TableHead>
                     </TableRow>
@@ -784,7 +789,7 @@ const Commissions = () => {
                       <TableHead className="hidden lg:table-cell">Check-in</TableHead>
                       <TableHead className="hidden lg:table-cell">Check-out</TableHead>
                       <TableHead className="text-right">Net Revenue</TableHead>
-                      <TableHead className="text-right hidden lg:table-cell">VAT (14%)</TableHead>
+                      <TableHead className="text-right hidden lg:table-cell">VAT ({vatRate}%)</TableHead>
                       <TableHead className="text-right">Commission</TableHead>
                       <TableHead className="hidden md:table-cell">Paid On</TableHead>
                       <TableHead>Action</TableHead>
