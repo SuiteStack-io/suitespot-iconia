@@ -66,42 +66,47 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
+    const hydrateUser = async (userId: string) => {
+      await Promise.all([
+        fetchUserRole(userId),
+        fetchUserPermissions(userId),
+        fetchSystemAdmin(userId),
+        fetchPropertyRole(userId),
+      ]);
+      console.log('[auth] hydration complete for user:', userId);
+      setLoading(false);
+    };
+
     // Set up auth state listener FIRST
     const { data: { subscription } } = supabase.auth.onAuthStateChange(
       (event, session) => {
         setSession(session);
         setUser(session?.user ?? null);
-        
-        // Fetch user role and permissions when session changes
+
         if (session?.user) {
+          // Defer to avoid blocking auth callback; awaited inside helper
           setTimeout(() => {
-            fetchUserRole(session.user.id);
-            fetchUserPermissions(session.user.id);
-            fetchSystemAdmin(session.user.id);
-            fetchPropertyRole(session.user.id);
+            hydrateUser(session.user.id);
           }, 0);
         } else {
           setUserRole(null);
           setPropertyRole(null);
           setPermissions(DEFAULT_PERMISSIONS);
           setIsSystemAdmin(false);
+          setLoading(false);
         }
       }
     );
 
     // THEN check for existing session
-    supabase.auth.getSession().then(async ({ data: { session } }) => {
+    supabase.auth.getSession().then(({ data: { session } }) => {
       setSession(session);
       setUser(session?.user ?? null);
       if (session?.user) {
-        await Promise.all([
-          fetchUserRole(session.user.id),
-          fetchUserPermissions(session.user.id),
-          fetchSystemAdmin(session.user.id),
-          fetchPropertyRole(session.user.id),
-        ]);
+        hydrateUser(session.user.id);
+      } else {
+        setLoading(false);
       }
-      setLoading(false);
     });
 
     // Re-fetch property role when active property changes
