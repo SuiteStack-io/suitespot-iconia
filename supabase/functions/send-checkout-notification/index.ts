@@ -151,7 +151,7 @@ Deno.serve(async (req) => {
     const checkedOutTimestamp = checkedOutAtParam || reservation.checked_out_at;
     const checkedOutAt = checkedOutTimestamp 
       ? new Date(checkedOutTimestamp).toLocaleString('en-US', {
-          timeZone: 'Africa/Cairo',
+          timeZone: settings.timezone || 'UTC',
           year: 'numeric',
           month: 'short',
           day: 'numeric',

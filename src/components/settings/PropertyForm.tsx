@@ -67,7 +67,7 @@ export function PropertyForm({ property, open, onClose, onSaved }: PropertyFormP
     country: property?.country || 'EG',
     latitude: property?.latitude?.toString() || '',
     longitude: property?.longitude?.toString() || '',
-    timezone: property?.timezone || 'Africa/Cairo',
+    timezone: property?.timezone || 'UTC',
     currency: property?.currency || 'USD',
     default_checkin_time: property?.default_checkin_time || '15:00',
     default_checkout_time: property?.default_checkout_time || '11:00',
