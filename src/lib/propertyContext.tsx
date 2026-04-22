@@ -174,7 +174,7 @@ export const PropertyProvider = ({ children }: { children: ReactNode }) => {
     } finally {
       setIsLoading(false);
     }
-  }, [user]);
+  }, [user, userRole]);
 
   useEffect(() => {
     if (!authLoading) {
