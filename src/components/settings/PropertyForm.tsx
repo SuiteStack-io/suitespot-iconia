@@ -20,7 +20,26 @@ import { CheckCircle2, ArrowRight, ArrowLeft } from 'lucide-react';
 
 const PROPERTY_TYPES = ['Hotel', 'Serviced Apartment', 'Vacation Rental', 'Hostel', 'B&B', 'Resort', 'Other'];
 const CURRENCIES = ['USD', 'EUR', 'GBP', 'EGP', 'AED', 'SAR'];
-const TIMEZONES = ['Africa/Cairo', 'Europe/London', 'America/New_York', 'Asia/Dubai', 'Asia/Riyadh', 'Europe/Paris'];
+const TIMEZONES = [
+  'UTC',
+  'Africa/Cairo',
+  'Asia/Dubai',
+  'Asia/Riyadh',
+  'Asia/Kolkata',
+  'Asia/Bangkok',
+  'Asia/Singapore',
+  'Asia/Tokyo',
+  'Europe/London',
+  'Europe/Paris',
+  'Europe/Berlin',
+  'Europe/Istanbul',
+  'America/New_York',
+  'America/Chicago',
+  'America/Denver',
+  'America/Los_Angeles',
+  'America/Toronto',
+  'Australia/Sydney',
+];
 const COUNTRIES = [
   { code: 'EG', name: 'Egypt' }, { code: 'AE', name: 'UAE' }, { code: 'SA', name: 'Saudi Arabia' },
   { code: 'US', name: 'United States' }, { code: 'GB', name: 'United Kingdom' }, { code: 'FR', name: 'France' },

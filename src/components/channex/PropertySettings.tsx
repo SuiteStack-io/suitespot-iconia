@@ -29,9 +29,24 @@ const COUNTRIES = [
 ];
 
 const TIMEZONES = [
-  'Africa/Cairo', 'Europe/London', 'Europe/Berlin', 'Europe/Paris',
-  'America/New_York', 'America/Chicago', 'America/Los_Angeles',
-  'Asia/Dubai', 'Asia/Riyadh', 'Asia/Istanbul',
+  'UTC',
+  'Africa/Cairo',
+  'Asia/Dubai',
+  'Asia/Riyadh',
+  'Asia/Kolkata',
+  'Asia/Bangkok',
+  'Asia/Singapore',
+  'Asia/Tokyo',
+  'Europe/London',
+  'Europe/Paris',
+  'Europe/Berlin',
+  'Europe/Istanbul',
+  'America/New_York',
+  'America/Chicago',
+  'America/Denver',
+  'America/Los_Angeles',
+  'America/Toronto',
+  'Australia/Sydney',
 ];
 
 const CURRENCIES = ['USD', 'EGP', 'EUR', 'GBP', 'AED', 'SAR'];
