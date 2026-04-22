@@ -11,6 +11,7 @@ import { Calendar as CalendarComponent } from '@/components/ui/calendar';
 import { DollarSign, TrendingUp, Calendar, ArrowLeft, Wallet, BarChart3, CalendarIcon, X } from 'lucide-react';
 import { format, startOfMonth, endOfMonth } from 'date-fns';
 import { SlideMenu } from '@/components/SlideMenu';
+import { useProperty } from '@/lib/propertyContext';
 import { cn } from '@/lib/utils';
 import { DateRange } from 'react-day-picker';
 
@@ -33,24 +34,29 @@ interface Reservation {
   units: { name: string; unit_number: string | null } | null;
 }
 
-// VAT calculation helper - matches Commissions page
-const calculateVAT = (totalPrice: number, vatExempt: boolean = false) => {
-  if (vatExempt) {
-    return { netAmount: totalPrice, vatAmount: 0 };
-  }
-  const netAmount = totalPrice / 1.14;
-  const vatAmount = totalPrice - netAmount;
-  return { netAmount, vatAmount };
-};
-
-// Calculate commission: 10% of Net Revenue (excludes VAT)
-const calculateCommission = (totalPrice: number, vatExempt: boolean = false) => {
-  const netRevenue = vatExempt ? totalPrice : totalPrice / 1.14;
-  return netRevenue * 0.10;
-};
-
 const MyReservations = () => {
   const { user, loading, userRole } = useAuth();
+  const { activeProperty } = useProperty();
+  const vatRate = activeProperty?.vat_rate ?? 0;
+  const commissionRate = activeProperty?.default_commission_rate ?? 10;
+  const vatDivisor = 1 + vatRate / 100;
+
+  // VAT calculation helper - matches Commissions page
+  const calculateVAT = (totalPrice: number, vatExempt: boolean = false) => {
+    if (vatExempt) {
+      return { netAmount: totalPrice, vatAmount: 0 };
+    }
+    const netAmount = totalPrice / vatDivisor;
+    const vatAmount = totalPrice - netAmount;
+    return { netAmount, vatAmount };
+  };
+
+  // Calculate commission: % of Net Revenue (excludes VAT)
+  const calculateCommission = (totalPrice: number, vatExempt: boolean = false) => {
+    const netRevenue = vatExempt ? totalPrice : totalPrice / vatDivisor;
+    return netRevenue * (commissionRate / 100);
+  };
+
   const navigate = useNavigate();
   const [reservations, setReservations] = useState<Reservation[]>([]);
   const [filteredReservations, setFilteredReservations] = useState<Reservation[]>([]);
@@ -432,7 +438,7 @@ const MyReservations = () => {
                       <TableHead className="hidden md:table-cell">Check-out</TableHead>
                       <TableHead>Status</TableHead>
                       <TableHead className="text-right">Net Revenue</TableHead>
-                      <TableHead className="text-right hidden lg:table-cell">VAT (14%)</TableHead>
+                      <TableHead className="text-right hidden lg:table-cell">VAT ({vatRate}%)</TableHead>
                       <TableHead className="text-right">Commission</TableHead>
                       <TableHead>Payment</TableHead>
                       <TableHead>Settled</TableHead>
