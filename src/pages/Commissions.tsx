@@ -63,14 +63,14 @@ const Commissions = () => {
     if (!loading && !user) {
       navigate('/auth');
     }
-    if (!loading && userRole !== 'admin') {
+    if (!loading && userRole !== 'admin' && userRole !== 'super_admin') {
       navigate('/admin');
       toast.error('Access denied. Admin only.');
     }
   }, [user, loading, userRole, navigate]);
 
   useEffect(() => {
-    if (user && userRole === 'admin') {
+    if (user && (userRole === 'admin' || userRole === 'super_admin')) {
       fetchReservations();
     }
   }, [user, userRole, propertyId]);

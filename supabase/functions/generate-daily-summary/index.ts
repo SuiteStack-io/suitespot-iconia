@@ -99,7 +99,7 @@ async function getRecipients(supabase: any, propertyId?: string): Promise<{ emai
 
     candidates = candidates.filter(user => {
       const userAccessEntries = accessList.filter((a: any) => a.user_id === user.user_id);
-      if (userAccessEntries.length === 0 && user.role === 'admin') {
+      if (userAccessEntries.length === 0 && (user.role === 'admin' || user.role === 'super_admin')) {
         console.log(`${user.email} — admin with global access for summary`);
         return true;
       }

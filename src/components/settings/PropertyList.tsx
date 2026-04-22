@@ -15,8 +15,8 @@ import { Switch } from '@/components/ui/switch';
 export function PropertyList() {
   const { properties, isLoading, refreshProperties, isSystemAdmin, canManageUsers, canDeleteProperty } = useProperty();
   const { userRole } = useAuth();
-  const canCreate = isSystemAdmin || userRole === 'admin';
-  const canEdit = isSystemAdmin || userRole === 'admin';
+  const canCreate = isSystemAdmin || userRole === 'admin' || userRole === 'super_admin';
+  const canEdit = isSystemAdmin || userRole === 'admin' || userRole === 'super_admin';
   const [editingProperty, setEditingProperty] = useState<Property | null>(null);
   const [showCreateForm, setShowCreateForm] = useState(false);
   const [managingUsersFor, setManagingUsersFor] = useState<Property | null>(null);

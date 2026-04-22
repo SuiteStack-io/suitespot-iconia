@@ -173,7 +173,7 @@ Deno.serve(async (req) => {
           role: roleRecord?.role
         };
       })
-      .filter((u: any) => u.email && (u.role === 'admin' || u.role === 'manager' || u.role === 'housekeeping'));
+      .filter((u: any) => u.email && (u.role === 'admin' || u.role === 'super_admin' || u.role === 'manager' || u.role === 'housekeeping'));
 
     // Resolve per-property settings — this function processes multiple reservations potentially
     // across properties; use the property of the first reservation as the sender, fallback to generic.
