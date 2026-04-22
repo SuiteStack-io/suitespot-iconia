@@ -1,54 +1,88 @@
 
 
-## Fix Race Condition Causing Super Admin "No Properties Assigned"
+## Normalize `super_admin` → `admin` at the Auth Source
 
-### Root cause
-The DB and `propertyContext` are correct. The bug is in `src/lib/auth.tsx`:
+Stop sprinkling `|| userRole === 'super_admin'` across the codebase. Instead, do the normalization once in `auth.tsx`: store the raw DB role as `systemRole`, and expose `userRole = 'admin'` whenever `systemRole === 'super_admin'`. Every existing `userRole === 'admin'` check then automatically works for super admins. Only `propertyContext` needs to know the truth (because super admins fetch *all* properties, not just assigned ones).
 
-- `onAuthStateChange` schedules `fetchUserRole / fetchUserPermissions / fetchSystemAdmin / fetchPropertyRole` inside `setTimeout(..., 0)` **without awaiting them**.
-- The parallel `getSession()` block flips `loading=false` as soon as *its* `Promise.all` resolves.
-- `PropertyProvider`'s effect runs `fetchProperties` the moment `authLoading=false`. On a fresh tab/login this can fire **before `userRole` has been written**, so `userRole` is `null`, the `super_admin` branch is skipped, the user_property_access query returns zero rows, `properties=[]`, and `PropertySwitcher` renders the red banner.
+### 1. `src/lib/auth.tsx` — add `systemRole`, normalize `userRole`
 
-The DB query results confirm the data side is fine:
-- `app_role` enum contains `super_admin`.
-- `user_roles` for `d540b87e…` returns `role = 'super_admin'` (Youssef Noureldin).
-- `properties` SELECT policy: `has_property_access(...) OR is_system_admin(...) OR has_role(..., 'admin') OR has_role(..., 'super_admin')`.
+- Add new state `systemRole: string | null` storing the raw role from `user_roles` (`'super_admin' | 'admin' | 'manager' | 'front_desk' | 'housekeeping'`).
+- Update `fetchUserRole`:
+  ```ts
+  if (!error && data) {
+    setSystemRole(data.role);
+    setUserRole(data.role === 'super_admin' ? 'admin' : data.role);
+  }
+  ```
+- Update `signOut` to also clear `systemRole`.
+- Update `hasPermission` to use `systemRole` (since `userRole` will already be `'admin'` for super admins, this is mostly defensive — keep it explicit):
+  ```ts
+  if (systemRole === 'super_admin' || systemRole === 'admin') return true;
+  return permissions[permission];
+  ```
+- Add `systemRole` to `AuthContextType` and to the provider value.
+- Remove the temporary `console.log('[auth] hydration complete...')`.
 
-### Changes — `src/lib/auth.tsx` only
+### 2. `src/lib/propertyContext.tsx` — switch the only super-admin branch to `systemRole`
 
-1. Add a tracker so `loading` only flips to `false` once role + permissions + system-admin flag are all resolved (for both the initial `getSession` path and the `onAuthStateChange` path).
-2. In `onAuthStateChange`, replace the fire-and-forget `setTimeout` with a single async helper that awaits all four fetches via `Promise.all`, then sets `loading=false`.
-3. Keep the existing `getSession` path but route it through the same helper to avoid duplicated logic.
-4. When the listener reports no session, set `loading=false` immediately.
-5. Add a single temporary `console.log('[auth] role resolved:', userRole)` after role fetch to confirm timing during verification, then remove it once the user confirms the fix.
+- Destructure `systemRole` from `useAuth()`.
+- Replace:
+  ```ts
+  const isSuperAdmin = userRole === 'super_admin';
+  ...
+  const isAppAdmin = userRole === 'admin' || userRole === 'super_admin';
+  ```
+  with:
+  ```ts
+  const isSuperAdmin = systemRole === 'super_admin';
+  const isAppAdmin = systemRole === 'admin' || systemRole === 'super_admin';
+  ```
+- Add `systemRole` to the `useCallback` dependency array.
+- Keep all other logic (admin = all properties, others = scoped via `user_property_access`) unchanged. Crucially, regular `admin` still gets all properties (existing behavior preserved); only the *source variable* changed from `userRole` to `systemRole`.
 
-Pseudocode of the new helper:
-```ts
-const hydrateUser = async (userId: string) => {
-  await Promise.all([
-    fetchUserRole(userId),
-    fetchUserPermissions(userId),
-    fetchSystemAdmin(userId),
-    fetchPropertyRole(userId),
-  ]);
-  setLoading(false);
-};
-```
-- `getSession().then(...)` → if session, call `hydrateUser`; else `setLoading(false)`.
-- `onAuthStateChange((_e, session) => { ... if (session?.user) hydrateUser(session.user.id); else { reset; setLoading(false); } })`.
+### 3. Revert frontend `|| userRole === 'super_admin'` additions
 
-### Why this fixes the banner
-Once `loading` is guaranteed to be `false` only after `userRole` is set, `PropertyProvider` runs `fetchProperties` with the correct `userRole='super_admin'`, hits the admin branch, and selects all properties (RLS already permits it). `PropertySwitcher` then sees `activeProperties.length > 0` and never renders the red banner.
+In each file, change `(userRole === 'admin' || userRole === 'super_admin')` back to `userRole === 'admin'`, and `userRole !== 'admin' && userRole !== 'super_admin'` back to `userRole !== 'admin'`. Files & lines:
 
-### Out of scope (already correct, not touched)
-- `src/lib/propertyContext.tsx` — fetch logic already handles `super_admin`.
-- `properties` RLS policy — already includes `super_admin`.
-- `PropertySwitcher.tsx` — banner is correct for the genuine "no access" case (regular users); we just need to stop hitting it spuriously for super_admins.
+| File | Lines |
+|------|-------|
+| `src/components/AdminRoute.tsx` | 13 |
+| `src/components/SlideMenu.tsx` | 95, 202 |
+| `src/components/inbox/ConversationPanel.tsx` | 79 |
+| `src/components/settings/PropertyList.tsx` | 18, 19 |
+| `src/pages/Index.tsx` | 152 |
+| `src/pages/Analytics.tsx` | 149, 155 |
+| `src/pages/AlmazaBay.tsx` | 265, 1469 |
+| `src/pages/Commissions.tsx` | 66, 73 |
+| `src/pages/GuestForms.tsx` | 103 |
+| `src/pages/GuestInbox.tsx` | 65 |
+| `src/pages/Guests.tsx` | 67 |
+| `src/pages/Users.tsx` | 48, 54, 189 |
+| `src/pages/front-desk/RoomRates.tsx` | 73 |
+
+### 4. Revert Edge Function additions
+
+Edge functions don't have access to the React context, so the normalization doesn't apply there. **Keep the super_admin checks in edge functions** — they read `user_roles.role` directly from the DB, where the value is still `'super_admin'`. Reverting these would break Youssef's notifications and admin-gated edge function calls.
+
+Files left unchanged (intentionally):
+- `supabase/functions/send-{checkin,checkout,late-checkout,room-change,cancellation,reservation,modification,extension}-notification/index.ts`
+- `supabase/functions/send-mid-stay-cleaning-notifications/index.ts`
+- `supabase/functions/auto-shuffle-rooms/index.ts`
+- `supabase/functions/generate-daily-summary/index.ts`
+- `supabase/functions/channex-sync-property/index.ts`
+- `supabase/functions/channex-reset-sync/index.ts`
+
+### 5. Out of scope (no change)
+- DB enum, `user_roles` row for Youssef, RLS policies, `auto_assign_property_admin` trigger — all stay as-is.
+- `hasPermission` semantics — already covered super_admin; just refactored to read `systemRole`.
+
+### 6. Memory update
+Replace the existing Core rule in `mem://index.md` with: `super_admin is normalized to userRole='admin' in auth.tsx. All frontend checks should use userRole==='admin'. Use systemRole==='super_admin' only when behavior must differ from a regular admin (currently only propertyContext: super_admin sees ALL properties, regular admin sees assigned properties). Edge functions check the raw DB value and must include both 'admin' and 'super_admin' in role checks.`
 
 ### Verification
-1. Hard reload as Youssef (`super_admin`) → no red banner; property dropdown lists every property.
-2. Console shows `[auth] role resolved: super_admin` before any property fetch logs.
-3. Ahmed (`admin`) → unchanged; sees all properties.
-4. Manager / staff with no `user_property_access` rows → still see the red banner (correct behavior).
-5. Sign out, sign back in → role is set before the property fetch runs.
+1. Youssef login → `systemRole='super_admin'`, `userRole='admin'`. SlideMenu shows everything; Commissions/Analytics/Users/Rooms all open. PropertyContext fetches every property; no red banner.
+2. Ahmed login → `systemRole='admin'`, `userRole='admin'`. Behavior identical to before. Sees all properties (regular admins already fetched all properties via the existing `isAppAdmin` branch — preserved).
+3. Manager / front_desk / housekeeping → `systemRole === userRole`, scoped via `user_property_access`. Unchanged.
+4. Edge functions still grant super_admin global access via raw DB role check.
+5. Codebase grep for `userRole === 'super_admin'` returns hits only in `src/lib/auth.tsx`.
 
