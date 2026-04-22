@@ -49,7 +49,7 @@ export interface Property {
   default_commission_rate: number | null;
 }
 
-export type PropertyRole = 'owner' | 'admin' | 'manager' | 'staff' | 'viewer';
+export type PropertyRole = 'admin' | 'manager' | 'staff' | 'viewer';
 
 interface PropertyContextType {
   properties: Property[];
@@ -70,13 +70,15 @@ const PropertyContext = createContext<PropertyContextType | undefined>(undefined
 const ACTIVE_PROPERTY_KEY = 'activePropertyId';
 
 export const PropertyProvider = ({ children }: { children: ReactNode }) => {
-  const { user, loading: authLoading } = useAuth();
+  const { user, userRole, loading: authLoading } = useAuth();
   const [properties, setProperties] = useState<Property[]>([]);
   const [activeProperty, setActivePropertyState] = useState<Property | null>(null);
   const [propertyRole, setPropertyRole] = useState<PropertyRole | null>(null);
   const [isSystemAdmin, setIsSystemAdmin] = useState(false);
   const [isLoading, setIsLoading] = useState(true);
   const [company, setCompany] = useState<Company | null>(null);
+
+  const isSuperAdmin = userRole === 'super_admin';
 
   const fetchProperties = useCallback(async () => {
     if (!user) {
@@ -98,18 +100,19 @@ export const PropertyProvider = ({ children }: { children: ReactNode }) => {
       const sysAdmin = profile?.is_system_admin ?? false;
       setIsSystemAdmin(sysAdmin);
 
-      // Check if user has admin app_role
+      // Check if user has admin or super_admin app_role
       const { data: roleData } = await supabase
         .from('user_roles')
         .select('role')
         .eq('user_id', user.id)
-        .eq('role', 'admin')
+        .in('role', ['admin', 'super_admin'])
         .maybeSingle();
       const isAppAdmin = !!roleData;
+      const isSuper = roleData?.role === 'super_admin';
 
       let props: any[] | null = null;
 
-      if (sysAdmin || isAppAdmin) {
+      if (sysAdmin || isAppAdmin || isSuper) {
         // Admin users: fetch all properties
         const { data, error: fetchError } = await supabase
           .from('properties')
@@ -202,9 +205,9 @@ export const PropertyProvider = ({ children }: { children: ReactNode }) => {
     }
   }, [user]);
 
-  const canEditProperty = isSystemAdmin || propertyRole === 'owner' || propertyRole === 'admin';
-  const canDeleteProperty = isSystemAdmin || propertyRole === 'owner';
-  const canManageUsers = isSystemAdmin || propertyRole === 'owner' || propertyRole === 'admin';
+  const canEditProperty = isSystemAdmin || isSuperAdmin || propertyRole === 'admin';
+  const canDeleteProperty = isSystemAdmin || isSuperAdmin;
+  const canManageUsers = isSystemAdmin || isSuperAdmin || propertyRole === 'admin';
 
   return (
     <PropertyContext.Provider value={{
