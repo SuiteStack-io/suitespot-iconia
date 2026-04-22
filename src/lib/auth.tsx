@@ -2,8 +2,9 @@ import { createContext, useContext, useEffect, useState, ReactNode } from 'react
 import { User, Session } from '@supabase/supabase-js';
 import { supabase } from '@/integrations/supabase/client';
 import { useNavigate } from 'react-router-dom';
+import type { PropertyRole } from '@/lib/authTypes';
 
-export type PropertyRole = 'owner' | 'admin' | 'manager' | 'staff' | 'viewer';
+export type { PropertyRole };
 
 export interface UserPermissions {
   can_check_in: boolean;
