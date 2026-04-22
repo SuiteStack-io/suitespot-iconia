@@ -151,6 +151,8 @@ export const PropertyProvider = ({ children }: { children: ReactNode }) => {
 
       if (active) {
         setActivePropertyState(active as Property);
+        localStorage.setItem(ACTIVE_PROPERTY_KEY, active.id);
+        window.dispatchEvent(new CustomEvent('activePropertyChanged', { detail: { propertyId: active.id } }));
         // Fetch user's role on this property
         const { data: access } = await supabase
           .from('user_property_access')
@@ -187,6 +189,7 @@ export const PropertyProvider = ({ children }: { children: ReactNode }) => {
   const setActiveProperty = useCallback(async (property: Property) => {
     setActivePropertyState(property);
     localStorage.setItem(ACTIVE_PROPERTY_KEY, property.id);
+    window.dispatchEvent(new CustomEvent('activePropertyChanged', { detail: { propertyId: property.id } }));
     
     if (user) {
       const { data: access } = await supabase

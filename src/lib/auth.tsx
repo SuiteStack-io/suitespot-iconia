@@ -3,6 +3,8 @@ import { User, Session } from '@supabase/supabase-js';
 import { supabase } from '@/integrations/supabase/client';
 import { useNavigate } from 'react-router-dom';
 
+export type PropertyRole = 'owner' | 'admin' | 'manager' | 'staff' | 'viewer';
+
 export interface UserPermissions {
   can_check_in: boolean;
   can_check_out: boolean;
@@ -41,6 +43,7 @@ interface AuthContextType {
   user: User | null;
   session: Session | null;
   userRole: string | null;
+  propertyRole: PropertyRole | null;
   isSystemAdmin: boolean;
   permissions: UserPermissions;
   hasPermission: (permission: keyof UserPermissions) => boolean;
@@ -57,6 +60,7 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
   const [user, setUser] = useState<User | null>(null);
   const [session, setSession] = useState<Session | null>(null);
   const [userRole, setUserRole] = useState<string | null>(null);
+  const [propertyRole, setPropertyRole] = useState<PropertyRole | null>(null);
   const [permissions, setPermissions] = useState<UserPermissions>(DEFAULT_PERMISSIONS);
   const [isSystemAdmin, setIsSystemAdmin] = useState(false);
   const [loading, setLoading] = useState(true);
@@ -74,9 +78,11 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
             fetchUserRole(session.user.id);
             fetchUserPermissions(session.user.id);
             fetchSystemAdmin(session.user.id);
+            fetchPropertyRole(session.user.id);
           }, 0);
         } else {
           setUserRole(null);
+          setPropertyRole(null);
           setPermissions(DEFAULT_PERMISSIONS);
           setIsSystemAdmin(false);
         }
@@ -92,13 +98,51 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
           fetchUserRole(session.user.id),
           fetchUserPermissions(session.user.id),
           fetchSystemAdmin(session.user.id),
+          fetchPropertyRole(session.user.id),
         ]);
       }
       setLoading(false);
     });
 
-    return () => subscription.unsubscribe();
+    // Re-fetch property role when active property changes
+    const handlePropertyChange = () => {
+      supabase.auth.getSession().then(({ data: { session } }) => {
+        if (session?.user) {
+          fetchPropertyRole(session.user.id);
+        }
+      });
+    };
+    window.addEventListener('activePropertyChanged', handlePropertyChange);
+
+    return () => {
+      subscription.unsubscribe();
+      window.removeEventListener('activePropertyChanged', handlePropertyChange);
+    };
   }, []);
+
+  const fetchPropertyRole = async (userId: string) => {
+    const savedId = localStorage.getItem('activePropertyId');
+    if (savedId) {
+      const { data } = await supabase
+        .from('user_property_access')
+        .select('role')
+        .eq('user_id', userId)
+        .eq('property_id', savedId)
+        .maybeSingle();
+      if (data?.role) {
+        setPropertyRole(data.role as PropertyRole);
+        return;
+      }
+    }
+    // Fallback: first available access row
+    const { data: anyAccess } = await supabase
+      .from('user_property_access')
+      .select('role')
+      .eq('user_id', userId)
+      .limit(1)
+      .maybeSingle();
+    setPropertyRole((anyAccess?.role as PropertyRole) ?? null);
+  };
 
   const fetchSystemAdmin = async (userId: string) => {
     const { data } = await supabase
@@ -156,9 +200,10 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
     }
   };
 
-  // Admins always have all permissions
+  // Admins (system) and property owners always have all permissions
   const hasPermission = (permission: keyof UserPermissions): boolean => {
     if (userRole === 'admin') return true;
+    if (propertyRole === 'owner') return true;
     return permissions[permission];
   };
 
@@ -189,6 +234,7 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
   const signOut = async () => {
     await supabase.auth.signOut();
     setUserRole(null);
+    setPropertyRole(null);
     setPermissions(DEFAULT_PERMISSIONS);
     setIsSystemAdmin(false);
   };
@@ -198,6 +244,7 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
       user, 
       session, 
       userRole, 
+      propertyRole,
       isSystemAdmin,
       permissions,
       hasPermission,

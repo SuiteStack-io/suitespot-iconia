@@ -7,14 +7,16 @@ interface AdminRouteProps {
 }
 
 export const AdminRoute = ({ children }: AdminRouteProps) => {
-  const { userRole, loading } = useAuth();
+  const { userRole, propertyRole, loading } = useAuth();
   const navigate = useNavigate();
 
+  const allowed = userRole === 'admin' || propertyRole === 'owner';
+
   useEffect(() => {
-    if (!loading && userRole !== 'admin') {
+    if (!loading && !allowed) {
       navigate('/admin', { replace: true });
     }
-  }, [userRole, loading, navigate]);
+  }, [allowed, loading, navigate]);
 
   if (loading) {
     return (
@@ -24,7 +26,7 @@ export const AdminRoute = ({ children }: AdminRouteProps) => {
     );
   }
 
-  if (userRole !== 'admin') {
+  if (!allowed) {
     return null;
   }
 
