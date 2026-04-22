@@ -100,7 +100,7 @@ export default function GuestForms() {
   const propertyId = usePropertyId();
 
   useEffect(() => {
-    if (!authLoading && userRole && userRole !== 'admin' && !hasPermission('can_access_front_desk')) {
+    if (!authLoading && userRole && userRole !== 'admin' && userRole !== 'super_admin' && !hasPermission('can_access_front_desk')) {
       navigate('/admin');
     }
   }, [userRole, authLoading, hasPermission, navigate]);

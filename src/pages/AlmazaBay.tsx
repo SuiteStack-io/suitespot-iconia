@@ -262,7 +262,7 @@ const AlmazaBay = () => {
     if (!loading && !user) {
       navigate('/auth');
     }
-    if (!loading && user && userRole && userRole !== 'admin') {
+    if (!loading && user && userRole && userRole !== 'admin' && userRole !== 'super_admin') {
       toast({
         variant: 'destructive',
         title: 'Access Denied',
@@ -1466,7 +1466,7 @@ const AlmazaBay = () => {
     return null;
   }
 
-  const isAdmin = userRole === 'admin';
+  const isAdmin = userRole === 'admin' || userRole === 'super_admin';
 
   return (
     <div className="min-h-screen bg-background font-['Playfair_Display']">

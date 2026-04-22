@@ -70,7 +70,7 @@ export default function FrontDeskRoomRates() {
   const navigate = useNavigate();
 
   useEffect(() => {
-    if (userRole && userRole !== 'admin' && !hasPermission('can_access_front_desk')) {
+    if (userRole && userRole !== 'admin' && userRole !== 'super_admin' && !hasPermission('can_access_front_desk')) {
       navigate('/admin');
     }
   }, [userRole, hasPermission, navigate]);
