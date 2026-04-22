@@ -25,7 +25,7 @@ interface Property {
   name: string;
 }
 
-const ROLES = ['owner', 'admin', 'manager', 'staff', 'viewer'] as const;
+const ROLES = ['admin', 'manager', 'staff', 'viewer'] as const;
 
 interface PropertyAccessSectionProps {
   userId: string;
