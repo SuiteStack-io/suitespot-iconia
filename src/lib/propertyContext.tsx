@@ -45,6 +45,8 @@ export interface Property {
   company_id: string | null;
   weekend_days: number[] | null;
   off_peak_days: number[] | null;
+  vat_rate: number | null;
+  default_commission_rate: number | null;
 }
 
 export type PropertyRole = 'owner' | 'admin' | 'manager' | 'staff' | 'viewer';
