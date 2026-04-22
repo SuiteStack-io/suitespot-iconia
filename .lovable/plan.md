@@ -1,47 +1,58 @@
 
 
-## Add 3 Granular Permissions: Delete Reservations, View Revenue, Manage Rooms
+## Auto-Grant All Permissions to Property Owners
 
-### 1. Database — extend `user_permissions`
-New migration adds three boolean columns (default `false`, NOT NULL):
-- `can_delete_reservation`
-- `can_view_revenue`
-- `can_manage_rooms`
+Property owners are currently locked out of most features because `hasPermission()` only short-circuits for system `admin`. This change extends that shortcut to property `owner` for the currently active property, and opens `AdminRoute` to owners as well.
 
-The existing `has_permission(_user_id, _permission)` SQL function uses dynamic `EXECUTE format(...)`, so it picks up new columns automatically — no function update needed.
+### 1. Expose `propertyRole` in `AuthContext` — `src/lib/auth.tsx`
 
-### 2. Auth context — `src/lib/auth.tsx`
-Extend `UserPermissions` interface, `DEFAULT_PERMISSIONS`, and `fetchUserPermissions` with the three new keys (mirroring existing pattern). The admin shortcut `if (userRole === 'admin') return true` already grants admins everything.
+- Add `propertyRole: PropertyRole | null` to `AuthContextType`.
+- After the existing `fetchUserRole` / `fetchUserPermissions` / `fetchSystemAdmin` calls, fetch the user's property role:
+  - Read the active property id from `localStorage.getItem('activePropertyId')` (the same key `PropertyProvider` uses).
+  - If a saved id exists, query `user_property_access` for `(user_id, property_id)` → set `propertyRole` to `data.role` (or `null`).
+  - If no saved id, look up the user's first/default access row (single result) and use that role; fall back to `null`.
+- Listen for active-property changes so the role stays in sync:
+  - Add a `window` event `activePropertyChanged` (CustomEvent with `propertyId`). The auth provider re-fetches the role on this event.
+  - In `src/lib/propertyContext.tsx`, dispatch this event inside `setActiveProperty` and at the end of `fetchProperties` once the active property is resolved. (No structural change to `PropertyProvider`; just a `window.dispatchEvent` call.)
+- On `signOut`, clear `propertyRole` to `null`.
 
-### 3. Edit Permissions dialog — `src/components/EditPermissionsDialog.tsx`
-- Add the three keys to local `UserPermissions` type, initial state, `fetchPermissions` mapping, and `handleToggleAll`.
-- Add three entries to `PERMISSION_LABELS`:
-  - `can_delete_reservation` → "Delete Reservations" / "Ability to permanently delete reservations"
-  - `can_view_revenue` → "View Revenue Data" / "Access to revenue metrics like RevPAR and net revenue"
-  - `can_manage_rooms` → "Manage Rooms" / "Ability to manage room types, units, and room settings"
+### 2. Extend the `hasPermission` shortcut — `src/lib/auth.tsx`
 
-These render automatically in the existing two-column grid.
+```ts
+const hasPermission = (permission: keyof UserPermissions): boolean => {
+  if (userRole === 'admin') return true;
+  if (propertyRole === 'owner') return true;
+  return permissions[permission];
+};
+```
 
-### 4. Replace hardcoded admin checks
+The existing admin behavior is preserved verbatim; owner is added as a second short-circuit.
 
-| File | Line | Change |
-|------|------|--------|
-| `src/components/ReservationsList.tsx` | 1121 | Import `useAuth`, derive `const { hasPermission } = useAuth()`; replace `userRole === 'admin'` (Permanently Delete button) with `hasPermission('can_delete_reservation')`. The `userRole` prop stays for now (used elsewhere). |
-| `src/components/AvailabilityCalendar.tsx` | 1927 | Replace `userRole === 'admin'` (RevPAR card) with `hasPermission('can_view_revenue')`. Add `hasPermission` to the existing `useAuth()` destructure on line 275. |
-| `src/pages/Rooms.tsx` | 218 | Replace access-gate `userRole !== 'admin'` with `!hasPermission('can_manage_rooms')`; pull `hasPermission` from `useAuth()`. |
-| `src/pages/Rooms.tsx` | 1132 | Replace `const isAdmin = userRole === 'admin'` with `const canManageRooms = hasPermission('can_manage_rooms')`; rename all 6 downstream `isAdmin` usages (lines 1173, 1353, 1451, 1503, 1524, plus the table cell) to `canManageRooms`. |
-| `src/pages/ReservationsListPage.tsx` | 28 | Replace `const isAdmin = userRole === 'admin'` with `const canDelete = hasPermission('can_delete_reservation')`; pull `hasPermission` from `useAuth()`. (Note: `isAdmin` is currently unused in JSX of this file — the rename keeps the variable defined but it remains unused unless a future destructive control wires to it. Removing it entirely is fine since it's unused — the simpler change is to delete the line.) **Final action:** delete the unused `isAdmin` line entirely (no destructive actions render in this page; deletion is handled inside `ReservationsList`).
+### 3. Open `AdminRoute` to property owners — `src/components/AdminRoute.tsx`
 
-### 5. Out of scope (unchanged per instructions)
-- `AdminRoute.tsx`, `Users.tsx`, `Commissions.tsx`, `Analytics.tsx` access gates.
-- Core permission resolution in `lib/auth.tsx` (`hasPermission` shortcut for admin).
-- Edge functions.
+- Pull `propertyRole` from `useAuth()`.
+- Replace the gate:
+  ```ts
+  if (!loading && userRole !== 'admin' && propertyRole !== 'owner') {
+    navigate('/admin', { replace: true });
+  }
+  ```
+- Mirror the same condition in the render-null guard.
+
+### 4. Type definition
+
+Add a `PropertyRole` type alias inside `src/lib/auth.tsx` (`'owner' | 'admin' | 'manager' | 'staff' | 'viewer'`) so we don't import from `propertyContext` and create a circular dependency. The string union is intentionally duplicated (both files already declare it independently).
+
+### Out of scope (per instructions)
+- No changes to `user_permissions` table, granular permissions, RLS, edge functions, or the owner auto-assign trigger.
+- No changes to the "Add user to property" dropdown (owner stays auto-assign only).
+- No changes to `front_desk` / `manager` / `housekeeping` / `staff` behavior.
+- No changes to hardcoded `userRole === 'admin'` checks elsewhere — those are tracked separately and follow the granular-permissions migration pattern. Owners now pass `hasPermission(...)` checks automatically; pages still gated by raw `userRole === 'admin'` will be addressed in follow-up work.
 
 ### Verification
-1. Apply migration → three new columns exist on `user_permissions` with default `false`.
-2. Open Edit Permissions for a non-admin user → three new toggles appear in the Permissions grid; "Select All" toggles them too; saving persists values.
-3. Non-admin without `can_delete_reservation` → "Permanently Delete" button hidden in ReservationsList bulk actions toolbar.
-4. Non-admin without `can_view_revenue` → RevPAR card hidden on the Unit Availability Calendar.
-5. Non-admin without `can_manage_rooms` → redirected from `/rooms` with the existing toast; admin-only edit/clone/delete UI hidden.
-6. Admin user → all destructive/reveal UI continues to render automatically (auth shortcut grants every permission).
+1. New user, no system role, `owner` of a test property → `hasPermission('can_delete_reservation')` and `hasPermission('can_view_revenue')` both return `true`; can access `AdminRoute`-gated pages.
+2. `manager` (not owner) → still gated by granular permissions only.
+3. System `admin` → unchanged behavior.
+4. Switching active property in `PropertySwitcher` updates `propertyRole` immediately (event-driven re-fetch).
+5. Sign out clears `propertyRole`.
 
