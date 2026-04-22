@@ -2,6 +2,7 @@ import { useEffect, useState, useRef, useCallback } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { supabase } from '@/integrations/supabase/client';
 import { usePropertyId, withPropertyFilter } from '@/hooks/usePropertyFilter';
+import { useProperty } from '@/lib/propertyContext';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Calendar, LogIn, LogOut, TrendingUp, DollarSign, CheckCircle, Undo2, XCircle, FileSignature, ArrowRightLeft, Clock } from 'lucide-react';
 import { CheckInDialog } from './CheckInDialog';
@@ -99,6 +100,8 @@ export const Dashboard = () => {
   const navigate = useNavigate();
   const { toast } = useToast();
   const propertyId = usePropertyId();
+  const { activeProperty } = useProperty();
+  const tz = activeProperty?.timezone || 'UTC';
   const [stats, setStats] = useState<DashboardStats>({
     todayArrivals: 0,
     arrivalsCheckedIn: 0,
@@ -1098,7 +1101,7 @@ export const Dashboard = () => {
                           {reservation.checked_in_at && (
                             <p className="text-green-600 text-xs">
                               Checked in: {new Date(reservation.checked_in_at).toLocaleString('en-US', { 
-                                timeZone: 'Africa/Cairo',
+                                timeZone: tz,
                                 month: 'short', day: 'numeric', hour: 'numeric', minute: '2-digit', hour12: true 
                               })}
                             </p>
@@ -1106,7 +1109,7 @@ export const Dashboard = () => {
                           {reservation.checked_out_at && (
                             <p className="text-orange-600 text-xs">
                               Checked out: {new Date(reservation.checked_out_at).toLocaleString('en-US', { 
-                                timeZone: 'Africa/Cairo',
+                                timeZone: tz,
                                 month: 'short', day: 'numeric', hour: 'numeric', minute: '2-digit', hour12: true 
                               })}
                             </p>
@@ -1114,7 +1117,7 @@ export const Dashboard = () => {
                           {reservation.cancelled_at && (
                             <p className="text-red-600 text-xs">
                               Cancelled: {new Date(reservation.cancelled_at).toLocaleString('en-US', { 
-                                timeZone: 'Africa/Cairo',
+                                timeZone: tz,
                                 month: 'short', day: 'numeric', hour: 'numeric', minute: '2-digit', hour12: true 
                               })}
                             </p>

@@ -77,7 +77,7 @@ export function PropertySettings() {
   const [saving, setSaving] = useState(false);
   const [config, setConfig] = useState<PropertyConfig>({
     property_name: '', email: '', phone: '', address: '', city: '',
-    country: 'EG', zip_code: '', timezone: 'Africa/Cairo', currency: 'USD',
+    country: 'EG', zip_code: '', timezone: 'UTC', currency: 'USD',
     latitude: null, longitude: null, description: '', channex_property_id: null,
   });
   const [roomTypes, setRoomTypes] = useState<RoomTypeGroup[]>([]);

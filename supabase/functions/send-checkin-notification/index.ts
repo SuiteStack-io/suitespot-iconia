@@ -139,7 +139,7 @@ Deno.serve(async (req) => {
     // Format check-in timestamp in Cairo time
     const checkedInAt = reservation.checked_in_at 
       ? new Date(reservation.checked_in_at).toLocaleString('en-US', {
-          timeZone: 'Africa/Cairo',
+          timeZone: settings.timezone || 'UTC',
           year: 'numeric',
           month: 'short',
           day: 'numeric',
