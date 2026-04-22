@@ -738,7 +738,7 @@ async function filterByPropertyAccess(
   return users.filter((user: any) => {
     const userAccessEntries = accessList.filter((a: any) => a.user_id === user.user_id);
 
-    if (userAccessEntries.length === 0 && user.role === 'admin') {
+    if (userAccessEntries.length === 0 && (user.role === 'admin' || user.role === 'super_admin')) {
       console.log(`${user.email} — admin with global access (no property restrictions)`);
       return true;
     }
