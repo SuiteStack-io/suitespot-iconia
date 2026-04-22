@@ -2,6 +2,7 @@ import { useEffect, useState, useRef, useCallback } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { supabase } from '@/integrations/supabase/client';
 import { usePropertyId, withPropertyFilter } from '@/hooks/usePropertyFilter';
+import { useProperty } from '@/lib/propertyContext';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Calendar, LogIn, LogOut, TrendingUp, DollarSign, CheckCircle, Undo2, XCircle, FileSignature, ArrowRightLeft, Clock } from 'lucide-react';
 import { CheckInDialog } from './CheckInDialog';
