@@ -1,57 +1,75 @@
 
 
-## Fix: Super Admin Sees No Properties
+## Grant `super_admin` Equal Access Everywhere
 
-The super_admin user's banner ("No properties assigned") appears because the `properties` table RLS SELECT policy doesn't include `super_admin`. Even though the client code attempts to fetch all properties for super admins, the database silently returns 0 rows.
+Replace every hardcoded `userRole === 'admin'` / `userRole !== 'admin'` check with one that also accepts `super_admin`. `admin` behavior is preserved verbatim — `super_admin` is purely additive.
 
-### 1. Database — add `super_admin` to the SELECT policy on `properties`
+### 1. Frontend pages — gate / data fetch
 
-New migration:
+Each file: change `userRole === 'admin'` → `(userRole === 'admin' || userRole === 'super_admin')` and `userRole !== 'admin'` → `(userRole !== 'admin' && userRole !== 'super_admin')`.
 
-```sql
-DROP POLICY IF EXISTS "Users can view assigned properties" ON public.properties;
+| File | Lines |
+|------|-------|
+| `src/pages/Users.tsx` | 48, 54, 189 |
+| `src/pages/Analytics.tsx` | 149, 155 |
+| `src/pages/Commissions.tsx` | 66, 73 |
+| `src/pages/AlmazaBay.tsx` | 265, 1469 |
+| `src/pages/Guests.tsx` | 67 |
+| `src/pages/GuestForms.tsx` | 103 |
+| `src/pages/GuestInbox.tsx` | 65 |
+| `src/pages/front-desk/RoomRates.tsx` | 73 |
+| `src/pages/Index.tsx` | 152 |
 
-CREATE POLICY "Users and admins can view properties"
-ON public.properties
-FOR SELECT
-USING (
-  has_property_access(auth.uid(), id)
-  OR is_system_admin(auth.uid())
-  OR has_role(auth.uid(), 'admin'::app_role)
-  OR has_role(auth.uid(), 'super_admin'::app_role)
-);
+### 2. Frontend components
+
+| File | Lines |
+|------|-------|
+| `src/components/SlideMenu.tsx` | 95, 202 |
+| `src/components/inbox/ConversationPanel.tsx` | 79 |
+| `src/components/settings/PropertyList.tsx` | 18, 19 |
+
+### 3. AdminRoute — already covers super_admin
+`src/components/AdminRoute.tsx` line 13 already allows both. No change.
+
+### 4. Out of scope (intentionally unchanged)
+- `src/components/EditPermissionsDialog.tsx` line 254 — `user?.role === 'admin'` refers to the **target user being edited** (a property `admin` whose permissions are auto-granted), not the current user. Unrelated to platform access.
+- `src/lib/auth.tsx` `hasPermission` — already short-circuits on both roles.
+- `src/lib/propertyContext.tsx` — already includes `super_admin` everywhere needed.
+
+### 5. Edge Functions
+
+The notification senders (`send-checkin-notification`, `send-checkout-notification`, `send-late-checkout-notification`, `send-room-change-notification`, `send-cancellation-notification`, `send-reservation-notification`, `send-modification-notification`, `send-extension-notification`, `send-mid-stay-cleaning-notifications`, `auto-shuffle-rooms`, `generate-daily-summary`) all contain:
+
+```ts
+if (userAccessEntries.length === 0 && user.role === 'admin') {
+  // global access fallback
+  return true;
+}
 ```
 
-This matches the pattern already used in the UPDATE/DELETE policies after the previous migration.
+Update each to:
 
-### 2. `src/lib/propertyContext.tsx` — clean up the fetch branch
+```ts
+if (userAccessEntries.length === 0 && (user.role === 'admin' || user.role === 'super_admin')) {
+```
 
-Refactor `fetchProperties` to use the `isSuperAdmin` flag from `useAuth()` (single source of truth) instead of re-querying `user_roles` locally:
+Plus `send-mid-stay-cleaning-notifications` line 176 role allowlist:
+```ts
+.filter((u: any) => u.email && (u.role === 'admin' || u.role === 'super_admin' || u.role === 'manager' || u.role === 'housekeeping'));
+```
 
-- Read `userRole` from `useAuth()` (already destructured).
-- `const isSuperAdmin = userRole === 'super_admin'` (already exists at line 81).
-- Branch:
-  - **Super admin** → `supabase.from('properties').select('*').order('is_default', { ascending: false }).order('name')` — no `user_property_access` filter.
-  - **System admin OR `admin` app_role** → same direct fetch (existing behavior).
-  - **Everyone else** → existing `user_property_access` join.
-- Drop the now-redundant local `user_roles` query (lines 103-111). Use `userRole` from auth context instead.
+The two admin-gate edge functions (`channex-sync-property` line 64, `channex-reset-sync` line 47) currently query `.eq('role', 'admin')`. Change to:
+```ts
+.from('user_roles').select('role').eq('user_id', user.id).in('role', ['admin', 'super_admin']).maybeSingle();
+```
 
-Result: super admins see all properties without needing any `user_property_access` row, and the banner will not appear because `properties` will be populated.
-
-### 3. PropertySwitcher banner — no code change required
-
-The "No properties assigned" banner is rendered only when `activeProperties.length === 0`. Once RLS + fetch return all properties for super_admin, the array is non-empty and the banner naturally disappears. No change to `PropertySwitcher.tsx` needed.
-
-### Out of scope
-- No changes to how `admin`, `manager`, `front_desk`, `housekeeping`, `staff` fetch properties.
-- No changes to `PropertySwitcher` UI.
-- No rows added to `user_property_access` for the super_admin user.
-- No changes to other RLS policies.
+### 6. Memory update
+Append a Core rule to `mem://index.md`: "Hardcoded admin checks must always include `super_admin` (e.g. `userRole === 'admin' || userRole === 'super_admin'`)." This prevents regressions in future feature work.
 
 ### Verification
-1. Super admin login → property dropdown shows all properties; no red banner.
-2. `SELECT` on `properties` from super admin session returns all rows.
-3. Ahmed (`admin` app_role) → unchanged, still sees all properties.
-4. Manager / staff users → unchanged, still scoped via `user_property_access`.
-5. `user_property_access` still contains zero rows for the super_admin user.
+1. Youssef (`super_admin`) → SlideMenu shows Commissions, Cash Settlement, Analytics, Users, Rooms, Inbox; can open every admin-gated page without redirect.
+2. Ahmed (`admin`) → identical behavior to before.
+3. `manager` / `front_desk` / `housekeeping` users → unchanged.
+4. Edge function admin-gate calls succeed for super_admin (e.g. `channex-sync-property`).
+5. Notification recipient resolution includes super_admin users with no property access rows.
 
