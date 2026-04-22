@@ -100,19 +100,12 @@ export const PropertyProvider = ({ children }: { children: ReactNode }) => {
       const sysAdmin = profile?.is_system_admin ?? false;
       setIsSystemAdmin(sysAdmin);
 
-      // Check if user has admin or super_admin app_role
-      const { data: roleData } = await supabase
-        .from('user_roles')
-        .select('role')
-        .eq('user_id', user.id)
-        .in('role', ['admin', 'super_admin'])
-        .maybeSingle();
-      const isAppAdmin = !!roleData;
-      const isSuper = roleData?.role === 'super_admin';
+      // Use userRole from auth context as the single source of truth
+      const isAppAdmin = userRole === 'admin' || userRole === 'super_admin';
 
       let props: any[] | null = null;
 
-      if (sysAdmin || isAppAdmin || isSuper) {
+      if (sysAdmin || isAppAdmin) {
         // Admin users: fetch all properties
         const { data, error: fetchError } = await supabase
           .from('properties')
@@ -181,7 +174,7 @@ export const PropertyProvider = ({ children }: { children: ReactNode }) => {
     } finally {
       setIsLoading(false);
     }
-  }, [user]);
+  }, [user, userRole]);
 
   useEffect(() => {
     if (!authLoading) {
