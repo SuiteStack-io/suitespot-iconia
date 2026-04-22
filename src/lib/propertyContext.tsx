@@ -70,7 +70,7 @@ const PropertyContext = createContext<PropertyContextType | undefined>(undefined
 const ACTIVE_PROPERTY_KEY = 'activePropertyId';
 
 export const PropertyProvider = ({ children }: { children: ReactNode }) => {
-  const { user, userRole, loading: authLoading } = useAuth();
+  const { user, userRole, systemRole, loading: authLoading } = useAuth();
   const [properties, setProperties] = useState<Property[]>([]);
   const [activeProperty, setActivePropertyState] = useState<Property | null>(null);
   const [propertyRole, setPropertyRole] = useState<PropertyRole | null>(null);
@@ -78,7 +78,7 @@ export const PropertyProvider = ({ children }: { children: ReactNode }) => {
   const [isLoading, setIsLoading] = useState(true);
   const [company, setCompany] = useState<Company | null>(null);
 
-  const isSuperAdmin = userRole === 'super_admin';
+  const isSuperAdmin = systemRole === 'super_admin';
 
   const fetchProperties = useCallback(async () => {
     if (!user) {
@@ -100,8 +100,8 @@ export const PropertyProvider = ({ children }: { children: ReactNode }) => {
       const sysAdmin = profile?.is_system_admin ?? false;
       setIsSystemAdmin(sysAdmin);
 
-      // Use userRole from auth context as the single source of truth
-      const isAppAdmin = userRole === 'admin' || userRole === 'super_admin';
+      // Use systemRole from auth context as the single source of truth
+      const isAppAdmin = systemRole === 'admin' || systemRole === 'super_admin';
 
       let props: any[] | null = null;
 
@@ -174,7 +174,7 @@ export const PropertyProvider = ({ children }: { children: ReactNode }) => {
     } finally {
       setIsLoading(false);
     }
-  }, [user, userRole]);
+  }, [user, userRole, systemRole]);
 
   useEffect(() => {
     if (!authLoading) {

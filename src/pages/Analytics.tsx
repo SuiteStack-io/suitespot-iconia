@@ -146,13 +146,13 @@ const Analytics = () => {
   }>>([]);
 
   useEffect(() => {
-    if (!loading && userRole !== 'admin' && userRole !== 'super_admin') {
+    if (!loading && userRole !== 'admin') {
       navigate('/admin');
     }
   }, [userRole, loading, navigate]);
 
   useEffect(() => {
-    if (userRole === 'admin' || userRole === 'super_admin') {
+    if (userRole === 'admin') {
       fetchAllStats();
       
       const channel = supabase
