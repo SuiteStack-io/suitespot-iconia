@@ -28,6 +28,7 @@ import * as XLSX from 'xlsx';
 import { toast } from 'sonner';
 import { format } from 'date-fns';
 import { DateRange } from 'react-day-picker';
+import { usePropertyId, withPropertyFilter } from '@/hooks/usePropertyFilter';
 
 interface RevenueBySourceProps {
   mainDateRange?: DateRange;
@@ -67,6 +68,7 @@ const getCommissionRate = (source: string): number => {
 };
 
 export const RevenueBySource = ({ mainDateRange }: RevenueBySourceProps) => {
+  const propertyId = usePropertyId();
   const [revenueBySource, setRevenueBySource] = useState<SourceRevenue[]>([]);
   const [filteredRevenue, setFilteredRevenue] = useState<SourceRevenue[]>([]);
   const [loading, setLoading] = useState(true);
@@ -105,7 +107,8 @@ export const RevenueBySource = ({ mainDateRange }: RevenueBySourceProps) => {
     return () => {
       supabase.removeChannel(channel);
     };
-  }, []);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [mainDateRange?.from?.getTime(), mainDateRange?.to?.getTime(), propertyId]);
 
   useEffect(() => {
     if (selectedSource === 'all') {
@@ -131,11 +134,21 @@ export const RevenueBySource = ({ mainDateRange }: RevenueBySourceProps) => {
   };
 
   const fetchRevenueBySource = async () => {
-    const { data, error } = await supabase
-      .from('reservations')
-      .select('source, total_price, commission_amount, net_revenue, guest_names, check_in_date, check_out_date, nights, payment_method, currency')
-      .neq('status', 'Cancelled')
-      .is('cancelled_at', null);
+    if (!mainDateRange?.from || !mainDateRange?.to) return;
+
+    const startDate = format(mainDateRange.from, 'yyyy-MM-dd');
+    const endDate = format(mainDateRange.to, 'yyyy-MM-dd');
+
+    const { data, error } = await withPropertyFilter(
+      supabase
+        .from('reservations')
+        .select('source, total_price, commission_amount, net_revenue, guest_names, check_in_date, check_out_date, nights, payment_method, currency')
+        .neq('status', 'Cancelled')
+        .is('cancelled_at', null)
+        .gte('check_in_date', startDate)
+        .lte('check_in_date', endDate),
+      propertyId,
+    );
 
     if (error) {
       console.error('Error fetching revenue by source:', error);

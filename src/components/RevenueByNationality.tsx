@@ -6,6 +6,7 @@ import { supabase } from '@/integrations/supabase/client';
 import { format } from 'date-fns';
 import { DateRange } from 'react-day-picker';
 import { useProperty } from '@/lib/propertyContext';
+import { usePropertyId, withPropertyFilter } from '@/hooks/usePropertyFilter';
 
 interface NationalityRevenue {
   nationality: string;
@@ -26,33 +27,18 @@ interface RevenueByNationalityProps {
 
 export const RevenueByNationality = ({ mainDateRange }: RevenueByNationalityProps) => {
   const { activeProperty } = useProperty();
+  const propertyId = usePropertyId();
   const vatRate = activeProperty?.vat_rate ?? 0;
   const vatDivisor = 1 + vatRate / 100;
-
-  const [dateRange, setDateRange] = useState<DateRange | undefined>(() => {
-    if (mainDateRange?.from && mainDateRange?.to) {
-      return mainDateRange;
-    }
-    return {
-      from: new Date(2024, 10, 1), // Nov 1, 2024
-      to: new Date(),
-    };
-  });
 
   const [nationalityRevenues, setNationalityRevenues] = useState<NationalityRevenue[]>([]);
   const [sortField, setSortField] = useState<SortField>('totalRevenue');
   const [sortOrder, setSortOrder] = useState<SortOrder>('desc');
 
-  // Sync with main date range when it changes
-  useEffect(() => {
-    if (mainDateRange?.from && mainDateRange?.to) {
-      setDateRange(mainDateRange);
-    }
-  }, [mainDateRange?.from?.getTime(), mainDateRange?.to?.getTime()]);
-
   useEffect(() => {
     fetchNationalityRevenues();
-  }, [dateRange]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [mainDateRange?.from?.getTime(), mainDateRange?.to?.getTime(), propertyId]);
 
   const formatSource = (source: string | null): string => {
     if (!source) return '-';
@@ -68,14 +54,18 @@ export const RevenueByNationality = ({ mainDateRange }: RevenueByNationalityProp
   };
 
   const fetchNationalityRevenues = async () => {
-    if (!dateRange?.from || !dateRange?.to) return;
+    if (!mainDateRange?.from || !mainDateRange?.to) return;
 
-    const { data, error } = await supabase
-      .from('reservations')
-      .select('guest_nationality, nights, price_per_night, total_price, vat_exempt, source, payment_method')
-      .gte('check_in_date', format(dateRange.from, 'yyyy-MM-dd'))
-      .lte('check_in_date', format(dateRange.to, 'yyyy-MM-dd'))
-      .in('status', ['confirmed', 'checked-in', 'checked-out', 'completed']);
+    const { data, error } = await withPropertyFilter(
+      supabase
+        .from('reservations')
+        .select('guest_nationality, nights, price_per_night, total_price, vat_exempt, source, payment_method')
+        .gte('check_in_date', format(mainDateRange.from, 'yyyy-MM-dd'))
+        .lte('check_in_date', format(mainDateRange.to, 'yyyy-MM-dd'))
+        .in('status', ['confirmed', 'checked-in', 'checked-out', 'completed'])
+        .is('cancelled_at', null),
+      propertyId,
+    );
 
     if (error) {
       console.error('Error fetching nationality revenues:', error);

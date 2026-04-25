@@ -44,22 +44,6 @@ export const RevenueByRoom = ({ mainDateRange }: RevenueByRoomProps) => {
   const [groupedRevenue, setGroupedRevenue] = useState<GroupedRoomRevenue[]>([]);
   const [expandedGroups, setExpandedGroups] = useState<Set<string>>(new Set());
   const [loading, setLoading] = useState(true);
-  const [dateRange, setDateRange] = useState<DateRange | undefined>(() => {
-    if (mainDateRange?.from && mainDateRange?.to) {
-      return mainDateRange;
-    }
-    return {
-      from: new Date(new Date().setMonth(new Date().getMonth() - 1)),
-      to: new Date(),
-    };
-  });
-
-  // Sync with main date range when it changes
-  useEffect(() => {
-    if (mainDateRange?.from && mainDateRange?.to) {
-      setDateRange(mainDateRange);
-    }
-  }, [mainDateRange?.from?.getTime(), mainDateRange?.to?.getTime()]);
 
   useEffect(() => {
     fetchRevenueByRoom();
@@ -82,7 +66,8 @@ export const RevenueByRoom = ({ mainDateRange }: RevenueByRoomProps) => {
     return () => {
       supabase.removeChannel(channel);
     };
-  }, [dateRange, propertyId]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [mainDateRange?.from?.getTime(), mainDateRange?.to?.getTime(), propertyId]);
 
   // Group rooms by room name whenever revenueByRoom changes
   useEffect(() => {
@@ -150,13 +135,13 @@ export const RevenueByRoom = ({ mainDateRange }: RevenueByRoomProps) => {
   const allExpanded = groupedRevenue.length > 0 && expandedGroups.size === groupedRevenue.length;
 
   const fetchRevenueByRoom = async () => {
-    if (!dateRange?.from || !dateRange?.to) return;
-    
-    const startDate = format(dateRange.from, 'yyyy-MM-dd');
-    const endDate = format(dateRange.to, 'yyyy-MM-dd');
-    
+    if (!mainDateRange?.from || !mainDateRange?.to) return;
+
+    const startDate = format(mainDateRange.from, 'yyyy-MM-dd');
+    const endDate = format(mainDateRange.to, 'yyyy-MM-dd');
+
     // Calculate total days in the date range
-    const daysDiff = Math.ceil((dateRange.to.getTime() - dateRange.from.getTime()) / (1000 * 60 * 60 * 24)) + 1;
+    const daysDiff = Math.ceil((mainDateRange.to.getTime() - mainDateRange.from.getTime()) / (1000 * 60 * 60 * 24)) + 1;
 
     // Fetch all units for active property
     const { data: units, error: unitsError } = await withPropertyFilter(supabase
@@ -170,14 +155,14 @@ export const RevenueByRoom = ({ mainDateRange }: RevenueByRoomProps) => {
       return;
     }
 
-    // Fetch reservations for the date range
+    // Fetch reservations for the date range — match KPI card pattern (check_in_date BETWEEN)
     const { data: reservations, error: reservationsError } = await withPropertyFilter(supabase
       .from('reservations')
       .select('unit_id, total_price, commission_amount, check_in_date, check_out_date, nights')
       .neq('status', 'Cancelled')
       .is('cancelled_at', null)
       .gte('check_in_date', startDate)
-      .lte('check_out_date', endDate), propertyId);
+      .lte('check_in_date', endDate), propertyId);
 
     if (reservationsError) {
       console.error('Error fetching reservations:', reservationsError);
