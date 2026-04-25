@@ -18,6 +18,7 @@ import { useAuth } from "@/lib/auth";
 import { usePropertyId, withPropertyFilter } from "@/hooks/usePropertyFilter";
 import { usePropertySafe } from "@/lib/propertyContext";
 import { RoomSwapDialog } from "@/components/RoomSwapDialog";
+import { MoveGuestSplitDialog } from "@/components/MoveGuestSplitDialog";
 import { LateCheckoutDialog } from "@/components/LateCheckoutDialog";
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
 interface Reservation {
