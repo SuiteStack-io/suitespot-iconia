@@ -6,6 +6,7 @@ import { supabase } from '@/integrations/supabase/client';
 import { format } from 'date-fns';
 import { DateRange } from 'react-day-picker';
 import { useProperty } from '@/lib/propertyContext';
+import { usePropertyId, withPropertyFilter } from '@/hooks/usePropertyFilter';
 
 interface NationalityRevenue {
   nationality: string;
