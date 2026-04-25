@@ -68,6 +68,7 @@ const getCommissionRate = (source: string): number => {
 };
 
 export const RevenueBySource = ({ mainDateRange }: RevenueBySourceProps) => {
+  const propertyId = usePropertyId();
   const [revenueBySource, setRevenueBySource] = useState<SourceRevenue[]>([]);
   const [filteredRevenue, setFilteredRevenue] = useState<SourceRevenue[]>([]);
   const [loading, setLoading] = useState(true);
@@ -106,7 +107,8 @@ export const RevenueBySource = ({ mainDateRange }: RevenueBySourceProps) => {
     return () => {
       supabase.removeChannel(channel);
     };
-  }, []);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [mainDateRange?.from?.getTime(), mainDateRange?.to?.getTime(), propertyId]);
 
   useEffect(() => {
     if (selectedSource === 'all') {
