@@ -107,6 +107,7 @@ export function PropertyForm({ property, open, onClose, onSaved }: PropertyFormP
     wifi_password: (property as any)?.wifi_password || '',
     vat_rate: (property as any)?.vat_rate?.toString() ?? '',
     default_commission_rate: (property as any)?.default_commission_rate?.toString() ?? '',
+    revenue_recognition_method: ((property as any)?.revenue_recognition_method as string) || 'check_in',
   });
   const [saving, setSaving] = useState(false);
 
