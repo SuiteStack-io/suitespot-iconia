@@ -47,7 +47,10 @@ const formatCurrency = (value: number): string => {
 const Analytics = () => {
   const { userRole, loading } = useAuth();
   const propertyId = usePropertyId();
+  const { activeProperty, refreshProperties } = useProperty();
   const navigate = useNavigate();
+
+  const savedLandlordPercentage = Number((activeProperty as any)?.landlord_share_percentage ?? 70);
 
   const [timePeriod, setTimePeriod] = useState<TimePeriod>('month');
   const [customDateRange, setCustomDateRange] = useState<DateRange | undefined>();
