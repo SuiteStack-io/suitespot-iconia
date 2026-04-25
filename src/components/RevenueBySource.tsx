@@ -69,7 +69,7 @@ const getCommissionRate = (source: string): number => {
   return COMMISSION_RATES[source] || COMMISSION_RATES['default'];
 };
 
-export const RevenueBySource = ({ mainDateRange }: RevenueBySourceProps) => {
+export const RevenueBySource = ({ mainDateRange, method = 'check_in' }: RevenueBySourceProps) => {
   const propertyId = usePropertyId();
   const [revenueBySource, setRevenueBySource] = useState<SourceRevenue[]>([]);
   const [filteredRevenue, setFilteredRevenue] = useState<SourceRevenue[]>([]);
