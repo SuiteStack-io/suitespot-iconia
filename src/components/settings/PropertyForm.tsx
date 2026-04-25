@@ -159,6 +159,7 @@ export function PropertyForm({ property, open, onClose, onSaved }: PropertyFormP
         wifi_password: form.wifi_password || null,
         vat_rate: form.vat_rate !== '' ? parseFloat(form.vat_rate) : null,
         default_commission_rate: form.default_commission_rate !== '' ? parseFloat(form.default_commission_rate) : null,
+        revenue_recognition_method: form.revenue_recognition_method,
       };
 
       if (isEdit) {
