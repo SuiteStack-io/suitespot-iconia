@@ -2,6 +2,7 @@ import { useEffect, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useAuth } from '@/lib/auth';
 import { usePropertyId, withPropertyFilter } from '@/hooks/usePropertyFilter';
+import { useProperty } from '@/lib/propertyContext';
 import { Button } from '@/components/ui/button';
 import { ArrowLeft, DollarSign, TrendingUp, Calendar as CalendarIcon, BarChart3, Users, ChevronRight, ChevronDown, Download, FileSpreadsheet } from 'lucide-react';
 import { SlideMenu } from '@/components/SlideMenu';
@@ -46,7 +47,10 @@ const formatCurrency = (value: number): string => {
 const Analytics = () => {
   const { userRole, loading } = useAuth();
   const propertyId = usePropertyId();
+  const { activeProperty, refreshProperties } = useProperty();
   const navigate = useNavigate();
+
+  const savedLandlordPercentage = Number((activeProperty as any)?.landlord_share_percentage ?? 70);
 
   const [timePeriod, setTimePeriod] = useState<TimePeriod>('month');
   const [customDateRange, setCustomDateRange] = useState<DateRange | undefined>();
@@ -62,7 +66,8 @@ const Analytics = () => {
     indirect: { count: 0, revenue: 0 } 
   });
   const [totalGuests, setTotalGuests] = useState(0);
-  const [landlordPercentage, setLandlordPercentage] = useState(70);
+  const [landlordPercentage, setLandlordPercentage] = useState(savedLandlordPercentage);
+  const [savingShare, setSavingShare] = useState(false);
   const [totalNights, setTotalNights] = useState(0);
   const [totalAvailableRooms, setTotalAvailableRooms] = useState(0);
   const [directCommission, setDirectCommission] = useState(0);
@@ -175,6 +180,26 @@ const Analytics = () => {
       };
     }
   }, [userRole, timePeriod, customDateRange, propertyId]);
+
+  // Sync slider to saved value when active property changes / refreshes
+  useEffect(() => {
+    setLandlordPercentage(savedLandlordPercentage);
+  }, [savedLandlordPercentage]);
+
+  const handleSaveShare = async () => {
+    if (!propertyId) return;
+    setSavingShare(true);
+    const { error } = await (supabase.from('properties') as any)
+      .update({ landlord_share_percentage: landlordPercentage })
+      .eq('id', propertyId);
+    setSavingShare(false);
+    if (error) {
+      toast.error('Could not save revenue share. Please try again.');
+    } else {
+      toast.success('Revenue share saved');
+      await refreshProperties();
+    }
+  };
 
   const getDateRange = () => {
     if (customDateRange?.from && customDateRange?.to) {
@@ -949,9 +974,16 @@ const Analytics = () => {
                   className="w-full"
                 />
               </div>
-              <div className="flex gap-4 text-sm">
+              <div className="flex items-center gap-4 text-sm">
                 <span className="text-muted-foreground">Landlord: <strong>{landlordPercentage}%</strong></span>
                 <span className="text-muted-foreground">Suitespot: <strong>{100 - landlordPercentage}%</strong></span>
+                <Button
+                  size="sm"
+                  onClick={handleSaveShare}
+                  disabled={savingShare || landlordPercentage === savedLandlordPercentage}
+                >
+                  {savingShare ? 'Saving…' : 'Save'}
+                </Button>
               </div>
             </div>
           </CardContent>

@@ -1604,6 +1604,7 @@ export type Database = {
           id: string
           is_active: boolean | null
           is_default: boolean | null
+          landlord_share_percentage: number
           latitude: number | null
           legal_name: string | null
           longitude: number | null
@@ -1650,6 +1651,7 @@ export type Database = {
           id?: string
           is_active?: boolean | null
           is_default?: boolean | null
+          landlord_share_percentage?: number
           latitude?: number | null
           legal_name?: string | null
           longitude?: number | null
@@ -1696,6 +1698,7 @@ export type Database = {
           id?: string
           is_active?: boolean | null
           is_default?: boolean | null
+          landlord_share_percentage?: number
           latitude?: number | null
           legal_name?: string | null
           longitude?: number | null
