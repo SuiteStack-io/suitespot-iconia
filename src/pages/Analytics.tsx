@@ -181,6 +181,26 @@ const Analytics = () => {
     }
   }, [userRole, timePeriod, customDateRange, propertyId]);
 
+  // Sync slider to saved value when active property changes / refreshes
+  useEffect(() => {
+    setLandlordPercentage(savedLandlordPercentage);
+  }, [savedLandlordPercentage]);
+
+  const handleSaveShare = async () => {
+    if (!propertyId) return;
+    setSavingShare(true);
+    const { error } = await (supabase.from('properties') as any)
+      .update({ landlord_share_percentage: landlordPercentage })
+      .eq('id', propertyId);
+    setSavingShare(false);
+    if (error) {
+      toast.error('Could not save revenue share. Please try again.');
+    } else {
+      toast.success('Revenue share saved');
+      await refreshProperties();
+    }
+  };
+
   const getDateRange = () => {
     if (customDateRange?.from && customDateRange?.to) {
       return { 
