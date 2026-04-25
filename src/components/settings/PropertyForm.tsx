@@ -182,7 +182,7 @@ export function PropertyForm({ property, open, onClose, onSaved }: PropertyFormP
           .single();
         if (error) throw error;
         setCreatedPropertyId(data.id);
-        setStep(4);
+        setStep(5);
         // Refresh properties list so it appears in switcher
         propertyContext?.refreshProperties?.();
       }
