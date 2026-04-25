@@ -1,57 +1,43 @@
-# Fix: Late checkout fee should have zero commission
+## Goal
 
-## Why
+Add **Russia, Hungary, Cyprus, Croatia** to the phone-code dropdowns across all guest forms, and ensure the same four countries appear in every nationality dropdown.
 
-Late checkouts are an internal property fee, not OTA-mediated revenue. There is no third party owed commission, so the entire fee should be net revenue. Currently the row is created with the property default commission rate (10%) and the dialog explicitly promises "Commission (10%) will be credited to you", which is wrong.
+## Audit results
+
+Most of the work is already done. Confirmed by reading every relevant file:
+
+| File | Nationality list | Phone code list |
+|---|---|---|
+| `src/pages/BookingFlow.tsx` | ✅ Already has all 4 | ❌ Missing all 4 |
+| `src/components/CreateReservationDialog.tsx` | ✅ Already has all 4 | ❌ Missing all 4 |
+| `src/pages/ReservationDetail.tsx` | ✅ Already has all 4 | (no phone input) |
+| `src/pages/GuestCheckIn.tsx` | uses `COUNTRY_CODES` (so missing 4) | ❌ Missing all 4 |
+| `supabase/functions/channex-booking-webhook/index.ts` | ✅ ISO→name map already has RU/HU/CY/HR | n/a |
+
+So Booking.com webhook already correctly converts `RU` → `Russia` etc. — no edge function change needed.
 
 ## Changes
 
-### 1. `src/components/LateCheckoutDialog.tsx`
-- Delete only the `<p>` line: `"This creates a linked reservation. Commission (10%) will be credited to you."` (around line 222–224).
-- Keep the wrapping div, the User icon, and the "Late checkout attributed to: [name]" line.
-- Remove `const commissionRate = activeProperty?.default_commission_rate ?? 10;` (line 68).
-- Remove `commissionRate` from the `useLateCheckout({ ... })` call (line 76).
-- Leave `vatRate` and `activeProperty` alone — they are still used for the VAT breakdown.
+Add the following four entries to the `COUNTRY_CODES` array in **three files**, each at the correct numerical position to keep the existing ascending-by-dialing-code order:
 
-### 2. `src/hooks/useLateCheckout.ts`
-- Remove `commissionRate?: number` from `UseLateCheckoutParams`.
-- Remove `commissionRate = 10` from the hook's destructured params.
-- In the fee-reservation block (around lines 112–144):
-  - Remove the `baseAmount` and `commissionAmount` / `netRevenue` calculations (no longer needed — VAT split lives in the dialog).
-  - Set `commission_rate: 0`, `commission_amount: 0`, `net_revenue: feeAmt` on the inserted row.
-- Verify no other reference to `commissionRate` remains in the file.
+- `+7  RU 🇷🇺 Russia`     → after `+1 CA` (before `+20 EG`)
+- `+36 HU 🇭🇺 Hungary`    → after `+34 ES` (before `+39 IT`)
+- `+357 CY 🇨🇾 Cyprus`    → after `+356` slot (in the +35x cluster, before `+358 FI`)
+- `+385 HR 🇭🇷 Croatia`   → after `+380 UA` (before `+420 CZ`)
 
-### 3. Database backfill migration
-Single UPDATE to fix existing late-checkout fee rows:
+Files to edit:
 
-```sql
-UPDATE public.reservations
-SET commission_rate  = 0,
-    commission_amount = 0,
-    net_revenue      = total_price
-WHERE (notes ILIKE 'Late checkout fee for booking%' OR booking_reference ILIKE '%-LC')
-  AND (commission_rate <> 0 OR commission_amount <> 0 OR net_revenue <> total_price);
-```
+1. **`src/pages/GuestCheckIn.tsx`** — lines 42–132. Adds the 4 phone codes; this also adds Russia/Hungary/Cyprus/Croatia to the nationality dropdown because that dropdown iterates over `COUNTRY_CODES` (line 505).
+2. **`src/components/CreateReservationDialog.tsx`** — lines 70–160. Phone code list only (nationality list is separate and already complete).
+3. **`src/pages/BookingFlow.tsx`** — lines 53–97. Phone code list only (nationality list is separate and already complete). Note: this file's `COUNTRY_CODES` is shorter and stops at `+971`; the new entries still slot in by numerical order.
 
-Identifiers come straight from the existing insert in `useLateCheckout.ts` (`booking_reference: \`${bookingRef}-LC\`` and `notes: \`Late checkout fee for booking ${bookingRef}\``).
+No other files require changes:
+- ISO→country mapping in the Channex webhook already contains RU/HU/CY/HR.
+- `RevenueByGuests.tsx` only references `countryCode` as a prop name, not a list.
+- No other nationality or country-code arrays exist in the codebase.
 
-## Audit findings (analytics — no changes proposed, reporting only)
+## Out of scope
 
-Searched: `Analytics.tsx`, `Dashboard.tsx`, `Commissions.tsx`, `RevenueBySource.tsx`, `RevenueByRoom.tsx`, `RevenueByGuests.tsx`, `RevenueByNationality.tsx`, `CashSettlement.tsx`.
-
-All commission/net-revenue math is derived from each row's stored `commission_amount` (e.g. `total_price - commission_amount` for net, `sum(commission_amount)` for totals). No file hardcodes a commission rate when aggregating. Once late-checkout rows are stored with `commission_amount = 0`:
-
-- **Analytics.tsx, Dashboard.tsx, RevenueBySource/Room.tsx** — late-checkout fees count as 100% net revenue, contribute $0 to commission totals. Correct.
-- **Commissions.tsx** — already filters with `.not('commission_amount', 'is', null).gt('commission_amount', 0)` (lines 90–91), so zero-commission late-checkout rows are excluded from the commission tracker. Correct.
-- No double-counting risk found.
-
-No analytics code changes proposed.
-
-## Not changing
-
-- Same-day fee row shape (`check_in_date = check_out_date = checkoutDate`).
-- `valid_dates` constraint (already relaxed in prior migration).
-- `blocked_dates` insert.
-- Channex availability sync.
-- "Late checkout attributed to: [name]" line.
-- Commission logic for any other reservation type.
+- No reordering of existing entries.
+- No validation/logic changes.
+- No edge function changes (mapping is already correct).
