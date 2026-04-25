@@ -1161,16 +1161,16 @@ const Analytics = () => {
         </div>
 
         {/* Occupancy by Month */}
-        <OccupancyByMonthChart propertyId={propertyId} />
+        <OccupancyByMonthChart propertyId={propertyId} method={method} />
 
         {/* Revenue Breakdown Charts */}
         <div className="grid gap-6 md:grid-cols-2">
-          <RevenueBySource mainDateRange={{ from: new Date(startDate), to: new Date(endDate) }} />
-          <RevenueByRoom mainDateRange={{ from: new Date(startDate), to: new Date(endDate) }} />
+          <RevenueBySource mainDateRange={{ from: new Date(startDate), to: new Date(endDate) }} method={method} />
+          <RevenueByRoom mainDateRange={{ from: new Date(startDate), to: new Date(endDate) }} method={method} />
         </div>
         <div className="grid gap-6 md:grid-cols-2">
-          <RevenueByGuests mainDateRange={{ from: new Date(startDate), to: new Date(endDate) }} />
-          <RevenueByNationality mainDateRange={{ from: new Date(startDate), to: new Date(endDate) }} />
+          <RevenueByGuests mainDateRange={{ from: new Date(startDate), to: new Date(endDate) }} method={method} />
+          <RevenueByNationality mainDateRange={{ from: new Date(startDate), to: new Date(endDate) }} method={method} />
         </div>
 
         {/* Cancellation Analytics */}
