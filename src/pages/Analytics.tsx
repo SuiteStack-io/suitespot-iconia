@@ -299,24 +299,20 @@ const Analytics = () => {
     setBookingComCommission(bookingComCommissionAmount);
     
     // Fetch total bookings
-    const { data: bookingsData, count } = await withPropertyFilter(supabase
+    const { data: bookingsData, count } = await withPropertyFilter(applyRevenueDateFilter(supabase
       .from('reservations')
       .select('*', { count: 'exact', head: true })
       .neq('status', 'Cancelled')
-      .is('cancelled_at', null)
-      .gte('check_in_date', startDate)
-      .lte('check_in_date', endDate), propertyId);
+      .is('cancelled_at', null), method, startDate, endDate), propertyId);
       
     setTotalBookings(count || 0);
     
     // Calculate total guests
-    const { data: guestsData } = await withPropertyFilter(supabase
+    const { data: guestsData } = await withPropertyFilter(applyRevenueDateFilter(supabase
       .from('reservations')
       .select('number_of_guests')
       .neq('status', 'Cancelled')
-      .is('cancelled_at', null)
-      .gte('check_in_date', startDate)
-      .lte('check_in_date', endDate), propertyId);
+      .is('cancelled_at', null), method, startDate, endDate), propertyId);
     
     const totalGuestsCount = guestsData?.reduce((sum, r) => sum + (r.number_of_guests || 0), 0) || 0;
     setTotalGuests(totalGuestsCount);
@@ -329,8 +325,8 @@ const Analytics = () => {
       !r.source?.toLowerCase().includes('booking.com')
     ) || [];
     
-    const directRevenue = directReservations.reduce((sum, r) => sum + (r.total_price || 0), 0);
-    const indirectRevenue = indirectReservations.reduce((sum, r) => sum + (r.total_price || 0), 0);
+    const directRevenue = directReservations.reduce((sum, r) => sum + ((r.total_price || 0) * factorFor(r)), 0);
+    const indirectRevenue = indirectReservations.reduce((sum, r) => sum + ((r.total_price || 0) * factorFor(r)), 0);
     
     setBookingSources({ 
       direct: { count: directReservations.length, revenue: directRevenue }, 
