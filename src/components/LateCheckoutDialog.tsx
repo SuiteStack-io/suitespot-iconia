@@ -216,9 +216,6 @@ export const LateCheckoutDialog = ({
                     <span className="text-muted-foreground">Late checkout attributed to:</span>
                     <span className="font-medium">{currentUserName || 'Admin'}</span>
                   </div>
-                  <p className="text-xs text-muted-foreground mt-1">
-                    This creates a linked reservation. Commission (10%) will be credited to you.
-                  </p>
                 </div>
               )}
 
