@@ -2104,7 +2104,7 @@ export const AvailabilityCalendar = () => {
                     <div key={unit.id}>
                       {/* Room type separator - full-width, sticky pill on the left */}
                       {showSeparator && (
-                        <div className="grid grid-cols-1 mb-1 border-y border-border">
+                        <div className="grid grid-cols-1 mb-1 border-y border-border bg-muted">
                           <div className="flex items-center gap-2 py-2 px-2 sticky left-0 z-20 bg-muted w-fit max-w-full">
                             <Building2 className="h-4 w-4 text-muted-foreground" />
                             <span className="text-sm font-semibold text-muted-foreground whitespace-nowrap">
