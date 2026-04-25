@@ -53,6 +53,8 @@ const Analytics = () => {
   const navigate = useNavigate();
 
   const savedLandlordPercentage = Number((activeProperty as any)?.landlord_share_percentage ?? 70);
+  const method: RevenueRecognitionMethod =
+    ((activeProperty as any)?.revenue_recognition_method as RevenueRecognitionMethod) ?? 'check_in';
 
   const [timePeriod, setTimePeriod] = useState<TimePeriod>('month');
   const [customDateRange, setCustomDateRange] = useState<DateRange | undefined>();
