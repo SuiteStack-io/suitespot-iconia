@@ -28,6 +28,7 @@ import {
 
 interface Props {
   propertyId: string | null;
+  method?: import('@/lib/revenueDateFilter').RevenueRecognitionMethod;
 }
 
 interface MonthBucket {
@@ -53,7 +54,7 @@ const formatCurrencyShort = (v: number): string => {
 const formatCurrencyFull = (v: number): string =>
   `$${Math.round(v).toLocaleString()}`;
 
-export const OccupancyByMonthChart = ({ propertyId }: Props) => {
+export const OccupancyByMonthChart = ({ propertyId, method = 'check_in' }: Props) => {
   const [data, setData] = useState<MonthBucket[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(false);

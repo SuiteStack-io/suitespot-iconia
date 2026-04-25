@@ -14,6 +14,7 @@ import { ChevronDown, ChevronRight } from 'lucide-react';
 import { usePropertyId, withPropertyFilter } from '@/hooks/usePropertyFilter';
 import { format } from 'date-fns';
 import { DateRange } from 'react-day-picker';
+import { applyRevenueDateFilter, prorateFactor, type RevenueRecognitionMethod } from '@/lib/revenueDateFilter';
 
 interface RoomRevenue {
   roomId: string;
@@ -36,9 +37,10 @@ interface GroupedRoomRevenue {
 
 interface RevenueByRoomProps {
   mainDateRange?: DateRange;
+  method?: RevenueRecognitionMethod;
 }
 
-export const RevenueByRoom = ({ mainDateRange }: RevenueByRoomProps) => {
+export const RevenueByRoom = ({ mainDateRange, method = 'check_in' }: RevenueByRoomProps) => {
   const propertyId = usePropertyId();
   const [revenueByRoom, setRevenueByRoom] = useState<RoomRevenue[]>([]);
   const [groupedRevenue, setGroupedRevenue] = useState<GroupedRoomRevenue[]>([]);
@@ -67,7 +69,7 @@ export const RevenueByRoom = ({ mainDateRange }: RevenueByRoomProps) => {
       supabase.removeChannel(channel);
     };
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [mainDateRange?.from?.getTime(), mainDateRange?.to?.getTime(), propertyId]);
+  }, [mainDateRange?.from?.getTime(), mainDateRange?.to?.getTime(), propertyId, method]);
 
   // Group rooms by room name whenever revenueByRoom changes
   useEffect(() => {
@@ -155,14 +157,16 @@ export const RevenueByRoom = ({ mainDateRange }: RevenueByRoomProps) => {
       return;
     }
 
-    // Fetch reservations for the date range — match KPI card pattern (check_in_date BETWEEN)
-    const { data: reservations, error: reservationsError } = await withPropertyFilter(supabase
+    // Fetch reservations for the date range — uses property's revenue recognition method
+    const baseQuery = supabase
       .from('reservations')
       .select('unit_id, total_price, commission_amount, check_in_date, check_out_date, nights')
       .neq('status', 'Cancelled')
-      .is('cancelled_at', null)
-      .gte('check_in_date', startDate)
-      .lte('check_in_date', endDate), propertyId);
+      .is('cancelled_at', null);
+    const { data: reservations, error: reservationsError } = await withPropertyFilter(
+      applyRevenueDateFilter(baseQuery, method, startDate, endDate),
+      propertyId,
+    );
 
     if (reservationsError) {
       console.error('Error fetching reservations:', reservationsError);
@@ -179,13 +183,23 @@ export const RevenueByRoom = ({ mainDateRange }: RevenueByRoomProps) => {
       ) || [];
 
       const totalRevenue = unitReservations.reduce(
-        (sum, r) => sum + ((r.total_price || 0) - (r.commission_amount || 0)),
+        (sum, r) => {
+          const f = method === 'prorata'
+            ? prorateFactor(r.check_in_date, r.check_out_date, startDate, endDate)
+            : 1;
+          return sum + ((r.total_price || 0) - (r.commission_amount || 0)) * f;
+        },
         0
       );
-      
-      // Calculate total nights booked for this room
+
+      // Calculate total nights booked for this room (prorated when method = prorata)
       const totalNightsBooked = unitReservations.reduce(
-        (sum, r) => sum + (r.nights || 0),
+        (sum, r) => {
+          const f = method === 'prorata'
+            ? prorateFactor(r.check_in_date, r.check_out_date, startDate, endDate)
+            : 1;
+          return sum + (r.nights || 0) * f;
+        },
         0
       );
       

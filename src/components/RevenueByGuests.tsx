@@ -6,6 +6,7 @@ import { supabase } from '@/integrations/supabase/client';
 import { format } from 'date-fns';
 import { DateRange } from 'react-day-picker';
 import { usePropertyId, withPropertyFilter } from '@/hooks/usePropertyFilter';
+import { applyRevenueDateFilter, type RevenueRecognitionMethod } from '@/lib/revenueDateFilter';
 
 interface GuestRevenue {
   id: string;
@@ -24,9 +25,10 @@ type SortOrder = 'asc' | 'desc';
 
 interface RevenueByGuestsProps {
   mainDateRange?: DateRange;
+  method?: RevenueRecognitionMethod;
 }
 
-export const RevenueByGuests = ({ mainDateRange }: RevenueByGuestsProps) => {
+export const RevenueByGuests = ({ mainDateRange, method = 'check_in' }: RevenueByGuestsProps) => {
   const propertyId = usePropertyId();
   const [guestRevenues, setGuestRevenues] = useState<GuestRevenue[]>([]);
   const [filteredRevenues, setFilteredRevenues] = useState<GuestRevenue[]>([]);
@@ -38,7 +40,7 @@ export const RevenueByGuests = ({ mainDateRange }: RevenueByGuestsProps) => {
   useEffect(() => {
     fetchGuestRevenues();
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [mainDateRange?.from?.getTime(), mainDateRange?.to?.getTime(), propertyId]);
+  }, [mainDateRange?.from?.getTime(), mainDateRange?.to?.getTime(), propertyId, method]);
 
   useEffect(() => {
     applyFiltersAndSort();
@@ -65,14 +67,13 @@ export const RevenueByGuests = ({ mainDateRange }: RevenueByGuestsProps) => {
     const startDate = format(mainDateRange.from, 'yyyy-MM-dd');
     const endDate = format(mainDateRange.to, 'yyyy-MM-dd');
 
+    const baseQuery = supabase
+      .from('reservations')
+      .select('id, guest_names, unit_id, price_per_night, total_price, guest_nationality, nights, payment_method, currency, units!unit_id(unit_number)')
+      .neq('status', 'Cancelled')
+      .is('cancelled_at', null);
     const { data: reservations } = await withPropertyFilter(
-      supabase
-        .from('reservations')
-        .select('id, guest_names, unit_id, price_per_night, total_price, guest_nationality, nights, payment_method, currency, units!unit_id(unit_number)')
-        .neq('status', 'Cancelled')
-        .is('cancelled_at', null)
-        .gte('check_in_date', startDate)
-        .lte('check_in_date', endDate),
+      applyRevenueDateFilter(baseQuery, method, startDate, endDate),
       propertyId,
     );
 
