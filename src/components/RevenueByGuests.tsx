@@ -60,18 +60,21 @@ export const RevenueByGuests = ({ mainDateRange }: RevenueByGuestsProps) => {
   };
 
   const fetchGuestRevenues = async () => {
-    if (!dateRange?.from || !dateRange?.to) return;
-    
-    const startDate = format(dateRange.from, 'yyyy-MM-dd');
-    const endDate = format(dateRange.to, 'yyyy-MM-dd');
+    if (!mainDateRange?.from || !mainDateRange?.to) return;
 
-    const { data: reservations } = await supabase
-      .from('reservations')
-      .select('id, guest_names, unit_id, price_per_night, total_price, guest_nationality, nights, payment_method, currency, units!unit_id(unit_number)')
-      .neq('status', 'Cancelled')
-      .is('cancelled_at', null)
-      .gte('check_in_date', startDate)
-      .lte('check_out_date', endDate);
+    const startDate = format(mainDateRange.from, 'yyyy-MM-dd');
+    const endDate = format(mainDateRange.to, 'yyyy-MM-dd');
+
+    const { data: reservations } = await withPropertyFilter(
+      supabase
+        .from('reservations')
+        .select('id, guest_names, unit_id, price_per_night, total_price, guest_nationality, nights, payment_method, currency, units!unit_id(unit_number)')
+        .neq('status', 'Cancelled')
+        .is('cancelled_at', null)
+        .gte('check_in_date', startDate)
+        .lte('check_in_date', endDate),
+      propertyId,
+    );
 
     if (reservations) {
       const revenues: GuestRevenue[] = reservations.flatMap((r) => 
