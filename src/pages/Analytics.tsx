@@ -873,6 +873,7 @@ const Analytics = () => {
   const adr = totalNights > 0 ? (revenueStats.totalRevenue / totalNights) : 0;
   const revpar = totalAvailableRooms > 0 ? (revenueStats.totalRevenue / totalAvailableRooms) : 0;
   const { startDate, endDate } = getDateRange();
+  const now = new Date();
 
   return (
     <div className="min-h-screen bg-background">
@@ -905,21 +906,18 @@ const Analytics = () => {
 
       <main className="container mx-auto px-4 py-6 space-y-6">
         {/* Period selector */}
-        {(() => null)()}
         <div className="flex items-center gap-4 flex-wrap">
-          {(() => { const _now = new Date(); return (
           <Tabs value={customDateRange ? '' : timePeriod} onValueChange={handleTabChange}>
             <TabsList>
               <TabsTrigger value="week">7 Days</TabsTrigger>
               <TabsTrigger value="month">30 Days</TabsTrigger>
               <TabsTrigger value="quarter">90 Days</TabsTrigger>
               <TabsTrigger value="ytd">YTD</TabsTrigger>
-              <TabsTrigger value="lastMonth">{format(addMonths(_now, -1), 'MMM')}</TabsTrigger>
-              <TabsTrigger value="thisMonth">{format(_now, 'MMM')}</TabsTrigger>
-              <TabsTrigger value="nextMonth">{format(addMonths(_now, 1), 'MMM')}</TabsTrigger>
+              <TabsTrigger value="lastMonth">{format(addMonths(now, -1), 'MMM')}</TabsTrigger>
+              <TabsTrigger value="thisMonth">{format(now, 'MMM')}</TabsTrigger>
+              <TabsTrigger value="nextMonth">{format(addMonths(now, 1), 'MMM')}</TabsTrigger>
             </TabsList>
           </Tabs>
-          ); })()}
           
           <Popover>
             <PopoverTrigger asChild>
