@@ -2131,6 +2131,7 @@ export type Database = {
           id: string
           id_passport_url: string | null
           id_passport_url_back: string | null
+          is_split_reservation: boolean
           last_cleaning_notification_date: string | null
           late_checkout_time: string | null
           marriage_certificate_url: string | null
@@ -2139,6 +2140,7 @@ export type Database = {
           nights: number | null
           notes: string | null
           number_of_guests: number
+          parent_reservation_id: string | null
           payment_method: string | null
           preferred_language: string | null
           price_per_night: number | null
@@ -2193,6 +2195,7 @@ export type Database = {
           id?: string
           id_passport_url?: string | null
           id_passport_url_back?: string | null
+          is_split_reservation?: boolean
           last_cleaning_notification_date?: string | null
           late_checkout_time?: string | null
           marriage_certificate_url?: string | null
@@ -2201,6 +2204,7 @@ export type Database = {
           nights?: number | null
           notes?: string | null
           number_of_guests: number
+          parent_reservation_id?: string | null
           payment_method?: string | null
           preferred_language?: string | null
           price_per_night?: number | null
@@ -2255,6 +2259,7 @@ export type Database = {
           id?: string
           id_passport_url?: string | null
           id_passport_url_back?: string | null
+          is_split_reservation?: boolean
           last_cleaning_notification_date?: string | null
           late_checkout_time?: string | null
           marriage_certificate_url?: string | null
@@ -2263,6 +2268,7 @@ export type Database = {
           nights?: number | null
           notes?: string | null
           number_of_guests?: number
+          parent_reservation_id?: string | null
           payment_method?: string | null
           preferred_language?: string | null
           price_per_night?: number | null
@@ -2282,6 +2288,13 @@ export type Database = {
           vat_exempt?: boolean | null
         }
         Relationships: [
+          {
+            foreignKeyName: "reservations_parent_reservation_id_fkey"
+            columns: ["parent_reservation_id"]
+            isOneToOne: false
+            referencedRelation: "reservations"
+            referencedColumns: ["id"]
+          },
           {
             foreignKeyName: "reservations_property_id_fkey"
             columns: ["property_id"]
