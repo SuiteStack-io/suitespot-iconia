@@ -110,7 +110,7 @@ export const RevenueBySource = ({ mainDateRange, method = 'check_in' }: RevenueB
       supabase.removeChannel(channel);
     };
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [mainDateRange?.from?.getTime(), mainDateRange?.to?.getTime(), propertyId]);
+  }, [mainDateRange?.from?.getTime(), mainDateRange?.to?.getTime(), propertyId, method]);
 
   useEffect(() => {
     if (selectedSource === 'all') {
