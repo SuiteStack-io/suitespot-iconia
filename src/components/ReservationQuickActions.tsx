@@ -2042,6 +2042,15 @@ export const ReservationQuickActions = ({
         onSuccess={onMoveComplete}
       />
 
+      {/* Move Guest Split Dialog */}
+      <MoveGuestSplitDialog
+        open={splitDialogOpen}
+        onOpenChange={setSplitDialogOpen}
+        reservation={reservation}
+        currentUnit={currentUnit}
+        onSplitComplete={onMoveComplete}
+      />
+
       {/* Late Checkout Dialog */}
       {reservation && (
         <LateCheckoutDialog
