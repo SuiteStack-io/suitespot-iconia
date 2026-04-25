@@ -14,9 +14,10 @@ import { Textarea } from '@/components/ui/textarea';
 import {
   Select, SelectContent, SelectItem, SelectTrigger, SelectValue,
 } from '@/components/ui/select';
+import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
 import { PhoneInput } from '@/components/ui/phone-input';
 import { toast } from 'sonner';
-import { CheckCircle2, ArrowRight, ArrowLeft } from 'lucide-react';
+import { CheckCircle2, ArrowRight, ArrowLeft, Info } from 'lucide-react';
 
 const PROPERTY_TYPES = ['Hotel', 'Serviced Apartment', 'Vacation Rental', 'Hostel', 'B&B', 'Resort', 'Other'];
 const CURRENCIES = ['USD', 'EUR', 'GBP', 'EGP', 'AED', 'SAR'];
@@ -106,6 +107,7 @@ export function PropertyForm({ property, open, onClose, onSaved }: PropertyFormP
     wifi_password: (property as any)?.wifi_password || '',
     vat_rate: (property as any)?.vat_rate?.toString() ?? '',
     default_commission_rate: (property as any)?.default_commission_rate?.toString() ?? '',
+    revenue_recognition_method: ((property as any)?.revenue_recognition_method as string) || 'check_in',
   });
   const [saving, setSaving] = useState(false);
 
@@ -157,6 +159,7 @@ export function PropertyForm({ property, open, onClose, onSaved }: PropertyFormP
         wifi_password: form.wifi_password || null,
         vat_rate: form.vat_rate !== '' ? parseFloat(form.vat_rate) : null,
         default_commission_rate: form.default_commission_rate !== '' ? parseFloat(form.default_commission_rate) : null,
+        revenue_recognition_method: form.revenue_recognition_method,
       };
 
       if (isEdit) {
@@ -179,7 +182,7 @@ export function PropertyForm({ property, open, onClose, onSaved }: PropertyFormP
           .single();
         if (error) throw error;
         setCreatedPropertyId(data.id);
-        setStep(4);
+        setStep(5);
         // Refresh properties list so it appears in switcher
         propertyContext?.refreshProperties?.();
       }
@@ -204,19 +207,19 @@ export function PropertyForm({ property, open, onClose, onSaved }: PropertyFormP
     navigate('/admin');
   };
 
-  const totalSteps = isEdit ? 3 : 4;
+  const totalSteps = 4;
 
   return (
-    <Dialog open={open} onOpenChange={() => { if (step !== 4) onClose(); }}>
+    <Dialog open={open} onOpenChange={() => { if (step !== 5) onClose(); }}>
       <DialogContent className="max-w-2xl max-h-[90vh]">
         <DialogHeader>
           <DialogTitle>
-            {step === 4 ? 'Property Created!' : isEdit ? `Edit Property — Step ${step} of ${totalSteps}` : `Add Property — Step ${step} of ${totalSteps}`}
+            {step === 5 ? 'Property Created!' : isEdit ? `Edit Property — Step ${step} of ${totalSteps}` : `Add Property — Step ${step} of ${totalSteps}`}
           </DialogTitle>
         </DialogHeader>
 
         {/* Step indicators */}
-        {step < 4 && (
+        {step < 5 && (
           <div className="flex items-center gap-2 mb-2">
             {Array.from({ length: totalSteps }, (_, i) => i + 1).map(s => (
               <div key={s} className={`h-1.5 flex-1 rounded-full transition-colors ${s <= step ? 'bg-primary' : 'bg-muted'}`} />
@@ -537,8 +540,63 @@ export function PropertyForm({ property, open, onClose, onSaved }: PropertyFormP
           </div>
         )}
 
-        {/* STEP 4: Success */}
+        {/* STEP 4: Revenue Settings */}
         {step === 4 && (
+          <div className="space-y-4 py-2 max-h-[60vh] overflow-y-auto pr-2">
+            <div className="border rounded-lg p-4 space-y-3">
+              <h3 className="text-sm font-semibold">Revenue Settings</h3>
+              <div>
+                <div className="flex items-center gap-1.5">
+                  <Label htmlFor="revenue-recognition-method">Revenue Recognition Method</Label>
+                  <Popover>
+                    <PopoverTrigger asChild>
+                      <button
+                        type="button"
+                        aria-label="About revenue recognition methods"
+                        className="text-muted-foreground hover:text-foreground transition-colors"
+                      >
+                        <Info className="h-3.5 w-3.5" />
+                      </button>
+                    </PopoverTrigger>
+                    <PopoverContent className="w-80 text-xs space-y-2">
+                      <p>
+                        <strong>Upon check-in</strong>: Revenue is recognized on the
+                        guest&apos;s check-in date, regardless of check-out date. A guest
+                        checking in April 30 and out May 15 books all revenue in April.
+                      </p>
+                      <p>
+                        <strong>Upon check-out</strong>: Revenue is recognized on the
+                        check-out date. A guest checking in April 15 and out May 2 books
+                        all revenue in May.
+                      </p>
+                      <p>
+                        <strong>Pro-rata nights</strong>: Revenue is split across months
+                        based on nights stayed. A guest checking in April 30 and out May
+                        3 books 1 night in April and 2 nights in May.
+                      </p>
+                    </PopoverContent>
+                  </Popover>
+                </div>
+                <Select
+                  value={form.revenue_recognition_method}
+                  onValueChange={v => update('revenue_recognition_method', v)}
+                >
+                  <SelectTrigger id="revenue-recognition-method" className="mt-1">
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="check_in">Upon check-in</SelectItem>
+                    <SelectItem value="check_out">Upon check-out</SelectItem>
+                    <SelectItem value="prorata">Pro-rata nights</SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
+            </div>
+          </div>
+        )}
+
+        {/* STEP 5: Success */}
+        {step === 5 && (
           <div className="py-8 text-center space-y-4">
             <CheckCircle2 className="h-16 w-16 mx-auto text-green-500" />
             <h3 className="text-lg font-semibold">Property Created Successfully!</h3>
@@ -555,7 +613,7 @@ export function PropertyForm({ property, open, onClose, onSaved }: PropertyFormP
         )}
 
         {/* Navigation buttons */}
-        {step < 4 && (
+        {step < 5 && (
           <div className="flex justify-between pt-4 border-t">
             <div>
               {step > 1 && (
@@ -577,6 +635,11 @@ export function PropertyForm({ property, open, onClose, onSaved }: PropertyFormP
                 </Button>
               )}
               {step === 3 && (
+                <Button onClick={() => setStep(4)}>
+                  Next <ArrowRight className="h-4 w-4 ml-2" />
+                </Button>
+              )}
+              {step === 4 && (
                 <Button onClick={handleSave} disabled={saving}>
                   {saving ? 'Saving...' : isEdit ? 'Update Property' : 'Create Property'}
                 </Button>

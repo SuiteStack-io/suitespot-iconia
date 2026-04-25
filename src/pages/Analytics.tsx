@@ -22,6 +22,7 @@ import { DateRange } from 'react-day-picker';
 import { cn } from '@/lib/utils';
 import { format, startOfMonth, endOfMonth, addMonths, isSameMonth, differenceInDays, addDays, startOfDay } from 'date-fns';
 import { Slider } from '@/components/ui/slider';
+import { applyRevenueDateFilter, prorateFactor, type RevenueRecognitionMethod } from '@/lib/revenueDateFilter';
 import {
   Dialog,
   DialogContent,
@@ -52,6 +53,8 @@ const Analytics = () => {
   const navigate = useNavigate();
 
   const savedLandlordPercentage = Number((activeProperty as any)?.landlord_share_percentage ?? 70);
+  const method: RevenueRecognitionMethod =
+    ((activeProperty as any)?.revenue_recognition_method as RevenueRecognitionMethod) ?? 'check_in';
 
   const [timePeriod, setTimePeriod] = useState<TimePeriod>('month');
   const [customDateRange, setCustomDateRange] = useState<DateRange | undefined>();
@@ -180,7 +183,7 @@ const Analytics = () => {
         supabase.removeChannel(channel);
       };
     }
-  }, [userRole, timePeriod, customDateRange, propertyId]);
+  }, [userRole, timePeriod, customDateRange, propertyId, method]);
 
   // Sync slider to saved value when active property changes / refreshes
   useEffect(() => {
@@ -271,48 +274,45 @@ const Analytics = () => {
     const { startDate, endDate } = getDateRange();
     
     // Fetch revenue stats
-    const { data: revenueData } = await withPropertyFilter(supabase
+    const { data: revenueData } = await withPropertyFilter(applyRevenueDateFilter(supabase
       .from('reservations')
-      .select('total_price, net_revenue, commission_amount, channel, source')
+      .select('total_price, net_revenue, commission_amount, channel, source, check_in_date, check_out_date')
       .neq('status', 'Cancelled')
-      .is('cancelled_at', null)
-      .gte('check_in_date', startDate)
-      .lte('check_in_date', endDate), propertyId);
+      .is('cancelled_at', null), method, startDate, endDate), propertyId);
 
-    const totalRevenue = revenueData?.reduce((sum, r) => sum + (r.total_price || 0), 0) || 0;
-    const netRevenue = revenueData?.reduce((sum, r) => sum + ((r.total_price || 0) - (r.commission_amount || 0)), 0) || 0;
-    const totalCommission = revenueData?.reduce((sum, r) => sum + (r.commission_amount || 0), 0) || 0;
+    const factorFor = (r: any) =>
+      method === 'prorata' ? prorateFactor(r.check_in_date, r.check_out_date, startDate, endDate) : 1;
+
+    const totalRevenue = revenueData?.reduce((sum, r) => sum + ((r.total_price || 0) * factorFor(r)), 0) || 0;
+    const netRevenue = revenueData?.reduce((sum, r) => sum + (((r.total_price || 0) - (r.commission_amount || 0)) * factorFor(r)), 0) || 0;
+    const totalCommission = revenueData?.reduce((sum, r) => sum + ((r.commission_amount || 0) * factorFor(r)), 0) || 0;
 
     const bookingComCommissionAmount = revenueData
       ?.filter(r => r.source?.toLowerCase().includes('booking.com'))
-      .reduce((sum, r) => sum + (r.commission_amount || 0), 0) || 0;
+      .reduce((sum, r) => sum + ((r.commission_amount || 0) * factorFor(r)), 0) || 0;
     const directCommissionAmount = revenueData
       ?.filter(r => !r.source?.toLowerCase().includes('booking.com'))
-      .reduce((sum, r) => sum + (r.commission_amount || 0), 0) || 0;
+      .reduce((sum, r) => sum + ((r.commission_amount || 0) * factorFor(r)), 0) || 0;
 
     setRevenueStats({ totalRevenue, netRevenue, totalCommission });
     setDirectCommission(directCommissionAmount);
     setBookingComCommission(bookingComCommissionAmount);
     
     // Fetch total bookings
-    const { data: bookingsData, count } = await withPropertyFilter(supabase
+    const { data: bookingsData, count } = await withPropertyFilter(applyRevenueDateFilter(supabase
       .from('reservations')
       .select('*', { count: 'exact', head: true })
       .neq('status', 'Cancelled')
-      .is('cancelled_at', null)
-      .gte('check_in_date', startDate)
-      .lte('check_in_date', endDate), propertyId);
+      .is('cancelled_at', null), method, startDate, endDate), propertyId);
       
     setTotalBookings(count || 0);
     
     // Calculate total guests
-    const { data: guestsData } = await withPropertyFilter(supabase
+    const { data: guestsData } = await withPropertyFilter(applyRevenueDateFilter(supabase
       .from('reservations')
       .select('number_of_guests')
       .neq('status', 'Cancelled')
-      .is('cancelled_at', null)
-      .gte('check_in_date', startDate)
-      .lte('check_in_date', endDate), propertyId);
+      .is('cancelled_at', null), method, startDate, endDate), propertyId);
     
     const totalGuestsCount = guestsData?.reduce((sum, r) => sum + (r.number_of_guests || 0), 0) || 0;
     setTotalGuests(totalGuestsCount);
@@ -325,8 +325,8 @@ const Analytics = () => {
       !r.source?.toLowerCase().includes('booking.com')
     ) || [];
     
-    const directRevenue = directReservations.reduce((sum, r) => sum + (r.total_price || 0), 0);
-    const indirectRevenue = indirectReservations.reduce((sum, r) => sum + (r.total_price || 0), 0);
+    const directRevenue = directReservations.reduce((sum, r) => sum + ((r.total_price || 0) * factorFor(r)), 0);
+    const indirectRevenue = indirectReservations.reduce((sum, r) => sum + ((r.total_price || 0) * factorFor(r)), 0);
     
     setBookingSources({ 
       direct: { count: directReservations.length, revenue: directRevenue }, 
@@ -390,13 +390,11 @@ const Analytics = () => {
   const fetchDirectSourceDetails = async () => {
     const { startDate, endDate } = getDateRange();
     
-    const { data } = await withPropertyFilter(supabase
+    const { data } = await withPropertyFilter(applyRevenueDateFilter(supabase
       .from('reservations')
-      .select('source, total_price, commission_amount, net_revenue')
+      .select('source, total_price, commission_amount, net_revenue, check_in_date, check_out_date')
       .neq('status', 'Cancelled')
-      .is('cancelled_at', null)
-      .gte('check_in_date', startDate)
-      .lte('check_in_date', endDate), propertyId);
+      .is('cancelled_at', null), method, startDate, endDate), propertyId);
 
     const directData = data?.filter(r => 
       r.source?.toLowerCase() === 'direct' || 
@@ -405,7 +403,7 @@ const Analytics = () => {
 
     const sourceMap: Record<string, any> = {};
     
-    directData.forEach((reservation) => {
+    directData.forEach((reservation: any) => {
       const source = reservation.source || 'Unknown';
       if (source.toLowerCase().includes('booking')) return;
       
@@ -420,10 +418,13 @@ const Analytics = () => {
         };
       }
       
+      const f = method === 'prorata'
+        ? prorateFactor(reservation.check_in_date, reservation.check_out_date, startDate, endDate)
+        : 1;
       sourceMap[source].count += 1;
-      sourceMap[source].grossRevenue += reservation.total_price || 0;
-      sourceMap[source].commission += reservation.commission_amount || 0;
-      sourceMap[source].netRevenue += (reservation.total_price || 0) - (reservation.commission_amount || 0);
+      sourceMap[source].grossRevenue += (reservation.total_price || 0) * f;
+      sourceMap[source].commission += (reservation.commission_amount || 0) * f;
+      sourceMap[source].netRevenue += ((reservation.total_price || 0) - (reservation.commission_amount || 0)) * f;
     });
 
     const sourceArray = Object.values(sourceMap).sort(
@@ -503,13 +504,11 @@ const Analytics = () => {
   const fetchBookingsDetails = async () => {
     const { startDate, endDate } = getDateRange();
     
-    const { data } = await withPropertyFilter(supabase
+    const { data } = await withPropertyFilter(applyRevenueDateFilter(supabase
       .from('reservations')
       .select('guest_names, check_in_date, check_out_date, nights, number_of_guests, source, payment_method, currency, units!unit_id(name)')
       .neq('status', 'Cancelled')
-      .is('cancelled_at', null)
-      .gte('check_in_date', startDate)
-      .lte('check_in_date', endDate)
+      .is('cancelled_at', null), method, startDate, endDate)
       .order('check_in_date', { ascending: false }), propertyId);
 
     const details = (data || []).map((r: any) => ({
@@ -530,13 +529,11 @@ const Analytics = () => {
   const fetchGuestsDetails = async () => {
     const { startDate, endDate } = getDateRange();
     
-    const { data } = await withPropertyFilter(supabase
+    const { data } = await withPropertyFilter(applyRevenueDateFilter(supabase
       .from('reservations')
       .select('guest_names, number_of_guests, check_in_date, check_out_date, payment_method, currency, units!unit_id(name)')
       .neq('status', 'Cancelled')
-      .is('cancelled_at', null)
-      .gte('check_in_date', startDate)
-      .lte('check_in_date', endDate)
+      .is('cancelled_at', null), method, startDate, endDate)
       .order('number_of_guests', { ascending: false }), propertyId);
 
     const details = (data || []).map((r: any) => ({
@@ -555,26 +552,27 @@ const Analytics = () => {
   const fetchSourcesDetails = async () => {
     const { startDate, endDate } = getDateRange();
     
-    const { data } = await withPropertyFilter(supabase
+    const { data } = await withPropertyFilter(applyRevenueDateFilter(supabase
       .from('reservations')
-      .select('source, total_price, commission_amount, net_revenue')
+      .select('source, total_price, commission_amount, net_revenue, check_in_date, check_out_date')
       .neq('status', 'Cancelled')
-      .is('cancelled_at', null)
-      .gte('check_in_date', startDate)
-      .lte('check_in_date', endDate), propertyId);
+      .is('cancelled_at', null), method, startDate, endDate), propertyId);
 
-    const bookingComData = (data || []).filter(r => 
+    const bookingComData = (data || []).filter((r: any) => 
       r.source?.toLowerCase().includes('booking.com')
     );
-    const directData = (data || []).filter(r => 
+    const directData = (data || []).filter((r: any) => 
       !r.source?.toLowerCase().includes('booking.com')
     );
 
+    const f = (r: any) =>
+      method === 'prorata' ? prorateFactor(r.check_in_date, r.check_out_date, startDate, endDate) : 1;
+
     const bookingComTotals = {
       count: bookingComData.length,
-      grossRevenue: bookingComData.reduce((sum, r) => sum + (r.total_price || 0), 0),
-      commission: bookingComData.reduce((sum, r) => sum + (r.commission_amount || 0), 0),
-      netRevenue: bookingComData.reduce((sum, r) => sum + (r.net_revenue || 0), 0),
+      grossRevenue: bookingComData.reduce((sum, r: any) => sum + ((r.total_price || 0) * f(r)), 0),
+      commission: bookingComData.reduce((sum, r: any) => sum + ((r.commission_amount || 0) * f(r)), 0),
+      netRevenue: bookingComData.reduce((sum, r: any) => sum + (((r.total_price || 0) - (r.commission_amount || 0)) * f(r)), 0),
     };
 
     const directSourceMap: Record<string, any> = {};
@@ -589,10 +587,11 @@ const Analytics = () => {
           netRevenue: 0,
         };
       }
+      const fr = f(reservation);
       directSourceMap[source].count += 1;
-      directSourceMap[source].grossRevenue += reservation.total_price || 0;
-      directSourceMap[source].commission += reservation.commission_amount || 0;
-      directSourceMap[source].netRevenue += (reservation.total_price || 0) - (reservation.commission_amount || 0);
+      directSourceMap[source].grossRevenue += (reservation.total_price || 0) * fr;
+      directSourceMap[source].commission += (reservation.commission_amount || 0) * fr;
+      directSourceMap[source].netRevenue += ((reservation.total_price || 0) - (reservation.commission_amount || 0)) * fr;
     });
 
     const directBreakdown = Object.values(directSourceMap).sort(
@@ -601,9 +600,9 @@ const Analytics = () => {
 
     const directTotals = {
       count: directData.length,
-      grossRevenue: directData.reduce((sum, r) => sum + (r.total_price || 0), 0),
-      commission: directData.reduce((sum, r) => sum + (r.commission_amount || 0), 0),
-      netRevenue: directData.reduce((sum, r) => sum + ((r.total_price || 0) - (r.commission_amount || 0)), 0),
+      grossRevenue: directData.reduce((sum, r: any) => sum + ((r.total_price || 0) * f(r)), 0),
+      commission: directData.reduce((sum, r: any) => sum + ((r.commission_amount || 0) * f(r)), 0),
+      netRevenue: directData.reduce((sum, r: any) => sum + (((r.total_price || 0) - (r.commission_amount || 0)) * f(r)), 0),
     };
 
     setSourcesData({
@@ -645,16 +644,16 @@ const Analytics = () => {
 
     const details = await Promise.all(
       (units || []).map(async (unit) => {
-        const { data: reservations } = await supabase
+        const { data: reservations } = await applyRevenueDateFilter(supabase
           .from('reservations')
-          .select('total_price')
+          .select('total_price, check_in_date, check_out_date')
           .eq('unit_id', unit.id)
           .neq('status', 'Cancelled')
-          .is('cancelled_at', null)
-          .gte('check_in_date', startDate)
-          .lte('check_in_date', endDate);
+          .is('cancelled_at', null), method, startDate, endDate);
 
-        const grossRevenue = reservations?.reduce((sum, r) => sum + (r.total_price || 0), 0) || 0;
+        const f = (r: any) =>
+          method === 'prorata' ? prorateFactor(r.check_in_date, r.check_out_date, startDate, endDate) : 1;
+        const grossRevenue = reservations?.reduce((sum: number, r: any) => sum + ((r.total_price || 0) * f(r)), 0) || 0;
         const bookings = reservations?.length || 0;
         const landlordShare = grossRevenue * (landlordPercentage / 100);
         const suitespotShare = grossRevenue * ((100 - landlordPercentage) / 100);
@@ -683,18 +682,18 @@ const Analytics = () => {
 
     const details = await Promise.all(
       (units || []).map(async (unit) => {
-        const { data: reservations } = await supabase
+        const { data: reservations } = await applyRevenueDateFilter(supabase
           .from('reservations')
-          .select('total_price, commission_amount, net_revenue')
+          .select('total_price, commission_amount, net_revenue, check_in_date, check_out_date')
           .eq('unit_id', unit.id)
           .neq('status', 'Cancelled')
-          .is('cancelled_at', null)
-          .gte('check_in_date', startDate)
-          .lte('check_in_date', endDate);
+          .is('cancelled_at', null), method, startDate, endDate);
 
-        const grossRevenue = reservations?.reduce((sum, r) => sum + (r.total_price || 0), 0) || 0;
-        const commission = reservations?.reduce((sum, r) => sum + (r.commission_amount || 0), 0) || 0;
-        const netRevenue = reservations?.reduce((sum, r) => sum + (r.net_revenue || 0), 0) || 0;
+        const f = (r: any) =>
+          method === 'prorata' ? prorateFactor(r.check_in_date, r.check_out_date, startDate, endDate) : 1;
+        const grossRevenue = reservations?.reduce((sum: number, r: any) => sum + ((r.total_price || 0) * f(r)), 0) || 0;
+        const commission = reservations?.reduce((sum: number, r: any) => sum + ((r.commission_amount || 0) * f(r)), 0) || 0;
+        const netRevenue = reservations?.reduce((sum: number, r: any) => sum + (((r.total_price || 0) - (r.commission_amount || 0)) * f(r)), 0) || 0;
         const landlordShare = netRevenue * (landlordPercentage / 100);
         const suitespotShare = netRevenue * ((100 - landlordPercentage) / 100);
 
@@ -724,17 +723,15 @@ const Analytics = () => {
   const fetchCommissionDetails = async () => {
     const { startDate, endDate } = getDateRange();
     
-    const { data } = await withPropertyFilter(supabase
+    const { data } = await withPropertyFilter(applyRevenueDateFilter(supabase
       .from('reservations')
-      .select('source, total_price, commission_amount, commission_rate')
+      .select('source, total_price, commission_amount, commission_rate, check_in_date, check_out_date')
       .neq('status', 'Cancelled')
-      .is('cancelled_at', null)
-      .gte('check_in_date', startDate)
-      .lte('check_in_date', endDate), propertyId);
+      .is('cancelled_at', null), method, startDate, endDate), propertyId);
 
     const sourceMap: Record<string, any> = {};
     
-    (data || []).forEach((reservation) => {
+    (data || []).forEach((reservation: any) => {
       const source = reservation.source || 'Unknown';
       
       if (!sourceMap[source]) {
@@ -747,9 +744,12 @@ const Analytics = () => {
         };
       }
       
+      const fr = method === 'prorata'
+        ? prorateFactor(reservation.check_in_date, reservation.check_out_date, startDate, endDate)
+        : 1;
       sourceMap[source].bookings += 1;
-      sourceMap[source].grossRevenue += reservation.total_price || 0;
-      sourceMap[source].commissionAmount += reservation.commission_amount || 0;
+      sourceMap[source].grossRevenue += (reservation.total_price || 0) * fr;
+      sourceMap[source].commissionAmount += (reservation.commission_amount || 0) * fr;
     });
 
     const sourceArray = Object.values(sourceMap).sort(
@@ -1161,16 +1161,16 @@ const Analytics = () => {
         </div>
 
         {/* Occupancy by Month */}
-        <OccupancyByMonthChart propertyId={propertyId} />
+        <OccupancyByMonthChart propertyId={propertyId} method={method} />
 
         {/* Revenue Breakdown Charts */}
         <div className="grid gap-6 md:grid-cols-2">
-          <RevenueBySource mainDateRange={{ from: new Date(startDate), to: new Date(endDate) }} />
-          <RevenueByRoom mainDateRange={{ from: new Date(startDate), to: new Date(endDate) }} />
+          <RevenueBySource mainDateRange={{ from: new Date(startDate), to: new Date(endDate) }} method={method} />
+          <RevenueByRoom mainDateRange={{ from: new Date(startDate), to: new Date(endDate) }} method={method} />
         </div>
         <div className="grid gap-6 md:grid-cols-2">
-          <RevenueByGuests mainDateRange={{ from: new Date(startDate), to: new Date(endDate) }} />
-          <RevenueByNationality mainDateRange={{ from: new Date(startDate), to: new Date(endDate) }} />
+          <RevenueByGuests mainDateRange={{ from: new Date(startDate), to: new Date(endDate) }} method={method} />
+          <RevenueByNationality mainDateRange={{ from: new Date(startDate), to: new Date(endDate) }} method={method} />
         </div>
 
         {/* Cancellation Analytics */}

@@ -1612,6 +1612,7 @@ export type Database = {
           off_peak_days: number[] | null
           phone: string | null
           property_type: string | null
+          revenue_recognition_method: string
           state: string | null
           support_email: string | null
           support_phone: string | null
@@ -1659,6 +1660,7 @@ export type Database = {
           off_peak_days?: number[] | null
           phone?: string | null
           property_type?: string | null
+          revenue_recognition_method?: string
           state?: string | null
           support_email?: string | null
           support_phone?: string | null
@@ -1706,6 +1708,7 @@ export type Database = {
           off_peak_days?: number[] | null
           phone?: string | null
           property_type?: string | null
+          revenue_recognition_method?: string
           state?: string | null
           support_email?: string | null
           support_phone?: string | null

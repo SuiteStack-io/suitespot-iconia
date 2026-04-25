@@ -47,6 +47,7 @@ export interface Property {
   off_peak_days: number[] | null;
   vat_rate: number | null;
   default_commission_rate: number | null;
+  revenue_recognition_method: 'check_in' | 'check_out' | 'prorata' | null;
 }
 
 export type PropertyRole = 'admin' | 'manager' | 'staff' | 'viewer';

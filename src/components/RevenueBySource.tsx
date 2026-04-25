@@ -29,9 +29,11 @@ import { toast } from 'sonner';
 import { format } from 'date-fns';
 import { DateRange } from 'react-day-picker';
 import { usePropertyId, withPropertyFilter } from '@/hooks/usePropertyFilter';
+import { applyRevenueDateFilter, prorateFactor, type RevenueRecognitionMethod } from '@/lib/revenueDateFilter';
 
 interface RevenueBySourceProps {
   mainDateRange?: DateRange;
+  method?: RevenueRecognitionMethod;
 }
 
 interface BookingDetail {
@@ -67,7 +69,7 @@ const getCommissionRate = (source: string): number => {
   return COMMISSION_RATES[source] || COMMISSION_RATES['default'];
 };
 
-export const RevenueBySource = ({ mainDateRange }: RevenueBySourceProps) => {
+export const RevenueBySource = ({ mainDateRange, method = 'check_in' }: RevenueBySourceProps) => {
   const propertyId = usePropertyId();
   const [revenueBySource, setRevenueBySource] = useState<SourceRevenue[]>([]);
   const [filteredRevenue, setFilteredRevenue] = useState<SourceRevenue[]>([]);
@@ -108,7 +110,7 @@ export const RevenueBySource = ({ mainDateRange }: RevenueBySourceProps) => {
       supabase.removeChannel(channel);
     };
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [mainDateRange?.from?.getTime(), mainDateRange?.to?.getTime(), propertyId]);
+  }, [mainDateRange?.from?.getTime(), mainDateRange?.to?.getTime(), propertyId, method]);
 
   useEffect(() => {
     if (selectedSource === 'all') {
@@ -140,13 +142,14 @@ export const RevenueBySource = ({ mainDateRange }: RevenueBySourceProps) => {
     const endDate = format(mainDateRange.to, 'yyyy-MM-dd');
 
     const { data, error } = await withPropertyFilter(
-      supabase
-        .from('reservations')
-        .select('source, total_price, commission_amount, net_revenue, guest_names, check_in_date, check_out_date, nights, payment_method, currency')
-        .neq('status', 'Cancelled')
-        .is('cancelled_at', null)
-        .gte('check_in_date', startDate)
-        .lte('check_in_date', endDate),
+      applyRevenueDateFilter(
+        supabase
+          .from('reservations')
+          .select('source, total_price, commission_amount, net_revenue, guest_names, check_in_date, check_out_date, nights, payment_method, currency')
+          .neq('status', 'Cancelled')
+          .is('cancelled_at', null),
+        method, startDate, endDate,
+      ),
       propertyId,
     );
 
@@ -159,7 +162,7 @@ export const RevenueBySource = ({ mainDateRange }: RevenueBySourceProps) => {
     // Group by source with guest names and booking details for all sources
     const sourceMap: Record<string, SourceRevenue> = {};
     
-    data?.forEach((reservation) => {
+    data?.forEach((reservation: any) => {
       const source = reservation.source || 'Unknown';
       
       if (!sourceMap[source]) {
@@ -175,23 +178,25 @@ export const RevenueBySource = ({ mainDateRange }: RevenueBySourceProps) => {
         };
       }
       
+      const f = method === 'prorata'
+        ? prorateFactor(reservation.check_in_date, reservation.check_out_date, startDate, endDate)
+        : 1;
       sourceMap[source].count += 1;
-      sourceMap[source].grossRevenue += reservation.total_price || 0;
-      sourceMap[source].commission += reservation.commission_amount || 0;
-      // Calculate net revenue dynamically instead of reading from database
-      const calculatedNetRevenue = (reservation.total_price || 0) - (reservation.commission_amount || 0);
+      sourceMap[source].grossRevenue += (reservation.total_price || 0) * f;
+      sourceMap[source].commission += (reservation.commission_amount || 0) * f;
+      const calculatedNetRevenue = ((reservation.total_price || 0) - (reservation.commission_amount || 0)) * f;
       sourceMap[source].netRevenue += calculatedNetRevenue;
       
       // Store booking details for all sources (for expandable breakdowns)
       if (reservation.guest_names?.[0]) {
         sourceMap[source].bookingDetails?.push({
           guestName: reservation.guest_names[0],
-          totalPrice: reservation.total_price || 0,
+          totalPrice: (reservation.total_price || 0) * f,
           netRevenue: calculatedNetRevenue,
           checkInDate: reservation.check_in_date,
           checkOutDate: reservation.check_out_date,
           nights: reservation.nights || 0,
-          commission: reservation.commission_amount || 0,
+          commission: (reservation.commission_amount || 0) * f,
           paymentMethod: formatPaymentMethod(reservation.payment_method),
           currency: getCurrencyLabel(reservation.currency),
         });
