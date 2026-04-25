@@ -38,7 +38,7 @@ import {
 import * as XLSX from 'xlsx';
 import { toast } from 'sonner';
 
-type TimePeriod = 'week' | 'month' | 'quarter' | 'ytd';
+type TimePeriod = 'week' | 'month' | 'quarter' | 'ytd' | 'lastMonth' | 'thisMonth' | 'nextMonth';
 
 const formatCurrency = (value: number): string => {
   return Math.ceil(value).toLocaleString('en-US');
@@ -210,6 +210,19 @@ const Analytics = () => {
     }
     
     const now = new Date();
+
+    const monthAnchor =
+      timePeriod === 'lastMonth' ? addMonths(now, -1) :
+      timePeriod === 'thisMonth' ? now :
+      timePeriod === 'nextMonth' ? addMonths(now, 1) : null;
+
+    if (monthAnchor) {
+      return {
+        startDate: format(startOfMonth(monthAnchor), 'yyyy-MM-dd'),
+        endDate: format(endOfMonth(monthAnchor), 'yyyy-MM-dd'),
+      };
+    }
+
     let startDate = new Date();
     
     switch (timePeriod) {
@@ -892,15 +905,21 @@ const Analytics = () => {
 
       <main className="container mx-auto px-4 py-6 space-y-6">
         {/* Period selector */}
+        {(() => null)()}
         <div className="flex items-center gap-4 flex-wrap">
+          {(() => { const _now = new Date(); return (
           <Tabs value={customDateRange ? '' : timePeriod} onValueChange={handleTabChange}>
             <TabsList>
               <TabsTrigger value="week">7 Days</TabsTrigger>
               <TabsTrigger value="month">30 Days</TabsTrigger>
               <TabsTrigger value="quarter">90 Days</TabsTrigger>
               <TabsTrigger value="ytd">YTD</TabsTrigger>
+              <TabsTrigger value="lastMonth">{format(addMonths(_now, -1), 'MMM')}</TabsTrigger>
+              <TabsTrigger value="thisMonth">{format(_now, 'MMM')}</TabsTrigger>
+              <TabsTrigger value="nextMonth">{format(addMonths(_now, 1), 'MMM')}</TabsTrigger>
             </TabsList>
           </Tabs>
+          ); })()}
           
           <Popover>
             <PopoverTrigger asChild>
