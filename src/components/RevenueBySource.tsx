@@ -142,13 +142,14 @@ export const RevenueBySource = ({ mainDateRange, method = 'check_in' }: RevenueB
     const endDate = format(mainDateRange.to, 'yyyy-MM-dd');
 
     const { data, error } = await withPropertyFilter(
-      supabase
-        .from('reservations')
-        .select('source, total_price, commission_amount, net_revenue, guest_names, check_in_date, check_out_date, nights, payment_method, currency')
-        .neq('status', 'Cancelled')
-        .is('cancelled_at', null)
-        .gte('check_in_date', startDate)
-        .lte('check_in_date', endDate),
+      applyRevenueDateFilter(
+        supabase
+          .from('reservations')
+          .select('source, total_price, commission_amount, net_revenue, guest_names, check_in_date, check_out_date, nights, payment_method, currency')
+          .neq('status', 'Cancelled')
+          .is('cancelled_at', null),
+        method, startDate, endDate,
+      ),
       propertyId,
     );
 
@@ -161,7 +162,7 @@ export const RevenueBySource = ({ mainDateRange, method = 'check_in' }: RevenueB
     // Group by source with guest names and booking details for all sources
     const sourceMap: Record<string, SourceRevenue> = {};
     
-    data?.forEach((reservation) => {
+    data?.forEach((reservation: any) => {
       const source = reservation.source || 'Unknown';
       
       if (!sourceMap[source]) {
@@ -177,23 +178,25 @@ export const RevenueBySource = ({ mainDateRange, method = 'check_in' }: RevenueB
         };
       }
       
+      const f = method === 'prorata'
+        ? prorateFactor(reservation.check_in_date, reservation.check_out_date, startDate, endDate)
+        : 1;
       sourceMap[source].count += 1;
-      sourceMap[source].grossRevenue += reservation.total_price || 0;
-      sourceMap[source].commission += reservation.commission_amount || 0;
-      // Calculate net revenue dynamically instead of reading from database
-      const calculatedNetRevenue = (reservation.total_price || 0) - (reservation.commission_amount || 0);
+      sourceMap[source].grossRevenue += (reservation.total_price || 0) * f;
+      sourceMap[source].commission += (reservation.commission_amount || 0) * f;
+      const calculatedNetRevenue = ((reservation.total_price || 0) - (reservation.commission_amount || 0)) * f;
       sourceMap[source].netRevenue += calculatedNetRevenue;
       
       // Store booking details for all sources (for expandable breakdowns)
       if (reservation.guest_names?.[0]) {
         sourceMap[source].bookingDetails?.push({
           guestName: reservation.guest_names[0],
-          totalPrice: reservation.total_price || 0,
+          totalPrice: (reservation.total_price || 0) * f,
           netRevenue: calculatedNetRevenue,
           checkInDate: reservation.check_in_date,
           checkOutDate: reservation.check_out_date,
           nights: reservation.nights || 0,
-          commission: reservation.commission_amount || 0,
+          commission: (reservation.commission_amount || 0) * f,
           paymentMethod: formatPaymentMethod(reservation.payment_method),
           currency: getCurrencyLabel(reservation.currency),
         });
