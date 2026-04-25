@@ -44,22 +44,6 @@ export const RevenueByRoom = ({ mainDateRange }: RevenueByRoomProps) => {
   const [groupedRevenue, setGroupedRevenue] = useState<GroupedRoomRevenue[]>([]);
   const [expandedGroups, setExpandedGroups] = useState<Set<string>>(new Set());
   const [loading, setLoading] = useState(true);
-  const [dateRange, setDateRange] = useState<DateRange | undefined>(() => {
-    if (mainDateRange?.from && mainDateRange?.to) {
-      return mainDateRange;
-    }
-    return {
-      from: new Date(new Date().setMonth(new Date().getMonth() - 1)),
-      to: new Date(),
-    };
-  });
-
-  // Sync with main date range when it changes
-  useEffect(() => {
-    if (mainDateRange?.from && mainDateRange?.to) {
-      setDateRange(mainDateRange);
-    }
-  }, [mainDateRange?.from?.getTime(), mainDateRange?.to?.getTime()]);
 
   useEffect(() => {
     fetchRevenueByRoom();
@@ -82,7 +66,8 @@ export const RevenueByRoom = ({ mainDateRange }: RevenueByRoomProps) => {
     return () => {
       supabase.removeChannel(channel);
     };
-  }, [dateRange, propertyId]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [mainDateRange?.from?.getTime(), mainDateRange?.to?.getTime(), propertyId]);
 
   // Group rooms by room name whenever revenueByRoom changes
   useEffect(() => {
