@@ -974,9 +974,16 @@ const Analytics = () => {
                   className="w-full"
                 />
               </div>
-              <div className="flex gap-4 text-sm">
+              <div className="flex items-center gap-4 text-sm">
                 <span className="text-muted-foreground">Landlord: <strong>{landlordPercentage}%</strong></span>
                 <span className="text-muted-foreground">Suitespot: <strong>{100 - landlordPercentage}%</strong></span>
+                <Button
+                  size="sm"
+                  onClick={handleSaveShare}
+                  disabled={savingShare || landlordPercentage === savedLandlordPercentage}
+                >
+                  {savingShare ? 'Saving…' : 'Save'}
+                </Button>
               </div>
             </div>
           </CardContent>
