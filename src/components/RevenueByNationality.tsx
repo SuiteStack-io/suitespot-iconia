@@ -27,33 +27,18 @@ interface RevenueByNationalityProps {
 
 export const RevenueByNationality = ({ mainDateRange }: RevenueByNationalityProps) => {
   const { activeProperty } = useProperty();
+  const propertyId = usePropertyId();
   const vatRate = activeProperty?.vat_rate ?? 0;
   const vatDivisor = 1 + vatRate / 100;
-
-  const [dateRange, setDateRange] = useState<DateRange | undefined>(() => {
-    if (mainDateRange?.from && mainDateRange?.to) {
-      return mainDateRange;
-    }
-    return {
-      from: new Date(2024, 10, 1), // Nov 1, 2024
-      to: new Date(),
-    };
-  });
 
   const [nationalityRevenues, setNationalityRevenues] = useState<NationalityRevenue[]>([]);
   const [sortField, setSortField] = useState<SortField>('totalRevenue');
   const [sortOrder, setSortOrder] = useState<SortOrder>('desc');
 
-  // Sync with main date range when it changes
-  useEffect(() => {
-    if (mainDateRange?.from && mainDateRange?.to) {
-      setDateRange(mainDateRange);
-    }
-  }, [mainDateRange?.from?.getTime(), mainDateRange?.to?.getTime()]);
-
   useEffect(() => {
     fetchNationalityRevenues();
-  }, [dateRange]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [mainDateRange?.from?.getTime(), mainDateRange?.to?.getTime(), propertyId]);
 
   const formatSource = (source: string | null): string => {
     if (!source) return '-';
