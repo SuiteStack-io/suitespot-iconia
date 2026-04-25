@@ -124,6 +124,7 @@ export const ReservationQuickActions = ({
   
   // Swap room state
   const [swapDialogOpen, setSwapDialogOpen] = useState(false);
+  const [splitDialogOpen, setSplitDialogOpen] = useState(false);
   
   // Late checkout time dialog state
   const [lateCheckoutTimeDialogOpen, setLateCheckoutTimeDialogOpen] = useState(false);
