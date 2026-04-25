@@ -27,22 +27,7 @@ interface RevenueByGuestsProps {
 }
 
 export const RevenueByGuests = ({ mainDateRange }: RevenueByGuestsProps) => {
-  const [dateRange, setDateRange] = useState<DateRange | undefined>(() => {
-    if (mainDateRange?.from && mainDateRange?.to) {
-      return mainDateRange;
-    }
-    return {
-      from: new Date(new Date().setMonth(new Date().getMonth() - 1)),
-      to: new Date(),
-    };
-  });
-
-  // Sync with main date range when it changes
-  useEffect(() => {
-    if (mainDateRange?.from && mainDateRange?.to) {
-      setDateRange(mainDateRange);
-    }
-  }, [mainDateRange?.from?.getTime(), mainDateRange?.to?.getTime()]);
+  const propertyId = usePropertyId();
   const [guestRevenues, setGuestRevenues] = useState<GuestRevenue[]>([]);
   const [filteredRevenues, setFilteredRevenues] = useState<GuestRevenue[]>([]);
   const [nationalities, setNationalities] = useState<string[]>([]);
@@ -52,7 +37,8 @@ export const RevenueByGuests = ({ mainDateRange }: RevenueByGuestsProps) => {
 
   useEffect(() => {
     fetchGuestRevenues();
-  }, [dateRange]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [mainDateRange?.from?.getTime(), mainDateRange?.to?.getTime(), propertyId]);
 
   useEffect(() => {
     applyFiltersAndSort();
