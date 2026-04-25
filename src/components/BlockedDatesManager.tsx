@@ -16,6 +16,10 @@ import { CalendarX, Plus, Trash2, CalendarIcon, Filter, X, ChevronDown, ChevronR
 import { cn } from "@/lib/utils";
 import type { DateRange } from "react-day-picker";
 import { usePropertyId, withPropertyFilter } from "@/hooks/usePropertyFilter";
+import {
+  calculateAvailabilityRanges,
+  getRoomTypePrimaryUnitId,
+} from "@/lib/availability-calculator";
 
 interface Unit {
   id: string;
@@ -45,8 +49,30 @@ interface GroupedBlockedDates {
   unit_id: string | null;
   unitName: string;
   unitNumber: string | null;
+  roomTypeName: string | null;
   dateCount: number;
   ids: string[];
+}
+
+interface PendingBlockedDate {
+  id: string;                   // crypto.randomUUID()
+  roomTypeName: string;         // booking_com_name shared by all unitIds
+  unitIds: string[];            // never null, never empty, all share roomTypeName
+  unitLabels: string[];         // friendly labels (e.g. "#101 - Suite") for optional expansion
+  totalUnitsInRoomType: number; // for "X of Y units" display
+  dateFrom: string;             // yyyy-MM-dd inclusive
+  dateTo: string;               // yyyy-MM-dd inclusive
+  datesInRange: string[];       // yyyy-MM-dd inclusive enumeration
+  reason: string | null;
+  addedAt: Date;
+}
+
+interface ChannexAvailabilityUpdate {
+  property_id: string;
+  room_type_id: string;
+  date_from: string;
+  date_to: string;
+  availability: number;
 }
 
 export const BlockedDatesManager = () => {
@@ -57,9 +83,13 @@ export const BlockedDatesManager = () => {
   const [dateRange, setDateRange] = useState<DateRange | undefined>();
   const [selectedUnitIds, setSelectedUnitIds] = useState<string[]>([]);
   const [reason, setReason] = useState("");
-  const [loading, setLoading] = useState(false);
+  const [applying, setApplying] = useState(false);
   const [dialogOpen, setDialogOpen] = useState(false);
-  
+
+  // Staged changes (Apply → Save Changes pattern)
+  const [pendingBlockedDates, setPendingBlockedDates] = useState<PendingBlockedDate[]>([]);
+  const [savingChanges, setSavingChanges] = useState(false);
+
   // Edit dialog state
   const [editDialogOpen, setEditDialogOpen] = useState(false);
   const [editingGroup, setEditingGroup] = useState<GroupedBlockedDates | null>(null);
@@ -67,12 +97,12 @@ export const BlockedDatesManager = () => {
   const [editDateRange, setEditDateRange] = useState<DateRange | undefined>();
   const [editUnitId, setEditUnitId] = useState<string | null>(null);
   const [editLoading, setEditLoading] = useState(false);
-  
+
   // Filter state
   const [filterUnitId, setFilterUnitId] = useState<string>("all");
   const [filterDateRange, setFilterDateRange] = useState<"all" | "future" | "thisMonth">("future");
   const [searchReason, setSearchReason] = useState("");
-  
+
   // Bulk selection state
   const [selectedGroups, setSelectedGroups] = useState<Set<string>>(new Set());
   const [expandedGroups, setExpandedGroups] = useState<Set<string>>(new Set());
@@ -143,7 +173,7 @@ export const BlockedDatesManager = () => {
     if (blockedDates.length === 0) return [];
 
     const groups: GroupedBlockedDates[] = [];
-    const sorted = [...blockedDates].sort((a, b) => 
+    const sorted = [...blockedDates].sort((a, b) =>
       (a.unit_id || '').localeCompare(b.unit_id || '') ||
       (a.reason || '').localeCompare(b.reason || '') ||
       a.blocked_date.localeCompare(b.blocked_date)
@@ -179,6 +209,7 @@ export const BlockedDatesManager = () => {
           unit_id: date.unit_id,
           unitName: date.units?.booking_com_name || date.units?.name || 'All Rooms',
           unitNumber: date.units?.unit_number || null,
+          roomTypeName: date.units?.booking_com_name || null,
           dateCount: 1,
           ids: [date.id],
         };
@@ -232,8 +263,8 @@ export const BlockedDatesManager = () => {
   }, [groupedBlockedDates, filterUnitId, filterDateRange, searchReason]);
 
   const handleUnitToggle = (unitId: string) => {
-    setSelectedUnitIds(prev => 
-      prev.includes(unitId) 
+    setSelectedUnitIds(prev =>
+      prev.includes(unitId)
         ? prev.filter(id => id !== unitId)
         : [...prev, unitId]
     );
@@ -247,68 +278,309 @@ export const BlockedDatesManager = () => {
     }
   };
 
-  const handleAddBlockedDate = async () => {
+  // ────────────────────────────────────────────────────────────────────
+  // Apply → Save Changes pattern
+  // handleApply: NO database writes. Expand "all rooms" into one
+  // PendingBlockedDate per room type at this point so handleSaveAllChanges
+  // is a uniform loop with no special-case branches.
+  // ────────────────────────────────────────────────────────────────────
+  const handleApply = async () => {
     if (!dateRange?.from) {
       toast.error("Please select at least a start date");
       return;
     }
-
     if (selectedUnitIds.length === 0) {
       toast.error("Please select at least one room");
       return;
     }
+    if (!propertyId) {
+      toast.error("No property selected");
+      return;
+    }
 
-    setLoading(true);
+    setApplying(true);
     try {
       const endDate = dateRange.to || dateRange.from;
-      const datesInRange = eachDayOfInterval({
-        start: dateRange.from,
-        end: endDate,
-      });
+      const datesInRange = eachDayOfInterval({ start: dateRange.from, end: endDate })
+        .map(d => format(d, "yyyy-MM-dd"));
+      const dateFrom = format(dateRange.from, "yyyy-MM-dd");
+      const dateTo = format(endDate, "yyyy-MM-dd");
+      const trimmedReason = reason.trim() || null;
 
-      // Determine which unit IDs to block for
-      const targetUnitIds = selectedUnitIds.includes('all') 
-        ? [null] // null means all rooms
-        : selectedUnitIds;
+      // Pull canonical unit set the same way calculateAvailabilityRanges does.
+      const { data: allPropertyUnits, error: unitsErr } = await supabase
+        .from("units")
+        .select("id, booking_com_name, name, unit_number")
+        .eq("property_id", propertyId)
+        .neq("status", "maintenance");
 
-      const insertRecords = targetUnitIds.flatMap(unitId =>
-        datesInRange.map(date => ({
-          blocked_date: format(date, "yyyy-MM-dd"),
-          unit_id: unitId,
-          reason: reason.trim() || null,
-        }))
-      );
+      if (unitsErr) throw unitsErr;
 
-      const { error } = await supabase
-        .from("blocked_dates")
-        .insert(insertRecords);
+      const isAllRooms = selectedUnitIds.includes("all");
 
-      if (error) {
-        if (error.code === "23505") {
-          toast.error("Some dates are already blocked for the selected room(s)");
-        } else {
-          throw error;
-        }
+      // Resolve target units
+      let targetUnits: Array<{ id: string; booking_com_name: string | null; name: string; unit_number: string | null }> = [];
+      if (isAllRooms) {
+        targetUnits = (allPropertyUnits || []).filter(u => {
+          if (!u.booking_com_name) {
+            console.warn(
+              `[BlockedDatesManager] Skipping unit ${u.id} (#${u.unit_number}) — no booking_com_name set`,
+            );
+            return false;
+          }
+          return true;
+        });
+      } else {
+        const selectedSet = new Set(selectedUnitIds);
+        targetUnits = (allPropertyUnits || []).filter(u => selectedSet.has(u.id));
+        // Drop units without a booking_com_name (can't sync them)
+        targetUnits = targetUnits.filter(u => {
+          if (!u.booking_com_name) {
+            console.warn(
+              `[BlockedDatesManager] Selected unit ${u.id} (#${u.unit_number}) has no booking_com_name — skipped`,
+            );
+            return false;
+          }
+          return true;
+        });
+      }
+
+      if (targetUnits.length === 0) {
+        toast.error("No eligible rooms (selected rooms have no Channex room type configured)");
         return;
       }
 
-      const unitText = selectedUnitIds.includes('all') 
-        ? "all rooms" 
-        : `${selectedUnitIds.length} room${selectedUnitIds.length > 1 ? 's' : ''}`;
-      
-      const dateCount = datesInRange.length;
-      toast.success(`${dateCount} date${dateCount > 1 ? 's' : ''} blocked for ${unitText}`);
-      
+      // Count totals per room type (uses the FULL property unit set, not just selected)
+      const totalsPerRoomType = new Map<string, number>();
+      for (const u of allPropertyUnits || []) {
+        if (!u.booking_com_name) continue;
+        totalsPerRoomType.set(
+          u.booking_com_name,
+          (totalsPerRoomType.get(u.booking_com_name) || 0) + 1,
+        );
+      }
+
+      // Group target units by room type
+      const groupsByRoomType = new Map<string, typeof targetUnits>();
+      for (const u of targetUnits) {
+        const key = u.booking_com_name as string;
+        if (!groupsByRoomType.has(key)) groupsByRoomType.set(key, []);
+        groupsByRoomType.get(key)!.push(u);
+      }
+
+      // Build expanded pending entries (one per room type)
+      const expanded: PendingBlockedDate[] = [];
+      for (const [roomTypeName, group] of groupsByRoomType.entries()) {
+        expanded.push({
+          id: crypto.randomUUID(),
+          roomTypeName,
+          unitIds: group.map(u => u.id),
+          unitLabels: group.map(u => `#${u.unit_number ?? ""} - ${u.name}`),
+          totalUnitsInRoomType: totalsPerRoomType.get(roomTypeName) || group.length,
+          dateFrom,
+          dateTo,
+          datesInRange,
+          reason: trimmedReason,
+          addedAt: new Date(),
+        });
+      }
+
+      setPendingBlockedDates(prev => [...prev, ...expanded]);
+
+      // Reset form + close dialog
       setDateRange(undefined);
       setSelectedUnitIds([]);
       setReason("");
       setDialogOpen(false);
+
+      toast.success(
+        `${expanded.length} room type${expanded.length > 1 ? "s" : ""} added to pending changes for ${datesInRange.length} date${datesInRange.length > 1 ? "s" : ""}`,
+      );
+    } catch (error: any) {
+      console.error("Error applying blocked date:", error);
+      toast.error(error.message || "Failed to apply changes");
+    } finally {
+      setApplying(false);
+    }
+  };
+
+  const handleRemovePending = (id: string) => {
+    setPendingBlockedDates(prev => prev.filter(p => p.id !== id));
+  };
+
+  const handleClearPending = () => {
+    setPendingBlockedDates([]);
+  };
+
+  // ────────────────────────────────────────────────────────────────────
+  // handleSaveAllChanges — straight loop, no special cases.
+  // ────────────────────────────────────────────────────────────────────
+  const handleSaveAllChanges = async () => {
+    if (pendingBlockedDates.length === 0 || !propertyId) return;
+
+    setSavingChanges(true);
+    try {
+      // 1. Flat-map all pending → insert records (no null unit_id ever)
+      const insertRecords = pendingBlockedDates.flatMap(pending =>
+        pending.unitIds.flatMap(unitId =>
+          pending.datesInRange.map(d => ({
+            blocked_date: d,
+            unit_id: unitId,
+            reason: pending.reason,
+          })),
+        ),
+      );
+
+      const { error: insertError } = await supabase
+        .from("blocked_dates")
+        .insert(insertRecords);
+
+      if (insertError) {
+        if (insertError.code === "23505") {
+          toast.error("Some dates are already blocked for the selected room(s)");
+        } else {
+          throw insertError;
+        }
+        return;
+      }
+
+      // 2. Build Channex updates. Merge pendings sharing
+      // (roomTypeName, dateFrom, dateTo) so we don't recompute the same
+      // range twice. Never merge across different room types or ranges.
+      const uniqueKeys = new Map<string, { roomTypeName: string; dateFrom: string; dateTo: string }>();
+      for (const p of pendingBlockedDates) {
+        const k = `${p.roomTypeName}|${p.dateFrom}|${p.dateTo}`;
+        if (!uniqueKeys.has(k)) {
+          uniqueKeys.set(k, { roomTypeName: p.roomTypeName, dateFrom: p.dateFrom, dateTo: p.dateTo });
+        }
+      }
+
+      const updates: ChannexAvailabilityUpdate[] = [];
+      for (const { roomTypeName, dateFrom, dateTo } of uniqueKeys.values()) {
+        const exclusiveTo = format(addDays(parseISO(dateTo), 1), "yyyy-MM-dd");
+        const ranges = await calculateAvailabilityRanges(
+          roomTypeName,
+          dateFrom,
+          exclusiveTo,
+          propertyId,
+        );
+        const primaryUnitId = await getRoomTypePrimaryUnitId(roomTypeName, propertyId);
+        if (!primaryUnitId) {
+          console.warn(`[BlockedDatesManager] No Channex mapping for ${roomTypeName} — skipped`);
+          continue;
+        }
+        for (const r of ranges) {
+          updates.push({
+            property_id: propertyId,
+            room_type_id: primaryUnitId,
+            date_from: r.date_from,
+            date_to: r.date_to,
+            availability: r.availability,
+          });
+        }
+      }
+
+      // 3. Single batched Channex push
+      if (updates.length > 0) {
+        const { error: pushError } = await supabase.functions.invoke(
+          "channex-push-availability",
+          { body: { updates } },
+        );
+        if (pushError) {
+          console.error("Channex push failed:", pushError);
+          toast.error("Saved to database, but Channex sync failed. Check sync logs.");
+        }
+      }
+
+      const totalDates = pendingBlockedDates.reduce((sum, p) => sum + p.datesInRange.length, 0);
+      toast.success(
+        `${totalDates} date${totalDates > 1 ? "s" : ""} blocked across ${uniqueKeys.size} room type${uniqueKeys.size > 1 ? "s" : ""} and synced to Channex`,
+      );
+
+      setPendingBlockedDates([]);
       fetchBlockedDates();
     } catch (error: any) {
-      console.error("Error adding blocked date:", error);
-      toast.error("Failed to block dates");
+      console.error("Error saving blocked dates:", error);
+      toast.error(error.message || "Failed to save changes");
     } finally {
-      setLoading(false);
+      setSavingChanges(false);
+    }
+  };
+
+  // ────────────────────────────────────────────────────────────────────
+  // Channex push helper for delete/edit handlers.
+  // Resolves room types from group(s); falls back to "every room type at
+  // this property" when a group's unit_id is null (legacy "all rooms" data).
+  // ────────────────────────────────────────────────────────────────────
+  const pushAvailabilityForRanges = async (
+    affected: Array<{ roomTypeName: string | null; startDate: string; endDate: string }>,
+  ) => {
+    if (!propertyId || affected.length === 0) return;
+
+    // Expand any null-room-type entry into every room type at this property
+    let nullExpansion: string[] | null = null;
+    const dedup = new Map<string, { roomTypeName: string; dateFrom: string; dateTo: string }>();
+
+    for (const a of affected) {
+      if (a.roomTypeName) {
+        const key = `${a.roomTypeName}|${a.startDate}|${a.endDate}`;
+        if (!dedup.has(key)) {
+          dedup.set(key, { roomTypeName: a.roomTypeName, dateFrom: a.startDate, dateTo: a.endDate });
+        }
+      } else {
+        if (nullExpansion === null) {
+          const { data } = await supabase
+            .from("units")
+            .select("booking_com_name")
+            .eq("property_id", propertyId)
+            .neq("status", "maintenance");
+          nullExpansion = Array.from(
+            new Set(
+              (data || [])
+                .map((u: any) => u.booking_com_name)
+                .filter((n: any) => !!n),
+            ),
+          ) as string[];
+        }
+        for (const rt of nullExpansion) {
+          const key = `${rt}|${a.startDate}|${a.endDate}`;
+          if (!dedup.has(key)) {
+            dedup.set(key, { roomTypeName: rt, dateFrom: a.startDate, dateTo: a.endDate });
+          }
+        }
+      }
+    }
+
+    const updates: ChannexAvailabilityUpdate[] = [];
+    for (const { roomTypeName, dateFrom, dateTo } of dedup.values()) {
+      const exclusiveTo = format(addDays(parseISO(dateTo), 1), "yyyy-MM-dd");
+      const ranges = await calculateAvailabilityRanges(
+        roomTypeName,
+        dateFrom,
+        exclusiveTo,
+        propertyId,
+      );
+      const primaryUnitId = await getRoomTypePrimaryUnitId(roomTypeName, propertyId);
+      if (!primaryUnitId) continue;
+      for (const r of ranges) {
+        updates.push({
+          property_id: propertyId,
+          room_type_id: primaryUnitId,
+          date_from: r.date_from,
+          date_to: r.date_to,
+          availability: r.availability,
+        });
+      }
+    }
+
+    if (updates.length === 0) return;
+    const { error } = await supabase.functions.invoke(
+      "channex-push-availability",
+      { body: { updates } },
+    );
+    if (error) {
+      console.error("Channex push failed:", error);
+      toast.error("Database updated, but Channex sync failed. Check sync logs.");
     }
   };
 
@@ -322,6 +594,11 @@ export const BlockedDatesManager = () => {
       if (error) throw error;
 
       toast.success(`${group.dateCount} date${group.dateCount > 1 ? 's' : ''} unblocked`);
+
+      await pushAvailabilityForRanges([
+        { roomTypeName: group.roomTypeName, startDate: group.startDate, endDate: group.endDate },
+      ]);
+
       fetchBlockedDates();
     } catch (error: any) {
       console.error("Error deleting blocked dates:", error);
@@ -334,7 +611,7 @@ export const BlockedDatesManager = () => {
 
     const groupsToDelete = filteredGroups.filter(g => selectedGroups.has(g.key));
     const idsToDelete = groupsToDelete.flatMap(g => g.ids);
-    
+
     try {
       const { error } = await supabase
         .from("blocked_dates")
@@ -344,6 +621,14 @@ export const BlockedDatesManager = () => {
       if (error) throw error;
 
       toast.success(`${idsToDelete.length} date${idsToDelete.length > 1 ? 's' : ''} unblocked`);
+
+      const affected = groupsToDelete.map(g => ({
+        roomTypeName: g.roomTypeName,
+        startDate: g.startDate,
+        endDate: g.endDate,
+      }));
+      await pushAvailabilityForRanges(affected);
+
       setSelectedGroups(new Set());
       fetchBlockedDates();
     } catch (error: any) {
@@ -412,6 +697,13 @@ export const BlockedDatesManager = () => {
         return;
       }
 
+      // Resolve new room type name (for Channex push)
+      let newRoomTypeName: string | null = null;
+      if (editUnitId) {
+        const u = units.find(x => x.id === editUnitId);
+        newRoomTypeName = u?.booking_com_name || null;
+      }
+
       if (datesChanged || unitChanged) {
         // Delete old records and insert new ones
         const { error: deleteError } = await supabase
@@ -447,8 +739,14 @@ export const BlockedDatesManager = () => {
         }
 
         toast.success("Blocked dates updated successfully");
+
+        // Push Channex covering union of old + new room type / range
+        await pushAvailabilityForRanges([
+          { roomTypeName: editingGroup.roomTypeName, startDate: editingGroup.startDate, endDate: editingGroup.endDate },
+          { roomTypeName: newRoomTypeName, startDate: newStartDate, endDate: newEndDate },
+        ]);
       } else {
-        // Only reason changed, just update
+        // Only reason changed, just update — no Channex availability change.
         const { error } = await supabase
           .from("blocked_dates")
           .update({ reason: editReason.trim() || null })
@@ -475,18 +773,18 @@ export const BlockedDatesManager = () => {
   const formatDateRange = (start: string, end: string) => {
     const startDate = parseISO(start);
     const endDate = parseISO(end);
-    
+
     if (start === end) {
       return format(startDate, "MMM d, yyyy");
     }
-    
+
     if (startDate.getFullYear() === endDate.getFullYear()) {
       if (startDate.getMonth() === endDate.getMonth()) {
         return `${format(startDate, "MMM d")} - ${format(endDate, "d, yyyy")}`;
       }
       return `${format(startDate, "MMM d")} - ${format(endDate, "MMM d, yyyy")}`;
     }
-    
+
     return `${format(startDate, "MMM d, yyyy")} - ${format(endDate, "MMM d, yyyy")}`;
   };
 
@@ -518,7 +816,7 @@ export const BlockedDatesManager = () => {
               <DialogHeader>
                 <DialogTitle>Block Dates</DialogTitle>
                 <DialogDescription>
-                  Select a date range and rooms to block from public booking
+                  Select a date range and rooms, then click Apply to stage the change. Click Save Changes to commit and sync to Channex.
                 </DialogDescription>
               </DialogHeader>
               <div className="space-y-4">
@@ -571,8 +869,8 @@ export const BlockedDatesManager = () => {
                   </div>
                   {selectedUnitIds.length > 0 && (
                     <p className="text-xs text-muted-foreground">
-                      {selectedUnitIds.includes('all') 
-                        ? "Blocking all rooms" 
+                      {selectedUnitIds.includes('all')
+                        ? "Blocking all rooms"
                         : `${selectedUnitIds.length} room${selectedUnitIds.length > 1 ? 's' : ''} selected`}
                     </p>
                   )}
@@ -630,13 +928,13 @@ export const BlockedDatesManager = () => {
                     onChange={(e) => setReason(e.target.value)}
                   />
                 </div>
-                
+
                 <Button
-                  onClick={handleAddBlockedDate}
-                  disabled={!dateRange?.from || selectedUnitIds.length === 0 || loading}
+                  onClick={handleApply}
+                  disabled={!dateRange?.from || selectedUnitIds.length === 0 || applying}
                   className="w-full"
                 >
-                  {loading ? "Blocking..." : "Block Dates"}
+                  {applying ? "Applying..." : "Apply"}
                 </Button>
               </div>
             </DialogContent>
@@ -644,10 +942,81 @@ export const BlockedDatesManager = () => {
         </div>
       </CardHeader>
       <CardContent className="space-y-4">
+        {/* Pending Changes panel */}
+        {pendingBlockedDates.length > 0 && (
+          <div className="border rounded-lg bg-accent/30 p-3 space-y-3">
+            <div className="flex items-center justify-between gap-3 flex-wrap">
+              <div className="flex items-center gap-2">
+                <span className="font-medium text-sm">
+                  Pending Changes ({pendingBlockedDates.length})
+                </span>
+              </div>
+              <div className="flex items-center gap-2">
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  onClick={handleClearPending}
+                  disabled={savingChanges}
+                >
+                  Clear
+                </Button>
+                <Button
+                  size="sm"
+                  onClick={handleSaveAllChanges}
+                  disabled={savingChanges}
+                >
+                  {savingChanges ? "Saving..." : "Save Changes →"}
+                </Button>
+              </div>
+            </div>
+            <div className="space-y-1">
+              {pendingBlockedDates.map((p) => (
+                <div
+                  key={p.id}
+                  className="flex items-center gap-3 px-3 py-2 bg-background rounded border text-sm"
+                >
+                  <div className="flex-1 min-w-0">
+                    <div className="flex items-center gap-2 flex-wrap">
+                      <span className="font-medium">{p.roomTypeName}</span>
+                      <span className="text-xs bg-muted px-2 py-0.5 rounded-full">
+                        {p.unitIds.length} of {p.totalUnitsInRoomType} unit
+                        {p.totalUnitsInRoomType > 1 ? "s" : ""}
+                      </span>
+                    </div>
+                    <div className="text-xs text-muted-foreground flex items-center gap-2 flex-wrap">
+                      <span>{formatDateRange(p.dateFrom, p.dateTo)}</span>
+                      <span>•</span>
+                      <span>
+                        {p.datesInRange.length} date{p.datesInRange.length > 1 ? "s" : ""}
+                      </span>
+                      {p.reason && (
+                        <>
+                          <span>•</span>
+                          <span className="truncate">{p.reason}</span>
+                        </>
+                      )}
+                    </div>
+                  </div>
+                  <Button
+                    variant="ghost"
+                    size="icon"
+                    className="h-7 w-7 text-muted-foreground hover:text-destructive"
+                    onClick={() => handleRemovePending(p.id)}
+                    disabled={savingChanges}
+                    aria-label="Remove pending change"
+                  >
+                    <X className="h-4 w-4" />
+                  </Button>
+                </div>
+              ))}
+            </div>
+          </div>
+        )}
+
         {/* Filter Bar */}
         <div className="flex flex-wrap items-center gap-3 p-3 bg-muted/30 rounded-lg">
           <Filter className="h-4 w-4 text-muted-foreground" />
-          
+
           <Select value={filterUnitId} onValueChange={setFilterUnitId}>
             <SelectTrigger className="w-[160px] h-9 bg-background">
               <SelectValue placeholder="All Units" />
@@ -702,8 +1071,8 @@ export const BlockedDatesManager = () => {
                 onCheckedChange={toggleSelectAll}
               />
               <span className="text-sm text-muted-foreground">
-                {selectedGroups.size > 0 
-                  ? `${selectedGroups.size} selected` 
+                {selectedGroups.size > 0
+                  ? `${selectedGroups.size} selected`
                   : `${filteredGroups.length} blocked period${filteredGroups.length !== 1 ? 's' : ''}`}
               </span>
             </div>
@@ -723,7 +1092,7 @@ export const BlockedDatesManager = () => {
         {/* Grouped Blocked Dates List */}
         {filteredGroups.length === 0 ? (
           <div className="text-center py-8 text-muted-foreground">
-            {blockedDates.length === 0 
+            {blockedDates.length === 0
               ? 'No blocked dates. Click "Block Dates" to add some.'
               : 'No blocked dates match your filters.'}
           </div>
@@ -734,7 +1103,7 @@ export const BlockedDatesManager = () => {
                 key={group.key}
                 className="border rounded-lg bg-card overflow-hidden"
               >
-                <div 
+                <div
                   className="flex items-center gap-3 p-3 hover:bg-accent/50 transition-colors cursor-pointer group"
                   onClick={(e) => {
                     // Don't open edit dialog if clicking on checkbox, expand button, or delete button
@@ -749,7 +1118,7 @@ export const BlockedDatesManager = () => {
                     checked={selectedGroups.has(group.key)}
                     onCheckedChange={() => toggleGroupSelection(group.key)}
                   />
-                  
+
                   {group.dateCount > 1 && (
                     <Button
                       variant="ghost"
@@ -764,7 +1133,7 @@ export const BlockedDatesManager = () => {
                       )}
                     </Button>
                   )}
-                  
+
                   <div className="flex-1 min-w-0">
                     <div className="flex items-center gap-2 flex-wrap">
                       <span className="font-medium">
@@ -778,8 +1147,8 @@ export const BlockedDatesManager = () => {
                     </div>
                     <div className="flex items-center gap-2 text-sm text-muted-foreground flex-wrap">
                       <span>
-                        {group.unit_id 
-                          ? `#${group.unitNumber} - ${group.unitName}` 
+                        {group.unit_id
+                          ? `#${group.unitNumber} - ${group.unitName}`
                           : "All Rooms"}
                       </span>
                       {group.reason ? (
@@ -795,7 +1164,7 @@ export const BlockedDatesManager = () => {
                       )}
                     </div>
                   </div>
-                  
+
                   <Button
                     variant="ghost"
                     size="icon"
@@ -805,7 +1174,7 @@ export const BlockedDatesManager = () => {
                     <Trash2 className="h-4 w-4" />
                   </Button>
                 </div>
-                
+
                 {/* Expanded dates list */}
                 {expandedGroups.has(group.key) && group.dateCount > 1 && (
                   <div className="border-t bg-muted/30 px-4 py-2 space-y-1">
@@ -837,8 +1206,8 @@ export const BlockedDatesManager = () => {
                   <>
                     {formatDateRange(editingGroup.startDate, editingGroup.endDate)}
                     {" • "}
-                    {editingGroup.unit_id 
-                      ? `#${editingGroup.unitNumber} - ${editingGroup.unitName}` 
+                    {editingGroup.unit_id
+                      ? `#${editingGroup.unitNumber} - ${editingGroup.unitName}`
                       : "All Rooms"}
                   </>
                 )}
