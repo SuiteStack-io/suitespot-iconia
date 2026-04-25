@@ -529,13 +529,11 @@ const Analytics = () => {
   const fetchGuestsDetails = async () => {
     const { startDate, endDate } = getDateRange();
     
-    const { data } = await withPropertyFilter(supabase
+    const { data } = await withPropertyFilter(applyRevenueDateFilter(supabase
       .from('reservations')
       .select('guest_names, number_of_guests, check_in_date, check_out_date, payment_method, currency, units!unit_id(name)')
       .neq('status', 'Cancelled')
-      .is('cancelled_at', null)
-      .gte('check_in_date', startDate)
-      .lte('check_in_date', endDate)
+      .is('cancelled_at', null), method, startDate, endDate)
       .order('number_of_guests', { ascending: false }), propertyId);
 
     const details = (data || []).map((r: any) => ({
