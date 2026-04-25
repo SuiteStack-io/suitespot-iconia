@@ -12,6 +12,7 @@ import { RevenueByRoom } from '@/components/RevenueByRoom';
 import { RevenueByGuests } from '@/components/RevenueByGuests';
 import { RevenueByNationality } from '@/components/RevenueByNationality';
 import { CancellationAnalytics } from '@/components/analytics/CancellationAnalytics';
+import { OccupancyByMonthChart } from '@/components/analytics/OccupancyByMonthChart';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { supabase } from '@/integrations/supabase/client';
 import { Tabs, TabsList, TabsTrigger } from '@/components/ui/tabs';
@@ -1158,6 +1159,9 @@ const Analytics = () => {
             </CardContent>
           </Card>
         </div>
+
+        {/* Occupancy by Month */}
+        <OccupancyByMonthChart propertyId={propertyId} />
 
         {/* Revenue Breakdown Charts */}
         <div className="grid gap-6 md:grid-cols-2">
