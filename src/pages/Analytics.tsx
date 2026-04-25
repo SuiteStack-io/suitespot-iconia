@@ -66,7 +66,8 @@ const Analytics = () => {
     indirect: { count: 0, revenue: 0 } 
   });
   const [totalGuests, setTotalGuests] = useState(0);
-  const [landlordPercentage, setLandlordPercentage] = useState(70);
+  const [landlordPercentage, setLandlordPercentage] = useState(savedLandlordPercentage);
+  const [savingShare, setSavingShare] = useState(false);
   const [totalNights, setTotalNights] = useState(0);
   const [totalAvailableRooms, setTotalAvailableRooms] = useState(0);
   const [directCommission, setDirectCommission] = useState(0);
