@@ -74,8 +74,7 @@ export const useLateCheckout = ({
   unitId,
   unitName,
   checkoutDate,
-  vatRate = 0,
-  commissionRate = 10,
+  vatRate: _vatRate = 0,
 }: UseLateCheckoutParams) => {
   const [loading, setLoading] = useState(false);
   const { user } = useAuth();
