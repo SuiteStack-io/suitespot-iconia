@@ -1,210 +1,123 @@
-## Add "Occupancy by Month" bar chart to Analytics
+## Add "Show Revenue" toggle to Occupancy by Month chart
 
-A new card placed below the KPI cards (after ADR/RevPAR row, before the Revenue by Source / Revenue by Room grid) showing monthly occupancy % for the last 6 months (current + 5 prior). Independent of the date-range pills.
+Add a `Switch` toggle in the card header. When ON, the chart renders a second green Net Revenue bar grouped beside the blue Occupancy bar per month, with its own right-side y-axis. When OFF, the chart looks pixel-identical to today.
 
-### 1. Files
+### 1. File
 
-Create `src/components/analytics/OccupancyByMonthChart.tsx` (a self-contained component) and import + render it in `src/pages/Analytics.tsx`. Keeps the page file lean and matches the existing pattern of co-locating chart components under `src/components/analytics/`.
+Single file: `src/components/analytics/OccupancyByMonthChart.tsx`. No changes to `Analytics.tsx` or any other file.
 
-No DB schema changes. No new dependencies — recharts is already in use (`src/components/analytics/CancellationAnalytics.tsx` lines 21–33 imports `BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer` from `'recharts'`).
+### 2. Toggle UI
 
-### 2. Component placement in `Analytics.tsx`
-
-Add an import at the top:
-
-```ts
-import { OccupancyByMonthChart } from '@/components/analytics/OccupancyByMonthChart';
-```
-
-Insert between the KPI grid close and the Revenue Breakdown grid (current lines 1160–1162):
+Add `Switch` (from `@/components/ui/switch`) + `Label` (from `@/components/ui/label`) to `CardHeader`:
 
 ```tsx
-        </div>  {/* end KPI grid */}
-
-        {/* Occupancy by Month */}
-        <OccupancyByMonthChart propertyId={propertyId} />
-
-        {/* Revenue Breakdown Charts */}
-        <div className="grid gap-6 md:grid-cols-2">
+<CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+  <CardTitle>Occupancy by Month</CardTitle>
+  <div className="flex items-center gap-2">
+    <Label htmlFor="show-revenue-toggle" className="text-sm font-normal text-muted-foreground cursor-pointer">
+      Show Revenue
+    </Label>
+    <Switch id="show-revenue-toggle" checked={showRevenue} onCheckedChange={setShowRevenue} />
+  </div>
+</CardHeader>
 ```
 
-Component takes `propertyId` only — no `dateRange` prop, since it's always the trailing 6-month window.
+Local state only: `const [showRevenue, setShowRevenue] = useState(false);` — default OFF, no persistence.
 
-### 3. Component structure (`OccupancyByMonthChart.tsx`)
+### 3. Net revenue calculation (single fetch, prorated)
 
-```tsx
-import { useEffect, useState } from 'react';
-import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
-import { supabase } from '@/integrations/supabase/client';
-import { withPropertyFilter } from '@/hooks/usePropertyFilter';
-import { format, startOfMonth, endOfMonth, addMonths, getDaysInMonth, startOfDay, differenceInDays, addDays } from 'date-fns';
-import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, LabelList } from 'recharts';
+Source of truth: `src/pages/Analytics.tsx` line 283 — `netRevenue = total_price - commission_amount`. Column name confirmed via DB introspection: `commission_amount` (the prompt's `ota_commission` does not exist).
 
-interface Props { propertyId: string | null; }
-
-interface MonthBucket {
-  key: string;            // 'yyyy-MM'
-  label: string;          // 'Apr'
-  fullLabel: string;      // 'April 2026'
-  monthStart: Date;
-  monthEnd: Date;         // inclusive last day
-  daysInMonth: number;
-  occupiedNights: number;
-  availableNights: number;
-  occupancy: number;      // % rounded 1dp
-}
-```
-
-Render a `Card` with `CardHeader` + `CardTitle="Occupancy by Month"` (matching existing analytic-card typography), `CardContent` wraps a `ResponsiveContainer` (`width="100%" height={300}`) → `BarChart`. Loading state: muted-foreground "Loading…" text inside CardContent. Error state: muted-foreground "Could not load occupancy data" — same minimal pattern used in `StaySurveyAnalytics`.
-
-### 4. Data fetch — single query, exact reuse of Occupancy KPI logic
-
-Source of truth: `src/pages/Analytics.tsx` lines 335–386 (the existing Occupancy KPI calculation). Copy verbatim, only change the date window.
+Extend the EXISTING `.select()` (line 89) to include the two new columns — no second query:
 
 ```ts
-useEffect(() => {
-  if (!propertyId) return;
-  let cancelled = false;
-  (async () => {
-    setLoading(true);
-    const now = new Date();
-    const months: MonthBucket[] = Array.from({ length: 6 }, (_, i) => {
-      const anchor = addMonths(now, -(5 - i)); // oldest → newest
-      const ms = startOfMonth(anchor);
-      const me = endOfMonth(anchor);
-      return {
-        key: format(ms, 'yyyy-MM'),
-        label: format(ms, 'MMM'),
-        fullLabel: format(ms, 'MMMM yyyy'),
-        monthStart: ms,
-        monthEnd: me,
-        daysInMonth: getDaysInMonth(ms),
-        occupiedNights: 0,
-        availableNights: 0,
-        occupancy: 0,
-      };
-    });
+.select('check_in_date, check_out_date, nights, unit_id, total_price, commission_amount')
+```
 
-    const windowStart = format(months[0].monthStart, 'yyyy-MM-dd');
-    const windowEnd = format(months[5].monthEnd, 'yyyy-MM-dd');
+Add `netRevenue: number` to the `MonthBucket` interface and initialize to `0`.
 
-    // Same units query as KPI (line 336–339)
-    const { data: units } = await withPropertyFilter(
-      supabase.from('units').select('id').eq('status', 'available'),
-      propertyId
-    );
-    const totalUnits = units?.length || 0;
-    const unitIdSet = new Set((units || []).map(u => u.id));
+Inside the existing per-month loop (line 110), accumulate prorated revenue using the same overlap calculation:
 
-    // Same reservation filter as KPI (line 343–349) — single query for full 6-month window
-    const { data: reservations } = await withPropertyFilter(
-      supabase.from('reservations')
-        .select('check_in_date, check_out_date, nights, unit_id')
-        .in('status', ['confirmed', 'checked-in', 'checked-out', 'completed'])
-        .is('cancelled_at', null)
-        .lte('check_in_date', windowEnd)
-        .gte('check_out_date', windowStart),
-      propertyId
-    );
+```ts
+let revenue = 0;
+reservations?.forEach((r: any) => {
+  // ...existing overlap logic...
+  if (overlapStart < overlapEnd) {
+    const nightsInMonth = differenceInDays(overlapEnd, overlapStart);
+    occupied += nightsInMonth;
 
-    // Single blocked-dates query for the window (mirrors KPI line 375–380)
-    const { data: blockedRows } = await supabase
-      .from('blocked_dates')
-      .select('blocked_date, unit_id')
-      .in('unit_id', Array.from(unitIdSet))
-      .gte('blocked_date', windowStart)
-      .lte('blocked_date', windowEnd);
-
-    // Bucket nights into months — same overlap math as KPI (line 358–371)
-    for (const m of months) {
-      const start = startOfDay(m.monthStart);
-      const end = startOfDay(m.monthEnd); // inclusive last day
-      let occupied = 0;
-      reservations?.forEach(r => {
-        if (!r.unit_id || !unitIdSet.has(r.unit_id)) return;
-        const checkIn = startOfDay(new Date(r.check_in_date));
-        const checkOut = startOfDay(new Date(r.check_out_date));
-        const overlapStart = checkIn > start ? checkIn : start;
-        const overlapEnd = checkOut <= end ? checkOut : addDays(end, 1);
-        if (overlapStart < overlapEnd) {
-          occupied += differenceInDays(overlapEnd, overlapStart);
-        }
-      });
-      m.occupiedNights = occupied;
-
-      const blockedInMonth = blockedRows?.filter(b => {
-        const d = b.blocked_date; // 'yyyy-MM-dd' string
-        return d >= format(m.monthStart, 'yyyy-MM-dd') && d <= format(m.monthEnd, 'yyyy-MM-dd');
-      }).length || 0;
-
-      m.availableNights = (totalUnits * m.daysInMonth) - blockedInMonth;
-      m.occupancy = m.availableNights > 0
-        ? Math.round((m.occupiedNights / m.availableNights) * 1000) / 10
-        : 0;
+    // Prorate net revenue by share of total nights in this month
+    const totalNights = differenceInDays(checkOut, checkIn);
+    if (totalNights > 0) {
+      const totalPrice = Number(r.total_price) || 0;
+      const commission = Number(r.commission_amount) || 0;
+      const netForReservation = totalPrice - commission;
+      revenue += netForReservation * (nightsInMonth / totalNights);
     }
-
-    if (!cancelled) { setData(months); setLoading(false); }
-  })();
-  return () => { cancelled = true; };
-}, [propertyId]);
+  }
+});
+m.netRevenue = Math.round(revenue);
 ```
 
-Key parity points with the existing Occupancy KPI:
-- `units` filtered by `status='available'` AND `propertyId` (line 336–339).
-- Reservation status filter `['confirmed', 'checked-in', 'checked-out', 'completed']` plus `cancelled_at IS NULL` (line 346–347) — this is exactly how cancellations are excluded today.
-- Reservations filtered to those overlapping the window via `check_in_date <= windowEnd AND check_out_date >= windowStart` (line 348–349).
-- Per-month overlap math identical to KPI (`overlapEnd = checkOut <= end ? checkOut : addDays(end, 1)`).
-- Blocked nights subtracted per month from `(totalUnits * daysInMonth)`.
+Same status filter / `cancelled_at IS NULL` is already in place, so cancelled reservations are excluded by construction. `commission_amount` null → coerced to 0 via `Number(...) || 0`, matching existing KPI behavior.
 
-Result: when the date range pill is set to "This Month", the current-month bar's % will equal the KPI card's %.
+### 4. Chart rendering — grouped bars when toggle ON
 
-### 5. Chart rendering
+Add `yAxisId` to the existing occupancy bar/axis. Conditionally render a right-side y-axis and a second `<Bar>` when `showRevenue` is true:
 
 ```tsx
-<BarChart data={data} margin={{ top: 24, right: 12, left: 0, bottom: 4 }}>
-  <CartesianGrid strokeDasharray="3 3" vertical={false} />
-  <XAxis dataKey="label" tick={{ fontSize: 12 }} />
-  <YAxis unit="%" domain={[0, 100]} tick={{ fontSize: 12 }} />
-  <Tooltip
-    cursor={{ fill: 'hsl(var(--muted))' }}
-    content={({ active, payload }) => {
-      if (!active || !payload?.length) return null;
-      const m: MonthBucket = payload[0].payload;
-      return (
-        <div className="rounded-md border bg-popover px-3 py-2 text-xs shadow-md">
-          <div className="font-medium">{m.fullLabel}</div>
-          <div>Occupancy: {m.occupancy.toFixed(1)}%</div>
-          <div className="text-muted-foreground">{m.occupiedNights} / {m.availableNights} nights</div>
-        </div>
-      );
-    }}
+<YAxis yAxisId="occupancy" unit="%" domain={[0, 100]} tick={{ fontSize: 12 }} />
+{showRevenue && (
+  <YAxis
+    yAxisId="revenue"
+    orientation="right"
+    tick={{ fontSize: 12, fill: REVENUE_COLOR }}
+    tickFormatter={(v: number) => formatCurrencyShort(v)}
   />
-  <Bar dataKey="occupancy" fill="hsl(var(--primary))" radius={[4, 4, 0, 0]}>
-    <LabelList
-      dataKey="occupancy"
-      position="top"
-      formatter={(v: number) => `${v.toFixed(1)}%`}
-      style={{ fontSize: 11, fill: 'hsl(var(--foreground))' }}
-    />
+)}
+
+<Bar yAxisId="occupancy" dataKey="occupancy" fill="hsl(var(--primary))" radius={[4,4,0,0]} name="occupancy">
+  <LabelList dataKey="occupancy" position="top" formatter={(v) => `${v.toFixed(1)}%`} ... />
+</Bar>
+
+{showRevenue && (
+  <Bar yAxisId="revenue" dataKey="netRevenue" fill={REVENUE_COLOR} radius={[4,4,0,0]} name="netRevenue">
+    <LabelList dataKey="netRevenue" position="top" formatter={(v) => formatCurrencyFull(v)} ... />
   </Bar>
-</BarChart>
+)}
 ```
 
-Color: `hsl(var(--primary))` — the project's design-token primary, which is the same token already used by `<BarChart3 className="text-primary" />` in the Analytics header and across the KPI cards. (CancellationAnalytics uses the raw `#ef4444` red specifically because it represents cancellations; that is not the page's "primary chart color" so we don't reuse it.)
+Recharts auto-groups two `<Bar>` elements side-by-side per category — no extra config needed. Each month gets a blue Occupancy bar (% label on top) and a green Net Revenue bar (e.g. `$30,100` label on top).
 
-### 6. Responsiveness
+Add a `<Legend>` only when `showRevenue` is true so users can distinguish the two series.
 
-- Outer `Card` is full-width by default (no `md:col-span` constraint), so it spans the page width on desktop and mobile.
-- `ResponsiveContainer width="100%" height={300}` handles desktop/mobile sizing.
-- Six bars + 3-letter month labels won't crowd at 360px viewport — no rotation needed (`angle={-45}` is unnecessary and would only be added if labels overlap).
+### 5. Color
 
-### 7. Out of scope
+`REVENUE_COLOR = 'hsl(142 71% 45%)'` (emerald-600 equivalent) — distinct from the primary blue used for occupancy. The page does not currently use a token for "revenue green"; this is a one-off chart-series color defined as a constant inside the component (same pattern as CancellationAnalytics line 317 using `#ef4444` for its red bar).
 
-- KPI cards, Revenue Share slider/Save, date pills (incl. new month pills), Custom Range, Export, Revenue by Source/Room, RevenueByGuests, RevenueByNationality, CancellationAnalytics — none touched.
-- Existing Occupancy KPI calculation untouched (read-only reuse).
-- No revenue overlay on the new chart.
+### 6. Tooltip & label formatters
+
+Two formatter helpers inside the file:
+
+```ts
+const formatCurrencyShort = (v: number) =>
+  v >= 1000 ? `$${(v / 1000).toFixed(v >= 10000 ? 0 : 1)}k` : `$${Math.round(v).toLocaleString()}`;
+const formatCurrencyFull = (v: number) => `$${Math.round(v).toLocaleString()}`;
+```
+
+- Right y-axis ticks: short form (`$50k`, `$5.2k`).
+- Bar-top labels: full form (`$30,100`).
+- Tooltip extended to include a Net Revenue line in green when toggle is ON; unchanged when OFF.
+
+### 7. What stays unchanged
+
+- Existing occupancy fetch logic, filters, overlap math, blocked-dates handling — untouched.
+- When toggle is OFF: no right axis, no second bar, no legend → chart is pixel-identical to current behavior.
+- No DB changes, no `Analytics.tsx` changes, no other components affected.
+- No persistence of toggle state.
 
 ### Variable-collision check
 
-- All new identifiers (`MonthBucket`, `data`, `loading`, `months`, `windowStart`, `windowEnd`, `units`, `totalUnits`, `unitIdSet`, `reservations`, `blockedRows`, `start`, `end`, `occupied`, `blockedInMonth`) live inside the new `OccupancyByMonthChart` component — zero overlap with `Analytics.tsx` scope.
-- In `Analytics.tsx` we add only one new identifier: the imported `OccupancyByMonthChart` component name; no existing import collides.
+- New identifiers in component scope: `showRevenue`, `setShowRevenue`, `REVENUE_COLOR`, `formatCurrencyShort`, `formatCurrencyFull`, `revenue`, `nightsInMonth`, `totalNights`, `totalPrice`, `commission`, `netForReservation`. All net-new — none clash with existing names in the file.
+- `MonthBucket` extended with one new field (`netRevenue`) — interface modified, not redeclared.
+- `<YAxis>` now has `yAxisId="occupancy"` — same component, just keyed; no duplicate declaration.

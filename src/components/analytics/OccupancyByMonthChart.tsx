@@ -1,5 +1,7 @@
 import { useEffect, useState } from 'react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
+import { Switch } from '@/components/ui/switch';
+import { Label } from '@/components/ui/label';
 import { supabase } from '@/integrations/supabase/client';
 import { withPropertyFilter } from '@/hooks/usePropertyFilter';
 import {
@@ -21,6 +23,7 @@ import {
   Tooltip,
   ResponsiveContainer,
   LabelList,
+  Legend,
 } from 'recharts';
 
 interface Props {
@@ -37,12 +40,24 @@ interface MonthBucket {
   occupiedNights: number;
   availableNights: number;
   occupancy: number;
+  netRevenue: number;
 }
+
+const REVENUE_COLOR = 'hsl(142 71% 45%)'; // emerald — visually distinct from primary blue
+
+const formatCurrencyShort = (v: number): string => {
+  if (v >= 1000) return `$${(v / 1000).toFixed(v >= 10000 ? 0 : 1)}k`;
+  return `$${Math.round(v).toLocaleString()}`;
+};
+
+const formatCurrencyFull = (v: number): string =>
+  `$${Math.round(v).toLocaleString()}`;
 
 export const OccupancyByMonthChart = ({ propertyId }: Props) => {
   const [data, setData] = useState<MonthBucket[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(false);
+  const [showRevenue, setShowRevenue] = useState(false);
 
   useEffect(() => {
     if (!propertyId) return;
@@ -67,6 +82,7 @@ export const OccupancyByMonthChart = ({ propertyId }: Props) => {
             occupiedNights: 0,
             availableNights: 0,
             occupancy: 0,
+            netRevenue: 0,
           };
         });
 
@@ -82,11 +98,12 @@ export const OccupancyByMonthChart = ({ propertyId }: Props) => {
         const totalUnits = units?.length || 0;
         const unitIdSet = new Set((units || []).map((u: any) => u.id));
 
-        // Same reservation filter as the KPI card (excludes cancelled)
+        // Same reservation filter as the KPI card (excludes cancelled).
+        // Net Revenue = total_price - commission_amount (Analytics.tsx line 283)
         const { data: reservations, error: resErr } = await withPropertyFilter(
           supabase
             .from('reservations')
-            .select('check_in_date, check_out_date, nights, unit_id')
+            .select('check_in_date, check_out_date, nights, unit_id, total_price, commission_amount')
             .in('status', ['confirmed', 'checked-in', 'checked-out', 'completed'])
             .is('cancelled_at', null)
             .lte('check_in_date', windowEnd)
@@ -111,6 +128,7 @@ export const OccupancyByMonthChart = ({ propertyId }: Props) => {
           const start = startOfDay(m.monthStart);
           const end = startOfDay(m.monthEnd); // inclusive last day
           let occupied = 0;
+          let revenue = 0;
           reservations?.forEach((r: any) => {
             if (!r.unit_id || !unitIdSet.has(r.unit_id)) return;
             const checkIn = startOfDay(new Date(r.check_in_date));
@@ -118,10 +136,21 @@ export const OccupancyByMonthChart = ({ propertyId }: Props) => {
             const overlapStart = checkIn > start ? checkIn : start;
             const overlapEnd = checkOut <= end ? checkOut : addDays(end, 1);
             if (overlapStart < overlapEnd) {
-              occupied += differenceInDays(overlapEnd, overlapStart);
+              const nightsInMonth = differenceInDays(overlapEnd, overlapStart);
+              occupied += nightsInMonth;
+
+              // Prorate net revenue by share of total reservation nights in this month
+              const totalNights = differenceInDays(checkOut, checkIn);
+              if (totalNights > 0) {
+                const totalPrice = Number(r.total_price) || 0;
+                const commission = Number(r.commission_amount) || 0;
+                const netForReservation = totalPrice - commission;
+                revenue += netForReservation * (nightsInMonth / totalNights);
+              }
             }
           });
           m.occupiedNights = occupied;
+          m.netRevenue = Math.round(revenue);
 
           const monthStartStr = format(m.monthStart, 'yyyy-MM-dd');
           const monthEndStr = format(m.monthEnd, 'yyyy-MM-dd');
@@ -157,8 +186,21 @@ export const OccupancyByMonthChart = ({ propertyId }: Props) => {
 
   return (
     <Card>
-      <CardHeader>
+      <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
         <CardTitle>Occupancy by Month</CardTitle>
+        <div className="flex items-center gap-2">
+          <Label
+            htmlFor="show-revenue-toggle"
+            className="text-sm font-normal text-muted-foreground cursor-pointer"
+          >
+            Show Revenue
+          </Label>
+          <Switch
+            id="show-revenue-toggle"
+            checked={showRevenue}
+            onCheckedChange={setShowRevenue}
+          />
+        </div>
       </CardHeader>
       <CardContent>
         {loading ? (
@@ -174,7 +216,20 @@ export const OccupancyByMonthChart = ({ propertyId }: Props) => {
             <BarChart data={data} margin={{ top: 24, right: 12, left: 0, bottom: 4 }}>
               <CartesianGrid strokeDasharray="3 3" vertical={false} />
               <XAxis dataKey="label" tick={{ fontSize: 12 }} />
-              <YAxis unit="%" domain={[0, 100]} tick={{ fontSize: 12 }} />
+              <YAxis
+                yAxisId="occupancy"
+                unit="%"
+                domain={[0, 100]}
+                tick={{ fontSize: 12 }}
+              />
+              {showRevenue && (
+                <YAxis
+                  yAxisId="revenue"
+                  orientation="right"
+                  tick={{ fontSize: 12, fill: REVENUE_COLOR }}
+                  tickFormatter={(v: number) => formatCurrencyShort(v)}
+                />
+              )}
               <Tooltip
                 cursor={{ fill: 'hsl(var(--muted))' }}
                 content={({ active, payload }) => {
@@ -187,11 +242,34 @@ export const OccupancyByMonthChart = ({ propertyId }: Props) => {
                       <div className="text-muted-foreground">
                         {m.occupiedNights} / {m.availableNights} nights
                       </div>
+                      {showRevenue && (
+                        <div
+                          className="mt-1 pt-1 border-t"
+                          style={{ color: REVENUE_COLOR }}
+                        >
+                          Net Revenue: {formatCurrencyFull(m.netRevenue)}
+                        </div>
+                      )}
                     </div>
                   );
                 }}
               />
-              <Bar dataKey="occupancy" fill="hsl(var(--primary))" radius={[4, 4, 0, 0]}>
+              {showRevenue && (
+                <Legend
+                  wrapperStyle={{ fontSize: 12 }}
+                  iconType="square"
+                  formatter={(value) =>
+                    value === 'occupancy' ? 'Occupancy' : 'Net Revenue'
+                  }
+                />
+              )}
+              <Bar
+                yAxisId="occupancy"
+                dataKey="occupancy"
+                fill="hsl(var(--primary))"
+                radius={[4, 4, 0, 0]}
+                name="occupancy"
+              >
                 <LabelList
                   dataKey="occupancy"
                   position="top"
@@ -199,6 +277,22 @@ export const OccupancyByMonthChart = ({ propertyId }: Props) => {
                   style={{ fontSize: 11, fill: 'hsl(var(--foreground))' }}
                 />
               </Bar>
+              {showRevenue && (
+                <Bar
+                  yAxisId="revenue"
+                  dataKey="netRevenue"
+                  fill={REVENUE_COLOR}
+                  radius={[4, 4, 0, 0]}
+                  name="netRevenue"
+                >
+                  <LabelList
+                    dataKey="netRevenue"
+                    position="top"
+                    formatter={(v: number) => formatCurrencyFull(v)}
+                    style={{ fontSize: 11, fill: REVENUE_COLOR }}
+                  />
+                </Bar>
+              )}
             </BarChart>
           </ResponsiveContainer>
         )}
