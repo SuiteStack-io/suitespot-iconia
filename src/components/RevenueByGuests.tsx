@@ -5,6 +5,7 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@
 import { supabase } from '@/integrations/supabase/client';
 import { format } from 'date-fns';
 import { DateRange } from 'react-day-picker';
+import { usePropertyId, withPropertyFilter } from '@/hooks/usePropertyFilter';
 
 interface GuestRevenue {
   id: string;
