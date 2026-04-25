@@ -1,6 +1,11 @@
 import { useState } from 'react';
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/lib/auth';
+import { addDays, format, parseISO } from 'date-fns';
+import {
+  calculateAvailabilityRanges,
+  getRoomTypePrimaryUnitId,
+} from '@/lib/availability-calculator';
 
 interface UseLateCheckoutParams {
   reservationId: string;
@@ -17,6 +22,52 @@ interface FeeOptions {
   fullReservation?: any;
   currentUserName?: string;
   bookingReference?: string;
+}
+
+/**
+ * Push the new availability for the affected room type + date to Channex.
+ * Non-blocking: logs and swallows errors so late-checkout flow never fails
+ * because of a sync hiccup.
+ */
+async function pushChannexAvailabilityForUnit(unitId: string, checkoutDate: string) {
+  try {
+    const { data: unit } = await supabase
+      .from('units')
+      .select('booking_com_name, property_id')
+      .eq('id', unitId)
+      .maybeSingle();
+
+    if (!unit?.booking_com_name || !unit.property_id) return;
+
+    const exclusiveTo = format(addDays(parseISO(checkoutDate), 1), 'yyyy-MM-dd');
+    const ranges = await calculateAvailabilityRanges(
+      unit.booking_com_name,
+      checkoutDate,
+      exclusiveTo,
+      unit.property_id,
+    );
+    if (ranges.length === 0) return;
+
+    const primaryUnitId = await getRoomTypePrimaryUnitId(
+      unit.booking_com_name,
+      unit.property_id,
+    );
+    if (!primaryUnitId) return;
+
+    const updates = ranges.map((r) => ({
+      property_id: unit.property_id,
+      room_type_id: primaryUnitId,
+      date_from: r.date_from,
+      date_to: r.date_to,
+      availability: r.availability,
+    }));
+
+    await supabase.functions.invoke('channex-push-availability', {
+      body: { updates },
+    });
+  } catch (e) {
+    console.error('Failed to sync availability to Channex after late-checkout change:', e);
+  }
 }
 
 export const useLateCheckout = ({
@@ -121,6 +172,9 @@ export const useLateCheckout = ({
         }
       }
 
+      // Push updated availability to Channex (replaces dropped DB trigger)
+      await pushChannexAvailabilityForUnit(unitId, checkoutDate);
+
       return { success: true };
     } catch (err: any) {
       return { success: false, error: err.message || 'Failed to apply late checkout' };
@@ -150,6 +204,9 @@ export const useLateCheckout = ({
         .eq('id', reservationId);
 
       if (updateError) throw updateError;
+
+      // Push updated availability to Channex (replaces dropped DB trigger)
+      await pushChannexAvailabilityForUnit(unitId, checkoutDate);
 
       return { success: true };
     } catch (err: any) {
