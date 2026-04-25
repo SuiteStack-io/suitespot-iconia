@@ -346,7 +346,10 @@ export const MoveGuestSplitDialog = ({
         source: fullReservation.source,
         channel: fullReservation.channel,
         booking_reference: fullReservation.booking_reference,
-        channex_booking_id: fullReservation.channex_booking_id,
+        // NOTE: channex_booking_id is intentionally NOT copied. The reservations
+        // table has a UNIQUE index (idx_reservations_channex_booking_id), and
+        // this split row is a new internal PMS reservation that the OTA is
+        // unaware of — it must remain NULL.
         group_id: fullReservation.group_id,
         parent_reservation_id: reservation.id,
         is_split_reservation: true,
