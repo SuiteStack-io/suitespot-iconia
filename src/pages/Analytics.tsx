@@ -274,24 +274,25 @@ const Analytics = () => {
     const { startDate, endDate } = getDateRange();
     
     // Fetch revenue stats
-    const { data: revenueData } = await withPropertyFilter(supabase
+    const { data: revenueData } = await withPropertyFilter(applyRevenueDateFilter(supabase
       .from('reservations')
-      .select('total_price, net_revenue, commission_amount, channel, source')
+      .select('total_price, net_revenue, commission_amount, channel, source, check_in_date, check_out_date')
       .neq('status', 'Cancelled')
-      .is('cancelled_at', null)
-      .gte('check_in_date', startDate)
-      .lte('check_in_date', endDate), propertyId);
+      .is('cancelled_at', null), method, startDate, endDate), propertyId);
 
-    const totalRevenue = revenueData?.reduce((sum, r) => sum + (r.total_price || 0), 0) || 0;
-    const netRevenue = revenueData?.reduce((sum, r) => sum + ((r.total_price || 0) - (r.commission_amount || 0)), 0) || 0;
-    const totalCommission = revenueData?.reduce((sum, r) => sum + (r.commission_amount || 0), 0) || 0;
+    const factorFor = (r: any) =>
+      method === 'prorata' ? prorateFactor(r.check_in_date, r.check_out_date, startDate, endDate) : 1;
+
+    const totalRevenue = revenueData?.reduce((sum, r) => sum + ((r.total_price || 0) * factorFor(r)), 0) || 0;
+    const netRevenue = revenueData?.reduce((sum, r) => sum + (((r.total_price || 0) - (r.commission_amount || 0)) * factorFor(r)), 0) || 0;
+    const totalCommission = revenueData?.reduce((sum, r) => sum + ((r.commission_amount || 0) * factorFor(r)), 0) || 0;
 
     const bookingComCommissionAmount = revenueData
       ?.filter(r => r.source?.toLowerCase().includes('booking.com'))
-      .reduce((sum, r) => sum + (r.commission_amount || 0), 0) || 0;
+      .reduce((sum, r) => sum + ((r.commission_amount || 0) * factorFor(r)), 0) || 0;
     const directCommissionAmount = revenueData
       ?.filter(r => !r.source?.toLowerCase().includes('booking.com'))
-      .reduce((sum, r) => sum + (r.commission_amount || 0), 0) || 0;
+      .reduce((sum, r) => sum + ((r.commission_amount || 0) * factorFor(r)), 0) || 0;
 
     setRevenueStats({ totalRevenue, netRevenue, totalCommission });
     setDirectCommission(directCommissionAmount);
