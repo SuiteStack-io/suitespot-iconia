@@ -54,14 +54,18 @@ export const RevenueByNationality = ({ mainDateRange }: RevenueByNationalityProp
   };
 
   const fetchNationalityRevenues = async () => {
-    if (!dateRange?.from || !dateRange?.to) return;
+    if (!mainDateRange?.from || !mainDateRange?.to) return;
 
-    const { data, error } = await supabase
-      .from('reservations')
-      .select('guest_nationality, nights, price_per_night, total_price, vat_exempt, source, payment_method')
-      .gte('check_in_date', format(dateRange.from, 'yyyy-MM-dd'))
-      .lte('check_in_date', format(dateRange.to, 'yyyy-MM-dd'))
-      .in('status', ['confirmed', 'checked-in', 'checked-out', 'completed']);
+    const { data, error } = await withPropertyFilter(
+      supabase
+        .from('reservations')
+        .select('guest_nationality, nights, price_per_night, total_price, vat_exempt, source, payment_method')
+        .gte('check_in_date', format(mainDateRange.from, 'yyyy-MM-dd'))
+        .lte('check_in_date', format(mainDateRange.to, 'yyyy-MM-dd'))
+        .in('status', ['confirmed', 'checked-in', 'checked-out', 'completed'])
+        .is('cancelled_at', null),
+      propertyId,
+    );
 
     if (error) {
       console.error('Error fetching nationality revenues:', error);
