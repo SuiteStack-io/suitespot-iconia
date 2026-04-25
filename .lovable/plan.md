@@ -1,40 +1,59 @@
 ## Goal
 
-Fix the "Move Guest to New Room" failure. The split-reservation insert violates `idx_reservations_channex_booking_id` because it copies `channex_booking_id` from the parent OTA reservation, but that column has a UNIQUE index — only one PMS row can ever hold a given Channex booking ID.
+Rename and restyle the two action buttons at the bottom of the Reservation Quick Actions modal so the labels are short, never overflow, and the layout works on mobile.
 
-## Root cause confirmed
+## File
 
-`src/components/MoveGuestSplitDialog.tsx` line 349 inside the `insertPayload` object:
+`src/components/ReservationQuickActions.tsx` — only lines 1712–1732 (the `{/* Swap Room + Move Guest Buttons */}` block). No other files, handlers, or logic change.
 
-```ts
-channex_booking_id: fullReservation.channex_booking_id,
+## Changes
+
+### Button labels
+- "Swap Rooms with Another Reservation" → **Exchange Room**
+- "Move Guest to New Room" → **Reassign Room**
+
+### Icon position
+- Move the icon to AFTER the text on both buttons (currently it's before, with `mr-2`).
+- Use `gap-2` on the button (Button component already supports `gap-2` via base classes, but we'll add `gap-2` explicitly for clarity) and switch the icon class from `mr-2` to `ml-2` if needed — actually since we'll rely on flex `gap-2` and reorder children, drop the margin utilities entirely.
+
+### Overflow protection
+Add to both buttons:
+- `whitespace-nowrap overflow-hidden text-ellipsis`
+- `px-4` for horizontal breathing room
+- `min-h-11` (44px tap target on mobile) — or `h-11` to match Button `default` size (already 40px; bump to `h-11`)
+
+### Responsive layout
+The wrapper is already `grid grid-cols-1 sm:grid-cols-2 gap-2 pt-2 border-t` — keep as-is. Each button stays `w-full`.
+
+### Final markup (replacement for lines 1712–1732)
+
+```tsx
+<div className="pt-2 border-t grid grid-cols-1 sm:grid-cols-2 gap-2">
+  <Button
+    variant="outline"
+    className="w-full h-11 px-4 gap-2 whitespace-nowrap overflow-hidden text-ellipsis"
+    onClick={() => setSwapDialogOpen(true)}
+  >
+    Exchange Room
+    <ArrowLeftRight className="h-4 w-4" />
+  </Button>
+  {(reservation.status === "checked-in" ||
+    reservation.status === "confirmed") && (
+    <Button
+      variant="outline"
+      className="w-full h-11 px-4 gap-2 whitespace-nowrap overflow-hidden text-ellipsis"
+      onClick={() => setSplitDialogOpen(true)}
+    >
+      Reassign Room
+      <ArrowRight className="h-4 w-4" />
+    </Button>
+  )}
+</div>
 ```
 
-When the original reservation is an OTA booking (Booking.com etc.), this field is non-null, so the insert collides with the parent row's existing value on the unique index.
+## Out of scope (unchanged)
 
-## Change
-
-Single edit, single file.
-
-**`src/components/MoveGuestSplitDialog.tsx`** — `handleConfirm` → `insertPayload` (lines 323–354):
-
-- Remove the `channex_booking_id: fullReservation.channex_booking_id,` line entirely so the new split row defaults to `NULL`.
-- Add a short comment explaining why it's omitted (so a future contributor doesn't re-add it).
-- Keep `booking_reference: fullReservation.booking_reference` unchanged — that column is not unique-constrained and is needed for display/linking.
-- Every other field in the payload (status, source, channel, group_id, parent_reservation_id, is_split_reservation, pricing, etc.) stays untouched.
-
-That's it.
-
-## Out of scope / unchanged
-
-- The unique index `idx_reservations_channex_booking_id` (correct as-is).
-- The original reservation row — its `channex_booking_id` is not modified.
-- Any other component, dialog, or insert path.
-- Channex sync logic — the new split row simply isn't reported back to the OTA, which is the intended behaviour for an internal room move.
-
-## Acceptance criteria
-
-1. Move Guest to New Room on an OTA reservation (with non-null `channex_booking_id`) → insert succeeds, no unique-constraint error.
-2. Move Guest to New Room on a direct/manual reservation (null `channex_booking_id`) → still works.
-3. Original reservation keeps its `channex_booking_id` and continues to sync via Channex.
-4. New split row has `channex_booking_id = NULL` and `parent_reservation_id` pointing at the original.
+- `handleViewDetails`, `handleMoveReservation`, `setSwapDialogOpen`, `setSplitDialogOpen` handlers
+- View Details / Move Room row above
+- Move-to-Room dropdown, Update Status buttons, Extend Stay mode, modal header, guest info card
+- Any other component or file

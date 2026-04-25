@@ -1708,25 +1708,25 @@ export const ReservationQuickActions = ({
                 </Button>
               </div>
 
-              {/* Swap Room + Move Guest Buttons */}
+              {/* Exchange / Reassign Room Buttons */}
               <div className="pt-2 border-t grid grid-cols-1 sm:grid-cols-2 gap-2">
                 <Button
                   variant="outline"
-                  className="w-full"
+                  className="w-full h-11 px-4 gap-2 whitespace-nowrap overflow-hidden text-ellipsis"
                   onClick={() => setSwapDialogOpen(true)}
                 >
-                  <ArrowLeftRight className="h-4 w-4 mr-2" />
-                  Swap Rooms with Another Reservation
+                  Exchange Room
+                  <ArrowLeftRight className="h-4 w-4" />
                 </Button>
                 {(reservation.status === "checked-in" ||
                   reservation.status === "confirmed") && (
                   <Button
                     variant="outline"
-                    className="w-full"
+                    className="w-full h-11 px-4 gap-2 whitespace-nowrap overflow-hidden text-ellipsis"
                     onClick={() => setSplitDialogOpen(true)}
                   >
-                    <ArrowRight className="h-4 w-4 mr-2" />
-                    Move Guest to New Room
+                    Reassign Room
+                    <ArrowRight className="h-4 w-4" />
                   </Button>
                 )}
               </div>
