@@ -13,7 +13,6 @@ interface UseLateCheckoutParams {
   unitName: string;
   checkoutDate: string;
   vatRate?: number;
-  commissionRate?: number;
 }
 
 interface FeeOptions {
