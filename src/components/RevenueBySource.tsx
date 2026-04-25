@@ -28,6 +28,7 @@ import * as XLSX from 'xlsx';
 import { toast } from 'sonner';
 import { format } from 'date-fns';
 import { DateRange } from 'react-day-picker';
+import { usePropertyId, withPropertyFilter } from '@/hooks/usePropertyFilter';
 
 interface RevenueBySourceProps {
   mainDateRange?: DateRange;

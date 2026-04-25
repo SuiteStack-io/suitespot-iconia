@@ -1,123 +1,116 @@
-## Add "Show Revenue" toggle to Occupancy by Month chart
+## Make the 4 bottom tables on Analytics respect the date range pills
 
-Add a `Switch` toggle in the card header. When ON, the chart renders a second green Net Revenue bar grouped beside the blue Occupancy bar per month, with its own right-side y-axis. When OFF, the chart looks pixel-identical to today.
+### Problem (verified by reading each file)
 
-### 1. File
+`Analytics.tsx` already computes `{ startDate, endDate }` from the active pill / Custom Range and passes it to each of the four tables as `mainDateRange={{ from: new Date(startDate), to: new Date(endDate) }}` (lines 1168–1173). The bug is inside the four child components:
 
-Single file: `src/components/analytics/OccupancyByMonthChart.tsx`. No changes to `Analytics.tsx` or any other file.
+| Component | Current behavior | Bug |
+|---|---|---|
+| `RevenueBySource` | `useEffect(() => fetch(), [])` and the fetch query has **no date filter, no property filter** | Ignores date range completely. Queries entire reservations table all-time, all properties. |
+| `RevenueByRoom` | Re-fetches on date change, but query uses `gte('check_in_date', start) AND lte('check_out_date', end)` | This is containment (reservation must START on/after `start` AND END on/before `end`) — drops every reservation that straddles either boundary. Differs from KPI cards. |
+| `RevenueByGuests` | Same containment bug as RevenueByRoom + no property filter | Wrong window + cross-property leakage |
+| `RevenueByNationality` | Uses `check_in_date BETWEEN start AND end` (matches KPI pattern), but no property filter | Cross-property leakage |
 
-### 2. Toggle UI
+### Source of truth — the KPI pattern to copy verbatim
 
-Add `Switch` (from `@/components/ui/switch`) + `Label` (from `@/components/ui/label`) to `CardHeader`:
+User said: *"if KPIs don't prorate, match THAT — consistency with KPI cards is more important than proration."*
 
-```tsx
-<CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-  <CardTitle>Occupancy by Month</CardTitle>
-  <div className="flex items-center gap-2">
-    <Label htmlFor="show-revenue-toggle" className="text-sm font-normal text-muted-foreground cursor-pointer">
-      Show Revenue
-    </Label>
-    <Switch id="show-revenue-toggle" checked={showRevenue} onCheckedChange={setShowRevenue} />
-  </div>
-</CardHeader>
-```
-
-Local state only: `const [showRevenue, setShowRevenue] = useState(false);` — default OFF, no persistence.
-
-### 3. Net revenue calculation (single fetch, prorated)
-
-Source of truth: `src/pages/Analytics.tsx` line 283 — `netRevenue = total_price - commission_amount`. Column name confirmed via DB introspection: `commission_amount` (the prompt's `ota_commission` does not exist).
-
-Extend the EXISTING `.select()` (line 89) to include the two new columns — no second query:
+Inspected `Analytics.tsx`. Almost every KPI fetch (lines 277–281, 301–305, 312–316, 396–400, 459–463, 510–513, 537–540, 561–565, 652–656, 690–694, 730–733) uses the exact same five-line pattern:
 
 ```ts
-.select('check_in_date, check_out_date, nights, unit_id, total_price, commission_amount')
+await withPropertyFilter(
+  supabase
+    .from('reservations')
+    .select(...)
+    .neq('status', 'Cancelled')        // status filter
+    .is('cancelled_at', null)           // cancellation exclusion
+    .gte('check_in_date', startDate)    // window start
+    .lte('check_in_date', endDate),     // window end (check_in only, NOT overlap)
+  propertyId,
+);
 ```
 
-Add `netRevenue: number` to the `MonthBucket` interface and initialize to `0`.
+The only KPI that uses an overlap pattern is the Occupancy nights calc (lines 346–350), and only because it needs to count partial nights. **Every revenue/booking KPI uses the simple `check_in_date BETWEEN start AND end` pattern.** The four tables must use that pattern too.
 
-Inside the existing per-month loop (line 110), accumulate prorated revenue using the same overlap calculation:
+**No proration.** A reservation either falls in the window (check-in inside `[start, end]`) and counts at full revenue, or it does not count at all. This matches every revenue KPI on the page.
 
-```ts
-let revenue = 0;
-reservations?.forEach((r: any) => {
-  // ...existing overlap logic...
-  if (overlapStart < overlapEnd) {
-    const nightsInMonth = differenceInDays(overlapEnd, overlapStart);
-    occupied += nightsInMonth;
+### Fixes per file
 
-    // Prorate net revenue by share of total nights in this month
-    const totalNights = differenceInDays(checkOut, checkIn);
-    if (totalNights > 0) {
-      const totalPrice = Number(r.total_price) || 0;
-      const commission = Number(r.commission_amount) || 0;
-      const netForReservation = totalPrice - commission;
-      revenue += netForReservation * (nightsInMonth / totalNights);
-    }
-  }
-});
-m.netRevenue = Math.round(revenue);
-```
+#### 1. `src/components/RevenueBySource.tsx`
 
-Same status filter / `cancelled_at IS NULL` is already in place, so cancelled reservations are excluded by construction. `commission_amount` null → coerced to 0 via `Number(...) || 0`, matching existing KPI behavior.
+- Add `import { usePropertyId, withPropertyFilter } from '@/hooks/usePropertyFilter'`.
+- Inside the component: `const propertyId = usePropertyId();`.
+- Replace the `useEffect(() => { fetchRevenueBySource(); ... }, [])` so the dep array is `[mainDateRange?.from?.getTime(), mainDateRange?.to?.getTime(), propertyId]`. Keep the realtime channel subscription inside the same effect.
+- Inside `fetchRevenueBySource`: early-return if `!mainDateRange?.from || !mainDateRange?.to`. Compute `startDate = format(mainDateRange.from, 'yyyy-MM-dd')`, `endDate = format(mainDateRange.to, 'yyyy-MM-dd')`. Wrap the query in `withPropertyFilter(..., propertyId)` and add the four KPI filters:
+  ```ts
+  .neq('status', 'Cancelled')
+  .is('cancelled_at', null)
+  .gte('check_in_date', startDate)
+  .lte('check_in_date', endDate)
+  ```
+- No other logic changes — aggregation, commission rates, modal, export, expand/collapse all stay.
 
-### 4. Chart rendering — grouped bars when toggle ON
+#### 2. `src/components/RevenueByRoom.tsx`
 
-Add `yAxisId` to the existing occupancy bar/axis. Conditionally render a right-side y-axis and a second `<Bar>` when `showRevenue` is true:
+Already imports `usePropertyId` and `withPropertyFilter` and already uses them. Only the date filter is wrong.
 
-```tsx
-<YAxis yAxisId="occupancy" unit="%" domain={[0, 100]} tick={{ fontSize: 12 }} />
-{showRevenue && (
-  <YAxis
-    yAxisId="revenue"
-    orientation="right"
-    tick={{ fontSize: 12, fill: REVENUE_COLOR }}
-    tickFormatter={(v: number) => formatCurrencyShort(v)}
-  />
-)}
+- In `fetchRevenueByRoom` (line 174–180), change `.lte('check_out_date', endDate)` → `.lte('check_in_date', endDate)`. The full filter becomes the KPI pattern:
+  ```ts
+  .neq('status', 'Cancelled')
+  .is('cancelled_at', null)
+  .gte('check_in_date', startDate)
+  .lte('check_in_date', endDate)
+  ```
+- Remove the local `dateRange` `useState` + sync `useEffect` (lines 47–62). Drive everything directly off `mainDateRange` and add it to the fetch effect's deps as `[mainDateRange?.from?.getTime(), mainDateRange?.to?.getTime(), propertyId]`. (The local-state indirection adds nothing now that the page is the single source of truth and creates a one-render lag.)
+- Replace `dateRange?.from`/`dateRange?.to` references inside `fetchRevenueByRoom` with `mainDateRange?.from`/`mainDateRange?.to`.
+- Keep `daysDiff` calculation and per-room occupancy formula as-is.
 
-<Bar yAxisId="occupancy" dataKey="occupancy" fill="hsl(var(--primary))" radius={[4,4,0,0]} name="occupancy">
-  <LabelList dataKey="occupancy" position="top" formatter={(v) => `${v.toFixed(1)}%`} ... />
-</Bar>
+#### 3. `src/components/RevenueByGuests.tsx`
 
-{showRevenue && (
-  <Bar yAxisId="revenue" dataKey="netRevenue" fill={REVENUE_COLOR} radius={[4,4,0,0]} name="netRevenue">
-    <LabelList dataKey="netRevenue" position="top" formatter={(v) => formatCurrencyFull(v)} ... />
-  </Bar>
-)}
-```
+- Add `import { usePropertyId, withPropertyFilter } from '@/hooks/usePropertyFilter'` and `const propertyId = usePropertyId();`.
+- Remove the local `dateRange` `useState` + sync `useEffect` (lines 29–44). Drive directly off `mainDateRange`.
+- In `fetchGuestRevenues`: wrap query in `withPropertyFilter(..., propertyId)` and switch the date filter to the KPI pattern:
+  ```ts
+  .neq('status', 'Cancelled')
+  .is('cancelled_at', null)
+  .gte('check_in_date', startDate)
+  .lte('check_in_date', endDate)
+  ```
+  (was `.gte('check_in_date', start) .lte('check_out_date', end)` — wrong)
+- Update fetch effect deps to `[mainDateRange?.from?.getTime(), mainDateRange?.to?.getTime(), propertyId]`.
 
-Recharts auto-groups two `<Bar>` elements side-by-side per category — no extra config needed. Each month gets a blue Occupancy bar (% label on top) and a green Net Revenue bar (e.g. `$30,100` label on top).
+#### 4. `src/components/RevenueByNationality.tsx`
 
-Add a `<Legend>` only when `showRevenue` is true so users can distinguish the two series.
+Date filter already matches the KPI pattern (`check_in_date BETWEEN`). Only missing piece is property scoping.
 
-### 5. Color
+- Add `import { usePropertyId, withPropertyFilter } from '@/hooks/usePropertyFilter'` and `const propertyId = usePropertyId();`.
+- Wrap the query in `withPropertyFilter(..., propertyId)`.
+- Remove the local `dateRange` `useState` + sync `useEffect` (lines 32–51). Drive directly off `mainDateRange`. (Note the existing fallback default `new Date(2024, 10, 1)` is unreachable in practice because `Analytics.tsx` always passes a range, but removing the indirection avoids the one-render lag.)
+- Add `.is('cancelled_at', null)` to match KPI exclusion (currently uses only `.in('status', [...])` — the KPIs combine BOTH `.neq('status', 'Cancelled')` and `.is('cancelled_at', null)`). To preserve this component's existing positive-status filter, keep `.in('status', ['confirmed', 'checked-in', 'checked-out', 'completed'])` and just add `.is('cancelled_at', null)`. This is strictly stricter — cancelled rows already absent from the status whitelist, so the new filter is a no-op for correctness but matches KPI intent verbatim.
+- Update fetch effect deps to `[mainDateRange?.from?.getTime(), mainDateRange?.to?.getTime(), propertyId]`.
+- Leave VAT-divisor logic, sources/payments aggregation, sorting, and rendering untouched.
 
-`REVENUE_COLOR = 'hsl(142 71% 45%)'` (emerald-600 equivalent) — distinct from the primary blue used for occupancy. The page does not currently use a token for "revenue green"; this is a one-off chart-series color defined as a constant inside the component (same pattern as CancellationAnalytics line 317 using `#ef4444` for its red bar).
+#### 5. `src/pages/Analytics.tsx` — no logic changes
 
-### 6. Tooltip & label formatters
+The page already computes `{ startDate, endDate }` once at line 876 from `getDateRange()` and passes the same range to all four tables (lines 1168–1173). No changes needed in the page itself; the bug was entirely inside the children.
 
-Two formatter helpers inside the file:
+### Out of scope (not touched)
 
-```ts
-const formatCurrencyShort = (v: number) =>
-  v >= 1000 ? `$${(v / 1000).toFixed(v >= 10000 ? 0 : 1)}k` : `$${Math.round(v).toLocaleString()}`;
-const formatCurrencyFull = (v: number) => `$${Math.round(v).toLocaleString()}`;
-```
+- KPI cards, ADR/RevPAR row, Revenue Share slider, Save button, pills, Custom Range picker, Export button, Occupancy by Month chart, Cancellation Analytics, all dialogs, all sort/expand/UI behavior of the four tables.
 
-- Right y-axis ticks: short form (`$50k`, `$5.2k`).
-- Bar-top labels: full form (`$30,100`).
-- Tooltip extended to include a Net Revenue line in green when toggle is ON; unchanged when OFF.
+### Verification (post-implementation, manual eyeball)
 
-### 7. What stays unchanged
+After the fix, with the same pill selected:
 
-- Existing occupancy fetch logic, filters, overlap math, blocked-dates handling — untouched.
-- When toggle is OFF: no right axis, no second bar, no legend → chart is pixel-identical to current behavior.
-- No DB changes, no `Analytics.tsx` changes, no other components affected.
-- No persistence of toggle state.
+- Sum of `Bookings` column in `Revenue by Source` should equal the `Total Bookings` KPI card.
+- Sum of `Net Revenue` column in `Revenue by Source` should equal the Net Revenue KPI card.
+- Sum of `Revenue` (net) column in `Revenue by Room` should equal the Net Revenue KPI card (within rounding).
+- Switching pills (7 Days → Mar → YTD → Custom) re-fetches all four tables in one coordinated update.
 
 ### Variable-collision check
 
-- New identifiers in component scope: `showRevenue`, `setShowRevenue`, `REVENUE_COLOR`, `formatCurrencyShort`, `formatCurrencyFull`, `revenue`, `nightsInMonth`, `totalNights`, `totalPrice`, `commission`, `netForReservation`. All net-new — none clash with existing names in the file.
-- `MonthBucket` extended with one new field (`netRevenue`) — interface modified, not redeclared.
-- `<YAxis>` now has `yAxisId="occupancy"` — same component, just keyed; no duplicate declaration.
+- `RevenueBySource`: new identifiers `propertyId`, `startDate`, `endDate`. None clash with existing names.
+- `RevenueByRoom`: removing `dateRange` state + setter; existing `startDate`/`endDate` locals inside `fetchRevenueByRoom` still single-declared (just sourced from `mainDateRange` now).
+- `RevenueByGuests`: removing `dateRange`/`setDateRange`. New `propertyId`. No clash.
+- `RevenueByNationality`: removing `dateRange`/`setDateRange`. New `propertyId`. No clash.
+- All `useEffect` dep arrays updated in place — no duplicate effects added.
