@@ -2102,26 +2102,18 @@ export const AvailabilityCalendar = () => {
 
                   return (
                     <div key={unit.id}>
-                      {/* Room type separator - with sticky first cell */}
+                      {/* Room type separator - full-width, sticky pill on the left */}
                       {showSeparator && (
-                        <div 
-                          className="grid gap-1 mb-1 bg-muted/50 border-y border-border"
-                          style={{ gridTemplateColumns: `${isMobile ? 64 : 160}px repeat(${displayDays.length}, 70px)` }}
-                        >
-                          {/* Sticky first cell with separator content */}
-                          <div className="flex items-center gap-2 py-2 px-2 sticky left-0 z-10 bg-muted/50">
+                        <div className="grid grid-cols-1 mb-1 border-y border-border">
+                          <div className="flex items-center gap-2 py-2 px-2 sticky left-0 z-20 bg-muted w-fit max-w-full">
                             <Building2 className="h-4 w-4 text-muted-foreground" />
-                            <span className="text-sm font-semibold text-muted-foreground truncate">
+                            <span className="text-sm font-semibold text-muted-foreground whitespace-nowrap">
                               {currentRoomType}
                             </span>
                             <span className="text-xs text-muted-foreground whitespace-nowrap">
                               ({roomTypeCount})
                             </span>
                           </div>
-                          {/* Empty cells for the rest of the grid */}
-                          {displayDays.map((day) => (
-                            <div key={day.toISOString()} className="py-2" />
-                          ))}
                         </div>
                       )}
                       {/* Room row */}
@@ -2132,7 +2124,7 @@ export const AvailabilityCalendar = () => {
                     >
                       <Popover>
                         <PopoverTrigger asChild>
-                          <div className="flex items-center text-sm font-medium p-2 bg-card rounded sticky left-0 z-10 border-r border-border cursor-pointer hover:bg-muted/50 transition-colors">
+                          <div className="flex items-center text-sm font-medium p-2 bg-card rounded sticky left-0 z-20 border-r border-border cursor-pointer hover:bg-muted/50 transition-colors">
                             <div>
                               <div className="hidden sm:block text-primary hover:underline">
                                 {unit.booking_com_name || unit.name}
