@@ -13,7 +13,6 @@ interface UseLateCheckoutParams {
   unitName: string;
   checkoutDate: string;
   vatRate?: number;
-  commissionRate?: number;
 }
 
 interface FeeOptions {
@@ -75,8 +74,7 @@ export const useLateCheckout = ({
   unitId,
   unitName,
   checkoutDate,
-  vatRate = 0,
-  commissionRate = 10,
+  vatRate: _vatRate = 0, // accepted for API compat; VAT breakdown is rendered in the dialog
 }: UseLateCheckoutParams) => {
   const [loading, setLoading] = useState(false);
   const { user } = useAuth();
@@ -109,9 +107,6 @@ export const useLateCheckout = ({
       if (feeOptions?.feeEnabled && feeOptions.feeAmount && feeOptions.feeAmount > 0 && feeOptions.fullReservation) {
         const fullRes = feeOptions.fullReservation;
         const feeAmt = feeOptions.feeAmount;
-        const baseAmount = feeAmt / (1 + vatRate / 100);
-        const commissionAmount = baseAmount * (commissionRate / 100);
-        const netRevenue = feeAmt - commissionAmount;
 
         const groupId = fullRes.group_id || crypto.randomUUID();
         const bookingRef = feeOptions.bookingReference || fullRes.booking_reference || 'UNKNOWN';
@@ -133,9 +128,11 @@ export const useLateCheckout = ({
           guest_nationality: fullRes.guest_nationality || null,
           total_price: feeAmt,
           price_per_night: 0,
-          commission_rate: commissionRate,
-          commission_amount: commissionAmount,
-          net_revenue: netRevenue,
+          // Late checkout is an internal property fee, not OTA-mediated revenue.
+          // No third party takes commission, so the full fee is net revenue.
+          commission_rate: 0,
+          commission_amount: 0,
+          net_revenue: feeAmt,
           group_id: groupId,
           currency: fullRes.currency || 'USD',
           notes: `Late checkout fee for booking ${bookingRef}`,

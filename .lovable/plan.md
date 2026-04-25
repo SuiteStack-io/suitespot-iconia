@@ -1,47 +1,57 @@
-# Fix: Late Checkout fee fails with `valid_dates` check constraint
+# Fix: Late checkout fee should have zero commission
 
-## Root cause confirmed
+## Why
 
-Queried Postgres directly:
+Late checkouts are an internal property fee, not OTA-mediated revenue. There is no third party owed commission, so the entire fee should be net revenue. Currently the row is created with the property default commission rate (10%) and the dialog explicitly promises "Commission (10%) will be credited to you", which is wrong.
 
-```
-CHECK ((check_out_date > check_in_date))
-```
+## Changes
 
-The `valid_dates` constraint on `public.reservations` is strict (`>`). When `useLateCheckout.applyLateCheckout` inserts a fee reservation with `check_in_date === check_out_date === checkoutDate` (intentional — it's a fee charge, not a stay), Postgres rejects the insert.
+### 1. `src/components/LateCheckoutDialog.tsx`
+- Delete only the `<p>` line: `"This creates a linked reservation. Commission (10%) will be credited to you."` (around line 222–224).
+- Keep the wrapping div, the User icon, and the "Late checkout attributed to: [name]" line.
+- Remove `const commissionRate = activeProperty?.default_commission_rate ?? 10;` (line 68).
+- Remove `commissionRate` from the `useLateCheckout({ ... })` call (line 76).
+- Leave `vatRate` and `activeProperty` alone — they are still used for the VAT breakdown.
 
-## Audit of other reservation writers
+### 2. `src/hooks/useLateCheckout.ts`
+- Remove `commissionRate?: number` from `UseLateCheckoutParams`.
+- Remove `commissionRate = 10` from the hook's destructured params.
+- In the fee-reservation block (around lines 112–144):
+  - Remove the `baseAmount` and `commissionAmount` / `netRevenue` calculations (no longer needed — VAT split lives in the dialog).
+  - Set `commission_rate: 0`, `commission_amount: 0`, `net_revenue: feeAmt` on the inserted row.
+- Verify no other reference to `commissionRate` remains in the file.
 
-Verified no other path produces same-day rows that would be silently let through by relaxing the constraint:
-
-- **CreateReservationDialog / ReservationDetail edit / extend** — UI uses date pickers and nights calculations; never produces same-day.
-- **parse-reservation-screenshot** — passes parsed `checkOutDate` from screenshots; real bookings are never same-day.
-- **channex-booking-webhook + sync-channex-to-reservations** — OTA bookings always have `arrival_date < departure_date`.
-- **auto-shuffle-rooms / room swap / MoveGuestSplitDialog** — operate on existing valid date pairs; never collapse to same-day.
-- **Late checkout fee row (useLateCheckout)** — the only intentional same-day writer. Currently broken.
-
-No path is currently relying on the strict `>` rule as a data-quality safety net. Application logic is the gatekeeper everywhere else.
-
-## Fix (Fix A only)
-
-Single migration that drops and recreates the constraint to allow `>=`:
+### 3. Database backfill migration
+Single UPDATE to fix existing late-checkout fee rows:
 
 ```sql
-ALTER TABLE public.reservations DROP CONSTRAINT IF EXISTS valid_dates;
-ALTER TABLE public.reservations ADD CONSTRAINT valid_dates CHECK (check_out_date >= check_in_date);
+UPDATE public.reservations
+SET commission_rate  = 0,
+    commission_amount = 0,
+    net_revenue      = total_price
+WHERE (notes ILIKE 'Late checkout fee for booking%' OR booking_reference ILIKE '%-LC')
+  AND (commission_rate <> 0 OR commission_amount <> 0 OR net_revenue <> total_price);
 ```
 
-This still blocks impossible past-checkout rows (`check_out_date < check_in_date`) and now permits the same-day fee row used by late checkout.
+Identifiers come straight from the existing insert in `useLateCheckout.ts` (`booking_reference: \`${bookingRef}-LC\`` and `notes: \`Late checkout fee for booking ${bookingRef}\``).
 
-## What does NOT change
+## Audit findings (analytics — no changes proposed, reporting only)
 
-- `src/hooks/useLateCheckout.ts` — no code changes.
-- `LateCheckoutDialog.tsx` — no code changes.
-- BlockedDatesManager refactor, Channex sync, MoveGuestSplitDialog — untouched.
-- Late checkout fee row keeps its same-day shape (intentional).
+Searched: `Analytics.tsx`, `Dashboard.tsx`, `Commissions.tsx`, `RevenueBySource.tsx`, `RevenueByRoom.tsx`, `RevenueByGuests.tsx`, `RevenueByNationality.tsx`, `CashSettlement.tsx`.
 
-## Verification after migration
+All commission/net-revenue math is derived from each row's stored `commission_amount` (e.g. `total_price - commission_amount` for net, `sum(commission_amount)` for totals). No file hardcodes a commission rate when aggregating. Once late-checkout rows are stored with `commission_amount = 0`:
 
-1. Apply Late Checkout with fee enabled → save succeeds, fee reservation row is created with `check_in_date === check_out_date`.
-2. Try a manual reservation with `check_out_date < check_in_date` → still rejected by the constraint.
-3. Existing reservations and OTA inflow continue to work (constraint is only loosened, not tightened).
+- **Analytics.tsx, Dashboard.tsx, RevenueBySource/Room.tsx** — late-checkout fees count as 100% net revenue, contribute $0 to commission totals. Correct.
+- **Commissions.tsx** — already filters with `.not('commission_amount', 'is', null).gt('commission_amount', 0)` (lines 90–91), so zero-commission late-checkout rows are excluded from the commission tracker. Correct.
+- No double-counting risk found.
+
+No analytics code changes proposed.
+
+## Not changing
+
+- Same-day fee row shape (`check_in_date = check_out_date = checkoutDate`).
+- `valid_dates` constraint (already relaxed in prior migration).
+- `blocked_dates` insert.
+- Channex availability sync.
+- "Late checkout attributed to: [name]" line.
+- Commission logic for any other reservation type.
