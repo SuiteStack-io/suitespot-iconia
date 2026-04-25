@@ -723,17 +723,15 @@ const Analytics = () => {
   const fetchCommissionDetails = async () => {
     const { startDate, endDate } = getDateRange();
     
-    const { data } = await withPropertyFilter(supabase
+    const { data } = await withPropertyFilter(applyRevenueDateFilter(supabase
       .from('reservations')
-      .select('source, total_price, commission_amount, commission_rate')
+      .select('source, total_price, commission_amount, commission_rate, check_in_date, check_out_date')
       .neq('status', 'Cancelled')
-      .is('cancelled_at', null)
-      .gte('check_in_date', startDate)
-      .lte('check_in_date', endDate), propertyId);
+      .is('cancelled_at', null), method, startDate, endDate), propertyId);
 
     const sourceMap: Record<string, any> = {};
     
-    (data || []).forEach((reservation) => {
+    (data || []).forEach((reservation: any) => {
       const source = reservation.source || 'Unknown';
       
       if (!sourceMap[source]) {
@@ -746,9 +744,12 @@ const Analytics = () => {
         };
       }
       
+      const fr = method === 'prorata'
+        ? prorateFactor(reservation.check_in_date, reservation.check_out_date, startDate, endDate)
+        : 1;
       sourceMap[source].bookings += 1;
-      sourceMap[source].grossRevenue += reservation.total_price || 0;
-      sourceMap[source].commissionAmount += reservation.commission_amount || 0;
+      sourceMap[source].grossRevenue += (reservation.total_price || 0) * fr;
+      sourceMap[source].commissionAmount += (reservation.commission_amount || 0) * fr;
     });
 
     const sourceArray = Object.values(sourceMap).sort(
