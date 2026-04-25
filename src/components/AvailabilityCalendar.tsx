@@ -2071,7 +2071,7 @@ export const AvailabilityCalendar = () => {
             <TooltipProvider>
               <div className="min-w-max">
                 {/* Header Row - Sticky */}
-                <div className={`grid gap-1 mb-2 pb-1 ${isFullscreen ? 'sticky top-0 z-20 bg-card' : ''}`} style={{ gridTemplateColumns: `160px repeat(${displayDays.length}, 70px)` }}>
+                <div className={`grid gap-1 mb-2 pb-1 ${isFullscreen ? 'sticky top-0 z-20 bg-card' : ''}`} style={{ gridTemplateColumns: `${isMobile ? 64 : 160}px repeat(${displayDays.length}, 70px)` }}>
                   <div className="font-medium text-sm p-2 sticky left-0 bg-card z-30 border-r border-border">Unit</div>
                   {displayDays.map((day) => {
                     const isToday = isSameDay(day, new Date());
@@ -2106,7 +2106,7 @@ export const AvailabilityCalendar = () => {
                       {showSeparator && (
                         <div 
                           className="grid gap-1 mb-1 bg-muted/50 border-y border-border"
-                          style={{ gridTemplateColumns: `160px repeat(${displayDays.length}, 70px)` }}
+                          style={{ gridTemplateColumns: `${isMobile ? 64 : 160}px repeat(${displayDays.length}, 70px)` }}
                         >
                           {/* Sticky first cell with separator content */}
                           <div className="flex items-center gap-2 py-2 px-2 sticky left-0 z-10 bg-muted/50">
@@ -2128,16 +2128,19 @@ export const AvailabilityCalendar = () => {
                       <DroppableUnitRow unit={unit}>
                     <div
                       className={`grid gap-1 mb-1 ${isMobile ? 'touch-manipulation' : ''}`}
-                      style={{ gridTemplateColumns: `160px repeat(${displayDays.length}, 70px)` }}
+                      style={{ gridTemplateColumns: `${isMobile ? 64 : 160}px repeat(${displayDays.length}, 70px)` }}
                     >
                       <Popover>
                         <PopoverTrigger asChild>
                           <div className="flex items-center text-sm font-medium p-2 bg-card rounded sticky left-0 z-10 border-r border-border cursor-pointer hover:bg-muted/50 transition-colors">
                             <div>
-                              <div className="text-primary hover:underline">
+                              <div className="hidden sm:block text-primary hover:underline">
                                 {unit.booking_com_name || unit.name}
                               </div>
-                              <div className="text-xs text-muted-foreground">#{unit.unit_number}</div>
+                              <div className="text-sm font-semibold sm:text-xs sm:font-normal sm:text-muted-foreground">
+                                <span className="sm:hidden">{unit.unit_number}</span>
+                                <span className="hidden sm:inline">#{unit.unit_number}</span>
+                              </div>
                             </div>
                           </div>
                         </PopoverTrigger>
