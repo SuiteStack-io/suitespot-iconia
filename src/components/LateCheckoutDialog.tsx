@@ -65,7 +65,6 @@ export const LateCheckoutDialog = ({
   const propertyCtx = usePropertySafe();
   const activeProperty = propertyCtx?.activeProperty;
   const vatRate = activeProperty?.vat_rate ?? 0;
-  const commissionRate = activeProperty?.default_commission_rate ?? 10;
   const vatDivisor = 1 + vatRate / 100;
   const { applyLateCheckout, removeLateCheckout, loading } = useLateCheckout({
     reservationId,
@@ -73,7 +72,6 @@ export const LateCheckoutDialog = ({
     unitName,
     checkoutDate,
     vatRate,
-    commissionRate,
   });
 
   const formattedDate = (() => {
