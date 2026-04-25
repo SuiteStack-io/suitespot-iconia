@@ -53,6 +53,7 @@ const NATIONALITIES = [
 const COUNTRY_CODES = [
   { code: "+1", country: "US", flag: "🇺🇸", name: "United States" },
   { code: "+1", country: "CA", flag: "🇨🇦", name: "Canada" },
+  { code: "+7", country: "RU", flag: "🇷🇺", name: "Russia" },
   { code: "+20", country: "EG", flag: "🇪🇬", name: "Egypt" },
   { code: "+27", country: "ZA", flag: "🇿🇦", name: "South Africa" },
   { code: "+30", country: "GR", flag: "🇬🇷", name: "Greece" },
@@ -60,6 +61,7 @@ const COUNTRY_CODES = [
   { code: "+32", country: "BE", flag: "🇧🇪", name: "Belgium" },
   { code: "+33", country: "FR", flag: "🇫🇷", name: "France" },
   { code: "+34", country: "ES", flag: "🇪🇸", name: "Spain" },
+  { code: "+36", country: "HU", flag: "🇭🇺", name: "Hungary" },
   { code: "+39", country: "IT", flag: "🇮🇹", name: "Italy" },
   { code: "+40", country: "RO", flag: "🇷🇴", name: "Romania" },
   { code: "+41", country: "CH", flag: "🇨🇭", name: "Switzerland" },
