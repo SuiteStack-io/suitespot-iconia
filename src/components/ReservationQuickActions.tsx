@@ -1708,8 +1708,8 @@ export const ReservationQuickActions = ({
                 </Button>
               </div>
 
-              {/* Swap Room Button */}
-              <div className="pt-2 border-t">
+              {/* Swap Room + Move Guest Buttons */}
+              <div className="pt-2 border-t grid grid-cols-1 sm:grid-cols-2 gap-2">
                 <Button
                   variant="outline"
                   className="w-full"
@@ -1718,6 +1718,17 @@ export const ReservationQuickActions = ({
                   <ArrowLeftRight className="h-4 w-4 mr-2" />
                   Swap Rooms with Another Reservation
                 </Button>
+                {(reservation.status === "checked-in" ||
+                  reservation.status === "confirmed") && (
+                  <Button
+                    variant="outline"
+                    className="w-full"
+                    onClick={() => setSplitDialogOpen(true)}
+                  >
+                    <ArrowRight className="h-4 w-4 mr-2" />
+                    Move Guest to New Room
+                  </Button>
+                )}
               </div>
             </>
           ) : (
