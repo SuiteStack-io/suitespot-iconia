@@ -15,6 +15,7 @@ import { Badge } from '@/components/ui/badge';
 import { useNavigate } from 'react-router-dom';
 import { useIsMobile } from '@/hooks/use-mobile';
 import { ReservationQuickActions } from './ReservationQuickActions';
+import { isLateCheckoutFeeRow } from '@/lib/reservationFilters';
 
 interface Unit {
   id: string;
@@ -302,7 +303,9 @@ export const RoomCalendar = () => {
       // Only include reservations for units in the filtered list
       const unitInFilteredList = filteredUnits.some(u => u.id === r.unit_id);
       if (!unitInFilteredList) return false;
-      
+      // Skip late-checkout fee rows — billing entries, not real stays.
+      if (isLateCheckoutFeeRow(r)) return false;
+
       const checkIn = startOfDay(new Date(r.check_in_date));
       const checkOut = startOfDay(new Date(r.check_out_date));
       const isCheckInDay = isSameDay(date, checkIn);
