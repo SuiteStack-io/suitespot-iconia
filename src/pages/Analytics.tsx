@@ -552,26 +552,27 @@ const Analytics = () => {
   const fetchSourcesDetails = async () => {
     const { startDate, endDate } = getDateRange();
     
-    const { data } = await withPropertyFilter(supabase
+    const { data } = await withPropertyFilter(applyRevenueDateFilter(supabase
       .from('reservations')
-      .select('source, total_price, commission_amount, net_revenue')
+      .select('source, total_price, commission_amount, net_revenue, check_in_date, check_out_date')
       .neq('status', 'Cancelled')
-      .is('cancelled_at', null)
-      .gte('check_in_date', startDate)
-      .lte('check_in_date', endDate), propertyId);
+      .is('cancelled_at', null), method, startDate, endDate), propertyId);
 
-    const bookingComData = (data || []).filter(r => 
+    const bookingComData = (data || []).filter((r: any) => 
       r.source?.toLowerCase().includes('booking.com')
     );
-    const directData = (data || []).filter(r => 
+    const directData = (data || []).filter((r: any) => 
       !r.source?.toLowerCase().includes('booking.com')
     );
 
+    const f = (r: any) =>
+      method === 'prorata' ? prorateFactor(r.check_in_date, r.check_out_date, startDate, endDate) : 1;
+
     const bookingComTotals = {
       count: bookingComData.length,
-      grossRevenue: bookingComData.reduce((sum, r) => sum + (r.total_price || 0), 0),
-      commission: bookingComData.reduce((sum, r) => sum + (r.commission_amount || 0), 0),
-      netRevenue: bookingComData.reduce((sum, r) => sum + (r.net_revenue || 0), 0),
+      grossRevenue: bookingComData.reduce((sum, r: any) => sum + ((r.total_price || 0) * f(r)), 0),
+      commission: bookingComData.reduce((sum, r: any) => sum + ((r.commission_amount || 0) * f(r)), 0),
+      netRevenue: bookingComData.reduce((sum, r: any) => sum + (((r.total_price || 0) - (r.commission_amount || 0)) * f(r)), 0),
     };
 
     const directSourceMap: Record<string, any> = {};
@@ -586,10 +587,11 @@ const Analytics = () => {
           netRevenue: 0,
         };
       }
+      const fr = f(reservation);
       directSourceMap[source].count += 1;
-      directSourceMap[source].grossRevenue += reservation.total_price || 0;
-      directSourceMap[source].commission += reservation.commission_amount || 0;
-      directSourceMap[source].netRevenue += (reservation.total_price || 0) - (reservation.commission_amount || 0);
+      directSourceMap[source].grossRevenue += (reservation.total_price || 0) * fr;
+      directSourceMap[source].commission += (reservation.commission_amount || 0) * fr;
+      directSourceMap[source].netRevenue += ((reservation.total_price || 0) - (reservation.commission_amount || 0)) * fr;
     });
 
     const directBreakdown = Object.values(directSourceMap).sort(
@@ -598,9 +600,9 @@ const Analytics = () => {
 
     const directTotals = {
       count: directData.length,
-      grossRevenue: directData.reduce((sum, r) => sum + (r.total_price || 0), 0),
-      commission: directData.reduce((sum, r) => sum + (r.commission_amount || 0), 0),
-      netRevenue: directData.reduce((sum, r) => sum + ((r.total_price || 0) - (r.commission_amount || 0)), 0),
+      grossRevenue: directData.reduce((sum, r: any) => sum + ((r.total_price || 0) * f(r)), 0),
+      commission: directData.reduce((sum, r: any) => sum + ((r.commission_amount || 0) * f(r)), 0),
+      netRevenue: directData.reduce((sum, r: any) => sum + (((r.total_price || 0) - (r.commission_amount || 0)) * f(r)), 0),
     };
 
     setSourcesData({
