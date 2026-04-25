@@ -25,6 +25,7 @@ import { DateRange } from "react-day-picker";
 import { useIsMobile } from "@/hooks/use-mobile";
 import { useSwipeable } from "react-swipeable";
 import { usePropertyId, withPropertyFilter } from "@/hooks/usePropertyFilter";
+import { isLateCheckoutFeeRow } from "@/lib/reservationFilters";
 
 interface Unit {
   id: string;
@@ -522,11 +523,15 @@ export const AvailabilityCalendar = () => {
 
   const detectConflicts = (reservationsList: Reservation[]) => {
     const conflictSet = new Set<string>();
-    
+
+    // Exclude late-checkout fee rows (booking_reference ends "-LC", same-day).
+    // They are billing entries linked to the original reservation, not real stays.
+    const realReservations = reservationsList.filter(r => !isLateCheckoutFeeRow(r));
+
     // Group by unit and date
     const bookingsByUnitDate = new Map<string, Reservation[]>();
-    
-    reservationsList.forEach(reservation => {
+
+    realReservations.forEach(reservation => {
       const checkIn = new Date(reservation.check_in_date);
       const checkOut = new Date(reservation.check_out_date);
       
@@ -1220,6 +1225,8 @@ export const AvailabilityCalendar = () => {
         
         const dayReservations = (exportReservations || []).filter((r: Reservation) => {
           if (r.unit_id !== unit.id) return false;
+          // Skip late-checkout fee rows — they're billing entries, not stays.
+          if (isLateCheckoutFeeRow(r)) return false;
           const checkIn = new Date(r.check_in_date);
           const checkOut = new Date(r.check_out_date);
           const isCheckInDay = isSameDay(date, checkIn);
