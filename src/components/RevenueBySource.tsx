@@ -29,9 +29,11 @@ import { toast } from 'sonner';
 import { format } from 'date-fns';
 import { DateRange } from 'react-day-picker';
 import { usePropertyId, withPropertyFilter } from '@/hooks/usePropertyFilter';
+import { applyRevenueDateFilter, prorateFactor, type RevenueRecognitionMethod } from '@/lib/revenueDateFilter';
 
 interface RevenueBySourceProps {
   mainDateRange?: DateRange;
+  method?: RevenueRecognitionMethod;
 }
 
 interface BookingDetail {
