@@ -74,7 +74,7 @@ export const useLateCheckout = ({
   unitId,
   unitName,
   checkoutDate,
-  vatRate: _vatRate = 0,
+  vatRate: _vatRate = 0, // accepted for API compat; VAT breakdown is rendered in the dialog
 }: UseLateCheckoutParams) => {
   const [loading, setLoading] = useState(false);
   const { user } = useAuth();
