@@ -644,16 +644,16 @@ const Analytics = () => {
 
     const details = await Promise.all(
       (units || []).map(async (unit) => {
-        const { data: reservations } = await supabase
+        const { data: reservations } = await applyRevenueDateFilter(supabase
           .from('reservations')
-          .select('total_price')
+          .select('total_price, check_in_date, check_out_date')
           .eq('unit_id', unit.id)
           .neq('status', 'Cancelled')
-          .is('cancelled_at', null)
-          .gte('check_in_date', startDate)
-          .lte('check_in_date', endDate);
+          .is('cancelled_at', null), method, startDate, endDate);
 
-        const grossRevenue = reservations?.reduce((sum, r) => sum + (r.total_price || 0), 0) || 0;
+        const f = (r: any) =>
+          method === 'prorata' ? prorateFactor(r.check_in_date, r.check_out_date, startDate, endDate) : 1;
+        const grossRevenue = reservations?.reduce((sum: number, r: any) => sum + ((r.total_price || 0) * f(r)), 0) || 0;
         const bookings = reservations?.length || 0;
         const landlordShare = grossRevenue * (landlordPercentage / 100);
         const suitespotShare = grossRevenue * ((100 - landlordPercentage) / 100);
