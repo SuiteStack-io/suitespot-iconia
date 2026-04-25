@@ -183,7 +183,7 @@ const Analytics = () => {
         supabase.removeChannel(channel);
       };
     }
-  }, [userRole, timePeriod, customDateRange, propertyId]);
+  }, [userRole, timePeriod, customDateRange, propertyId, method]);
 
   // Sync slider to saved value when active property changes / refreshes
   useEffect(() => {
