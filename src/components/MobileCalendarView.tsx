@@ -9,6 +9,7 @@ import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover
 import { useNavigate } from "react-router-dom";
 import { useSwipeable } from "react-swipeable";
 import { ReservationQuickActions } from "./ReservationQuickActions";
+import { isLateCheckoutFeeRow } from "@/lib/reservationFilters";
 
 interface Unit {
   id: string;
@@ -203,6 +204,8 @@ export const MobileCalendarView = () => {
     );
 
     const dayReservations = reservations.filter(r => {
+      // Skip late-checkout fee rows — billing entries, not real stays.
+      if (isLateCheckoutFeeRow(r)) return false;
       const checkIn = new Date(r.check_in_date);
       const checkOut = new Date(r.check_out_date);
       const isCheckInDay = isSameDay(date, checkIn);
