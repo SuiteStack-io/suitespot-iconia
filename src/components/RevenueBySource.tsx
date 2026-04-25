@@ -134,11 +134,21 @@ export const RevenueBySource = ({ mainDateRange }: RevenueBySourceProps) => {
   };
 
   const fetchRevenueBySource = async () => {
-    const { data, error } = await supabase
-      .from('reservations')
-      .select('source, total_price, commission_amount, net_revenue, guest_names, check_in_date, check_out_date, nights, payment_method, currency')
-      .neq('status', 'Cancelled')
-      .is('cancelled_at', null);
+    if (!mainDateRange?.from || !mainDateRange?.to) return;
+
+    const startDate = format(mainDateRange.from, 'yyyy-MM-dd');
+    const endDate = format(mainDateRange.to, 'yyyy-MM-dd');
+
+    const { data, error } = await withPropertyFilter(
+      supabase
+        .from('reservations')
+        .select('source, total_price, commission_amount, net_revenue, guest_names, check_in_date, check_out_date, nights, payment_method, currency')
+        .neq('status', 'Cancelled')
+        .is('cancelled_at', null)
+        .gte('check_in_date', startDate)
+        .lte('check_in_date', endDate),
+      propertyId,
+    );
 
     if (error) {
       console.error('Error fetching revenue by source:', error);
