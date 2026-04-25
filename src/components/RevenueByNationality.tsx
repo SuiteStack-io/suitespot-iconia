@@ -87,15 +87,20 @@ export const RevenueByNationality = ({ mainDateRange, method = 'check_in' }: Rev
 
     data?.forEach((reservation) => {
       const nationality = reservation.guest_nationality || 'Unknown';
-      const nights = reservation.nights || 0;
+      const rawNights = reservation.nights || 0;
       const pricePerNight = Number(reservation.price_per_night) || 0;
       const totalPrice = Number(reservation.total_price) || 0;
       const vatExempt = reservation.vat_exempt || false;
       const source = reservation.source || 'Unknown';
       const payment = reservation.payment_method || 'Unknown';
 
+      const f = method === 'prorata'
+        ? prorateFactor(reservation.check_in_date, reservation.check_out_date, format(mainDateRange.from!, 'yyyy-MM-dd'), format(mainDateRange.to!, 'yyyy-MM-dd'))
+        : 1;
+      const nights = rawNights * f;
+
       // Calculate revenue excluding VAT (using property's VAT rate)
-      const revenueExVat = vatExempt ? totalPrice : totalPrice / vatDivisor;
+      const revenueExVat = (vatExempt ? totalPrice : totalPrice / vatDivisor) * f;
 
       if (!nationalityMap[nationality]) {
         nationalityMap[nationality] = {
