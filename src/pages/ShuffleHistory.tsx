@@ -114,7 +114,9 @@ const ShuffleHistory = () => {
                 <CardHeader className="pb-3">
                   <div className="flex items-center justify-between flex-wrap gap-2">
                     <div className="flex items-center gap-2">
-                      <Shuffle className="h-5 w-5 text-amber-500" />
+                      {filter === 'manual'
+                        ? <User className="h-5 w-5 text-stone-600" />
+                        : <Shuffle className="h-5 w-5 text-amber-500" />}
                       <CardTitle className="text-base">
                         Shuffle for booking {log.triggered_by_reference}
                       </CardTitle>
