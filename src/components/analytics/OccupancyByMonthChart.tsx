@@ -196,7 +196,7 @@ export const OccupancyByMonthChart = ({ propertyId, method = 'check_in', startDa
     return () => {
       cancelled = true;
     };
-  }, [propertyId]);
+  }, [propertyId, startDate, endDate]);
 
   return (
     <Card>
