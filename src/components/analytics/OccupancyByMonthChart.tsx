@@ -313,6 +313,22 @@ export const OccupancyByMonthChart = ({ propertyId, method = 'check_in', startDa
                   }
                 />
               )}
+              {occupancyTarget !== null && (
+                <ReferenceLine
+                  y={occupancyTarget}
+                  yAxisId="occupancy"
+                  stroke="#dc2626"
+                  strokeDasharray="4 4"
+                  strokeWidth={2}
+                  label={{
+                    value: `Target ${occupancyTarget}%`,
+                    position: 'right',
+                    fill: '#dc2626',
+                    fontSize: 11,
+                    fontWeight: 600,
+                  }}
+                />
+              )}
               <Bar
                 yAxisId="occupancy"
                 dataKey="occupancy"
