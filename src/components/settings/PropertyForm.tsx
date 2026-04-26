@@ -15,6 +15,7 @@ import {
   Select, SelectContent, SelectItem, SelectTrigger, SelectValue,
 } from '@/components/ui/select';
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
+import { Switch } from '@/components/ui/switch';
 import { PhoneInput } from '@/components/ui/phone-input';
 import { toast } from 'sonner';
 import { CheckCircle2, ArrowRight, ArrowLeft, Info } from 'lucide-react';
@@ -108,10 +109,12 @@ export function PropertyForm({ property, open, onClose, onSaved }: PropertyFormP
     vat_rate: (property as any)?.vat_rate?.toString() ?? '',
     default_commission_rate: (property as any)?.default_commission_rate?.toString() ?? '',
     revenue_recognition_method: ((property as any)?.revenue_recognition_method as string) || 'check_in',
+    has_landlord: ((property as any)?.has_landlord ?? true) as boolean,
+    landlord_share_percentage: ((property as any)?.landlord_share_percentage ?? 70) as number,
   });
   const [saving, setSaving] = useState(false);
 
-  const update = (key: string, val: string) => setForm(prev => ({ ...prev, [key]: val }));
+  const update = (key: string, val: any) => setForm(prev => ({ ...prev, [key]: val }));
 
   const validateStep1 = () => {
     if (!form.name || !form.address || !form.city) {
@@ -160,6 +163,8 @@ export function PropertyForm({ property, open, onClose, onSaved }: PropertyFormP
         vat_rate: form.vat_rate !== '' ? parseFloat(form.vat_rate) : null,
         default_commission_rate: form.default_commission_rate !== '' ? parseFloat(form.default_commission_rate) : null,
         revenue_recognition_method: form.revenue_recognition_method,
+        has_landlord: form.has_landlord,
+        landlord_share_percentage: form.landlord_share_percentage,
       };
 
       if (isEdit) {
@@ -591,6 +596,44 @@ export function PropertyForm({ property, open, onClose, onSaved }: PropertyFormP
                   </SelectContent>
                 </Select>
               </div>
+
+              <div className="flex items-center justify-between pt-2">
+                <Label htmlFor="has-landlord" className="cursor-pointer">Has Landlord</Label>
+                <Switch
+                  id="has-landlord"
+                  checked={form.has_landlord}
+                  onCheckedChange={(v) => update('has_landlord', v)}
+                />
+              </div>
+
+              {form.has_landlord && (
+                <div>
+                  <Label htmlFor="landlord-share">Landlord Revenue Share (%)</Label>
+                  <div className="relative mt-1">
+                    <Input
+                      id="landlord-share"
+                      type="number"
+                      min={0}
+                      max={100}
+                      step={1}
+                      value={form.landlord_share_percentage}
+                      onChange={(e) =>
+                        update(
+                          'landlord_share_percentage',
+                          Math.max(0, Math.min(100, Number(e.target.value) || 0))
+                        )
+                      }
+                      className="pr-8"
+                    />
+                    <span className="absolute right-3 top-1/2 -translate-y-1/2 text-sm text-muted-foreground pointer-events-none">
+                      %
+                    </span>
+                  </div>
+                  <p className="text-xs text-muted-foreground mt-1">
+                    Operator share: {100 - form.landlord_share_percentage}%
+                  </p>
+                </div>
+              )}
             </div>
           </div>
         )}

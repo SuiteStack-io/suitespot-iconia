@@ -53,6 +53,7 @@ const Analytics = () => {
   const navigate = useNavigate();
 
   const savedLandlordPercentage = Number((activeProperty as any)?.landlord_share_percentage ?? 70);
+  const hasLandlord: boolean = ((activeProperty as any)?.has_landlord ?? true) as boolean;
   const method: RevenueRecognitionMethod =
     ((activeProperty as any)?.revenue_recognition_method as RevenueRecognitionMethod) ?? 'check_in';
 
@@ -978,34 +979,36 @@ const Analytics = () => {
         </div>
 
         {/* Revenue Share Slider */}
-        <Card className="bg-gradient-to-r from-card to-card/80">
-          <CardContent className="py-4">
-            <div className="flex items-center gap-4 flex-wrap">
-              <span className="text-sm font-medium whitespace-nowrap">Revenue Share:</span>
-              <div className="flex-1 min-w-[200px] max-w-[400px]">
-                <Slider
-                  value={[landlordPercentage]}
-                  onValueChange={(values) => setLandlordPercentage(values[0])}
-                  min={0}
-                  max={100}
-                  step={5}
-                  className="w-full"
-                />
+        {hasLandlord && (
+          <Card className="bg-gradient-to-r from-card to-card/80">
+            <CardContent className="py-4">
+              <div className="flex items-center gap-4 flex-wrap">
+                <span className="text-sm font-medium whitespace-nowrap">Revenue Share:</span>
+                <div className="flex-1 min-w-[200px] max-w-[400px]">
+                  <Slider
+                    value={[landlordPercentage]}
+                    onValueChange={(values) => setLandlordPercentage(values[0])}
+                    min={0}
+                    max={100}
+                    step={5}
+                    className="w-full"
+                  />
+                </div>
+                <div className="flex items-center gap-4 text-sm">
+                  <span className="text-muted-foreground">Landlord: <strong>{landlordPercentage}%</strong></span>
+                  <span className="text-muted-foreground">Suitespot: <strong>{100 - landlordPercentage}%</strong></span>
+                  <Button
+                    size="sm"
+                    onClick={handleSaveShare}
+                    disabled={savingShare || landlordPercentage === savedLandlordPercentage}
+                  >
+                    {savingShare ? 'Saving…' : 'Save'}
+                  </Button>
+                </div>
               </div>
-              <div className="flex items-center gap-4 text-sm">
-                <span className="text-muted-foreground">Landlord: <strong>{landlordPercentage}%</strong></span>
-                <span className="text-muted-foreground">Suitespot: <strong>{100 - landlordPercentage}%</strong></span>
-                <Button
-                  size="sm"
-                  onClick={handleSaveShare}
-                  disabled={savingShare || landlordPercentage === savedLandlordPercentage}
-                >
-                  {savingShare ? 'Saving…' : 'Save'}
-                </Button>
-              </div>
-            </div>
-          </CardContent>
-        </Card>
+            </CardContent>
+          </Card>
+        )}
 
         {/* KPI Cards */}
         <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-4">
@@ -1089,10 +1092,12 @@ const Analytics = () => {
             </CardHeader>
             <CardContent>
               <div className="text-2xl font-bold">${formatCurrency(revenueStats.totalRevenue)}</div>
-              <div className="mt-2 space-y-1 text-xs text-muted-foreground">
-                <p>Landlord ({landlordPercentage}%): ${formatCurrency(revenueStats.totalRevenue * (landlordPercentage / 100))}</p>
-                <p>Suitespot ({100 - landlordPercentage}%): ${formatCurrency(revenueStats.totalRevenue * ((100 - landlordPercentage) / 100))}</p>
-              </div>
+              {hasLandlord && (
+                <div className="mt-2 space-y-1 text-xs text-muted-foreground">
+                  <p>Landlord ({landlordPercentage}%): ${formatCurrency(revenueStats.totalRevenue * (landlordPercentage / 100))}</p>
+                  <p>Suitespot ({100 - landlordPercentage}%): ${formatCurrency(revenueStats.totalRevenue * ((100 - landlordPercentage) / 100))}</p>
+                </div>
+              )}
             </CardContent>
           </Card>
 
@@ -1107,10 +1112,12 @@ const Analytics = () => {
             </CardHeader>
             <CardContent>
               <div className="text-2xl font-bold">${formatCurrency(revenueStats.netRevenue)}</div>
-              <div className="mt-2 space-y-1 text-xs text-muted-foreground">
-                <p>Landlord ({landlordPercentage}%): ${formatCurrency(revenueStats.netRevenue * (landlordPercentage / 100))}</p>
-                <p>Suitespot ({100 - landlordPercentage}%): ${formatCurrency(revenueStats.netRevenue * ((100 - landlordPercentage) / 100))}</p>
-              </div>
+              {hasLandlord && (
+                <div className="mt-2 space-y-1 text-xs text-muted-foreground">
+                  <p>Landlord ({landlordPercentage}%): ${formatCurrency(revenueStats.netRevenue * (landlordPercentage / 100))}</p>
+                  <p>Suitespot ({100 - landlordPercentage}%): ${formatCurrency(revenueStats.netRevenue * ((100 - landlordPercentage) / 100))}</p>
+                </div>
+              )}
             </CardContent>
           </Card>
 
