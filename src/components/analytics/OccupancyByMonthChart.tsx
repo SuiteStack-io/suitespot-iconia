@@ -292,6 +292,14 @@ export const OccupancyByMonthChart = ({ propertyId, method = 'check_in', startDa
                           Net Revenue: {formatCurrencyFull(m.netRevenue)}
                         </div>
                       )}
+                      {occupancyTarget !== null && (
+                        <div
+                          className="mt-1 pt-1 border-t"
+                          style={{ color: '#dc2626' }}
+                        >
+                          Target: {occupancyTarget}%
+                        </div>
+                      )}
                     </div>
                   );
                 }}
