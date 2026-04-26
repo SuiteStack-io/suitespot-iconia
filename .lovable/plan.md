@@ -1,103 +1,48 @@
-# Add "Has Landlord" Toggle to Property Settings + Conditional Analytics Display
+## Add Read-Only Revenue Recognition Method label to Analytics page
 
-Adds a `has_landlord` flag (default `true`) and a Landlord Revenue Share % field to Step 4 of the Edit Property modal. The Analytics page hides the Revenue Share slider and the landlord/operator breakdown rows when the property has no landlord. Existing properties keep current behavior because the new column defaults to `true`.
+Adds a small read-only label showing the property's configured Revenue Recognition Method on the Analytics page, placed in the same vertical slot as the Revenue Share Card so layout stays consistent regardless of `has_landlord`.
 
-## 1. Database migration
+### Verified existing state in `src/pages/Analytics.tsx`
 
-```sql
-ALTER TABLE public.properties
-  ADD COLUMN has_landlord boolean NOT NULL DEFAULT true;
-```
+- Line 56: `hasLandlord` already derived from `activeProperty.has_landlord` — reuse, do not redeclare.
+- Lines 57–58: `method` already derived from `activeProperty.revenue_recognition_method` — reuse, do not redeclare.
+- Lines 982–1011: Revenue Share Card is wrapped in `{hasLandlord && (<Card>…</Card>)}`. Outer flex row at line 985 is `flex items-center gap-4 flex-wrap`. Save button is inside an inner `flex items-center gap-4 text-sm` div (lines 997–1007).
 
-The column rides along on the existing `select('*')` in `PropertyContext` — no new query, no `types.ts` edits (auto-regenerated). The `UPDATE … WHERE has_landlord IS NULL` step is unnecessary because the column is `NOT NULL DEFAULT true` (existing rows are backfilled by the default).
+### Changes
 
-## 2. `src/components/settings/PropertyForm.tsx` — add two fields to Step 4
-
-### Form state (around line 110)
-
-Add to the initializer:
-```ts
-has_landlord: ((property as any)?.has_landlord ?? true) as boolean,
-landlord_share_percentage: ((property as any)?.landlord_share_percentage ?? 70) as number,
-```
-(Verified: `landlord_share_percentage` is NOT yet in form state.)
-
-### `update` helper (line 114)
-
-Currently typed `(key: string, val: string)`. Loosen the value type so the toggle (boolean) and number input can use the same setter without a type error:
-```ts
-const update = (key: string, val: any) => setForm(prev => ({ ...prev, [key]: val }));
-```
-
-### Step 4 UI (after the Revenue Recognition Method `<div>`, before line 593's closing `</div>`)
-
-Add inside the same `border rounded-lg p-4 space-y-3` card, below the Select:
-
-- **Has Landlord row**: a horizontal flex row with a `<Label htmlFor="has-landlord">Has Landlord</Label>` and a `<Switch>` (import from `@/components/ui/switch` — same component used elsewhere). Wires to `form.has_landlord` ↔ `update('has_landlord', v)`.
-- **Landlord Revenue Share (%)** — rendered only when `form.has_landlord === true`:
-  - `<Label htmlFor="landlord-share">Landlord Revenue Share (%)</Label>`
-  - `<Input id="landlord-share" type="number" min={0} max={100} step={1} value={form.landlord_share_percentage} onChange={e => update('landlord_share_percentage', Math.max(0, Math.min(100, Number(e.target.value) || 0)))} />` (same `Input` component used across Steps 1–3)
-  - Trailing `%` shown as helper text on the right or as suffix span next to the input
-  - Helper line below: `<p className="text-xs text-muted-foreground mt-1">Operator share: {100 - form.landlord_share_percentage}%</p>` (live-updates)
-
-### Save payload (around line 162)
-
-Add to the existing `payload: any`:
-```ts
-has_landlord: form.has_landlord,
-landlord_share_percentage: form.landlord_share_percentage,
-```
-Always save `landlord_share_percentage` regardless of `has_landlord` so toggling OFF/ON preserves the user's last value.
-
-## 3. `src/pages/Analytics.tsx` — conditional display
-
-### 3a. Derive `hasLandlord` (near line 55, alongside `savedLandlordPercentage`)
+**1. Add display-label derivation (after line 58)**
 
 ```ts
-const hasLandlord: boolean = ((activeProperty as any)?.has_landlord ?? true) as boolean;
+const methodDisplayLabel =
+  method === 'check_in' ? 'Upon check-in' :
+  method === 'check_out' ? 'Upon check-out' :
+  'Pro-rata nights';
 ```
-Default to `true` to preserve behavior if the column is missing in any edge case.
 
-### 3b. Wrap the Revenue Share Card (lines 980–1008)
+(Strings match Step 4 dropdown labels exactly.)
+
+**2. Replace lines 982–1011 with an `if/else` ternary so something is always rendered in this slot**
+
+- Case A (`hasLandlord === true`): keep the existing Card content unchanged. Append a new label span as the LAST child of the outer `flex flex-wrap` row (after the inner div that holds the Save button, i.e. after line 1007's `</div>`):
 
 ```tsx
-{hasLandlord && (
-  <Card className="bg-gradient-to-r from-card to-card/80">
-    {/* … existing slider, labels, Save button — UNCHANGED … */}
-  </Card>
-)}
+<span className="text-sm text-muted-foreground">
+  Revenue Recognition Method:{' '}
+  <span className="font-medium text-foreground">{methodDisplayLabel}</span>
+</span>
 ```
 
-### 3c. Wrap landlord/operator breakdown rows on Gross + Net Revenue cards
+Because the outer row is `flex-wrap`, the label naturally wraps below the Save button on narrow viewports.
 
-- Gross Revenue card (lines 1092–1095): wrap the inner `<div className="mt-2 space-y-1 text-xs text-muted-foreground">` with `{hasLandlord && (…)}` so only the headline `${revenueStats.totalRevenue}` shows when off.
-- Net Revenue card (lines 1110–1113): same treatment.
+- Case B (`hasLandlord === false`): render a new standalone Card with identical wrapper classes (`bg-gradient-to-r from-card to-card/80` + `CardContent className="py-4"`) containing only the same label span, left-aligned.
 
-Headline `$` numbers stay visible regardless. No other KPI card touched.
+### Out of scope (unchanged)
 
-### 3d. Keep all slider state and handlers as-is
+- Slider, Landlord/Suitespot percentage labels, Save button behavior
+- Date range pills, Custom Range picker, KPI cards, detail dialogs, Excel export
+- No new state, fetch, useEffect, DB column, or query
+- No redeclaration of `method` or `hasLandlord`
 
-Do NOT remove `landlordPercentage`, `setLandlordPercentage`, `savedLandlordPercentage`, `savingShare`, `handleSaveShare`, or the sync `useEffect`. They remain valid; they simply have no rendered control when `hasLandlord = false`. The detail dialogs (lines 1378+, 1411+) and Excel export columns continue to reference `landlordPercentage` — leaving them intact is intentional and outside this prompt's scope.
+### Sync
 
-### 3e. Bidirectional sync — already works
-
-- Modal save → `refreshProperties()` → `activeProperty.landlord_share_percentage` changes → existing `useEffect` (line 190) syncs the slider.
-- Slider Save → updates the same `landlord_share_percentage` column → next modal open reads the latest value via the form initializer.
-
-## 4. Out of scope (explicitly unchanged)
-
-- Steps 1–3 of the Edit Property modal
-- Revenue Recognition Method dropdown wiring (already in Step 4)
-- Date range pills, Custom Range picker, Export button, Occupancy by Month chart, four revenue tables
-- Revenue Share slider's local state and `handleSaveShare` handler
-- `applyRevenueDateFilter` and revenue calculation logic
-- Weekly summary emails
-- Headline `$` numbers on Gross/Net Revenue cards
-
-## Acceptance check
-
-- New property defaults to `has_landlord = true` (DB default) → Analytics behaves exactly as today.
-- Existing ICONIA property unchanged after migration.
-- Toggling OFF in modal → save → Analytics no longer shows Revenue Share slider; Gross/Net cards show only headline `$` figures.
-- Toggling ON again → slider reappears with the user's last-saved percentage; breakdown rows reappear.
-- Editing percentage in modal and saving updates the slider on Analytics; editing slider on Analytics and saving is reflected on next modal open.
+`method` and `hasLandlord` come from `activeProperty`. After the user saves Step 4 of the Edit Property modal, `refreshProperties()` updates `activeProperty` and the label re-renders automatically.

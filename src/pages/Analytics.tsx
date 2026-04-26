@@ -56,6 +56,10 @@ const Analytics = () => {
   const hasLandlord: boolean = ((activeProperty as any)?.has_landlord ?? true) as boolean;
   const method: RevenueRecognitionMethod =
     ((activeProperty as any)?.revenue_recognition_method as RevenueRecognitionMethod) ?? 'check_in';
+  const methodDisplayLabel =
+    method === 'check_in' ? 'Upon check-in' :
+    method === 'check_out' ? 'Upon check-out' :
+    'Pro-rata nights';
 
   const [timePeriod, setTimePeriod] = useState<TimePeriod>('month');
   const [customDateRange, setCustomDateRange] = useState<DateRange | undefined>();
@@ -978,8 +982,8 @@ const Analytics = () => {
           <span className="text-sm text-muted-foreground">{getFormattedDateRange()}</span>
         </div>
 
-        {/* Revenue Share Slider */}
-        {hasLandlord && (
+        {/* Revenue Share Slider / Recognition Method */}
+        {hasLandlord ? (
           <Card className="bg-gradient-to-r from-card to-card/80">
             <CardContent className="py-4">
               <div className="flex items-center gap-4 flex-wrap">
@@ -1005,7 +1009,20 @@ const Analytics = () => {
                     {savingShare ? 'Saving…' : 'Save'}
                   </Button>
                 </div>
+                <span className="text-sm text-muted-foreground">
+                  Revenue Recognition Method:{' '}
+                  <span className="font-medium text-foreground">{methodDisplayLabel}</span>
+                </span>
               </div>
+            </CardContent>
+          </Card>
+        ) : (
+          <Card className="bg-gradient-to-r from-card to-card/80">
+            <CardContent className="py-4">
+              <span className="text-sm text-muted-foreground">
+                Revenue Recognition Method:{' '}
+                <span className="font-medium text-foreground">{methodDisplayLabel}</span>
+              </span>
             </CardContent>
           </Card>
         )}
