@@ -20,7 +20,7 @@ import { Calendar } from '@/components/ui/calendar';
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
 import { DateRange } from 'react-day-picker';
 import { cn } from '@/lib/utils';
-import { format, startOfMonth, endOfMonth, addMonths, isSameMonth, differenceInDays, addDays, startOfDay } from 'date-fns';
+import { format, startOfMonth, endOfMonth, addMonths, isSameMonth, differenceInDays, addDays, startOfDay, subMonths, subYears, startOfYear } from 'date-fns';
 import { Slider } from '@/components/ui/slider';
 import { applyRevenueDateFilter, prorateFactor, type RevenueRecognitionMethod } from '@/lib/revenueDateFilter';
 import {
@@ -233,23 +233,23 @@ const Analytics = () => {
     }
 
     let startDate = new Date();
-    
+
     switch (timePeriod) {
       case 'week':
-        startDate.setDate(now.getDate() - 7);
+        startDate = subMonths(now, 3);
         break;
       case 'month':
-        startDate.setMonth(now.getMonth() - 1);
+        startDate = subMonths(now, 6);
         break;
       case 'quarter':
-        startDate.setMonth(now.getMonth() - 3);
+        startDate = subYears(now, 1);
         break;
       case 'ytd':
-        startDate = new Date(2025, 0, 1);
+        startDate = startOfYear(now);
         break;
     }
-    
-    return { startDate: startDate.toISOString().split('T')[0], endDate: now.toISOString().split('T')[0] };
+
+    return { startDate: format(startDate, 'yyyy-MM-dd'), endDate: format(now, 'yyyy-MM-dd') };
   };
 
   const getFormattedDateRange = () => {
@@ -916,9 +916,9 @@ const Analytics = () => {
           <div className="flex flex-col sm:flex-row sm:items-center gap-2 sm:gap-4 w-full sm:w-auto">
             <Tabs value={customDateRange ? '' : timePeriod} onValueChange={handleTabChange}>
               <TabsList>
-                <TabsTrigger value="week">7 Days</TabsTrigger>
-                <TabsTrigger value="month">30 Days</TabsTrigger>
-                <TabsTrigger value="quarter">90 Days</TabsTrigger>
+                <TabsTrigger value="week">3 months</TabsTrigger>
+                <TabsTrigger value="month">6 months</TabsTrigger>
+                <TabsTrigger value="quarter">1 yr</TabsTrigger>
                 <TabsTrigger value="ytd">YTD</TabsTrigger>
               </TabsList>
             </Tabs>
