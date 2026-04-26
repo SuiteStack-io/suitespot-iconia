@@ -108,10 +108,12 @@ export function PropertyForm({ property, open, onClose, onSaved }: PropertyFormP
     vat_rate: (property as any)?.vat_rate?.toString() ?? '',
     default_commission_rate: (property as any)?.default_commission_rate?.toString() ?? '',
     revenue_recognition_method: ((property as any)?.revenue_recognition_method as string) || 'check_in',
+    has_landlord: ((property as any)?.has_landlord ?? true) as boolean,
+    landlord_share_percentage: ((property as any)?.landlord_share_percentage ?? 70) as number,
   });
   const [saving, setSaving] = useState(false);
 
-  const update = (key: string, val: string) => setForm(prev => ({ ...prev, [key]: val }));
+  const update = (key: string, val: any) => setForm(prev => ({ ...prev, [key]: val }));
 
   const validateStep1 = () => {
     if (!form.name || !form.address || !form.city) {
@@ -160,6 +162,8 @@ export function PropertyForm({ property, open, onClose, onSaved }: PropertyFormP
         vat_rate: form.vat_rate !== '' ? parseFloat(form.vat_rate) : null,
         default_commission_rate: form.default_commission_rate !== '' ? parseFloat(form.default_commission_rate) : null,
         revenue_recognition_method: form.revenue_recognition_method,
+        has_landlord: form.has_landlord,
+        landlord_share_percentage: form.landlord_share_percentage,
       };
 
       if (isEdit) {
