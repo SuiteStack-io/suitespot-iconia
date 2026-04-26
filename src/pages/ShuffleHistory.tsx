@@ -105,7 +105,7 @@ const ShuffleHistory = () => {
         ) : logs.length === 0 ? (
           <div className="text-center text-muted-foreground py-12">
             <Shuffle className="h-12 w-12 mx-auto mb-4 opacity-30" />
-            <p>No room shuffles have occurred yet.</p>
+            <p>{filter === 'manual' ? 'No manual room changes yet.' : 'No room shuffles have occurred yet.'}</p>
           </div>
         ) : (
           <div className="space-y-4">
