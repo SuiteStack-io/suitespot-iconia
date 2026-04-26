@@ -56,6 +56,10 @@ const Analytics = () => {
   const hasLandlord: boolean = ((activeProperty as any)?.has_landlord ?? true) as boolean;
   const method: RevenueRecognitionMethod =
     ((activeProperty as any)?.revenue_recognition_method as RevenueRecognitionMethod) ?? 'check_in';
+  const methodDisplayLabel =
+    method === 'check_in' ? 'Upon check-in' :
+    method === 'check_out' ? 'Upon check-out' :
+    'Pro-rata nights';
 
   const [timePeriod, setTimePeriod] = useState<TimePeriod>('month');
   const [customDateRange, setCustomDateRange] = useState<DateRange | undefined>();
