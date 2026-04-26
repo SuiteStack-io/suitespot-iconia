@@ -1,51 +1,105 @@
-## Update date range pills on Analytics page
+## Add Annual Occupancy Target — Data Layer + Settings Input (Prompt 1 of 3)
 
-Rename three pill labels, fix the YTD calculation, and update each pill's date math. All edits are scoped to `src/pages/Analytics.tsx` — pill labels and `getDateRange()` only.
+This is the first of three prompts. Scope: schema migration + Step 4 form input only. No chart changes.
 
-### Background (good news)
+### 1. Database migration
 
-The pills' visible labels and their internal state values are already decoupled:
+```sql
+ALTER TABLE properties
+  ADD COLUMN occupancy_target_annual numeric NULL
+  CHECK (occupancy_target_annual IS NULL OR (occupancy_target_annual >= 0 AND occupancy_target_annual <= 100));
+```
 
-- Internal `TimePeriod` codes (used in state + switch): `'week' | 'month' | 'quarter' | 'ytd' | 'lastMonth' | 'thisMonth' | 'nextMonth'`
-- Display labels (only in JSX): `7 Days`, `30 Days`, `90 Days`, `YTD`
+- Nullable, no default — properties without a target are valid
+- CHECK enforces 0–100 at the DB level (immutable expression, safe per Supabase guidelines)
 
-So we only need to change the **display strings** and the **date math** inside each `case` of `getDateRange()`. The internal codes (`week`, `month`, `quarter`, `ytd`), the `TimePeriod` union, default selection (`'month'`), and downstream wiring all stay unchanged.
+### 2. PropertyForm — Step 4 changes
 
-### Label changes (JSX only, lines ~919–922)
+File: `src/components/settings/PropertyForm.tsx`
 
-| Internal code | Old label | New label |
-|---|---|---|
-| `week` | `7 Days` | `3 months` |
-| `month` | `30 Days` | `6 months` |
-| `quarter` | `90 Days` | `1 yr` |
-| `ytd` | `YTD` | `YTD` (unchanged) |
+#### 2a. Form state (after line 113, `landlord_share_percentage`)
 
-### Date math changes inside `getDateRange()` (lines ~237–250)
+Stored as a string for clean optional/empty handling — same pattern as `vat_rate` (line 109) and `default_commission_rate` (line 110):
 
-Replace the existing `switch (timePeriod)` body with:
+```ts
+occupancy_target_annual:
+  (property as any)?.occupancy_target_annual != null
+    ? String((property as any).occupancy_target_annual)
+    : '',
+```
 
-- `case 'week'` → `subMonths(now, 3)` ... today  *(new "3 months")*
-- `case 'month'` → `subMonths(now, 6)` ... today  *(new "6 months")*
-- `case 'quarter'` → `subYears(now, 1)` ... today  *(new "1 yr")*
-- `case 'ytd'` → `startOfYear(now)` ... today  *(fix: was hardcoded to `new Date(2025, 0, 1)`)*
+#### 2b. Validation — match existing pattern
 
-For today (Apr 26, 2026), YTD will correctly produce `2026-01-01` → `2026-04-26`.
+The existing validator (`validateStep1`, lines 119–125) lives **outside** `handleSave`, just calls `toast.error` and returns `false`. No `setSaving` calls. Mirror it exactly with a new `validateStep4` and call it at the top of `handleSave` before `setSaving(true)`:
 
-### Imports
+```ts
+const validateStep4 = () => {
+  if (form.occupancy_target_annual !== '') {
+    const n = Number(form.occupancy_target_annual);
+    if (!Number.isFinite(n) || n < 0 || n > 100) {
+      toast.error('Annual Occupancy Target must be between 0 and 100');
+      return false;
+    }
+  }
+  return true;
+};
+```
 
-Add `subMonths`, `subYears`, `startOfYear` to the existing `date-fns` import on line 23 (`subMonths` is already there in some form? — check; if missing, add. `format`, `startOfMonth`, `endOfMonth`, `addMonths` already imported).
+In `handleSave`, before line 128 (`setSaving(true)`):
 
-Confirmed currently imported: `format, startOfMonth, endOfMonth, addMonths, isSameMonth, differenceInDays, addDays, startOfDay`. Need to **add**: `subMonths`, `subYears`, `startOfYear`.
+```ts
+if (!validateStep4()) return;
+```
 
-### Things deliberately NOT changed
+No `setSaving(false)` in the validator — exactly matches `validateStep1`.
 
-- Internal `TimePeriod` union and state values
-- Default selected pill (`'month'`)
-- Dynamic month pills (`Mar` / `Apr` / `May`) and their `lastMonth` / `thisMonth` / `nextMonth` logic
-- Custom Range pill, calendar popover, `getFormattedDateRange`, and active-pill detection
-- Any KPI card, chart, table, or downstream consumer (they receive resolved `startDate` / `endDate` strings, which still work)
-- Pill styling and layout
+#### 2c. Payload (after line 167, `landlord_share_percentage`)
 
-### Files touched
+```ts
+occupancy_target_annual:
+  form.occupancy_target_annual !== '' ? Number(form.occupancy_target_annual) : null,
+```
 
-- `src/pages/Analytics.tsx` — import line, `getDateRange()` switch body (4 cases), and 3 `TabsTrigger` label texts
+The existing `payload: any` cast on line 130 already bypasses stale generated types — no extra cast needed.
+
+#### 2d. UI input (Step 4, inserted after the landlord-share block at line ~636, still inside the same `border rounded-lg` card, OUTSIDE the `form.has_landlord` conditional so it's always visible)
+
+```tsx
+<div className="pt-2">
+  <Label htmlFor="occupancy-target-annual">Annual Occupancy Target (%)</Label>
+  <div className="relative mt-1">
+    <Input
+      id="occupancy-target-annual"
+      type="number"
+      min={0}
+      max={100}
+      step={1}
+      placeholder="e.g. 75"
+      value={form.occupancy_target_annual}
+      onChange={(e) => update('occupancy_target_annual', e.target.value)}
+      className="pr-8"
+    />
+    <span className="absolute right-3 top-1/2 -translate-y-1/2 text-sm text-muted-foreground pointer-events-none">
+      %
+    </span>
+  </div>
+  <p className="text-xs text-muted-foreground mt-1">
+    Optional. Used to display a target line on the Occupancy by Month chart.
+  </p>
+</div>
+```
+
+Visual style mirrors the existing landlord-share input (same `%` adornment + helper-text pattern).
+
+### 3. Out of scope (handled in the next two prompts)
+
+- `OccupancyByMonthChart.tsx`
+- `Analytics.tsx`
+- Any KPI card or chart line rendering
+
+### 4. Files touched
+
+- New migration on `properties`
+- `src/components/settings/PropertyForm.tsx` — state init, new `validateStep4`, one-line guard at top of `handleSave`, payload addition, and one new input block in Step 4
+
+No changes to Steps 1/2/3/5, no changes to existing Step 4 fields, no changes to the create-mode success screen.
