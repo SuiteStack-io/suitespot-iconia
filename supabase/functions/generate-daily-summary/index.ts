@@ -62,8 +62,8 @@ async function getRecipients(supabase: any, propertyId?: string): Promise<{ emai
     .select("user_id, role")
     .in("user_id", userIds);
 
-  const profileMap = new Map((profiles || []).map((p: any) => [p.id, p.full_name]));
-  const roleMap = new Map((userRoles || []).map((r: any) => [r.user_id, r.role]));
+  const profileMap = new Map<string, string>((profiles || []).map((p: any) => [p.id, p.full_name]));
+  const roleMap = new Map<string, string>((userRoles || []).map((r: any) => [r.user_id, r.role]));
 
   let candidates: { user_id: string; email: string; name: string; role: string }[] = [];
 
