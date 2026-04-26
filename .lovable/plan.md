@@ -1,105 +1,98 @@
-## Add Annual Occupancy Target — Data Layer + Settings Input (Prompt 1 of 3)
+## Add Occupancy Target Reference Line — Prompt 2 of 3
 
-This is the first of three prompts. Scope: schema migration + Step 4 form input only. No chart changes.
+Adds a red dotted horizontal reference line at `properties.occupancy_target_annual` to the Occupancy by Month chart. Average line stays out of scope (Prompt 3).
 
-### 1. Database migration
+### File touched
+- `src/components/analytics/OccupancyByMonthChart.tsx`
 
-```sql
-ALTER TABLE properties
-  ADD COLUMN occupancy_target_annual numeric NULL
-  CHECK (occupancy_target_annual IS NULL OR (occupancy_target_annual >= 0 AND occupancy_target_annual <= 100));
-```
+### 1. Imports
 
-- Nullable, no default — properties without a target are valid
-- CHECK enforces 0–100 at the DB level (immutable expression, safe per Supabase guidelines)
+Add `ReferenceLine` to the existing recharts import block (alongside `BarChart`, `Bar`, `XAxis`, `YAxis`, etc.).
 
-### 2. PropertyForm — Step 4 changes
+### 2. Fetch the target value (separate effect)
 
-File: `src/components/settings/PropertyForm.tsx`
-
-#### 2a. Form state (after line 113, `landlord_share_percentage`)
-
-Stored as a string for clean optional/empty handling — same pattern as `vat_rate` (line 109) and `default_commission_rate` (line 110):
+Add a new `useState` and `useEffect` — kept independent of the existing reservations/blocked-dates effect:
 
 ```ts
-occupancy_target_annual:
-  (property as any)?.occupancy_target_annual != null
-    ? String((property as any).occupancy_target_annual)
-    : '',
-```
+const [occupancyTarget, setOccupancyTarget] = useState<number | null>(null);
 
-#### 2b. Validation — match existing pattern
-
-The existing validator (`validateStep1`, lines 119–125) lives **outside** `handleSave`, just calls `toast.error` and returns `false`. No `setSaving` calls. Mirror it exactly with a new `validateStep4` and call it at the top of `handleSave` before `setSaving(true)`:
-
-```ts
-const validateStep4 = () => {
-  if (form.occupancy_target_annual !== '') {
-    const n = Number(form.occupancy_target_annual);
-    if (!Number.isFinite(n) || n < 0 || n > 100) {
-      toast.error('Annual Occupancy Target must be between 0 and 100');
-      return false;
-    }
+useEffect(() => {
+  if (!propertyId) {
+    setOccupancyTarget(null);
+    return;
   }
-  return true;
-};
+  let cancelled = false;
+  (async () => {
+    const { data, error } = await supabase
+      .from('properties')
+      .select('occupancy_target_annual')
+      .eq('id', propertyId)
+      .maybeSingle();
+    if (cancelled) return;
+    if (error) {
+      console.error('Failed to fetch occupancy target:', error);
+      setOccupancyTarget(null);
+      return;
+    }
+    const value = (data as any)?.occupancy_target_annual;
+    setOccupancyTarget(typeof value === 'number' ? value : null);
+  })();
+  return () => { cancelled = true; };
+}, [propertyId]);
 ```
 
-In `handleSave`, before line 128 (`setSaving(true)`):
+- `.maybeSingle()` so missing rows return `null` without throwing.
+- Cast as `any` since generated types may not yet include the new column.
+- "All Properties" view (`propertyId === null`) → target stays `null`, no line rendered.
+- `0` is a valid target (renders flat at bottom); only `null`/non-number suppresses the line.
 
-```ts
-if (!validateStep4()) return;
-```
+### 3. Axis identifier
 
-No `setSaving(false)` in the validator — exactly matches `validateStep1`.
+The existing left Y-axis already uses `yAxisId="occupancy"` (line 234). Reuse that id on the `<ReferenceLine>` — no axis change needed. Domain is already `[0, 100]`, so a 100% target renders correctly.
 
-#### 2c. Payload (after line 167, `landlord_share_percentage`)
+### 4. Render the ReferenceLine
 
-```ts
-occupancy_target_annual:
-  form.occupancy_target_annual !== '' ? Number(form.occupancy_target_annual) : null,
-```
-
-The existing `payload: any` cast on line 130 already bypasses stale generated types — no extra cast needed.
-
-#### 2d. UI input (Step 4, inserted after the landlord-share block at line ~636, still inside the same `border rounded-lg` card, OUTSIDE the `form.has_landlord` conditional so it's always visible)
+Inside `<BarChart>`, after the axes and before/around the existing `<Bar>` elements:
 
 ```tsx
-<div className="pt-2">
-  <Label htmlFor="occupancy-target-annual">Annual Occupancy Target (%)</Label>
-  <div className="relative mt-1">
-    <Input
-      id="occupancy-target-annual"
-      type="number"
-      min={0}
-      max={100}
-      step={1}
-      placeholder="e.g. 75"
-      value={form.occupancy_target_annual}
-      onChange={(e) => update('occupancy_target_annual', e.target.value)}
-      className="pr-8"
-    />
-    <span className="absolute right-3 top-1/2 -translate-y-1/2 text-sm text-muted-foreground pointer-events-none">
-      %
-    </span>
-  </div>
-  <p className="text-xs text-muted-foreground mt-1">
-    Optional. Used to display a target line on the Occupancy by Month chart.
-  </p>
-</div>
+{occupancyTarget !== null && (
+  <ReferenceLine
+    y={occupancyTarget}
+    yAxisId="occupancy"
+    stroke="#dc2626"
+    strokeDasharray="4 4"
+    strokeWidth={2}
+    label={{
+      value: `Target ${occupancyTarget}%`,
+      position: 'right',
+      fill: '#dc2626',
+      fontSize: 11,
+      fontWeight: 600,
+    }}
+  />
+)}
 ```
 
-Visual style mirrors the existing landlord-share input (same `%` adornment + helper-text pattern).
+### 5. Tooltip update
 
-### 3. Out of scope (handled in the next two prompts)
+The chart already uses a custom `content` component (Tooltip at line 247). Extend it to render an extra row when `occupancyTarget !== null`:
 
-- `OccupancyByMonthChart.tsx`
-- `Analytics.tsx`
-- Any KPI card or chart line rendering
+```tsx
+{occupancyTarget !== null && (
+  <div className="mt-1 pt-1 border-t" style={{ color: '#dc2626' }}>
+    Target: {occupancyTarget}%
+  </div>
+)}
+```
 
-### 4. Files touched
+Inserted inside the existing tooltip popover, after the occupancy/nights rows and after the optional revenue row. `occupancyTarget` is in the closure of the parent component, so no new prop wiring is needed.
 
-- New migration on `properties`
-- `src/components/settings/PropertyForm.tsx` — state init, new `validateStep4`, one-line guard at top of `handleSave`, payload addition, and one new input block in Step 4
+### 6. Out of scope (Prompt 3)
+- Black average line
+- Average row in tooltip
+- Any change to bars, occupancy math, revenue toggle, axis scales, props, or `Analytics.tsx`
 
-No changes to Steps 1/2/3/5, no changes to existing Step 4 fields, no changes to the create-mode success screen.
+### 7. Safety checks
+- No duplicate variable declarations (`occupancyTarget` declared once).
+- Reuses existing `yAxisId="occupancy"` — no risk of orphaned axis ids.
+- Revenue right axis untouched.
