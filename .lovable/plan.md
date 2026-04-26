@@ -1,39 +1,65 @@
-## Fix Target label truncation on Occupancy by Month chart
+## Add Average Occupancy Label to Chart Header
 
-The red dotted target line's `Target X%` label currently renders as just `T` because `position: 'right'` places it outside the chart's plot area, where Recharts clips it.
+Add a small text label showing the average occupancy across the months currently displayed in the "Occupancy by Month" chart, placed next to the "Show Revenue" toggle.
 
-### Change
+### File
+`src/components/analytics/OccupancyByMonthChart.tsx`
 
-In `src/components/analytics/OccupancyByMonthChart.tsx`, update the `<ReferenceLine>` label config from:
+### Changes
 
+**1. Add `useMemo` import**
+
+Update the React import:
 ```tsx
-label={{
-  value: `Target ${occupancyTarget}%`,
-  position: 'right',
-  fill: '#dc2626',
-  fontSize: 11,
-  fontWeight: 600,
-}}
+import { useEffect, useMemo, useState } from 'react';
 ```
 
-to:
+**2. Compute the average**
 
+Right after the existing state declarations (after `occupancyTarget` state), add:
 ```tsx
-label={{
-  value: `Target ${occupancyTarget}%`,
-  position: 'insideTopRight',
-  fill: '#dc2626',
-  fontSize: 11,
-  fontWeight: 600,
-  offset: 5,
-}}
+const averageOccupancy = useMemo(() => {
+  if (!data || data.length === 0) return null;
+  const validMonths = data.filter(
+    (m) => typeof m.occupancy === 'number' && !Number.isNaN(m.occupancy)
+  );
+  if (validMonths.length === 0) return null;
+  const sum = validMonths.reduce((acc, m) => acc + m.occupancy, 0);
+  return sum / validMonths.length;
+}, [data]);
 ```
 
-This anchors the label inside the plot area, above the line and to the right, so the full text stays visible on both desktop and mobile.
+The field name `m.occupancy` matches the existing `MonthBucket` interface (verified — it's defined as `occupancy: number` and assigned via `m.occupancy = ...` in the bucket loop).
+
+**3. Render the label in the header**
+
+Modify the existing header's right-side flex container (currently holds the `Label` + `Switch`) to insert the average label as a sibling BEFORE the "Show Revenue" label:
+
+```tsx
+<CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+  <CardTitle>Occupancy by Month</CardTitle>
+  <div className="flex items-center gap-2">
+    {averageOccupancy !== null && (
+      <span className="text-sm text-muted-foreground mr-2">
+        Avg: {averageOccupancy.toFixed(1)}%
+      </span>
+    )}
+    <Label
+      htmlFor="show-revenue-toggle"
+      className="text-sm font-normal text-muted-foreground cursor-pointer"
+    >
+      Show Revenue
+    </Label>
+    <Switch
+      id="show-revenue-toggle"
+      checked={showRevenue}
+      onCheckedChange={setShowRevenue}
+    />
+  </div>
+</CardHeader>
+```
 
 ### Out of scope
-
-- Line color, dash pattern, stroke width — unchanged
-- Tooltip "Target: X%" row — unchanged
-- Data fetch and `occupancyTarget` state — unchanged
-- Everything else in the file — unchanged
+- No reference line on the chart
+- No tooltip changes
+- No changes to red Target line, bar rendering, occupancy math, toggle behavior, date pills, or anything outside this single component

@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Switch } from '@/components/ui/switch';
 import { Label } from '@/components/ui/label';
@@ -63,6 +63,16 @@ export const OccupancyByMonthChart = ({ propertyId, method = 'check_in', startDa
   const [error, setError] = useState(false);
   const [showRevenue, setShowRevenue] = useState(false);
   const [occupancyTarget, setOccupancyTarget] = useState<number | null>(null);
+
+  const averageOccupancy = useMemo(() => {
+    if (!data || data.length === 0) return null;
+    const validMonths = data.filter(
+      (m) => typeof m.occupancy === 'number' && !Number.isNaN(m.occupancy)
+    );
+    if (validMonths.length === 0) return null;
+    const sum = validMonths.reduce((acc, m) => acc + m.occupancy, 0);
+    return sum / validMonths.length;
+  }, [data]);
 
   useEffect(() => {
     if (!propertyId) {
@@ -231,6 +241,11 @@ export const OccupancyByMonthChart = ({ propertyId, method = 'check_in', startDa
       <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
         <CardTitle>Occupancy by Month</CardTitle>
         <div className="flex items-center gap-2">
+          {averageOccupancy !== null && (
+            <span className="text-sm text-muted-foreground mr-2">
+              Avg: {averageOccupancy.toFixed(1)}%
+            </span>
+          )}
           <Label
             htmlFor="show-revenue-toggle"
             className="text-sm font-normal text-muted-foreground cursor-pointer"
