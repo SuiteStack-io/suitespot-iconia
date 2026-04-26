@@ -56,7 +56,7 @@ const formatCurrencyShort = (v: number): string => {
 const formatCurrencyFull = (v: number): string =>
   `$${Math.round(v).toLocaleString()}`;
 
-export const OccupancyByMonthChart = ({ propertyId, method = 'check_in' }: Props) => {
+export const OccupancyByMonthChart = ({ propertyId, method = 'check_in', startDate, endDate }: Props) => {
   const [data, setData] = useState<MonthBucket[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(false);
@@ -70,14 +70,16 @@ export const OccupancyByMonthChart = ({ propertyId, method = 'check_in' }: Props
       setLoading(true);
       setError(false);
       try {
-        const now = new Date();
-        const months: MonthBucket[] = Array.from({ length: 6 }, (_, i) => {
-          const anchor = addMonths(now, -(5 - i)); // oldest -> newest
-          const ms = startOfMonth(anchor);
-          const me = endOfMonth(anchor);
-          return {
+        const rangeStart = startOfMonth(new Date(startDate));
+        const rangeEnd = endOfMonth(new Date(endDate));
+        const months: MonthBucket[] = [];
+        let cursor = rangeStart;
+        while (cursor <= rangeEnd) {
+          const ms = startOfMonth(cursor);
+          const me = endOfMonth(cursor);
+          months.push({
             key: format(ms, 'yyyy-MM'),
-            label: format(ms, 'MMM'),
+            label: format(ms, 'MMM yy'),
             fullLabel: format(ms, 'MMMM yyyy'),
             monthStart: ms,
             monthEnd: me,
@@ -86,11 +88,20 @@ export const OccupancyByMonthChart = ({ propertyId, method = 'check_in' }: Props
             availableNights: 0,
             occupancy: 0,
             netRevenue: 0,
-          };
-        });
+          });
+          cursor = addMonths(cursor, 1);
+        }
+
+        if (months.length === 0) {
+          if (!cancelled) {
+            setData([]);
+            setLoading(false);
+          }
+          return;
+        }
 
         const windowStart = format(months[0].monthStart, 'yyyy-MM-dd');
-        const windowEnd = format(months[5].monthEnd, 'yyyy-MM-dd');
+        const windowEnd = format(months[months.length - 1].monthEnd, 'yyyy-MM-dd');
 
         // Same units source as the Occupancy KPI card
         const { data: units, error: unitsErr } = await withPropertyFilter(
