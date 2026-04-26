@@ -1098,11 +1098,40 @@ export const AvailabilityCalendar = () => {
         // Don't throw - the move was successful, notification is secondary
       }
 
+      // Log manual room change to room_shuffle_log (do not block on failure)
+      try {
+        const { error: logError } = await supabase.from('room_shuffle_log').insert({
+          triggered_by_booking_id: reservation.id,
+          triggered_by_reference: reservation.booking_reference ?? reservation.id,
+          room_type: (originalUnit?.booking_com_name ?? originalUnit?.name) || 'Unknown',
+          moves: [{
+            reservation_id: reservation.id,
+            guest_name: guestName,
+            from_unit_id: originalUnitId,
+            from_unit_number: originalUnit?.unit_number ?? '',
+            to_unit_id: targetUnitId,
+            to_unit_number: targetUnit?.unit_number ?? '',
+            check_in_date: reservation.check_in_date,
+            check_out_date: reservation.check_out_date,
+          }],
+          move_count: 1,
+          reason: 'Manual drag-and-drop on calendar',
+          change_type: 'manual',
+        });
+        if (logError) console.error('Failed to log manual room change:', logError);
+      } catch (logErr) {
+        console.error('Failed to log manual room change:', logErr);
+      }
+
       // Store the move for undo
       setLastMove({
         reservationId,
         originalUnitId: originalUnitId!,
+        newUnitId: targetUnitId,
         guestName,
+        bookingReference: reservation.booking_reference ?? null,
+        checkInDate: reservation.check_in_date,
+        checkOutDate: reservation.check_out_date,
         timestamp: Date.now(),
       });
 
