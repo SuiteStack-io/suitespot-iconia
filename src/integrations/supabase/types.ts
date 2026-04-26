@@ -1610,6 +1610,7 @@ export type Database = {
           legal_name: string | null
           longitude: number | null
           name: string
+          occupancy_target_annual: number | null
           off_peak_days: number[] | null
           phone: string | null
           property_type: string | null
@@ -1659,6 +1660,7 @@ export type Database = {
           legal_name?: string | null
           longitude?: number | null
           name: string
+          occupancy_target_annual?: number | null
           off_peak_days?: number[] | null
           phone?: string | null
           property_type?: string | null
@@ -1708,6 +1710,7 @@ export type Database = {
           legal_name?: string | null
           longitude?: number | null
           name?: string
+          occupancy_target_annual?: number | null
           off_peak_days?: number[] | null
           phone?: string | null
           property_type?: string | null
