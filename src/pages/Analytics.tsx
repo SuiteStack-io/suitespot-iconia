@@ -913,17 +913,36 @@ const Analytics = () => {
       <main className="container mx-auto px-4 py-6 space-y-6">
         {/* Period selector */}
         <div className="flex items-center gap-4 flex-wrap">
-          <Tabs value={customDateRange ? '' : timePeriod} onValueChange={handleTabChange}>
-            <TabsList>
-              <TabsTrigger value="week">7 Days</TabsTrigger>
-              <TabsTrigger value="month">30 Days</TabsTrigger>
-              <TabsTrigger value="quarter">90 Days</TabsTrigger>
-              <TabsTrigger value="ytd">YTD</TabsTrigger>
-              <TabsTrigger value="lastMonth">{format(addMonths(now, -1), 'MMM')}</TabsTrigger>
-              <TabsTrigger value="thisMonth">{format(now, 'MMM')}</TabsTrigger>
-              <TabsTrigger value="nextMonth">{format(addMonths(now, 1), 'MMM')}</TabsTrigger>
-            </TabsList>
-          </Tabs>
+          <div className="flex flex-col sm:flex-row sm:items-center gap-2 sm:gap-4 w-full sm:w-auto">
+            <Tabs value={customDateRange ? '' : timePeriod} onValueChange={handleTabChange}>
+              <TabsList>
+                <TabsTrigger value="week">7 Days</TabsTrigger>
+                <TabsTrigger value="month">30 Days</TabsTrigger>
+                <TabsTrigger value="quarter">90 Days</TabsTrigger>
+                <TabsTrigger value="ytd">YTD</TabsTrigger>
+              </TabsList>
+            </Tabs>
+
+            <div className="flex items-center gap-2">
+              {(['lastMonth', 'thisMonth', 'nextMonth'] as const).map((key, idx) => {
+                const monthDate = idx === 0 ? addMonths(now, -1) : idx === 1 ? now : addMonths(now, 1);
+                const label = format(monthDate, 'MMM');
+                const isActive = !customDateRange && timePeriod === key;
+                return (
+                  <Button
+                    key={key}
+                    type="button"
+                    variant="outline"
+                    size="sm"
+                    onClick={() => handleTabChange(key)}
+                    className={isActive ? 'border-foreground border-2' : ''}
+                  >
+                    {label}
+                  </Button>
+                );
+              })}
+            </div>
+          </div>
           
           <Popover>
             <PopoverTrigger asChild>

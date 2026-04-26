@@ -1,48 +1,55 @@
-## Add Read-Only Revenue Recognition Method label to Analytics page
+## Split month pills into standalone outlined buttons on Analytics
 
-Adds a small read-only label showing the property's configured Revenue Recognition Method on the Analytics page, placed in the same vertical slot as the Revenue Share Card so layout stays consistent regardless of `has_landlord`.
+Splits the current single `TabsList` containing 7 pills into two visually distinct groups, with a responsive stacked layout on mobile.
 
-### Verified existing state in `src/pages/Analytics.tsx`
+### Changes to `src/pages/Analytics.tsx`
 
-- Line 56: `hasLandlord` already derived from `activeProperty.has_landlord` — reuse, do not redeclare.
-- Lines 57–58: `method` already derived from `activeProperty.revenue_recognition_method` — reuse, do not redeclare.
-- Lines 982–1011: Revenue Share Card is wrapped in `{hasLandlord && (<Card>…</Card>)}`. Outer flex row at line 985 is `flex items-center gap-4 flex-wrap`. Save button is inside an inner `flex items-center gap-4 text-sm` div (lines 997–1007).
-
-### Changes
-
-**1. Add display-label derivation (after line 58)**
-
-```ts
-const methodDisplayLabel =
-  method === 'check_in' ? 'Upon check-in' :
-  method === 'check_out' ? 'Upon check-out' :
-  'Pro-rata nights';
-```
-
-(Strings match Step 4 dropdown labels exactly.)
-
-**2. Replace lines 982–1011 with an `if/else` ternary so something is always rendered in this slot**
-
-- Case A (`hasLandlord === true`): keep the existing Card content unchanged. Append a new label span as the LAST child of the outer `flex flex-wrap` row (after the inner div that holds the Save button, i.e. after line 1007's `</div>`):
+**Replace lines 915–926** (the `<div className="flex items-center gap-4 flex-wrap">` opener through the closing `</Tabs>`) with:
 
 ```tsx
-<span className="text-sm text-muted-foreground">
-  Revenue Recognition Method:{' '}
-  <span className="font-medium text-foreground">{methodDisplayLabel}</span>
-</span>
+<div className="flex items-center gap-4 flex-wrap">
+  <div className="flex flex-col sm:flex-row sm:items-center gap-2 sm:gap-4 w-full sm:w-auto">
+    <Tabs value={customDateRange ? '' : timePeriod} onValueChange={handleTabChange}>
+      <TabsList>
+        <TabsTrigger value="week">7 Days</TabsTrigger>
+        <TabsTrigger value="month">30 Days</TabsTrigger>
+        <TabsTrigger value="quarter">90 Days</TabsTrigger>
+        <TabsTrigger value="ytd">YTD</TabsTrigger>
+      </TabsList>
+    </Tabs>
+
+    <div className="flex items-center gap-2">
+      {(['lastMonth', 'thisMonth', 'nextMonth'] as const).map((key, idx) => {
+        const monthDate = idx === 0 ? addMonths(now, -1) : idx === 1 ? now : addMonths(now, 1);
+        const label = format(monthDate, 'MMM');
+        const isActive = !customDateRange && timePeriod === key;
+        return (
+          <Button
+            key={key}
+            type="button"
+            variant="outline"
+            size="sm"
+            onClick={() => handleTabChange(key)}
+            className={isActive ? 'border-foreground border-2' : ''}
+          >
+            {label}
+          </Button>
+        );
+      })}
+    </div>
+  </div>
 ```
 
-Because the outer row is `flex-wrap`, the label naturally wraps below the Save button on narrow viewports.
+The existing `<Popover>...` for Custom Range (lines 928+) remains a sibling within the outer flex-wrap row, unchanged.
 
-- Case B (`hasLandlord === false`): render a new standalone Card with identical wrapper classes (`bg-gradient-to-r from-card to-card/80` + `CardContent className="py-4"`) containing only the same label span, left-aligned.
+### Behavior preserved
 
-### Out of scope (unchanged)
+- `TimePeriod` union, `getDateRange()`, `handleTabChange`, KPI cards, tables, Custom Range — all unchanged
+- Single-active-at-a-time: Tabs `value` only matches `week|month|quarter|ytd`, so selecting a month deselects the segmented group; selecting a segment makes none of the month buttons match `timePeriod === key`, deselecting them
+- `now` (line 882), `Button`, `addMonths`, `format`, `customDateRange`, `timePeriod`, `handleTabChange` — all already in scope, no redeclarations
 
-- Slider, Landlord/Suitespot percentage labels, Save button behavior
-- Date range pills, Custom Range picker, KPI cards, detail dialogs, Excel export
-- No new state, fetch, useEffect, DB column, or query
-- No redeclaration of `method` or `hasLandlord`
+### Responsive layout
 
-### Sync
-
-`method` and `hasLandlord` come from `activeProperty`. After the user saves Step 4 of the Edit Property modal, `refreshProperties()` updates `activeProperty` and the label re-renders automatically.
+- Mobile (`<sm`): `flex-col` stacks the segmented Tabs group above the three month buttons
+- Desktop (`≥sm`): `sm:flex-row` places both groups side by side with `sm:gap-4`
+- Custom Range button continues to flow after both groups via the outer `flex-wrap` container
