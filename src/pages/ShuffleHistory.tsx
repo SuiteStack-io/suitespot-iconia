@@ -26,6 +26,9 @@ interface ShuffleLog {
 const ShuffleHistory = () => {
   const { user, loading, userRole } = useAuth();
   const navigate = useNavigate();
+  const [searchParams, setSearchParams] = useSearchParams();
+  const filter: 'automatic' | 'manual' =
+    searchParams.get('type') === 'manual' ? 'manual' : 'automatic';
   const [logs, setLogs] = useState<ShuffleLog[]>([]);
   const [fetching, setFetching] = useState(true);
   const propertyId = usePropertyId();
@@ -36,13 +39,22 @@ const ShuffleHistory = () => {
 
   useEffect(() => {
     if (user) fetchLogs();
-  }, [user, propertyId]);
+  }, [user, propertyId, filter]);
+
+  const handleFilterChange = (value: string) => {
+    if (value !== 'automatic' && value !== 'manual') return;
+    const next = new URLSearchParams(searchParams);
+    if (value === 'automatic') next.delete('type');
+    else next.set('type', 'manual');
+    setSearchParams(next, { replace: true });
+  };
 
   const fetchLogs = async () => {
     setFetching(true);
     let query = supabase
       .from('room_shuffle_log')
       .select('*')
+      .eq('change_type', filter)
       .order('shuffle_date', { ascending: false })
       .limit(100);
     query = withPropertyFilter(query, propertyId) as any;
