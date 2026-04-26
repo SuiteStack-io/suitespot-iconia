@@ -29,6 +29,8 @@ import {
 interface Props {
   propertyId: string | null;
   method?: import('@/lib/revenueDateFilter').RevenueRecognitionMethod;
+  startDate: string; // 'yyyy-MM-dd'
+  endDate: string;   // 'yyyy-MM-dd'
 }
 
 interface MonthBucket {
