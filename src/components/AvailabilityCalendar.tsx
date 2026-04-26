@@ -246,7 +246,11 @@ export const AvailabilityCalendar = () => {
   const [lastMove, setLastMove] = useState<{
     reservationId: string;
     originalUnitId: string;
+    newUnitId: string;
     guestName: string;
+    bookingReference: string | null;
+    checkInDate: string;
+    checkOutDate: string;
     timestamp: number;
   } | null>(null);
   const propertyId = usePropertyId();
