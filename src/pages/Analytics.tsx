@@ -1204,7 +1204,12 @@ const Analytics = () => {
         </div>
 
         {/* Occupancy by Month */}
-        <OccupancyByMonthChart propertyId={propertyId} method={method} />
+        <OccupancyByMonthChart
+          propertyId={propertyId}
+          method={method}
+          startDate={startDate}
+          endDate={endDate}
+        />
 
         {/* Revenue Breakdown Charts */}
         <div className="grid gap-6 md:grid-cols-2">

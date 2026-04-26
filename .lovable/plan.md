@@ -1,55 +1,89 @@
-## Split month pills into standalone outlined buttons on Analytics
+## Make Occupancy by Month chart respect Analytics date range
 
-Splits the current single `TabsList` containing 7 pills into two visually distinct groups, with a responsive stacked layout on mobile.
+### 1. Chart component (`src/components/analytics/OccupancyByMonthChart.tsx`)
 
-### Changes to `src/pages/Analytics.tsx`
-
-**Replace lines 915–926** (the `<div className="flex items-center gap-4 flex-wrap">` opener through the closing `</Tabs>`) with:
-
-```tsx
-<div className="flex items-center gap-4 flex-wrap">
-  <div className="flex flex-col sm:flex-row sm:items-center gap-2 sm:gap-4 w-full sm:w-auto">
-    <Tabs value={customDateRange ? '' : timePeriod} onValueChange={handleTabChange}>
-      <TabsList>
-        <TabsTrigger value="week">7 Days</TabsTrigger>
-        <TabsTrigger value="month">30 Days</TabsTrigger>
-        <TabsTrigger value="quarter">90 Days</TabsTrigger>
-        <TabsTrigger value="ytd">YTD</TabsTrigger>
-      </TabsList>
-    </Tabs>
-
-    <div className="flex items-center gap-2">
-      {(['lastMonth', 'thisMonth', 'nextMonth'] as const).map((key, idx) => {
-        const monthDate = idx === 0 ? addMonths(now, -1) : idx === 1 ? now : addMonths(now, 1);
-        const label = format(monthDate, 'MMM');
-        const isActive = !customDateRange && timePeriod === key;
-        return (
-          <Button
-            key={key}
-            type="button"
-            variant="outline"
-            size="sm"
-            onClick={() => handleTabChange(key)}
-            className={isActive ? 'border-foreground border-2' : ''}
-          >
-            {label}
-          </Button>
-        );
-      })}
-    </div>
-  </div>
+**Props** — extend the existing `Props` interface with two required strings:
+```ts
+interface Props {
+  propertyId: string | null;
+  method?: import('@/lib/revenueDateFilter').RevenueRecognitionMethod;
+  startDate: string; // 'yyyy-MM-dd'
+  endDate: string;   // 'yyyy-MM-dd'
+}
 ```
 
-The existing `<Popover>...` for Custom Range (lines 928+) remains a sibling within the outer flex-wrap row, unchanged.
+Destructure `startDate` and `endDate` in the component signature alongside the existing `propertyId` and `method`.
 
-### Behavior preserved
+**Bucket derivation** — replace the hardcoded trailing-6-months `Array.from({ length: 6 }, ...)` block inside the `useEffect` with a range-driven loop:
 
-- `TimePeriod` union, `getDateRange()`, `handleTabChange`, KPI cards, tables, Custom Range — all unchanged
-- Single-active-at-a-time: Tabs `value` only matches `week|month|quarter|ytd`, so selecting a month deselects the segmented group; selecting a segment makes none of the month buttons match `timePeriod === key`, deselecting them
-- `now` (line 882), `Button`, `addMonths`, `format`, `customDateRange`, `timePeriod`, `handleTabChange` — all already in scope, no redeclarations
+```ts
+const rangeStart = startOfMonth(new Date(startDate));
+const rangeEnd = endOfMonth(new Date(endDate));
+const months: MonthBucket[] = [];
+let cursor = rangeStart;
+while (cursor <= rangeEnd) {
+  const ms = startOfMonth(cursor);
+  const me = endOfMonth(cursor);
+  months.push({
+    key: format(ms, 'yyyy-MM'),
+    label: format(ms, 'MMM yy'),
+    fullLabel: format(ms, 'MMMM yyyy'),
+    monthStart: ms,
+    monthEnd: me,
+    daysInMonth: getDaysInMonth(ms),
+    occupiedNights: 0,
+    availableNights: 0,
+    occupancy: 0,
+    netRevenue: 0,
+  });
+  cursor = addMonths(cursor, 1);
+}
+```
 
-### Responsive layout
+Note: `MMM yy` x-axis label (e.g. `Apr 26`) replaces today's `MMM` so cross-year ranges remain unambiguous; `fullLabel` already uses `MMMM yyyy` for the tooltip. The `MonthBucket` interface itself is unchanged.
 
-- Mobile (`<sm`): `flex-col` stacks the segmented Tabs group above the three month buttons
-- Desktop (`≥sm`): `sm:flex-row` places both groups side by side with `sm:gap-4`
-- Custom Range button continues to flow after both groups via the outer `flex-wrap` container
+**Window for the queries** — keep the existing pattern:
+```ts
+const windowStart = format(months[0].monthStart, 'yyyy-MM-dd');
+const windowEnd = format(months[months.length - 1].monthEnd, 'yyyy-MM-dd');
+```
+This already drives the `reservations` and `blocked_dates` queries — they continue to work unchanged. The per-month overlap math (occupied nights, available nights, blocked nights, prorated revenue) is left exactly as it is today.
+
+**Effect dependencies** — extend the existing dependency array:
+```ts
+}, [propertyId, startDate, endDate]);
+```
+
+**Empty-range guard** — if `months.length === 0` (shouldn't happen for valid pill ranges, but defensive), set `data` to `[]` and bail out before running queries.
+
+### 2. Analytics page (`src/pages/Analytics.tsx`)
+
+`startDate` and `endDate` are already destructured at line 881 from `getDateRange()` in render scope, and feed every other downstream component (KPI cards, the 4 bottom tables, `CancellationAnalytics`).
+
+Update the single render site at line 1207:
+```tsx
+<OccupancyByMonthChart
+  propertyId={propertyId}
+  method={method}
+  startDate={startDate}
+  endDate={endDate}
+/>
+```
+
+No new `getDateRange()` call, no new variable declarations.
+
+### 3. Visual handling
+
+Single-bucket ranges (e.g. "7 Days", "Apr") will render one wide bar. Add `barSize={80}` to the `<BarChart>` (or to each `<Bar>`) so a lone bar doesn't stretch across the full chart width. This matches the prompt's "apply only if visual is awkward" guidance — verify after the change and remove if it causes regressions on multi-bar layouts.
+
+### 4. Behavior preserved
+
+- Per-month overlap math (occupied/available nights, blocked-dates handling, cancelled-exclusion filter) — unchanged
+- Sub-month range still uses **full-month** denominators (the chart shows monthly trends, not in-range slices)
+- "Show Revenue" toggle, tooltip structure, color, axis styling, `LabelList` formatters — unchanged
+- KPI cards, the 4 bottom tables, date pills, Custom Range, Export — untouched
+- `propertyId` and `method` props — preserved
+
+### Verification
+
+Build with `tsc --noEmit` to confirm no duplicate declarations and that the new prop types line up at the single call site in `Analytics.tsx`.
