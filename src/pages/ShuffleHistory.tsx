@@ -78,13 +78,23 @@ const ShuffleHistory = () => {
       <header className="border-b bg-card sticky top-0 z-10">
         <div className="container mx-auto px-4 py-4">
           <AdminBreadcrumb section="PMS" currentPage="Shuffle History" />
-          <div className="flex items-center gap-4">
-            <SlideMenu userRole={userRole} />
-            <img src={suitespotLogo} alt="SuiteSpot Logo" className="h-10 w-10 object-contain" />
-            <div>
-              <h1 className="text-xl font-bold">Shuffle History</h1>
-              <p className="text-sm text-muted-foreground">Auto-shuffle room rearrangement log</p>
+          <div className="flex items-center justify-between flex-wrap gap-3">
+            <div className="flex items-center gap-4">
+              <SlideMenu userRole={userRole} />
+              <img src={suitespotLogo} alt="SuiteSpot Logo" className="h-10 w-10 object-contain" />
+              <div>
+                <h1 className="text-xl font-bold">Shuffle History</h1>
+                <p className="text-sm text-muted-foreground">
+                  {filter === 'manual' ? 'Manual room change log' : 'Auto-shuffle room rearrangement log'}
+                </p>
+              </div>
             </div>
+            <Tabs value={filter} onValueChange={handleFilterChange}>
+              <TabsList>
+                <TabsTrigger value="automatic">Automatic</TabsTrigger>
+                <TabsTrigger value="manual">Manual</TabsTrigger>
+              </TabsList>
+            </Tabs>
           </div>
         </div>
       </header>
