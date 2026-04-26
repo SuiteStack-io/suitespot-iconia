@@ -24,6 +24,7 @@ import {
   ResponsiveContainer,
   LabelList,
   Legend,
+  ReferenceLine,
 } from 'recharts';
 
 interface Props {
@@ -61,6 +62,33 @@ export const OccupancyByMonthChart = ({ propertyId, method = 'check_in', startDa
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(false);
   const [showRevenue, setShowRevenue] = useState(false);
+  const [occupancyTarget, setOccupancyTarget] = useState<number | null>(null);
+
+  useEffect(() => {
+    if (!propertyId) {
+      setOccupancyTarget(null);
+      return;
+    }
+    let cancelled = false;
+    (async () => {
+      const { data, error } = await supabase
+        .from('properties')
+        .select('occupancy_target_annual')
+        .eq('id', propertyId)
+        .maybeSingle();
+      if (cancelled) return;
+      if (error) {
+        console.error('Failed to fetch occupancy target:', error);
+        setOccupancyTarget(null);
+        return;
+      }
+      const value = (data as any)?.occupancy_target_annual;
+      setOccupancyTarget(typeof value === 'number' ? value : null);
+    })();
+    return () => {
+      cancelled = true;
+    };
+  }, [propertyId]);
 
   useEffect(() => {
     if (!propertyId) return;
@@ -264,6 +292,14 @@ export const OccupancyByMonthChart = ({ propertyId, method = 'check_in', startDa
                           Net Revenue: {formatCurrencyFull(m.netRevenue)}
                         </div>
                       )}
+                      {occupancyTarget !== null && (
+                        <div
+                          className="mt-1 pt-1 border-t"
+                          style={{ color: '#dc2626' }}
+                        >
+                          Target: {occupancyTarget}%
+                        </div>
+                      )}
                     </div>
                   );
                 }}
@@ -275,6 +311,22 @@ export const OccupancyByMonthChart = ({ propertyId, method = 'check_in', startDa
                   formatter={(value) =>
                     value === 'occupancy' ? 'Occupancy' : 'Net Revenue'
                   }
+                />
+              )}
+              {occupancyTarget !== null && (
+                <ReferenceLine
+                  y={occupancyTarget}
+                  yAxisId="occupancy"
+                  stroke="#dc2626"
+                  strokeDasharray="4 4"
+                  strokeWidth={2}
+                  label={{
+                    value: `Target ${occupancyTarget}%`,
+                    position: 'right',
+                    fill: '#dc2626',
+                    fontSize: 11,
+                    fontWeight: 600,
+                  }}
                 />
               )}
               <Bar
