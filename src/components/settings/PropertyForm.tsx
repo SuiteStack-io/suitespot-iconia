@@ -111,6 +111,10 @@ export function PropertyForm({ property, open, onClose, onSaved }: PropertyFormP
     revenue_recognition_method: ((property as any)?.revenue_recognition_method as string) || 'check_in',
     has_landlord: ((property as any)?.has_landlord ?? true) as boolean,
     landlord_share_percentage: ((property as any)?.landlord_share_percentage ?? 70) as number,
+    occupancy_target_annual:
+      (property as any)?.occupancy_target_annual != null
+        ? String((property as any).occupancy_target_annual)
+        : '',
   });
   const [saving, setSaving] = useState(false);
 
@@ -124,7 +128,19 @@ export function PropertyForm({ property, open, onClose, onSaved }: PropertyFormP
     return true;
   };
 
+  const validateStep4 = () => {
+    if (form.occupancy_target_annual !== '') {
+      const n = Number(form.occupancy_target_annual);
+      if (!Number.isFinite(n) || n < 0 || n > 100) {
+        toast.error('Annual Occupancy Target must be between 0 and 100');
+        return false;
+      }
+    }
+    return true;
+  };
+
   const handleSave = async () => {
+    if (!validateStep4()) return;
     setSaving(true);
     try {
       const payload: any = {
@@ -165,6 +181,8 @@ export function PropertyForm({ property, open, onClose, onSaved }: PropertyFormP
         revenue_recognition_method: form.revenue_recognition_method,
         has_landlord: form.has_landlord,
         landlord_share_percentage: form.landlord_share_percentage,
+        occupancy_target_annual:
+          form.occupancy_target_annual !== '' ? Number(form.occupancy_target_annual) : null,
       };
 
       if (isEdit) {
@@ -634,6 +652,29 @@ export function PropertyForm({ property, open, onClose, onSaved }: PropertyFormP
                   </p>
                 </div>
               )}
+
+              <div className="pt-2">
+                <Label htmlFor="occupancy-target-annual">Annual Occupancy Target (%)</Label>
+                <div className="relative mt-1">
+                  <Input
+                    id="occupancy-target-annual"
+                    type="number"
+                    min={0}
+                    max={100}
+                    step={1}
+                    placeholder="e.g. 75"
+                    value={form.occupancy_target_annual}
+                    onChange={(e) => update('occupancy_target_annual', e.target.value)}
+                    className="pr-8"
+                  />
+                  <span className="absolute right-3 top-1/2 -translate-y-1/2 text-sm text-muted-foreground pointer-events-none">
+                    %
+                  </span>
+                </div>
+                <p className="text-xs text-muted-foreground mt-1">
+                  Optional. Used to display a target line on the Occupancy by Month chart.
+                </p>
+              </div>
             </div>
           </div>
         )}
