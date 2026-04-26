@@ -1,185 +1,115 @@
-## Goal
+# Plan: Add Automatic / Manual filter toggle to Shuffle History
 
-Insert a row into `room_shuffle_log` with `change_type = 'manual'` after every successful **manual** room change in five frontend handlers (plus the toast-undo path on the calendar). The DB trigger handles Channex sync, the existing email path stays untouched, and a log-insert failure must never block the user-visible success.
+Touches one file only: `src/pages/ShuffleHistory.tsx`. Adds a Tabs toggle, filters the existing query by `change_type`, makes the subtitle and empty state dynamic, swaps the row icon for manual entries, and persists the selection in the URL via `?type=...`.
 
-The schema (Prompt 2) is in place: `change_type` defaults to `'automatic'`, the trigger `set_room_shuffle_log_property_id` auto-fills `property_id`, and `triggered_by_booking_id` is a FK to `reservations.id`.
+## 1. State + URL sync
 
-## The handlers
-
-| File | Handler | Reason string |
-|---|---|---|
-| `src/components/AvailabilityCalendar.tsx` | `handleDragEnd` (~L1024) | `Manual drag-and-drop on calendar` |
-| `src/components/AvailabilityCalendar.tsx` | `handleUndoMove` (~L984) | `Manual drag-and-drop undone via toast` |
-| `src/components/ReservationQuickActions.tsx` | `handleMoveReservation` (~L358) | `Manual move via quick actions` |
-| `src/components/RoomSwapDialog.tsx` | `handleSwap` (~L96) | `Manual room swap` (one row, two `moves` entries) |
-| `src/components/RoomTransferDialog.tsx` | `handleConfirmTransfer` (~L184) | `Manual mid-stay transfer` |
-| `src/pages/ReservationDetail.tsx` | `handleSave` (~L600) — **only when `formData.unit_id !== reservation.unit_id`** | `Manual edit via reservation modal` |
-
-## Standard payload (single-move case)
+Use `useSearchParams` from `react-router-dom` (the codebase already uses `react-router-dom` heavily; pattern matches `BookingFlow.tsx`).
 
 ```ts
-await supabase.from('room_shuffle_log').insert({
-  triggered_by_booking_id: reservation.id,
-  triggered_by_reference: reservation.booking_reference ?? reservation.id,
-  room_type: oldUnit.booking_com_name ?? oldUnit.name ?? 'Unknown',
-  moves: [{
-    reservation_id: reservation.id,
-    guest_name: reservation.guest_names?.[0] ?? 'Guest',
-    from_unit_id: oldUnitId,
-    from_unit_number: oldUnit.unit_number ?? '',
-    to_unit_id: newUnitId,
-    to_unit_number: newUnit.unit_number ?? '',
-    check_in_date: reservation.check_in_date,
-    check_out_date: reservation.check_out_date,
-  }],
-  move_count: 1,
-  reason: '<per-handler reason>',
-  change_type: 'manual',
-});
+import { useNavigate, useSearchParams } from 'react-router-dom';
+
+const [searchParams, setSearchParams] = useSearchParams();
+const filter: 'automatic' | 'manual' =
+  searchParams.get('type') === 'manual' ? 'manual' : 'automatic';
+
+const handleFilterChange = (value: string) => {
+  if (value !== 'automatic' && value !== 'manual') return;
+  const next = new URLSearchParams(searchParams);
+  if (value === 'automatic') next.delete('type'); // default → no param
+  else next.set('type', 'manual');
+  setSearchParams(next, { replace: true });
+};
 ```
 
-`property_id` is omitted — the BEFORE INSERT trigger fills it. No new Supabase queries are needed; every handler already holds the unit objects in state (`units`, `availableUnits`, `unitAvailability`) or reads them from dialog props (`currentUnit`, `reservation.units`).
+No separate `useState` for `filter` — derived from the URL so refresh / share works for free.
 
-`room_type` on `room_shuffle_log` is a free-text label (the auto-shuffle function passes a name string here too). We use `booking_com_name ?? name` of the **old** unit, matching the human-readable label already shown to users.
+## 2. Header toggle
 
-## Per-handler details
+Place the `Tabs` component beside the title block in the header (same row at `sm`, stacked on mobile). Match the Analytics.tsx pattern exactly:
 
-### 1. `AvailabilityCalendar.tsx` — `handleDragEnd`
-- After the existing `update({ unit_id: targetUnitId })` succeeds (~L1063) and before the email send, insert the log row.
-- Look up `originalUnit` and `targetUnit` from the existing `units` state (already done at L1065–L1066).
-- Reason: `Manual drag-and-drop on calendar`.
-- Wrap the insert in try/catch and `console.error` on failure — never block the toast/undo flow.
+```tsx
+import { Tabs, TabsList, TabsTrigger } from '@/components/ui/tabs';
 
-### 2. `AvailabilityCalendar.tsx` — `handleUndoMove` (toast undo)
-Extend the `lastMove` `useState` type at L246–L251 to include the extra fields needed at undo time without re-querying:
+<Tabs value={filter} onValueChange={handleFilterChange}>
+  <TabsList>
+    <TabsTrigger value="automatic">Automatic</TabsTrigger>
+    <TabsTrigger value="manual">Manual</TabsTrigger>
+  </TabsList>
+</Tabs>
+```
+
+Wrap the existing title/subtitle and the new Tabs in a `flex items-center justify-between flex-wrap gap-3` container so the toggle floats right on desktop and wraps under the title on narrow viewports.
+
+## 3. Dynamic subtitle
+
+```tsx
+<p className="text-sm text-muted-foreground">
+  {filter === 'manual' ? 'Manual room change log' : 'Auto-shuffle room rearrangement log'}
+</p>
+```
+
+## 4. Query update
+
+Modify the existing `fetchLogs` (~L43). Add `.eq('change_type', filter)` and include `filter` in the `useEffect` dependency array. Keep `withPropertyFilter` and the `.order('shuffle_date', { ascending: false }).limit(100)` exactly as today.
 
 ```ts
-const [lastMove, setLastMove] = useState<{
-  reservationId: string;
-  originalUnitId: string;
-  newUnitId: string;
-  guestName: string;
-  bookingReference: string | null;
-  checkInDate: string;
-  checkOutDate: string;
-  timestamp: number;
-} | null>(null);
+useEffect(() => {
+  if (user) fetchLogs();
+}, [user, propertyId, filter]);
+
+const fetchLogs = async () => {
+  setFetching(true);
+  let query = supabase
+    .from('room_shuffle_log')
+    .select('*')
+    .eq('change_type', filter)
+    .order('shuffle_date', { ascending: false })
+    .limit(100);
+  query = withPropertyFilter(query, propertyId) as any;
+  const { data, error } = await query;
+  if (error) console.error('Error fetching shuffle logs:', error);
+  else setLogs((data as any) || []);
+  setFetching(false);
+};
 ```
 
-If a separate `interface`/`type` alias for this state exists anywhere, update it too — but a `grep` shows the type is declared inline on the `useState` call and is not aliased, so only the inline type at L246 needs updating.
+## 5. Dynamic empty state
 
-Populate the new fields in the `setLastMove(...)` call at L1098 inside `handleDragEnd` (capture from `reservation` and `targetUnitId` before the email send).
+The current empty state shows the Shuffle icon and `No room shuffles have occurred yet.` Make the message conditional; keep the icon block as today (Shuffle icon is fine for the empty state — only the row-level icon swaps).
 
-In `handleUndoMove`, after the successful `update({ unit_id: lastMove.originalUnitId })` at L1004, insert a log row with from/to reversed. Use the new `lastMove` fields directly:
-
-```ts
-const newUnit = units.find(u => u.id === lastMove.newUnitId);
-const originalUnit = units.find(u => u.id === lastMove.originalUnitId);
-
-const { error: logError } = await supabase.from('room_shuffle_log').insert({
-  triggered_by_booking_id: lastMove.reservationId,
-  triggered_by_reference: lastMove.bookingReference ?? lastMove.reservationId,
-  room_type: originalUnit?.booking_com_name ?? originalUnit?.name ?? 'Unknown',
-  moves: [{
-    reservation_id: lastMove.reservationId,
-    guest_name: lastMove.guestName,
-    from_unit_id: lastMove.newUnitId,        // reversed
-    from_unit_number: newUnit?.unit_number ?? '',
-    to_unit_id: lastMove.originalUnitId,     // reversed
-    to_unit_number: originalUnit?.unit_number ?? '',
-    check_in_date: lastMove.checkInDate,
-    check_out_date: lastMove.checkOutDate,
-  }],
-  move_count: 1,
-  reason: 'Manual drag-and-drop undone via toast',
-  change_type: 'manual',
-});
-if (logError) console.error('Failed to log manual room change:', logError);
+```tsx
+<p>{filter === 'manual' ? 'No manual room changes yet.' : 'No room shuffles have occurred yet.'}</p>
 ```
 
-Result: a drag + toast-undo writes two log rows (move, then undo) — intentional.
+## 6. Row-level icon swap (visual differentiation)
 
-### 3. `ReservationQuickActions.tsx` — `handleMoveReservation`
-- After the successful `update({ unit_id: selectedUnitId })` at L378 and before the email send, insert the log row.
-- Use `currentUnit` (prop) for old unit details and `newUnit = availableUnits.find(u => u.id === selectedUnitId)` (already at L380) for the new one.
-- Reason: `Manual move via quick actions`.
+Inside the `logs.map(log => ...)` card header, replace the hard-coded `<Shuffle className="h-5 w-5 text-amber-500" />` with a conditional based on `filter` (the data is already filtered, so all rows in view share one type — no need to read `log.change_type`):
 
-### 4. `RoomSwapDialog.tsx` — `handleSwap` (two moves, one row)
-- After the successful `supabase.rpc('swap_reservation_rooms', ...)` at L110 and before the two notification sends, insert ONE log row with `move_count: 2`:
+```tsx
+import { Shuffle, User } from 'lucide-react';
 
-```ts
-{
-  triggered_by_booking_id: reservation.id,
-  triggered_by_reference: reservation.booking_reference ?? reservation.id,
-  room_type: currentUnit?.booking_com_name ?? currentUnit?.name ?? 'Unknown',
-  moves: [
-    { reservation_id: reservation.id,     guest_name: reservation.guest_names[0],     from_unit_id: reservation.unit_id,     from_unit_number: currentUnit?.unit_number ?? '',                from_unit_number_safe: '', to_unit_id: swapReservation.unit_id, to_unit_number: swapReservation.units?.unit_number ?? '',          check_in_date: reservation.check_in_date,     check_out_date: reservation.check_out_date },
-    { reservation_id: swapReservation.id, guest_name: swapReservation.guest_names[0], from_unit_id: swapReservation.unit_id, from_unit_number: swapReservation.units?.unit_number ?? '',     to_unit_id: reservation.unit_id,     to_unit_number: currentUnit?.unit_number ?? '',                    check_in_date: swapReservation.check_in_date, check_out_date: swapReservation.check_out_date },
-  ],
-  move_count: 2,
-  reason: 'Manual room swap',
-  change_type: 'manual',
-}
+{filter === 'manual'
+  ? <User className="h-5 w-5 text-stone-600" />
+  : <Shuffle className="h-5 w-5 text-amber-500" />}
 ```
 
-(Drop the bogus `from_unit_number_safe` key — it's a typo from this plan; the actual code uses only the documented `moves[]` shape.)
+Card title text (`Shuffle for booking …`), the room-type badge, the move-count badge, the timestamp, and the per-move row layout all stay byte-for-byte identical.
 
-All unit info is already on `currentUnit` and `swapReservation.units` — no extra query.
+## 7. Out of scope (untouched)
 
-### 5. `RoomTransferDialog.tsx` — `handleConfirmTransfer`
-- The current insert at L218 doesn't return the new reservation id. Change it to `.insert({...}).select('id').single()` and capture the new id (e.g. `newSegmentId`). The existing `if (insertError) throw insertError` check stays.
-- After the second insert succeeds, before the notification at L253, insert the log row:
-
-```ts
-{
-  triggered_by_booking_id: reservation.id, // ORIGINAL reservation
-  triggered_by_reference: reservation.booking_reference ?? reservation.id,
-  room_type: reservation.units?.booking_com_name ?? reservation.units?.name ?? 'Unknown',
-  moves: [{
-    reservation_id: newSegmentId,
-    guest_name: reservation.guest_names?.[0] ?? 'Guest',
-    from_unit_id: reservation.unit_id,
-    from_unit_number: reservation.units?.unit_number ?? '',
-    to_unit_id: newUnitId,
-    to_unit_number: newUnit?.unit_number ?? '',
-    check_in_date: transferDateStr,        // the transfer day
-    check_out_date: reservation.check_out_date,
-  }],
-  move_count: 1,
-  reason: 'Manual mid-stay transfer',
-  change_type: 'manual',
-}
-```
-
-`newUnit` is already fetched at L194.
-
-### 6. `ReservationDetail.tsx` — `handleSave`
-- Capture `const oldUnitId = reservation?.unit_id;` and `const unitChanged = formData.unit_id !== oldUnitId;` BEFORE the update.
-- After the existing `update({...})` at L632 succeeds (the `if (error)` branch at L660 returns first), and before the modification-notification send at L672, run the log insert **only if `unitChanged` is true**.
-- Resolve old unit from `reservation.units` and new unit from the `units` state (`units.find(u => u.id === formData.unit_id)`).
-- Reason: `Manual edit via reservation modal`.
-- This handler does **not** currently send a `send-room-change-notification`; we are adding only the log insert.
-
-## Insert-failure handling (every handler)
-
-```ts
-const { error: logError } = await supabase.from('room_shuffle_log').insert({ ...payload });
-if (logError) console.error('Failed to log manual room change:', logError);
-// continue — never block on log failure
-```
-
-No `throw`, no toast. The room move already succeeded.
-
-## Out of scope (untouched)
-
-- Edge functions `auto-shuffle-rooms`, `auto-assign-rooms` (already log with `change_type` defaulting to `'automatic'`).
-- DB trigger `trg_handle_reservation_change` (Channex sync continues automatically).
-- Edge function `send-room-change-notification` (emails continue as today).
-- `MoveGuestSplitDialog.tsx` (writes to `audit_logs`, intentionally excluded).
-- `ShuffleHistory.tsx` (UI changes come in Prompt 4).
-- Pre-validation, conflict detection, and the in-memory toast-undo behavior on drag-and-drop (only ADDING a log call when undo fires).
-- No new database columns, no schema changes, no RLS edits.
+- `room_shuffle_log` schema and the `change_type` default
+- Auto-shuffle / auto-assign Edge Functions
+- Manual logging logic added in Prompt 3
+- Undo button + queue (Prompt 5)
+- Card layout, badges, timestamp, and per-move row styling
+- The `shuffle_date desc` sort and the 100-row limit
+- Any other page in the app
 
 ## Verification
 
-After the edits, manually exercise each path on the preview and confirm a `room_shuffle_log` row appears with `change_type = 'manual'` and the matching `reason`. The drag + toast-undo path should produce exactly two rows.
+- Default load (`/shuffle-history`): Automatic tab selected, URL has no `?type`, query returns rows where `change_type = 'automatic'`, amber Shuffle icon shows.
+- Click Manual: URL becomes `?type=manual`, query refetches with `change_type = 'manual'`, rows show stone-colored User icon, subtitle reads "Manual room change log".
+- Refresh on `?type=manual`: page loads with Manual selected.
+- Empty state text matches the active tab.
+- Mobile (~375px): title wraps cleanly, Tabs remain tappable.
