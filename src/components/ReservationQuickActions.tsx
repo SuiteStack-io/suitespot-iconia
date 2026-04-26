@@ -379,6 +379,31 @@ export const ReservationQuickActions = ({
 
       const newUnit = availableUnits.find((u) => u.id === selectedUnitId);
       
+      // Log manual room change to room_shuffle_log (do not block on failure)
+      try {
+        const { error: logError } = await supabase.from('room_shuffle_log').insert({
+          triggered_by_booking_id: reservation.id,
+          triggered_by_reference: reservation.booking_reference ?? reservation.id,
+          room_type: (currentUnit?.booking_com_name ?? currentUnit?.name) || 'Unknown',
+          moves: [{
+            reservation_id: reservation.id,
+            guest_name: reservation.guest_names?.[0] ?? 'Guest',
+            from_unit_id: reservation.unit_id,
+            from_unit_number: currentUnit?.unit_number ?? '',
+            to_unit_id: selectedUnitId,
+            to_unit_number: newUnit?.unit_number ?? '',
+            check_in_date: reservation.check_in_date,
+            check_out_date: reservation.check_out_date,
+          }],
+          move_count: 1,
+          reason: 'Manual move via quick actions',
+          change_type: 'manual',
+        });
+        if (logError) console.error('Failed to log manual room change:', logError);
+      } catch (logErr) {
+        console.error('Failed to log manual room change:', logErr);
+      }
+
       // Calculate nights
       const checkIn = new Date(reservation.check_in_date);
       const checkOut = new Date(reservation.check_out_date);
