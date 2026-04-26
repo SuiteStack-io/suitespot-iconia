@@ -227,7 +227,7 @@ export const OccupancyByMonthChart = ({ propertyId, method = 'check_in', startDa
           </div>
         ) : (
           <ResponsiveContainer width="100%" height={300}>
-            <BarChart data={data} margin={{ top: 24, right: 12, left: 0, bottom: 4 }}>
+            <BarChart data={data} margin={{ top: 24, right: 12, left: 0, bottom: 4 }} barSize={80}>
               <CartesianGrid strokeDasharray="3 3" vertical={false} />
               <XAxis dataKey="label" tick={{ fontSize: 12 }} />
               <YAxis
