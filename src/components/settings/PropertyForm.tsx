@@ -596,6 +596,44 @@ export function PropertyForm({ property, open, onClose, onSaved }: PropertyFormP
                   </SelectContent>
                 </Select>
               </div>
+
+              <div className="flex items-center justify-between pt-2">
+                <Label htmlFor="has-landlord" className="cursor-pointer">Has Landlord</Label>
+                <Switch
+                  id="has-landlord"
+                  checked={form.has_landlord}
+                  onCheckedChange={(v) => update('has_landlord', v)}
+                />
+              </div>
+
+              {form.has_landlord && (
+                <div>
+                  <Label htmlFor="landlord-share">Landlord Revenue Share (%)</Label>
+                  <div className="relative mt-1">
+                    <Input
+                      id="landlord-share"
+                      type="number"
+                      min={0}
+                      max={100}
+                      step={1}
+                      value={form.landlord_share_percentage}
+                      onChange={(e) =>
+                        update(
+                          'landlord_share_percentage',
+                          Math.max(0, Math.min(100, Number(e.target.value) || 0))
+                        )
+                      }
+                      className="pr-8"
+                    />
+                    <span className="absolute right-3 top-1/2 -translate-y-1/2 text-sm text-muted-foreground pointer-events-none">
+                      %
+                    </span>
+                  </div>
+                  <p className="text-xs text-muted-foreground mt-1">
+                    Operator share: {100 - form.landlord_share_percentage}%
+                  </p>
+                </div>
+              )}
             </div>
           </div>
         )}
