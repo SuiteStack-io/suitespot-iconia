@@ -1,65 +1,56 @@
-## Add Average Occupancy Label to Chart Header
+## Migration Plan: Add `change_type` to `room_shuffle_log`
 
-Add a small text label showing the average occupancy across the months currently displayed in the "Occupancy by Month" chart, placed next to the "Show Revenue" toggle.
+This is Prompt 2 of 5 for the Manual Room Change History + Undo feature. Schema-only change. No application code modified.
 
-### File
-`src/components/analytics/OccupancyByMonthChart.tsx`
+### Migration SQL
 
-### Changes
+```sql
+-- 1. Add the column with default + check constraint (covers all existing rows)
+ALTER TABLE public.room_shuffle_log
+ADD COLUMN change_type text NOT NULL DEFAULT 'automatic'
+CHECK (change_type IN ('automatic', 'manual'));
 
-**1. Add `useMemo` import**
+-- 2. Backfill the lone hand-inserted manual row(s)
+UPDATE public.room_shuffle_log
+SET change_type = 'manual'
+WHERE reason LIKE 'Manual fix:%';
 
-Update the React import:
-```tsx
-import { useEffect, useMemo, useState } from 'react';
+-- 3. Index to support filtering on the Shuffle History page (Prompt 4)
+CREATE INDEX idx_room_shuffle_log_change_type
+ON public.room_shuffle_log (change_type);
 ```
 
-**2. Compute the average**
+### Verification (run after migration, report results)
 
-Right after the existing state declarations (after `occupancyTarget` state), add:
-```tsx
-const averageOccupancy = useMemo(() => {
-  if (!data || data.length === 0) return null;
-  const validMonths = data.filter(
-    (m) => typeof m.occupancy === 'number' && !Number.isNaN(m.occupancy)
-  );
-  if (validMonths.length === 0) return null;
-  const sum = validMonths.reduce((acc, m) => acc + m.occupancy, 0);
-  return sum / validMonths.length;
-}, [data]);
+```sql
+-- Column shape
+SELECT column_name, data_type, is_nullable, column_default
+FROM information_schema.columns
+WHERE table_schema = 'public'
+  AND table_name = 'room_shuffle_log'
+  AND column_name = 'change_type';
+
+-- Distribution
+SELECT change_type, COUNT(*)
+FROM public.room_shuffle_log
+GROUP BY change_type
+ORDER BY change_type;
+
+-- The manual row(s)
+SELECT id, change_type, reason, created_at
+FROM public.room_shuffle_log
+WHERE change_type = 'manual';
 ```
 
-The field name `m.occupancy` matches the existing `MonthBucket` interface (verified — it's defined as `occupancy: number` and assigned via `m.occupancy = ...` in the bucket loop).
+### Out of scope (intentionally untouched)
 
-**3. Render the label in the header**
+- Edge functions `auto-shuffle-rooms` / `auto-assign-rooms` — new rows inherit `'automatic'` from the column default
+- Frontend (`AvailabilityCalendar.tsx`, `ReservationDetail.tsx`, `RoomSwapDialog.tsx`, `ShuffleHistory.tsx`)
+- Existing columns (no drops, no renames, no `triggered_by_booking_id` backfill)
+- TypeScript types regenerate automatically after the migration
 
-Modify the existing header's right-side flex container (currently holds the `Label` + `Switch`) to insert the average label as a sibling BEFORE the "Show Revenue" label:
+### Notes
 
-```tsx
-<CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-  <CardTitle>Occupancy by Month</CardTitle>
-  <div className="flex items-center gap-2">
-    {averageOccupancy !== null && (
-      <span className="text-sm text-muted-foreground mr-2">
-        Avg: {averageOccupancy.toFixed(1)}%
-      </span>
-    )}
-    <Label
-      htmlFor="show-revenue-toggle"
-      className="text-sm font-normal text-muted-foreground cursor-pointer"
-    >
-      Show Revenue
-    </Label>
-    <Switch
-      id="show-revenue-toggle"
-      checked={showRevenue}
-      onCheckedChange={setShowRevenue}
-    />
-  </div>
-</CardHeader>
-```
-
-### Out of scope
-- No reference line on the chart
-- No tooltip changes
-- No changes to red Target line, bar rendering, occupancy math, toggle behavior, date pills, or anything outside this single component
+- `NOT NULL DEFAULT 'automatic'` populates every existing row in the `ALTER` itself — no separate bulk UPDATE needed.
+- The `WHERE reason LIKE 'Manual fix:%'` UPDATE is defensive: 0 matches = no-op, >1 match = all flipped correctly.
+- `CHECK` constraint on a static enum is safe (immutable), no validation trigger needed.
