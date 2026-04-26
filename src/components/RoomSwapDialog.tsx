@@ -109,6 +109,43 @@ export const RoomSwapDialog = ({
 
       if (error) throw error;
 
+      // Log manual room swap to room_shuffle_log (one row, two moves)
+      try {
+        const { error: logError } = await supabase.from('room_shuffle_log').insert({
+          triggered_by_booking_id: reservation.id,
+          triggered_by_reference: reservation.booking_reference ?? reservation.id,
+          room_type: (currentUnit?.booking_com_name ?? currentUnit?.name) || 'Unknown',
+          moves: [
+            {
+              reservation_id: reservation.id,
+              guest_name: reservation.guest_names?.[0] ?? 'Guest',
+              from_unit_id: reservation.unit_id,
+              from_unit_number: currentUnit?.unit_number ?? '',
+              to_unit_id: swapReservation.unit_id,
+              to_unit_number: swapReservation.units?.unit_number ?? '',
+              check_in_date: reservation.check_in_date,
+              check_out_date: reservation.check_out_date,
+            },
+            {
+              reservation_id: swapReservation.id,
+              guest_name: swapReservation.guest_names?.[0] ?? 'Guest',
+              from_unit_id: swapReservation.unit_id,
+              from_unit_number: swapReservation.units?.unit_number ?? '',
+              to_unit_id: reservation.unit_id,
+              to_unit_number: currentUnit?.unit_number ?? '',
+              check_in_date: swapReservation.check_in_date,
+              check_out_date: swapReservation.check_out_date,
+            },
+          ],
+          move_count: 2,
+          reason: 'Manual room swap',
+          change_type: 'manual',
+        });
+        if (logError) console.error('Failed to log manual room change:', logError);
+      } catch (logErr) {
+        console.error('Failed to log manual room change:', logErr);
+      }
+
       // Calculate nights for notifications
       const nights1 = Math.ceil(
         (new Date(reservation.check_out_date).getTime() - new Date(reservation.check_in_date).getTime()) / 
