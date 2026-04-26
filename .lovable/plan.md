@@ -1,89 +1,51 @@
-## Make Occupancy by Month chart respect Analytics date range
+## Update date range pills on Analytics page
 
-### 1. Chart component (`src/components/analytics/OccupancyByMonthChart.tsx`)
+Rename three pill labels, fix the YTD calculation, and update each pill's date math. All edits are scoped to `src/pages/Analytics.tsx` — pill labels and `getDateRange()` only.
 
-**Props** — extend the existing `Props` interface with two required strings:
-```ts
-interface Props {
-  propertyId: string | null;
-  method?: import('@/lib/revenueDateFilter').RevenueRecognitionMethod;
-  startDate: string; // 'yyyy-MM-dd'
-  endDate: string;   // 'yyyy-MM-dd'
-}
-```
+### Background (good news)
 
-Destructure `startDate` and `endDate` in the component signature alongside the existing `propertyId` and `method`.
+The pills' visible labels and their internal state values are already decoupled:
 
-**Bucket derivation** — replace the hardcoded trailing-6-months `Array.from({ length: 6 }, ...)` block inside the `useEffect` with a range-driven loop:
+- Internal `TimePeriod` codes (used in state + switch): `'week' | 'month' | 'quarter' | 'ytd' | 'lastMonth' | 'thisMonth' | 'nextMonth'`
+- Display labels (only in JSX): `7 Days`, `30 Days`, `90 Days`, `YTD`
 
-```ts
-const rangeStart = startOfMonth(new Date(startDate));
-const rangeEnd = endOfMonth(new Date(endDate));
-const months: MonthBucket[] = [];
-let cursor = rangeStart;
-while (cursor <= rangeEnd) {
-  const ms = startOfMonth(cursor);
-  const me = endOfMonth(cursor);
-  months.push({
-    key: format(ms, 'yyyy-MM'),
-    label: format(ms, 'MMM yy'),
-    fullLabel: format(ms, 'MMMM yyyy'),
-    monthStart: ms,
-    monthEnd: me,
-    daysInMonth: getDaysInMonth(ms),
-    occupiedNights: 0,
-    availableNights: 0,
-    occupancy: 0,
-    netRevenue: 0,
-  });
-  cursor = addMonths(cursor, 1);
-}
-```
+So we only need to change the **display strings** and the **date math** inside each `case` of `getDateRange()`. The internal codes (`week`, `month`, `quarter`, `ytd`), the `TimePeriod` union, default selection (`'month'`), and downstream wiring all stay unchanged.
 
-Note: `MMM yy` x-axis label (e.g. `Apr 26`) replaces today's `MMM` so cross-year ranges remain unambiguous; `fullLabel` already uses `MMMM yyyy` for the tooltip. The `MonthBucket` interface itself is unchanged.
+### Label changes (JSX only, lines ~919–922)
 
-**Window for the queries** — keep the existing pattern:
-```ts
-const windowStart = format(months[0].monthStart, 'yyyy-MM-dd');
-const windowEnd = format(months[months.length - 1].monthEnd, 'yyyy-MM-dd');
-```
-This already drives the `reservations` and `blocked_dates` queries — they continue to work unchanged. The per-month overlap math (occupied nights, available nights, blocked nights, prorated revenue) is left exactly as it is today.
+| Internal code | Old label | New label |
+|---|---|---|
+| `week` | `7 Days` | `3 months` |
+| `month` | `30 Days` | `6 months` |
+| `quarter` | `90 Days` | `1 yr` |
+| `ytd` | `YTD` | `YTD` (unchanged) |
 
-**Effect dependencies** — extend the existing dependency array:
-```ts
-}, [propertyId, startDate, endDate]);
-```
+### Date math changes inside `getDateRange()` (lines ~237–250)
 
-**Empty-range guard** — if `months.length === 0` (shouldn't happen for valid pill ranges, but defensive), set `data` to `[]` and bail out before running queries.
+Replace the existing `switch (timePeriod)` body with:
 
-### 2. Analytics page (`src/pages/Analytics.tsx`)
+- `case 'week'` → `subMonths(now, 3)` ... today  *(new "3 months")*
+- `case 'month'` → `subMonths(now, 6)` ... today  *(new "6 months")*
+- `case 'quarter'` → `subYears(now, 1)` ... today  *(new "1 yr")*
+- `case 'ytd'` → `startOfYear(now)` ... today  *(fix: was hardcoded to `new Date(2025, 0, 1)`)*
 
-`startDate` and `endDate` are already destructured at line 881 from `getDateRange()` in render scope, and feed every other downstream component (KPI cards, the 4 bottom tables, `CancellationAnalytics`).
+For today (Apr 26, 2026), YTD will correctly produce `2026-01-01` → `2026-04-26`.
 
-Update the single render site at line 1207:
-```tsx
-<OccupancyByMonthChart
-  propertyId={propertyId}
-  method={method}
-  startDate={startDate}
-  endDate={endDate}
-/>
-```
+### Imports
 
-No new `getDateRange()` call, no new variable declarations.
+Add `subMonths`, `subYears`, `startOfYear` to the existing `date-fns` import on line 23 (`subMonths` is already there in some form? — check; if missing, add. `format`, `startOfMonth`, `endOfMonth`, `addMonths` already imported).
 
-### 3. Visual handling
+Confirmed currently imported: `format, startOfMonth, endOfMonth, addMonths, isSameMonth, differenceInDays, addDays, startOfDay`. Need to **add**: `subMonths`, `subYears`, `startOfYear`.
 
-Single-bucket ranges (e.g. "7 Days", "Apr") will render one wide bar. Add `barSize={80}` to the `<BarChart>` (or to each `<Bar>`) so a lone bar doesn't stretch across the full chart width. This matches the prompt's "apply only if visual is awkward" guidance — verify after the change and remove if it causes regressions on multi-bar layouts.
+### Things deliberately NOT changed
 
-### 4. Behavior preserved
+- Internal `TimePeriod` union and state values
+- Default selected pill (`'month'`)
+- Dynamic month pills (`Mar` / `Apr` / `May`) and their `lastMonth` / `thisMonth` / `nextMonth` logic
+- Custom Range pill, calendar popover, `getFormattedDateRange`, and active-pill detection
+- Any KPI card, chart, table, or downstream consumer (they receive resolved `startDate` / `endDate` strings, which still work)
+- Pill styling and layout
 
-- Per-month overlap math (occupied/available nights, blocked-dates handling, cancelled-exclusion filter) — unchanged
-- Sub-month range still uses **full-month** denominators (the chart shows monthly trends, not in-range slices)
-- "Show Revenue" toggle, tooltip structure, color, axis styling, `LabelList` formatters — unchanged
-- KPI cards, the 4 bottom tables, date pills, Custom Range, Export — untouched
-- `propertyId` and `method` props — preserved
+### Files touched
 
-### Verification
-
-Build with `tsc --noEmit` to confirm no duplicate declarations and that the new prop types line up at the single call site in `Analytics.tsx`.
+- `src/pages/Analytics.tsx` — import line, `getDateRange()` switch body (4 cases), and 3 `TabsTrigger` label texts
