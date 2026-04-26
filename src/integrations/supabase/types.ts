@@ -2339,6 +2339,7 @@ export type Database = {
       }
       room_shuffle_log: {
         Row: {
+          change_type: string
           created_at: string
           id: string
           move_count: number
@@ -2351,6 +2352,7 @@ export type Database = {
           triggered_by_reference: string
         }
         Insert: {
+          change_type?: string
           created_at?: string
           id?: string
           move_count?: number
@@ -2363,6 +2365,7 @@ export type Database = {
           triggered_by_reference: string
         }
         Update: {
+          change_type?: string
           created_at?: string
           id?: string
           move_count?: number
