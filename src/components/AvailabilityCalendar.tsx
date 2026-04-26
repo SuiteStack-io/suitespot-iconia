@@ -1008,6 +1008,33 @@ export const AvailabilityCalendar = () => {
       if (error) throw error;
 
       const originalUnit = units.find(u => u.id === lastMove.originalUnitId);
+      const newUnit = units.find(u => u.id === lastMove.newUnitId);
+
+      // Log undo to room_shuffle_log (from/to reversed)
+      try {
+        const { error: logError } = await supabase.from('room_shuffle_log').insert({
+          triggered_by_booking_id: lastMove.reservationId,
+          triggered_by_reference: lastMove.bookingReference ?? lastMove.reservationId,
+          room_type: (originalUnit?.booking_com_name ?? originalUnit?.name) || 'Unknown',
+          moves: [{
+            reservation_id: lastMove.reservationId,
+            guest_name: lastMove.guestName,
+            from_unit_id: lastMove.newUnitId,
+            from_unit_number: newUnit?.unit_number ?? '',
+            to_unit_id: lastMove.originalUnitId,
+            to_unit_number: originalUnit?.unit_number ?? '',
+            check_in_date: lastMove.checkInDate,
+            check_out_date: lastMove.checkOutDate,
+          }],
+          move_count: 1,
+          reason: 'Manual drag-and-drop undone via toast',
+          change_type: 'manual',
+        });
+        if (logError) console.error('Failed to log manual room change:', logError);
+      } catch (logErr) {
+        console.error('Failed to log manual room change:', logErr);
+      }
+
       toast({
         title: "Move Undone",
         description: `${lastMove.guestName} moved back to ${originalUnit?.name} #${originalUnit?.unit_number}`,
