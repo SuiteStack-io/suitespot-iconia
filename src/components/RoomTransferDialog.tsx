@@ -215,7 +215,7 @@ export function RoomTransferDialog({
       if (updateError) throw updateError;
 
       // 2. Create new reservation for segment 2
-      const { error: insertError } = await supabase
+      const { data: newSegment, error: insertError } = await supabase
         .from('reservations')
         .insert({
           booking_reference: `${reservation.booking_reference}-B`,
@@ -244,9 +244,36 @@ export function RoomTransferDialog({
           status: reservation.status,
           group_id: groupId,
           notes: `Room transfer from ${reservation.units?.name || 'previous room'}${reservation.units?.unit_number ? ` (#${reservation.units.unit_number})` : ''}. Original booking: ${reservation.booking_reference}`,
-        });
+        })
+        .select('id')
+        .single();
 
       if (insertError) throw insertError;
+
+      // 2b. Log manual mid-stay transfer to room_shuffle_log (do not block on failure)
+      try {
+        const { error: logError } = await supabase.from('room_shuffle_log').insert({
+          triggered_by_booking_id: reservation.id,
+          triggered_by_reference: reservation.booking_reference ?? reservation.id,
+          room_type: (reservation.units?.booking_com_name ?? reservation.units?.name) || 'Unknown',
+          moves: [{
+            reservation_id: newSegment?.id ?? reservation.id,
+            guest_name: reservation.guest_names?.[0] ?? 'Guest',
+            from_unit_id: reservation.unit_id,
+            from_unit_number: reservation.units?.unit_number ?? '',
+            to_unit_id: newUnitId,
+            to_unit_number: newUnit?.unit_number ?? '',
+            check_in_date: transferDateStr,
+            check_out_date: reservation.check_out_date,
+          }],
+          move_count: 1,
+          reason: 'Manual mid-stay transfer',
+          change_type: 'manual',
+        });
+        if (logError) console.error('Failed to log manual room change:', logError);
+      } catch (logErr) {
+        console.error('Failed to log manual room change:', logErr);
+      }
 
       // 3. Send room change notification
       try {
