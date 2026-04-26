@@ -629,6 +629,10 @@ const ReservationDetail = () => {
     // Check if status is changing to cancelled
     const isBeingCancelled = formData.status === 'cancelled' && reservation?.status !== 'cancelled';
 
+    // Capture unit-change state before update for room_shuffle_log
+    const oldUnitId = reservation?.unit_id ?? null;
+    const unitChanged = formData.unit_id !== oldUnitId;
+
     const { error } = await supabase
       .from('reservations')
       .update({
@@ -661,6 +665,34 @@ const ReservationDetail = () => {
       toast.error('Failed to update reservation');
     } else {
       toast.success('Reservation updated successfully');
+
+      // Log manual room change to room_shuffle_log when unit changed (do not block on failure)
+      if (unitChanged && reservation) {
+        const newUnit = units.find(u => u.id === formData.unit_id);
+        try {
+          const { error: logError } = await supabase.from('room_shuffle_log').insert({
+            triggered_by_booking_id: reservation.id,
+            triggered_by_reference: reservation.booking_reference ?? reservation.id,
+            room_type: (reservation.units?.booking_com_name ?? reservation.units?.name) || 'Unknown',
+            moves: [{
+              reservation_id: reservation.id,
+              guest_name: formData.guest_names?.[0] ?? 'Guest',
+              from_unit_id: oldUnitId,
+              from_unit_number: reservation.units?.unit_number ?? '',
+              to_unit_id: formData.unit_id,
+              to_unit_number: newUnit?.unit_number ?? '',
+              check_in_date: format(formData.check_in_date, 'yyyy-MM-dd'),
+              check_out_date: format(formData.check_out_date, 'yyyy-MM-dd'),
+            }],
+            move_count: 1,
+            reason: 'Manual edit via reservation modal',
+            change_type: 'manual',
+          });
+          if (logError) console.error('Failed to log manual room change:', logError);
+        } catch (logErr) {
+          console.error('Failed to log manual room change:', logErr);
+        }
+      }
 
       // Send modification notification if dates or price changed (not for cancellations)
       const isBeingModified = (
