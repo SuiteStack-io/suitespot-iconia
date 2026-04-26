@@ -982,8 +982,8 @@ const Analytics = () => {
           <span className="text-sm text-muted-foreground">{getFormattedDateRange()}</span>
         </div>
 
-        {/* Revenue Share Slider */}
-        {hasLandlord && (
+        {/* Revenue Share Slider / Recognition Method */}
+        {hasLandlord ? (
           <Card className="bg-gradient-to-r from-card to-card/80">
             <CardContent className="py-4">
               <div className="flex items-center gap-4 flex-wrap">
@@ -1009,7 +1009,20 @@ const Analytics = () => {
                     {savingShare ? 'Saving…' : 'Save'}
                   </Button>
                 </div>
+                <span className="text-sm text-muted-foreground">
+                  Revenue Recognition Method:{' '}
+                  <span className="font-medium text-foreground">{methodDisplayLabel}</span>
+                </span>
               </div>
+            </CardContent>
+          </Card>
+        ) : (
+          <Card className="bg-gradient-to-r from-card to-card/80">
+            <CardContent className="py-4">
+              <span className="text-sm text-muted-foreground">
+                Revenue Recognition Method:{' '}
+                <span className="font-medium text-foreground">{methodDisplayLabel}</span>
+              </span>
             </CardContent>
           </Card>
         )}
