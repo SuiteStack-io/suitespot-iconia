@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react';
-import { useNavigate } from 'react-router-dom';
+import { useNavigate, useSearchParams } from 'react-router-dom';
 import { useAuth } from '@/lib/auth';
 import { supabase } from '@/integrations/supabase/client';
 import { usePropertyId, withPropertyFilter } from '@/hooks/usePropertyFilter';
@@ -7,7 +7,8 @@ import { SlideMenu } from '@/components/SlideMenu';
 import { AdminBreadcrumb } from '@/components/AdminBreadcrumb';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
-import { Shuffle } from 'lucide-react';
+import { Tabs, TabsList, TabsTrigger } from '@/components/ui/tabs';
+import { Shuffle, User } from 'lucide-react';
 import { format } from 'date-fns';
 import suitespotLogo from '@/assets/suitespot-logo.png';
 
@@ -25,6 +26,9 @@ interface ShuffleLog {
 const ShuffleHistory = () => {
   const { user, loading, userRole } = useAuth();
   const navigate = useNavigate();
+  const [searchParams, setSearchParams] = useSearchParams();
+  const filter: 'automatic' | 'manual' =
+    searchParams.get('type') === 'manual' ? 'manual' : 'automatic';
   const [logs, setLogs] = useState<ShuffleLog[]>([]);
   const [fetching, setFetching] = useState(true);
   const propertyId = usePropertyId();
@@ -35,13 +39,22 @@ const ShuffleHistory = () => {
 
   useEffect(() => {
     if (user) fetchLogs();
-  }, [user, propertyId]);
+  }, [user, propertyId, filter]);
+
+  const handleFilterChange = (value: string) => {
+    if (value !== 'automatic' && value !== 'manual') return;
+    const next = new URLSearchParams(searchParams);
+    if (value === 'automatic') next.delete('type');
+    else next.set('type', 'manual');
+    setSearchParams(next, { replace: true });
+  };
 
   const fetchLogs = async () => {
     setFetching(true);
     let query = supabase
       .from('room_shuffle_log')
       .select('*')
+      .eq('change_type', filter)
       .order('shuffle_date', { ascending: false })
       .limit(100);
     query = withPropertyFilter(query, propertyId) as any;
@@ -65,13 +78,23 @@ const ShuffleHistory = () => {
       <header className="border-b bg-card sticky top-0 z-10">
         <div className="container mx-auto px-4 py-4">
           <AdminBreadcrumb section="PMS" currentPage="Shuffle History" />
-          <div className="flex items-center gap-4">
-            <SlideMenu userRole={userRole} />
-            <img src={suitespotLogo} alt="SuiteSpot Logo" className="h-10 w-10 object-contain" />
-            <div>
-              <h1 className="text-xl font-bold">Shuffle History</h1>
-              <p className="text-sm text-muted-foreground">Auto-shuffle room rearrangement log</p>
+          <div className="flex items-center justify-between flex-wrap gap-3">
+            <div className="flex items-center gap-4">
+              <SlideMenu userRole={userRole} />
+              <img src={suitespotLogo} alt="SuiteSpot Logo" className="h-10 w-10 object-contain" />
+              <div>
+                <h1 className="text-xl font-bold">Shuffle History</h1>
+                <p className="text-sm text-muted-foreground">
+                  {filter === 'manual' ? 'Manual room change log' : 'Auto-shuffle room rearrangement log'}
+                </p>
+              </div>
             </div>
+            <Tabs value={filter} onValueChange={handleFilterChange}>
+              <TabsList>
+                <TabsTrigger value="automatic">Automatic</TabsTrigger>
+                <TabsTrigger value="manual">Manual</TabsTrigger>
+              </TabsList>
+            </Tabs>
           </div>
         </div>
       </header>
@@ -82,7 +105,7 @@ const ShuffleHistory = () => {
         ) : logs.length === 0 ? (
           <div className="text-center text-muted-foreground py-12">
             <Shuffle className="h-12 w-12 mx-auto mb-4 opacity-30" />
-            <p>No room shuffles have occurred yet.</p>
+            <p>{filter === 'manual' ? 'No manual room changes yet.' : 'No room shuffles have occurred yet.'}</p>
           </div>
         ) : (
           <div className="space-y-4">
@@ -91,7 +114,9 @@ const ShuffleHistory = () => {
                 <CardHeader className="pb-3">
                   <div className="flex items-center justify-between flex-wrap gap-2">
                     <div className="flex items-center gap-2">
-                      <Shuffle className="h-5 w-5 text-amber-500" />
+                      {filter === 'manual'
+                        ? <User className="h-5 w-5 text-stone-600" />
+                        : <Shuffle className="h-5 w-5 text-amber-500" />}
                       <CardTitle className="text-base">
                         Shuffle for booking {log.triggered_by_reference}
                       </CardTitle>
