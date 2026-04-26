@@ -1,183 +1,103 @@
-## Goal
+# Add "Has Landlord" Toggle to Property Settings + Conditional Analytics Display
 
-Add a 4th step "Revenue Settings" to the Edit Property modal with one new field (Revenue Recognition Method), and wire that setting into all revenue calculations on the Analytics page (KPI cards, the 4 bottom tables, and the Occupancy by Month chart's revenue toggle).
-
----
+Adds a `has_landlord` flag (default `true`) and a Landlord Revenue Share % field to Step 4 of the Edit Property modal. The Analytics page hides the Revenue Share slider and the landlord/operator breakdown rows when the property has no landlord. Existing properties keep current behavior because the new column defaults to `true`.
 
 ## 1. Database migration
 
-Add one column to `public.properties`:
-
 ```sql
 ALTER TABLE public.properties
-  ADD COLUMN revenue_recognition_method text NOT NULL DEFAULT 'check_in'
-  CHECK (revenue_recognition_method IN ('check_in', 'check_out', 'prorata'));
+  ADD COLUMN has_landlord boolean NOT NULL DEFAULT true;
 ```
 
-The column will ride along on the existing `select('*')` already used by `PropertyContext.fetchProperties` — no other query changes needed.
+The column rides along on the existing `select('*')` in `PropertyContext` — no new query, no `types.ts` edits (auto-regenerated). The `UPDATE … WHERE has_landlord IS NULL` step is unnecessary because the column is `NOT NULL DEFAULT true` (existing rows are backfilled by the default).
 
----
+## 2. `src/components/settings/PropertyForm.tsx` — add two fields to Step 4
 
-## 2. Edit Property modal — `src/components/settings/PropertyForm.tsx`
+### Form state (around line 110)
 
-The file is the existing wizard (currently 3 steps in edit mode, 4 in create mode where step 4 is the success screen).
+Add to the initializer:
+```ts
+has_landlord: ((property as any)?.has_landlord ?? true) as boolean,
+landlord_share_percentage: ((property as any)?.landlord_share_percentage ?? 70) as number,
+```
+(Verified: `landlord_share_percentage` is NOT yet in form state.)
 
-### 2a. Restructure step numbering
+### `update` helper (line 114)
 
-- Rename existing "STEP 4: Success" block to render at `step === 5` instead, and bump the relevant `setStep(4)` after create to `setStep(5)`.
-- Insert a new STEP 4 = "Revenue Settings".
-- Update `totalSteps` so both edit and create show **4** numbered steps in the title and progress bar (`Step X of 4`). The success screen (now step 5) keeps the title "Property Created!" and stays excluded from the indicator (mirroring current behavior with `step < 4` → change to `step < 5`).
+Currently typed `(key: string, val: string)`. Loosen the value type so the toggle (boolean) and number input can use the same setter without a type error:
+```ts
+const update = (key: string, val: any) => setForm(prev => ({ ...prev, [key]: val }));
+```
 
-### 2b. Form state additions
+### Step 4 UI (after the Revenue Recognition Method `<div>`, before line 593's closing `</div>`)
 
-Add to the `useState` form initializer:
+Add inside the same `border rounded-lg p-4 space-y-3` card, below the Select:
+
+- **Has Landlord row**: a horizontal flex row with a `<Label htmlFor="has-landlord">Has Landlord</Label>` and a `<Switch>` (import from `@/components/ui/switch` — same component used elsewhere). Wires to `form.has_landlord` ↔ `update('has_landlord', v)`.
+- **Landlord Revenue Share (%)** — rendered only when `form.has_landlord === true`:
+  - `<Label htmlFor="landlord-share">Landlord Revenue Share (%)</Label>`
+  - `<Input id="landlord-share" type="number" min={0} max={100} step={1} value={form.landlord_share_percentage} onChange={e => update('landlord_share_percentage', Math.max(0, Math.min(100, Number(e.target.value) || 0)))} />` (same `Input` component used across Steps 1–3)
+  - Trailing `%` shown as helper text on the right or as suffix span next to the input
+  - Helper line below: `<p className="text-xs text-muted-foreground mt-1">Operator share: {100 - form.landlord_share_percentage}%</p>` (live-updates)
+
+### Save payload (around line 162)
+
+Add to the existing `payload: any`:
+```ts
+has_landlord: form.has_landlord,
+landlord_share_percentage: form.landlord_share_percentage,
+```
+Always save `landlord_share_percentage` regardless of `has_landlord` so toggling OFF/ON preserves the user's last value.
+
+## 3. `src/pages/Analytics.tsx` — conditional display
+
+### 3a. Derive `hasLandlord` (near line 55, alongside `savedLandlordPercentage`)
 
 ```ts
-revenue_recognition_method:
-  (property as any)?.revenue_recognition_method || 'check_in',
+const hasLandlord: boolean = ((activeProperty as any)?.has_landlord ?? true) as boolean;
 ```
+Default to `true` to preserve behavior if the column is missing in any edge case.
 
-### 2c. Step 4 UI
-
-Render when `step === 4`:
-
-- Label "Revenue Recognition Method" with a small muted lucide `Info` icon directly to its right.
-- Click on the icon opens an existing `Popover` (same component used in `CreateReservationDialog.tsx` / `BookingWidget.tsx`) with the three definitions exactly as specified in the prompt (Upon check-in / Upon check-out / Pro-rata nights).
-- A `Select` (same `@/components/ui/select` already used in steps 1–3) with options:
-  - `Upon check-in` → `check_in`
-  - `Upon check-out` → `check_out`
-  - `Pro-rata nights` → `prorata`
-
-### 2d. Save / navigation
-
-- Step 3's "Next" button advances to step 4 (no save).
-- Step 4's primary button is the existing Save / Update button (`Update Property` in edit, `Create Property` in create), which calls the existing `handleSave`.
-- Add `revenue_recognition_method: form.revenue_recognition_method` to the `payload: any` in `handleSave` (cast `any` already in place — types not yet regenerated).
-- After successful update in edit mode, the existing `onSaved()` flow already triggers `refreshProperties` upstream; on create, the existing flow advances to the success screen.
-
----
-
-## 3. New helper — `src/lib/revenueDateFilter.ts`
-
-Create a small standalone module with:
-
-```ts
-export type RevenueRecognitionMethod = 'check_in' | 'check_out' | 'prorata';
-
-export function applyRevenueDateFilter<T>(
-  query: T,
-  method: RevenueRecognitionMethod,
-  startDate: string,
-  endDate: string,
-): T {
-  if (method === 'check_in') {
-    return (query as any).gte('check_in_date', startDate).lte('check_in_date', endDate);
-  }
-  if (method === 'check_out') {
-    return (query as any).gte('check_out_date', startDate).lte('check_out_date', endDate);
-  }
-  // prorata: overlap (matches the Occupancy KPI's overlap pattern)
-  return (query as any).lte('check_in_date', endDate).gte('check_out_date', startDate);
-}
-```
-
-And a per-reservation prorate helper used only when `method === 'prorata'`:
-
-```ts
-export function prorateFactor(
-  checkInISO: string,
-  checkOutISO: string,
-  startISO: string,
-  endISO: string,
-): number {
-  // Uses the EXACT overlap math copied from Analytics.tsx lines 362–371.
-  // Returns nights_in_window / total_nights, or 0 if no overlap.
-}
-```
-
----
-
-## 4. Analytics page wiring — `src/pages/Analytics.tsx`
-
-### 4a. Read the active method
-
-Add near the existing `useProperty()` usage:
-
-```ts
-const method: RevenueRecognitionMethod =
-  ((activeProperty as any)?.revenue_recognition_method as RevenueRecognitionMethod) ?? 'check_in';
-```
-
-Add `method` to the `useEffect` deps that already trigger refetch on date-range changes.
-
-### 4b. Replace revenue-related date filters
-
-For every revenue fetcher, replace the literal `.gte('check_in_date', startDate).lte('check_in_date', endDate)` with `applyRevenueDateFilter(query, method, startDate, endDate)`. Affected fetchers (line numbers from current file):
-
-- `fetchAllStats`:
-  - revenue stats query (~L274) — Total Revenue / Net Revenue / Commission / source split.
-  - total bookings count query (~L298).
-  - total guests query (~L309).
-- `fetchDirectSourceDetails` (~L393).
-- `fetchBookingsDetails` (~L506) — keep `.order('check_in_date', { ascending: false })`.
-- `fetchGuestsDetails` (~L533).
-- `fetchSourcesDetails` (~L558).
-- `fetchTotalRevenueDetails` per-unit query (~L648).
-- `fetchNetRevenueDetails` per-unit query (~L686).
-- `fetchCommissionDetails` (~L727).
-
-For each fetcher, when `method === 'prorata'`, multiply each reservation's `total_price`, `commission_amount`, and derived `net_revenue` (= total_price − commission_amount) by `prorateFactor(...)` before summing/grouping. Counts (e.g. `Total Bookings`) under `prorata` are still the count of overlapping reservations — full count, no proration of the integer.
-
-### 4c. Occupancy KPI is left alone
-
-Lines 336–387 (units fetch, `reservations` overlap fetch ~L344, `unitIdSet` overlap loop, blocked-date count, occupancy %) stay unchanged — they already use the overlap pattern and measure nights, not revenue.
-
-ADR / RevPAR: only the revenue numerator changes (taken from the new method-aware `revenueStats.netRevenue` / `totalRevenue`); denominators (`totalNights`, `totalAvailableRooms`) stay tied to the existing overlap nights calc.
-
-### 4d. Pass `method` to the 4 bottom tables
-
-Update the renders at L1168–1173:
+### 3b. Wrap the Revenue Share Card (lines 980–1008)
 
 ```tsx
-<RevenueBySource     mainDateRange={...} method={method} />
-<RevenueByRoom       mainDateRange={...} method={method} />
-<RevenueByGuests     mainDateRange={...} method={method} />
-<RevenueByNationality mainDateRange={...} method={method} />
+{hasLandlord && (
+  <Card className="bg-gradient-to-r from-card to-card/80">
+    {/* … existing slider, labels, Save button — UNCHANGED … */}
+  </Card>
+)}
 ```
 
-In each component:
+### 3c. Wrap landlord/operator breakdown rows on Gross + Net Revenue cards
 
-- Add `method?: RevenueRecognitionMethod` to its props (default `'check_in'`).
-- Add `method` to the `useEffect` deps.
-- Replace the existing `.gte('check_in_date', startDate).lte('check_in_date', endDate)` with `applyRevenueDateFilter(query, method, startDate, endDate)`.
-- When `method === 'prorata'`, multiply `total_price`, `commission_amount`, and `net_revenue` per reservation by `prorateFactor(...)` before aggregating into the table rows.
+- Gross Revenue card (lines 1092–1095): wrap the inner `<div className="mt-2 space-y-1 text-xs text-muted-foreground">` with `{hasLandlord && (…)}` so only the headline `${revenueStats.totalRevenue}` shows when off.
+- Net Revenue card (lines 1110–1113): same treatment.
 
-### 4e. Occupancy by Month chart — `src/components/analytics/OccupancyByMonthChart.tsx`
+Headline `$` numbers stay visible regardless. No other KPI card touched.
 
-- Add `method?: RevenueRecognitionMethod` prop (default `'check_in'`); pass from Analytics at L1164.
-- The existing reservations query (already an overlap query) stays — it's needed for occupancy regardless. Add `'check_in'` and `'check_out'` to the existing select.
-- In the per-month bucket loop, change ONLY the revenue contribution (occupancy stays as-is):
-  - `prorata` → existing `netForReservation * (nightsInMonth / totalNights)` math (unchanged).
-  - `check_in` → if the reservation's `check_in_date` falls inside `[m.monthStart, m.monthEnd]`, contribute the full `total_price − commission_amount` to that month; else contribute 0.
-  - `check_out` → same, but on `check_out_date`.
+### 3d. Keep all slider state and handlers as-is
 
-### 4f. Out of scope
+Do NOT remove `landlordPercentage`, `setLandlordPercentage`, `savedLandlordPercentage`, `savingShare`, `handleSaveShare`, or the sync `useEffect`. They remain valid; they simply have no rendered control when `hasLandlord = false`. The detail dialogs (lines 1378+, 1411+) and Excel export columns continue to reference `landlordPercentage` — leaving them intact is intentional and outside this prompt's scope.
 
-No changes to: weekly summary emails, `landlord_share_percentage` math / Revenue Share slider, date-range pills, Custom Range picker, Export button, KPI card / table visuals, Steps 1–3 of the modal.
+### 3e. Bidirectional sync — already works
 
----
+- Modal save → `refreshProperties()` → `activeProperty.landlord_share_percentage` changes → existing `useEffect` (line 190) syncs the slider.
+- Slider Save → updates the same `landlord_share_percentage` column → next modal open reads the latest value via the form initializer.
 
-## Files touched
+## 4. Out of scope (explicitly unchanged)
 
-- **Migration**: add `revenue_recognition_method` column to `properties`.
-- **New file**: `src/lib/revenueDateFilter.ts`.
-- **Edited**:
-  - `src/components/settings/PropertyForm.tsx` (add Step 4, renumber success → step 5, payload field).
-  - `src/pages/Analytics.tsx` (read `method`, swap filters in 9 fetchers, pass `method` to 4 tables + chart, prorate when needed).
-  - `src/components/RevenueBySource.tsx`
-  - `src/components/RevenueByRoom.tsx`
-  - `src/components/RevenueByGuests.tsx`
-  - `src/components/RevenueByNationality.tsx`
-  - `src/components/analytics/OccupancyByMonthChart.tsx`
+- Steps 1–3 of the Edit Property modal
+- Revenue Recognition Method dropdown wiring (already in Step 4)
+- Date range pills, Custom Range picker, Export button, Occupancy by Month chart, four revenue tables
+- Revenue Share slider's local state and `handleSaveShare` handler
+- `applyRevenueDateFilter` and revenue calculation logic
+- Weekly summary emails
+- Headline `$` numbers on Gross/Net Revenue cards
 
-Default for all existing properties is `'check_in'`, which preserves today's exact KPI behavior on the Analytics page.
+## Acceptance check
+
+- New property defaults to `has_landlord = true` (DB default) → Analytics behaves exactly as today.
+- Existing ICONIA property unchanged after migration.
+- Toggling OFF in modal → save → Analytics no longer shows Revenue Share slider; Gross/Net cards show only headline `$` figures.
+- Toggling ON again → slider reappears with the user's last-saved percentage; breakdown rows reappear.
+- Editing percentage in modal and saving updates the slider on Analytics; editing slider on Analytics and saving is reflected on next modal open.

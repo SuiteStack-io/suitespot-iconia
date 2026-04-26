@@ -1601,6 +1601,7 @@ export type Database = {
           from_email_notifications: string | null
           from_email_reservations: string | null
           from_name: string | null
+          has_landlord: boolean
           id: string
           is_active: boolean | null
           is_default: boolean | null
@@ -1649,6 +1650,7 @@ export type Database = {
           from_email_notifications?: string | null
           from_email_reservations?: string | null
           from_name?: string | null
+          has_landlord?: boolean
           id?: string
           is_active?: boolean | null
           is_default?: boolean | null
@@ -1697,6 +1699,7 @@ export type Database = {
           from_email_notifications?: string | null
           from_email_reservations?: string | null
           from_name?: string | null
+          has_landlord?: boolean
           id?: string
           is_active?: boolean | null
           is_default?: boolean | null
