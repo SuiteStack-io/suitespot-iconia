@@ -109,7 +109,7 @@ Deno.serve(async (req: Request) => {
           .select("property_id, booking_com_name")
           .eq("id", rtm.local_id)
           .maybeSingle();
-        if (unit?.property_id === propertyId) {
+        if (unit && unit.property_id === propertyId) {
           propertyRoomTypeMappings.push({ ...rtm, booking_com_name: unit.booking_com_name });
         }
       }
