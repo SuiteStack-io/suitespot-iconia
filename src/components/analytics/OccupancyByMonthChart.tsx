@@ -322,10 +322,11 @@ export const OccupancyByMonthChart = ({ propertyId, method = 'check_in', startDa
                   strokeWidth={2}
                   label={{
                     value: `Target ${occupancyTarget}%`,
-                    position: 'right',
+                    position: 'insideTopRight',
                     fill: '#dc2626',
                     fontSize: 11,
                     fontWeight: 600,
+                    offset: 5,
                   }}
                 />
               )}
