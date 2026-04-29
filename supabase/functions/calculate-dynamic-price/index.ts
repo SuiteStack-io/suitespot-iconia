@@ -442,7 +442,7 @@ Deno.serve(async (req: Request) => {
     if (!overrideActive) {
       const { data: matchingPromos } = await supabase
         .from("promotional_periods")
-        .select("id, discount_type, discount_value, room_types")
+        .select("id, discount_type, discount_value, room_types, created_at")
         .eq("property_id", property_id)
         .eq("is_active", true)
         .lte("booking_window_start", todayStrInTz)
@@ -461,7 +461,7 @@ Deno.serve(async (req: Request) => {
         })
         .sort((a, b) =>
           b.savings - a.savings ||
-          Number(b.promo.discount_value) - Number(a.promo.discount_value)
+          new Date(b.promo.created_at).getTime() - new Date(a.promo.created_at).getTime()
         );
 
       const winner = candidates[0];
