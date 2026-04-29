@@ -267,6 +267,17 @@ export default function DynamicPricing() {
     }));
   }
 
+  function applyAllBounds() {
+    for (const bound of rateBounds) {
+      const draft = inputDrafts[bound.room_type] ?? { min: '', max: '' };
+      const dMin = parseDraft(draft.min);
+      const dMax = parseDraft(draft.max);
+      if (dMin !== bound.min_rate || dMax !== bound.max_rate) {
+        applyBound(bound.room_type);
+      }
+    }
+  }
+
   function removePendingBound(roomType: string) {
     const bound = rateBounds.find((b) => b.room_type === roomType);
     setPendingBoundsChanges((prev) => {
