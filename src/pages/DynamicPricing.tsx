@@ -575,7 +575,7 @@ export default function DynamicPricing() {
                                   <div className="flex flex-col items-end gap-1">
                                     <Input
                                       type="number"
-                                      step="0.01"
+                                      step="1"
                                       placeholder="No minimum"
                                       className="w-28 text-right"
                                       value={draft.min}
@@ -595,7 +595,7 @@ export default function DynamicPricing() {
                                   <div className="flex flex-col items-end gap-1">
                                     <Input
                                       type="number"
-                                      step="0.01"
+                                      step="1"
                                       placeholder="No maximum"
                                       className="w-28 text-right"
                                       value={draft.max}
