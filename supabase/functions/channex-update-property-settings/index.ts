@@ -90,13 +90,15 @@ Deno.serve(async (req: Request) => {
       Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!
     );
 
-    const { data: mapping } = await serviceSupabase
+    const { data: mapping, error: mappingError } = await serviceSupabase
       .from("channex_mappings")
       .select("channex_id")
       .eq("local_id", property_id)
       .eq("entity_type", "property")
       .eq("sync_status", "synced")
       .maybeSingle();
+
+    console.log(`[diag] Channex mapping lookup result:`, JSON.stringify({ mapping, mappingError }));
 
     if (!mapping) {
       return new Response(JSON.stringify({ error: "Property not synced to Channex" }), {
@@ -106,6 +108,8 @@ Deno.serve(async (req: Request) => {
     }
 
     const channexPropertyId = mapping.channex_id;
+    resolvedChannexId = channexPropertyId;
+    console.log(`[diag] Resolved Channex property ID: ${channexPropertyId}`);
 
     // --- Build Channex payload ---
     const settings: Record<string, unknown> = {};
@@ -115,14 +119,17 @@ Deno.serve(async (req: Request) => {
     if (max_price !== null && max_price !== undefined) {
       settings.max_price = Math.round(max_price * 100);
     }
+    console.log(`[diag] Built settings payload (cents):`, JSON.stringify(settings));
 
     const channexPayload = {
       property: {
         settings,
       },
     };
+    console.log(`[diag] Full Channex payload:`, JSON.stringify(channexPayload));
 
     console.log(`[channex-update-property-settings] Updating property ${channexPropertyId} with settings:`, JSON.stringify(settings));
+    console.log(`[diag] Calling Channex PUT /api/v1/properties/${channexPropertyId} at ${new Date().toISOString()}`);
 
     // --- Call Channex API ---
     const response = await channexRequest<object>(
@@ -130,6 +137,8 @@ Deno.serve(async (req: Request) => {
       `/api/v1/properties/${channexPropertyId}`,
       channexPayload
     );
+
+    console.log(`[diag] Channex response (success):`, JSON.stringify(response).slice(0, 2000));
 
     // --- Log sync ---
     await logSync(
@@ -142,6 +151,7 @@ Deno.serve(async (req: Request) => {
       null,
       property_id
     );
+    console.log(`[diag] logSync (success) inserted`);
 
     return new Response(
       JSON.stringify({ success: true, message: "Property settings updated in Channex" }),
@@ -149,21 +159,28 @@ Deno.serve(async (req: Request) => {
     );
   } catch (err: any) {
     console.error("[channex-update-property-settings] Error:", err);
+    console.error(`[diag] Caught error:`, err?.message);
+    console.error(`[diag] Error name:`, err?.name, `statusCode:`, err?.statusCode);
+    console.error(`[diag] Error stack:`, err?.stack);
 
     try {
-      const body = await req.clone().json().catch(() => ({}));
+      const endpointStr = resolvedChannexId
+        ? `/api/v1/properties/${resolvedChannexId}`
+        : "/api/v1/properties/*";
+      console.error(`[diag] logSync (failure) attempted with status:`, err?.statusCode);
       await logSync(
         "channex-update-property-settings",
-        "/api/v1/properties/*",
-        body,
+        endpointStr,
+        parsedBody ?? {},
         null,
-        null,
+        err?.statusCode ?? null,
         false,
-        err.message,
-        body?.property_id || null
+        err?.message ?? String(err),
+        parsedBody?.property_id ?? null
       );
-    } catch (_logErr) {
-      /* ignore logging errors */
+      console.error(`[diag] logSync (failure) inserted`);
+    } catch (logErr) {
+      console.error(`[diag] logSync (failure) threw:`, logErr);
     }
 
     const isChannexError = err.message?.includes("Channex API request failed");
