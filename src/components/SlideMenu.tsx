@@ -100,6 +100,7 @@ export function SlideMenu({ userRole }: SlideMenuProps) {
         { title: 'Availability', url: '/pms/availability', icon: CalendarDays },
         { title: 'Prices', url: '/pms/prices', icon: DollarSign },
         { title: 'Dynamic Pricing', url: '/dynamic-pricing', icon: TrendingUp, showFor: ['admin'] },
+        { title: 'Promotions', url: '/promotions', icon: Tag, showFor: ['admin'] },
         { title: 'Restrictions', url: '/pms/restrictions', icon: Lock },
         { title: 'Channel Markup', url: '/pms/channel-markup', icon: Tag },
         { title: 'Channex Integration', url: '/channex', icon: Radio },
