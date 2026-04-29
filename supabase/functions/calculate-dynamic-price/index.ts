@@ -93,6 +93,12 @@ Deno.serve(async (req: Request) => {
     const propertyOffPeakDays: number[] = property.off_peak_days || [];
     const propertyTimezone: string = property.timezone || "Africa/Cairo";
 
+    // Today in property timezone (en-CA returns YYYY-MM-DD). Used by promotion
+    // window matching, month-phase determination, and pace index.
+    const todayStrInTz = new Date().toLocaleDateString("en-CA", {
+      timeZone: propertyTimezone,
+    });
+
     // ── 2. Rate plan + price row ──
     const { data: ratePlan } = await supabase
       .from("rate_plans")
