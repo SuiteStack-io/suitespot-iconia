@@ -552,6 +552,9 @@ Deno.serve(async (req: Request) => {
         override_active: overrideActive,
         was_clamped: wasClamped,
         clamp_direction: clampDirection,
+        promotion_applied: appliedPromotionId
+          ? { id: appliedPromotionId, discount_percent: appliedPromotionDiscountPercent }
+          : null,
       },
     });
   } catch (err: any) {
