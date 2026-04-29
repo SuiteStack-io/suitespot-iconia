@@ -601,6 +601,7 @@ function PromotionDialog({
   saving,
   setSaving,
   onSaved,
+  onAddPending,
 }: {
   open: boolean;
   onOpenChange: (o: boolean) => void;
@@ -610,6 +611,7 @@ function PromotionDialog({
   saving: boolean;
   setSaving: (v: boolean) => void;
   onSaved: () => void;
+  onAddPending?: (payload: PromoPayload, rateSnapshots: RateSnapshot[]) => void;
 }) {
   const today = useMemo(() => new Date(), []);
   const defaults = useMemo<FormState>(() => ({
