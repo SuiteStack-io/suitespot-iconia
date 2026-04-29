@@ -51,6 +51,7 @@ import {
   Pencil,
   Plus,
   Trash2,
+  X,
 } from 'lucide-react';
 import { format, addDays } from 'date-fns';
 import { toast } from 'sonner';
