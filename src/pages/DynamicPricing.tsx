@@ -197,13 +197,37 @@ export default function DynamicPricing() {
         };
       }
     }
-    setRateBounds(Object.values(byType).sort((a, b) => a.room_type.localeCompare(b.room_type)));
+    const sorted = Object.values(byType).sort((a, b) => a.room_type.localeCompare(b.room_type));
+    setRateBounds(sorted);
+    const drafts: Record<string, { min: string; max: string }> = {};
+    for (const b of sorted) {
+      drafts[b.room_type] = {
+        min: b.min_rate == null ? '' : String(b.min_rate),
+        max: b.max_rate == null ? '' : String(b.max_rate),
+      };
+    }
+    setInputDrafts(drafts);
+  }, [propertyId]);
+
+  // ---- load active channel markups (copied from src/pages/pms/Prices.tsx:187) ----
+  const loadMarkups = useCallback(async () => {
+    if (!propertyId) return;
+    const { data, error } = await withPropertyFilter(
+      supabase.from('channel_markup_settings').select('id, channel_name, markup_percentage').eq('is_active', true),
+      propertyId
+    );
+    if (error) {
+      console.error('Failed to load channel markups', error);
+      return;
+    }
+    setChannelMarkups((data ?? []) as { id: string; channel_name: string; markup_percentage: number }[]);
   }, [propertyId]);
 
   useEffect(() => {
     loadRules();
     loadBounds();
-  }, [loadRules, loadBounds]);
+    loadMarkups();
+  }, [loadRules, loadBounds, loadMarkups]);
 
   // ---- local change handlers (no DB writes) ----
   function updateRules(patch: Partial<PricingRules>) {
@@ -212,11 +236,57 @@ export default function DynamicPricing() {
     setPendingRulesChanges((prev) => ({ ...prev, ...patch }));
   }
 
-  function updateBound(roomType: string, field: 'min_rate' | 'max_rate', value: number | null) {
-    setRateBounds((prev) => prev.map((b) => (b.room_type === roomType ? { ...b, [field]: value } : b)));
+  function setDraft(roomType: string, field: 'min' | 'max', value: string) {
+    setInputDrafts((prev) => ({
+      ...prev,
+      [roomType]: { ...(prev[roomType] ?? { min: '', max: '' }), [field]: value },
+    }));
+  }
+
+  function applyBound(roomType: string) {
+    const bound = rateBounds.find((b) => b.room_type === roomType);
+    if (!bound) return;
+    const draft = inputDrafts[roomType] ?? { min: '', max: '' };
+    const pendingMin = parseDraft(draft.min);
+    const pendingMax = parseDraft(draft.max);
+    if (pendingMin !== null && pendingMax !== null && pendingMin >= pendingMax) {
+      setBoundsErrors((prev) => ({ ...prev, [roomType]: 'Min must be less than Max' }));
+      return;
+    }
+    setBoundsErrors((prev) => {
+      const c = { ...prev };
+      delete c[roomType];
+      return c;
+    });
+    setPendingBoundsChanges((prev) => ({
+      ...prev,
+      [roomType]: {
+        original: prev[roomType]?.original ?? { min: bound.min_rate, max: bound.max_rate },
+        pending: { min: pendingMin, max: pendingMax },
+      },
+    }));
+  }
+
+  function removePendingBound(roomType: string) {
+    const bound = rateBounds.find((b) => b.room_type === roomType);
     setPendingBoundsChanges((prev) => {
-      const existing = prev[roomType] || { min_rate: rateBounds.find((b) => b.room_type === roomType)?.min_rate ?? null, max_rate: rateBounds.find((b) => b.room_type === roomType)?.max_rate ?? null };
-      return { ...prev, [roomType]: { ...existing, [field]: value } };
+      const c = { ...prev };
+      delete c[roomType];
+      return c;
+    });
+    if (bound) {
+      setInputDrafts((prev) => ({
+        ...prev,
+        [roomType]: {
+          min: bound.min_rate == null ? '' : String(bound.min_rate),
+          max: bound.max_rate == null ? '' : String(bound.max_rate),
+        },
+      }));
+    }
+    setBoundsErrors((prev) => {
+      const c = { ...prev };
+      delete c[roomType];
+      return c;
     });
   }
 
