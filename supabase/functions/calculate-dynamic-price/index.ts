@@ -528,6 +528,8 @@ Deno.serve(async (req: Request) => {
         clamp_direction: clampDirection,
         override_id: override?.id ?? null,
         override_active: overrideActive,
+        promotion_id: appliedPromotionId,
+        promotion_discount_percent: appliedPromotionDiscountPercent,
       });
     }
 
