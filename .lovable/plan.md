@@ -1,81 +1,39 @@
-# Diagnose `channex-update-property-settings` failures
+# Fix Apply button placement in Rate Guardrails
 
-## Findings so far
+## Scope
+File: `src/pages/DynamicPricing.tsx` only. No other files, no edge functions, no DB.
 
-### 1. Sync logs query result
+## Changes
 
-Only **one** row exists for this function in `channex_sync_logs`:
+### 1. Remove the per-row Apply button
+In the OTA preview row inside the Rate Guardrails table (lines ~601–635), remove the `{isDirty && <Button>Apply</Button>}` block. The OTA markup preview content stays exactly as is — only the right-side Apply button is removed. The wrapping `flex items-start justify-between` container can be simplified (no longer needs `justify-between`), keeping the OTA preview content unchanged visually.
 
-| created_at | status_code | success | settings sent |
-|---|---|---|---|
-| 2026-04-12 10:33:42 UTC | 200 | true | `{min_price: 9000, max_price: 16000}` (cents) |
+### 2. Compute "any dirty row" at the card level
+Inside the Rate Guardrails CardContent (around the rateBounds mapping), derive a single boolean: whether any row has `draftMin !== savedMin || draftMax !== savedMax`. Implement by iterating `rateBounds` once and comparing each row's `inputDrafts[room_type]` (parsed via existing `parseDraft`) against `bound.min_rate` / `bound.max_rate`. Computed inline in the render (no new state, no hook), so no duplicate variable declarations with the per-row `draftMin/draftMax/savedMin/savedMax` already declared inside the `.map()` callback (different scope).
 
-That call eventually succeeded — Channex returned the property with `min_price: 90.00, max_price: 160.00`.
+### 3. Add `applyAllBounds` helper
+New function near `applyBound` (around line 246) that loops over `rateBounds`, and for each row whose draft differs from saved values, performs the same logic `applyBound` already does — pushing each change into `pendingBoundsChanges` via `setPendingBoundsChanges`. Reuses the existing per-row validation in `applyBound` by simply calling `applyBound(bound.room_type)` for each dirty row (single setState batching is fine here since React batches; if validation errors occur they surface in `boundsErrors` exactly like today).
 
-### 2. Edge function logs
+### 4. New footer row at the bottom of the Rate Guardrails card
+Replace the standalone `{lastChannexSync && <p>Last synced…</p>}` line (~646–648) with a single flex row:
 
-Recent invocations show Channex `PUT /api/v1/properties/...` returning **504 Gateway Timeout** repeatedly, exhausting all 3 retries, then the function shuts down. Two such invocation sequences happened around 10:30 and 10:43 UTC, both with payload `{min_price: 8000, max_price: 16000}`.
+```text
+[ Last synced to Channex: <timestamp> ]                    [ Apply button ]
+```
 
-### 3. Why failed attempts don't appear in `channex_sync_logs`
+- Container: `flex items-center justify-between gap-4`
+- Left: existing `<p className="text-xs text-muted-foreground">Last synced to Channex: {lastChannexSync}</p>` (rendered as empty span if no sync timestamp, so the Apply button still sits on the right)
+- Right: `{anyDirty && <Button onClick={applyAllBounds} className="bg-black text-white hover:bg-black/90">Apply Changes</Button>}` — default size, default Button component from `@/components/ui/button`, only rendered when `anyDirty` is true
 
-The catch block at line 146 calls `await req.clone().json().catch(() => ({}))`, but in some runtimes the request body may already be consumed/locked by the time we reach the catch (the body is parsed at line ~70 with `await req.json()`). Combined with the outer `try { ... } catch (_logErr) { /* ignore */ }`, **any failure to log is silently swallowed**, so 504s from Channex never produce a sync_log row. That's why the user sees "non-2xx" client-side but the DB shows nothing.
+### 5. Untouched
+- Save Changes flow at top of page
+- Pending Changes card below Rate Guardrails
+- OTA markup preview rows (content, weekend equivalent text, badges)
+- Channex sync logic and `pendingBoundsChanges` queue semantics
+- Edge functions, DB schema, RLS
 
-### 4. Root cause hypothesis
-
-The `min_price: 8000` (= 80 USD) attempts on retry could in principle be rejected by Channex with a validation error, but the actual symptom in logs is **504 timeout**, not a 4xx. So the immediate issue is Channex API latency/timeouts on `PUT /api/v1/properties/...`. The successful 9000/16000 push at 10:33 confirms the payload structure itself is fine.
-
-We need richer logging to confirm the failure mode on the next user-triggered retry.
-
----
-
-## Plan
-
-Add detailed logging to `supabase/functions/channex-update-property-settings/index.ts` **without changing any logic** (auth, validation, payload structure all preserved). Also fix the silent log-loss so failures actually persist to `channex_sync_logs`.
-
-### Changes
-
-1. **Capture parsed body in an outer-scope variable** so the catch block can log the real payload instead of trying to re-parse a consumed request.
-   - Declare `let parsedBody: any = null;` and `let resolvedChannexId: string | null = null;` before the `try` block (single declaration each — no duplicates).
-   - Assign `parsedBody = await req.json();` inside `try`.
-   - Assign `resolvedChannexId = mapping.channex_id;` after the mapping lookup.
-
-2. **Add console.log statements at every step** (info-level via `console.log`, errors via `console.error`):
-   - `[diag] Request received` with method + URL.
-   - `[diag] Authenticated user: <user.id>`.
-   - `[diag] Admin check passed`.
-   - `[diag] Parsed body:` with `{ property_id, min_price, max_price }`.
-   - `[diag] Channex mapping lookup result:` with `mapping` row or null.
-   - `[diag] Resolved Channex property ID: <id>`.
-   - `[diag] Built settings payload (cents):` with the `settings` object.
-   - `[diag] Full Channex payload:` with `JSON.stringify(channexPayload)`.
-   - `[diag] Calling Channex PUT /api/v1/properties/<id>` with timestamp.
-   - `[diag] Channex response (success):` with `JSON.stringify(response).slice(0, 2000)` to avoid huge logs.
-   - `[diag] logSync (success) inserted`.
-   - In catch: `console.error('[diag] Caught error:', err.message)` plus `console.error('[diag] Error stack:', err.stack)` plus `console.error('[diag] Error name:', err.name, 'statusCode:', err.statusCode)` (the `ChannexApiError` from `_shared/channex-client.ts` carries `statusCode`).
-
-3. **Fix the failure-logging path** so 504s actually appear in `channex_sync_logs`:
-   - Replace `await req.clone().json().catch(() => ({}))` with `parsedBody ?? {}`.
-   - Use `resolvedChannexId` (or `'/api/v1/properties/*'` fallback) in the endpoint string.
-   - Use `parsedBody?.property_id ?? null` for the property_id arg.
-   - Include `err.statusCode ?? null` as `status_code` in the failed `logSync` call (currently hardcoded `null`) so we can distinguish 504/4xx/network errors in the DB.
-   - Add `console.error('[diag] logSync (failure) attempted with status:', err.statusCode)` right before the call, and `console.error('[diag] logSync (failure) threw:', logErr)` inside the inner catch (rename `_logErr` → `logErr`) so we no longer silently swallow logging errors.
-
-4. **No changes** to:
-   - CORS headers
-   - Auth/admin check
-   - Payload structure (`{ property: { settings: { min_price, max_price } } }` in cents)
-   - Return status codes
-   - `channexRequest` shared helper
-
-### Verification flow after deploy
-
-1. User retries the sync from the UI.
-2. Pull `supabase--edge_function_logs` for `channex-update-property-settings` filtered on `[diag]`.
-3. Query `channex_sync_logs` again — failures should now appear with the correct `status_code` (e.g. 504) and a populated `request_payload`.
-4. Report findings: payload sent vs Channex response, whether it's a Channex 504 (their side) or a 4xx validation error (our payload), and what `min_price`/`max_price` values are in flight.
-
-### Files touched
-
-- `supabase/functions/channex-update-property-settings/index.ts` (logging only)
-
-No DB migrations, no frontend changes, no shared-helper changes.
+## Behavior after change
+- User edits Min/Max inputs across multiple rows → no per-row button appears
+- A single black "Apply Changes" button appears at the bottom-right of the Rate Guardrails card
+- Clicking it queues every dirty row into `pendingBoundsChanges` (existing Pending Changes card then shows them, and the existing Save Changes flow persists/syncs them)
+- Button disappears once all drafts match saved values
