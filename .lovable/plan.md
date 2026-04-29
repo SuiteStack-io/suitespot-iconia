@@ -1,84 +1,81 @@
-# calculate-dynamic-price Edge Function
+# Diagnose `channex-update-property-settings` failures
 
-Create one new file: `supabase/functions/calculate-dynamic-price/index.ts`. Service-role only; no other files, no DB/schema changes.
+## Findings so far
 
-## Skeleton
-- `corsHeaders` copied verbatim from `channex-full-sync/index.ts` (lines 12–16).
-- `Deno.serve` handler with `OPTIONS` preflight returning `corsHeaders`.
-- `createClient(SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY)`.
-- Helpers: `formatDate`, `addDays`, `daysInMonth`, `round2`, `tierIndex(value, ascendingThresholds)`, `respond(status, body)`.
+### 1. Sync logs query result
 
-## Input validation
-Parse JSON body. Require `property_id`, `room_type`, `rate_plan_id`, `target_date` (regex `^\d{4}-\d{2}-\d{2}$`). 400 if missing/malformed.
+Only **one** row exists for this function in `channex_sync_logs`:
 
-## Logic
+| created_at | status_code | success | settings sent |
+|---|---|---|---|
+| 2026-04-12 10:33:42 UTC | 200 | true | `{min_price: 9000, max_price: 16000}` (cents) |
 
-**1. Property** — `properties.select("id, weekend_days, off_peak_days, timezone")`. 404 if missing. Defaults: `weekend_days || [4,5]`, `off_peak_days || []`, `timezone || "Africa/Cairo"`.
+That call eventually succeeded — Channex returned the property with `min_price: 90.00, max_price: 160.00`.
 
-**2. Rate plan + price row** — Verify `rate_plans.id` exists (404 if not). Then `rate_plan_prices.select("weekday_rate, weekend_rate, off_peak_rate, min_rate, max_rate").eq(rate_plan_id).eq(room_type).is(unit_id, null).maybeSingle()`. If null, fall back to the same query without the `unit_id` filter (limit 1). If still null → 404. Single mutable `priceRow` variable assigned via a `let priceRow: any = null` plus two scoped `{ ... }` blocks — no double declaration.
+### 2. Edge function logs
 
-**3. Base rate** (matches `channex-full-sync` lines 291–307):
-- `targetDate = new Date(target_date + "T00:00:00Z")`, `dow = targetDate.getUTCDay()` (UTC-safe since target_date is a calendar date).
-- off-peak takes priority, then weekend, else weekday.
+Recent invocations show Channex `PUT /api/v1/properties/...` returning **504 Gateway Timeout** repeatedly, exhausting all 3 retries, then the function shuts down. Two such invocation sequences happened around 10:30 and 10:43 UTC, both with payload `{min_price: 8000, max_price: 16000}`.
 
-**4. pricing_rules** — `.eq(property_id).maybeSingle()`.
+### 3. Why failed attempts don't appear in `channex_sync_logs`
 
-**Static fast path (PER USER FIX — Option 1)**: if `!rules || rules.is_enabled === false`:
-- Clamp `baseRate` against room-type min/max.
-- Layer-2 safety (≤0 → fallback to baseRate).
-- Round.
-- **Do NOT insert into pricing_log** (the CHECK constraint on `month_phase` only allows 'A' or 'B', and a static rate is not a dynamic pricing decision worth logging).
-- Return `{ success, base_rate, final_rate, adjustments: { ..., month_phase: null, static_reason: 'dynamic_pricing_disabled' | 'no_pricing_rules', ... } }`.
+The catch block at line 146 calls `await req.clone().json().catch(() => ({}))`, but in some runtimes the request body may already be consumed/locked by the time we reach the catch (the body is parsed at line ~70 with `await req.json()`). Combined with the outer `try { ... } catch (_logErr) { /* ignore */ }`, **any failure to log is silently swallowed**, so 504s from Channex never produce a sync_log row. That's why the user sees "non-2xx" client-side but the DB shows nothing.
 
-**5. Override** — `pricing_overrides.select("id, override_type, value, room_type").eq(property_id).eq(override_date, target_date)`. Prefer specific room_type, else wildcard `room_type IS NULL`.
+### 4. Root cause hypothesis
 
-**6. Day-of-week multiplier** — `Number(rules.day_of_week_multipliers[String(dow)] ?? 1)`.
+The `min_price: 8000` (= 80 USD) attempts on retry could in principle be rejected by Channex with a validation error, but the actual symptom in logs is **504 timeout**, not a 4xx. So the immediate issue is Channex API latency/timeouts on `PUT /api/v1/properties/...`. The successful 9000/16000 push at 10:33 confirms the payload structure itself is fine.
 
-**7. Occupancy for target month**:
-- Compute `monthStart`, `monthEnd` (last day inclusive), `monthStartStr`, `monthEndExclusiveStr`.
-- `units` query (matches lines 123–128): `.eq(property_id).neq(status, 'maintenance')`.
-- `reservations` query (matches lines 135–141): `.in(status, ['confirmed','checked-in']).in(unit_id, unitIds).lt(check_in_date, monthEndExclusiveStr).gt(check_out_date, monthStartStr)`.
-- Count overlap nights per reservation by clamping `[check_in_date, check_out_date)` into `[monthStartStr, monthEndExclusiveStr)` (checkout exclusive).
-- `occupancyPercent = totalAvailableNights > 0 ? (bookedNights / totalAvailableNights) * 100 : 0`.
+We need richer logging to confirm the failure mode on the next user-triggered retry.
 
-**8. Month phase** — `todayStrInTz = new Date().toLocaleDateString("en-CA", { timeZone })`. Phase A if `monthStartStr > todayStrInTz`, historical if `formatDate(monthEnd) < todayStrInTz`, else B.
+---
 
-**9. Pace index (Phase B only)** — `daysElapsed = round((todayUTC - monthStart)/86400000) + 1`. `paceIndex = daysElapsedPercent <= 0 ? 1.0 : occupancy / daysElapsedPercent`.
+## Plan
 
-**10. Occupancy adjustment** — `tierIndex(occupancyPercent, occupancy_thresholds)`. If Phase B AND `paceIndex >= pace_index_bump_threshold` AND `occTier < occAdjustments.length - 1`, bump tier and set `paceIndexBumped = true`.
+Add detailed logging to `supabase/functions/channex-update-property-settings/index.ts` **without changing any logic** (auth, validation, payload structure all preserved). Also fix the silent log-loss so failures actually persist to `channex_sync_logs`.
 
-**11. Revenue for target month**:
-- Phase A: `reservations` where `property_id = property_id`, status in confirmed/checked-in, `check_in_date >= monthStartStr AND < monthEndExclusiveStr`. Sum `total_price`.
-- Phase B: `property_id = property_id`, statuses, `check_in_date < monthEndExclusiveStr AND check_out_date > monthStartStr`. Sum `total_price`.
-- Historical: revenueTotal = 0, revenueAdj = 0.
-- `revenueAchievementPercent = monthlyTarget > 0 ? (revenueTotal / monthlyTarget) * 100 : 0`.
+### Changes
 
-**12. Revenue adjustment** — Choose phase A vs B array. `tierIndex` lookup. Apply conflict cap if `revenue > conflict_revenue_min` AND `occupancy < conflict_occupancy_max` AND `revAdj > conflict_cap`. Skip entirely (0) when target ≤ 0 or historical.
+1. **Capture parsed body in an outer-scope variable** so the catch block can log the real payload instead of trying to re-parse a consumed request.
+   - Declare `let parsedBody: any = null;` and `let resolvedChannexId: string | null = null;` before the `try` block (single declaration each — no duplicates).
+   - Assign `parsedBody = await req.json();` inside `try`.
+   - Assign `resolvedChannexId = mapping.channex_id;` after the mapping lookup.
 
-**13. Combine OR override**:
-- Override `fixed_rate` → `value`; `percentage_adjustment` → `baseRate * (1 + value/100)`; `multiplier` → `baseRate * value`.
-- Otherwise `baseRate * dowMultiplier * (1 + occAdj/100) * (1 + revAdj/100)`.
+2. **Add console.log statements at every step** (info-level via `console.log`, errors via `console.error`):
+   - `[diag] Request received` with method + URL.
+   - `[diag] Authenticated user: <user.id>`.
+   - `[diag] Admin check passed`.
+   - `[diag] Parsed body:` with `{ property_id, min_price, max_price }`.
+   - `[diag] Channex mapping lookup result:` with `mapping` row or null.
+   - `[diag] Resolved Channex property ID: <id>`.
+   - `[diag] Built settings payload (cents):` with the `settings` object.
+   - `[diag] Full Channex payload:` with `JSON.stringify(channexPayload)`.
+   - `[diag] Calling Channex PUT /api/v1/properties/<id>` with timestamp.
+   - `[diag] Channex response (success):` with `JSON.stringify(response).slice(0, 2000)` to avoid huge logs.
+   - `[diag] logSync (success) inserted`.
+   - In catch: `console.error('[diag] Caught error:', err.message)` plus `console.error('[diag] Error stack:', err.stack)` plus `console.error('[diag] Error name:', err.name, 'statusCode:', err.statusCode)` (the `ChannexApiError` from `_shared/channex-client.ts` carries `statusCode`).
 
-**14. Clamp (two layers)** — Layer 1: per-room-type min/max with `wasClamped` and `clampDirection`. Layer 2: if `finalRate <= 0`, fall back to `baseRate` (or `roomTypeMinRate` if baseRate also non-positive). Override results are also clamped.
+3. **Fix the failure-logging path** so 504s actually appear in `channex_sync_logs`:
+   - Replace `await req.clone().json().catch(() => ({}))` with `parsedBody ?? {}`.
+   - Use `resolvedChannexId` (or `'/api/v1/properties/*'` fallback) in the endpoint string.
+   - Use `parsedBody?.property_id ?? null` for the property_id arg.
+   - Include `err.statusCode ?? null` as `status_code` in the failed `logSync` call (currently hardcoded `null`) so we can distinguish 504/4xx/network errors in the DB.
+   - Add `console.error('[diag] logSync (failure) attempted with status:', err.statusCode)` right before the call, and `console.error('[diag] logSync (failure) threw:', logErr)` inside the inner catch (rename `_logErr` → `logErr`) so we no longer silently swallow logging errors.
 
-**15. Round** — `round2(finalRate)`.
+4. **No changes** to:
+   - CORS headers
+   - Auth/admin check
+   - Payload structure (`{ property: { settings: { min_price, max_price } } }` in cents)
+   - Return status codes
+   - `channexRequest` shared helper
 
-**16. Log** — Insert `pricing_log` row **only when `monthPhase === "A" || monthPhase === "B"`** (skip historical too — same CHECK constraint). Columns logged: `property_id, date_priced, target_month, month_phase, room_type, rate_plan_id, base_rate, calculated_rate, final_rate, day_of_week_multiplier, occupancy_percent, occupancy_tier, occupancy_adjustment_percent, pace_index, revenue_total, revenue_achievement_percent, revenue_adjustment_percent, room_type_min_rate, room_type_max_rate, was_clamped, clamp_direction, override_id, override_active`. When override is active, log dow=1 and adjustment percents=0 so the log clearly attributes the result to the override.
+### Verification flow after deploy
 
-**17. Return** the JSON shape from the spec.
+1. User retries the sync from the UI.
+2. Pull `supabase--edge_function_logs` for `channex-update-property-settings` filtered on `[diag]`.
+3. Query `channex_sync_logs` again — failures should now appear with the correct `status_code` (e.g. 504) and a populated `request_payload`.
+4. Report findings: payload sent vs Channex response, whether it's a Channex 504 (their side) or a 4xx validation error (our payload), and what `min_price`/`max_price` values are in flight.
 
-## Error handling
-- 404: property missing, rate plan missing, no `rate_plan_prices` row.
-- Outer `try/catch` → 500 with `{ success: false, error }` and `console.error`.
+### Files touched
 
-## Untouched
-- All other edge functions (channex-full-sync, channex-daily-sync, channex-process-sync-queue, channex-booking-webhook, etc.).
-- All database tables/schema.
-- All frontend code.
-- No `supabase/config.toml` changes.
+- `supabase/functions/channex-update-property-settings/index.ts` (logging only)
 
-## Safety checks
-- Single declaration scan: `priceRow`, `dow`, `baseRate`, `monthStart`, `monthEnd`, `monthStartStr`, `monthEndExclusiveStr`, `revenueTotal`, `occTier`, `paceIndex`, `revenueAdjustmentPercent`, `finalRate`, `wasClamped`, `clampDirection`, `override`, `monthPhase` declared exactly once each.
-- Verified columns exist in DB schema: `properties.weekend_days/off_peak_days/timezone`; `rate_plan_prices.weekday_rate/weekend_rate/off_peak_rate/min_rate/max_rate/unit_id/rate_plan_id/room_type`; `units.id/property_id/status`; `reservations.unit_id/check_in_date/check_out_date/property_id/total_price/status`; `pricing_overrides.property_id/override_date/room_type/override_type/value/id`; `pricing_rules.*` fields used; all `pricing_log` columns used.
-- DOW branch order copied from `channex-full-sync/index.ts` lines 301–307.
-- Reservation/units queries copied from `channex-full-sync/index.ts` lines 123–141.
+No DB migrations, no frontend changes, no shared-helper changes.
