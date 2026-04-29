@@ -8,6 +8,8 @@ const corsHeaders = {
 };
 
 Deno.serve(async (req: Request) => {
+  console.log(`[diag] Request received: ${req.method} ${req.url}`);
+
   if (req.method === "OPTIONS") {
     return new Response(null, { headers: corsHeaders });
   }
@@ -18,6 +20,9 @@ Deno.serve(async (req: Request) => {
       headers: { "Content-Type": "application/json", ...corsHeaders },
     });
   }
+
+  let parsedBody: any = null;
+  let resolvedChannexId: string | null = null;
 
   try {
     // --- Auth ---
