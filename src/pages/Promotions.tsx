@@ -89,7 +89,28 @@ type FormState = {
   room_types: string[];
 };
 
-// ---------- utils ----------
+type PromoPayload = {
+  property_id: string;
+  name: string;
+  description: string | null;
+  booking_window_start: string;
+  booking_window_end: string;
+  stay_start: string;
+  stay_end: string;
+  discount_type: 'percentage' | 'fixed_amount';
+  discount_value: number;
+  min_stay: number | null;
+  room_types: string[] | null;
+  is_active: boolean;
+};
+
+type RateSnapshot = { room_type: string; weekday_rate: number; weekend_rate: number };
+
+type PendingPromo = {
+  tempId: string;
+  payload: PromoPayload;
+  rateSnapshots: RateSnapshot[];
+};
 function todayISO(): string {
   return format(new Date(), 'yyyy-MM-dd');
 }
