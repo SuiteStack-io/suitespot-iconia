@@ -611,35 +611,23 @@ export default function DynamicPricing() {
                               </TableRow>
                               <TableRow key={`${bound.room_type}-ota`} className="border-b">
                                 <TableCell colSpan={5} className="bg-muted/30 py-2">
-                                  <div className="flex items-start justify-between gap-4 flex-wrap">
-                                    <div className="flex flex-col gap-1 text-xs text-muted-foreground">
-                                      {channelMarkups.length === 0 ? (
-                                        <span>No OTA channels connected</span>
-                                      ) : (
-                                        channelMarkups.map((ch) => (
-                                          <div key={ch.id} className="flex items-center gap-2 flex-wrap">
-                                            <Badge variant="secondary" className="text-[10px]">{ch.channel_name}</Badge>
-                                            <span className="text-[11px]">+{Number(ch.markup_percentage)}%</span>
-                                            <span>
-                                              Min on {ch.channel_name}: {formatUsd(withMarkup(effMin, Number(ch.markup_percentage)))}
-                                            </span>
-                                            <span>·</span>
-                                            <span>
-                                              Max on {ch.channel_name}: {formatUsd(withMarkup(effMax, Number(ch.markup_percentage)))}
-                                            </span>
-                                          </div>
-                                        ))
-                                      )}
-                                    </div>
-                                    {isDirty && (
-                                      <Button
-                                        size="sm"
-                                        variant="outline"
-                                        className="shrink-0"
-                                        onClick={() => applyBound(bound.room_type)}
-                                      >
-                                        Apply
-                                      </Button>
+                                  <div className="flex flex-col gap-1 text-xs text-muted-foreground">
+                                    {channelMarkups.length === 0 ? (
+                                      <span>No OTA channels connected</span>
+                                    ) : (
+                                      channelMarkups.map((ch) => (
+                                        <div key={ch.id} className="flex items-center gap-2 flex-wrap">
+                                          <Badge variant="secondary" className="text-[10px]">{ch.channel_name}</Badge>
+                                          <span className="text-[11px]">+{Number(ch.markup_percentage)}%</span>
+                                          <span>
+                                            Min on {ch.channel_name}: {formatUsd(withMarkup(effMin, Number(ch.markup_percentage)))}
+                                          </span>
+                                          <span>·</span>
+                                          <span>
+                                            Max on {ch.channel_name}: {formatUsd(withMarkup(effMax, Number(ch.markup_percentage)))}
+                                          </span>
+                                        </div>
+                                      ))
                                     )}
                                   </div>
                                 </TableCell>
@@ -654,9 +642,29 @@ export default function DynamicPricing() {
                     <Info className="h-4 w-4 mt-0.5 shrink-0 text-muted-foreground" />
                     <p className="text-xs text-muted-foreground">These bounds are also synced to your channel manager as a safety net. Channex will reject any rate outside these bounds even if the PMS has a bug.</p>
                   </div>
-                  {lastChannexSync && (
-                    <p className="text-xs text-muted-foreground">Last synced to Channex: {lastChannexSync}</p>
-                  )}
+                  {(() => {
+                    const anyDirty = rateBounds.some((b) => {
+                      const d = inputDrafts[b.room_type] ?? { min: '', max: '' };
+                      return parseDraft(d.min) !== b.min_rate || parseDraft(d.max) !== b.max_rate;
+                    });
+                    return (
+                      <div className="flex items-center justify-between gap-4">
+                        {lastChannexSync ? (
+                          <p className="text-xs text-muted-foreground">Last synced to Channex: {lastChannexSync}</p>
+                        ) : (
+                          <span />
+                        )}
+                        {anyDirty && (
+                          <Button
+                            onClick={applyAllBounds}
+                            className="bg-black text-white hover:bg-black/90"
+                          >
+                            Apply Changes
+                          </Button>
+                        )}
+                      </div>
+                    );
+                  })()}
                 </CardContent>
               </Card>
 
