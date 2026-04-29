@@ -288,10 +288,7 @@ Deno.serve(async (req: Request) => {
         : 0;
 
     // ── 7. Month phase (today in property timezone) ──
-    // en-CA returns YYYY-MM-DD.
-    const todayStrInTz = new Date().toLocaleDateString("en-CA", {
-      timeZone: propertyTimezone,
-    });
+    // en-CA returns YYYY-MM-DD. (todayStrInTz computed earlier, after property load)
     let monthPhase: "A" | "B" | "historical";
     if (monthStartStr > todayStrInTz) {
       monthPhase = "A";
