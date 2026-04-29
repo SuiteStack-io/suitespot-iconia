@@ -477,6 +477,7 @@ export default function Promotions() {
             setEditing(null);
             fetchPromotions();
           }}
+          onAddPending={addToPending}
         />
 
         {/* Delete confirm */}
