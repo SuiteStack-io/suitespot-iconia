@@ -543,42 +543,99 @@ export default function DynamicPricing() {
                             <TableCell colSpan={5} className="text-center text-muted-foreground">No room types found. Create rate plans first.</TableCell>
                           </TableRow>
                         )}
-                        {rateBounds.map((bound) => (
-                          <TableRow key={bound.room_type}>
-                            <TableCell className="font-medium">{bound.room_type}</TableCell>
-                            <TableCell className="text-right">{bound.weekday_rate.toFixed(2)}</TableCell>
-                            <TableCell className="text-right">{bound.weekend_rate.toFixed(2)}</TableCell>
-                            <TableCell className="text-right">
-                              <Input
-                                type="number"
-                                step="0.01"
-                                placeholder="No minimum"
-                                className="w-28 ml-auto text-right"
-                                value={bound.min_rate ?? ''}
-                                onChange={(e) => {
-                                  const val = e.target.value === '' ? null : parseFloat(e.target.value);
-                                  updateBound(bound.room_type, 'min_rate', val);
-                                }}
-                              />
-                              {boundsErrors[bound.room_type] && (
-                                <p className="text-xs text-destructive mt-1">{boundsErrors[bound.room_type]}</p>
-                              )}
-                            </TableCell>
-                            <TableCell className="text-right">
-                              <Input
-                                type="number"
-                                step="0.01"
-                                placeholder="No maximum"
-                                className="w-28 ml-auto text-right"
-                                value={bound.max_rate ?? ''}
-                                onChange={(e) => {
-                                  const val = e.target.value === '' ? null : parseFloat(e.target.value);
-                                  updateBound(bound.room_type, 'max_rate', val);
-                                }}
-                              />
-                            </TableCell>
-                          </TableRow>
-                        ))}
+                        {rateBounds.map((bound) => {
+                          const draft = inputDrafts[bound.room_type] ?? { min: '', max: '' };
+                          const draftMin = parseDraft(draft.min);
+                          const draftMax = parseDraft(draft.max);
+                          const ratio = weekendRatio(bound);
+                          const savedMin = bound.min_rate;
+                          const savedMax = bound.max_rate;
+                          const isDirty = draftMin !== savedMin || draftMax !== savedMax;
+                          // Effective values for OTA preview: prefer draft, else saved
+                          const effMin = draftMin ?? savedMin;
+                          const effMax = draftMax ?? savedMax;
+                          return (
+                            <>
+                              <TableRow key={bound.room_type}>
+                                <TableCell className="font-medium align-top">{bound.room_type}</TableCell>
+                                <TableCell className="text-right align-top">{bound.weekday_rate.toFixed(2)}</TableCell>
+                                <TableCell className="text-right align-top">{bound.weekend_rate.toFixed(2)}</TableCell>
+                                <TableCell className="text-right align-top">
+                                  <div className="flex flex-col items-end gap-1">
+                                    <Input
+                                      type="number"
+                                      step="0.01"
+                                      placeholder="No minimum"
+                                      className="w-28 text-right"
+                                      value={draft.min}
+                                      onChange={(e) => setDraft(bound.room_type, 'min', e.target.value)}
+                                    />
+                                    {draftMin !== null && (
+                                      <span className="text-xs text-muted-foreground">
+                                        Weekend: {formatUsd(draftMin * ratio)}
+                                      </span>
+                                    )}
+                                    {boundsErrors[bound.room_type] && (
+                                      <p className="text-xs text-destructive">{boundsErrors[bound.room_type]}</p>
+                                    )}
+                                  </div>
+                                </TableCell>
+                                <TableCell className="text-right align-top">
+                                  <div className="flex flex-col items-end gap-1">
+                                    <Input
+                                      type="number"
+                                      step="0.01"
+                                      placeholder="No maximum"
+                                      className="w-28 text-right"
+                                      value={draft.max}
+                                      onChange={(e) => setDraft(bound.room_type, 'max', e.target.value)}
+                                    />
+                                    {draftMax !== null && (
+                                      <span className="text-xs text-muted-foreground">
+                                        Weekend: {formatUsd(draftMax * ratio)}
+                                      </span>
+                                    )}
+                                  </div>
+                                </TableCell>
+                              </TableRow>
+                              <TableRow key={`${bound.room_type}-ota`} className="border-b">
+                                <TableCell colSpan={5} className="bg-muted/30 py-2">
+                                  <div className="flex items-start justify-between gap-4 flex-wrap">
+                                    <div className="flex flex-col gap-1 text-xs text-muted-foreground">
+                                      {channelMarkups.length === 0 ? (
+                                        <span>No OTA channels connected</span>
+                                      ) : (
+                                        channelMarkups.map((ch) => (
+                                          <div key={ch.id} className="flex items-center gap-2 flex-wrap">
+                                            <Badge variant="secondary" className="text-[10px]">{ch.channel_name}</Badge>
+                                            <span className="text-[11px]">+{Number(ch.markup_percentage)}%</span>
+                                            <span>
+                                              Min on {ch.channel_name}: {formatUsd(withMarkup(effMin, Number(ch.markup_percentage)))}
+                                            </span>
+                                            <span>·</span>
+                                            <span>
+                                              Max on {ch.channel_name}: {formatUsd(withMarkup(effMax, Number(ch.markup_percentage)))}
+                                            </span>
+                                          </div>
+                                        ))
+                                      )}
+                                    </div>
+                                    {isDirty && (
+                                      <Button
+                                        size="sm"
+                                        variant="outline"
+                                        className="shrink-0"
+                                        onClick={() => applyBound(bound.room_type)}
+                                      >
+                                        Apply
+                                      </Button>
+                                    )}
+                                  </div>
+                                </TableCell>
+                              </TableRow>
+                            </>
+                          );
+                        })}
                       </TableBody>
                     </Table>
                   </div>
@@ -586,49 +643,97 @@ export default function DynamicPricing() {
                     <Info className="h-4 w-4 mt-0.5 shrink-0 text-muted-foreground" />
                     <p className="text-xs text-muted-foreground">These bounds are also synced to your channel manager as a safety net. Channex will reject any rate outside these bounds even if the PMS has a bug.</p>
                   </div>
+                  {lastChannexSync && (
+                    <p className="text-xs text-muted-foreground">Last synced to Channex: {lastChannexSync}</p>
+                  )}
                 </CardContent>
               </Card>
 
-              {/* Section C: Channex Sync */}
-              <Card>
-                <CardHeader>
-                  <CardTitle>Channex Rate Bounds Sync</CardTitle>
-                  <CardDescription>Push your property-level min/max rate bounds to Channex for safety enforcement.</CardDescription>
-                </CardHeader>
-                <CardContent className="space-y-3">
-                  <div className="flex items-center gap-4">
-                    <Button onClick={syncToChannex} disabled={channexSyncStatus === 'syncing'}>
-                      {channexSyncStatus === 'syncing' ? <Loader2 className="h-4 w-4 mr-2 animate-spin" /> : <RefreshCw className="h-4 w-4 mr-2" />}
-                      {channexSyncStatus === 'syncing' ? 'Syncing...' : 'Sync Rate Bounds to Channex'}
-                    </Button>
-                    <div className="text-xs text-muted-foreground space-x-3">
-                      <span>Min synced: {rules.channex_min_price_synced ? '✓' : '—'}</span>
-                      <span>Max synced: {rules.channex_max_price_synced ? '✓' : '—'}</span>
+              {/* Pending Rate Bound Changes */}
+              {Object.keys(pendingBoundsChanges).length > 0 && (
+                <Card>
+                  <CardHeader className="pb-3">
+                    <CardTitle className="text-base">Pending Changes</CardTitle>
+                    <CardDescription>
+                      {Object.keys(pendingBoundsChanges).length} rate bound change(s) ready to save
+                    </CardDescription>
+                  </CardHeader>
+                  <CardContent>
+                    <div className="space-y-3">
+                      {Object.entries(pendingBoundsChanges).map(([roomType, change]) => {
+                        const bound = rateBounds.find((b) => b.room_type === roomType);
+                        if (!bound) return null;
+                        const ratio = weekendRatio(bound);
+                        const minChanged = change.original.min !== change.pending.min;
+                        const maxChanged = change.original.max !== change.pending.max;
+                        return (
+                          <div
+                            key={roomType}
+                            className="flex items-start justify-between p-3 bg-muted/50 rounded-lg"
+                          >
+                            <div className="space-y-1.5 min-w-0">
+                              <div className="font-medium text-sm">{roomType}</div>
+                              <div className="flex flex-wrap gap-1.5">
+                                {minChanged && (
+                                  <Badge variant="secondary" className="text-[10px]">
+                                    Min Rate: {formatUsd(change.original.min)} → {formatUsd(change.pending.min)}
+                                  </Badge>
+                                )}
+                                {maxChanged && (
+                                  <Badge variant="secondary" className="text-[10px]">
+                                    Max Rate: {formatUsd(change.original.max)} → {formatUsd(change.pending.max)}
+                                  </Badge>
+                                )}
+                              </div>
+                              {channelMarkups.length > 0 && (
+                                <div className="text-xs text-muted-foreground space-y-0.5 pt-1">
+                                  {channelMarkups.map((ch) => {
+                                    const pct = Number(ch.markup_percentage);
+                                    return (
+                                      <div key={ch.id} className="flex flex-wrap gap-x-3">
+                                        {minChanged && (
+                                          <span>
+                                            {ch.channel_name} min: {formatUsd(withMarkup(change.original.min, pct))} → {formatUsd(withMarkup(change.pending.min, pct))}
+                                          </span>
+                                        )}
+                                        {maxChanged && (
+                                          <span>
+                                            {ch.channel_name} max: {formatUsd(withMarkup(change.original.max, pct))} → {formatUsd(withMarkup(change.pending.max, pct))}
+                                          </span>
+                                        )}
+                                      </div>
+                                    );
+                                  })}
+                                </div>
+                              )}
+                              <div className="text-xs text-muted-foreground space-x-3 pt-0.5">
+                                {minChanged && (
+                                  <span>
+                                    Weekend min: {formatUsd((change.original.min ?? 0) * ratio)} → {formatUsd((change.pending.min ?? 0) * ratio)}
+                                  </span>
+                                )}
+                                {maxChanged && (
+                                  <span>
+                                    Weekend max: {formatUsd((change.original.max ?? 0) * ratio)} → {formatUsd((change.pending.max ?? 0) * ratio)}
+                                  </span>
+                                )}
+                              </div>
+                            </div>
+                            <Button
+                              variant="ghost"
+                              size="sm"
+                              className="h-7 w-7 p-0 shrink-0"
+                              onClick={() => removePendingBound(roomType)}
+                            >
+                              <X className="h-4 w-4" />
+                            </Button>
+                          </div>
+                        );
+                      })}
                     </div>
-                  </div>
-                  {channexSyncStatus !== 'idle' && (
-                    <div className="space-y-1">
-                      <div className="flex justify-between text-xs text-muted-foreground">
-                        <span>{channexSyncStep}</span>
-                        <span>{channexSyncProgress}%</span>
-                      </div>
-                      <div className="h-1.5 w-full rounded-full bg-secondary overflow-hidden">
-                        <div
-                          className={cn(
-                            "h-full rounded-full transition-all duration-500",
-                            channexSyncStatus === 'error' ? 'bg-destructive' :
-                            channexSyncStatus === 'success' ? 'bg-green-500' : 'bg-primary'
-                          )}
-                          style={{ width: `${channexSyncProgress}%` }}
-                        />
-                      </div>
-                    </div>
-                  )}
-                  {lastChannexSync && (
-                    <p className="text-xs text-muted-foreground">Last synced: {lastChannexSync}</p>
-                  )}
-                </CardContent>
-              </Card>
+                  </CardContent>
+                </Card>
+              )}
 
               {/* Section D: Day-of-Week Multipliers */}
               <Card>
