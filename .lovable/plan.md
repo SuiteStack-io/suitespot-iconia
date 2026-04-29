@@ -1,116 +1,100 @@
-# Defense-in-Depth: Block Reservation UPDATEs Into Blocked Units
+# Rate Guardrails Enhancements — DynamicPricing.tsx
 
-## Goal
-Add a database-level BEFORE UPDATE trigger on `public.reservations` that rejects any UPDATE which would assign the reservation to a unit/date range overlapping a row in `public.blocked_dates`. This is the first of three prompts to close the validation gap exposed by the Irina Botros incident (Apr 25, 2026), where Room #512 was reachable via a frontend path that skipped the blocked-dates check.
+Scope: only `src/pages/DynamicPricing.tsx`. No DB or Edge Function changes.
 
-## Verified Schema
-- `public.blocked_dates` columns: `id, unit_id, blocked_date (date), reason, created_at, created_by` — confirmed.
-- `public.units` has both `unit_number` and `name` (text) — safe to use `COALESCE(unit_number, name, id::text)` for the error message.
-- Existing trigger `prevent_reservation_overlap` (function `check_reservation_overlap`) stays untouched — the new trigger is independent.
+## 1. New state
 
-## Database Migration
+- `channelMarkups: { id; channel_name; markup_percentage }[]` — loaded once on mount (alongside `loadBounds`).
+- Replace existing `pendingBoundsChanges` value shape with the saved baseline + the typed (input) value:
+  - `pendingBoundsChanges: Record<string, { original: { min: number|null; max: number|null }; pending: { min: number|null; max: number|null } }>`
+- Keep `rateBounds` representing the **saved** values. Remove the current pattern where `updateBound` mutates `rateBounds` directly so the saved baseline isn't lost.
+- Add `inputDrafts: Record<string, { min: string; max: string }>` for what's currently typed in each row's two inputs (string so empty is preserved). Initialised from `rateBounds` once loaded.
 
-Single migration containing the function + trigger.
+## 2. Load active channel markups
 
-### 1. Trigger function `check_reservation_against_blocked_dates`
-- `BEFORE UPDATE`, `SECURITY DEFINER`, `search_path = public`.
-- Early-returns when none of `unit_id`, `check_in_date`, `check_out_date` actually changed (uses `IS NOT DISTINCT FROM` so NULLs compare safely).
-- Early-returns when `NEW.unit_id IS NULL` (unassigned reservation — nothing to validate against blocks).
-- Aggregates the conflict count, earliest blocked date, and that row's reason in a single scan plus one correlated subquery for the reason (matches the prompt's spec exactly).
-- On conflict, looks up a friendly unit label from `public.units` and `RAISE EXCEPTION` with `ERRCODE = 'check_violation'` so the frontend can recognize it.
-- Returns `NEW` on the clean path.
+Inside `loadBounds` (or sibling `loadMarkups`) — query exactly like `src/pages/pms/Prices.tsx:187`:
 
-### 2. Trigger
-```sql
-DROP TRIGGER IF EXISTS prevent_reservation_blocked_dates ON public.reservations;
-CREATE TRIGGER prevent_reservation_blocked_dates
-BEFORE UPDATE ON public.reservations
-FOR EACH ROW
-EXECUTE FUNCTION public.check_reservation_against_blocked_dates();
+```ts
+withPropertyFilter(
+  supabase.from('channel_markup_settings')
+    .select('id, channel_name, markup_percentage')
+    .eq('is_active', true),
+  propertyId
+)
 ```
 
-### 3. Function body (final SQL — exactly what gets migrated)
-```sql
-CREATE OR REPLACE FUNCTION public.check_reservation_against_blocked_dates()
-RETURNS TRIGGER
-LANGUAGE plpgsql
-SECURITY DEFINER
-SET search_path = public
-AS $$
-DECLARE
-  conflict_count integer;
-  first_blocked_date date;
-  first_blocked_reason text;
-  unit_label text;
-BEGIN
-  IF (NEW.unit_id IS NOT DISTINCT FROM OLD.unit_id)
-     AND (NEW.check_in_date IS NOT DISTINCT FROM OLD.check_in_date)
-     AND (NEW.check_out_date IS NOT DISTINCT FROM OLD.check_out_date) THEN
-    RETURN NEW;
-  END IF;
+Store in `channelMarkups` state.
 
-  IF NEW.unit_id IS NULL THEN
-    RETURN NEW;
-  END IF;
+## 3. Helpers
 
-  SELECT COUNT(*), MIN(blocked_date), (
-    SELECT reason FROM public.blocked_dates
-    WHERE unit_id = NEW.unit_id
-      AND blocked_date >= NEW.check_in_date
-      AND blocked_date < NEW.check_out_date
-    ORDER BY blocked_date ASC LIMIT 1
-  )
-  INTO conflict_count, first_blocked_date, first_blocked_reason
-  FROM public.blocked_dates
-  WHERE unit_id = NEW.unit_id
-    AND blocked_date >= NEW.check_in_date
-    AND blocked_date < NEW.check_out_date;
+- `weekendRatio(bound) = bound.weekday_rate > 0 ? bound.weekend_rate / bound.weekday_rate : 1`
+- `withMarkup(value, pct) = value == null ? null : value * (1 + pct/100)`
+- `formatUsd(n) = n == null ? '—' : '$' + Math.round(n).toLocaleString()`
 
-  IF conflict_count > 0 THEN
-    SELECT COALESCE(unit_number, name, NEW.unit_id::text) INTO unit_label
-    FROM public.units WHERE id = NEW.unit_id;
+## 4. Rate Guardrails table — row layout changes (lines ~468-503)
 
-    RAISE EXCEPTION
-      'Cannot assign reservation to unit %: % blocked date(s) found in [%, %). First blocked date: % (reason: %)',
-      unit_label,
-      conflict_count,
-      NEW.check_in_date,
-      NEW.check_out_date,
-      first_blocked_date,
-      COALESCE(first_blocked_reason, 'no reason given')
-    USING ERRCODE = 'check_violation';
-  END IF;
+Replace the single `<TableRow>` per bound with a fragment that renders the data row plus a sub-row spanning 5 columns containing the OTA preview + weekend equivalents + Apply button. Inputs read from `inputDrafts`, not `bound.min_rate`.
 
-  RETURN NEW;
-END;
-$$;
-```
+Per row:
 
-## Verification (run after migration applies)
-```sql
-SELECT proname, prosecdef FROM pg_proc
-WHERE proname = 'check_reservation_against_blocked_dates';
+- **Min Rate input** + inline muted text right of input: `Weekend: $[draftMin × ratio]` (only when draftMin is a valid number).
+- **Max Rate input** + inline muted text: `Weekend: $[draftMax × ratio]`.
+- **Sub-row (colSpan=5)**, visible when draft differs from saved OR per-row OTA preview is desired always:
+  - For each `channelMarkups` entry: `<Badge>Booking.com</Badge> +18%  · Min: $X · Max: $Y` (computed from current draft values, falling back to saved if blank).
+  - If `channelMarkups.length === 0`: muted text "No OTA channels connected".
+  - Right-aligned **Apply** button (small) — visible only when `draftMin !== savedMin || draftMax !== savedMax`. On click: write the drafts into `pendingBoundsChanges[room_type]` with original = saved snapshot, pending = current drafts; clear validation error for that row.
 
-SELECT trigger_name, event_manipulation, action_timing
-FROM information_schema.triggers
-WHERE event_object_table = 'reservations'
-  AND trigger_name = 'prevent_reservation_blocked_dates';
-```
-Both should return one row each.
+Drop the existing `updateBound` (which mutated `rateBounds`) and replace with `setDraft(roomType, field, value)` that only updates `inputDrafts`.
 
-## Out of Scope (per prompt)
-- INSERT-time validation (future prompt if needed).
-- Any frontend changes (handled in Prompts 2 & 3).
-- Any change to `prevent_reservation_overlap`, `check_and_lock_unit_availability`, `blocked_dates` schema, Channex notify triggers, or edge functions.
-- No retroactive cleanup of existing reservations that already violate blocks.
+## 5. Pending Changes card (new, below the Rate Guardrails card)
 
-## Rollback
-```sql
-DROP TRIGGER IF EXISTS prevent_reservation_blocked_dates ON public.reservations;
-DROP FUNCTION IF EXISTS public.check_reservation_against_blocked_dates();
-```
+Mirror `BulkRestrictionEditor.tsx` lines 601-687.
 
-## Risk Notes
-- Edge functions that legitimately move reservations (auto-shuffle, auto-assign) already validate via `check_and_lock_unit_availability`, so they will not trip this trigger under normal flow.
-- The trigger only fires when unit/dates change, so unrelated UPDATEs (status changes, guest edits, pricing) are unaffected.
-- Error code `check_violation` is distinct from the existing overlap trigger's error, so frontends can show a tailored message in Prompt 2.
+- Visible only when `Object.keys(pendingBoundsChanges).length > 0`.
+- Header: `Pending Changes` + description `[N] rate bound change(s) ready to save`.
+- Each entry as `<div class="flex items-start justify-between p-3 bg-muted/50 rounded-lg">`:
+  - Bold room type name.
+  - Badges per changed field: `Min Rate: $80 → $100`, `Max Rate: $350 → $400` (only show changed fields).
+  - For each active channel: muted line `Booking.com: $A → $B` per changed field (markup applied to original and pending).
+  - Weekend equivalent line(s): `Weekend min: $orig×ratio → $pend×ratio`.
+  - X button on the right that removes the entry from `pendingBoundsChanges` and resets that row's `inputDrafts` back to saved values.
+
+No standalone "Save" button on this card; the sticky save bar handles it.
+
+## 6. Save flow changes (`saveAllChanges`)
+
+Current order already saves rules then rate bounds. After step 2 (rate bounds save) **only when `Object.keys(pendingBoundsChanges).length > 0`**:
+
+1. Compute floor / ceiling from the **post-save** `rateBounds` merged with applied pendings:
+   - `allMin = updatedBounds.map(b => b.min_rate).filter(v => v != null)`
+   - `allMax = updatedBounds.map(b => b.max_rate).filter(v => v != null)`
+   - `floor = allMin.length ? Math.min(...allMin) : null`
+   - `ceiling = allMax.length ? Math.max(...allMax) : null`
+2. `setSaveProgress(85); setChannexSyncStep('Syncing to Channex...')` (reuse the sticky bar's progress; no separate progress bar needed).
+3. If `floor != null || ceiling != null`, call existing `supabase.functions.invoke('channex-update-property-settings', { body: { property_id: propertyId, min_price: floor, max_price: ceiling } })`. Throw on error.
+4. On success: also update `pricing_rules.channex_min_price_synced` / `channex_max_price_synced` flags (same logic as today's `syncToChannex`), refresh local `rules`, write timestamp to localStorage (`dynamic_pricing_last_channex_sync_${propertyId}`), set `lastChannexSync`.
+5. Apply the pending bound values into `rateBounds` (so saved baseline matches new state), then clear `pendingBoundsChanges`. Reset `inputDrafts` to the new saved values.
+6. Toast: `Pricing settings saved and synced to Channex` (or just `Pricing settings saved` if no bound changes were in this save).
+7. On any failure during the Channex step: toast error, **do NOT clear** `pendingBoundsChanges` so the operator can retry.
+
+Make sure `pendingBoundsCount` (used for the sticky save bar count and label) reflects the new shape (`Object.keys(pendingBoundsChanges).length`).
+
+## 7. Remove the standalone Channex sync card
+
+Delete the entire `Section C: Channex Sync` card (lines ~514-553) including its button, progress bar, and `channex_*_synced` checkmarks. Delete `syncToChannex` function and `channexSyncStatus / channexSyncProgress / channexSyncStep` state — they are no longer used.
+
+Re-add a small **"Last synced: [timestamp]"** muted line below the Rate Guardrails table (inside the existing Card's `CardContent`, below the info note at line 510), shown only when `lastChannexSync` is set. Keep the localStorage load effect (lines 100-105) intact.
+
+## 8. Things explicitly untouched
+
+- `channex-update-property-settings` Edge Function.
+- DB schema / tables / RLS.
+- Day-of-Week Multipliers, Revenue Targets, Last-Minute Strategy, Advanced Settings, Pace Index dialog.
+- All other pages and components.
+
+## 9. Safety checks
+
+- Single declaration scan: `inputDrafts`, `channelMarkups`, `weekendRatio`, `withMarkup`, `formatUsd` declared exactly once in the component scope.
+- Verified columns used: `channel_markup_settings.id, channel_name, markup_percentage, is_active, property_id` (confirmed via DB schema). `rate_plan_prices.min_rate, max_rate, weekday_rate, weekend_rate, room_type, id` (already in use).
+- Query for markups copied verbatim from `src/pages/pms/Prices.tsx:187`.
+- Pending Changes card structure copied from `src/components/pms/BulkRestrictionEditor.tsx:601-687`.
