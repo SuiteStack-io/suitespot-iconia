@@ -1,100 +1,84 @@
-# Rate Guardrails Enhancements — DynamicPricing.tsx
+# calculate-dynamic-price Edge Function
 
-Scope: only `src/pages/DynamicPricing.tsx`. No DB or Edge Function changes.
+Create one new file: `supabase/functions/calculate-dynamic-price/index.ts`. Service-role only; no other files, no DB/schema changes.
 
-## 1. New state
+## Skeleton
+- `corsHeaders` copied verbatim from `channex-full-sync/index.ts` (lines 12–16).
+- `Deno.serve` handler with `OPTIONS` preflight returning `corsHeaders`.
+- `createClient(SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY)`.
+- Helpers: `formatDate`, `addDays`, `daysInMonth`, `round2`, `tierIndex(value, ascendingThresholds)`, `respond(status, body)`.
 
-- `channelMarkups: { id; channel_name; markup_percentage }[]` — loaded once on mount (alongside `loadBounds`).
-- Replace existing `pendingBoundsChanges` value shape with the saved baseline + the typed (input) value:
-  - `pendingBoundsChanges: Record<string, { original: { min: number|null; max: number|null }; pending: { min: number|null; max: number|null } }>`
-- Keep `rateBounds` representing the **saved** values. Remove the current pattern where `updateBound` mutates `rateBounds` directly so the saved baseline isn't lost.
-- Add `inputDrafts: Record<string, { min: string; max: string }>` for what's currently typed in each row's two inputs (string so empty is preserved). Initialised from `rateBounds` once loaded.
+## Input validation
+Parse JSON body. Require `property_id`, `room_type`, `rate_plan_id`, `target_date` (regex `^\d{4}-\d{2}-\d{2}$`). 400 if missing/malformed.
 
-## 2. Load active channel markups
+## Logic
 
-Inside `loadBounds` (or sibling `loadMarkups`) — query exactly like `src/pages/pms/Prices.tsx:187`:
+**1. Property** — `properties.select("id, weekend_days, off_peak_days, timezone")`. 404 if missing. Defaults: `weekend_days || [4,5]`, `off_peak_days || []`, `timezone || "Africa/Cairo"`.
 
-```ts
-withPropertyFilter(
-  supabase.from('channel_markup_settings')
-    .select('id, channel_name, markup_percentage')
-    .eq('is_active', true),
-  propertyId
-)
-```
+**2. Rate plan + price row** — Verify `rate_plans.id` exists (404 if not). Then `rate_plan_prices.select("weekday_rate, weekend_rate, off_peak_rate, min_rate, max_rate").eq(rate_plan_id).eq(room_type).is(unit_id, null).maybeSingle()`. If null, fall back to the same query without the `unit_id` filter (limit 1). If still null → 404. Single mutable `priceRow` variable assigned via a `let priceRow: any = null` plus two scoped `{ ... }` blocks — no double declaration.
 
-Store in `channelMarkups` state.
+**3. Base rate** (matches `channex-full-sync` lines 291–307):
+- `targetDate = new Date(target_date + "T00:00:00Z")`, `dow = targetDate.getUTCDay()` (UTC-safe since target_date is a calendar date).
+- off-peak takes priority, then weekend, else weekday.
 
-## 3. Helpers
+**4. pricing_rules** — `.eq(property_id).maybeSingle()`.
 
-- `weekendRatio(bound) = bound.weekday_rate > 0 ? bound.weekend_rate / bound.weekday_rate : 1`
-- `withMarkup(value, pct) = value == null ? null : value * (1 + pct/100)`
-- `formatUsd(n) = n == null ? '—' : '$' + Math.round(n).toLocaleString()`
+**Static fast path (PER USER FIX — Option 1)**: if `!rules || rules.is_enabled === false`:
+- Clamp `baseRate` against room-type min/max.
+- Layer-2 safety (≤0 → fallback to baseRate).
+- Round.
+- **Do NOT insert into pricing_log** (the CHECK constraint on `month_phase` only allows 'A' or 'B', and a static rate is not a dynamic pricing decision worth logging).
+- Return `{ success, base_rate, final_rate, adjustments: { ..., month_phase: null, static_reason: 'dynamic_pricing_disabled' | 'no_pricing_rules', ... } }`.
 
-## 4. Rate Guardrails table — row layout changes (lines ~468-503)
+**5. Override** — `pricing_overrides.select("id, override_type, value, room_type").eq(property_id).eq(override_date, target_date)`. Prefer specific room_type, else wildcard `room_type IS NULL`.
 
-Replace the single `<TableRow>` per bound with a fragment that renders the data row plus a sub-row spanning 5 columns containing the OTA preview + weekend equivalents + Apply button. Inputs read from `inputDrafts`, not `bound.min_rate`.
+**6. Day-of-week multiplier** — `Number(rules.day_of_week_multipliers[String(dow)] ?? 1)`.
 
-Per row:
+**7. Occupancy for target month**:
+- Compute `monthStart`, `monthEnd` (last day inclusive), `monthStartStr`, `monthEndExclusiveStr`.
+- `units` query (matches lines 123–128): `.eq(property_id).neq(status, 'maintenance')`.
+- `reservations` query (matches lines 135–141): `.in(status, ['confirmed','checked-in']).in(unit_id, unitIds).lt(check_in_date, monthEndExclusiveStr).gt(check_out_date, monthStartStr)`.
+- Count overlap nights per reservation by clamping `[check_in_date, check_out_date)` into `[monthStartStr, monthEndExclusiveStr)` (checkout exclusive).
+- `occupancyPercent = totalAvailableNights > 0 ? (bookedNights / totalAvailableNights) * 100 : 0`.
 
-- **Min Rate input** + inline muted text right of input: `Weekend: $[draftMin × ratio]` (only when draftMin is a valid number).
-- **Max Rate input** + inline muted text: `Weekend: $[draftMax × ratio]`.
-- **Sub-row (colSpan=5)**, visible when draft differs from saved OR per-row OTA preview is desired always:
-  - For each `channelMarkups` entry: `<Badge>Booking.com</Badge> +18%  · Min: $X · Max: $Y` (computed from current draft values, falling back to saved if blank).
-  - If `channelMarkups.length === 0`: muted text "No OTA channels connected".
-  - Right-aligned **Apply** button (small) — visible only when `draftMin !== savedMin || draftMax !== savedMax`. On click: write the drafts into `pendingBoundsChanges[room_type]` with original = saved snapshot, pending = current drafts; clear validation error for that row.
+**8. Month phase** — `todayStrInTz = new Date().toLocaleDateString("en-CA", { timeZone })`. Phase A if `monthStartStr > todayStrInTz`, historical if `formatDate(monthEnd) < todayStrInTz`, else B.
 
-Drop the existing `updateBound` (which mutated `rateBounds`) and replace with `setDraft(roomType, field, value)` that only updates `inputDrafts`.
+**9. Pace index (Phase B only)** — `daysElapsed = round((todayUTC - monthStart)/86400000) + 1`. `paceIndex = daysElapsedPercent <= 0 ? 1.0 : occupancy / daysElapsedPercent`.
 
-## 5. Pending Changes card (new, below the Rate Guardrails card)
+**10. Occupancy adjustment** — `tierIndex(occupancyPercent, occupancy_thresholds)`. If Phase B AND `paceIndex >= pace_index_bump_threshold` AND `occTier < occAdjustments.length - 1`, bump tier and set `paceIndexBumped = true`.
 
-Mirror `BulkRestrictionEditor.tsx` lines 601-687.
+**11. Revenue for target month**:
+- Phase A: `reservations` where `property_id = property_id`, status in confirmed/checked-in, `check_in_date >= monthStartStr AND < monthEndExclusiveStr`. Sum `total_price`.
+- Phase B: `property_id = property_id`, statuses, `check_in_date < monthEndExclusiveStr AND check_out_date > monthStartStr`. Sum `total_price`.
+- Historical: revenueTotal = 0, revenueAdj = 0.
+- `revenueAchievementPercent = monthlyTarget > 0 ? (revenueTotal / monthlyTarget) * 100 : 0`.
 
-- Visible only when `Object.keys(pendingBoundsChanges).length > 0`.
-- Header: `Pending Changes` + description `[N] rate bound change(s) ready to save`.
-- Each entry as `<div class="flex items-start justify-between p-3 bg-muted/50 rounded-lg">`:
-  - Bold room type name.
-  - Badges per changed field: `Min Rate: $80 → $100`, `Max Rate: $350 → $400` (only show changed fields).
-  - For each active channel: muted line `Booking.com: $A → $B` per changed field (markup applied to original and pending).
-  - Weekend equivalent line(s): `Weekend min: $orig×ratio → $pend×ratio`.
-  - X button on the right that removes the entry from `pendingBoundsChanges` and resets that row's `inputDrafts` back to saved values.
+**12. Revenue adjustment** — Choose phase A vs B array. `tierIndex` lookup. Apply conflict cap if `revenue > conflict_revenue_min` AND `occupancy < conflict_occupancy_max` AND `revAdj > conflict_cap`. Skip entirely (0) when target ≤ 0 or historical.
 
-No standalone "Save" button on this card; the sticky save bar handles it.
+**13. Combine OR override**:
+- Override `fixed_rate` → `value`; `percentage_adjustment` → `baseRate * (1 + value/100)`; `multiplier` → `baseRate * value`.
+- Otherwise `baseRate * dowMultiplier * (1 + occAdj/100) * (1 + revAdj/100)`.
 
-## 6. Save flow changes (`saveAllChanges`)
+**14. Clamp (two layers)** — Layer 1: per-room-type min/max with `wasClamped` and `clampDirection`. Layer 2: if `finalRate <= 0`, fall back to `baseRate` (or `roomTypeMinRate` if baseRate also non-positive). Override results are also clamped.
 
-Current order already saves rules then rate bounds. After step 2 (rate bounds save) **only when `Object.keys(pendingBoundsChanges).length > 0`**:
+**15. Round** — `round2(finalRate)`.
 
-1. Compute floor / ceiling from the **post-save** `rateBounds` merged with applied pendings:
-   - `allMin = updatedBounds.map(b => b.min_rate).filter(v => v != null)`
-   - `allMax = updatedBounds.map(b => b.max_rate).filter(v => v != null)`
-   - `floor = allMin.length ? Math.min(...allMin) : null`
-   - `ceiling = allMax.length ? Math.max(...allMax) : null`
-2. `setSaveProgress(85); setChannexSyncStep('Syncing to Channex...')` (reuse the sticky bar's progress; no separate progress bar needed).
-3. If `floor != null || ceiling != null`, call existing `supabase.functions.invoke('channex-update-property-settings', { body: { property_id: propertyId, min_price: floor, max_price: ceiling } })`. Throw on error.
-4. On success: also update `pricing_rules.channex_min_price_synced` / `channex_max_price_synced` flags (same logic as today's `syncToChannex`), refresh local `rules`, write timestamp to localStorage (`dynamic_pricing_last_channex_sync_${propertyId}`), set `lastChannexSync`.
-5. Apply the pending bound values into `rateBounds` (so saved baseline matches new state), then clear `pendingBoundsChanges`. Reset `inputDrafts` to the new saved values.
-6. Toast: `Pricing settings saved and synced to Channex` (or just `Pricing settings saved` if no bound changes were in this save).
-7. On any failure during the Channex step: toast error, **do NOT clear** `pendingBoundsChanges` so the operator can retry.
+**16. Log** — Insert `pricing_log` row **only when `monthPhase === "A" || monthPhase === "B"`** (skip historical too — same CHECK constraint). Columns logged: `property_id, date_priced, target_month, month_phase, room_type, rate_plan_id, base_rate, calculated_rate, final_rate, day_of_week_multiplier, occupancy_percent, occupancy_tier, occupancy_adjustment_percent, pace_index, revenue_total, revenue_achievement_percent, revenue_adjustment_percent, room_type_min_rate, room_type_max_rate, was_clamped, clamp_direction, override_id, override_active`. When override is active, log dow=1 and adjustment percents=0 so the log clearly attributes the result to the override.
 
-Make sure `pendingBoundsCount` (used for the sticky save bar count and label) reflects the new shape (`Object.keys(pendingBoundsChanges).length`).
+**17. Return** the JSON shape from the spec.
 
-## 7. Remove the standalone Channex sync card
+## Error handling
+- 404: property missing, rate plan missing, no `rate_plan_prices` row.
+- Outer `try/catch` → 500 with `{ success: false, error }` and `console.error`.
 
-Delete the entire `Section C: Channex Sync` card (lines ~514-553) including its button, progress bar, and `channex_*_synced` checkmarks. Delete `syncToChannex` function and `channexSyncStatus / channexSyncProgress / channexSyncStep` state — they are no longer used.
+## Untouched
+- All other edge functions (channex-full-sync, channex-daily-sync, channex-process-sync-queue, channex-booking-webhook, etc.).
+- All database tables/schema.
+- All frontend code.
+- No `supabase/config.toml` changes.
 
-Re-add a small **"Last synced: [timestamp]"** muted line below the Rate Guardrails table (inside the existing Card's `CardContent`, below the info note at line 510), shown only when `lastChannexSync` is set. Keep the localStorage load effect (lines 100-105) intact.
-
-## 8. Things explicitly untouched
-
-- `channex-update-property-settings` Edge Function.
-- DB schema / tables / RLS.
-- Day-of-Week Multipliers, Revenue Targets, Last-Minute Strategy, Advanced Settings, Pace Index dialog.
-- All other pages and components.
-
-## 9. Safety checks
-
-- Single declaration scan: `inputDrafts`, `channelMarkups`, `weekendRatio`, `withMarkup`, `formatUsd` declared exactly once in the component scope.
-- Verified columns used: `channel_markup_settings.id, channel_name, markup_percentage, is_active, property_id` (confirmed via DB schema). `rate_plan_prices.min_rate, max_rate, weekday_rate, weekend_rate, room_type, id` (already in use).
-- Query for markups copied verbatim from `src/pages/pms/Prices.tsx:187`.
-- Pending Changes card structure copied from `src/components/pms/BulkRestrictionEditor.tsx:601-687`.
+## Safety checks
+- Single declaration scan: `priceRow`, `dow`, `baseRate`, `monthStart`, `monthEnd`, `monthStartStr`, `monthEndExclusiveStr`, `revenueTotal`, `occTier`, `paceIndex`, `revenueAdjustmentPercent`, `finalRate`, `wasClamped`, `clampDirection`, `override`, `monthPhase` declared exactly once each.
+- Verified columns exist in DB schema: `properties.weekend_days/off_peak_days/timezone`; `rate_plan_prices.weekday_rate/weekend_rate/off_peak_rate/min_rate/max_rate/unit_id/rate_plan_id/room_type`; `units.id/property_id/status`; `reservations.unit_id/check_in_date/check_out_date/property_id/total_price/status`; `pricing_overrides.property_id/override_date/room_type/override_type/value/id`; `pricing_rules.*` fields used; all `pricing_log` columns used.
+- DOW branch order copied from `channex-full-sync/index.ts` lines 301–307.
+- Reservation/units queries copied from `channex-full-sync/index.ts` lines 123–141.
