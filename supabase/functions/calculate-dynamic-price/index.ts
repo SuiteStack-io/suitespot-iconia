@@ -480,6 +480,7 @@ Deno.serve(async (req: Request) => {
       }
     }
 
+    // ── 13. Clamp (two layers) ──
     let finalRate = calculatedRate;
     let wasClamped = false;
     let clampDirection: "floor" | "ceiling" | null = null;
