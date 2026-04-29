@@ -47,6 +47,7 @@ Deno.serve(async (req: Request) => {
         headers: { "Content-Type": "application/json", ...corsHeaders },
       });
     }
+    console.log(`[diag] Authenticated user: ${user.id}`);
 
     // Admin check
     const { data: roleData } = await supabase
@@ -62,10 +63,12 @@ Deno.serve(async (req: Request) => {
         headers: { "Content-Type": "application/json", ...corsHeaders },
       });
     }
+    console.log(`[diag] Admin check passed`);
 
     // --- Parse body ---
-    const body = await req.json();
-    const { property_id, min_price, max_price } = body;
+    parsedBody = await req.json();
+    const { property_id, min_price, max_price } = parsedBody;
+    console.log(`[diag] Parsed body:`, JSON.stringify({ property_id, min_price, max_price }));
 
     if (!property_id) {
       return new Response(JSON.stringify({ error: "property_id is required" }), {
