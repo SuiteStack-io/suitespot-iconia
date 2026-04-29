@@ -17,6 +17,8 @@ import { Calendar } from '@/components/ui/calendar';
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
 import { Checkbox } from '@/components/ui/checkbox';
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from '@/components/ui/collapsible';
+import { Progress } from '@/components/ui/progress';
+import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import {
   Dialog,
   DialogContent,
@@ -49,6 +51,7 @@ import {
   Pencil,
   Plus,
   Trash2,
+  X,
 } from 'lucide-react';
 import { format, addDays } from 'date-fns';
 import { toast } from 'sonner';
@@ -86,7 +89,28 @@ type FormState = {
   room_types: string[];
 };
 
-// ---------- utils ----------
+type PromoPayload = {
+  property_id: string;
+  name: string;
+  description: string | null;
+  booking_window_start: string;
+  booking_window_end: string;
+  stay_start: string;
+  stay_end: string;
+  discount_type: 'percentage' | 'fixed_amount';
+  discount_value: number;
+  min_stay: number | null;
+  room_types: string[] | null;
+  is_active: boolean;
+};
+
+type RateSnapshot = { room_type: string; weekday_rate: number; weekend_rate: number };
+
+type PendingPromo = {
+  tempId: string;
+  payload: PromoPayload;
+  rateSnapshots: RateSnapshot[];
+};
 function todayISO(): string {
   return format(new Date(), 'yyyy-MM-dd');
 }
@@ -132,6 +156,113 @@ export default function Promotions() {
 
   const [deleteTarget, setDeleteTarget] = useState<Promotion | null>(null);
   const [pastOpen, setPastOpen] = useState(false);
+
+  const [pendingPromotions, setPendingPromotions] = useState<PendingPromo[]>([]);
+  const [saveStatus, setSaveStatus] = useState<'idle' | 'saving' | 'success' | 'error'>('idle');
+  const [saveProgress, setSaveProgress] = useState(0);
+  const [saveStep, setSaveStep] = useState('');
+  const [channelMarkups, setChannelMarkups] = useState<
+    Array<{ channel_name: string; markup_percentage: number }>
+  >([]);
+
+  // Load active channel markups
+  useEffect(() => {
+    if (!propertyId) return;
+    (async () => {
+      const { data } = await supabase
+        .from('channel_markup_settings')
+        .select('channel_name, markup_percentage')
+        .eq('property_id', propertyId)
+        .eq('is_active', true);
+      setChannelMarkups(
+        (data ?? []).map((r: any) => ({
+          channel_name: r.channel_name,
+          markup_percentage: Number(r.markup_percentage),
+        })),
+      );
+    })();
+  }, [propertyId]);
+
+  // Warn before unload if pending promotions exist
+  useEffect(() => {
+    if (pendingPromotions.length === 0) return;
+    const handler = (e: BeforeUnloadEvent) => {
+      e.preventDefault();
+      e.returnValue = '';
+    };
+    window.addEventListener('beforeunload', handler);
+    return () => window.removeEventListener('beforeunload', handler);
+  }, [pendingPromotions.length]);
+
+  const addToPending = useCallback(
+    (payload: PromoPayload, rateSnapshots: RateSnapshot[]) => {
+      setPendingPromotions((prev) => [
+        ...prev,
+        { tempId: crypto.randomUUID(), payload, rateSnapshots },
+      ]);
+      toast.success('Added to pending');
+    },
+    [],
+  );
+
+  const removePending = useCallback((tempId: string) => {
+    setPendingPromotions((prev) => prev.filter((p) => p.tempId !== tempId));
+  }, []);
+
+  async function saveAllPending() {
+    if (pendingPromotions.length === 0 || !propertyId) return;
+    setSaveStatus('saving');
+    setSaveProgress(15);
+    setSaveStep('Creating promotions...');
+    try {
+      const { data: userRes } = await supabase.auth.getUser();
+      const rows = pendingPromotions.map((p) => ({
+        ...p.payload,
+        created_by: userRes.user?.id ?? null,
+      }));
+
+      const { error: insertErr } = await supabase
+        .from('promotional_periods' as any)
+        .insert(rows);
+      if (insertErr) throw insertErr;
+
+      setSaveProgress(60);
+      setSaveStep('Syncing to Channex...');
+
+      // channex-full-sync only accepts { propertyId } — runs full 500-day sync.
+      // calculate-dynamic-price applies promotions on top of dynamic rates per
+      // day, so we do NOT compute or push static discounted rates here.
+      const { error: syncErr } = await supabase.functions.invoke('channex-full-sync', {
+        body: { propertyId },
+      });
+
+      setSaveProgress(100);
+      if (syncErr) {
+        console.warn('channex-full-sync failed', syncErr);
+        toast.warning('Promotions saved. Channex sync failed — please retry sync.');
+      } else {
+        toast.success('Promotions saved and synced to Channex');
+      }
+      setSaveStatus('success');
+      setPendingPromotions([]);
+      await fetchPromotions();
+      setTimeout(() => {
+        setSaveStatus('idle');
+        setSaveProgress(0);
+        setSaveStep('');
+      }, 2000);
+    } catch (err: any) {
+      console.error('Failed to save pending promotions', err);
+      setSaveStatus('error');
+      toast.error(err.message || 'Failed to save promotions');
+      setTimeout(() => {
+        setSaveStatus('idle');
+        setSaveProgress(0);
+        setSaveStep('');
+      }, 3000);
+    }
+  }
+
 
   const fetchPromotions = useCallback(async () => {
     if (!propertyId) return;
@@ -272,6 +403,20 @@ export default function Promotions() {
           </CardContent>
         </Card>
 
+        {/* Pending Promotions (queue) */}
+        {pendingPromotions.length > 0 && (
+          <PendingPromotionsCard
+            pending={pendingPromotions}
+            symbol={symbol}
+            channelMarkups={channelMarkups}
+            saveStatus={saveStatus}
+            saveProgress={saveProgress}
+            saveStep={saveStep}
+            onRemove={removePending}
+            onSave={saveAllPending}
+          />
+        )}
+
         {/* Section D: Past Promotions (collapsible) */}
         <Card>
           <Collapsible open={pastOpen} onOpenChange={setPastOpen}>
@@ -332,6 +477,7 @@ export default function Promotions() {
             setEditing(null);
             fetchPromotions();
           }}
+          onAddPending={addToPending}
         />
 
         {/* Delete confirm */}
@@ -455,6 +601,7 @@ function PromotionDialog({
   saving,
   setSaving,
   onSaved,
+  onAddPending,
 }: {
   open: boolean;
   onOpenChange: (o: boolean) => void;
@@ -464,6 +611,7 @@ function PromotionDialog({
   saving: boolean;
   setSaving: (v: boolean) => void;
   onSaved: () => void;
+  onAddPending?: (payload: PromoPayload, rateSnapshots: RateSnapshot[]) => void;
 }) {
   const today = useMemo(() => new Date(), []);
   const defaults = useMemo<FormState>(() => ({
@@ -571,9 +719,7 @@ function PromotionDialog({
       minStayValue = m;
     }
 
-    setSaving(true);
-    const { data: userRes } = await supabase.auth.getUser();
-    const payload = {
+    const payload: PromoPayload = {
       property_id: propertyId,
       name: form.name.trim(),
       description: form.description.trim() || null,
@@ -585,8 +731,53 @@ function PromotionDialog({
       discount_value: valNum,
       min_stay: minStayValue,
       room_types: form.room_types.length > 0 ? form.room_types : null,
+      is_active: editing?.is_active ?? true,
     };
 
+    // New promotion + queue mode → fetch rate snapshots, hand off, close.
+    if (!editing && onAddPending) {
+      setSaving(true);
+      try {
+        const affected =
+          payload.room_types && payload.room_types.length > 0
+            ? payload.room_types
+            : availableRoomTypes;
+
+        let rateSnapshots: RateSnapshot[] = [];
+        if (affected.length > 0) {
+          const { data: priceRows } = await supabase
+            .from('rate_plan_prices')
+            .select('room_type, weekday_rate, weekend_rate, rate_plans!inner(property_id)')
+            .eq('rate_plans.property_id', propertyId)
+            .in('room_type', affected)
+            .is('unit_id', null);
+
+          const seen = new Set<string>();
+          rateSnapshots = (priceRows ?? [])
+            .filter((r: any) => {
+              if (!r.room_type || seen.has(r.room_type)) return false;
+              seen.add(r.room_type);
+              return true;
+            })
+            .map((r: any) => ({
+              room_type: r.room_type,
+              weekday_rate: Number(r.weekday_rate) || 0,
+              weekend_rate: Number(r.weekend_rate ?? r.weekday_rate) || 0,
+            }));
+        }
+
+        onAddPending(payload, rateSnapshots);
+        onOpenChange(false);
+      } catch (err: any) {
+        toast.error('Failed to prepare preview: ' + (err?.message ?? 'unknown error'));
+      } finally {
+        setSaving(false);
+      }
+      return;
+    }
+
+    setSaving(true);
+    const { data: userRes } = await supabase.auth.getUser();
     let error;
     if (editing) {
       ({ error } = await supabase
@@ -805,7 +996,7 @@ function PromotionDialog({
           </Button>
           <Button onClick={handleSave} disabled={saving}>
             {saving && <Loader2 className="h-4 w-4 mr-2 animate-spin" />}
-            {editing ? 'Save Changes' : 'Create Promotion'}
+            {editing ? 'Save Changes' : (onAddPending ? 'Add to Pending' : 'Create Promotion')}
           </Button>
         </DialogFooter>
       </DialogContent>
@@ -850,5 +1041,165 @@ function DatePickerField({
         </PopoverContent>
       </Popover>
     </div>
+  );
+}
+
+// ---------- pending promotions card ----------
+function PendingPromotionsCard({
+  pending,
+  symbol,
+  channelMarkups,
+  saveStatus,
+  saveProgress,
+  saveStep,
+  onRemove,
+  onSave,
+}: {
+  pending: PendingPromo[];
+  symbol: string;
+  channelMarkups: Array<{ channel_name: string; markup_percentage: number }>;
+  saveStatus: 'idle' | 'saving' | 'success' | 'error';
+  saveProgress: number;
+  saveStep: string;
+  onRemove: (tempId: string) => void;
+  onSave: () => void;
+}) {
+  const fmt = (v: number) => `${symbol}${Math.round(v)}`;
+
+  return (
+    <Card className="mb-4 border-blue-500/40 bg-blue-500/5">
+      <CardHeader className="flex flex-row items-center justify-between">
+        <div>
+          <CardTitle>Pending Promotions</CardTitle>
+          <p className="text-sm text-muted-foreground mt-1">
+            {pending.length} promotion{pending.length === 1 ? '' : 's'} ready to save
+          </p>
+        </div>
+        <Button onClick={onSave} disabled={saveStatus === 'saving'} size="sm">
+          {saveStatus === 'saving' && <Loader2 className="h-4 w-4 mr-2 animate-spin" />}
+          Save Changes
+        </Button>
+      </CardHeader>
+      <CardContent className="space-y-4">
+        {saveStatus !== 'idle' && (
+          <div className="space-y-1">
+            <Progress value={saveProgress} />
+            {saveStep && (
+              <p className="text-xs text-muted-foreground">{saveStep}</p>
+            )}
+          </div>
+        )}
+
+        {pending.map((p) => {
+          const payload = p.payload;
+          const after = (base: number) =>
+            payload.discount_type === 'percentage'
+              ? base * (1 - payload.discount_value / 100)
+              : Math.max(0, base - payload.discount_value);
+          const channelOf = (v: number, pct: number) => v * (1 + pct / 100);
+          const discountText =
+            payload.discount_type === 'percentage'
+              ? `-${payload.discount_value}% off`
+              : `-${symbol}${payload.discount_value} off`;
+
+          return (
+            <div key={p.tempId} className="border rounded-lg p-4 bg-background space-y-3">
+              <div className="flex items-start justify-between gap-3">
+                <div className="space-y-1 min-w-0 flex-1">
+                  <div className="flex items-center gap-2 flex-wrap">
+                    <span className="font-semibold">{payload.name}</span>
+                    <Badge className="bg-amber-500/15 text-amber-700 border border-amber-500/30 hover:bg-amber-500/15">
+                      {discountText}
+                    </Badge>
+                  </div>
+                  <p className="text-sm text-muted-foreground">
+                    Bookable: {fmtRange(payload.booking_window_start, payload.booking_window_end)}
+                  </p>
+                  <p className="text-sm text-muted-foreground">
+                    For stays: {fmtRange(payload.stay_start, payload.stay_end)}
+                  </p>
+                  {payload.min_stay != null && (
+                    <p className="text-sm text-muted-foreground">
+                      Min stay: {payload.min_stay} night{payload.min_stay === 1 ? '' : 's'}
+                    </p>
+                  )}
+                  {payload.room_types && payload.room_types.length > 0 && (
+                    <p className="text-sm text-muted-foreground">
+                      Room types: {payload.room_types.join(', ')}
+                    </p>
+                  )}
+                </div>
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  onClick={() => onRemove(p.tempId)}
+                  disabled={saveStatus === 'saving'}
+                  aria-label="Remove from pending"
+                >
+                  <X className="h-4 w-4" />
+                </Button>
+              </div>
+
+              {p.rateSnapshots.length === 0 ? (
+                <p className="text-xs text-muted-foreground">
+                  No base rates configured for affected room types — preview unavailable.
+                </p>
+              ) : (
+                <div className="rounded border">
+                  <Table>
+                    <TableHeader>
+                      <TableRow>
+                        <TableHead>Room Type</TableHead>
+                        <TableHead>Day</TableHead>
+                        <TableHead>PMS Before → After</TableHead>
+                        {channelMarkups.map((c) => (
+                          <TableHead key={c.channel_name}>
+                            {c.channel_name} Before → After
+                          </TableHead>
+                        ))}
+                      </TableRow>
+                    </TableHeader>
+                    <TableBody>
+                      {p.rateSnapshots.flatMap((snap) => {
+                        const rows: Array<{ day: string; base: number }> = [
+                          { day: 'Wkd', base: snap.weekday_rate },
+                          { day: 'Wkn', base: snap.weekend_rate },
+                        ];
+                        return rows.map((r) => {
+                          const aft = after(r.base);
+                          return (
+                            <TableRow key={`${snap.room_type}-${r.day}`}>
+                              <TableCell className="font-medium">{snap.room_type}</TableCell>
+                              <TableCell>{r.day}</TableCell>
+                              <TableCell>
+                                {fmt(r.base)} → <span className="text-emerald-600">{fmt(aft)}</span>
+                              </TableCell>
+                              {channelMarkups.map((c) => {
+                                const cb = channelOf(r.base, c.markup_percentage);
+                                const ca = channelOf(aft, c.markup_percentage);
+                                return (
+                                  <TableCell key={c.channel_name}>
+                                    {fmt(cb)} → <span className="text-emerald-600">{fmt(ca)}</span>
+                                  </TableCell>
+                                );
+                              })}
+                            </TableRow>
+                          );
+                        });
+                      })}
+                    </TableBody>
+                  </Table>
+                </div>
+              )}
+
+              <p className="text-xs text-muted-foreground">
+                Preview based on current base rates. Actual rates will reflect dynamic pricing
+                adjustments at the time of stay.
+              </p>
+            </div>
+          );
+        })}
+      </CardContent>
+    </Card>
   );
 }
