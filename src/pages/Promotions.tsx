@@ -403,6 +403,20 @@ export default function Promotions() {
           </CardContent>
         </Card>
 
+        {/* Pending Promotions (queue) */}
+        {pendingPromotions.length > 0 && (
+          <PendingPromotionsCard
+            pending={pendingPromotions}
+            symbol={symbol}
+            channelMarkups={channelMarkups}
+            saveStatus={saveStatus}
+            saveProgress={saveProgress}
+            saveStep={saveStep}
+            onRemove={removePending}
+            onSave={saveAllPending}
+          />
+        )}
+
         {/* Section D: Past Promotions (collapsible) */}
         <Card>
           <Collapsible open={pastOpen} onOpenChange={setPastOpen}>
