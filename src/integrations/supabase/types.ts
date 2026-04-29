@@ -1315,6 +1315,8 @@ export type Database = {
           override_active: boolean | null
           override_id: string | null
           pace_index: number | null
+          promotion_discount_percent: number | null
+          promotion_id: string | null
           property_id: string
           rate_plan_id: string | null
           revenue_achievement_percent: number | null
@@ -1347,6 +1349,8 @@ export type Database = {
           override_active?: boolean | null
           override_id?: string | null
           pace_index?: number | null
+          promotion_discount_percent?: number | null
+          promotion_id?: string | null
           property_id: string
           rate_plan_id?: string | null
           revenue_achievement_percent?: number | null
@@ -1379,6 +1383,8 @@ export type Database = {
           override_active?: boolean | null
           override_id?: string | null
           pace_index?: number | null
+          promotion_discount_percent?: number | null
+          promotion_id?: string | null
           property_id?: string
           rate_plan_id?: string | null
           revenue_achievement_percent?: number | null
@@ -1396,6 +1402,13 @@ export type Database = {
             columns: ["override_id"]
             isOneToOne: false
             referencedRelation: "pricing_overrides"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "pricing_log_promotion_id_fkey"
+            columns: ["promotion_id"]
+            isOneToOne: false
+            referencedRelation: "promotional_periods"
             referencedColumns: ["id"]
           },
           {
@@ -1573,6 +1586,78 @@ export type Database = {
             columns: ["company_id"]
             isOneToOne: false
             referencedRelation: "companies"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      promotional_periods: {
+        Row: {
+          booking_window_end: string
+          booking_window_start: string
+          created_at: string
+          created_by: string | null
+          description: string | null
+          discount_type: string
+          discount_value: number
+          id: string
+          is_active: boolean
+          min_stay: number | null
+          name: string
+          property_id: string
+          room_types: string[] | null
+          stay_end: string
+          stay_start: string
+          updated_at: string
+        }
+        Insert: {
+          booking_window_end: string
+          booking_window_start: string
+          created_at?: string
+          created_by?: string | null
+          description?: string | null
+          discount_type?: string
+          discount_value: number
+          id?: string
+          is_active?: boolean
+          min_stay?: number | null
+          name: string
+          property_id: string
+          room_types?: string[] | null
+          stay_end: string
+          stay_start: string
+          updated_at?: string
+        }
+        Update: {
+          booking_window_end?: string
+          booking_window_start?: string
+          created_at?: string
+          created_by?: string | null
+          description?: string | null
+          discount_type?: string
+          discount_value?: number
+          id?: string
+          is_active?: boolean
+          min_stay?: number | null
+          name?: string
+          property_id?: string
+          room_types?: string[] | null
+          stay_end?: string
+          stay_start?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "promotional_periods_created_by_fkey"
+            columns: ["created_by"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "promotional_periods_property_id_fkey"
+            columns: ["property_id"]
+            isOneToOne: false
+            referencedRelation: "properties"
             referencedColumns: ["id"]
           },
         ]
