@@ -93,6 +93,12 @@ Deno.serve(async (req: Request) => {
     const propertyOffPeakDays: number[] = property.off_peak_days || [];
     const propertyTimezone: string = property.timezone || "Africa/Cairo";
 
+    // Today in property timezone (en-CA returns YYYY-MM-DD). Used by promotion
+    // window matching, month-phase determination, and pace index.
+    const todayStrInTz = new Date().toLocaleDateString("en-CA", {
+      timeZone: propertyTimezone,
+    });
+
     // ── 2. Rate plan + price row ──
     const { data: ratePlan } = await supabase
       .from("rate_plans")
@@ -288,10 +294,7 @@ Deno.serve(async (req: Request) => {
         : 0;
 
     // ── 7. Month phase (today in property timezone) ──
-    // en-CA returns YYYY-MM-DD.
-    const todayStrInTz = new Date().toLocaleDateString("en-CA", {
-      timeZone: propertyTimezone,
-    });
+    // en-CA returns YYYY-MM-DD. (todayStrInTz computed earlier, after property load)
     let monthPhase: "A" | "B" | "historical";
     if (monthStartStr > todayStrInTz) {
       monthPhase = "A";
@@ -428,6 +431,55 @@ Deno.serve(async (req: Request) => {
         (1 + revenueAdjustmentPercent / 100);
     }
 
+    // ── 12b. Apply promotion (skipped when override is active) ──
+    // Promotions discount the calculated rate AFTER all dynamic adjustments
+    // but BEFORE clamping to room-type min/max. If multiple match, we apply
+    // only the largest absolute discount (no stacking). min_stay is NOT
+    // enforced here — this function is per-night and has no stay length;
+    // min_stay is enforced via the Channex restrictions push pipeline.
+    let appliedPromotionId: string | null = null;
+    let appliedPromotionDiscountPercent: number | null = null;
+    if (!overrideActive) {
+      const { data: matchingPromos } = await supabase
+        .from("promotional_periods")
+        .select("id, discount_type, discount_value, room_types")
+        .eq("property_id", property_id)
+        .eq("is_active", true)
+        .lte("booking_window_start", todayStrInTz)
+        .gte("booking_window_end", todayStrInTz)
+        .lte("stay_start", target_date)
+        .gte("stay_end", target_date);
+
+      const candidates = ((matchingPromos ?? []) as any[])
+        .filter((p) => !p.room_types || p.room_types.includes(room_type))
+        .map((p) => {
+          const v = Number(p.discount_value);
+          const savings = p.discount_type === "percentage"
+            ? calculatedRate * v / 100
+            : v;
+          return { promo: p, savings };
+        })
+        .sort((a, b) =>
+          b.savings - a.savings ||
+          Number(b.promo.discount_value) - Number(a.promo.discount_value)
+        );
+
+      const winner = candidates[0];
+      if (winner && winner.savings > 0) {
+        const preDiscount = calculatedRate;
+        if (winner.promo.discount_type === "percentage") {
+          calculatedRate = preDiscount * (1 - Number(winner.promo.discount_value) / 100);
+          appliedPromotionDiscountPercent = round2(Number(winner.promo.discount_value));
+        } else {
+          calculatedRate = preDiscount - Number(winner.promo.discount_value);
+          appliedPromotionDiscountPercent = preDiscount > 0
+            ? round2(winner.savings / preDiscount * 100)
+            : null;
+        }
+        appliedPromotionId = winner.promo.id as string;
+      }
+    }
+
     // ── 13. Clamp (two layers) ──
     let finalRate = calculatedRate;
     let wasClamped = false;
@@ -476,6 +528,8 @@ Deno.serve(async (req: Request) => {
         clamp_direction: clampDirection,
         override_id: override?.id ?? null,
         override_active: overrideActive,
+        promotion_id: appliedPromotionId,
+        promotion_discount_percent: appliedPromotionDiscountPercent,
       });
     }
 
@@ -498,6 +552,9 @@ Deno.serve(async (req: Request) => {
         override_active: overrideActive,
         was_clamped: wasClamped,
         clamp_direction: clampDirection,
+        promotion_applied: appliedPromotionId
+          ? { id: appliedPromotionId, discount_percent: appliedPromotionDiscountPercent }
+          : null,
       },
     });
   } catch (err: any) {
