@@ -74,6 +74,7 @@ import ChannelMarkup from "./pages/pms/ChannelMarkup";
 import MyNotifications from "./pages/MyNotifications";
 import GuestInbox from "./pages/GuestInbox";
 import DynamicPricing from "./pages/DynamicPricing";
+import Promotions from "./pages/Promotions";
 const queryClient = new QueryClient();
 
 const App = () => (
