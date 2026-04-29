@@ -719,9 +719,7 @@ function PromotionDialog({
       minStayValue = m;
     }
 
-    setSaving(true);
-    const { data: userRes } = await supabase.auth.getUser();
-    const payload = {
+    const payload: PromoPayload = {
       property_id: propertyId,
       name: form.name.trim(),
       description: form.description.trim() || null,
@@ -733,8 +731,53 @@ function PromotionDialog({
       discount_value: valNum,
       min_stay: minStayValue,
       room_types: form.room_types.length > 0 ? form.room_types : null,
+      is_active: editing?.is_active ?? true,
     };
 
+    // New promotion + queue mode → fetch rate snapshots, hand off, close.
+    if (!editing && onAddPending) {
+      setSaving(true);
+      try {
+        const affected =
+          payload.room_types && payload.room_types.length > 0
+            ? payload.room_types
+            : availableRoomTypes;
+
+        let rateSnapshots: RateSnapshot[] = [];
+        if (affected.length > 0) {
+          const { data: priceRows } = await supabase
+            .from('rate_plan_prices')
+            .select('room_type, weekday_rate, weekend_rate, rate_plans!inner(property_id)')
+            .eq('rate_plans.property_id', propertyId)
+            .in('room_type', affected)
+            .is('unit_id', null);
+
+          const seen = new Set<string>();
+          rateSnapshots = (priceRows ?? [])
+            .filter((r: any) => {
+              if (!r.room_type || seen.has(r.room_type)) return false;
+              seen.add(r.room_type);
+              return true;
+            })
+            .map((r: any) => ({
+              room_type: r.room_type,
+              weekday_rate: Number(r.weekday_rate) || 0,
+              weekend_rate: Number(r.weekend_rate ?? r.weekday_rate) || 0,
+            }));
+        }
+
+        onAddPending(payload, rateSnapshots);
+        onOpenChange(false);
+      } catch (err: any) {
+        toast.error('Failed to prepare preview: ' + (err?.message ?? 'unknown error'));
+      } finally {
+        setSaving(false);
+      }
+      return;
+    }
+
+    setSaving(true);
+    const { data: userRes } = await supabase.auth.getUser();
     let error;
     if (editing) {
       ({ error } = await supabase
