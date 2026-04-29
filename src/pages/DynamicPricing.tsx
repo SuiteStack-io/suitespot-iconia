@@ -72,18 +72,24 @@ export default function DynamicPricing() {
   const [boundsErrors, setBoundsErrors] = useState<Record<string, string>>({});
   const [advancedOpen, setAdvancedOpen] = useState(false);
 
+  // Channel markups for OTA preview
+  const [channelMarkups, setChannelMarkups] = useState<{ id: string; channel_name: string; markup_percentage: number }[]>([]);
+
   // Pending changes tracking
   const [pendingRulesChanges, setPendingRulesChanges] = useState<Partial<PricingRules>>({});
-  const [pendingBoundsChanges, setPendingBoundsChanges] = useState<Record<string, { min_rate: number | null; max_rate: number | null }>>({});
+  const [pendingBoundsChanges, setPendingBoundsChanges] = useState<Record<string, {
+    original: { min: number | null; max: number | null };
+    pending: { min: number | null; max: number | null };
+  }>>({});
+
+  // Per-row input drafts (string to preserve empty)
+  const [inputDrafts, setInputDrafts] = useState<Record<string, { min: string; max: string }>>({});
 
   // Save status
   const [saveStatus, setSaveStatus] = useState<'idle' | 'saving' | 'success' | 'error'>('idle');
   const [saveProgress, setSaveProgress] = useState(0);
 
-  // Channex sync
-  const [channexSyncStatus, setChannexSyncStatus] = useState<'idle' | 'syncing' | 'success' | 'error'>('idle');
-  const [channexSyncProgress, setChannexSyncProgress] = useState(0);
-  const [channexSyncStep, setChannexSyncStep] = useState('');
+  // Last channex sync timestamp
   const [lastChannexSync, setLastChannexSync] = useState<string | null>(null);
 
   // Revenue input focus state
@@ -96,6 +102,18 @@ export default function DynamicPricing() {
   const pendingRulesCount = Object.keys(pendingRulesChanges).length;
   const pendingBoundsCount = Object.keys(pendingBoundsChanges).length;
   const totalPendingChanges = pendingRulesCount + pendingBoundsCount;
+
+  // ---- helpers ----
+  const weekendRatio = (b: RoomRateBound) => (b.weekday_rate > 0 ? b.weekend_rate / b.weekday_rate : 1);
+  const withMarkup = (value: number | null, pct: number): number | null =>
+    value == null ? null : value * (1 + pct / 100);
+  const formatUsd = (n: number | null | undefined): string =>
+    n == null || !isFinite(n) ? '—' : '$' + Math.round(n).toLocaleString();
+  const parseDraft = (s: string): number | null => {
+    if (s === '' || s == null) return null;
+    const n = parseFloat(s);
+    return isNaN(n) ? null : n;
+  };
 
   // Load last channex sync from localStorage
   useEffect(() => {
