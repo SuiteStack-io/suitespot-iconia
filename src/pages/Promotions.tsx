@@ -996,7 +996,7 @@ function PromotionDialog({
           </Button>
           <Button onClick={handleSave} disabled={saving}>
             {saving && <Loader2 className="h-4 w-4 mr-2 animate-spin" />}
-            {editing ? 'Save Changes' : 'Create Promotion'}
+            {editing ? 'Save Changes' : (onAddPending ? 'Add to Pending' : 'Create Promotion')}
           </Button>
         </DialogFooter>
       </DialogContent>
