@@ -1043,3 +1043,163 @@ function DatePickerField({
     </div>
   );
 }
+
+// ---------- pending promotions card ----------
+function PendingPromotionsCard({
+  pending,
+  symbol,
+  channelMarkups,
+  saveStatus,
+  saveProgress,
+  saveStep,
+  onRemove,
+  onSave,
+}: {
+  pending: PendingPromo[];
+  symbol: string;
+  channelMarkups: Array<{ channel_name: string; markup_percentage: number }>;
+  saveStatus: 'idle' | 'saving' | 'success' | 'error';
+  saveProgress: number;
+  saveStep: string;
+  onRemove: (tempId: string) => void;
+  onSave: () => void;
+}) {
+  const fmt = (v: number) => `${symbol}${Math.round(v)}`;
+
+  return (
+    <Card className="mb-4 border-blue-500/40 bg-blue-500/5">
+      <CardHeader className="flex flex-row items-center justify-between">
+        <div>
+          <CardTitle>Pending Promotions</CardTitle>
+          <p className="text-sm text-muted-foreground mt-1">
+            {pending.length} promotion{pending.length === 1 ? '' : 's'} ready to save
+          </p>
+        </div>
+        <Button onClick={onSave} disabled={saveStatus === 'saving'} size="sm">
+          {saveStatus === 'saving' && <Loader2 className="h-4 w-4 mr-2 animate-spin" />}
+          Save Changes
+        </Button>
+      </CardHeader>
+      <CardContent className="space-y-4">
+        {saveStatus !== 'idle' && (
+          <div className="space-y-1">
+            <Progress value={saveProgress} />
+            {saveStep && (
+              <p className="text-xs text-muted-foreground">{saveStep}</p>
+            )}
+          </div>
+        )}
+
+        {pending.map((p) => {
+          const payload = p.payload;
+          const after = (base: number) =>
+            payload.discount_type === 'percentage'
+              ? base * (1 - payload.discount_value / 100)
+              : Math.max(0, base - payload.discount_value);
+          const channelOf = (v: number, pct: number) => v * (1 + pct / 100);
+          const discountText =
+            payload.discount_type === 'percentage'
+              ? `-${payload.discount_value}% off`
+              : `-${symbol}${payload.discount_value} off`;
+
+          return (
+            <div key={p.tempId} className="border rounded-lg p-4 bg-background space-y-3">
+              <div className="flex items-start justify-between gap-3">
+                <div className="space-y-1 min-w-0 flex-1">
+                  <div className="flex items-center gap-2 flex-wrap">
+                    <span className="font-semibold">{payload.name}</span>
+                    <Badge className="bg-amber-500/15 text-amber-700 border border-amber-500/30 hover:bg-amber-500/15">
+                      {discountText}
+                    </Badge>
+                  </div>
+                  <p className="text-sm text-muted-foreground">
+                    Bookable: {fmtRange(payload.booking_window_start, payload.booking_window_end)}
+                  </p>
+                  <p className="text-sm text-muted-foreground">
+                    For stays: {fmtRange(payload.stay_start, payload.stay_end)}
+                  </p>
+                  {payload.min_stay != null && (
+                    <p className="text-sm text-muted-foreground">
+                      Min stay: {payload.min_stay} night{payload.min_stay === 1 ? '' : 's'}
+                    </p>
+                  )}
+                  {payload.room_types && payload.room_types.length > 0 && (
+                    <p className="text-sm text-muted-foreground">
+                      Room types: {payload.room_types.join(', ')}
+                    </p>
+                  )}
+                </div>
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  onClick={() => onRemove(p.tempId)}
+                  disabled={saveStatus === 'saving'}
+                  aria-label="Remove from pending"
+                >
+                  <X className="h-4 w-4" />
+                </Button>
+              </div>
+
+              {p.rateSnapshots.length === 0 ? (
+                <p className="text-xs text-muted-foreground">
+                  No base rates configured for affected room types — preview unavailable.
+                </p>
+              ) : (
+                <div className="rounded border">
+                  <Table>
+                    <TableHeader>
+                      <TableRow>
+                        <TableHead>Room Type</TableHead>
+                        <TableHead>Day</TableHead>
+                        <TableHead>PMS Before → After</TableHead>
+                        {channelMarkups.map((c) => (
+                          <TableHead key={c.channel_name}>
+                            {c.channel_name} Before → After
+                          </TableHead>
+                        ))}
+                      </TableRow>
+                    </TableHeader>
+                    <TableBody>
+                      {p.rateSnapshots.flatMap((snap) => {
+                        const rows: Array<{ day: string; base: number }> = [
+                          { day: 'Wkd', base: snap.weekday_rate },
+                          { day: 'Wkn', base: snap.weekend_rate },
+                        ];
+                        return rows.map((r) => {
+                          const aft = after(r.base);
+                          return (
+                            <TableRow key={`${snap.room_type}-${r.day}`}>
+                              <TableCell className="font-medium">{snap.room_type}</TableCell>
+                              <TableCell>{r.day}</TableCell>
+                              <TableCell>
+                                {fmt(r.base)} → <span className="text-emerald-600">{fmt(aft)}</span>
+                              </TableCell>
+                              {channelMarkups.map((c) => {
+                                const cb = channelOf(r.base, c.markup_percentage);
+                                const ca = channelOf(aft, c.markup_percentage);
+                                return (
+                                  <TableCell key={c.channel_name}>
+                                    {fmt(cb)} → <span className="text-emerald-600">{fmt(ca)}</span>
+                                  </TableCell>
+                                );
+                              })}
+                            </TableRow>
+                          );
+                        });
+                      })}
+                    </TableBody>
+                  </Table>
+                </div>
+              )}
+
+              <p className="text-xs text-muted-foreground">
+                Preview based on current base rates. Actual rates will reflect dynamic pricing
+                adjustments at the time of stay.
+              </p>
+            </div>
+          );
+        })}
+      </CardContent>
+    </Card>
+  );
+}
