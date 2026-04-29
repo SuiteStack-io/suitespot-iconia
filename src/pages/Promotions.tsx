@@ -157,6 +157,113 @@ export default function Promotions() {
   const [deleteTarget, setDeleteTarget] = useState<Promotion | null>(null);
   const [pastOpen, setPastOpen] = useState(false);
 
+  const [pendingPromotions, setPendingPromotions] = useState<PendingPromo[]>([]);
+  const [saveStatus, setSaveStatus] = useState<'idle' | 'saving' | 'success' | 'error'>('idle');
+  const [saveProgress, setSaveProgress] = useState(0);
+  const [saveStep, setSaveStep] = useState('');
+  const [channelMarkups, setChannelMarkups] = useState<
+    Array<{ channel_name: string; markup_percentage: number }>
+  >([]);
+
+  // Load active channel markups
+  useEffect(() => {
+    if (!propertyId) return;
+    (async () => {
+      const { data } = await supabase
+        .from('channel_markup_settings')
+        .select('channel_name, markup_percentage')
+        .eq('property_id', propertyId)
+        .eq('is_active', true);
+      setChannelMarkups(
+        (data ?? []).map((r: any) => ({
+          channel_name: r.channel_name,
+          markup_percentage: Number(r.markup_percentage),
+        })),
+      );
+    })();
+  }, [propertyId]);
+
+  // Warn before unload if pending promotions exist
+  useEffect(() => {
+    if (pendingPromotions.length === 0) return;
+    const handler = (e: BeforeUnloadEvent) => {
+      e.preventDefault();
+      e.returnValue = '';
+    };
+    window.addEventListener('beforeunload', handler);
+    return () => window.removeEventListener('beforeunload', handler);
+  }, [pendingPromotions.length]);
+
+  const addToPending = useCallback(
+    (payload: PromoPayload, rateSnapshots: RateSnapshot[]) => {
+      setPendingPromotions((prev) => [
+        ...prev,
+        { tempId: crypto.randomUUID(), payload, rateSnapshots },
+      ]);
+      toast.success('Added to pending');
+    },
+    [],
+  );
+
+  const removePending = useCallback((tempId: string) => {
+    setPendingPromotions((prev) => prev.filter((p) => p.tempId !== tempId));
+  }, []);
+
+  async function saveAllPending() {
+    if (pendingPromotions.length === 0 || !propertyId) return;
+    setSaveStatus('saving');
+    setSaveProgress(15);
+    setSaveStep('Creating promotions...');
+    try {
+      const { data: userRes } = await supabase.auth.getUser();
+      const rows = pendingPromotions.map((p) => ({
+        ...p.payload,
+        created_by: userRes.user?.id ?? null,
+      }));
+
+      const { error: insertErr } = await supabase
+        .from('promotional_periods' as any)
+        .insert(rows);
+      if (insertErr) throw insertErr;
+
+      setSaveProgress(60);
+      setSaveStep('Syncing to Channex...');
+
+      // channex-full-sync only accepts { propertyId } — runs full 500-day sync.
+      // calculate-dynamic-price applies promotions on top of dynamic rates per
+      // day, so we do NOT compute or push static discounted rates here.
+      const { error: syncErr } = await supabase.functions.invoke('channex-full-sync', {
+        body: { propertyId },
+      });
+
+      setSaveProgress(100);
+      if (syncErr) {
+        console.warn('channex-full-sync failed', syncErr);
+        toast.warning('Promotions saved. Channex sync failed — please retry sync.');
+      } else {
+        toast.success('Promotions saved and synced to Channex');
+      }
+      setSaveStatus('success');
+      setPendingPromotions([]);
+      await fetchPromotions();
+      setTimeout(() => {
+        setSaveStatus('idle');
+        setSaveProgress(0);
+        setSaveStep('');
+      }, 2000);
+    } catch (err: any) {
+      console.error('Failed to save pending promotions', err);
+      setSaveStatus('error');
+      toast.error(err.message || 'Failed to save promotions');
+      setTimeout(() => {
+        setSaveStatus('idle');
+        setSaveProgress(0);
+        setSaveStep('');
+      }, 3000);
+    }
+  }
+
+
   const fetchPromotions = useCallback(async () => {
     if (!propertyId) return;
     setLoading(true);
