@@ -290,18 +290,19 @@ export default function DynamicPricing() {
     });
   }
 
-  // ---- save all pending changes ----
+  // ---- save all pending changes (with auto Channex sync for rate bounds) ----
   async function saveAllChanges() {
     if (!rules || totalPendingChanges === 0) return;
     setSaveStatus('saving');
     setSaveProgress(10);
 
+    const hasBoundsChanges = Object.keys(pendingBoundsChanges).length > 0;
+
     try {
       // Validate bounds
       for (const [roomType, bounds] of Object.entries(pendingBoundsChanges)) {
-        const current = rateBounds.find((b) => b.room_type === roomType);
-        const minVal = bounds.min_rate;
-        const maxVal = bounds.max_rate;
+        const minVal = bounds.pending.min;
+        const maxVal = bounds.pending.max;
         if (minVal !== null && maxVal !== null && minVal >= maxVal) {
           setBoundsErrors((prev) => ({ ...prev, [roomType]: 'Min must be less than Max' }));
           setSaveStatus('error');
@@ -316,9 +317,9 @@ export default function DynamicPricing() {
         });
       }
 
-      setSaveProgress(30);
+      setSaveProgress(25);
 
-      // Save pricing_rules changes
+      // 1. Save pricing_rules changes
       if (pendingRulesCount > 0) {
         const { error } = await supabase
           .from('pricing_rules')
@@ -327,27 +328,85 @@ export default function DynamicPricing() {
         if (error) throw error;
       }
 
-      setSaveProgress(60);
+      setSaveProgress(45);
 
-      // Save rate bounds changes
+      // 2. Save rate bounds changes
       const boundEntries = Object.entries(pendingBoundsChanges);
       for (let i = 0; i < boundEntries.length; i++) {
-        const [roomType] = boundEntries[i];
+        const [roomType, change] = boundEntries[i];
         const bound = rateBounds.find((b) => b.room_type === roomType);
         if (!bound) continue;
         const { error } = await supabase
           .from('rate_plan_prices')
-          .update({ min_rate: bound.min_rate, max_rate: bound.max_rate } as any)
+          .update({ min_rate: change.pending.min, max_rate: change.pending.max } as any)
           .eq('id', bound.id);
         if (error) throw error;
-        setSaveProgress(60 + Math.round(((i + 1) / boundEntries.length) * 30));
+        setSaveProgress(45 + Math.round(((i + 1) / boundEntries.length) * 30));
       }
+
+      // Build the updated rateBounds (post-save baseline)
+      const updatedBounds: RoomRateBound[] = rateBounds.map((b) => {
+        const ch = pendingBoundsChanges[b.room_type];
+        return ch ? { ...b, min_rate: ch.pending.min, max_rate: ch.pending.max } : b;
+      });
+
+      // 3. If bounds changed, sync property-level floor/ceiling to Channex
+      if (hasBoundsChanges && propertyId) {
+        setSaveProgress(80);
+        const allMinRates = updatedBounds.filter((b) => b.min_rate !== null).map((b) => b.min_rate!);
+        const allMaxRates = updatedBounds.filter((b) => b.max_rate !== null).map((b) => b.max_rate!);
+        const floorValue = allMinRates.length > 0 ? Math.min(...allMinRates) : null;
+        const ceilingValue = allMaxRates.length > 0 ? Math.max(...allMaxRates) : null;
+
+        if (floorValue !== null || ceilingValue !== null) {
+          const { data, error } = await supabase.functions.invoke('channex-update-property-settings', {
+            body: { property_id: propertyId, min_price: floorValue, max_price: ceilingValue },
+          });
+          if (error) throw error;
+          if (data?.error) throw new Error(data.error);
+
+          await supabase
+            .from('pricing_rules')
+            .update({
+              channex_min_price_synced: floorValue !== null,
+              channex_max_price_synced: ceilingValue !== null,
+            })
+            .eq('property_id', propertyId);
+
+          setRules((prev) =>
+            prev
+              ? {
+                  ...prev,
+                  channex_min_price_synced: floorValue !== null,
+                  channex_max_price_synced: ceilingValue !== null,
+                }
+              : prev
+          );
+
+          const timestamp = new Date().toLocaleString('en-US', {
+            month: 'short', day: 'numeric', year: 'numeric', hour: 'numeric', minute: '2-digit', hour12: true,
+          });
+          localStorage.setItem(`dynamic_pricing_last_channex_sync_${propertyId}`, timestamp);
+          setLastChannexSync(timestamp);
+        }
+      }
+
+      // Commit new baseline + clear pendings
+      setRateBounds(updatedBounds);
+      const newDrafts: Record<string, { min: string; max: string }> = {};
+      for (const b of updatedBounds) {
+        newDrafts[b.room_type] = {
+          min: b.min_rate == null ? '' : String(b.min_rate),
+          max: b.max_rate == null ? '' : String(b.max_rate),
+        };
+      }
+      setInputDrafts(newDrafts);
 
       setSaveProgress(100);
       setSaveStatus('success');
       setPendingRulesChanges({});
       setPendingBoundsChanges({});
-      toast.success('Pricing settings saved');
+      toast.success(hasBoundsChanges ? 'Pricing settings saved and synced to Channex' : 'Pricing settings saved');
 
       setTimeout(() => {
         setSaveStatus('idle');
@@ -357,81 +416,11 @@ export default function DynamicPricing() {
       console.error('Save failed', err);
       setSaveStatus('error');
       toast.error(err.message || 'Failed to save pricing settings');
+      // Keep pendingBoundsChanges so the operator can retry
       setTimeout(() => {
         setSaveStatus('idle');
         setSaveProgress(0);
       }, 3000);
-    }
-  }
-
-  // ---- channex sync ----
-  async function syncToChannex() {
-    if (!propertyId) return;
-    setChannexSyncStatus('syncing');
-    setChannexSyncProgress(10);
-    setChannexSyncStep('Preparing rate bounds...');
-
-    try {
-      const allMinRates = rateBounds.filter((b) => b.min_rate !== null).map((b) => b.min_rate!);
-      const allMaxRates = rateBounds.filter((b) => b.max_rate !== null).map((b) => b.max_rate!);
-      const floorValue = allMinRates.length > 0 ? Math.min(...allMinRates) : null;
-      const ceilingValue = allMaxRates.length > 0 ? Math.max(...allMaxRates) : null;
-
-      if (floorValue === null && ceilingValue === null) {
-        toast.error('No min/max rates set. Configure rate guardrails first.');
-        setChannexSyncStatus('idle');
-        setChannexSyncProgress(0);
-        return;
-      }
-
-      setChannexSyncProgress(30);
-      setChannexSyncStep('Pushing to Channex...');
-
-      const { data, error } = await supabase.functions.invoke('channex-update-property-settings', {
-        body: { property_id: propertyId, min_price: floorValue, max_price: ceilingValue },
-      });
-
-      if (error) throw error;
-      if (data?.error) throw new Error(data.error);
-
-      setChannexSyncProgress(70);
-      setChannexSyncStep('Updating sync status...');
-
-      await supabase
-        .from('pricing_rules')
-        .update({ channex_min_price_synced: floorValue !== null, channex_max_price_synced: ceilingValue !== null })
-        .eq('property_id', propertyId);
-
-      setRules((prev) =>
-        prev ? { ...prev, channex_min_price_synced: floorValue !== null, channex_max_price_synced: ceilingValue !== null } : prev
-      );
-
-      const timestamp = new Date().toLocaleString('en-US', {
-        month: 'short', day: 'numeric', year: 'numeric', hour: 'numeric', minute: '2-digit', hour12: true,
-      });
-      localStorage.setItem(`dynamic_pricing_last_channex_sync_${propertyId}`, timestamp);
-      setLastChannexSync(timestamp);
-
-      setChannexSyncProgress(100);
-      setChannexSyncStep('Done');
-      setChannexSyncStatus('success');
-      toast.success('Rate bounds synced to Channex');
-
-      setTimeout(() => {
-        setChannexSyncStatus('idle');
-        setChannexSyncProgress(0);
-        setChannexSyncStep('');
-      }, 3000);
-    } catch (err: any) {
-      console.error('Channex sync failed', err);
-      setChannexSyncStep(err.message || 'Sync failed');
-      setChannexSyncStatus('error');
-      toast.error(err.message || 'Failed to sync to Channex');
-      setTimeout(() => {
-        setChannexSyncStatus('idle');
-        setChannexSyncProgress(0);
-        setChannexSyncStep('');
-      }, 5000);
     }
   }
 
