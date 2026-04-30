@@ -1,114 +1,142 @@
-# Wire dynamic pricing into Channex sync pipeline
+# Build shared dynamic-pricing helper + refactor calculate-dynamic-price
 
-Approved plan + three review fixes (FIX 1/2/3). Source of truth for all calculation logic: `supabase/functions/calculate-dynamic-price/index.ts` lines 140–504.
+Two files only. No sync functions touched.
 
-## 1. New shared module — `supabase/functions/_shared/dynamic-pricing.ts`
+## File 1: `supabase/functions/_shared/dynamic-pricing.ts` (NEW)
 
 Pure module — no `Deno.serve`, no I/O, no Supabase client. Exports:
 
-- `DynamicPricingContext` — `{ property, pricingRules, reservations, units, overrides, promotions, todayStrInTz, monthlyRevenueByMonth, monthlyBookedNightsByMonth }`
+- `DynamicPricingContext` — `{ property: { id, weekend_days, off_peak_days, timezone }, pricingRules, reservations, units, overrides, promotions, todayStrInTz, monthlyRevenueByMonth, monthlyBookedNightsByMonth }`
 - `DynamicPricingInput` — `{ target_date, room_type, rate_plan_id, weekday_rate, weekend_rate, off_peak_rate, min_rate, max_rate }`
-- `DynamicPricingResult` — `final_rate_cents` + every column needed by `pricing_log` + `month_phase` + `static_reason`
+- `DynamicPricingResult` — `{ base_rate, final_rate_cents, final_rate (dollars), month_phase, base_rate_dollars, calculated_rate, day_of_week_multiplier, occupancy_percent, occupancy_tier, occupancy_adjustment_percent, pace_index, pace_index_bumped, revenue_total, revenue_achievement_percent, revenue_adjustment_percent, room_type_min_rate, room_type_max_rate, was_clamped, clamp_direction, override_id, override_active, promotion_id, promotion_discount_percent, static_reason }`
 - `calculateDynamicRate(ctx, input): DynamicPricingResult`
 
-Implementation = literal port of calculate-dynamic-price lines 140–504, with:
-- All DB reads replaced by ctx fields
-- `pricing_overrides` filter: `o.override_date === input.target_date`, then specific room_type before wildcard
-- `promotional_periods` filter (in JS): `is_active !== false` AND `booking_window_start <= todayStrInTz <= booking_window_end` AND `stay_start <= target_date <= stay_end` AND (`!room_types || room_types.includes(room_type)`)
-- Per-month occupancy nights and revenue cached in `ctx.monthlyBookedNightsByMonth[YYYY-MM]` / `ctx.monthlyRevenueByMonth[YYYY-MM]` so cost is paid once per month, not per date
-- `pricing_log.insert` removed — caller batches
-- Defensive: if `!rules || rules.is_enabled === false`, returns a static-clamp result with `static_reason` populated (caller is expected to gate, but helper never crashes)
+Implementation = literal port of `calculate-dynamic-price/index.ts` lines 140–504, with these mechanical substitutions:
 
-Byte-identical: dow branch order (off-peak → weekend → weekday), `tierIndex`, override precedence (override skips dow/occ/revenue/promotion), promotion winner (largest `savings`, then most recently created), pace-index bump, revenue-occupancy conflict cap, two-layer clamp + zero-floor safety.
+| Original (calculate-dynamic-price) | Helper version |
+|---|---|
+| properties query (83–87) | `ctx.property` |
+| rate_plans lookup (102–110) | trusted `input.rate_plan_id` |
+| rate_plan_prices lookup (112–138) | `input.weekday_rate / weekend_rate / off_peak_rate / min_rate / max_rate` |
+| pricing_rules query (168–172) | `ctx.pricingRules` |
+| static-disabled early return (178–215) | kept as defensive fallback returning a valid `DynamicPricingResult` with `static_reason` populated |
+| pricing_overrides query (218–222) | `ctx.overrides.filter(o => o.override_date === input.target_date)` |
+| units query (254–258) | `ctx.units` |
+| month reservations (266–272) | filter `ctx.reservations` for month overlap; result cached in `ctx.monthlyBookedNightsByMonth[YYYY-MM]` (one pass per month, not per date) |
+| month revenue (343–367) | filter `ctx.reservations` by month; cached in `ctx.monthlyRevenueByMonth[YYYY-MM]` |
+| promotional_periods query (443–451) | filter `ctx.promotions` in JS: `is_active !== false` AND `booking_window_start <= todayStrInTz <= booking_window_end` AND `stay_start <= target_date <= stay_end` AND `(!room_types || room_types.includes(room_type))` |
+| pricing_log.insert (506–533) | removed — caller batches |
 
-## 2. `channex-full-sync/index.ts`
+Byte-identical otherwise: dow branch order (off-peak → weekend → weekday), `tierIndex`, `formatDate`/`addDays`/`daysInMonth`/`round2` helpers, override precedence (specific room_type before wildcard; override skips dow/occ/revenue/promotion), promotion winner (largest `savings`, then most recently created), pace-index bump logic, revenue-occupancy conflict cap, two-layer clamp + zero-floor safety. `final_rate_cents = Math.round(finalRate * 100)`.
 
-**FIX 2 — placement:** insert pre-load AFTER line 82 (`const endDate = addDays(today, SYNC_DAYS)`), so `endDate` is in scope.
+## File 2: `supabase/functions/calculate-dynamic-price/index.ts` (REFACTOR)
 
-- Add `timezone` to property select (line 67–70).
-- After line 82, load `pricingRules` (always). When `pricingRules?.is_enabled === true`:
-  - `todayInTz = new Date().toLocaleDateString('en-CA', { timeZone: propertyExists.timezone || 'Africa/Cairo' })`
-  - `promotions` — `promotional_periods` for property, `is_active=true`, booking window covering `todayInTz`, stay window overlapping `[todayInTz, formatDate(endDate)]`
-  - `overrides` — `pricing_overrides` for property, `override_date BETWEEN todayInTz AND formatDate(endDate)`
-  - `unitsForOcc` — units for property, `status != 'maintenance'`
-  - `reservationsForOcc` — reservations for property, `status IN ('confirmed','checked-in')`, overlapping `[todayInTz, formatDate(endDate)]`
-  - `monthlyRevenueByMonth = {}`, `monthlyBookedNightsByMonth = {}`, `pricingLogRows: any[] = []`
+Keep the entire HTTP/auth/data-loading shell. Replace the inline calculation (lines ~140–504) with a single call to `calculateDynamicRate`.
 
-In the rate-day loop (lines 289–309), wrap in `if (dynamicPricingEnabled) { … } else { existing static }`. Dynamic branch calls `calculateDynamicRate(ctx, { target_date: ds, room_type: p.room_type, rate_plan_id: ratePlan.id, weekday_rate: p.weekday_rate, weekend_rate: p.weekend_rate || p.weekday_rate, off_peak_rate: p.off_peak_rate || p.weekday_rate, min_rate: p.min_rate, max_rate: p.max_rate })`, pushes `{ date: ds, rate: result.final_rate_cents }`. When `result.month_phase === 'A' || 'B'` and `!result.static_reason`, push a `pricing_log` row.
+Changes:
 
-Overlay logic (lines 311–329) untouched — manual `rate_plan_restrictions.rate` and `rate_plan_date_overrides` continue to win.
+1. Add `import { calculateDynamicRate, DynamicPricingContext, DynamicPricingInput } from "../_shared/dynamic-pricing.ts";` at the top.
 
-After the rate-plan loop, before `logSync` (~line 408): `if (pricingLogRows.length > 0) await supabase.from('pricing_log').insert(pricingLogRows)`.
+2. Keep all DB loading exactly as-is:
+   - properties (line 83) — already selects `id, weekend_days, off_peak_days, timezone`
+   - rate_plans (line 103) + null-check
+   - rate_plan_prices: keep both attempts (unit-level null first, then any) so behavior matches
+   - pricing_rules (line 168)
+   - pricing_overrides (line 218)
+   - units (line 254)
+   - reservations for occupancy (266)
+   - reservations for revenue (343/355)
+   - promotional_periods (443) — but expand the select to also include `stay_start, stay_end, booking_window_start, booking_window_end, is_active` so the helper can re-filter (the helper expects the full row shape)
 
-## 3. `channex-daily-sync/index.ts`
+3. After loading, build:
+   ```ts
+   const ctx: DynamicPricingContext = {
+     property: {
+       id: property_id,
+       weekend_days: propertyWeekendDays,
+       off_peak_days: propertyOffPeakDays,
+       timezone: propertyTimezone,
+     },
+     pricingRules: rules,
+     reservations: [...occupancyReservations, ...revenueReservations].dedupedById, // see note
+     units: allUnits || [],
+     overrides: overrideMatches || [],
+     promotions: matchingPromos || [],
+     todayStrInTz,
+     monthlyRevenueByMonth: { [target_date.slice(0,7)]: revenueTotal },   // pre-seed so helper uses same value
+     monthlyBookedNightsByMonth: { [target_date.slice(0,7)]: bookedNights }, // pre-seed
+   };
+   const input: DynamicPricingInput = {
+     target_date, room_type, rate_plan_id,
+     weekday_rate: Number(priceRow.weekday_rate),
+     weekend_rate: priceRow.weekend_rate != null ? Number(priceRow.weekend_rate) : Number(priceRow.weekday_rate),
+     off_peak_rate: priceRow.off_peak_rate != null ? Number(priceRow.off_peak_rate) : 0,
+     min_rate: priceRow.min_rate != null ? Number(priceRow.min_rate) : null,
+     max_rate: priceRow.max_rate != null ? Number(priceRow.max_rate) : null,
+   };
+   const result = calculateDynamicRate(ctx, input);
+   ```
 
-Same pattern as §2, applied per property inside `for (const propMapping of validMappings)` (line 86):
-- Add `timezone` to property select (line 93)
-- After property config load, pre-load `pricingRules` for `propMapping.local_id`. If enabled, load promotions/overrides/units/reservations scoped to that property and `[todayInTz, formatDate(endDate)]`. Init monthly caches and `pricingLogRows: any[] = []` per property.
-- Replace per-day calc (lines 321–331) with `if (dynamicPricingEnabled) { … } else { static }`.
-- Overlay block (333–351) unchanged.
-- Batch-insert that property's `pricingLogRows` after its rate-plan loop, before `summary.properties_synced++`.
+   **Pre-seeding the monthly caches** with values the existing edge function already computed guarantees byte-identical results (the helper would otherwise recompute them from the reservations array, but only the target month's reservations were loaded — pre-seeding sidesteps that entirely).
 
-## 4. `channex-process-sync-queue/index.ts`
+4. Insert the pricing_log row using `result` fields (only when `result.month_phase === 'A' || 'B'` and `!result.static_reason`):
+   ```ts
+   await supabase.from("pricing_log").insert({
+     property_id, date_priced: target_date, target_month: target_date.slice(0,7),
+     month_phase: result.month_phase, room_type, rate_plan_id,
+     base_rate: result.base_rate, calculated_rate: result.calculated_rate, final_rate: result.final_rate,
+     day_of_week_multiplier: result.day_of_week_multiplier,
+     occupancy_percent: result.occupancy_percent, occupancy_tier: result.occupancy_tier,
+     occupancy_adjustment_percent: result.occupancy_adjustment_percent,
+     pace_index: result.pace_index,
+     revenue_total: result.revenue_total, revenue_achievement_percent: result.revenue_achievement_percent,
+     revenue_adjustment_percent: result.revenue_adjustment_percent,
+     room_type_min_rate: result.room_type_min_rate, room_type_max_rate: result.room_type_max_rate,
+     was_clamped: result.was_clamped, clamp_direction: result.clamp_direction,
+     override_id: result.override_id, override_active: result.override_active,
+     promotion_id: result.promotion_id, promotion_discount_percent: result.promotion_discount_percent,
+   });
+   ```
 
-In rate-items branch (line 194):
+5. Return the same response shape:
+   ```ts
+   return respond(200, {
+     success: true,
+     base_rate: result.base_rate,
+     final_rate: result.final_rate,
+     adjustments: {
+       day_of_week_multiplier: result.day_of_week_multiplier,
+       occupancy_percent: result.occupancy_percent,
+       occupancy_adjustment: result.occupancy_adjustment_percent,
+       pace_index: result.pace_index,
+       pace_index_bumped: result.pace_index_bumped,
+       revenue_achievement_percent: result.revenue_achievement_percent,
+       revenue_adjustment: result.revenue_adjustment_percent,
+       month_phase: result.month_phase,
+       room_type_min_rate: result.room_type_min_rate,
+       room_type_max_rate: result.room_type_max_rate,
+       override_active: result.override_active,
+       was_clamped: result.was_clamped,
+       clamp_direction: result.clamp_direction,
+       promotion_applied: result.promotion_id
+         ? { id: result.promotion_id, discount_percent: result.promotion_discount_percent }
+         : null,
+     },
+   });
+   ```
 
-- Maintain `propertyDynamicCache: Map<propertyId, { enabled: boolean; ctx?: DynamicPricingContext; pricingLogRows: any[] }>`. On first encounter of a `propertyId`, load `pricing_rules` + (if enabled) promotions/overrides/units/reservations scoped to `[today, today+365]`.
-- **FIX 3 — bounded date range:** dynamic branch must use the SAME `dateFrom`/`dateTo` the static branch already computes (lines 240–241): `dateFrom = ratePlanData.valid_from || todayStr`, `dateTo = ratePlanData.valid_to || (today+365)`, `rateStartDate = max(dateFrom, todayStr)`. Iterate exactly that range — no broader, no narrower.
-- Replace per-day `rateCents` (lines 253–263) with `calculateDynamicRate(ctx, {...})` using `payload.weekday_rate / weekend_rate / off_peak_rate` and `payload.min_rate ?? null`, `payload.max_rate ?? null`. Same `dailyRates` array; collapse logic (266–289) unchanged.
-- Push log rows into per-property bucket.
+   Static-disabled fast-path early-return at lines 194–215 stays as-is (it returns BEFORE reaching the helper call), preserving its exact existing response shape and skipping the pricing_log insert.
 
-After processing all queue items, batch-insert the union of all `pricingLogRows` (each row carries `property_id`) in one `pricing_log.insert`.
+## Variable hygiene
 
-## 5. `channex-push-rates/index.ts` — final safety clamp
+- `result` is the only new local; all existing locals (`baseRate`, `weekdayRate`, `override`, `bookedNights`, `revenueTotal`, etc.) are READ to build `ctx`/`input` and then no longer assigned. No re-declarations.
+- The helper uses its own internal locals (`baseRate`, `dow`, etc.) — they're function-scoped, no collision with the edge function's outer scope.
 
-After the validation loop (line 118), before the value-build loop (line 144):
+## Out of scope (this prompt)
 
-**FIX 1 — multi-property bounds query:**
+- channex-full-sync, channex-daily-sync, channex-process-sync-queue, channex-push-rates — untouched.
+- Database schema, RLS, frontend.
 
-```ts
-const uniquePropertyIds = Array.from(new Set(updates.map(u => u.property_id)));
-const { data: bounds } = await serviceSupabase
-  .from('rate_plan_prices')
-  .select('rate_plan_id, room_type, min_rate, max_rate, rate_plans!inner(property_id)')
-  .in('rate_plans.property_id', uniquePropertyIds)
-  .is('unit_id', null);
+## Verification
 
-const boundsByPlan = new Map<string, { min: number | null; max: number | null }>();
-for (const row of (bounds || [])) {
-  const min = row.min_rate != null ? Number(row.min_rate) : null;
-  const max = row.max_rate != null ? Number(row.max_rate) : null;
-  const existing = boundsByPlan.get(row.rate_plan_id);
-  if (!existing) {
-    boundsByPlan.set(row.rate_plan_id, { min, max });
-  } else {
-    boundsByPlan.set(row.rate_plan_id, {
-      min: existing.min === null || (min !== null && min < existing.min) ? min : existing.min,
-      max: existing.max === null || (max !== null && max > existing.max) ? max : existing.max,
-    });
-  }
-}
-```
-
-In the value-build loop, after computing `Math.round(u.rate * 100)`:
-- If `u.rate <= 0`: push to `errors` with `"rate must be > 0"`, `continue` (skip this value, batch continues).
-- Else look up `boundsByPlan.get(u.rate_plan_id)`:
-  - `b.min !== null && u.rate < b.min` → `console.warn('[channex-push-rates] Clamped rate below min', { original: u.rate, clamped: b.min, rate_plan_id: u.rate_plan_id })`, `value.rate = Math.round(b.min * 100)`.
-  - Else `b.max !== null && u.rate > b.max` → `console.warn('[channex-push-rates] Clamped rate above max', { original: u.rate, clamped: b.max, rate_plan_id: u.rate_plan_id })`, `value.rate = Math.round(b.max * 100)`.
-
-## 6. Variable hygiene
-
-- New identifiers introduced once per function scope.
-- `weekdayRateCents`/`weekendRateCents`/`offPeakRateCents` exist only in the static `else` branch.
-- `dailyRates` declared once; both branches push into it.
-- Overlay block's `restrictionOverride`/`dateOverride` stay scoped to the inner loop body.
-
-## 7. Out of scope
-
-`calculate-dynamic-price/index.ts`, DB schema, overlay logic, min_stay_arrival, Channex API call shape, frontend, non-sync edge functions.
-
-## 8. Verification
-
-- Manual full sync → hundreds of `pricing_log` rows, `promotion_id` set inside active promotion stay windows.
-- Channex dashboard rates inside promotion window are discounted.
-- `pricing_rules.is_enabled = false` → static rates push, no new `pricing_log` rows.
+The dashboard preview already calls `calculate-dynamic-price`. After refactor, run a preview from the Dynamic Pricing page → response and pricing_log row must match a pre-refactor run for the same inputs. If they match, the helper is proven equivalent and ready for sync-pipeline integration in a follow-up prompt.
