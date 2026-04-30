@@ -778,23 +778,65 @@ function PromotionDialog({
 
     setSaving(true);
     const { data: userRes } = await supabase.auth.getUser();
-    let error;
+
     if (editing) {
-      ({ error } = await supabase
+      // Combined UPDATE: edited fields + jump straight to 'syncing'
+      // (skip the redundant 'pending' transition since we trigger sync immediately).
+      const { error: updateErr } = await supabase
         .from('promotional_periods' as any)
-        .update(payload)
-        .eq('id', editing.id));
-    } else {
-      ({ error } = await supabase
-        .from('promotional_periods' as any)
-        .insert({ ...payload, created_by: userRes.user?.id ?? null }));
-    }
-    setSaving(false);
-    if (error) {
-      toast.error('Failed to save: ' + error.message);
+        .update({
+          ...payload,
+          last_sync_status: 'syncing',
+          last_synced_at: null,
+          last_sync_error: null,
+        })
+        .eq('id', editing.id);
+      if (updateErr) {
+        setSaving(false);
+        toast.error('Failed to save: ' + updateErr.message);
+        return;
+      }
+
+      // Trigger Channex full sync (matches saveAllPending invocation).
+      const { error: syncErr } = await supabase.functions.invoke('channex-full-sync', {
+        body: { propertyId },
+      });
+
+      if (syncErr) {
+        await supabase
+          .from('promotional_periods' as any)
+          .update({
+            last_sync_status: 'failed',
+            last_sync_error: syncErr.message,
+          })
+          .eq('id', editing.id);
+        toast.warning('Promotion updated. Channex sync failed — please retry sync.');
+      } else {
+        await supabase
+          .from('promotional_periods' as any)
+          .update({
+            last_sync_status: 'synced',
+            last_synced_at: new Date().toISOString(),
+            last_sync_error: null,
+          })
+          .eq('id', editing.id);
+        toast.success('Promotion updated and synced');
+      }
+
+      setSaving(false);
+      onSaved();
       return;
     }
-    toast.success(editing ? 'Promotion updated' : 'Promotion created');
+
+    const { error: insertErr } = await supabase
+      .from('promotional_periods' as any)
+      .insert({ ...payload, created_by: userRes.user?.id ?? null });
+    setSaving(false);
+    if (insertErr) {
+      toast.error('Failed to save: ' + insertErr.message);
+      return;
+    }
+    toast.success('Promotion created');
     onSaved();
   }
 
