@@ -839,8 +839,8 @@ function PromotionDialog({
                   <TooltipTrigger asChild>
                     <Info className="h-3 w-3 text-muted-foreground" />
                   </TooltipTrigger>
-                  <TooltipContent>
-                    Guests can book this promotion during this window
+                  <TooltipContent className="max-w-xs">
+                    When guests can book this promotion. Discounts only apply to reservations made within this window. Example: Set 'Apr 30 — May 31' to run a one-month promotional campaign.
                   </TooltipContent>
                 </Tooltip>
               </div>
@@ -866,8 +866,8 @@ function PromotionDialog({
                   <TooltipTrigger asChild>
                     <Info className="h-3 w-3 text-muted-foreground" />
                   </TooltipTrigger>
-                  <TooltipContent>
-                    Discount applies to nights within this date range
+                  <TooltipContent className="max-w-xs">
+                    Which nights are eligible for the discount. Only stays falling within this date range will receive the promotional rate. Example: Set 'Jul 1 — Aug 31' to discount summer stays.
                   </TooltipContent>
                 </Tooltip>
               </div>
