@@ -177,12 +177,32 @@ Deno.serve(async (req: Request) => {
         continue;
       }
 
+      const planBounds = boundsByPlan.get(u.rate_plan_id);
+      let finalRate = u.rate;
+      if (planBounds) {
+        if (planBounds.min !== null && finalRate < planBounds.min) {
+          console.warn('[channex-push-rates] Clamped rate below min', {
+            original: u.rate,
+            clamped: planBounds.min,
+            rate_plan_id: u.rate_plan_id,
+          });
+          finalRate = planBounds.min;
+        } else if (planBounds.max !== null && finalRate > planBounds.max) {
+          console.warn('[channex-push-rates] Clamped rate above max', {
+            original: u.rate,
+            clamped: planBounds.max,
+            rate_plan_id: u.rate_plan_id,
+          });
+          finalRate = planBounds.max;
+        }
+      }
+
       const value: Record<string, unknown> = {
         property_id: channexPropertyId,
         rate_plan_id: channexRatePlanId,
         date_from: u.date_from,
         date_to: u.date_to,
-        rate: Math.round(u.rate * 100),
+        rate: Math.round(finalRate * 100),
       };
 
       if (u.min_stay_arrival !== undefined) value.min_stay_arrival = u.min_stay_arrival;
