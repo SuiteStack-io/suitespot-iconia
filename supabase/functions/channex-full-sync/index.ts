@@ -534,6 +534,16 @@ Deno.serve(async (req: Request) => {
         .in("id", allRestrictionIds);
     }
 
+    // ── Batched pricing_log insert ──
+    if (pricingLogRows.length > 0) {
+      const { error: logErr } = await supabase
+        .from('pricing_log')
+        .insert(pricingLogRows);
+      if (logErr) {
+        console.error('[channex-full-sync] pricing_log insert failed:', logErr);
+      }
+    }
+
     // ── LOG ────────────────────────────────────────────────────
     await logSync(
       "channex-full-sync",
