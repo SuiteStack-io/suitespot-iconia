@@ -138,6 +138,29 @@ Deno.serve(async (req: Request) => {
       return data?.channex_id || null;
     }
 
+    // --- Safety clamp: load min/max bounds per rate plan ---
+    const uniquePropertyIds = Array.from(new Set(updates.map(u => u.property_id)));
+    const { data: bounds } = await serviceSupabase
+      .from("rate_plan_prices")
+      .select("rate_plan_id, room_type, min_rate, max_rate, rate_plans!inner(property_id)")
+      .in("rate_plans.property_id", uniquePropertyIds)
+      .is("unit_id", null);
+
+    const boundsByPlan = new Map<string, { min: number | null; max: number | null }>();
+    for (const row of (bounds || [])) {
+      const min = row.min_rate != null ? Number(row.min_rate) : null;
+      const max = row.max_rate != null ? Number(row.max_rate) : null;
+      const existing = boundsByPlan.get(row.rate_plan_id);
+      if (!existing) {
+        boundsByPlan.set(row.rate_plan_id, { min, max });
+      } else {
+        boundsByPlan.set(row.rate_plan_id, {
+          min: existing.min === null || (min !== null && min < existing.min) ? min : existing.min,
+          max: existing.max === null || (max !== null && max > existing.max) ? max : existing.max,
+        });
+      }
+    }
+
     const values: object[] = [];
     const errors: object[] = [];
 
