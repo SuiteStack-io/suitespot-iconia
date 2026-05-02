@@ -366,25 +366,74 @@ Deno.serve(async (req: Request) => {
         const defaultMinThroughVal = Array.isArray(defaultMinThroughArr) && defaultMinThroughArr.length > 0 ? defaultMinThroughArr[0] : 1;
 
         for (const p of prices) {
-          const weekdayRateCents = Math.round(p.weekday_rate * 100);
-          const weekendRateCents = p.weekend_rate ? Math.round(p.weekend_rate * 100) : weekdayRateCents;
-          const offPeakRateCents = p.off_peak_rate ? Math.round(p.off_peak_rate * 100) : weekdayRateCents;
-
-          // Build day-by-day rates across the valid range (defaults from rate_plan_prices)
+          // Build day-by-day rates across the valid range
           const rateStart = new Date(dateFrom < todayStr ? todayStr : dateFrom);
           const rateEnd = new Date(dateTo);
           const dailyRates: { date: string; rate: number }[] = [];
 
-          for (let d = new Date(rateStart); d < rateEnd; d = addDays(d, 1)) {
-            const ds = formatDate(d);
-            const dow = d.getDay(); // 0=Sun, 6=Sat
-            let rateCents = weekdayRateCents;
-            if (propertyOffPeakDays.length > 0 && propertyOffPeakDays.includes(dow) && offPeakRateCents > 0) {
-              rateCents = offPeakRateCents;
-            } else if (propertyWeekendDays.includes(dow) && weekendRateCents > 0) {
-              rateCents = weekendRateCents;
+          if (dynamicCtx) {
+            for (let d = new Date(rateStart); d < rateEnd; d = addDays(d, 1)) {
+              const ds = formatDate(d);
+              const result = calculateDynamicRate(dynamicCtx, {
+                target_date: ds,
+                room_type: p.room_type,
+                rate_plan_id: ratePlan.id,
+                priceRow: {
+                  weekday_rate: p.weekday_rate,
+                  weekend_rate: p.weekend_rate,
+                  off_peak_rate: p.off_peak_rate,
+                  min_rate: p.min_rate,
+                  max_rate: p.max_rate,
+                },
+              });
+              dailyRates.push({ date: ds, rate: Math.round(result.final_rate * 100) });
+
+              if (result.kind === 'dynamic' && (result.month_phase === 'A' || result.month_phase === 'B')) {
+                pricingLogRows.push({
+                  property_id: propertyId,
+                  date_priced: ds,
+                  target_month: ds.slice(0, 7),
+                  month_phase: result.month_phase,
+                  room_type: p.room_type,
+                  rate_plan_id: ratePlan.id,
+                  base_rate: result.base_rate,
+                  calculated_rate: result.calculated_rate,
+                  final_rate: result.final_rate,
+                  day_of_week_multiplier: result.day_of_week_multiplier,
+                  occupancy_percent: result.occupancy_percent,
+                  occupancy_tier: result.occupancy_tier,
+                  occupancy_adjustment_percent: result.occupancy_adjustment_percent,
+                  pace_index: result.pace_index,
+                  revenue_total: result.revenue_total,
+                  revenue_achievement_percent: result.revenue_achievement_percent,
+                  revenue_adjustment_percent: result.revenue_adjustment_percent,
+                  room_type_min_rate: result.room_type_min_rate,
+                  room_type_max_rate: result.room_type_max_rate,
+                  was_clamped: result.was_clamped,
+                  clamp_direction: result.clamp_direction,
+                  override_id: result.override?.id || null,
+                  override_active: !!result.override,
+                  promotion_id: result.promotion?.id || null,
+                  promotion_discount_percent: result.promotion?.discount_percent || null,
+                });
+              }
             }
-            dailyRates.push({ date: ds, rate: rateCents });
+          } else {
+            const weekdayRateCents = Math.round(p.weekday_rate * 100);
+            const weekendRateCents = p.weekend_rate ? Math.round(p.weekend_rate * 100) : weekdayRateCents;
+            const offPeakRateCents = p.off_peak_rate ? Math.round(p.off_peak_rate * 100) : weekdayRateCents;
+
+            for (let d = new Date(rateStart); d < rateEnd; d = addDays(d, 1)) {
+              const ds = formatDate(d);
+              const dow = d.getDay(); // 0=Sun, 6=Sat
+              let rateCents = weekdayRateCents;
+              if (propertyOffPeakDays.length > 0 && propertyOffPeakDays.includes(dow) && offPeakRateCents > 0) {
+                rateCents = offPeakRateCents;
+              } else if (propertyWeekendDays.includes(dow) && weekendRateCents > 0) {
+                rateCents = weekendRateCents;
+              }
+              dailyRates.push({ date: ds, rate: rateCents });
+            }
           }
 
           // Overlay rate overrides: priority 1 = rate_plan_restrictions, priority 2 = rate_plan_date_overrides
