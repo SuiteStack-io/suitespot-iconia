@@ -550,6 +550,16 @@ Deno.serve(async (req: Request) => {
           }
         }
 
+        // ── Batched pricing_log insert (per property) ──
+        if (pricingLogRows.length > 0) {
+          const { error: logErr } = await supabase
+            .from('pricing_log')
+            .insert(pricingLogRows);
+          if (logErr) {
+            console.error(`[daily-sync] pricing_log insert failed for property ${propertyId}:`, logErr);
+          }
+        }
+
         summary.properties_synced++;
       } catch (err: any) {
         summary.errors.push(`Property ${propMapping.local_id}: ${err.message}`);
