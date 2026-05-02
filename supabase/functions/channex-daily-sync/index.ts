@@ -91,11 +91,89 @@ Deno.serve(async (req: Request) => {
         // Fetch property pricing config
         const { data: propConfig } = await supabase
           .from("properties")
-          .select("weekend_days, off_peak_days")
+          .select("id, weekend_days, off_peak_days, timezone")
           .eq("id", propMapping.local_id)
           .maybeSingle();
         const propWeekendDays: number[] = propConfig?.weekend_days || [4, 5];
         const propOffPeakDays: number[] = propConfig?.off_peak_days || [];
+
+        // ── DYNAMIC PRICING PRE-LOAD (per property) ──
+        const propertyId = propMapping.local_id;
+        const { data: pricingRules } = await supabase
+          .from('pricing_rules')
+          .select('*')
+          .eq('property_id', propertyId)
+          .maybeSingle();
+        const dynamicPricingEnabled = pricingRules?.is_enabled === true;
+
+        let promotions: any[] = [];
+        let overrides: any[] = [];
+        let unitsForOcc: any[] = [];
+        let reservationsForOcc: any[] = [];
+        let todayInTz: string = '';
+        const monthlyRevenueByMonth: Record<string, number> = {};
+        const monthlyBookedNightsByMonth: Record<string, number> = {};
+        const pricingLogRows: any[] = [];
+
+        if (dynamicPricingEnabled) {
+          const tz = propConfig?.timezone || 'Africa/Cairo';
+          todayInTz = new Date().toLocaleDateString('en-CA', { timeZone: tz });
+          const endDateStr = formatDate(endDate);
+
+          const { data: promosData } = await supabase
+            .from('promotional_periods')
+            .select('id, discount_type, discount_value, room_types, created_at, stay_start, stay_end, booking_window_start, booking_window_end, is_active')
+            .eq('property_id', propertyId)
+            .eq('is_active', true)
+            .lte('booking_window_start', todayInTz)
+            .gte('booking_window_end', todayInTz)
+            .lte('stay_start', endDateStr)
+            .gte('stay_end', todayInTz);
+          promotions = promosData || [];
+
+          const { data: overridesData } = await supabase
+            .from('pricing_overrides')
+            .select('id, override_date, override_type, value, room_type, property_id')
+            .eq('property_id', propertyId)
+            .gte('override_date', todayInTz)
+            .lte('override_date', endDateStr);
+          overrides = overridesData || [];
+
+          const { data: unitsData } = await supabase
+            .from('units')
+            .select('id, status')
+            .eq('property_id', propertyId)
+            .neq('status', 'maintenance');
+          unitsForOcc = unitsData || [];
+
+          const { data: resData } = await supabase
+            .from('reservations')
+            .select('id, unit_id, property_id, check_in_date, check_out_date, total_price, status')
+            .eq('property_id', propertyId)
+            .in('status', ['confirmed', 'checked-in'])
+            .lt('check_in_date', endDateStr)
+            .gt('check_out_date', todayInTz);
+          reservationsForOcc = resData || [];
+        }
+
+        const dynamicCtx: DynamicPricingContext | null = dynamicPricingEnabled
+          ? {
+              property: {
+                id: propertyId,
+                weekend_days: propWeekendDays,
+                off_peak_days: propOffPeakDays,
+                timezone: propConfig?.timezone || 'Africa/Cairo',
+              },
+              pricingRules,
+              reservations: reservationsForOcc,
+              units: unitsForOcc,
+              overrides,
+              promotions,
+              todayStrInTz: todayInTz,
+              monthlyBookedNightsByMonth,
+              monthlyRevenueByMonth,
+            }
+          : null;
 
         // ── 2a. AVAILABILITY ──────────────────────────────────────
         const { data: roomTypeMappings } = await supabase
