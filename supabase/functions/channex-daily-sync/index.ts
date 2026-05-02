@@ -1,6 +1,7 @@
 
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
 import { channexRequest, logSync, createAlert } from "../_shared/channex-client.ts";
+import { calculateDynamicRate, type DynamicPricingContext } from "../_shared/dynamic-pricing.ts";
 
 /**
  * channex-daily-sync
@@ -90,11 +91,89 @@ Deno.serve(async (req: Request) => {
         // Fetch property pricing config
         const { data: propConfig } = await supabase
           .from("properties")
-          .select("weekend_days, off_peak_days")
+          .select("id, weekend_days, off_peak_days, timezone")
           .eq("id", propMapping.local_id)
           .maybeSingle();
         const propWeekendDays: number[] = propConfig?.weekend_days || [4, 5];
         const propOffPeakDays: number[] = propConfig?.off_peak_days || [];
+
+        // ── DYNAMIC PRICING PRE-LOAD (per property) ──
+        const propertyId = propMapping.local_id;
+        const { data: pricingRules } = await supabase
+          .from('pricing_rules')
+          .select('*')
+          .eq('property_id', propertyId)
+          .maybeSingle();
+        const dynamicPricingEnabled = pricingRules?.is_enabled === true;
+
+        let promotions: any[] = [];
+        let overrides: any[] = [];
+        let unitsForOcc: any[] = [];
+        let reservationsForOcc: any[] = [];
+        let todayInTz: string = '';
+        const monthlyRevenueByMonth: Record<string, number> = {};
+        const monthlyBookedNightsByMonth: Record<string, number> = {};
+        const pricingLogRows: any[] = [];
+
+        if (dynamicPricingEnabled) {
+          const tz = propConfig?.timezone || 'Africa/Cairo';
+          todayInTz = new Date().toLocaleDateString('en-CA', { timeZone: tz });
+          const endDateStr = formatDate(endDate);
+
+          const { data: promosData } = await supabase
+            .from('promotional_periods')
+            .select('id, discount_type, discount_value, room_types, created_at, stay_start, stay_end, booking_window_start, booking_window_end, is_active')
+            .eq('property_id', propertyId)
+            .eq('is_active', true)
+            .lte('booking_window_start', todayInTz)
+            .gte('booking_window_end', todayInTz)
+            .lte('stay_start', endDateStr)
+            .gte('stay_end', todayInTz);
+          promotions = promosData || [];
+
+          const { data: overridesData } = await supabase
+            .from('pricing_overrides')
+            .select('id, override_date, override_type, value, room_type, property_id')
+            .eq('property_id', propertyId)
+            .gte('override_date', todayInTz)
+            .lte('override_date', endDateStr);
+          overrides = overridesData || [];
+
+          const { data: unitsData } = await supabase
+            .from('units')
+            .select('id, status')
+            .eq('property_id', propertyId)
+            .neq('status', 'maintenance');
+          unitsForOcc = unitsData || [];
+
+          const { data: resData } = await supabase
+            .from('reservations')
+            .select('id, unit_id, property_id, check_in_date, check_out_date, total_price, status')
+            .eq('property_id', propertyId)
+            .in('status', ['confirmed', 'checked-in'])
+            .lt('check_in_date', endDateStr)
+            .gt('check_out_date', todayInTz);
+          reservationsForOcc = resData || [];
+        }
+
+        const dynamicCtx: DynamicPricingContext | null = dynamicPricingEnabled
+          ? {
+              property: {
+                id: propertyId,
+                weekend_days: propWeekendDays,
+                off_peak_days: propOffPeakDays,
+                timezone: propConfig?.timezone || 'Africa/Cairo',
+              },
+              pricingRules,
+              reservations: reservationsForOcc,
+              units: unitsForOcc,
+              overrides,
+              promotions,
+              todayStrInTz: todayInTz,
+              monthlyBookedNightsByMonth,
+              monthlyRevenueByMonth,
+            }
+          : null;
 
         // ── 2a. AVAILABILITY ──────────────────────────────────────
         const { data: roomTypeMappings } = await supabase
@@ -308,26 +387,75 @@ Deno.serve(async (req: Request) => {
               const defaultMinThroughVal = Array.isArray(defaultMinThroughArr) && defaultMinThroughArr.length > 0 ? defaultMinThroughArr[0] : 1;
 
               for (const p of prices) {
-                const weekdayRateCents = Math.round(p.weekday_rate * 100);
-                const weekendRateCents = p.weekend_rate ? Math.round(p.weekend_rate * 100) : weekdayRateCents;
-                const offPeakRateCents = p.off_peak_rate ? Math.round(p.off_peak_rate * 100) : weekdayRateCents;
-                console.log(`[daily-sync] Rate plan ${ratePlan.name}: weekday=${weekdayRateCents} weekend=${weekendRateCents} offpeak=${offPeakRateCents} cents`);
-
                 // Build day-by-day rates (default from rate_plan_prices)
                 const rateStart = new Date(dateFrom < todayStr ? todayStr : dateFrom);
                 const rateEnd = new Date(dateTo);
                 const dailyRates: { date: string; rate: number }[] = [];
 
-                for (let d = new Date(rateStart); d < rateEnd; d = addDays(d, 1)) {
-                  const ds = formatDate(d);
-                  const dow = d.getDay();
-                  let rateCents = weekdayRateCents;
-                  if (propOffPeakDays.length > 0 && propOffPeakDays.includes(dow) && offPeakRateCents > 0) {
-                    rateCents = offPeakRateCents;
-                  } else if (propWeekendDays.includes(dow) && weekendRateCents > 0) {
-                    rateCents = weekendRateCents;
+                if (dynamicCtx) {
+                  for (let d = new Date(rateStart); d < rateEnd; d = addDays(d, 1)) {
+                    const ds = formatDate(d);
+                    const result = calculateDynamicRate(dynamicCtx, {
+                      target_date: ds,
+                      room_type: p.room_type,
+                      rate_plan_id: ratePlan.id,
+                      priceRow: {
+                        weekday_rate: p.weekday_rate,
+                        weekend_rate: p.weekend_rate,
+                        off_peak_rate: p.off_peak_rate,
+                        min_rate: p.min_rate,
+                        max_rate: p.max_rate,
+                      },
+                    });
+                    dailyRates.push({ date: ds, rate: Math.round(result.final_rate * 100) });
+
+                    if (result.kind === 'dynamic' && (result.month_phase === 'A' || result.month_phase === 'B')) {
+                      pricingLogRows.push({
+                        property_id: propertyId,
+                        date_priced: ds,
+                        target_month: ds.slice(0, 7),
+                        month_phase: result.month_phase,
+                        room_type: p.room_type,
+                        rate_plan_id: ratePlan.id,
+                        base_rate: result.base_rate,
+                        calculated_rate: result.calculated_rate,
+                        final_rate: result.final_rate,
+                        day_of_week_multiplier: result.day_of_week_multiplier,
+                        occupancy_percent: result.occupancy_percent,
+                        occupancy_tier: result.occupancy_tier,
+                        occupancy_adjustment_percent: result.occupancy_adjustment_percent,
+                        pace_index: result.pace_index,
+                        revenue_total: result.revenue_total,
+                        revenue_achievement_percent: result.revenue_achievement_percent,
+                        revenue_adjustment_percent: result.revenue_adjustment_percent,
+                        room_type_min_rate: result.room_type_min_rate,
+                        room_type_max_rate: result.room_type_max_rate,
+                        was_clamped: result.was_clamped,
+                        clamp_direction: result.clamp_direction,
+                        override_id: result.override?.id || null,
+                        override_active: !!result.override,
+                        promotion_id: result.promotion?.id || null,
+                        promotion_discount_percent: result.promotion?.discount_percent || null,
+                      });
+                    }
                   }
-                  dailyRates.push({ date: ds, rate: rateCents });
+                } else {
+                  const weekdayRateCents = Math.round(p.weekday_rate * 100);
+                  const weekendRateCents = p.weekend_rate ? Math.round(p.weekend_rate * 100) : weekdayRateCents;
+                  const offPeakRateCents = p.off_peak_rate ? Math.round(p.off_peak_rate * 100) : weekdayRateCents;
+                  console.log(`[daily-sync] Rate plan ${ratePlan.name}: weekday=${weekdayRateCents} weekend=${weekendRateCents} offpeak=${offPeakRateCents} cents`);
+
+                  for (let d = new Date(rateStart); d < rateEnd; d = addDays(d, 1)) {
+                    const ds = formatDate(d);
+                    const dow = d.getDay();
+                    let rateCents = weekdayRateCents;
+                    if (propOffPeakDays.length > 0 && propOffPeakDays.includes(dow) && offPeakRateCents > 0) {
+                      rateCents = offPeakRateCents;
+                    } else if (propWeekendDays.includes(dow) && weekendRateCents > 0) {
+                      rateCents = weekendRateCents;
+                    }
+                    dailyRates.push({ date: ds, rate: rateCents });
+                  }
                 }
 
                 // Overlay rate overrides: priority 1 = rate_plan_restrictions, priority 2 = rate_plan_date_overrides
@@ -419,6 +547,16 @@ Deno.serve(async (req: Request) => {
             } catch (err: any) {
               summary.errors.push(`Rate plan ${rpMapping.local_id}: ${err.message}`);
             }
+          }
+        }
+
+        // ── Batched pricing_log insert (per property) ──
+        if (pricingLogRows.length > 0) {
+          const { error: logErr } = await supabase
+            .from('pricing_log')
+            .insert(pricingLogRows);
+          if (logErr) {
+            console.error(`[daily-sync] pricing_log insert failed for property ${propertyId}:`, logErr);
           }
         }
 

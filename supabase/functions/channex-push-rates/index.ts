@@ -138,6 +138,29 @@ Deno.serve(async (req: Request) => {
       return data?.channex_id || null;
     }
 
+    // --- Safety clamp: load min/max bounds per rate plan ---
+    const uniquePropertyIds = Array.from(new Set(updates.map(u => u.property_id)));
+    const { data: bounds } = await serviceSupabase
+      .from("rate_plan_prices")
+      .select("rate_plan_id, room_type, min_rate, max_rate, rate_plans!inner(property_id)")
+      .in("rate_plans.property_id", uniquePropertyIds)
+      .is("unit_id", null);
+
+    const boundsByPlan = new Map<string, { min: number | null; max: number | null }>();
+    for (const row of (bounds || [])) {
+      const min = row.min_rate != null ? Number(row.min_rate) : null;
+      const max = row.max_rate != null ? Number(row.max_rate) : null;
+      const existing = boundsByPlan.get(row.rate_plan_id);
+      if (!existing) {
+        boundsByPlan.set(row.rate_plan_id, { min, max });
+      } else {
+        boundsByPlan.set(row.rate_plan_id, {
+          min: existing.min === null || (min !== null && min < existing.min) ? min : existing.min,
+          max: existing.max === null || (max !== null && max > existing.max) ? max : existing.max,
+        });
+      }
+    }
+
     const values: object[] = [];
     const errors: object[] = [];
 
@@ -154,12 +177,32 @@ Deno.serve(async (req: Request) => {
         continue;
       }
 
+      const planBounds = boundsByPlan.get(u.rate_plan_id);
+      let finalRate = u.rate;
+      if (planBounds) {
+        if (planBounds.min !== null && finalRate < planBounds.min) {
+          console.warn('[channex-push-rates] Clamped rate below min', {
+            original: u.rate,
+            clamped: planBounds.min,
+            rate_plan_id: u.rate_plan_id,
+          });
+          finalRate = planBounds.min;
+        } else if (planBounds.max !== null && finalRate > planBounds.max) {
+          console.warn('[channex-push-rates] Clamped rate above max', {
+            original: u.rate,
+            clamped: planBounds.max,
+            rate_plan_id: u.rate_plan_id,
+          });
+          finalRate = planBounds.max;
+        }
+      }
+
       const value: Record<string, unknown> = {
         property_id: channexPropertyId,
         rate_plan_id: channexRatePlanId,
         date_from: u.date_from,
         date_to: u.date_to,
-        rate: Math.round(u.rate * 100),
+        rate: Math.round(finalRate * 100),
       };
 
       if (u.min_stay_arrival !== undefined) value.min_stay_arrival = u.min_stay_arrival;
