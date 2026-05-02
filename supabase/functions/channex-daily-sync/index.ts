@@ -1,6 +1,7 @@
 
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
 import { channexRequest, logSync, createAlert } from "../_shared/channex-client.ts";
+import { calculateDynamicRate, type DynamicPricingContext } from "../_shared/dynamic-pricing.ts";
 
 /**
  * channex-daily-sync
