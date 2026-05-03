@@ -1810,6 +1810,18 @@ function PricingDashboard({ propertyId, rules, overridesRefreshKey, onOverridesC
           onOverridesChanged();
         }}
       />
+      <PricingBriefDialog
+        open={briefOpen}
+        onOpenChange={setBriefOpen}
+        propertyId={propertyId}
+        rules={rules}
+        monthSummaries={monthSummaries}
+        activeRatePlans={activeRatePlans}
+        previewByMonth={previewByMonth}
+        setPreviewByMonth={setPreviewByMonth}
+        initialMonthKey={selectedMonth}
+        initialRatePlanId={selectedRatePlan?.id ?? ''}
+      />
     </Card>
   );
 }
