@@ -16,7 +16,8 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from '@/components/ui/dialog';
 import { Select, SelectTrigger, SelectValue, SelectContent, SelectItem } from '@/components/ui/select';
 import { Progress } from '@/components/ui/progress';
-import { Loader2, ChevronDown, Info, RotateCcw, Save, X } from 'lucide-react';
+import { Loader2, ChevronDown, Info, RotateCcw, Save, X, Plus, Pencil, Trash2 } from 'lucide-react';
+import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from '@/components/ui/alert-dialog';
 import { toast } from 'sonner';
 import { NotificationBell } from '@/components/NotificationBell';
 import { cn } from '@/lib/utils';
@@ -100,6 +101,9 @@ export default function DynamicPricing() {
 
   // Pace info dialog
   const [paceInfoOpen, setPaceInfoOpen] = useState(false);
+
+  // Manual overrides refresh trigger
+  const [overridesRefreshKey, setOverridesRefreshKey] = useState(0);
 
   const pendingRulesCount = Object.keys(pendingRulesChanges).length;
   const pendingBoundsCount = Object.keys(pendingBoundsChanges).length;
@@ -992,6 +996,15 @@ export default function DynamicPricing() {
           <PricingDashboard
             propertyId={propertyId}
             rules={rules}
+            overridesRefreshKey={overridesRefreshKey}
+            onOverridesChanged={() => setOverridesRefreshKey(k => k + 1)}
+          />
+
+          {/* Manual Overrides */}
+          <OverridesSection
+            propertyId={propertyId}
+            refreshKey={overridesRefreshKey}
+            onChanged={() => setOverridesRefreshKey(k => k + 1)}
           />
         </div>
       </div>
@@ -1117,7 +1130,7 @@ function tierIndex(value: number, thresholds: number[]): number {
   return i;
 }
 
-function PricingDashboard({ propertyId, rules }: { propertyId: string; rules: PricingRules }) {
+function PricingDashboard({ propertyId, rules, overridesRefreshKey, onOverridesChanged }: { propertyId: string; rules: PricingRules; overridesRefreshKey: number; onOverridesChanged: () => void }) {
   const [dashboardLoading, setDashboardLoading] = useState(false);
   const [activeRatePlans, setActiveRatePlans] = useState<Array<{ id: string; room_type: string; name: string }>>([]);
   const [selectedRatePlan, setSelectedRatePlan] = useState<{ id: string; room_type: string } | null>(null);
@@ -1125,6 +1138,8 @@ function PricingDashboard({ propertyId, rules }: { propertyId: string; rules: Pr
   const [selectedMonth, setSelectedMonth] = useState<string>('');
   const [previewByMonth, setPreviewByMonth] = useState<Record<string, PreviewRow[]>>({});
   const [previewLoading, setPreviewLoading] = useState(false);
+  const [roomTypes, setRoomTypes] = useState<string[]>([]);
+  const [quickDialog, setQuickDialog] = useState<{ open: boolean; initial: OverrideDialogInitial | undefined }>({ open: false, initial: undefined });
 
   // Load cards data
   useEffect(() => {
@@ -1183,11 +1198,12 @@ function PricingDashboard({ propertyId, rules }: { propertyId: string; rules: Pr
         // Active units
         const { data: unitsData } = await supabase
           .from('units')
-          .select('id')
+          .select('id, booking_com_name')
           .eq('property_id', propertyId)
           .neq('status', 'maintenance');
-        const units = (unitsData ?? []) as { id: string }[];
+        const units = (unitsData ?? []) as { id: string; booking_com_name: string | null }[];
         const unitIds = units.map(u => u.id);
+        const distinctRoomTypes = Array.from(new Set(units.map(u => u.booking_com_name).filter((v): v is string => !!v))).sort();
 
         // Reservations across full window
         let reservations: any[] = [];
@@ -1311,6 +1327,7 @@ function PricingDashboard({ propertyId, rules }: { propertyId: string; rules: Pr
         setSelectedRatePlan(prev => prev ?? (plans[0] ? { id: plans[0].id, room_type: plans[0].room_type } : null));
         setMonthSummaries(summaries);
         setSelectedMonth(prev => prev || summaries[0]?.key || '');
+        setRoomTypes(distinctRoomTypes);
       } catch (err) {
         console.error('Failed to load pricing dashboard', err);
       } finally {
@@ -1357,7 +1374,54 @@ function PricingDashboard({ propertyId, rules }: { propertyId: string; rules: Pr
     return () => { cancelled = true; };
   }, [selectedMonth, selectedRatePlan, propertyId, monthSummaries, previewByMonth]);
 
+  // Clear preview cache when overrides change so the table refreshes
+  useEffect(() => {
+    setPreviewByMonth({});
+  }, [overridesRefreshKey]);
+
   const previewRows = previewByMonth[`${selectedMonth}_${selectedRatePlan?.id ?? ''}`] ?? [];
+
+  async function openExistingOverride(targetDate: string) {
+    if (!selectedRatePlan) return;
+    const { data: matches } = await supabase
+      .from('pricing_overrides')
+      .select('*')
+      .eq('property_id', propertyId)
+      .eq('override_date', targetDate)
+      .or(`room_type.eq.${selectedRatePlan.room_type},room_type.is.null`);
+    const specific = matches?.find((m: any) => m.room_type === selectedRatePlan.room_type);
+    const wildcard = matches?.find((m: any) => m.room_type === null);
+    const existing: any = specific ?? wildcard;
+    if (!existing) {
+      toast.error('Override not found');
+      return;
+    }
+    setQuickDialog({
+      open: true,
+      initial: {
+        id: existing.id,
+        override_date: existing.override_date,
+        room_type: existing.room_type,
+        override_type: existing.override_type,
+        value: Number(existing.value),
+        reason: existing.reason ?? '',
+      },
+    });
+  }
+
+  function openAddOverrideForDate(targetDate: string, suggestedRate: number) {
+    if (!selectedRatePlan) return;
+    setQuickDialog({
+      open: true,
+      initial: {
+        override_date: targetDate,
+        room_type: selectedRatePlan.room_type,
+        override_type: 'fixed_rate',
+        value: Math.round(suggestedRate),
+        reason: '',
+      },
+    });
+  }
 
   return (
     <Card>
@@ -1521,7 +1585,26 @@ function PricingDashboard({ propertyId, rules }: { propertyId: string; rules: Pr
                             <TableCell className="text-right">{row.adjustments.revenue_adjustment >= 0 ? '+' : ''}{row.adjustments.revenue_adjustment}%</TableCell>
                             <TableCell className="text-right font-semibold">${Math.round(row.final_rate).toLocaleString()}</TableCell>
                             <TableCell>
-                              {isOverride && <Badge variant="secondary" className="bg-blue-100 text-blue-800">Override</Badge>}
+                              {isOverride ? (
+                                <button
+                                  type="button"
+                                  onClick={() => openExistingOverride(row.target_date)}
+                                  className="inline-flex"
+                                >
+                                  <Badge variant="secondary" className="bg-blue-100 text-blue-800 hover:bg-blue-200 cursor-pointer">Override</Badge>
+                                </button>
+                              ) : (
+                                <Button
+                                  type="button"
+                                  variant="ghost"
+                                  size="sm"
+                                  className="h-6 w-6 p-0"
+                                  onClick={() => openAddOverrideForDate(row.target_date, row.final_rate)}
+                                  aria-label="Add override"
+                                >
+                                  <Plus className="h-3.5 w-3.5" />
+                                </Button>
+                              )}
                             </TableCell>
                           </TableRow>
                         );
@@ -1539,6 +1622,451 @@ function PricingDashboard({ propertyId, rules }: { propertyId: string; rules: Pr
           </>
         )}
       </CardContent>
+      <OverrideDialog
+        open={quickDialog.open}
+        onOpenChange={(o) => setQuickDialog(prev => ({ ...prev, open: o }))}
+        propertyId={propertyId}
+        roomTypes={roomTypes}
+        initial={quickDialog.initial}
+        allowDateRange={false}
+        onSaved={() => {
+          setQuickDialog({ open: false, initial: undefined });
+          setPreviewByMonth({});
+          onOverridesChanged();
+        }}
+      />
+    </Card>
+  );
+}
+
+// ---------- Manual Overrides ----------
+type OverrideType = 'fixed_rate' | 'percentage_adjustment' | 'multiplier';
+
+interface OverrideDialogInitial {
+  id?: string;
+  override_date?: string;
+  room_type?: string | null;
+  override_type?: OverrideType;
+  value?: number;
+  reason?: string;
+}
+
+interface OverrideRow {
+  id: string;
+  property_id: string;
+  override_date: string;
+  override_type: OverrideType;
+  value: number;
+  reason: string | null;
+  room_type: string | null;
+  created_by: string | null;
+  created_at: string;
+}
+
+const TYPE_LABELS: Record<OverrideType, string> = {
+  fixed_rate: 'Fixed Rate',
+  percentage_adjustment: '% Adjustment',
+  multiplier: 'Multiplier',
+};
+
+function formatOverrideValue(t: OverrideType, v: number): string {
+  if (t === 'fixed_rate') return `$${Math.round(v).toLocaleString()}`;
+  if (t === 'percentage_adjustment') return `${v >= 0 ? '+' : ''}${v}%`;
+  return `${Number(v).toFixed(2)}x`;
+}
+
+function dateRangeList(start: string, end: string): string[] {
+  const out: string[] = [];
+  let cur = start;
+  while (cur <= end) {
+    out.push(cur);
+    const d = new Date(cur + 'T00:00:00Z');
+    d.setUTCDate(d.getUTCDate() + 1);
+    cur = d.toISOString().slice(0, 10);
+  }
+  return out;
+}
+
+function OverrideDialog({
+  open, onOpenChange, propertyId, roomTypes, initial, allowDateRange = true, onSaved,
+}: {
+  open: boolean;
+  onOpenChange: (v: boolean) => void;
+  propertyId: string;
+  roomTypes: string[];
+  initial?: OverrideDialogInitial;
+  allowDateRange?: boolean;
+  onSaved: () => void;
+}) {
+  const { user } = useAuth();
+  const isEdit = !!initial?.id;
+  const today = new Date().toISOString().slice(0, 10);
+
+  const [startDate, setStartDate] = useState<string>('');
+  const [endDate, setEndDate] = useState<string>('');
+  const [roomType, setRoomType] = useState<string>('__all__');
+  const [overrideType, setOverrideType] = useState<OverrideType>('fixed_rate');
+  const [value, setValue] = useState<string>('');
+  const [reason, setReason] = useState<string>('');
+  const [saving, setSaving] = useState(false);
+
+  useEffect(() => {
+    if (!open) return;
+    setStartDate(initial?.override_date ?? today);
+    setEndDate(initial?.override_date ?? today);
+    setRoomType(initial?.room_type ?? '__all__');
+    setOverrideType((initial?.override_type as OverrideType) ?? 'fixed_rate');
+    setValue(initial?.value != null ? String(initial.value) : '');
+    setReason(initial?.reason ?? '');
+  }, [open, initial, today]);
+
+  const showRange = allowDateRange && !isEdit;
+
+  async function handleSave() {
+    const parsed = parseFloat(value);
+    if (!isFinite(parsed)) {
+      toast.error('Please enter a valid value');
+      return;
+    }
+    if (!startDate) {
+      toast.error('Please select a date');
+      return;
+    }
+    setSaving(true);
+    try {
+      if (isEdit && initial?.id) {
+        const { error } = await supabase
+          .from('pricing_overrides')
+          .update({ override_type: overrideType, value: parsed, reason: reason || null })
+          .eq('id', initial.id);
+        if (error) throw error;
+        toast.success('Override updated');
+      } else {
+        const dates = showRange ? dateRangeList(startDate, endDate || startDate) : [startDate];
+        const rt = roomType === '__all__' ? null : roomType;
+        const rows = dates.map(d => ({
+          property_id: propertyId,
+          override_date: d,
+          room_type: rt,
+          override_type: overrideType,
+          value: parsed,
+          reason: reason || null,
+          created_by: user?.id ?? null,
+        }));
+        const { error } = await supabase.from('pricing_overrides').insert(rows);
+        if (error) {
+          if ((error as any).code === '23505') {
+            toast.error('An override already exists for this date and room type');
+          } else {
+            throw error;
+          }
+          return;
+        }
+        toast.success(rows.length === 1 ? `Override added for ${dates[0]}` : `Added ${rows.length} overrides`);
+      }
+      onSaved();
+    } catch (err: any) {
+      console.error('Failed to save override', err);
+      toast.error(err?.message || 'Failed to save override');
+    } finally {
+      setSaving(false);
+    }
+  }
+
+  const valueLabel =
+    overrideType === 'fixed_rate' ? 'Set rate to exactly this amount' :
+    overrideType === 'percentage_adjustment' ? 'Adjust calculated rate by this percentage (use negative for discount)' :
+    'Multiply calculated rate by this factor';
+  const valuePrefix = overrideType === 'fixed_rate' ? '$' : null;
+  const valueSuffix = overrideType === 'percentage_adjustment' ? '%' : overrideType === 'multiplier' ? 'x' : null;
+
+  return (
+    <Dialog open={open} onOpenChange={onOpenChange}>
+      <DialogContent className="max-w-md">
+        <DialogHeader>
+          <DialogTitle>{isEdit ? 'Edit Override' : 'Add Override'}</DialogTitle>
+          <DialogDescription>Manually set or adjust the rate for specific dates.</DialogDescription>
+        </DialogHeader>
+        <div className="space-y-4">
+          {showRange ? (
+            <div className="grid grid-cols-2 gap-2">
+              <div>
+                <Label className="text-xs">Start date</Label>
+                <Input type="date" value={startDate} onChange={(e) => setStartDate(e.target.value)} />
+              </div>
+              <div>
+                <Label className="text-xs">End date</Label>
+                <Input type="date" value={endDate} onChange={(e) => setEndDate(e.target.value)} />
+              </div>
+            </div>
+          ) : (
+            <div>
+              <Label className="text-xs">Date</Label>
+              <Input type="date" value={startDate} onChange={(e) => setStartDate(e.target.value)} disabled={isEdit} />
+            </div>
+          )}
+
+          <div>
+            <Label className="text-xs">Room Type</Label>
+            <Select value={roomType} onValueChange={setRoomType} disabled={isEdit}>
+              <SelectTrigger>
+                <SelectValue />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="__all__">All Room Types</SelectItem>
+                {roomTypes.map(rt => (
+                  <SelectItem key={rt} value={rt}>{rt}</SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+          </div>
+
+          <div>
+            <Label className="text-xs">Override Type</Label>
+            <RadioGroup
+              value={overrideType}
+              onValueChange={(v) => setOverrideType(v as OverrideType)}
+              className="flex gap-4 pt-1"
+            >
+              <div className="flex items-center gap-2">
+                <RadioGroupItem value="fixed_rate" id="ot-fixed" />
+                <Label htmlFor="ot-fixed" className="text-sm font-normal">Fixed Rate</Label>
+              </div>
+              <div className="flex items-center gap-2">
+                <RadioGroupItem value="percentage_adjustment" id="ot-pct" />
+                <Label htmlFor="ot-pct" className="text-sm font-normal">Percentage</Label>
+              </div>
+              <div className="flex items-center gap-2">
+                <RadioGroupItem value="multiplier" id="ot-mult" />
+                <Label htmlFor="ot-mult" className="text-sm font-normal">Multiplier</Label>
+              </div>
+            </RadioGroup>
+          </div>
+
+          <div>
+            <Label className="text-xs">Value</Label>
+            <div className="relative">
+              {valuePrefix && (
+                <span className="absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground text-sm">{valuePrefix}</span>
+              )}
+              <Input
+                type="number"
+                step="any"
+                value={value}
+                onChange={(e) => setValue(e.target.value)}
+                className={cn(valuePrefix && 'pl-7', valueSuffix && 'pr-7')}
+              />
+              {valueSuffix && (
+                <span className="absolute right-3 top-1/2 -translate-y-1/2 text-muted-foreground text-sm">{valueSuffix}</span>
+              )}
+            </div>
+            <p className="text-xs text-muted-foreground mt-1">{valueLabel}</p>
+          </div>
+
+          <div>
+            <Label className="text-xs">Reason (optional)</Label>
+            <Input
+              value={reason}
+              onChange={(e) => setReason(e.target.value)}
+              placeholder="Why are you overriding? (e.g., local event, holiday)"
+            />
+          </div>
+        </div>
+        <div className="flex justify-end gap-2 pt-2">
+          <Button variant="outline" onClick={() => onOpenChange(false)} disabled={saving}>Cancel</Button>
+          <Button onClick={handleSave} disabled={saving}>
+            {saving && <Loader2 className="h-4 w-4 mr-2 animate-spin" />}
+            {isEdit ? 'Update' : 'Save'}
+          </Button>
+        </div>
+      </DialogContent>
+    </Dialog>
+  );
+}
+
+function OverridesSection({
+  propertyId, refreshKey, onChanged,
+}: {
+  propertyId: string;
+  refreshKey: number;
+  onChanged: () => void;
+}) {
+  const [rows, setRows] = useState<OverrideRow[]>([]);
+  const [roomTypes, setRoomTypes] = useState<string[]>([]);
+  const [creators, setCreators] = useState<Record<string, string>>({});
+  const [loading, setLoading] = useState(false);
+  const [dialogOpen, setDialogOpen] = useState(false);
+  const [editing, setEditing] = useState<OverrideDialogInitial | undefined>(undefined);
+  const [confirmDeleteId, setConfirmDeleteId] = useState<string | null>(null);
+
+  const reload = useCallback(async () => {
+    if (!propertyId) return;
+    setLoading(true);
+    try {
+      const today = new Date().toISOString().slice(0, 10);
+      const [overridesRes, unitsRes] = await Promise.all([
+        supabase
+          .from('pricing_overrides')
+          .select('*')
+          .eq('property_id', propertyId)
+          .gte('override_date', today)
+          .order('override_date', { ascending: true }),
+        supabase
+          .from('units')
+          .select('booking_com_name')
+          .eq('property_id', propertyId)
+          .not('booking_com_name', 'is', null),
+      ]);
+      const fetched = ((overridesRes.data ?? []) as any[]).map(r => ({
+        ...r,
+        value: Number(r.value),
+      })) as OverrideRow[];
+      setRows(fetched);
+      const distinct = Array.from(new Set(((unitsRes.data ?? []) as any[]).map(u => u.booking_com_name).filter(Boolean))) as string[];
+      setRoomTypes(distinct.sort());
+
+      const creatorIds = Array.from(new Set(fetched.map(r => r.created_by).filter((v): v is string => !!v)));
+      if (creatorIds.length > 0) {
+        const { data: profs } = await supabase
+          .from('profiles')
+          .select('id, full_name')
+          .in('id', creatorIds);
+        const map: Record<string, string> = {};
+        for (const p of (profs ?? []) as any[]) map[p.id] = p.full_name ?? '';
+        setCreators(map);
+      } else {
+        setCreators({});
+      }
+    } catch (err) {
+      console.error('Failed to load overrides', err);
+    } finally {
+      setLoading(false);
+    }
+  }, [propertyId]);
+
+  useEffect(() => {
+    reload();
+  }, [reload, refreshKey]);
+
+  async function handleDelete(id: string) {
+    const { error } = await supabase.from('pricing_overrides').delete().eq('id', id);
+    if (error) {
+      toast.error(error.message || 'Failed to delete override');
+      return;
+    }
+    toast.success('Override removed');
+    setConfirmDeleteId(null);
+    await reload();
+    onChanged();
+  }
+
+  function openAdd() {
+    setEditing(undefined);
+    setDialogOpen(true);
+  }
+
+  function openEdit(r: OverrideRow) {
+    setEditing({
+      id: r.id,
+      override_date: r.override_date,
+      room_type: r.room_type,
+      override_type: r.override_type,
+      value: r.value,
+      reason: r.reason ?? '',
+    });
+    setDialogOpen(true);
+  }
+
+  return (
+    <Card>
+      <CardHeader className="flex flex-row items-start justify-between gap-2">
+        <div>
+          <CardTitle>Manual Overrides</CardTitle>
+          <CardDescription>Manually set or adjust rates for specific dates and room types.</CardDescription>
+        </div>
+        <Button size="sm" onClick={openAdd}>
+          <Plus className="h-4 w-4 mr-1" /> Add Override
+        </Button>
+      </CardHeader>
+      <CardContent>
+        {loading && rows.length === 0 ? (
+          <div className="flex items-center justify-center py-8">
+            <Loader2 className="h-6 w-6 animate-spin text-muted-foreground" />
+          </div>
+        ) : (
+          <div className="overflow-x-auto">
+            <Table>
+              <TableHeader>
+                <TableRow>
+                  <TableHead>Date</TableHead>
+                  <TableHead>Room Type</TableHead>
+                  <TableHead>Type</TableHead>
+                  <TableHead>Value</TableHead>
+                  <TableHead>Reason</TableHead>
+                  <TableHead>Created By</TableHead>
+                  <TableHead className="text-right">Actions</TableHead>
+                </TableRow>
+              </TableHeader>
+              <TableBody>
+                {rows.length === 0 ? (
+                  <TableRow>
+                    <TableCell colSpan={7} className="text-center text-muted-foreground py-6">
+                      No active overrides.
+                    </TableCell>
+                  </TableRow>
+                ) : rows.map(r => (
+                  <TableRow key={r.id}>
+                    <TableCell className="font-mono text-xs">{r.override_date}</TableCell>
+                    <TableCell>{r.room_type ?? 'All'}</TableCell>
+                    <TableCell>{TYPE_LABELS[r.override_type]}</TableCell>
+                    <TableCell>{formatOverrideValue(r.override_type, r.value)}</TableCell>
+                    <TableCell className="max-w-[240px] truncate">{r.reason ?? '—'}</TableCell>
+                    <TableCell>{r.created_by ? (creators[r.created_by] || '—') : '—'}</TableCell>
+                    <TableCell className="text-right">
+                      <div className="inline-flex gap-1">
+                        <Button variant="ghost" size="sm" className="h-8 w-8 p-0" onClick={() => openEdit(r)} aria-label="Edit override">
+                          <Pencil className="h-4 w-4" />
+                        </Button>
+                        <Button variant="ghost" size="sm" className="h-8 w-8 p-0" onClick={() => setConfirmDeleteId(r.id)} aria-label="Delete override">
+                          <Trash2 className="h-4 w-4" />
+                        </Button>
+                      </div>
+                    </TableCell>
+                  </TableRow>
+                ))}
+              </TableBody>
+            </Table>
+          </div>
+        )}
+      </CardContent>
+
+      <OverrideDialog
+        open={dialogOpen}
+        onOpenChange={setDialogOpen}
+        propertyId={propertyId}
+        roomTypes={roomTypes}
+        initial={editing}
+        allowDateRange={!editing?.id}
+        onSaved={() => {
+          setDialogOpen(false);
+          setEditing(undefined);
+          reload();
+          onChanged();
+        }}
+      />
+
+      <AlertDialog open={!!confirmDeleteId} onOpenChange={(o) => !o && setConfirmDeleteId(null)}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Delete this override?</AlertDialogTitle>
+            <AlertDialogDescription>This will remove the manual override and the calculated rate will apply again.</AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>Cancel</AlertDialogCancel>
+            <AlertDialogAction onClick={() => confirmDeleteId && handleDelete(confirmDeleteId)}>Delete</AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </Card>
   );
 }
