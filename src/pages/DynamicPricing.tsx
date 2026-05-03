@@ -102,6 +102,9 @@ export default function DynamicPricing() {
   // Pace info dialog
   const [paceInfoOpen, setPaceInfoOpen] = useState(false);
 
+  // Manual overrides refresh trigger
+  const [overridesRefreshKey, setOverridesRefreshKey] = useState(0);
+
   const pendingRulesCount = Object.keys(pendingRulesChanges).length;
   const pendingBoundsCount = Object.keys(pendingBoundsChanges).length;
   const totalPendingChanges = pendingRulesCount + pendingBoundsCount;
