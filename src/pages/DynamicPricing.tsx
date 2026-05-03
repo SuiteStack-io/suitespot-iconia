@@ -986,6 +986,12 @@ export default function DynamicPricing() {
               </Collapsible>
             </>
           )}
+
+          {/* Pricing Dashboard */}
+          <PricingDashboard
+            propertyId={propertyId}
+            rules={rules}
+          />
         </div>
       </div>
 
