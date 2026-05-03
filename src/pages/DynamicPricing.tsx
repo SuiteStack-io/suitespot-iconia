@@ -1448,16 +1448,38 @@ function PricingDashboard({ propertyId, rules }: { propertyId: string; rules: Pr
 
             {/* Rate Preview Table */}
             <div>
-              <div className="flex items-center justify-between mb-2">
+              <div className="flex items-center justify-between mb-2 gap-3 flex-wrap">
                 <h3 className="text-sm font-semibold">
-                  Rate Preview — {monthSummaries.find(s => s.key === selectedMonth)?.label ?? ''}
-                  {primaryRatePlan && <span className="text-muted-foreground font-normal ml-2">({primaryRatePlan.room_type})</span>}
+                  Preview — {monthSummaries.find(s => s.key === selectedMonth)?.label ?? ''}
+                  {selectedRatePlan && <span className="text-muted-foreground font-normal"> · {selectedRatePlan.room_type}</span>}
                 </h3>
-                {previewLoading && <Loader2 className="h-4 w-4 animate-spin text-muted-foreground" />}
+                <div className="flex items-center gap-2">
+                  {previewLoading && <Loader2 className="h-4 w-4 animate-spin text-muted-foreground" />}
+                  {activeRatePlans.length > 0 && (
+                    <Select
+                      value={selectedRatePlan?.id ?? ''}
+                      onValueChange={(val) => {
+                        const p = activeRatePlans.find(rp => rp.id === val);
+                        if (p) setSelectedRatePlan({ id: p.id, room_type: p.room_type });
+                      }}
+                    >
+                      <SelectTrigger className="h-9 w-[220px]">
+                        <SelectValue placeholder="Select room type" />
+                      </SelectTrigger>
+                      <SelectContent>
+                        {activeRatePlans.map(p => (
+                          <SelectItem key={p.id} value={p.id}>
+                            {p.room_type}{p.name ? ` — ${p.name}` : ''}
+                          </SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                  )}
+                </div>
               </div>
 
-              {!primaryRatePlan ? (
-                <p className="text-sm text-muted-foreground py-4">No rate plan configured for this property.</p>
+              {activeRatePlans.length === 0 ? (
+                <p className="text-sm text-muted-foreground py-4">No active rate plans configured for this property.</p>
               ) : previewLoading && previewRows.length === 0 ? (
                 <div className="flex items-center justify-center py-8">
                   <Loader2 className="h-6 w-6 animate-spin text-muted-foreground" />
