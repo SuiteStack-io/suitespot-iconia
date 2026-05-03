@@ -429,11 +429,13 @@ export default function DynamicPricing() {
 
       setSaveProgress(25);
 
-      // 1. Save pricing_rules changes
-      if (pendingRulesCount > 0) {
+      // 1. Save pricing_rules changes (merge in queued tier changes)
+      const rulesPatch: Partial<PricingRules> = { ...pendingRulesChanges, ...pendingTierChanges };
+      const hasRulesChanges = Object.keys(rulesPatch).length > 0;
+      if (hasRulesChanges) {
         const { error } = await supabase
           .from('pricing_rules')
-          .update(toDbRow(pendingRulesChanges))
+          .update(toDbRow(rulesPatch))
           .eq('id', rules.id);
         if (error) throw error;
       }
