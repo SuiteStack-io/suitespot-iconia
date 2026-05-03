@@ -14,6 +14,7 @@ import { RadioGroup, RadioGroupItem } from '@/components/ui/radio-group';
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from '@/components/ui/collapsible';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from '@/components/ui/dialog';
+import { Select, SelectTrigger, SelectValue, SelectContent, SelectItem } from '@/components/ui/select';
 import { Progress } from '@/components/ui/progress';
 import { Loader2, ChevronDown, Info, RotateCcw, Save, X } from 'lucide-react';
 import { toast } from 'sonner';
@@ -1118,7 +1119,8 @@ function tierIndex(value: number, thresholds: number[]): number {
 
 function PricingDashboard({ propertyId, rules }: { propertyId: string; rules: PricingRules }) {
   const [dashboardLoading, setDashboardLoading] = useState(false);
-  const [primaryRatePlan, setPrimaryRatePlan] = useState<{ id: string; room_type: string } | null>(null);
+  const [activeRatePlans, setActiveRatePlans] = useState<Array<{ id: string; room_type: string; name: string }>>([]);
+  const [selectedRatePlan, setSelectedRatePlan] = useState<{ id: string; room_type: string } | null>(null);
   const [monthSummaries, setMonthSummaries] = useState<MonthSummary[]>([]);
   const [selectedMonth, setSelectedMonth] = useState<string>('');
   const [previewByMonth, setPreviewByMonth] = useState<Record<string, PreviewRow[]>>({});
@@ -1160,14 +1162,23 @@ function PricingDashboard({ propertyId, rules }: { propertyId: string; rules: Pr
         const windowStart = windows[0].monthStart;
         const windowEndExclusive = windows[windows.length - 1].monthEndExclusive;
 
-        // Primary rate plan
-        const { data: ratePlans } = await supabase
+        // Active rate plans (room_type lives on rate_plan_prices, not rate_plans)
+        const { data: ratePlanRows } = await supabase
           .from('rate_plans')
-          .select('id, room_type, created_at')
+          .select('id, name, rate_plan_prices!inner(room_type, unit_id)')
           .eq('property_id', propertyId)
-          .order('created_at', { ascending: true })
-          .limit(1);
-        const rp = (ratePlans && ratePlans[0]) ? { id: ratePlans[0].id as string, room_type: (ratePlans[0] as any).room_type as string } : null;
+          .eq('is_active', true)
+          .not('name', 'ilike', '%archived%')
+          .is('rate_plan_prices.unit_id', null)
+          .order('created_at', { ascending: true });
+
+        const plans = (ratePlanRows ?? [])
+          .map((rp: any) => {
+            const priceRows = Array.isArray(rp.rate_plan_prices) ? rp.rate_plan_prices : [rp.rate_plan_prices];
+            const firstRoomType = priceRows[0]?.room_type;
+            return firstRoomType ? { id: rp.id as string, room_type: firstRoomType as string, name: rp.name as string } : null;
+          })
+          .filter((p): p is { id: string; room_type: string; name: string } => p !== null);
 
         // Active units
         const { data: unitsData } = await supabase
@@ -1296,7 +1307,8 @@ function PricingDashboard({ propertyId, rules }: { propertyId: string; rules: Pr
         });
 
         if (cancelled) return;
-        setPrimaryRatePlan(rp);
+        setActiveRatePlans(plans);
+        setSelectedRatePlan(prev => prev ?? (plans[0] ? { id: plans[0].id, room_type: plans[0].room_type } : null));
         setMonthSummaries(summaries);
         setSelectedMonth(prev => prev || summaries[0]?.key || '');
       } catch (err) {
@@ -1309,12 +1321,13 @@ function PricingDashboard({ propertyId, rules }: { propertyId: string; rules: Pr
     return () => { cancelled = true; };
   }, [propertyId, rules]);
 
-  // Load preview for selected month (cached)
+  // Load preview for selected month + rate plan (cached)
   useEffect(() => {
     let cancelled = false;
     async function loadPreview() {
-      if (!selectedMonth || !primaryRatePlan || !propertyId) return;
-      if (previewByMonth[selectedMonth]) return;
+      if (!selectedMonth || !selectedRatePlan || !propertyId) return;
+      const previewKey = `${selectedMonth}_${selectedRatePlan.id}`;
+      if (previewByMonth[previewKey]) return;
       const summary = monthSummaries.find(s => s.key === selectedMonth);
       if (!summary) return;
 
@@ -1323,8 +1336,8 @@ function PricingDashboard({ propertyId, rules }: { propertyId: string; rules: Pr
         const { data, error } = await supabase.functions.invoke('calculate-dynamic-price-batch', {
           body: {
             property_id: propertyId,
-            room_type: primaryRatePlan.room_type,
-            rate_plan_id: primaryRatePlan.id,
+            room_type: selectedRatePlan.room_type,
+            rate_plan_id: selectedRatePlan.id,
             date_from: summary.monthStart,
             date_to: summary.monthEndInclusive,
           },
@@ -1332,7 +1345,7 @@ function PricingDashboard({ propertyId, rules }: { propertyId: string; rules: Pr
         if (error) throw error;
         if (data?.error) throw new Error(data.error);
         if (cancelled) return;
-        setPreviewByMonth(prev => ({ ...prev, [selectedMonth]: (data?.rates ?? []) as PreviewRow[] }));
+        setPreviewByMonth(prev => ({ ...prev, [previewKey]: (data?.rates ?? []) as PreviewRow[] }));
       } catch (err: any) {
         console.error('Failed to load rate preview', err);
         toast.error(err?.message || 'Failed to load rate preview');
@@ -1342,9 +1355,9 @@ function PricingDashboard({ propertyId, rules }: { propertyId: string; rules: Pr
     }
     loadPreview();
     return () => { cancelled = true; };
-  }, [selectedMonth, primaryRatePlan, propertyId, monthSummaries, previewByMonth]);
+  }, [selectedMonth, selectedRatePlan, propertyId, monthSummaries, previewByMonth]);
 
-  const previewRows = previewByMonth[selectedMonth] ?? [];
+  const previewRows = previewByMonth[`${selectedMonth}_${selectedRatePlan?.id ?? ''}`] ?? [];
 
   return (
     <Card>
@@ -1435,16 +1448,38 @@ function PricingDashboard({ propertyId, rules }: { propertyId: string; rules: Pr
 
             {/* Rate Preview Table */}
             <div>
-              <div className="flex items-center justify-between mb-2">
+              <div className="flex items-center justify-between mb-2 gap-3 flex-wrap">
                 <h3 className="text-sm font-semibold">
-                  Rate Preview — {monthSummaries.find(s => s.key === selectedMonth)?.label ?? ''}
-                  {primaryRatePlan && <span className="text-muted-foreground font-normal ml-2">({primaryRatePlan.room_type})</span>}
+                  Preview — {monthSummaries.find(s => s.key === selectedMonth)?.label ?? ''}
+                  {selectedRatePlan && <span className="text-muted-foreground font-normal"> · {selectedRatePlan.room_type}</span>}
                 </h3>
-                {previewLoading && <Loader2 className="h-4 w-4 animate-spin text-muted-foreground" />}
+                <div className="flex items-center gap-2">
+                  {previewLoading && <Loader2 className="h-4 w-4 animate-spin text-muted-foreground" />}
+                  {activeRatePlans.length > 0 && (
+                    <Select
+                      value={selectedRatePlan?.id ?? ''}
+                      onValueChange={(val) => {
+                        const p = activeRatePlans.find(rp => rp.id === val);
+                        if (p) setSelectedRatePlan({ id: p.id, room_type: p.room_type });
+                      }}
+                    >
+                      <SelectTrigger className="h-9 w-[220px]">
+                        <SelectValue placeholder="Select room type" />
+                      </SelectTrigger>
+                      <SelectContent>
+                        {activeRatePlans.map(p => (
+                          <SelectItem key={p.id} value={p.id}>
+                            {p.room_type}{p.name ? ` — ${p.name}` : ''}
+                          </SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                  )}
+                </div>
               </div>
 
-              {!primaryRatePlan ? (
-                <p className="text-sm text-muted-foreground py-4">No rate plan configured for this property.</p>
+              {activeRatePlans.length === 0 ? (
+                <p className="text-sm text-muted-foreground py-4">No active rate plans configured for this property.</p>
               ) : previewLoading && previewRows.length === 0 ? (
                 <div className="flex items-center justify-center py-8">
                   <Loader2 className="h-6 w-6 animate-spin text-muted-foreground" />
