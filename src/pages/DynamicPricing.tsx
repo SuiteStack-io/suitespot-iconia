@@ -1104,6 +1104,48 @@ export default function DynamicPricing() {
                           </TableBody>
                         </Table>
                       </div>
+
+                      {/* Apply Changes for tier edits */}
+                      <div className="flex justify-end pt-2">
+                        {hasAnyDirtyTier && (
+                          <Button
+                            type="button"
+                            onClick={applyTierChanges}
+                            className="bg-black text-white hover:bg-black/90"
+                            size="sm"
+                          >
+                            Apply Changes
+                          </Button>
+                        )}
+                      </div>
+
+                      {pendingTierCount > 0 && (
+                        <div className="rounded-md border border-amber-200 bg-amber-50 dark:bg-amber-950/20 p-3 text-sm">
+                          <div className="flex items-center justify-between gap-2 mb-1">
+                            <span className="font-medium">
+                              {pendingTierCount} tier change{pendingTierCount === 1 ? '' : 's'} ready to save
+                            </span>
+                            <Button type="button" variant="ghost" size="sm" onClick={discardPendingTierChanges}>
+                              Discard
+                            </Button>
+                          </div>
+                          <ul className="text-xs text-muted-foreground space-y-0.5">
+                            {TIER_KEYS.flatMap(k => {
+                              const arr = pendingTierChanges[k] ?? [];
+                              const baseline = (rules[k] ?? []) as number[];
+                              return arr
+                                .map((v, i) =>
+                                  v !== undefined && v !== baseline[i] ? (
+                                    <li key={`${k}-${i}`}>
+                                      {labelForTier(k, i)}: {baseline[i]}% → {v}%
+                                    </li>
+                                  ) : null
+                                )
+                                .filter(Boolean);
+                            })}
+                          </ul>
+                        </div>
+                      )}
                     </CardContent>
                   </CollapsibleContent>
                 </Card>
