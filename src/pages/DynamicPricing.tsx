@@ -1076,35 +1076,31 @@ export default function DynamicPricing() {
                             </TableRow>
                           </TableHeader>
                           <TableBody>
-                            {rules.revenue_thresholds.map((thresh, idx) => (
-                              <TableRow key={idx}>
-                                <TableCell>{thresh}%</TableCell>
-                                <TableCell>
-                                  <Input
-                                    type="number"
-                                    className="w-20"
-                                    value={rules.revenue_adjustments_phase_a[idx] ?? 0}
-                                    onChange={(e) => {
-                                      const newA = [...rules.revenue_adjustments_phase_a];
-                                      newA[idx] = parseFloat(e.target.value) || 0;
-                                      updateRules({ revenue_adjustments_phase_a: newA });
-                                    }}
-                                  />
-                                </TableCell>
-                                <TableCell>
-                                  <Input
-                                    type="number"
-                                    className="w-20"
-                                    value={rules.revenue_adjustments_phase_b[idx] ?? 0}
-                                    onChange={(e) => {
-                                      const newB = [...rules.revenue_adjustments_phase_b];
-                                      newB[idx] = parseFloat(e.target.value) || 0;
-                                      updateRules({ revenue_adjustments_phase_b: newB });
-                                    }}
-                                  />
-                                </TableCell>
-                              </TableRow>
-                            ))}
+                            {rules.revenue_thresholds.map((thresh, idx) => {
+                              const dirtyA = isTierRowDirty('revenue_adjustments_phase_a', idx);
+                              const dirtyB = isTierRowDirty('revenue_adjustments_phase_b', idx);
+                              return (
+                                <TableRow key={idx}>
+                                  <TableCell>{thresh}%</TableCell>
+                                  <TableCell>
+                                    <Input
+                                      type="number"
+                                      className={cn('w-20', dirtyA && 'border-amber-500')}
+                                      value={resolveTierValue('revenue_adjustments_phase_a', idx)}
+                                      onChange={(e) => setTierDraft('revenue_adjustments_phase_a', idx, e.target.value)}
+                                    />
+                                  </TableCell>
+                                  <TableCell>
+                                    <Input
+                                      type="number"
+                                      className={cn('w-20', dirtyB && 'border-amber-500')}
+                                      value={resolveTierValue('revenue_adjustments_phase_b', idx)}
+                                      onChange={(e) => setTierDraft('revenue_adjustments_phase_b', idx, e.target.value)}
+                                    />
+                                  </TableCell>
+                                </TableRow>
+                              );
+                            })}
                           </TableBody>
                         </Table>
                       </div>
