@@ -1307,7 +1307,8 @@ function PricingDashboard({ propertyId, rules }: { propertyId: string; rules: Pr
         });
 
         if (cancelled) return;
-        setPrimaryRatePlan(rp);
+        setActiveRatePlans(plans);
+        setSelectedRatePlan(prev => prev ?? (plans[0] ? { id: plans[0].id, room_type: plans[0].room_type } : null));
         setMonthSummaries(summaries);
         setSelectedMonth(prev => prev || summaries[0]?.key || '');
       } catch (err) {
