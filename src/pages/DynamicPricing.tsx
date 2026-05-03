@@ -1315,6 +1315,7 @@ function PricingDashboard({ propertyId, rules }: { propertyId: string; rules: Pr
         setSelectedRatePlan(prev => prev ?? (plans[0] ? { id: plans[0].id, room_type: plans[0].room_type } : null));
         setMonthSummaries(summaries);
         setSelectedMonth(prev => prev || summaries[0]?.key || '');
+        setRoomTypes(distinctRoomTypes);
       } catch (err) {
         console.error('Failed to load pricing dashboard', err);
       } finally {
