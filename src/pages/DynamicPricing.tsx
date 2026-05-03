@@ -514,11 +514,42 @@ export default function DynamicPricing() {
       }
       setInputDrafts(newDrafts);
 
+      // Update local rules baseline so UI reflects new tier values immediately
+      if (hasRulesChanges) {
+        setRules(prev => prev ? { ...prev, ...rulesPatch } as PricingRules : prev);
+      }
+
+      // Trigger Channex full-sync if rules/tier changes affect calculated rates (non-fatal)
+      const triggeredFullSync = (pendingRulesCount > 0 || pendingTierCount > 0) && !!propertyId;
+      let fullSyncFailed = false;
+      if (triggeredFullSync) {
+        setSaveProgress(90);
+        try {
+          const { error: syncErr } = await supabase.functions.invoke('channex-full-sync', {
+            body: { propertyId },
+          });
+          if (syncErr) fullSyncFailed = true;
+        } catch {
+          fullSyncFailed = true;
+        }
+      }
+
       setSaveProgress(100);
       setSaveStatus('success');
       setPendingRulesChanges({});
       setPendingBoundsChanges({});
-      toast.success(hasBoundsChanges ? 'Pricing settings saved and synced to Channex' : 'Pricing settings saved');
+      setPendingTierChanges({});
+      setTierDrafts({});
+
+      if (triggeredFullSync) {
+        if (fullSyncFailed) {
+          toast.error('Settings saved. Channex sync failed — please retry sync.');
+        } else {
+          toast.success('Settings saved and synced to Channex');
+        }
+      } else {
+        toast.success(hasBoundsChanges ? 'Pricing settings saved and synced to Channex' : 'Pricing settings saved');
+      }
 
       setTimeout(() => {
         setSaveStatus('idle');
