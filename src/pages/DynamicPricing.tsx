@@ -1118,7 +1118,7 @@ function tierIndex(value: number, thresholds: number[]): number {
   return i;
 }
 
-function PricingDashboard({ propertyId, rules }: { propertyId: string; rules: PricingRules }) {
+function PricingDashboard({ propertyId, rules, overridesRefreshKey, onOverridesChanged }: { propertyId: string; rules: PricingRules; overridesRefreshKey: number; onOverridesChanged: () => void }) {
   const [dashboardLoading, setDashboardLoading] = useState(false);
   const [activeRatePlans, setActiveRatePlans] = useState<Array<{ id: string; room_type: string; name: string }>>([]);
   const [selectedRatePlan, setSelectedRatePlan] = useState<{ id: string; room_type: string } | null>(null);
