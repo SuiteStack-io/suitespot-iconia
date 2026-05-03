@@ -105,9 +105,33 @@ export default function DynamicPricing() {
   // Manual overrides refresh trigger
   const [overridesRefreshKey, setOverridesRefreshKey] = useState(0);
 
+  // Tier drafts (in-progress) and pending (queued) tier changes for Advanced section
+  const [tierDrafts, setTierDrafts] = useState<{
+    occupancy_adjustments?: number[];
+    revenue_adjustments_phase_a?: number[];
+    revenue_adjustments_phase_b?: number[];
+  }>({});
+  const [pendingTierChanges, setPendingTierChanges] = useState<{
+    occupancy_adjustments?: number[];
+    revenue_adjustments_phase_a?: number[];
+    revenue_adjustments_phase_b?: number[];
+  }>({});
+
   const pendingRulesCount = Object.keys(pendingRulesChanges).length;
   const pendingBoundsCount = Object.keys(pendingBoundsChanges).length;
-  const totalPendingChanges = pendingRulesCount + pendingBoundsCount;
+  const TIER_KEYS = ['occupancy_adjustments', 'revenue_adjustments_phase_a', 'revenue_adjustments_phase_b'] as const;
+  type TierKey = typeof TIER_KEYS[number];
+  const pendingTierCount = TIER_KEYS.reduce((acc, key) => {
+    const arr = pendingTierChanges[key];
+    if (!arr || !rules) return acc;
+    const baseline = (rules[key] ?? []) as number[];
+    let n = 0;
+    for (let i = 0; i < arr.length; i++) {
+      if (arr[i] !== undefined && arr[i] !== baseline[i]) n++;
+    }
+    return acc + n;
+  }, 0);
+  const totalPendingChanges = pendingRulesCount + pendingBoundsCount + pendingTierCount;
 
   // ---- helpers ----
   const weekendRatio = (b: RoomRateBound) => (b.weekday_rate > 0 ? b.weekend_rate / b.weekday_rate : 1);

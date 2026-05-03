@@ -1,123 +1,188 @@
-## Add Manual Overrides to Dynamic Pricing
+## Queued save pattern for Advanced — Occupancy & Revenue Tiers
 
-All work in `src/pages/DynamicPricing.tsx`. No DB, edge function, or other page changes.
+All edits in `src/pages/DynamicPricing.tsx`. No DB / edge-function / other-file changes.
 
-### 1. New `OverrideDialog` component (module-scope, below `PricingDashboard`)
+### 1. New state (in `DynamicPricing` component, near existing pending state ~line 105)
 
-Shared dialog for create/edit/quick-override. Props:
 ```ts
-{
-  open, onOpenChange, propertyId,
-  roomTypes: string[],          // distinct booking_com_name from units
-  initial?: {
-    id?: string;                // present => edit mode
-    override_date?: string;
-    room_type?: string | null;
-    override_type?: 'fixed_rate'|'percentage_adjustment'|'multiplier';
-    value?: number;
-    reason?: string;
-  };
-  allowDateRange?: boolean;     // false in edit/quick mode
-  onSaved: () => void;
+type TierKey = 'occupancy_adjustments' | 'revenue_adjustments_phase_a' | 'revenue_adjustments_phase_b';
+const [tierDrafts, setTierDrafts] = useState<{
+  occupancy_adjustments?: number[];
+  revenue_adjustments_phase_a?: number[];
+  revenue_adjustments_phase_b?: number[];
+}>({});
+const [pendingTierChanges, setPendingTierChanges] = useState<{
+  occupancy_adjustments?: number[];
+  revenue_adjustments_phase_a?: number[];
+  revenue_adjustments_phase_b?: number[];
+}>({});
+```
+
+`tierDrafts[key][idx]` = sparse array of in-flight edits (use `undefined` for "untouched", `number` for edited cell).
+`pendingTierChanges[key]` = full-length array (length = `rules[key].length`) where each cell is the queued value, or equal to the saved baseline if not changed.
+
+### 2. Update pending counts (replace existing 3 lines ~108-110)
+
+Compute `pendingTierCount` by counting cells in `pendingTierChanges[key]` that differ from `rules[key]`. Add to `totalPendingChanges`.
+
+### 3. Helpers (component scope)
+
+```ts
+function resolveTierValue(key: TierKey, idx: number): number {
+  const draft = tierDrafts[key]?.[idx];
+  if (draft !== undefined) return draft;
+  const pending = pendingTierChanges[key]?.[idx];
+  if (pending !== undefined) return pending;
+  return rules![key][idx] ?? 0;
+}
+function setTierDraft(key: TierKey, idx: number, raw: string) {
+  const parsed = raw === '' ? 0 : parseFloat(raw);
+  setTierDrafts(prev => {
+    const arr = [...(prev[key] ?? [])];
+    arr[idx] = isNaN(parsed) ? 0 : parsed;
+    return { ...prev, [key]: arr };
+  });
+}
+function isTierRowDirty(key: TierKey, idx: number): boolean {
+  const draft = tierDrafts[key]?.[idx];
+  if (draft === undefined) return false;
+  const baseline = pendingTierChanges[key]?.[idx] ?? rules![key][idx];
+  return draft !== baseline;
+}
+const hasAnyDirtyTier = (['occupancy_adjustments','revenue_adjustments_phase_a','revenue_adjustments_phase_b'] as TierKey[])
+  .some(k => (tierDrafts[k] ?? []).some((_, i) => isTierRowDirty(k, i)));
+```
+
+### 4. Apply Changes (in-card button)
+
+```ts
+function applyTierChanges() {
+  const keys: TierKey[] = ['occupancy_adjustments','revenue_adjustments_phase_a','revenue_adjustments_phase_b'];
+  // Validate
+  for (const k of keys) {
+    const draft = tierDrafts[k];
+    if (!draft) continue;
+    for (let i = 0; i < draft.length; i++) {
+      const v = draft[i];
+      if (v === undefined) continue;
+      if (!isFinite(v) || v < 0 || v > 100) {
+        toast.error('Tier values must be between 0 and 100');
+        return;
+      }
+    }
+  }
+  setPendingTierChanges(prev => {
+    const next = { ...prev };
+    for (const k of keys) {
+      const draft = tierDrafts[k];
+      if (!draft) continue;
+      const baseFull = (next[k] ?? rules![k]).slice();
+      for (let i = 0; i < draft.length; i++) {
+        if (draft[i] !== undefined) baseFull[i] = draft[i] as number;
+      }
+      next[k] = baseFull;
+    }
+    return next;
+  });
+  setTierDrafts({});
+  toast.success('Tier changes added to pending');
+}
+function discardPendingTierChanges() {
+  setPendingTierChanges({});
+  setTierDrafts({});
 }
 ```
 
-Body:
-- **Date**: two `<Input type="date">` (Start/End). Single date when editing or `allowDateRange===false`.
-- **Room Type**: `<Select>` with `__all__`→null + `roomTypes`. Disabled in edit mode.
-- **Override Type**: `<RadioGroup>` Fixed Rate / Percentage Adjustment / Multiplier.
-- **Value**: `<Input type="number">` with prefix/suffix + helper that swaps with type:
-  - fixed_rate: "$" prefix, "Set rate to exactly this amount"
-  - percentage_adjustment: "%" suffix, "Adjust calculated rate by this percentage (use negative for discount)"
-  - multiplier: "x" suffix, "Multiply calculated rate by this factor"
-- **Reason**: optional `<Input>`.
-- Save button = "Update" if edit else "Save".
+### 5. Modify `saveAllChanges` (around lines 311-442)
 
-Save:
-- Build inclusive date list (single in edit/quick).
-- Edit: `update pricing_overrides set override_type, value, reason where id`.
-- Create: `insert` array of rows `{ property_id, override_date, room_type: roomType||null, override_type, value, reason, created_by: user.id }`.
-- Postgres `23505` → toast `"An override already exists for this date and room type"`.
-- Success → toast (`"Override added for {date}"` or `"Added {n} overrides"`), `onSaved()`, close.
+- Build merged rules patch:
+  ```ts
+  const rulesPatch: Partial<PricingRules> = { ...pendingRulesChanges, ...pendingTierChanges };
+  const hasRulesChanges = Object.keys(rulesPatch).length > 0;
+  ```
+  Replace the existing `if (pendingRulesCount > 0)` block to use `hasRulesChanges` and `toDbRow(rulesPatch)`.
 
-### 2. New `OverridesSection` component (module-scope)
+- After successful save, set `setRules(prev => prev ? { ...prev, ...pendingTierChanges } : prev)` so baseline reflects new values.
 
-Props: `{ propertyId, refreshKey, onChanged }`.
+- Trigger Channex sync after successful pricing_rules update **only if** there were tier or rules changes (separate from existing bounds-only sync). Use:
+  ```ts
+  const { error: syncErr } = await supabase.functions.invoke('channex-full-sync', { body: { propertyId } });
+  ```
+  Wrap in try/catch so it can't fail the whole save. On `syncErr` show toast `"Settings saved. Channex sync failed — please retry sync."` (non-fatal). On success show `"Settings saved and synced to Channex"`.
+  
+  Important: Keep existing bounds-only sync (`channex-update-property-settings`) untouched. Only call `channex-full-sync` when `pendingRulesCount > 0 || pendingTierCount > 0` (i.e. rule/tier changes that affect calculated rates). The success toast wording at the end should be:
+  - rules/tier changes saved + sync ok → "Settings saved and synced to Channex"
+  - rules/tier changes saved + sync failed → "Settings saved. Channex sync failed — please retry sync."
+  - bounds-only path keeps existing message.
 
-State:
-- `rows`: `pricing_overrides` where `property_id = propertyId` and `override_date >= today` (today = `new Date().toISOString().slice(0,10)`), order asc.
-- `roomTypes`: distinct `booking_com_name` from `units` where `property_id = propertyId` and `booking_com_name is not null` (mirrors `src/pages/pms/Prices.tsx:186,246`).
-- `creators`: `profiles.full_name` map for displayed `created_by`.
-- `dialogOpen`, `editing`, `confirmDeleteId`.
+- On success: `setPendingRulesChanges({}); setPendingBoundsChanges({}); setPendingTierChanges({}); setTierDrafts({});`
 
-Render:
-- `<Card>` "Manual Overrides" + description + `Add Override` button in header.
-- Table: Date | Room Type | Type | Value | Reason | Created By | Actions.
-  - Type label: `fixed_rate→"Fixed Rate"`, `percentage_adjustment→"% Adjustment"`, `multiplier→"Multiplier"`.
-  - Value: fixed `$X`, pct `+X%`/`X%`, mult `X.Xx`.
-  - Room Type: `room_type ?? "All"`.
-  - Created By: full_name fallback `—`.
-  - Actions: Pencil opens edit dialog; Trash opens AlertDialog → delete → toast `"Override removed"` → reload + `onChanged()`.
-- Empty state row when none.
+### 6. Replace tier inputs in Section G (lines 899-922 occupancy table; 956-984 revenue table)
 
-Refetch deps: `[propertyId, refreshKey]`.
+Each `<Input>`:
+- `value={resolveTierValue('occupancy_adjustments', idx)}`
+- `onChange={(e) => setTierDraft('occupancy_adjustments', idx, e.target.value)}`
+- Add `className={cn('w-20', isTierRowDirty('occupancy_adjustments', idx) && 'border-amber-500')}` to subtly highlight dirty rows (matches Rate Guardrails amber-border pattern).
+- Same for `revenue_adjustments_phase_a` and `revenue_adjustments_phase_b`.
 
-### 3. Wire into page
+Remove the previous `updateRules({ occupancy_adjustments: newAdj })` / phase_a / phase_b calls — these inputs are now decoupled from the immediate `pendingRulesChanges` flow.
 
-In parent `DynamicPricing`:
-```ts
-const [overridesRefreshKey, setOverridesRefreshKey] = useState(0);
-```
-After `<PricingDashboard ... />` (lines 992-995):
+(Note: Pace Index Bump Threshold input at lines 934-940 stays on the existing `updateRules` flow — outside scope of this change.)
+
+### 7. Apply button + Pending Tier Changes summary
+
+At the bottom of Section G `<CardContent>` (just before closing tag, after the revenue tier table):
+
 ```tsx
-<OverridesSection
-  propertyId={propertyId}
-  refreshKey={overridesRefreshKey}
-  onChanged={() => setOverridesRefreshKey(k => k + 1)}
-/>
+<div className="flex justify-end pt-2">
+  {hasAnyDirtyTier && (
+    <Button
+      type="button"
+      onClick={applyTierChanges}
+      className="bg-black text-white hover:bg-black/90"
+      size="sm"
+    >
+      Apply Changes
+    </Button>
+  )}
+</div>
+
+{pendingTierCount > 0 && (
+  <div className="mt-2 rounded-md border border-amber-200 bg-amber-50 dark:bg-amber-950/20 p-3 text-sm">
+    <div className="flex items-center justify-between gap-2 mb-1">
+      <span className="font-medium">{pendingTierCount} tier change{pendingTierCount === 1 ? '' : 's'} ready to save</span>
+      <Button type="button" variant="ghost" size="sm" onClick={discardPendingTierChanges}>Discard</Button>
+    </div>
+    <ul className="text-xs text-muted-foreground space-y-0.5">
+      {(['occupancy_adjustments','revenue_adjustments_phase_a','revenue_adjustments_phase_b'] as TierKey[]).flatMap(k => {
+        const arr = pendingTierChanges[k] ?? [];
+        const baseline = rules[k] ?? [];
+        return arr.map((v, i) => v !== baseline[i] ? (
+          <li key={`${k}-${i}`}>
+            {labelForTier(k, i)}: {baseline[i]}% → {v}%
+          </li>
+        ) : null).filter(Boolean);
+      })}
+    </ul>
+  </div>
+)}
 ```
-Pass `overridesRefreshKey` and `onOverridesChanged` into `PricingDashboard`. When `overridesRefreshKey` changes, dashboard clears `previewByMonth` (set to `{}`) so preview reloads.
 
-### 4. Quick override from preview table
+`labelForTier` helper inside component:
+- `occupancy_adjustments` → derive from `rules.occupancy_thresholds`: `Occupancy {from}-{to}%`
+- `revenue_adjustments_phase_a` → `Revenue ≥ {rules.revenue_thresholds[i]}% (Phase A)`
+- `revenue_adjustments_phase_b` → `Revenue ≥ {rules.revenue_thresholds[i]}% (Phase B)`
 
-Inside `PricingDashboard`'s Override cell (1523-1525):
+### 8. Reset behavior
 
-- Add state `quickDialog: { open, initial, allowDateRange:false }`.
-- Fetch `roomTypes` for the dialog: extend the existing units query (line 1184) from `select('id')` → `select('id, booking_com_name')`, derive distinct list, store in state.
-- Cell:
-  - If `isOverride`: render existing `<Badge>` as a clickable button. On click, look up the existing override with **explicit precedence** (specific room_type wins over wildcard):
-    ```ts
-    const { data: matches } = await supabase
-      .from('pricing_overrides')
-      .select('*')
-      .eq('property_id', propertyId)
-      .eq('override_date', row.target_date)
-      .or(`room_type.eq.${selectedRatePlan.room_type},room_type.is.null`);
-    const specific = matches?.find(m => m.room_type === selectedRatePlan.room_type);
-    const wildcard = matches?.find(m => m.room_type === null);
-    const existingOverride = specific ?? wildcard;
-    ```
-    Open dialog with `initial = existingOverride` mapped to dialog shape.
-  - Else: small ghost `Button` with `+` → opens dialog with `initial = { override_date: row.target_date, room_type: selectedRatePlan.room_type, override_type: 'fixed_rate', value: Math.round(row.final_rate) }`.
-- Render `<OverrideDialog>` inside dashboard. `onSaved` clears `previewByMonth` for the current `${selectedMonth}_${selectedRatePlan.id}` key, calls parent `onOverridesChanged`.
+No existing Reset button on Section G in the file (only Day-of-Week section has one). No new Reset button is added; spec only says "if it exists". Confirmed it does not — skip.
 
-### 5. Imports to add
+### 9. Verification / no-duplicate-decl
 
-```ts
-import { Plus, Pencil, Trash2 } from 'lucide-react';   // merge into existing lucide import
-import {
-  AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent,
-  AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle,
-} from '@/components/ui/alert-dialog';
-```
-Also pull `user` from `useAuth()` in OverridesSection / dialog (already imported at line 5).
-
-### 6. Verified against schema
-
-- `pricing_overrides` columns used: `id, property_id, override_date, override_type, value, reason, room_type, created_by, created_at` — all present.
-- Unique constraint `(property_id, override_date, room_type)` + partial unique index for null `room_type` → conflict caught via `23505`.
-- `units.booking_com_name` confirmed (src/types/unit.ts; usage pattern matches src/pages/pms/Prices.tsx).
-- No duplicate identifiers introduced (`OverrideDialog`, `OverridesSection`, `overridesRefreshKey`, `quickDialog`, `roomTypes` are new in their scopes).
+- New identifiers: `tierDrafts`, `pendingTierChanges`, `pendingTierCount`, `TierKey`, `resolveTierValue`, `setTierDraft`, `isTierRowDirty`, `hasAnyDirtyTier`, `applyTierChanges`, `discardPendingTierChanges`, `labelForTier`. Searched file — none of these names exist elsewhere.
+- `totalPendingChanges` already declared once; the new computation replaces only the existing line.
+- `channex-full-sync` invocation pattern verified against `src/components/channex/PropertySync.tsx:122-128` (same body shape `{ propertyId }`).
+- `pricing_rules` columns used: `occupancy_adjustments`, `revenue_adjustments_phase_a`, `revenue_adjustments_phase_b` — all confirmed in supabase tables context, and already mapped via existing `toDbRow`.
 
 ### Out of scope
-Settings card, dashboard month-card aggregation, edge functions, DB schema, other pages.
+Rate Guardrails section, Day-of-Week multipliers, dashboard, overrides, promotions, edge functions, helper module, DB schema.
