@@ -1592,9 +1592,17 @@ function PricingDashboard({ propertyId, rules, overridesRefreshKey, onOverridesC
 
   return (
     <Card>
-      <CardHeader>
-        <CardTitle>Pricing Dashboard</CardTitle>
-        <CardDescription>Live view of how the algorithm is reading each month and what it would price today.</CardDescription>
+      <CardHeader className="flex flex-row items-start justify-between gap-4">
+        <div>
+          <CardTitle>Pricing Dashboard</CardTitle>
+          <CardDescription>Live view of how the algorithm is reading each month and what it would price today.</CardDescription>
+        </div>
+        <Button
+          onClick={() => setBriefOpen(true)}
+          disabled={!selectedMonth || !selectedRatePlan || activeRatePlans.length === 0}
+        >
+          Pricing Brief
+        </Button>
       </CardHeader>
       <CardContent className="space-y-6">
         {dashboardLoading && monthSummaries.length === 0 ? (
