@@ -1126,6 +1126,8 @@ function PricingDashboard({ propertyId, rules }: { propertyId: string; rules: Pr
   const [selectedMonth, setSelectedMonth] = useState<string>('');
   const [previewByMonth, setPreviewByMonth] = useState<Record<string, PreviewRow[]>>({});
   const [previewLoading, setPreviewLoading] = useState(false);
+  const [roomTypes, setRoomTypes] = useState<string[]>([]);
+  const [quickDialog, setQuickDialog] = useState<{ open: boolean; initial: OverrideDialogInitial | undefined }>({ open: false, initial: undefined });
 
   // Load cards data
   useEffect(() => {
