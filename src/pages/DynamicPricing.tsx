@@ -1162,14 +1162,23 @@ function PricingDashboard({ propertyId, rules }: { propertyId: string; rules: Pr
         const windowStart = windows[0].monthStart;
         const windowEndExclusive = windows[windows.length - 1].monthEndExclusive;
 
-        // Primary rate plan
-        const { data: ratePlans } = await supabase
+        // Active rate plans (room_type lives on rate_plan_prices, not rate_plans)
+        const { data: ratePlanRows } = await supabase
           .from('rate_plans')
-          .select('id, room_type, created_at')
+          .select('id, name, rate_plan_prices!inner(room_type, unit_id)')
           .eq('property_id', propertyId)
-          .order('created_at', { ascending: true })
-          .limit(1);
-        const rp = (ratePlans && ratePlans[0]) ? { id: ratePlans[0].id as string, room_type: (ratePlans[0] as any).room_type as string } : null;
+          .eq('is_active', true)
+          .not('name', 'ilike', '%archived%')
+          .is('rate_plan_prices.unit_id', null)
+          .order('created_at', { ascending: true });
+
+        const plans = (ratePlanRows ?? [])
+          .map((rp: any) => {
+            const priceRows = Array.isArray(rp.rate_plan_prices) ? rp.rate_plan_prices : [rp.rate_plan_prices];
+            const firstRoomType = priceRows[0]?.room_type;
+            return firstRoomType ? { id: rp.id as string, room_type: firstRoomType as string, name: rp.name as string } : null;
+          })
+          .filter((p): p is { id: string; room_type: string; name: string } => p !== null);
 
         // Active units
         const { data: unitsData } = await supabase
