@@ -1061,6 +1061,8 @@ function toDbRow(patch: Partial<PricingRules>): Record<string, unknown> {
   if (patch.monthly_revenue_stretch !== undefined) out.monthly_revenue_stretch = patch.monthly_revenue_stretch;
   if (patch.last_minute_strategy !== undefined) out.last_minute_strategy = patch.last_minute_strategy;
   if (patch.channex_min_price_synced !== undefined) out.channex_min_price_synced = patch.channex_min_price_synced;
+  if (patch.channex_max_price_synced !== undefined) out.channex_max_price_synced = patch.channex_max_price_synced;
+  return out;
 }
 
 // ============================================================================
