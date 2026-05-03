@@ -105,9 +105,33 @@ export default function DynamicPricing() {
   // Manual overrides refresh trigger
   const [overridesRefreshKey, setOverridesRefreshKey] = useState(0);
 
+  // Tier drafts (in-progress) and pending (queued) tier changes for Advanced section
+  const [tierDrafts, setTierDrafts] = useState<{
+    occupancy_adjustments?: number[];
+    revenue_adjustments_phase_a?: number[];
+    revenue_adjustments_phase_b?: number[];
+  }>({});
+  const [pendingTierChanges, setPendingTierChanges] = useState<{
+    occupancy_adjustments?: number[];
+    revenue_adjustments_phase_a?: number[];
+    revenue_adjustments_phase_b?: number[];
+  }>({});
+
   const pendingRulesCount = Object.keys(pendingRulesChanges).length;
   const pendingBoundsCount = Object.keys(pendingBoundsChanges).length;
-  const totalPendingChanges = pendingRulesCount + pendingBoundsCount;
+  const TIER_KEYS = ['occupancy_adjustments', 'revenue_adjustments_phase_a', 'revenue_adjustments_phase_b'] as const;
+  type TierKey = typeof TIER_KEYS[number];
+  const pendingTierCount = TIER_KEYS.reduce((acc, key) => {
+    const arr = pendingTierChanges[key];
+    if (!arr || !rules) return acc;
+    const baseline = (rules[key] ?? []) as number[];
+    let n = 0;
+    for (let i = 0; i < arr.length; i++) {
+      if (arr[i] !== undefined && arr[i] !== baseline[i]) n++;
+    }
+    return acc + n;
+  }, 0);
+  const totalPendingChanges = pendingRulesCount + pendingBoundsCount + pendingTierCount;
 
   // ---- helpers ----
   const weekendRatio = (b: RoomRateBound) => (b.weekday_rate > 0 ? b.weekend_rate / b.weekday_rate : 1);
@@ -120,6 +144,75 @@ export default function DynamicPricing() {
     const n = parseFloat(s);
     return isNaN(n) ? null : n;
   };
+
+  // Tier helpers (Advanced section queued-save pattern)
+  function resolveTierValue(key: TierKey, idx: number): number {
+    const draft = tierDrafts[key]?.[idx];
+    if (draft !== undefined) return draft;
+    const pending = pendingTierChanges[key]?.[idx];
+    if (pending !== undefined) return pending;
+    return ((rules?.[key] ?? []) as number[])[idx] ?? 0;
+  }
+  function setTierDraft(key: TierKey, idx: number, raw: string) {
+    const parsed = raw === '' ? 0 : parseFloat(raw);
+    setTierDrafts(prev => {
+      const arr = [...(prev[key] ?? [])];
+      arr[idx] = isNaN(parsed) ? 0 : parsed;
+      return { ...prev, [key]: arr };
+    });
+  }
+  function isTierRowDirty(key: TierKey, idx: number): boolean {
+    const draft = tierDrafts[key]?.[idx];
+    if (draft === undefined) return false;
+    const baseline = pendingTierChanges[key]?.[idx] ?? ((rules?.[key] ?? []) as number[])[idx];
+    return draft !== baseline;
+  }
+  const hasAnyDirtyTier = TIER_KEYS.some(k =>
+    (tierDrafts[k] ?? []).some((v, i) => v !== undefined && isTierRowDirty(k, i))
+  );
+  function applyTierChanges() {
+    for (const k of TIER_KEYS) {
+      const draft = tierDrafts[k];
+      if (!draft) continue;
+      for (let i = 0; i < draft.length; i++) {
+        const v = draft[i];
+        if (v === undefined) continue;
+        if (!isFinite(v) || v < 0 || v > 100) {
+          toast.error('Tier values must be between 0 and 100');
+          return;
+        }
+      }
+    }
+    setPendingTierChanges(prev => {
+      const next = { ...prev };
+      for (const k of TIER_KEYS) {
+        const draft = tierDrafts[k];
+        if (!draft) continue;
+        const baseFull = ((next[k] ?? (rules?.[k] ?? [])) as number[]).slice();
+        for (let i = 0; i < draft.length; i++) {
+          if (draft[i] !== undefined) baseFull[i] = draft[i] as number;
+        }
+        next[k] = baseFull;
+      }
+      return next;
+    });
+    setTierDrafts({});
+    toast.success('Tier changes added to pending');
+  }
+  function discardPendingTierChanges() {
+    setPendingTierChanges({});
+    setTierDrafts({});
+  }
+  function labelForTier(key: TierKey, idx: number): string {
+    if (!rules) return '';
+    if (key === 'occupancy_adjustments') {
+      const from = idx === 0 ? 0 : rules.occupancy_thresholds[idx - 1] + 1;
+      const to = idx < rules.occupancy_thresholds.length ? rules.occupancy_thresholds[idx] : 100;
+      return `Occupancy ${from}-${to}%`;
+    }
+    const t = rules.revenue_thresholds[idx];
+    return `Revenue ≥ ${t}% (${key === 'revenue_adjustments_phase_a' ? 'Phase A' : 'Phase B'})`;
+  }
 
   // Load last channex sync from localStorage
   useEffect(() => {
@@ -336,11 +429,13 @@ export default function DynamicPricing() {
 
       setSaveProgress(25);
 
-      // 1. Save pricing_rules changes
-      if (pendingRulesCount > 0) {
+      // 1. Save pricing_rules changes (merge in queued tier changes)
+      const rulesPatch: Partial<PricingRules> = { ...pendingRulesChanges, ...pendingTierChanges };
+      const hasRulesChanges = Object.keys(rulesPatch).length > 0;
+      if (hasRulesChanges) {
         const { error } = await supabase
           .from('pricing_rules')
-          .update(toDbRow(pendingRulesChanges))
+          .update(toDbRow(rulesPatch))
           .eq('id', rules.id);
         if (error) throw error;
       }
@@ -419,11 +514,42 @@ export default function DynamicPricing() {
       }
       setInputDrafts(newDrafts);
 
+      // Update local rules baseline so UI reflects new tier values immediately
+      if (hasRulesChanges) {
+        setRules(prev => prev ? { ...prev, ...rulesPatch } as PricingRules : prev);
+      }
+
+      // Trigger Channex full-sync if rules/tier changes affect calculated rates (non-fatal)
+      const triggeredFullSync = (pendingRulesCount > 0 || pendingTierCount > 0) && !!propertyId;
+      let fullSyncFailed = false;
+      if (triggeredFullSync) {
+        setSaveProgress(90);
+        try {
+          const { error: syncErr } = await supabase.functions.invoke('channex-full-sync', {
+            body: { propertyId },
+          });
+          if (syncErr) fullSyncFailed = true;
+        } catch {
+          fullSyncFailed = true;
+        }
+      }
+
       setSaveProgress(100);
       setSaveStatus('success');
       setPendingRulesChanges({});
       setPendingBoundsChanges({});
-      toast.success(hasBoundsChanges ? 'Pricing settings saved and synced to Channex' : 'Pricing settings saved');
+      setPendingTierChanges({});
+      setTierDrafts({});
+
+      if (triggeredFullSync) {
+        if (fullSyncFailed) {
+          toast.error('Settings saved. Channex sync failed — please retry sync.');
+        } else {
+          toast.success('Settings saved and synced to Channex');
+        }
+      } else {
+        toast.success(hasBoundsChanges ? 'Pricing settings saved and synced to Channex' : 'Pricing settings saved');
+      }
 
       setTimeout(() => {
         setSaveStatus('idle');
@@ -899,6 +1025,7 @@ export default function DynamicPricing() {
                             {rules.occupancy_adjustments.map((adj, idx) => {
                               const from = idx === 0 ? 0 : rules.occupancy_thresholds[idx - 1] + 1;
                               const to = idx < rules.occupancy_thresholds.length ? rules.occupancy_thresholds[idx] : 100;
+                              const dirty = isTierRowDirty('occupancy_adjustments', idx);
                               return (
                                 <TableRow key={idx}>
                                   <TableCell>{from}%</TableCell>
@@ -906,13 +1033,9 @@ export default function DynamicPricing() {
                                   <TableCell>
                                     <Input
                                       type="number"
-                                      className="w-20"
-                                      value={adj}
-                                      onChange={(e) => {
-                                        const newAdj = [...rules.occupancy_adjustments];
-                                        newAdj[idx] = parseFloat(e.target.value) || 0;
-                                        updateRules({ occupancy_adjustments: newAdj });
-                                      }}
+                                      className={cn('w-20', dirty && 'border-amber-500')}
+                                      value={resolveTierValue('occupancy_adjustments', idx)}
+                                      onChange={(e) => setTierDraft('occupancy_adjustments', idx, e.target.value)}
                                     />
                                   </TableCell>
                                 </TableRow>
@@ -953,38 +1076,76 @@ export default function DynamicPricing() {
                             </TableRow>
                           </TableHeader>
                           <TableBody>
-                            {rules.revenue_thresholds.map((thresh, idx) => (
-                              <TableRow key={idx}>
-                                <TableCell>{thresh}%</TableCell>
-                                <TableCell>
-                                  <Input
-                                    type="number"
-                                    className="w-20"
-                                    value={rules.revenue_adjustments_phase_a[idx] ?? 0}
-                                    onChange={(e) => {
-                                      const newA = [...rules.revenue_adjustments_phase_a];
-                                      newA[idx] = parseFloat(e.target.value) || 0;
-                                      updateRules({ revenue_adjustments_phase_a: newA });
-                                    }}
-                                  />
-                                </TableCell>
-                                <TableCell>
-                                  <Input
-                                    type="number"
-                                    className="w-20"
-                                    value={rules.revenue_adjustments_phase_b[idx] ?? 0}
-                                    onChange={(e) => {
-                                      const newB = [...rules.revenue_adjustments_phase_b];
-                                      newB[idx] = parseFloat(e.target.value) || 0;
-                                      updateRules({ revenue_adjustments_phase_b: newB });
-                                    }}
-                                  />
-                                </TableCell>
-                              </TableRow>
-                            ))}
+                            {rules.revenue_thresholds.map((thresh, idx) => {
+                              const dirtyA = isTierRowDirty('revenue_adjustments_phase_a', idx);
+                              const dirtyB = isTierRowDirty('revenue_adjustments_phase_b', idx);
+                              return (
+                                <TableRow key={idx}>
+                                  <TableCell>{thresh}%</TableCell>
+                                  <TableCell>
+                                    <Input
+                                      type="number"
+                                      className={cn('w-20', dirtyA && 'border-amber-500')}
+                                      value={resolveTierValue('revenue_adjustments_phase_a', idx)}
+                                      onChange={(e) => setTierDraft('revenue_adjustments_phase_a', idx, e.target.value)}
+                                    />
+                                  </TableCell>
+                                  <TableCell>
+                                    <Input
+                                      type="number"
+                                      className={cn('w-20', dirtyB && 'border-amber-500')}
+                                      value={resolveTierValue('revenue_adjustments_phase_b', idx)}
+                                      onChange={(e) => setTierDraft('revenue_adjustments_phase_b', idx, e.target.value)}
+                                    />
+                                  </TableCell>
+                                </TableRow>
+                              );
+                            })}
                           </TableBody>
                         </Table>
                       </div>
+
+                      {/* Apply Changes for tier edits */}
+                      <div className="flex justify-end pt-2">
+                        {hasAnyDirtyTier && (
+                          <Button
+                            type="button"
+                            onClick={applyTierChanges}
+                            className="bg-black text-white hover:bg-black/90"
+                            size="sm"
+                          >
+                            Apply Changes
+                          </Button>
+                        )}
+                      </div>
+
+                      {pendingTierCount > 0 && (
+                        <div className="rounded-md border border-amber-200 bg-amber-50 dark:bg-amber-950/20 p-3 text-sm">
+                          <div className="flex items-center justify-between gap-2 mb-1">
+                            <span className="font-medium">
+                              {pendingTierCount} tier change{pendingTierCount === 1 ? '' : 's'} ready to save
+                            </span>
+                            <Button type="button" variant="ghost" size="sm" onClick={discardPendingTierChanges}>
+                              Discard
+                            </Button>
+                          </div>
+                          <ul className="text-xs text-muted-foreground space-y-0.5">
+                            {TIER_KEYS.flatMap(k => {
+                              const arr = pendingTierChanges[k] ?? [];
+                              const baseline = (rules[k] ?? []) as number[];
+                              return arr
+                                .map((v, i) =>
+                                  v !== undefined && v !== baseline[i] ? (
+                                    <li key={`${k}-${i}`}>
+                                      {labelForTier(k, i)}: {baseline[i]}% → {v}%
+                                    </li>
+                                  ) : null
+                                )
+                                .filter(Boolean);
+                            })}
+                          </ul>
+                        </div>
+                      )}
                     </CardContent>
                   </CollapsibleContent>
                 </Card>
