@@ -1119,7 +1119,8 @@ function tierIndex(value: number, thresholds: number[]): number {
 
 function PricingDashboard({ propertyId, rules }: { propertyId: string; rules: PricingRules }) {
   const [dashboardLoading, setDashboardLoading] = useState(false);
-  const [primaryRatePlan, setPrimaryRatePlan] = useState<{ id: string; room_type: string } | null>(null);
+  const [activeRatePlans, setActiveRatePlans] = useState<Array<{ id: string; room_type: string; name: string }>>([]);
+  const [selectedRatePlan, setSelectedRatePlan] = useState<{ id: string; room_type: string } | null>(null);
   const [monthSummaries, setMonthSummaries] = useState<MonthSummary[]>([]);
   const [selectedMonth, setSelectedMonth] = useState<string>('');
   const [previewByMonth, setPreviewByMonth] = useState<Record<string, PreviewRow[]>>({});
