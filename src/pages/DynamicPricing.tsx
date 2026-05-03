@@ -1271,7 +1271,12 @@ interface PreviewRow {
     day_of_week_multiplier: number;
     occupancy_adjustment: number;
     revenue_adjustment: number;
+    occupancy_percent?: number | null;
+    month_phase?: string | null;
     override_active: boolean;
+    was_clamped?: boolean;
+    clamp_direction?: 'floor' | 'ceiling' | null;
+    promotion_applied?: { id: string; discount_percent: number } | null;
   };
 }
 
