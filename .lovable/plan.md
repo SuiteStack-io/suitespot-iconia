@@ -1,49 +1,123 @@
-## Fix primaryRatePlan query + add room type selector
+## Add Manual Overrides to Dynamic Pricing
 
-### Changes to `src/pages/DynamicPricing.tsx` (PricingDashboard component only)
+All work in `src/pages/DynamicPricing.tsx`. No DB, edge function, or other page changes.
 
-**1. State (line 1121)** — replace `primaryRatePlan` with two states:
+### 1. New `OverrideDialog` component (module-scope, below `PricingDashboard`)
+
+Shared dialog for create/edit/quick-override. Props:
 ```ts
-const [activeRatePlans, setActiveRatePlans] = useState<Array<{ id: string; room_type: string; name: string }>>([]);
-const [selectedRatePlan, setSelectedRatePlan] = useState<{ id: string; room_type: string } | null>(null);
+{
+  open, onOpenChange, propertyId,
+  roomTypes: string[],          // distinct booking_com_name from units
+  initial?: {
+    id?: string;                // present => edit mode
+    override_date?: string;
+    room_type?: string | null;
+    override_type?: 'fixed_rate'|'percentage_adjustment'|'multiplier';
+    value?: number;
+    reason?: string;
+  };
+  allowDateRange?: boolean;     // false in edit/quick mode
+  onSaved: () => void;
+}
 ```
 
-**2. Rate plan query (lines 1163–1170)** — replace the broken `rate_plans.room_type` query (column is null on that table) with the joined query that filters out archived plans and pulls `room_type` from `rate_plan_prices` (property-wide rows only, `unit_id IS NULL`):
+Body:
+- **Date**: two `<Input type="date">` (Start/End). Single date when editing or `allowDateRange===false`.
+- **Room Type**: `<Select>` with `__all__`→null + `roomTypes`. Disabled in edit mode.
+- **Override Type**: `<RadioGroup>` Fixed Rate / Percentage Adjustment / Multiplier.
+- **Value**: `<Input type="number">` with prefix/suffix + helper that swaps with type:
+  - fixed_rate: "$" prefix, "Set rate to exactly this amount"
+  - percentage_adjustment: "%" suffix, "Adjust calculated rate by this percentage (use negative for discount)"
+  - multiplier: "x" suffix, "Multiply calculated rate by this factor"
+- **Reason**: optional `<Input>`.
+- Save button = "Update" if edit else "Save".
+
+Save:
+- Build inclusive date list (single in edit/quick).
+- Edit: `update pricing_overrides set override_type, value, reason where id`.
+- Create: `insert` array of rows `{ property_id, override_date, room_type: roomType||null, override_type, value, reason, created_by: user.id }`.
+- Postgres `23505` → toast `"An override already exists for this date and room type"`.
+- Success → toast (`"Override added for {date}"` or `"Added {n} overrides"`), `onSaved()`, close.
+
+### 2. New `OverridesSection` component (module-scope)
+
+Props: `{ propertyId, refreshKey, onChanged }`.
+
+State:
+- `rows`: `pricing_overrides` where `property_id = propertyId` and `override_date >= today` (today = `new Date().toISOString().slice(0,10)`), order asc.
+- `roomTypes`: distinct `booking_com_name` from `units` where `property_id = propertyId` and `booking_com_name is not null` (mirrors `src/pages/pms/Prices.tsx:186,246`).
+- `creators`: `profiles.full_name` map for displayed `created_by`.
+- `dialogOpen`, `editing`, `confirmDeleteId`.
+
+Render:
+- `<Card>` "Manual Overrides" + description + `Add Override` button in header.
+- Table: Date | Room Type | Type | Value | Reason | Created By | Actions.
+  - Type label: `fixed_rate→"Fixed Rate"`, `percentage_adjustment→"% Adjustment"`, `multiplier→"Multiplier"`.
+  - Value: fixed `$X`, pct `+X%`/`X%`, mult `X.Xx`.
+  - Room Type: `room_type ?? "All"`.
+  - Created By: full_name fallback `—`.
+  - Actions: Pencil opens edit dialog; Trash opens AlertDialog → delete → toast `"Override removed"` → reload + `onChanged()`.
+- Empty state row when none.
+
+Refetch deps: `[propertyId, refreshKey]`.
+
+### 3. Wire into page
+
+In parent `DynamicPricing`:
 ```ts
-const { data: ratePlanRows } = await supabase
-  .from('rate_plans')
-  .select('id, name, rate_plan_prices!inner(room_type)')
-  .eq('property_id', propertyId)
-  .eq('is_active', true)
-  .not('name', 'ilike', '%archived%')
-  .is('rate_plan_prices.unit_id', null)
-  .order('created_at', { ascending: true });
+const [overridesRefreshKey, setOverridesRefreshKey] = useState(0);
 ```
-Then map each row → `{ id, room_type: priceRows[0].room_type, name }`, filter out null `room_type`, and on commit (line 1299) call `setActiveRatePlans(plans)` and `setSelectedRatePlan(prev => prev ?? (plans[0] ? { id: plans[0].id, room_type: plans[0].room_type } : null))`.
-
-**3. Preview cache key (lines 1313–1347)** — key the cache by month + rate plan id:
-- Replace the `loadPreview` effect to depend on `selectedRatePlan` and use `previewKey = ${selectedMonth}_${selectedRatePlan?.id}`.
-- Skip if `!selectedRatePlan`. Send `room_type: selectedRatePlan.room_type` and `rate_plan_id: selectedRatePlan.id` to the batch function.
-- Store/read via `previewByMonth[previewKey]`.
-- Update `previewRows` getter to read `previewByMonth[`${selectedMonth}_${selectedRatePlan?.id}`] ?? []`.
-- Effect deps: `[selectedMonth, selectedRatePlan, propertyId, monthSummaries, previewByMonth]`.
-
-**4. Header + selector (lines 1438–1444)** — render a Select beside the title:
+After `<PricingDashboard ... />` (lines 992-995):
+```tsx
+<OverridesSection
+  propertyId={propertyId}
+  refreshKey={overridesRefreshKey}
+  onChanged={() => setOverridesRefreshKey(k => k + 1)}
+/>
 ```
-Rate Preview — May 2026 · Family Suite     [Select dropdown]
+Pass `overridesRefreshKey` and `onOverridesChanged` into `PricingDashboard`. When `overridesRefreshKey` changes, dashboard clears `previewByMonth` (set to `{}`) so preview reloads.
+
+### 4. Quick override from preview table
+
+Inside `PricingDashboard`'s Override cell (1523-1525):
+
+- Add state `quickDialog: { open, initial, allowDateRange:false }`.
+- Fetch `roomTypes` for the dialog: extend the existing units query (line 1184) from `select('id')` → `select('id, booking_com_name')`, derive distinct list, store in state.
+- Cell:
+  - If `isOverride`: render existing `<Badge>` as a clickable button. On click, look up the existing override with **explicit precedence** (specific room_type wins over wildcard):
+    ```ts
+    const { data: matches } = await supabase
+      .from('pricing_overrides')
+      .select('*')
+      .eq('property_id', propertyId)
+      .eq('override_date', row.target_date)
+      .or(`room_type.eq.${selectedRatePlan.room_type},room_type.is.null`);
+    const specific = matches?.find(m => m.room_type === selectedRatePlan.room_type);
+    const wildcard = matches?.find(m => m.room_type === null);
+    const existingOverride = specific ?? wildcard;
+    ```
+    Open dialog with `initial = existingOverride` mapped to dialog shape.
+  - Else: small ghost `Button` with `+` → opens dialog with `initial = { override_date: row.target_date, room_type: selectedRatePlan.room_type, override_type: 'fixed_rate', value: Math.round(row.final_rate) }`.
+- Render `<OverrideDialog>` inside dashboard. `onSaved` clears `previewByMonth` for the current `${selectedMonth}_${selectedRatePlan.id}` key, calls parent `onOverridesChanged`.
+
+### 5. Imports to add
+
+```ts
+import { Plus, Pencil, Trash2 } from 'lucide-react';   // merge into existing lucide import
+import {
+  AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent,
+  AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle,
+} from '@/components/ui/alert-dialog';
 ```
-The Select lists `activeRatePlans` by `name` (or `room_type` if name is generic), value = `id`. On change, set `selectedRatePlan` to the matching `{ id, room_type }`. Header room-type label sources from `selectedRatePlan.room_type`.
+Also pull `user` from `useAuth()` in OverridesSection / dialog (already imported at line 5).
 
-**5. Empty states (lines 1446–1497)**:
-- If `activeRatePlans.length === 0`: render `"No active rate plans configured for this property"` instead of the table.
-- Keep the existing in-table "No preview data available" only when a plan is selected but rows are empty.
+### 6. Verified against schema
 
-### Imports
-Add `Select, SelectTrigger, SelectValue, SelectContent, SelectItem` from `@/components/ui/select` if not already imported in this file.
+- `pricing_overrides` columns used: `id, property_id, override_date, override_type, value, reason, room_type, created_by, created_at` — all present.
+- Unique constraint `(property_id, override_date, room_type)` + partial unique index for null `room_type` → conflict caught via `23505`.
+- `units.booking_com_name` confirmed (src/types/unit.ts; usage pattern matches src/pages/pms/Prices.tsx).
+- No duplicate identifiers introduced (`OverrideDialog`, `OverridesSection`, `overridesRefreshKey`, `quickDialog`, `roomTypes` are new in their scopes).
 
 ### Out of scope
-- No changes to the batch Edge Function, helper module, month cards aggregation, settings card, or any other page.
-
-### Duplicate-declaration check
-- `selectedRatePlan` / `activeRatePlans` are new — confirmed no existing identifiers with those names in the file.
-- `previewKey` is local to the effect and the render scope; declared once in each.
+Settings card, dashboard month-card aggregation, edge functions, DB schema, other pages.
