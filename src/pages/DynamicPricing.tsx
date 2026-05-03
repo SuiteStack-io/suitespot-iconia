@@ -993,6 +993,15 @@ export default function DynamicPricing() {
           <PricingDashboard
             propertyId={propertyId}
             rules={rules}
+            overridesRefreshKey={overridesRefreshKey}
+            onOverridesChanged={() => setOverridesRefreshKey(k => k + 1)}
+          />
+
+          {/* Manual Overrides */}
+          <OverridesSection
+            propertyId={propertyId}
+            refreshKey={overridesRefreshKey}
+            onChanged={() => setOverridesRefreshKey(k => k + 1)}
           />
         </div>
       </div>
