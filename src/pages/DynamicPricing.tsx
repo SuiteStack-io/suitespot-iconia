@@ -1061,6 +1061,448 @@ function toDbRow(patch: Partial<PricingRules>): Record<string, unknown> {
   if (patch.monthly_revenue_stretch !== undefined) out.monthly_revenue_stretch = patch.monthly_revenue_stretch;
   if (patch.last_minute_strategy !== undefined) out.last_minute_strategy = patch.last_minute_strategy;
   if (patch.channex_min_price_synced !== undefined) out.channex_min_price_synced = patch.channex_min_price_synced;
-  if (patch.channex_max_price_synced !== undefined) out.channex_max_price_synced = patch.channex_max_price_synced;
-  return out;
 }
+
+// ============================================================================
+// Pricing Dashboard
+// ============================================================================
+
+interface MonthSummary {
+  key: string; // YYYY-MM
+  label: string;
+  monthStart: string;
+  monthEndExclusive: string;
+  monthEndInclusive: string;
+  daysInMonth: number;
+  phase: 'A' | 'B';
+  bookedNights: number;
+  totalAvailableNights: number;
+  occupancyPercent: number;
+  paceIndex: number | null;
+  revenueTotal: number;
+  revenueTarget: number | null;
+  occAdjustmentPercent: number;
+  revAdjustmentPercent: number;
+  overridesCount: number;
+}
+
+interface PreviewRow {
+  target_date: string;
+  base_rate: number;
+  final_rate: number;
+  adjustments: {
+    day_of_week_multiplier: number;
+    occupancy_adjustment: number;
+    revenue_adjustment: number;
+    override_active: boolean;
+  };
+}
+
+const MONTH_NAMES = ['January','February','March','April','May','June','July','August','September','October','November','December'];
+
+function ymdAddDays(ymd: string, n: number): string {
+  const d = new Date(ymd + 'T00:00:00Z');
+  d.setUTCDate(d.getUTCDate() + n);
+  return d.toISOString().slice(0, 10);
+}
+
+function tierIndex(value: number, thresholds: number[]): number {
+  let i = 0;
+  for (; i < thresholds.length; i++) {
+    if (value < Number(thresholds[i])) return i;
+  }
+  return i;
+}
+
+function PricingDashboard({ propertyId, rules }: { propertyId: string; rules: PricingRules }) {
+  const [dashboardLoading, setDashboardLoading] = useState(false);
+  const [primaryRatePlan, setPrimaryRatePlan] = useState<{ id: string; room_type: string } | null>(null);
+  const [monthSummaries, setMonthSummaries] = useState<MonthSummary[]>([]);
+  const [selectedMonth, setSelectedMonth] = useState<string>('');
+  const [previewByMonth, setPreviewByMonth] = useState<Record<string, PreviewRow[]>>({});
+  const [previewLoading, setPreviewLoading] = useState(false);
+
+  // Load cards data
+  useEffect(() => {
+    let cancelled = false;
+    async function load() {
+      if (!propertyId) return;
+      setDashboardLoading(true);
+      try {
+        // Property meta
+        const { data: property } = await supabase
+          .from('properties')
+          .select('timezone, weekend_days, off_peak_days')
+          .eq('id', propertyId)
+          .maybeSingle();
+        const tz = property?.timezone || 'Africa/Cairo';
+        const todayStrInTz = new Date().toLocaleDateString('en-CA', { timeZone: tz });
+
+        // Build 6 month windows starting current month
+        const [tyStr, tmStr] = todayStrInTz.split('-');
+        const baseYear = Number(tyStr);
+        const baseMonth0 = Number(tmStr) - 1;
+
+        const windows = [] as Array<{ key: string; year: number; month0: number; daysInMonth: number; monthStart: string; monthEndExclusive: string; monthEndInclusive: string; phase: 'A'|'B' }>;
+        for (let i = 0; i < 6; i++) {
+          const y = baseYear + Math.floor((baseMonth0 + i) / 12);
+          const m0 = (baseMonth0 + i) % 12;
+          const dim = new Date(y, m0 + 1, 0).getDate();
+          const monthStart = `${y}-${String(m0 + 1).padStart(2,'0')}-01`;
+          const monthEndInclusive = `${y}-${String(m0 + 1).padStart(2,'0')}-${String(dim).padStart(2,'0')}`;
+          const monthEndExclusive = ymdAddDays(monthEndInclusive, 1);
+          const phase: 'A' | 'B' = (monthStart <= todayStrInTz && todayStrInTz <= monthEndInclusive) ? 'B' : 'A';
+          windows.push({ key: monthStart.slice(0,7), year: y, month0: m0, daysInMonth: dim, monthStart, monthEndExclusive, monthEndInclusive, phase });
+        }
+
+        const windowStart = windows[0].monthStart;
+        const windowEndExclusive = windows[windows.length - 1].monthEndExclusive;
+
+        // Primary rate plan
+        const { data: ratePlans } = await supabase
+          .from('rate_plans')
+          .select('id, room_type, created_at')
+          .eq('property_id', propertyId)
+          .order('created_at', { ascending: true })
+          .limit(1);
+        const rp = (ratePlans && ratePlans[0]) ? { id: ratePlans[0].id as string, room_type: (ratePlans[0] as any).room_type as string } : null;
+
+        // Active units
+        const { data: unitsData } = await supabase
+          .from('units')
+          .select('id')
+          .eq('property_id', propertyId)
+          .neq('status', 'maintenance');
+        const units = (unitsData ?? []) as { id: string }[];
+        const unitIds = units.map(u => u.id);
+
+        // Reservations across full window
+        let reservations: any[] = [];
+        if (unitIds.length > 0) {
+          const { data: resData } = await supabase
+            .from('reservations')
+            .select('unit_id, property_id, status, check_in_date, check_out_date, total_price')
+            .in('status', ['confirmed', 'checked-in'])
+            .in('unit_id', unitIds)
+            .lt('check_in_date', windowEndExclusive)
+            .gt('check_out_date', windowStart);
+          reservations = (resData ?? []) as any[];
+        }
+
+        // Overrides
+        const { data: overridesData } = await supabase
+          .from('pricing_overrides')
+          .select('override_date')
+          .eq('property_id', propertyId)
+          .gte('override_date', windowStart)
+          .lt('override_date', windowEndExclusive);
+        const overrides = (overridesData ?? []) as { override_date: string }[];
+
+        // Compute per-month summaries
+        const occThresholds = (rules.occupancy_thresholds || []).map(Number);
+        const occAdjustments = (rules.occupancy_adjustments || []).map(Number);
+        const revThresholds = (rules.revenue_thresholds || []).map(Number);
+        const revAdjA = (rules.revenue_adjustments_phase_a || []).map(Number);
+        const revAdjB = (rules.revenue_adjustments_phase_b || []).map(Number);
+        const paceBumpThreshold = Number(rules.pace_index_bump_threshold ?? 1.3);
+        const monthlyTarget = rules.monthly_revenue_target != null ? Number(rules.monthly_revenue_target) : 0;
+        const conflictCap = Number(rules.revenue_occupancy_conflict_cap ?? 5);
+        const conflictRevMin = Number(rules.revenue_occupancy_conflict_revenue_min ?? 80);
+        const conflictOccMax = Number(rules.revenue_occupancy_conflict_occupancy_max ?? 40);
+
+        const summaries: MonthSummary[] = windows.map((w) => {
+          // Booked nights overlap
+          let bookedNights = 0;
+          for (const r of reservations) {
+            const ci = r.check_in_date as string;
+            const co = r.check_out_date as string;
+            if (!(ci < w.monthEndExclusive && co > w.monthStart)) continue;
+            const overlapStart = ci > w.monthStart ? ci : w.monthStart;
+            const overlapEndExclusive = co < w.monthEndExclusive ? co : w.monthEndExclusive;
+            if (overlapEndExclusive > overlapStart) {
+              const a = new Date(overlapStart + 'T00:00:00Z').getTime();
+              const b = new Date(overlapEndExclusive + 'T00:00:00Z').getTime();
+              const nights = Math.round((b - a) / 86400000);
+              if (nights > 0) bookedNights += nights;
+            }
+          }
+          const totalAvailableNights = units.length * w.daysInMonth;
+          const occupancyPercent = totalAvailableNights > 0 ? (bookedNights / totalAvailableNights) * 100 : 0;
+
+          // Pace (Phase B only)
+          let paceIndex: number | null = null;
+          if (w.phase === 'B') {
+            const todayDate = new Date(todayStrInTz + 'T00:00:00Z');
+            const monthStartDate = new Date(w.monthStart + 'T00:00:00Z');
+            const daysElapsed = Math.round((todayDate.getTime() - monthStartDate.getTime()) / 86400000) + 1;
+            const daysElapsedPercent = (daysElapsed / w.daysInMonth) * 100;
+            paceIndex = daysElapsedPercent <= 0 ? 1.0 : occupancyPercent / daysElapsedPercent;
+          }
+
+          // Revenue (phase-aware)
+          let revenueTotal = 0;
+          for (const r of reservations) {
+            if (r.property_id !== propertyId) continue;
+            const ci = r.check_in_date as string;
+            const co = r.check_out_date as string;
+            if (w.phase === 'A') {
+              if (ci >= w.monthStart && ci < w.monthEndExclusive) revenueTotal += Number(r.total_price ?? 0);
+            } else {
+              if (ci < w.monthEndExclusive && co > w.monthStart) revenueTotal += Number(r.total_price ?? 0);
+            }
+          }
+
+          // Occupancy adjustment + pace bump
+          let occTier = tierIndex(occupancyPercent, occThresholds);
+          if (w.phase === 'B' && paceIndex !== null && paceIndex >= paceBumpThreshold) {
+            if (occTier < occAdjustments.length - 1) occTier += 1;
+          }
+          const occAdjustmentPercent = rules.is_enabled ? Number(occAdjustments[occTier] ?? 0) : 0;
+
+          // Revenue adjustment
+          let revAdjustmentPercent = 0;
+          if (rules.is_enabled && monthlyTarget > 0) {
+            const revAchievement = (revenueTotal / monthlyTarget) * 100;
+            const revTier = tierIndex(revAchievement, revThresholds);
+            const arr = w.phase === 'B' ? revAdjB : revAdjA;
+            revAdjustmentPercent = Number(arr[revTier] ?? 0);
+            if (revAchievement > conflictRevMin && occupancyPercent < conflictOccMax && revAdjustmentPercent > conflictCap) {
+              revAdjustmentPercent = conflictCap;
+            }
+          }
+
+          const overridesCount = overrides.filter(o => o.override_date >= w.monthStart && o.override_date < w.monthEndExclusive).length;
+
+          return {
+            key: w.key,
+            label: `${MONTH_NAMES[w.month0]} ${w.year}`,
+            monthStart: w.monthStart,
+            monthEndExclusive: w.monthEndExclusive,
+            monthEndInclusive: w.monthEndInclusive,
+            daysInMonth: w.daysInMonth,
+            phase: w.phase,
+            bookedNights,
+            totalAvailableNights,
+            occupancyPercent,
+            paceIndex,
+            revenueTotal,
+            revenueTarget: monthlyTarget > 0 ? monthlyTarget : null,
+            occAdjustmentPercent,
+            revAdjustmentPercent,
+            overridesCount,
+          };
+        });
+
+        if (cancelled) return;
+        setPrimaryRatePlan(rp);
+        setMonthSummaries(summaries);
+        setSelectedMonth(prev => prev || summaries[0]?.key || '');
+      } catch (err) {
+        console.error('Failed to load pricing dashboard', err);
+      } finally {
+        if (!cancelled) setDashboardLoading(false);
+      }
+    }
+    load();
+    return () => { cancelled = true; };
+  }, [propertyId, rules]);
+
+  // Load preview for selected month (cached)
+  useEffect(() => {
+    let cancelled = false;
+    async function loadPreview() {
+      if (!selectedMonth || !primaryRatePlan || !propertyId) return;
+      if (previewByMonth[selectedMonth]) return;
+      const summary = monthSummaries.find(s => s.key === selectedMonth);
+      if (!summary) return;
+
+      setPreviewLoading(true);
+      try {
+        const { data, error } = await supabase.functions.invoke('calculate-dynamic-price-batch', {
+          body: {
+            property_id: propertyId,
+            room_type: primaryRatePlan.room_type,
+            rate_plan_id: primaryRatePlan.id,
+            date_from: summary.monthStart,
+            date_to: summary.monthEndInclusive,
+          },
+        });
+        if (error) throw error;
+        if (data?.error) throw new Error(data.error);
+        if (cancelled) return;
+        setPreviewByMonth(prev => ({ ...prev, [selectedMonth]: (data?.rates ?? []) as PreviewRow[] }));
+      } catch (err: any) {
+        console.error('Failed to load rate preview', err);
+        toast.error(err?.message || 'Failed to load rate preview');
+      } finally {
+        if (!cancelled) setPreviewLoading(false);
+      }
+    }
+    loadPreview();
+    return () => { cancelled = true; };
+  }, [selectedMonth, primaryRatePlan, propertyId, monthSummaries, previewByMonth]);
+
+  const previewRows = previewByMonth[selectedMonth] ?? [];
+
+  return (
+    <Card>
+      <CardHeader>
+        <CardTitle>Pricing Dashboard</CardTitle>
+        <CardDescription>Live view of how the algorithm is reading each month and what it would price today.</CardDescription>
+      </CardHeader>
+      <CardContent className="space-y-6">
+        {dashboardLoading && monthSummaries.length === 0 ? (
+          <div className="flex items-center justify-center py-8">
+            <Loader2 className="h-6 w-6 animate-spin text-muted-foreground" />
+          </div>
+        ) : (
+          <>
+            {/* Month cards */}
+            <div className="overflow-x-auto -mx-2 px-2">
+              <div className="flex gap-3 pb-2" style={{ minWidth: 'max-content' }}>
+                {monthSummaries.map(m => {
+                  const isSelected = m.key === selectedMonth;
+                  const occPct = Math.min(100, Math.round(m.occupancyPercent));
+                  const revPct = m.revenueTarget ? Math.min(100, Math.round((m.revenueTotal / m.revenueTarget) * 100)) : 0;
+                  return (
+                    <button
+                      key={m.key}
+                      type="button"
+                      onClick={() => setSelectedMonth(m.key)}
+                      className={cn(
+                        'text-left rounded-lg border bg-card p-4 w-[240px] flex-shrink-0 transition-all hover:shadow-sm',
+                        isSelected && 'ring-2 ring-primary border-primary'
+                      )}
+                    >
+                      <div className="flex items-center justify-between mb-2">
+                        <div className="font-semibold text-sm">{m.label}</div>
+                        <Badge
+                          variant={m.phase === 'B' ? 'default' : 'secondary'}
+                          className={cn(
+                            m.phase === 'B' && 'bg-green-600 hover:bg-green-600 text-white',
+                            m.phase === 'A' && 'bg-blue-100 text-blue-800 hover:bg-blue-100'
+                          )}
+                        >
+                          {m.phase === 'B' ? 'Active' : 'Future'}
+                        </Badge>
+                      </div>
+
+                      <div className="space-y-2 text-xs">
+                        <div>
+                          <div className="flex justify-between mb-1">
+                            <span className="text-muted-foreground">Occupancy</span>
+                            <span className="font-medium">{occPct}%</span>
+                          </div>
+                          <Progress value={occPct} className="h-1.5" />
+                        </div>
+
+                        {m.phase === 'B' && m.paceIndex !== null && (
+                          <div className="flex justify-between">
+                            <span className="text-muted-foreground">Pace Index</span>
+                            <span className="font-medium">{m.paceIndex.toFixed(2)}x</span>
+                          </div>
+                        )}
+
+                        {m.revenueTarget !== null && (
+                          <div>
+                            <div className="flex justify-between mb-1">
+                              <span className="text-muted-foreground">Revenue</span>
+                              <span className="font-medium">${Math.round(m.revenueTotal).toLocaleString()} / ${Math.round(m.revenueTarget).toLocaleString()}</span>
+                            </div>
+                            <Progress value={revPct} className="h-1.5" />
+                          </div>
+                        )}
+
+                        <div className="pt-1 border-t">
+                          <div className="text-muted-foreground mb-0.5">Active adjustment</div>
+                          <div className="font-medium">
+                            {m.occAdjustmentPercent >= 0 ? '+' : ''}{m.occAdjustmentPercent}% occ,{' '}
+                            {m.revAdjustmentPercent >= 0 ? '+' : ''}{m.revAdjustmentPercent}% rev
+                          </div>
+                        </div>
+
+                        <div className="text-muted-foreground">
+                          {m.overridesCount} manual override{m.overridesCount === 1 ? '' : 's'}
+                        </div>
+                      </div>
+                    </button>
+                  );
+                })}
+              </div>
+            </div>
+
+            {/* Rate Preview Table */}
+            <div>
+              <div className="flex items-center justify-between mb-2">
+                <h3 className="text-sm font-semibold">
+                  Rate Preview — {monthSummaries.find(s => s.key === selectedMonth)?.label ?? ''}
+                  {primaryRatePlan && <span className="text-muted-foreground font-normal ml-2">({primaryRatePlan.room_type})</span>}
+                </h3>
+                {previewLoading && <Loader2 className="h-4 w-4 animate-spin text-muted-foreground" />}
+              </div>
+
+              {!primaryRatePlan ? (
+                <p className="text-sm text-muted-foreground py-4">No rate plan configured for this property.</p>
+              ) : previewLoading && previewRows.length === 0 ? (
+                <div className="flex items-center justify-center py-8">
+                  <Loader2 className="h-6 w-6 animate-spin text-muted-foreground" />
+                </div>
+              ) : (
+                <div className="overflow-x-auto">
+                  <Table>
+                    <TableHeader>
+                      <TableRow>
+                        <TableHead>Date</TableHead>
+                        <TableHead>Day</TableHead>
+                        <TableHead className="text-right">Base Rate</TableHead>
+                        <TableHead className="text-right">Day Mult</TableHead>
+                        <TableHead className="text-right">Occ Adj</TableHead>
+                        <TableHead className="text-right">Rev Adj</TableHead>
+                        <TableHead className="text-right">Final Rate</TableHead>
+                        <TableHead>Override</TableHead>
+                      </TableRow>
+                    </TableHeader>
+                    <TableBody>
+                      {previewRows.map(row => {
+                        const dow = new Date(row.target_date + 'T00:00:00Z').getUTCDay();
+                        const dayLabel = DAY_LABELS[dow];
+                        const isOverride = row.adjustments.override_active;
+                        const tint = isOverride
+                          ? 'bg-blue-50/60 dark:bg-blue-950/20'
+                          : row.final_rate > row.base_rate
+                            ? 'bg-green-50/60 dark:bg-green-950/20'
+                            : row.final_rate < row.base_rate
+                              ? 'bg-orange-50/60 dark:bg-orange-950/20'
+                              : '';
+                        return (
+                          <TableRow key={row.target_date} className={tint}>
+                            <TableCell className="font-mono text-xs">{row.target_date}</TableCell>
+                            <TableCell className="text-xs">{dayLabel}</TableCell>
+                            <TableCell className="text-right">${Math.round(row.base_rate).toLocaleString()}</TableCell>
+                            <TableCell className="text-right">×{Number(row.adjustments.day_of_week_multiplier ?? 1).toFixed(2)}</TableCell>
+                            <TableCell className="text-right">{row.adjustments.occupancy_adjustment >= 0 ? '+' : ''}{row.adjustments.occupancy_adjustment}%</TableCell>
+                            <TableCell className="text-right">{row.adjustments.revenue_adjustment >= 0 ? '+' : ''}{row.adjustments.revenue_adjustment}%</TableCell>
+                            <TableCell className="text-right font-semibold">${Math.round(row.final_rate).toLocaleString()}</TableCell>
+                            <TableCell>
+                              {isOverride && <Badge variant="secondary" className="bg-blue-100 text-blue-800">Override</Badge>}
+                            </TableCell>
+                          </TableRow>
+                        );
+                      })}
+                      {previewRows.length === 0 && !previewLoading && (
+                        <TableRow>
+                          <TableCell colSpan={8} className="text-center text-muted-foreground py-4">No preview data available.</TableCell>
+                        </TableRow>
+                      )}
+                    </TableBody>
+                  </Table>
+                </div>
+              )}
+            </div>
+          </>
+        )}
+      </CardContent>
+    </Card>
+  );
+}
+
