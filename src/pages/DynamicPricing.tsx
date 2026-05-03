@@ -13,7 +13,7 @@ import { Badge } from '@/components/ui/badge';
 import { RadioGroup, RadioGroupItem } from '@/components/ui/radio-group';
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from '@/components/ui/collapsible';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
-import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from '@/components/ui/dialog';
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter } from '@/components/ui/dialog';
 import { Select, SelectTrigger, SelectValue, SelectContent, SelectItem } from '@/components/ui/select';
 import { Progress } from '@/components/ui/progress';
 import { Loader2, ChevronDown, Info, RotateCcw, Save, X, Plus, Pencil, Trash2 } from 'lucide-react';
@@ -1271,7 +1271,12 @@ interface PreviewRow {
     day_of_week_multiplier: number;
     occupancy_adjustment: number;
     revenue_adjustment: number;
+    occupancy_percent?: number | null;
+    month_phase?: string | null;
     override_active: boolean;
+    was_clamped?: boolean;
+    clamp_direction?: 'floor' | 'ceiling' | null;
+    promotion_applied?: { id: string; discount_percent: number } | null;
   };
 }
 
@@ -1301,6 +1306,7 @@ function PricingDashboard({ propertyId, rules, overridesRefreshKey, onOverridesC
   const [previewLoading, setPreviewLoading] = useState(false);
   const [roomTypes, setRoomTypes] = useState<string[]>([]);
   const [quickDialog, setQuickDialog] = useState<{ open: boolean; initial: OverrideDialogInitial | undefined }>({ open: false, initial: undefined });
+  const [briefOpen, setBriefOpen] = useState(false);
 
   // Load cards data
   useEffect(() => {
@@ -1586,9 +1592,17 @@ function PricingDashboard({ propertyId, rules, overridesRefreshKey, onOverridesC
 
   return (
     <Card>
-      <CardHeader>
-        <CardTitle>Pricing Dashboard</CardTitle>
-        <CardDescription>Live view of how the algorithm is reading each month and what it would price today.</CardDescription>
+      <CardHeader className="flex flex-row items-start justify-between gap-4">
+        <div>
+          <CardTitle>Pricing Dashboard</CardTitle>
+          <CardDescription>Live view of how the algorithm is reading each month and what it would price today.</CardDescription>
+        </div>
+        <Button
+          onClick={() => setBriefOpen(true)}
+          disabled={!selectedMonth || !selectedRatePlan || activeRatePlans.length === 0}
+        >
+          Pricing Brief
+        </Button>
       </CardHeader>
       <CardContent className="space-y-6">
         {dashboardLoading && monthSummaries.length === 0 ? (
@@ -1796,7 +1810,441 @@ function PricingDashboard({ propertyId, rules, overridesRefreshKey, onOverridesC
           onOverridesChanged();
         }}
       />
+      <PricingBriefDialog
+        open={briefOpen}
+        onOpenChange={setBriefOpen}
+        propertyId={propertyId}
+        rules={rules}
+        monthSummaries={monthSummaries}
+        activeRatePlans={activeRatePlans}
+        previewByMonth={previewByMonth}
+        setPreviewByMonth={setPreviewByMonth}
+        initialMonthKey={selectedMonth}
+        initialRatePlanId={selectedRatePlan?.id ?? ''}
+      />
     </Card>
+  );
+}
+
+// ============================================================================
+// Pricing Brief Dialog
+// ============================================================================
+
+const FULL_DAY_NAMES = ['Sunday', 'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday'];
+
+interface PromoRow {
+  id: string;
+  name: string;
+  discount_type: 'percentage' | 'fixed_amount';
+  discount_value: number;
+  booking_window_start: string;
+  booking_window_end: string;
+  stay_start: string;
+  stay_end: string;
+  room_types: string[] | null;
+}
+
+interface BoundsRow {
+  weekday_rate: number;
+  weekend_rate: number;
+  min_rate: number | null;
+  max_rate: number | null;
+}
+
+function fmtMoney(n: number | null | undefined): string {
+  if (n == null || !isFinite(Number(n))) return '—';
+  return `$${Math.round(Number(n)).toLocaleString()}`;
+}
+
+function fmtPct(n: number | null | undefined, withSign = false): string {
+  if (n == null || !isFinite(Number(n))) return '—';
+  const v = Number(n);
+  const sign = withSign && v >= 0 ? '+' : '';
+  return `${sign}${Math.round(v * 10) / 10}%`;
+}
+
+function PricingBriefDialog({
+  open, onOpenChange, propertyId, rules, monthSummaries, activeRatePlans,
+  previewByMonth, setPreviewByMonth, initialMonthKey, initialRatePlanId,
+}: {
+  open: boolean;
+  onOpenChange: (v: boolean) => void;
+  propertyId: string;
+  rules: PricingRules;
+  monthSummaries: MonthSummary[];
+  activeRatePlans: Array<{ id: string; room_type: string; name: string }>;
+  previewByMonth: Record<string, PreviewRow[]>;
+  setPreviewByMonth: React.Dispatch<React.SetStateAction<Record<string, PreviewRow[]>>>;
+  initialMonthKey: string;
+  initialRatePlanId: string;
+}) {
+  const [monthKey, setMonthKey] = useState(initialMonthKey);
+  const [ratePlanId, setRatePlanId] = useState(initialRatePlanId);
+  const [loading, setLoading] = useState(false);
+  const [overrideCount, setOverrideCount] = useState(0);
+  const [activePromotion, setActivePromotion] = useState<PromoRow | null>(null);
+  const [bounds, setBounds] = useState<BoundsRow | null>(null);
+  const [weekendDays, setWeekendDays] = useState<number[]>([]);
+
+  useEffect(() => {
+    if (open) {
+      setMonthKey(initialMonthKey);
+      setRatePlanId(initialRatePlanId);
+    }
+  }, [open, initialMonthKey, initialRatePlanId]);
+
+  const summary = monthSummaries.find(s => s.key === monthKey);
+  const plan = activeRatePlans.find(p => p.id === ratePlanId);
+  const previewKey = `${monthKey}_${ratePlanId}`;
+  const previewRows = previewByMonth[previewKey] ?? [];
+
+  useEffect(() => {
+    if (!open || !summary || !plan || !propertyId) return;
+    let cancelled = false;
+    async function loadAll() {
+      setLoading(true);
+      try {
+        const needPreview = !previewByMonth[previewKey];
+        const [propRes, boundsRes, overrideRes, promoRes, previewRes] = await Promise.all([
+          supabase.from('properties').select('weekend_days').eq('id', propertyId).maybeSingle(),
+          supabase.from('rate_plan_prices')
+            .select('weekday_rate, weekend_rate, min_rate, max_rate')
+            .eq('rate_plan_id', plan!.id)
+            .eq('room_type', plan!.room_type)
+            .is('unit_id', null)
+            .maybeSingle(),
+          supabase.from('pricing_overrides')
+            .select('id', { count: 'exact', head: true })
+            .eq('property_id', propertyId)
+            .gte('override_date', summary!.monthStart)
+            .lt('override_date', summary!.monthEndExclusive)
+            .or(`room_type.eq.${plan!.room_type},room_type.is.null`),
+          supabase.from('promotional_periods')
+            .select('id, name, discount_type, discount_value, booking_window_start, booking_window_end, stay_start, stay_end, room_types')
+            .eq('property_id', propertyId)
+            .eq('is_active', true)
+            .lte('stay_start', summary!.monthEndInclusive)
+            .gte('stay_end', summary!.monthStart),
+          needPreview
+            ? supabase.functions.invoke('calculate-dynamic-price-batch', {
+                body: {
+                  property_id: propertyId,
+                  room_type: plan!.room_type,
+                  rate_plan_id: plan!.id,
+                  date_from: summary!.monthStart,
+                  date_to: summary!.monthEndInclusive,
+                },
+              })
+            : Promise.resolve(null),
+        ]);
+
+        if (cancelled) return;
+
+        setWeekendDays((propRes.data?.weekend_days as number[] | null) ?? [4, 5]);
+        setBounds((boundsRes.data as BoundsRow | null) ?? null);
+        setOverrideCount(overrideRes.count ?? 0);
+
+        const promos = (promoRes.data as PromoRow[] | null) ?? [];
+        const matched = promos.find(p =>
+          !p.room_types || p.room_types.length === 0 || p.room_types.includes(plan!.room_type)
+        );
+        setActivePromotion(matched ?? null);
+
+        if (needPreview && previewRes && (previewRes as any).data?.rates) {
+          const rates = (previewRes as any).data.rates as PreviewRow[];
+          setPreviewByMonth(prev => ({ ...prev, [previewKey]: rates }));
+        }
+      } catch (err) {
+        console.error('Failed to load Pricing Brief data', err);
+      } finally {
+        if (!cancelled) setLoading(false);
+      }
+    }
+    loadAll();
+    return () => { cancelled = true; };
+  }, [open, monthKey, ratePlanId, propertyId, summary, plan, previewKey, previewByMonth, setPreviewByMonth]);
+
+  const isLoading = loading || !summary || !plan || previewRows.length === 0;
+
+  // ---------- Computed brief content ----------
+  const monthlyTarget = rules.monthly_revenue_target != null ? Number(rules.monthly_revenue_target) : 0;
+  const occThresholds = (rules.occupancy_thresholds || []).map(Number);
+  const occAdjustments = (rules.occupancy_adjustments || []).map(Number);
+  const revThresholds = (rules.revenue_thresholds || []).map(Number);
+  const revAdjA = (rules.revenue_adjustments_phase_a || []).map(Number);
+  const revAdjB = (rules.revenue_adjustments_phase_b || []).map(Number);
+  const paceBumpThreshold = Number(rules.pace_index_bump_threshold ?? 1.3);
+  const conflictCap = Number(rules.revenue_occupancy_conflict_cap ?? 5);
+  const conflictRevMin = Number(rules.revenue_occupancy_conflict_revenue_min ?? 80);
+  const conflictOccMax = Number(rules.revenue_occupancy_conflict_occupancy_max ?? 40);
+
+  let demandText: React.ReactNode = null;
+  if (summary) {
+    const revPctOfTarget = summary.revenueTarget && summary.revenueTarget > 0
+      ? (summary.revenueTotal / summary.revenueTarget) * 100 : 0;
+    let paceLine: React.ReactNode = null;
+    if (summary.phase === 'B' && summary.paceIndex != null) {
+      const today = new Date().toLocaleDateString('en-CA');
+      const monthStartDate = new Date(summary.monthStart + 'T00:00:00Z');
+      const todayDate = new Date(today + 'T00:00:00Z');
+      const daysElapsed = Math.round((todayDate.getTime() - monthStartDate.getTime()) / 86400000) + 1;
+      const expectedPct = Math.max(0, Math.min(100, (daysElapsed / summary.daysInMonth) * 100));
+      if (summary.paceIndex >= 1.0) {
+        paceLine = (
+          <p>You're filling <strong>faster</strong> than expected — at this point in the month you should be around <strong>{expectedPct.toFixed(0)}%</strong> booked, but you're at <strong>{summary.occupancyPercent.toFixed(0)}%</strong>. That's a Pace Index of <strong>{summary.paceIndex.toFixed(2)}x</strong>, which means demand is strong.</p>
+        );
+      } else {
+        paceLine = (
+          <p>You're filling <strong>slower</strong> than expected — at this point in the month you'd typically be around <strong>{expectedPct.toFixed(0)}%</strong> booked, but you're at <strong>{summary.occupancyPercent.toFixed(0)}%</strong>. That's a Pace Index of <strong>{summary.paceIndex.toFixed(2)}x</strong>, indicating softer demand.</p>
+        );
+      }
+    } else {
+      paceLine = <p>This is a future month, so the algorithm uses confirmed bookings only. Pace Index doesn't apply yet.</p>;
+    }
+    demandText = (
+      <>
+        <p>
+          For <strong>{summary.label}</strong>, your property is currently <strong>{summary.occupancyPercent.toFixed(0)}%</strong> booked
+          (<strong>{summary.bookedNights}</strong> of <strong>{summary.totalAvailableNights}</strong> available room-nights).
+          {summary.revenueTarget && summary.revenueTarget > 0 ? (
+            <> Your monthly revenue target is <strong>{fmtMoney(summary.revenueTarget)}</strong>, and you've earned <strong>{fmtMoney(summary.revenueTotal)}</strong> so far (<strong>{revPctOfTarget.toFixed(0)}%</strong> of target).</>
+          ) : (
+            <> No monthly revenue target is set, so revenue-based adjustments are off.</>
+          )}
+        </p>
+        {paceLine}
+      </>
+    );
+  }
+
+  // Adjustments section
+  let adjustmentsText: React.ReactNode = null;
+  if (summary) {
+    const dowMap = rules.day_of_week_multipliers || {};
+    const weekendNames = weekendDays.map(d => FULL_DAY_NAMES[d]).join(' and ');
+    const maxMult = Math.max(...Object.values(dowMap).map(Number));
+    const weekdayParts = [0, 1, 2, 3, 4, 5, 6]
+      .filter(d => !weekendDays.includes(d))
+      .map(d => `${FULL_DAY_NAMES[d]} ×${Number(dowMap[String(d)] ?? 1).toFixed(2)}`)
+      .join(', ');
+
+    // Occupancy tier explanation
+    let occTier = tierIndex(summary.occupancyPercent, occThresholds);
+    const baseTier = occTier;
+    let bumped = false;
+    if (summary.phase === 'B' && summary.paceIndex != null && summary.paceIndex >= paceBumpThreshold) {
+      if (occTier < occAdjustments.length - 1) { occTier += 1; bumped = true; }
+    }
+    const tierLabel = (i: number) => {
+      const lo = i === 0 ? 0 : Number(occThresholds[i - 1]);
+      const hi = i < occThresholds.length ? Number(occThresholds[i]) : 100;
+      return `${lo}–${hi}%`;
+    };
+    const occAdj = Number(occAdjustments[occTier] ?? 0);
+
+    // Revenue tier explanation
+    let revLine: React.ReactNode = null;
+    if (monthlyTarget > 0) {
+      const revAchievement = (summary.revenueTotal / monthlyTarget) * 100;
+      const revTier = tierIndex(revAchievement, revThresholds);
+      const arr = summary.phase === 'B' ? revAdjB : revAdjA;
+      let revAdj = Number(arr[revTier] ?? 0);
+      let cappedNote: React.ReactNode = null;
+      if (revAchievement > conflictRevMin && summary.occupancyPercent < conflictOccMax && revAdj > conflictCap) {
+        revAdj = conflictCap;
+        cappedNote = (
+          <p className="mt-1">However, your high revenue achievement (<strong>{revAchievement.toFixed(0)}%</strong>) combined with low occupancy (<strong>{summary.occupancyPercent.toFixed(0)}%</strong>) triggered the conflict cap, limiting the revenue boost to <strong>+{conflictCap}%</strong> to avoid pricing too aggressively while inventory is still available.</p>
+        );
+      }
+      revLine = (
+        <>
+          <p>You've earned <strong>{revAchievement.toFixed(0)}%</strong> of your monthly target so far (Phase {summary.phase}). The algorithm applies a <strong>{fmtPct(revAdj, true)}</strong> revenue adjustment based on this tier.</p>
+          {cappedNote}
+        </>
+      );
+    } else {
+      revLine = <p>No monthly revenue target set — no revenue-based adjustment applies.</p>;
+    }
+
+    adjustmentsText = (
+      <div className="space-y-3">
+        <div>
+          <p className="font-semibold">Day-of-Week</p>
+          <p>Your weekend nights ({weekendNames || 'none configured'}) get up to a <strong>{maxMult.toFixed(2)}x</strong> premium because they have higher demand. Weekdays: {weekdayParts || 'none'}.</p>
+        </div>
+        <div>
+          <p className="font-semibold">Occupancy</p>
+          <p>
+            Your current <strong>{summary.occupancyPercent.toFixed(0)}%</strong> occupancy {bumped
+              ? <>combined with a strong Pace Index of <strong>{summary.paceIndex!.toFixed(2)}x</strong> bumps you up one tier from the {tierLabel(baseTier)} range to the {tierLabel(occTier)} range.</>
+              : <>falls into the {tierLabel(occTier)} tier.</>} That's a <strong>{fmtPct(occAdj, true)}</strong> adjustment.
+          </p>
+        </div>
+        <div>
+          <p className="font-semibold">Revenue Target</p>
+          {revLine}
+        </div>
+      </div>
+    );
+  }
+
+  // Promotion section
+  let promoSection: React.ReactNode = null;
+  if (activePromotion) {
+    const discountText = activePromotion.discount_type === 'percentage'
+      ? `${activePromotion.discount_value}% off`
+      : `$${activePromotion.discount_value} off per night`;
+    promoSection = (
+      <section>
+        <h3 className="font-semibold text-base mb-2">Promotions Active</h3>
+        <div className="space-y-1">
+          <p><strong>Active Promotion: {activePromotion.name}</strong></p>
+          <p>Discount: <strong>{discountText}</strong></p>
+          <p>Bookable: {activePromotion.booking_window_start} – {activePromotion.booking_window_end}</p>
+          <p>For stays: {activePromotion.stay_start} – {activePromotion.stay_end}</p>
+          <p className="text-muted-foreground">This discount is applied AFTER the dynamic adjustments but BEFORE rate clamping.</p>
+        </div>
+      </section>
+    );
+  }
+
+  // Overrides section
+  let overridesSection: React.ReactNode = null;
+  if (overrideCount > 0) {
+    overridesSection = (
+      <section>
+        <h3 className="font-semibold text-base mb-2">Manual Overrides</h3>
+        <p>You've set <strong>{overrideCount}</strong> manual override{overrideCount === 1 ? '' : 's'} this month. These take precedence over the algorithm — on those dates, your specified rate or adjustment is used directly, and the dynamic calculation is bypassed.</p>
+      </section>
+    );
+  }
+
+  // Bounds section
+  let boundsSection: React.ReactNode = null;
+  if (bounds) {
+    const ceilCount = previewRows.filter(r => r.adjustments.was_clamped && r.adjustments.clamp_direction === 'ceiling').length;
+    const floorCount = previewRows.filter(r => r.adjustments.was_clamped && r.adjustments.clamp_direction === 'floor').length;
+    const total = previewRows.length || 1;
+    let advisory: React.ReactNode = null;
+    if (ceilCount / total > 0.5) {
+      advisory = <p className="mt-1 text-muted-foreground">Note: many of your rates this month are hitting the ceiling. If you want the algorithm to capture more peak demand, consider raising the max rate.</p>;
+    } else if (floorCount / total > 0.5) {
+      advisory = <p className="mt-1 text-muted-foreground">Note: many of your rates this month are hitting the floor. If demand is genuinely soft, consider lowering the min rate to compete more aggressively.</p>;
+    }
+    boundsSection = (
+      <section>
+        <h3 className="font-semibold text-base mb-2">Rate Bounds</h3>
+        <p>Your safety bounds for this room type:</p>
+        <ul className="list-disc pl-5 space-y-0.5">
+          <li>Floor: <strong>{fmtMoney(bounds.min_rate)}</strong> (rates can never go below this)</li>
+          <li>Ceiling: <strong>{fmtMoney(bounds.max_rate)}</strong> (rates can never exceed this)</li>
+        </ul>
+        {advisory}
+      </section>
+    );
+  }
+
+  // Worked example: pick highest final_rate weekend row, fallback to highest overall
+  let exampleSection: React.ReactNode = null;
+  if (previewRows.length > 0 && bounds) {
+    const weekendRows = previewRows.filter(r => weekendDays.includes(new Date(r.target_date + 'T00:00:00Z').getUTCDay()));
+    const pool = weekendRows.length > 0 ? weekendRows : previewRows;
+    const example = pool.reduce((a, b) => (b.final_rate > a.final_rate ? b : a), pool[0]);
+    const dow = new Date(example.target_date + 'T00:00:00Z').getUTCDay();
+    const dayName = FULL_DAY_NAMES[dow];
+    const isWeekendDay = weekendDays.includes(dow);
+    const baseLabel = isWeekendDay ? 'weekend' : 'weekday';
+    const mult = Number(example.adjustments.day_of_week_multiplier ?? 1);
+    const occAdj = Number(example.adjustments.occupancy_adjustment ?? 0);
+    const revAdj = Number(example.adjustments.revenue_adjustment ?? 0);
+    const promoPct = example.adjustments.promotion_applied?.discount_percent ?? 0;
+    const step1 = example.base_rate;
+    const step2 = step1 * mult;
+    const step3 = step2 * (1 + occAdj / 100);
+    const step4 = step3 * (1 + revAdj / 100);
+    const step5 = promoPct ? step4 * (1 - promoPct / 100) : step4;
+    const clampNote = example.adjustments.was_clamped
+      ? `Clamped to ${example.adjustments.clamp_direction}: ${fmtMoney(example.final_rate)}`
+      : null;
+    exampleSection = (
+      <section>
+        <h3 className="font-semibold text-base mb-2">Worked Example</h3>
+        <p>Here's how <strong>{dayName}, {example.target_date}</strong> gets priced:</p>
+        <ol className="list-decimal pl-5 space-y-1 mt-1">
+          <li>Base rate: <strong>{fmtMoney(step1)}</strong> (the {baseLabel} rate from your Prices page)</li>
+          <li>Day-of-week multiplier: ×{mult.toFixed(2)} = <strong>{fmtMoney(step2)}</strong></li>
+          <li>Occupancy adjustment: {fmtPct(occAdj, true)} = <strong>{fmtMoney(step3)}</strong></li>
+          <li>Revenue adjustment: {fmtPct(revAdj, true)} = <strong>{fmtMoney(step4)}</strong></li>
+          {promoPct ? <li>Promotion discount: −{promoPct}% = <strong>{fmtMoney(step5)}</strong></li> : null}
+          {clampNote ? <li>{clampNote}</li> : null}
+        </ol>
+        <p className="mt-2 text-base"><strong>Final rate: {fmtMoney(example.final_rate)}</strong></p>
+      </section>
+    );
+  }
+
+  return (
+    <Dialog open={open} onOpenChange={onOpenChange}>
+      <DialogContent className="max-w-2xl">
+        <DialogHeader>
+          <DialogTitle>Pricing Brief</DialogTitle>
+          <DialogDescription>Plain-language summary of how the algorithm is pricing this month and room type.</DialogDescription>
+        </DialogHeader>
+
+        <div className="flex flex-col sm:flex-row gap-3">
+          <div className="flex-1">
+            <Label className="text-xs text-muted-foreground">Month</Label>
+            <Select value={monthKey} onValueChange={setMonthKey}>
+              <SelectTrigger><SelectValue /></SelectTrigger>
+              <SelectContent>
+                {monthSummaries.map(s => (
+                  <SelectItem key={s.key} value={s.key}>{s.label}</SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+          </div>
+          <div className="flex-1">
+            <Label className="text-xs text-muted-foreground">Room Type</Label>
+            <Select value={ratePlanId} onValueChange={setRatePlanId}>
+              <SelectTrigger><SelectValue /></SelectTrigger>
+              <SelectContent>
+                {activeRatePlans.map(p => (
+                  <SelectItem key={p.id} value={p.id}>{p.room_type}</SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+          </div>
+        </div>
+
+        <div className="max-h-[60vh] overflow-y-auto pr-2 text-sm text-foreground space-y-5 leading-relaxed">
+          {isLoading ? (
+            <div className="flex items-center justify-center py-12 gap-2 text-muted-foreground">
+              <Loader2 className="h-5 w-5 animate-spin" />
+              <span>Loading brief…</span>
+            </div>
+          ) : (
+            <>
+              <section>
+                <h3 className="font-semibold text-base mb-2">Demand Snapshot</h3>
+                {demandText}
+              </section>
+              <section>
+                <h3 className="font-semibold text-base mb-2">How the Algorithm Adjusts</h3>
+                {adjustmentsText}
+              </section>
+              {promoSection}
+              {overridesSection}
+              {boundsSection}
+              {exampleSection}
+            </>
+          )}
+        </div>
+
+        <DialogFooter>
+          <Button variant="outline" onClick={() => onOpenChange(false)}>Close</Button>
+        </DialogFooter>
+      </DialogContent>
+    </Dialog>
   );
 }
 
