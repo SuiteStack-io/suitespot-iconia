@@ -1573,7 +1573,26 @@ function PricingDashboard({ propertyId, rules, overridesRefreshKey, onOverridesC
                             <TableCell className="text-right">{row.adjustments.revenue_adjustment >= 0 ? '+' : ''}{row.adjustments.revenue_adjustment}%</TableCell>
                             <TableCell className="text-right font-semibold">${Math.round(row.final_rate).toLocaleString()}</TableCell>
                             <TableCell>
-                              {isOverride && <Badge variant="secondary" className="bg-blue-100 text-blue-800">Override</Badge>}
+                              {isOverride ? (
+                                <button
+                                  type="button"
+                                  onClick={() => openExistingOverride(row.target_date)}
+                                  className="inline-flex"
+                                >
+                                  <Badge variant="secondary" className="bg-blue-100 text-blue-800 hover:bg-blue-200 cursor-pointer">Override</Badge>
+                                </button>
+                              ) : (
+                                <Button
+                                  type="button"
+                                  variant="ghost"
+                                  size="sm"
+                                  className="h-6 w-6 p-0"
+                                  onClick={() => openAddOverrideForDate(row.target_date, row.final_rate)}
+                                  aria-label="Add override"
+                                >
+                                  <Plus className="h-3.5 w-3.5" />
+                                </Button>
+                              )}
                             </TableCell>
                           </TableRow>
                         );
