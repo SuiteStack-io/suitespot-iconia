@@ -145,6 +145,75 @@ export default function DynamicPricing() {
     return isNaN(n) ? null : n;
   };
 
+  // Tier helpers (Advanced section queued-save pattern)
+  function resolveTierValue(key: TierKey, idx: number): number {
+    const draft = tierDrafts[key]?.[idx];
+    if (draft !== undefined) return draft;
+    const pending = pendingTierChanges[key]?.[idx];
+    if (pending !== undefined) return pending;
+    return ((rules?.[key] ?? []) as number[])[idx] ?? 0;
+  }
+  function setTierDraft(key: TierKey, idx: number, raw: string) {
+    const parsed = raw === '' ? 0 : parseFloat(raw);
+    setTierDrafts(prev => {
+      const arr = [...(prev[key] ?? [])];
+      arr[idx] = isNaN(parsed) ? 0 : parsed;
+      return { ...prev, [key]: arr };
+    });
+  }
+  function isTierRowDirty(key: TierKey, idx: number): boolean {
+    const draft = tierDrafts[key]?.[idx];
+    if (draft === undefined) return false;
+    const baseline = pendingTierChanges[key]?.[idx] ?? ((rules?.[key] ?? []) as number[])[idx];
+    return draft !== baseline;
+  }
+  const hasAnyDirtyTier = TIER_KEYS.some(k =>
+    (tierDrafts[k] ?? []).some((v, i) => v !== undefined && isTierRowDirty(k, i))
+  );
+  function applyTierChanges() {
+    for (const k of TIER_KEYS) {
+      const draft = tierDrafts[k];
+      if (!draft) continue;
+      for (let i = 0; i < draft.length; i++) {
+        const v = draft[i];
+        if (v === undefined) continue;
+        if (!isFinite(v) || v < 0 || v > 100) {
+          toast.error('Tier values must be between 0 and 100');
+          return;
+        }
+      }
+    }
+    setPendingTierChanges(prev => {
+      const next = { ...prev };
+      for (const k of TIER_KEYS) {
+        const draft = tierDrafts[k];
+        if (!draft) continue;
+        const baseFull = ((next[k] ?? (rules?.[k] ?? [])) as number[]).slice();
+        for (let i = 0; i < draft.length; i++) {
+          if (draft[i] !== undefined) baseFull[i] = draft[i] as number;
+        }
+        next[k] = baseFull;
+      }
+      return next;
+    });
+    setTierDrafts({});
+    toast.success('Tier changes added to pending');
+  }
+  function discardPendingTierChanges() {
+    setPendingTierChanges({});
+    setTierDrafts({});
+  }
+  function labelForTier(key: TierKey, idx: number): string {
+    if (!rules) return '';
+    if (key === 'occupancy_adjustments') {
+      const from = idx === 0 ? 0 : rules.occupancy_thresholds[idx - 1] + 1;
+      const to = idx < rules.occupancy_thresholds.length ? rules.occupancy_thresholds[idx] : 100;
+      return `Occupancy ${from}-${to}%`;
+    }
+    const t = rules.revenue_thresholds[idx];
+    return `Revenue ≥ ${t}% (${key === 'revenue_adjustments_phase_a' ? 'Phase A' : 'Phase B'})`;
+  }
+
   // Load last channex sync from localStorage
   useEffect(() => {
     if (propertyId) {
