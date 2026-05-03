@@ -1,9 +1,3 @@
-import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
-import {
-  calculateDynamicRate,
-  type DynamicPricingContext,
-} from "../_shared/dynamic-pricing.ts";
-
 /**
  * calculate-dynamic-price-batch
  *
@@ -11,6 +5,22 @@ import {
  * date range. Loads all dependencies ONCE then loops through dates using
  * the shared helper. Does NOT insert into pricing_log — preview only.
  */
+
+// ── Imports (dynamic so we can log import failures at boot) ──
+let createClient: any;
+let calculateDynamicRate: any;
+type DynamicPricingContext = any;
+
+try {
+  const supaMod = await import("https://esm.sh/@supabase/supabase-js@2");
+  createClient = supaMod.createClient;
+  const helperMod = await import("../_shared/dynamic-pricing.ts");
+  calculateDynamicRate = helperMod.calculateDynamicRate;
+  console.log("[batch] Imports loaded successfully");
+} catch (importErr) {
+  console.error("[batch] Import failed:", importErr);
+  throw importErr;
+}
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
@@ -36,19 +46,29 @@ function addDaysStr(ymd: string, n: number): string {
 }
 
 Deno.serve(async (req: Request) => {
-  if (req.method === "OPTIONS") {
-    return new Response(null, { headers: corsHeaders });
-  }
-
-  const supabase = createClient(
-    Deno.env.get("SUPABASE_URL")!,
-    Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!,
-  );
-
   try {
+    console.log("[batch] Function started");
+
+    if (req.method === "OPTIONS") {
+      console.log("[batch] CORS preflight handled");
+      return new Response(null, { headers: corsHeaders });
+    }
+
+    const supabase = createClient(
+      Deno.env.get("SUPABASE_URL")!,
+      Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!,
+    );
+
     const body = await req.json().catch(() => ({}));
     const { property_id, room_type, rate_plan_id, date_from, date_to } =
       body ?? {};
+    console.log("[batch] Body parsed:", {
+      property_id,
+      room_type,
+      rate_plan_id,
+      date_from,
+      date_to,
+    });
 
     if (!property_id || !room_type || !rate_plan_id || !date_from || !date_to) {
       return respond(400, {
@@ -83,6 +103,10 @@ Deno.serve(async (req: Request) => {
     const todayStrInTz = new Date().toLocaleDateString("en-CA", {
       timeZone: propertyTimezone,
     });
+    console.log("[batch] Property loaded:", {
+      id: property.id,
+      timezone: propertyTimezone,
+    });
 
     // ── Rate plan ──
     const { data: ratePlan } = await supabase
@@ -93,6 +117,7 @@ Deno.serve(async (req: Request) => {
     if (!ratePlan) {
       return respond(404, { success: false, error: "Rate plan not found" });
     }
+    console.log("[batch] Rate plan validated:", { id: ratePlan.id });
 
     // ── Price row ──
     let priceRow: any = null;
@@ -122,6 +147,7 @@ Deno.serve(async (req: Request) => {
         error: `No rate_plan_prices row for rate_plan_id ${rate_plan_id} / room_type ${room_type}`,
       });
     }
+    console.log("[batch] Price row loaded:", priceRow);
 
     // ── Pricing rules ──
     const { data: rules } = await supabase
@@ -129,6 +155,9 @@ Deno.serve(async (req: Request) => {
       .select("*")
       .eq("property_id", property_id)
       .maybeSingle();
+    console.log("[batch] Pricing rules loaded:", {
+      is_enabled: rules?.is_enabled ?? null,
+    });
 
     // ── Active units ──
     const { data: allUnits } = await supabase
@@ -137,6 +166,7 @@ Deno.serve(async (req: Request) => {
       .eq("property_id", property_id)
       .neq("status", "maintenance");
     const units = (allUnits ?? []) as { id: string }[];
+    console.log("[batch] Units loaded:", { count: units.length });
 
     // ── Overrides across the range ──
     const { data: overrides } = await supabase
@@ -145,6 +175,9 @@ Deno.serve(async (req: Request) => {
       .eq("property_id", property_id)
       .gte("override_date", date_from)
       .lte("override_date", date_to);
+    console.log("[batch] Overrides loaded:", {
+      count: (overrides ?? []).length,
+    });
 
     // ── Reservations spanning [date_from, date_to+1) ──
     const rangeEndExclusive = addDaysStr(date_to, 1);
@@ -181,6 +214,7 @@ Deno.serve(async (req: Request) => {
         .gt("check_out_date", earliestMonthStart);
       reservations = reservations.concat((extra ?? []) as any[]);
     }
+    console.log("[batch] Reservations loaded:", { count: reservations.length });
 
     // ── Promotions ──
     const { data: promotions } = await supabase
@@ -194,6 +228,9 @@ Deno.serve(async (req: Request) => {
       .gte("booking_window_end", todayStrInTz)
       .lte("stay_start", date_to)
       .gte("stay_end", date_from);
+    console.log("[batch] Promotions loaded:", {
+      count: (promotions ?? []).length,
+    });
 
     // ── Build context (lazy month caches start empty) ──
     const ctx: DynamicPricingContext = {
@@ -224,6 +261,13 @@ Deno.serve(async (req: Request) => {
     };
 
     // ── Loop dates ──
+    const startMs = new Date(date_from + "T00:00:00Z").getTime();
+    const endMs = new Date(date_to + "T00:00:00Z").getTime();
+    const numDays = Math.round((endMs - startMs) / 86400000) + 1;
+    console.log(
+      `[batch] Calculating dates from ${date_from} to ${date_to}, total ${numDays} days`,
+    );
+
     const rates: any[] = [];
     let cursor = date_from;
     while (cursor <= date_to) {
@@ -277,10 +321,14 @@ Deno.serve(async (req: Request) => {
 
       cursor = addDaysStr(cursor, 1);
     }
+    console.log("[batch] Loop completed, results count:", rates.length);
 
+    console.log("[batch] Returning success response");
     return respond(200, { success: true, rates });
   } catch (err: any) {
-    console.error("[calculate-dynamic-price-batch] Error:", err);
+    console.error("[batch] FATAL ERROR:", err?.message);
+    console.error("[batch] Stack:", err?.stack);
+    console.error("[batch] Error name:", err?.name);
     return respond(500, {
       success: false,
       error: err?.message || String(err),
