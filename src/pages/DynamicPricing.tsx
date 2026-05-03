@@ -1321,12 +1321,13 @@ function PricingDashboard({ propertyId, rules }: { propertyId: string; rules: Pr
     return () => { cancelled = true; };
   }, [propertyId, rules]);
 
-  // Load preview for selected month (cached)
+  // Load preview for selected month + rate plan (cached)
   useEffect(() => {
     let cancelled = false;
     async function loadPreview() {
-      if (!selectedMonth || !primaryRatePlan || !propertyId) return;
-      if (previewByMonth[selectedMonth]) return;
+      if (!selectedMonth || !selectedRatePlan || !propertyId) return;
+      const previewKey = `${selectedMonth}_${selectedRatePlan.id}`;
+      if (previewByMonth[previewKey]) return;
       const summary = monthSummaries.find(s => s.key === selectedMonth);
       if (!summary) return;
 
@@ -1335,8 +1336,8 @@ function PricingDashboard({ propertyId, rules }: { propertyId: string; rules: Pr
         const { data, error } = await supabase.functions.invoke('calculate-dynamic-price-batch', {
           body: {
             property_id: propertyId,
-            room_type: primaryRatePlan.room_type,
-            rate_plan_id: primaryRatePlan.id,
+            room_type: selectedRatePlan.room_type,
+            rate_plan_id: selectedRatePlan.id,
             date_from: summary.monthStart,
             date_to: summary.monthEndInclusive,
           },
@@ -1344,7 +1345,7 @@ function PricingDashboard({ propertyId, rules }: { propertyId: string; rules: Pr
         if (error) throw error;
         if (data?.error) throw new Error(data.error);
         if (cancelled) return;
-        setPreviewByMonth(prev => ({ ...prev, [selectedMonth]: (data?.rates ?? []) as PreviewRow[] }));
+        setPreviewByMonth(prev => ({ ...prev, [previewKey]: (data?.rates ?? []) as PreviewRow[] }));
       } catch (err: any) {
         console.error('Failed to load rate preview', err);
         toast.error(err?.message || 'Failed to load rate preview');
@@ -1354,9 +1355,9 @@ function PricingDashboard({ propertyId, rules }: { propertyId: string; rules: Pr
     }
     loadPreview();
     return () => { cancelled = true; };
-  }, [selectedMonth, primaryRatePlan, propertyId, monthSummaries, previewByMonth]);
+  }, [selectedMonth, selectedRatePlan, propertyId, monthSummaries, previewByMonth]);
 
-  const previewRows = previewByMonth[selectedMonth] ?? [];
+  const previewRows = previewByMonth[`${selectedMonth}_${selectedRatePlan?.id ?? ''}`] ?? [];
 
   return (
     <Card>
