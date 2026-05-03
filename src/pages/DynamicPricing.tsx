@@ -1362,7 +1362,54 @@ function PricingDashboard({ propertyId, rules, overridesRefreshKey, onOverridesC
     return () => { cancelled = true; };
   }, [selectedMonth, selectedRatePlan, propertyId, monthSummaries, previewByMonth]);
 
+  // Clear preview cache when overrides change so the table refreshes
+  useEffect(() => {
+    setPreviewByMonth({});
+  }, [overridesRefreshKey]);
+
   const previewRows = previewByMonth[`${selectedMonth}_${selectedRatePlan?.id ?? ''}`] ?? [];
+
+  async function openExistingOverride(targetDate: string) {
+    if (!selectedRatePlan) return;
+    const { data: matches } = await supabase
+      .from('pricing_overrides')
+      .select('*')
+      .eq('property_id', propertyId)
+      .eq('override_date', targetDate)
+      .or(`room_type.eq.${selectedRatePlan.room_type},room_type.is.null`);
+    const specific = matches?.find((m: any) => m.room_type === selectedRatePlan.room_type);
+    const wildcard = matches?.find((m: any) => m.room_type === null);
+    const existing: any = specific ?? wildcard;
+    if (!existing) {
+      toast.error('Override not found');
+      return;
+    }
+    setQuickDialog({
+      open: true,
+      initial: {
+        id: existing.id,
+        override_date: existing.override_date,
+        room_type: existing.room_type,
+        override_type: existing.override_type,
+        value: Number(existing.value),
+        reason: existing.reason ?? '',
+      },
+    });
+  }
+
+  function openAddOverrideForDate(targetDate: string, suggestedRate: number) {
+    if (!selectedRatePlan) return;
+    setQuickDialog({
+      open: true,
+      initial: {
+        override_date: targetDate,
+        room_type: selectedRatePlan.room_type,
+        override_type: 'fixed_rate',
+        value: Math.round(suggestedRate),
+        reason: '',
+      },
+    });
+  }
 
   return (
     <Card>
