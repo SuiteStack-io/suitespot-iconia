@@ -16,7 +16,8 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from '@/components/ui/dialog';
 import { Select, SelectTrigger, SelectValue, SelectContent, SelectItem } from '@/components/ui/select';
 import { Progress } from '@/components/ui/progress';
-import { Loader2, ChevronDown, Info, RotateCcw, Save, X } from 'lucide-react';
+import { Loader2, ChevronDown, Info, RotateCcw, Save, X, Plus, Pencil, Trash2 } from 'lucide-react';
+import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from '@/components/ui/alert-dialog';
 import { toast } from 'sonner';
 import { NotificationBell } from '@/components/NotificationBell';
 import { cn } from '@/lib/utils';
