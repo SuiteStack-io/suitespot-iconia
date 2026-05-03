@@ -1025,6 +1025,7 @@ export default function DynamicPricing() {
                             {rules.occupancy_adjustments.map((adj, idx) => {
                               const from = idx === 0 ? 0 : rules.occupancy_thresholds[idx - 1] + 1;
                               const to = idx < rules.occupancy_thresholds.length ? rules.occupancy_thresholds[idx] : 100;
+                              const dirty = isTierRowDirty('occupancy_adjustments', idx);
                               return (
                                 <TableRow key={idx}>
                                   <TableCell>{from}%</TableCell>
@@ -1032,13 +1033,9 @@ export default function DynamicPricing() {
                                   <TableCell>
                                     <Input
                                       type="number"
-                                      className="w-20"
-                                      value={adj}
-                                      onChange={(e) => {
-                                        const newAdj = [...rules.occupancy_adjustments];
-                                        newAdj[idx] = parseFloat(e.target.value) || 0;
-                                        updateRules({ occupancy_adjustments: newAdj });
-                                      }}
+                                      className={cn('w-20', dirty && 'border-amber-500')}
+                                      value={resolveTierValue('occupancy_adjustments', idx)}
+                                      onChange={(e) => setTierDraft('occupancy_adjustments', idx, e.target.value)}
                                     />
                                   </TableCell>
                                 </TableRow>
