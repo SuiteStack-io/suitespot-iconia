@@ -1186,11 +1186,12 @@ function PricingDashboard({ propertyId, rules }: { propertyId: string; rules: Pr
         // Active units
         const { data: unitsData } = await supabase
           .from('units')
-          .select('id')
+          .select('id, booking_com_name')
           .eq('property_id', propertyId)
           .neq('status', 'maintenance');
-        const units = (unitsData ?? []) as { id: string }[];
+        const units = (unitsData ?? []) as { id: string; booking_com_name: string | null }[];
         const unitIds = units.map(u => u.id);
+        const distinctRoomTypes = Array.from(new Set(units.map(u => u.booking_com_name).filter((v): v is string => !!v))).sort();
 
         // Reservations across full window
         let reservations: any[] = [];
