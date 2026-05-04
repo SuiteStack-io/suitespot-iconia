@@ -2577,6 +2577,7 @@ function OverridesSection({
   const [dialogOpen, setDialogOpen] = useState(false);
   const [editing, setEditing] = useState<OverrideDialogInitial | undefined>(undefined);
   const [confirmDeleteId, setConfirmDeleteId] = useState<string | null>(null);
+  const [overridesOpen, setOverridesOpen] = useState(false);
 
   const reload = useCallback(async () => {
     if (!propertyId) return;
