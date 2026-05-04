@@ -2728,6 +2728,7 @@ function OverridesSection({
           </div>
         )}
       </CardContent>
+        </CollapsibleContent>
 
       <OverrideDialog
         open={dialogOpen}
@@ -2756,7 +2757,8 @@ function OverridesSection({
           </AlertDialogFooter>
         </AlertDialogContent>
       </AlertDialog>
-    </Card>
+      </Card>
+    </Collapsible>
   );
 }
 
