@@ -679,11 +679,20 @@ export default function DynamicPricing() {
           {rules.is_enabled && (
             <>
               {/* Section B: Rate Guardrails */}
-              <Card>
-                <CardHeader>
-                  <CardTitle>Rate Guardrails</CardTitle>
-                  <CardDescription>Set minimum and maximum rates per room type. These protect against the algorithm pricing too low or too high.</CardDescription>
-                </CardHeader>
+              <Collapsible open={guardrailsOpen} onOpenChange={setGuardrailsOpen}>
+                <Card>
+                  <CollapsibleTrigger asChild>
+                    <CardHeader className="cursor-pointer hover:bg-muted/50 transition-colors">
+                      <div className="flex items-center justify-between">
+                        <div>
+                          <CardTitle>Rate Guardrails</CardTitle>
+                          <CardDescription>Set minimum and maximum rates per room type. These protect against the algorithm pricing too low or too high.</CardDescription>
+                        </div>
+                        <ChevronDown className={`h-5 w-5 text-muted-foreground transition-transform ${guardrailsOpen ? 'rotate-180' : ''}`} />
+                      </div>
+                    </CardHeader>
+                  </CollapsibleTrigger>
+                  <CollapsibleContent>
                 <CardContent className="space-y-4">
                   <div className="overflow-x-auto">
                     <Table>
