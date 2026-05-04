@@ -1650,20 +1650,29 @@ function PricingDashboard({ propertyId, rules, overridesRefreshKey, onOverridesC
   }
 
   return (
-    <Card>
-      <CardHeader className="flex flex-row items-start justify-between gap-4">
-        <div>
-          <CardTitle>Pricing Dashboard</CardTitle>
-          <CardDescription>Live view of how the algorithm is reading each month and what it would price today.</CardDescription>
-        </div>
-        <Button
-          onClick={() => setBriefOpen(true)}
-          disabled={!selectedMonth || !selectedRatePlan || activeRatePlans.length === 0}
-        >
-          Pricing Brief
-        </Button>
-      </CardHeader>
-      <CardContent className="space-y-6">
+    <Collapsible open={dashboardOpen} onOpenChange={setDashboardOpen}>
+      <Card>
+        <CollapsibleTrigger asChild>
+          <CardHeader className="flex flex-row items-start justify-between gap-4 cursor-pointer hover:bg-muted/50 transition-colors">
+            <div>
+              <CardTitle>Pricing Dashboard</CardTitle>
+              <CardDescription>Live view of how the algorithm is reading each month and what it would price today.</CardDescription>
+            </div>
+            <div className="flex items-center gap-3">
+              <div onClick={(e) => e.stopPropagation()}>
+                <Button
+                  onClick={() => setBriefOpen(true)}
+                  disabled={!selectedMonth || !selectedRatePlan || activeRatePlans.length === 0}
+                >
+                  Pricing Brief
+                </Button>
+              </div>
+              <ChevronDown className={`h-5 w-5 text-muted-foreground transition-transform ${dashboardOpen ? 'rotate-180' : ''}`} />
+            </div>
+          </CardHeader>
+        </CollapsibleTrigger>
+        <CollapsibleContent>
+          <CardContent className="space-y-6">
         {dashboardLoading && monthSummaries.length === 0 ? (
           <div className="flex items-center justify-center py-8">
             <Loader2 className="h-6 w-6 animate-spin text-muted-foreground" />
