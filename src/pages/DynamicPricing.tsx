@@ -1013,33 +1013,44 @@ export default function DynamicPricing() {
               </Collapsible>
 
               {/* Section F: Last-Minute Strategy */}
-              <Card>
-                <CardHeader>
-                  <CardTitle>Last-Minute Strategy</CardTitle>
-                  <CardDescription>How to price bookings made within 0–2 days of check-in.</CardDescription>
-                </CardHeader>
-                <CardContent>
-                  <RadioGroup
-                    value={rules.last_minute_strategy}
-                    onValueChange={(val) => updateRules({ last_minute_strategy: val })}
-                  >
-                    <div className="flex items-start space-x-2 mb-3">
-                      <RadioGroupItem value="discount" id="lm-discount" />
-                      <div>
-                        <Label htmlFor="lm-discount" className="font-medium">Discount</Label>
-                        <p className="text-xs text-muted-foreground">Apply −5% for bookings within 0–2 days of check-in (vacation/leisure markets)</p>
+              <Collapsible open={lastMinuteOpen} onOpenChange={setLastMinuteOpen}>
+                <Card>
+                  <CollapsibleTrigger asChild>
+                    <CardHeader className="cursor-pointer hover:bg-muted/50 transition-colors">
+                      <div className="flex items-center justify-between">
+                        <div>
+                          <CardTitle>Last-Minute Strategy</CardTitle>
+                          <CardDescription>How to price bookings made within 0–2 days of check-in.</CardDescription>
+                        </div>
+                        <ChevronDown className={`h-5 w-5 text-muted-foreground transition-transform ${lastMinuteOpen ? 'rotate-180' : ''}`} />
                       </div>
-                    </div>
-                    <div className="flex items-start space-x-2">
-                      <RadioGroupItem value="premium" id="lm-premium" />
-                      <div>
-                        <Label htmlFor="lm-premium" className="font-medium">Premium</Label>
-                        <p className="text-xs text-muted-foreground">Apply +15% for bookings within 0–2 days of check-in (urban/business markets)</p>
-                      </div>
-                    </div>
-                  </RadioGroup>
-                </CardContent>
-              </Card>
+                    </CardHeader>
+                  </CollapsibleTrigger>
+                  <CollapsibleContent>
+                    <CardContent>
+                      <RadioGroup
+                        value={rules.last_minute_strategy}
+                        onValueChange={(val) => updateRules({ last_minute_strategy: val })}
+                      >
+                        <div className="flex items-start space-x-2 mb-3">
+                          <RadioGroupItem value="discount" id="lm-discount" />
+                          <div>
+                            <Label htmlFor="lm-discount" className="font-medium">Discount</Label>
+                            <p className="text-xs text-muted-foreground">Apply −5% for bookings within 0–2 days of check-in (vacation/leisure markets)</p>
+                          </div>
+                        </div>
+                        <div className="flex items-start space-x-2">
+                          <RadioGroupItem value="premium" id="lm-premium" />
+                          <div>
+                            <Label htmlFor="lm-premium" className="font-medium">Premium</Label>
+                            <p className="text-xs text-muted-foreground">Apply +15% for bookings within 0–2 days of check-in (urban/business markets)</p>
+                          </div>
+                        </div>
+                      </RadioGroup>
+                    </CardContent>
+                  </CollapsibleContent>
+                </Card>
+              </Collapsible>
 
               {/* Section G: Advanced */}
               <Collapsible open={advancedOpen} onOpenChange={setAdvancedOpen}>
