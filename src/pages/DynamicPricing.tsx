@@ -1008,7 +1008,9 @@ export default function DynamicPricing() {
                     <p className="text-xs text-muted-foreground">Aspirational target (typically 120-130% of base)</p>
                   </div>
                 </CardContent>
-              </Card>
+                  </CollapsibleContent>
+                </Card>
+              </Collapsible>
 
               {/* Section F: Last-Minute Strategy */}
               <Card>
