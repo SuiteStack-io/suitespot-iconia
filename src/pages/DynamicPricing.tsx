@@ -2658,17 +2658,26 @@ function OverridesSection({
   }
 
   return (
-    <Card>
-      <CardHeader className="flex flex-row items-start justify-between gap-2">
-        <div>
-          <CardTitle>Manual Overrides</CardTitle>
-          <CardDescription>Manually set or adjust rates for specific dates and room types.</CardDescription>
-        </div>
-        <Button size="sm" onClick={openAdd}>
-          <Plus className="h-4 w-4 mr-1" /> Add Override
-        </Button>
-      </CardHeader>
-      <CardContent>
+    <Collapsible open={overridesOpen} onOpenChange={setOverridesOpen}>
+      <Card>
+        <CollapsibleTrigger asChild>
+          <CardHeader className="flex flex-row items-start justify-between gap-2 cursor-pointer hover:bg-muted/50 transition-colors">
+            <div>
+              <CardTitle>Manual Overrides</CardTitle>
+              <CardDescription>Manually set or adjust rates for specific dates and room types.</CardDescription>
+            </div>
+            <div className="flex items-center gap-3">
+              <div onClick={(e) => e.stopPropagation()}>
+                <Button size="sm" onClick={openAdd}>
+                  <Plus className="h-4 w-4 mr-1" /> Add Override
+                </Button>
+              </div>
+              <ChevronDown className={`h-5 w-5 text-muted-foreground transition-transform ${overridesOpen ? 'rotate-180' : ''}`} />
+            </div>
+          </CardHeader>
+        </CollapsibleTrigger>
+        <CollapsibleContent>
+          <CardContent>
         {loading && rows.length === 0 ? (
           <div className="flex items-center justify-center py-8">
             <Loader2 className="h-6 w-6 animate-spin text-muted-foreground" />
