@@ -74,6 +74,11 @@ export default function DynamicPricing() {
   const [rateBounds, setRateBounds] = useState<RoomRateBound[]>([]);
   const [boundsErrors, setBoundsErrors] = useState<Record<string, string>>({});
   const [advancedOpen, setAdvancedOpen] = useState(false);
+  const [masterOpen, setMasterOpen] = useState(true);
+  const [guardrailsOpen, setGuardrailsOpen] = useState(true);
+  const [dowOpen, setDowOpen] = useState(true);
+  const [revTargetsOpen, setRevTargetsOpen] = useState(false);
+  const [lastMinuteOpen, setLastMinuteOpen] = useState(false);
 
   // Channel markups for OTA preview
   const [channelMarkups, setChannelMarkups] = useState<{ id: string; channel_name: string; markup_percentage: number }[]>([]);
@@ -640,34 +645,54 @@ export default function DynamicPricing() {
 
         <div className="space-y-6 max-w-4xl">
           {/* Section A: Master Toggle */}
-          <Card>
-            <CardHeader>
-              <div className="flex items-center justify-between">
-                <div>
-                  <CardTitle>Enable Dynamic Pricing</CardTitle>
-                  <CardDescription>When enabled, rates are automatically adjusted based on occupancy, pace, and revenue targets.</CardDescription>
-                </div>
-                <Switch
-                  checked={rules.is_enabled}
-                  onCheckedChange={(checked) => updateRules({ is_enabled: checked })}
-                />
-              </div>
-            </CardHeader>
-            {!rules.is_enabled && (
-              <CardContent>
-                <p className="text-sm text-muted-foreground">Dynamic pricing is disabled. Rates from Rate Plans will be used as-is.</p>
-              </CardContent>
-            )}
-          </Card>
+          <Collapsible open={masterOpen} onOpenChange={setMasterOpen}>
+            <Card>
+              <CollapsibleTrigger asChild>
+                <CardHeader className="cursor-pointer hover:bg-muted/50 transition-colors">
+                  <div className="flex items-center justify-between">
+                    <div>
+                      <CardTitle>Enable Dynamic Pricing</CardTitle>
+                      <CardDescription>When enabled, rates are automatically adjusted based on occupancy, pace, and revenue targets.</CardDescription>
+                    </div>
+                    <div className="flex items-center gap-3">
+                      <div onClick={(e) => e.stopPropagation()}>
+                        <Switch
+                          checked={rules.is_enabled}
+                          onCheckedChange={(checked) => updateRules({ is_enabled: checked })}
+                        />
+                      </div>
+                      <ChevronDown className={`h-5 w-5 text-muted-foreground transition-transform ${masterOpen ? 'rotate-180' : ''}`} />
+                    </div>
+                  </div>
+                </CardHeader>
+              </CollapsibleTrigger>
+              <CollapsibleContent>
+                {!rules.is_enabled && (
+                  <CardContent>
+                    <p className="text-sm text-muted-foreground">Dynamic pricing is disabled. Rates from Rate Plans will be used as-is.</p>
+                  </CardContent>
+                )}
+              </CollapsibleContent>
+            </Card>
+          </Collapsible>
 
           {rules.is_enabled && (
             <>
               {/* Section B: Rate Guardrails */}
-              <Card>
-                <CardHeader>
-                  <CardTitle>Rate Guardrails</CardTitle>
-                  <CardDescription>Set minimum and maximum rates per room type. These protect against the algorithm pricing too low or too high.</CardDescription>
-                </CardHeader>
+              <Collapsible open={guardrailsOpen} onOpenChange={setGuardrailsOpen}>
+                <Card>
+                  <CollapsibleTrigger asChild>
+                    <CardHeader className="cursor-pointer hover:bg-muted/50 transition-colors">
+                      <div className="flex items-center justify-between">
+                        <div>
+                          <CardTitle>Rate Guardrails</CardTitle>
+                          <CardDescription>Set minimum and maximum rates per room type. These protect against the algorithm pricing too low or too high.</CardDescription>
+                        </div>
+                        <ChevronDown className={`h-5 w-5 text-muted-foreground transition-transform ${guardrailsOpen ? 'rotate-180' : ''}`} />
+                      </div>
+                    </CardHeader>
+                  </CollapsibleTrigger>
+                  <CollapsibleContent>
                 <CardContent className="space-y-4">
                   <div className="overflow-x-auto">
                     <Table>
@@ -798,7 +823,9 @@ export default function DynamicPricing() {
                     );
                   })()}
                 </CardContent>
-              </Card>
+                  </CollapsibleContent>
+                </Card>
+              </Collapsible>
 
               {/* Pending Rate Bound Changes */}
               {Object.keys(pendingBoundsChanges).length > 0 && (
@@ -887,22 +914,31 @@ export default function DynamicPricing() {
               )}
 
               {/* Section D: Day-of-Week Multipliers */}
-              <Card>
-                <CardHeader>
-                  <div className="flex items-center justify-between">
-                    <div>
-                      <CardTitle>Day-of-Week Multipliers</CardTitle>
-                      <CardDescription>Adjust rates by day of week. 1.00 = no change, 1.10 = +10%, 0.90 = −10%.</CardDescription>
-                    </div>
-                    <Button
-                      variant="outline"
-                      size="sm"
-                      onClick={() => updateRules({ day_of_week_multipliers: DEFAULT_DOW })}
-                    >
-                      <RotateCcw className="h-3 w-3 mr-1" /> Reset
-                    </Button>
-                  </div>
-                </CardHeader>
+              <Collapsible open={dowOpen} onOpenChange={setDowOpen}>
+                <Card>
+                  <CollapsibleTrigger asChild>
+                    <CardHeader className="cursor-pointer hover:bg-muted/50 transition-colors">
+                      <div className="flex items-center justify-between">
+                        <div>
+                          <CardTitle>Day-of-Week Multipliers</CardTitle>
+                          <CardDescription>Adjust rates by day of week. 1.00 = no change, 1.10 = +10%, 0.90 = −10%.</CardDescription>
+                        </div>
+                        <div className="flex items-center gap-3">
+                          <div onClick={(e) => e.stopPropagation()}>
+                            <Button
+                              variant="outline"
+                              size="sm"
+                              onClick={() => updateRules({ day_of_week_multipliers: DEFAULT_DOW })}
+                            >
+                              <RotateCcw className="h-3 w-3 mr-1" /> Reset
+                            </Button>
+                          </div>
+                          <ChevronDown className={`h-5 w-5 text-muted-foreground transition-transform ${dowOpen ? 'rotate-180' : ''}`} />
+                        </div>
+                      </div>
+                    </CardHeader>
+                  </CollapsibleTrigger>
+                  <CollapsibleContent>
                 <CardContent>
                   <div className="grid grid-cols-7 gap-2">
                     {DAY_LABELS.map((label, i) => (
@@ -922,13 +958,22 @@ export default function DynamicPricing() {
                     ))}
                   </div>
                 </CardContent>
-              </Card>
+                  </CollapsibleContent>
+                </Card>
+              </Collapsible>
 
               {/* Section E: Revenue Targets */}
-              <Card>
-                <CardHeader>
-                  <CardTitle>Monthly Revenue Targets</CardTitle>
-                </CardHeader>
+              <Collapsible open={revTargetsOpen} onOpenChange={setRevTargetsOpen}>
+                <Card>
+                  <CollapsibleTrigger asChild>
+                    <CardHeader className="cursor-pointer hover:bg-muted/50 transition-colors">
+                      <div className="flex items-center justify-between">
+                        <CardTitle>Monthly Revenue Targets</CardTitle>
+                        <ChevronDown className={`h-5 w-5 text-muted-foreground transition-transform ${revTargetsOpen ? 'rotate-180' : ''}`} />
+                      </div>
+                    </CardHeader>
+                  </CollapsibleTrigger>
+                  <CollapsibleContent>
                 <CardContent className="grid grid-cols-1 md:grid-cols-2 gap-4">
                   <div className="space-y-2">
                     <Label>Monthly Revenue Target</Label>
@@ -963,36 +1008,49 @@ export default function DynamicPricing() {
                     <p className="text-xs text-muted-foreground">Aspirational target (typically 120-130% of base)</p>
                   </div>
                 </CardContent>
-              </Card>
+                  </CollapsibleContent>
+                </Card>
+              </Collapsible>
 
               {/* Section F: Last-Minute Strategy */}
-              <Card>
-                <CardHeader>
-                  <CardTitle>Last-Minute Strategy</CardTitle>
-                  <CardDescription>How to price bookings made within 0–2 days of check-in.</CardDescription>
-                </CardHeader>
-                <CardContent>
-                  <RadioGroup
-                    value={rules.last_minute_strategy}
-                    onValueChange={(val) => updateRules({ last_minute_strategy: val })}
-                  >
-                    <div className="flex items-start space-x-2 mb-3">
-                      <RadioGroupItem value="discount" id="lm-discount" />
-                      <div>
-                        <Label htmlFor="lm-discount" className="font-medium">Discount</Label>
-                        <p className="text-xs text-muted-foreground">Apply −5% for bookings within 0–2 days of check-in (vacation/leisure markets)</p>
+              <Collapsible open={lastMinuteOpen} onOpenChange={setLastMinuteOpen}>
+                <Card>
+                  <CollapsibleTrigger asChild>
+                    <CardHeader className="cursor-pointer hover:bg-muted/50 transition-colors">
+                      <div className="flex items-center justify-between">
+                        <div>
+                          <CardTitle>Last-Minute Strategy</CardTitle>
+                          <CardDescription>How to price bookings made within 0–2 days of check-in.</CardDescription>
+                        </div>
+                        <ChevronDown className={`h-5 w-5 text-muted-foreground transition-transform ${lastMinuteOpen ? 'rotate-180' : ''}`} />
                       </div>
-                    </div>
-                    <div className="flex items-start space-x-2">
-                      <RadioGroupItem value="premium" id="lm-premium" />
-                      <div>
-                        <Label htmlFor="lm-premium" className="font-medium">Premium</Label>
-                        <p className="text-xs text-muted-foreground">Apply +15% for bookings within 0–2 days of check-in (urban/business markets)</p>
-                      </div>
-                    </div>
-                  </RadioGroup>
-                </CardContent>
-              </Card>
+                    </CardHeader>
+                  </CollapsibleTrigger>
+                  <CollapsibleContent>
+                    <CardContent>
+                      <RadioGroup
+                        value={rules.last_minute_strategy}
+                        onValueChange={(val) => updateRules({ last_minute_strategy: val })}
+                      >
+                        <div className="flex items-start space-x-2 mb-3">
+                          <RadioGroupItem value="discount" id="lm-discount" />
+                          <div>
+                            <Label htmlFor="lm-discount" className="font-medium">Discount</Label>
+                            <p className="text-xs text-muted-foreground">Apply −5% for bookings within 0–2 days of check-in (vacation/leisure markets)</p>
+                          </div>
+                        </div>
+                        <div className="flex items-start space-x-2">
+                          <RadioGroupItem value="premium" id="lm-premium" />
+                          <div>
+                            <Label htmlFor="lm-premium" className="font-medium">Premium</Label>
+                            <p className="text-xs text-muted-foreground">Apply +15% for bookings within 0–2 days of check-in (urban/business markets)</p>
+                          </div>
+                        </div>
+                      </RadioGroup>
+                    </CardContent>
+                  </CollapsibleContent>
+                </Card>
+              </Collapsible>
 
               {/* Section G: Advanced */}
               <Collapsible open={advancedOpen} onOpenChange={setAdvancedOpen}>
@@ -1307,6 +1365,7 @@ function PricingDashboard({ propertyId, rules, overridesRefreshKey, onOverridesC
   const [roomTypes, setRoomTypes] = useState<string[]>([]);
   const [quickDialog, setQuickDialog] = useState<{ open: boolean; initial: OverrideDialogInitial | undefined }>({ open: false, initial: undefined });
   const [briefOpen, setBriefOpen] = useState(false);
+  const [dashboardOpen, setDashboardOpen] = useState(true);
 
   // Load cards data
   useEffect(() => {
@@ -1591,20 +1650,29 @@ function PricingDashboard({ propertyId, rules, overridesRefreshKey, onOverridesC
   }
 
   return (
-    <Card>
-      <CardHeader className="flex flex-row items-start justify-between gap-4">
-        <div>
-          <CardTitle>Pricing Dashboard</CardTitle>
-          <CardDescription>Live view of how the algorithm is reading each month and what it would price today.</CardDescription>
-        </div>
-        <Button
-          onClick={() => setBriefOpen(true)}
-          disabled={!selectedMonth || !selectedRatePlan || activeRatePlans.length === 0}
-        >
-          Pricing Brief
-        </Button>
-      </CardHeader>
-      <CardContent className="space-y-6">
+    <Collapsible open={dashboardOpen} onOpenChange={setDashboardOpen}>
+      <Card>
+        <CollapsibleTrigger asChild>
+          <CardHeader className="flex flex-row items-start justify-between gap-4 cursor-pointer hover:bg-muted/50 transition-colors">
+            <div>
+              <CardTitle>Pricing Dashboard</CardTitle>
+              <CardDescription>Live view of how the algorithm is reading each month and what it would price today.</CardDescription>
+            </div>
+            <div className="flex items-center gap-3">
+              <div onClick={(e) => e.stopPropagation()}>
+                <Button
+                  onClick={() => setBriefOpen(true)}
+                  disabled={!selectedMonth || !selectedRatePlan || activeRatePlans.length === 0}
+                >
+                  Pricing Brief
+                </Button>
+              </div>
+              <ChevronDown className={`h-5 w-5 text-muted-foreground transition-transform ${dashboardOpen ? 'rotate-180' : ''}`} />
+            </div>
+          </CardHeader>
+        </CollapsibleTrigger>
+        <CollapsibleContent>
+          <CardContent className="space-y-6">
         {dashboardLoading && monthSummaries.length === 0 ? (
           <div className="flex items-center justify-center py-8">
             <Loader2 className="h-6 w-6 animate-spin text-muted-foreground" />
@@ -1797,6 +1865,7 @@ function PricingDashboard({ propertyId, rules, overridesRefreshKey, onOverridesC
           </>
         )}
       </CardContent>
+        </CollapsibleContent>
       <OverrideDialog
         open={quickDialog.open}
         onOpenChange={(o) => setQuickDialog(prev => ({ ...prev, open: o }))}
@@ -1822,7 +1891,8 @@ function PricingDashboard({ propertyId, rules, overridesRefreshKey, onOverridesC
         initialMonthKey={selectedMonth}
         initialRatePlanId={selectedRatePlan?.id ?? ''}
       />
-    </Card>
+      </Card>
+    </Collapsible>
   );
 }
 
@@ -2507,6 +2577,7 @@ function OverridesSection({
   const [dialogOpen, setDialogOpen] = useState(false);
   const [editing, setEditing] = useState<OverrideDialogInitial | undefined>(undefined);
   const [confirmDeleteId, setConfirmDeleteId] = useState<string | null>(null);
+  const [overridesOpen, setOverridesOpen] = useState(false);
 
   const reload = useCallback(async () => {
     if (!propertyId) return;
@@ -2587,17 +2658,26 @@ function OverridesSection({
   }
 
   return (
-    <Card>
-      <CardHeader className="flex flex-row items-start justify-between gap-2">
-        <div>
-          <CardTitle>Manual Overrides</CardTitle>
-          <CardDescription>Manually set or adjust rates for specific dates and room types.</CardDescription>
-        </div>
-        <Button size="sm" onClick={openAdd}>
-          <Plus className="h-4 w-4 mr-1" /> Add Override
-        </Button>
-      </CardHeader>
-      <CardContent>
+    <Collapsible open={overridesOpen} onOpenChange={setOverridesOpen}>
+      <Card>
+        <CollapsibleTrigger asChild>
+          <CardHeader className="flex flex-row items-start justify-between gap-2 cursor-pointer hover:bg-muted/50 transition-colors">
+            <div>
+              <CardTitle>Manual Overrides</CardTitle>
+              <CardDescription>Manually set or adjust rates for specific dates and room types.</CardDescription>
+            </div>
+            <div className="flex items-center gap-3">
+              <div onClick={(e) => e.stopPropagation()}>
+                <Button size="sm" onClick={openAdd}>
+                  <Plus className="h-4 w-4 mr-1" /> Add Override
+                </Button>
+              </div>
+              <ChevronDown className={`h-5 w-5 text-muted-foreground transition-transform ${overridesOpen ? 'rotate-180' : ''}`} />
+            </div>
+          </CardHeader>
+        </CollapsibleTrigger>
+        <CollapsibleContent>
+          <CardContent>
         {loading && rows.length === 0 ? (
           <div className="flex items-center justify-center py-8">
             <Loader2 className="h-6 w-6 animate-spin text-muted-foreground" />
@@ -2648,6 +2728,7 @@ function OverridesSection({
           </div>
         )}
       </CardContent>
+        </CollapsibleContent>
 
       <OverrideDialog
         open={dialogOpen}
@@ -2676,7 +2757,8 @@ function OverridesSection({
           </AlertDialogFooter>
         </AlertDialogContent>
       </AlertDialog>
-    </Card>
+      </Card>
+    </Collapsible>
   );
 }
 
