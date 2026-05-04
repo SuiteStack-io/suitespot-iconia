@@ -914,22 +914,31 @@ export default function DynamicPricing() {
               )}
 
               {/* Section D: Day-of-Week Multipliers */}
-              <Card>
-                <CardHeader>
-                  <div className="flex items-center justify-between">
-                    <div>
-                      <CardTitle>Day-of-Week Multipliers</CardTitle>
-                      <CardDescription>Adjust rates by day of week. 1.00 = no change, 1.10 = +10%, 0.90 = −10%.</CardDescription>
-                    </div>
-                    <Button
-                      variant="outline"
-                      size="sm"
-                      onClick={() => updateRules({ day_of_week_multipliers: DEFAULT_DOW })}
-                    >
-                      <RotateCcw className="h-3 w-3 mr-1" /> Reset
-                    </Button>
-                  </div>
-                </CardHeader>
+              <Collapsible open={dowOpen} onOpenChange={setDowOpen}>
+                <Card>
+                  <CollapsibleTrigger asChild>
+                    <CardHeader className="cursor-pointer hover:bg-muted/50 transition-colors">
+                      <div className="flex items-center justify-between">
+                        <div>
+                          <CardTitle>Day-of-Week Multipliers</CardTitle>
+                          <CardDescription>Adjust rates by day of week. 1.00 = no change, 1.10 = +10%, 0.90 = −10%.</CardDescription>
+                        </div>
+                        <div className="flex items-center gap-3">
+                          <div onClick={(e) => e.stopPropagation()}>
+                            <Button
+                              variant="outline"
+                              size="sm"
+                              onClick={() => updateRules({ day_of_week_multipliers: DEFAULT_DOW })}
+                            >
+                              <RotateCcw className="h-3 w-3 mr-1" /> Reset
+                            </Button>
+                          </div>
+                          <ChevronDown className={`h-5 w-5 text-muted-foreground transition-transform ${dowOpen ? 'rotate-180' : ''}`} />
+                        </div>
+                      </div>
+                    </CardHeader>
+                  </CollapsibleTrigger>
+                  <CollapsibleContent>
                 <CardContent>
                   <div className="grid grid-cols-7 gap-2">
                     {DAY_LABELS.map((label, i) => (
