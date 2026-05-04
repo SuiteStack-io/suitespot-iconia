@@ -1865,6 +1865,7 @@ function PricingDashboard({ propertyId, rules, overridesRefreshKey, onOverridesC
           </>
         )}
       </CardContent>
+        </CollapsibleContent>
       <OverrideDialog
         open={quickDialog.open}
         onOpenChange={(o) => setQuickDialog(prev => ({ ...prev, open: o }))}
@@ -1890,7 +1891,8 @@ function PricingDashboard({ propertyId, rules, overridesRefreshKey, onOverridesC
         initialMonthKey={selectedMonth}
         initialRatePlanId={selectedRatePlan?.id ?? ''}
       />
-    </Card>
+      </Card>
+    </Collapsible>
   );
 }
 
