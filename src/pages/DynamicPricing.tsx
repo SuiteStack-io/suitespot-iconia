@@ -963,10 +963,17 @@ export default function DynamicPricing() {
               </Collapsible>
 
               {/* Section E: Revenue Targets */}
-              <Card>
-                <CardHeader>
-                  <CardTitle>Monthly Revenue Targets</CardTitle>
-                </CardHeader>
+              <Collapsible open={revTargetsOpen} onOpenChange={setRevTargetsOpen}>
+                <Card>
+                  <CollapsibleTrigger asChild>
+                    <CardHeader className="cursor-pointer hover:bg-muted/50 transition-colors">
+                      <div className="flex items-center justify-between">
+                        <CardTitle>Monthly Revenue Targets</CardTitle>
+                        <ChevronDown className={`h-5 w-5 text-muted-foreground transition-transform ${revTargetsOpen ? 'rotate-180' : ''}`} />
+                      </div>
+                    </CardHeader>
+                  </CollapsibleTrigger>
+                  <CollapsibleContent>
                 <CardContent className="grid grid-cols-1 md:grid-cols-2 gap-4">
                   <div className="space-y-2">
                     <Label>Monthly Revenue Target</Label>
