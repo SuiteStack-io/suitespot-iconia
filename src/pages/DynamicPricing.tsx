@@ -958,7 +958,9 @@ export default function DynamicPricing() {
                     ))}
                   </div>
                 </CardContent>
-              </Card>
+                  </CollapsibleContent>
+                </Card>
+              </Collapsible>
 
               {/* Section E: Revenue Targets */}
               <Card>
