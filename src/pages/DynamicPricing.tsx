@@ -823,7 +823,9 @@ export default function DynamicPricing() {
                     );
                   })()}
                 </CardContent>
-              </Card>
+                  </CollapsibleContent>
+                </Card>
+              </Collapsible>
 
               {/* Pending Rate Bound Changes */}
               {Object.keys(pendingBoundsChanges).length > 0 && (
