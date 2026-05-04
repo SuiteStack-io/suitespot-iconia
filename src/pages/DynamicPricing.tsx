@@ -1365,6 +1365,7 @@ function PricingDashboard({ propertyId, rules, overridesRefreshKey, onOverridesC
   const [roomTypes, setRoomTypes] = useState<string[]>([]);
   const [quickDialog, setQuickDialog] = useState<{ open: boolean; initial: OverrideDialogInitial | undefined }>({ open: false, initial: undefined });
   const [briefOpen, setBriefOpen] = useState(false);
+  const [dashboardOpen, setDashboardOpen] = useState(true);
 
   // Load cards data
   useEffect(() => {
