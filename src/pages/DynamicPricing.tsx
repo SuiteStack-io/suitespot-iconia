@@ -74,6 +74,11 @@ export default function DynamicPricing() {
   const [rateBounds, setRateBounds] = useState<RoomRateBound[]>([]);
   const [boundsErrors, setBoundsErrors] = useState<Record<string, string>>({});
   const [advancedOpen, setAdvancedOpen] = useState(false);
+  const [masterOpen, setMasterOpen] = useState(true);
+  const [guardrailsOpen, setGuardrailsOpen] = useState(true);
+  const [dowOpen, setDowOpen] = useState(true);
+  const [revTargetsOpen, setRevTargetsOpen] = useState(false);
+  const [lastMinuteOpen, setLastMinuteOpen] = useState(false);
 
   // Channel markups for OTA preview
   const [channelMarkups, setChannelMarkups] = useState<{ id: string; channel_name: string; markup_percentage: number }[]>([]);
