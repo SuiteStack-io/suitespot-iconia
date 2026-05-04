@@ -645,25 +645,36 @@ export default function DynamicPricing() {
 
         <div className="space-y-6 max-w-4xl">
           {/* Section A: Master Toggle */}
-          <Card>
-            <CardHeader>
-              <div className="flex items-center justify-between">
-                <div>
-                  <CardTitle>Enable Dynamic Pricing</CardTitle>
-                  <CardDescription>When enabled, rates are automatically adjusted based on occupancy, pace, and revenue targets.</CardDescription>
-                </div>
-                <Switch
-                  checked={rules.is_enabled}
-                  onCheckedChange={(checked) => updateRules({ is_enabled: checked })}
-                />
-              </div>
-            </CardHeader>
-            {!rules.is_enabled && (
-              <CardContent>
-                <p className="text-sm text-muted-foreground">Dynamic pricing is disabled. Rates from Rate Plans will be used as-is.</p>
-              </CardContent>
-            )}
-          </Card>
+          <Collapsible open={masterOpen} onOpenChange={setMasterOpen}>
+            <Card>
+              <CollapsibleTrigger asChild>
+                <CardHeader className="cursor-pointer hover:bg-muted/50 transition-colors">
+                  <div className="flex items-center justify-between">
+                    <div>
+                      <CardTitle>Enable Dynamic Pricing</CardTitle>
+                      <CardDescription>When enabled, rates are automatically adjusted based on occupancy, pace, and revenue targets.</CardDescription>
+                    </div>
+                    <div className="flex items-center gap-3">
+                      <div onClick={(e) => e.stopPropagation()}>
+                        <Switch
+                          checked={rules.is_enabled}
+                          onCheckedChange={(checked) => updateRules({ is_enabled: checked })}
+                        />
+                      </div>
+                      <ChevronDown className={`h-5 w-5 text-muted-foreground transition-transform ${masterOpen ? 'rotate-180' : ''}`} />
+                    </div>
+                  </div>
+                </CardHeader>
+              </CollapsibleTrigger>
+              <CollapsibleContent>
+                {!rules.is_enabled && (
+                  <CardContent>
+                    <p className="text-sm text-muted-foreground">Dynamic pricing is disabled. Rates from Rate Plans will be used as-is.</p>
+                  </CardContent>
+                )}
+              </CollapsibleContent>
+            </Card>
+          </Collapsible>
 
           {rules.is_enabled && (
             <>
