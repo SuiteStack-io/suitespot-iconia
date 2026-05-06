@@ -2283,7 +2283,10 @@ function PricingDashboard({ propertyId, rules, overridesRefreshKey, onOverridesC
                         <TableHead className="text-right">Day Mult</TableHead>
                         <TableHead className="text-right">Occ Adj</TableHead>
                         <TableHead className="text-right">Rev Adj</TableHead>
-                        <TableHead className="text-right">Final Rate</TableHead>
+                        <TableHead className="text-right">Final Base Rate</TableHead>
+                        {otaColumns.map(col => (
+                          <TableHead key={col.key} className="text-right">{col.label}</TableHead>
+                        ))}
                         <TableHead>Override</TableHead>
                       </TableRow>
                     </TableHeader>
