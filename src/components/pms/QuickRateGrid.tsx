@@ -1049,7 +1049,7 @@ export const QuickRateGrid = ({ onSyncQueueCount, readOnly = false }: QuickRateG
       {renderCombinedTable()}
 
       {/* Drafts panel */}
-      {drafts.size > 0 && (
+      {!readOnly && drafts.size > 0 && (
         <Card>
           <CardContent className="py-3 px-4">
             <div className="flex items-center justify-between">
