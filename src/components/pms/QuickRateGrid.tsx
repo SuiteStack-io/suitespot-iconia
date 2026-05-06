@@ -27,6 +27,7 @@ import { useIsMobile } from '@/hooks/use-mobile';
 import { ScrollArea, ScrollBar } from '@/components/ui/scroll-area';
 import { useProperty } from '@/lib/propertyContext';
 import { useAuth } from '@/lib/auth';
+import { RangeSelectActionBar } from './RangeSelectActionBar';
 
 interface RatePlan {
   id: string;
