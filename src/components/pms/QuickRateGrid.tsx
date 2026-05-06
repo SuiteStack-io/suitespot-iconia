@@ -808,14 +808,15 @@ export const QuickRateGrid = ({ onSyncQueueCount, readOnly = false }: QuickRateG
                             <td
                               key={key}
                               className={cn(
-                                `text-center p-0.5 ${cellMinWidth} cursor-pointer relative`,
-                                inDragRange && 'border-2 border-dashed border-primary/60 bg-primary/10',
-                                !inDragRange && isDraft && 'border-2 border-amber-400 bg-amber-50 dark:bg-amber-900/20',
-                                !inDragRange && !isDraft && isPending && 'bg-yellow-100 dark:bg-yellow-900/30',
+                                `text-center p-0.5 ${cellMinWidth} relative`,
+                                !readOnly && 'cursor-pointer',
+                                !readOnly && inDragRange && 'border-2 border-dashed border-primary/60 bg-primary/10',
+                                !readOnly && !inDragRange && isDraft && 'border-2 border-amber-400 bg-amber-50 dark:bg-amber-900/20',
+                                !readOnly && !inDragRange && !isDraft && isPending && 'bg-yellow-100 dark:bg-yellow-900/30',
                               )}
                               style={!inDragRange && !isPending && !isDraft && varianceColor ? { backgroundColor: varianceColor } : undefined}
-                              onClick={(e) => !isActive && !drag.isDragging && handleCellClick(plan.id, d, price, colIdx, e.shiftKey)}
-                              onMouseEnter={() => handleDragEnter(plan.id, colIdx)}
+                              onClick={(e) => !readOnly && !isActive && !drag.isDragging && handleCellClick(plan.id, d, price, colIdx, e.shiftKey)}
+                              onMouseEnter={() => !readOnly && handleDragEnter(plan.id, colIdx)}
                             >
                               {isActive ? (
                                 <input
@@ -955,50 +956,54 @@ export const QuickRateGrid = ({ onSyncQueueCount, readOnly = false }: QuickRateG
           </Select>
         )}
 
-        <Button variant="outline" size="sm" onClick={() => setBulkOpen(true)} className="gap-1.5">
-          <Pencil className="h-3.5 w-3.5" />
-          Bulk Edit
-        </Button>
+        {!readOnly && (
+          <Button variant="outline" size="sm" onClick={() => setBulkOpen(true)} className="gap-1.5">
+            <Pencil className="h-3.5 w-3.5" />
+            Bulk Edit
+          </Button>
+        )}
 
         {previewLoading && (
           <Badge variant="outline" className="gap-1 text-[11px]">Loading engine rates…</Badge>
         )}
 
-        <div className="ml-auto flex items-center gap-2">
-          {saveSuccess && (
-            <Badge className="gap-1 bg-green-100 text-green-800 dark:bg-green-900/30 dark:text-green-400 border-green-200">
-              <Check className="h-3 w-3" />
-              Synced
-            </Badge>
-          )}
-          {drafts.size > 0 && (
-            <Badge variant="outline" className="gap-1 text-amber-700 border-amber-400 bg-amber-50 dark:bg-amber-900/20 dark:text-amber-300">
-              {drafts.size} draft
-            </Badge>
-          )}
-          {drafts.size > 0 && (
-            <Button size="sm" onClick={applyDrafts} variant="outline" className="gap-1.5 border-amber-400 text-amber-700 hover:bg-amber-50">
-              Apply Changes
+        {!readOnly && (
+          <div className="ml-auto flex items-center gap-2">
+            {saveSuccess && (
+              <Badge className="gap-1 bg-green-100 text-green-800 dark:bg-green-900/30 dark:text-green-400 border-green-200">
+                <Check className="h-3 w-3" />
+                Synced
+              </Badge>
+            )}
+            {drafts.size > 0 && (
+              <Badge variant="outline" className="gap-1 text-amber-700 border-amber-400 bg-amber-50 dark:bg-amber-900/20 dark:text-amber-300">
+                {drafts.size} draft
+              </Badge>
+            )}
+            {drafts.size > 0 && (
+              <Button size="sm" onClick={applyDrafts} variant="outline" className="gap-1.5 border-amber-400 text-amber-700 hover:bg-amber-50">
+                Apply Changes
+              </Button>
+            )}
+            {pendingOverrides.size > 0 && (
+              <Badge variant="secondary" className="gap-1 bg-yellow-100 text-yellow-800 dark:bg-yellow-900/30 dark:text-yellow-400 border-yellow-300">
+                {pendingOverrides.size} pending
+              </Badge>
+            )}
+            <Button
+              size="sm"
+              onClick={saveChanges}
+              disabled={saving || pendingOverrides.size === 0}
+              className="gap-1.5 bg-foreground text-background hover:bg-foreground/90"
+            >
+              <Save className="h-3.5 w-3.5" />
+              {saving ? 'Saving...' : `Save Changes${pendingOverrides.size > 0 ? ` (${pendingOverrides.size})` : ''}`}
             </Button>
-          )}
-          {pendingOverrides.size > 0 && (
-            <Badge variant="secondary" className="gap-1 bg-yellow-100 text-yellow-800 dark:bg-yellow-900/30 dark:text-yellow-400 border-yellow-300">
-              {pendingOverrides.size} pending
-            </Badge>
-          )}
-          <Button
-            size="sm"
-            onClick={saveChanges}
-            disabled={saving || pendingOverrides.size === 0}
-            className="gap-1.5 bg-foreground text-background hover:bg-foreground/90"
-          >
-            <Save className="h-3.5 w-3.5" />
-            {saving ? 'Saving...' : `Save Changes${pendingOverrides.size > 0 ? ` (${pendingOverrides.size})` : ''}`}
-          </Button>
-        </div>
+          </div>
+        )}
       </div>
 
-      {(saving || saveProgress > 0) && (
+      {!readOnly && (saving || saveProgress > 0) && (
         <Progress value={saveProgress} className="h-2 [&>div]:bg-foreground" />
       )}
 
@@ -1044,7 +1049,7 @@ export const QuickRateGrid = ({ onSyncQueueCount, readOnly = false }: QuickRateG
       {renderCombinedTable()}
 
       {/* Drafts panel */}
-      {drafts.size > 0 && (
+      {!readOnly && drafts.size > 0 && (
         <Card>
           <CardContent className="py-3 px-4">
             <div className="flex items-center justify-between">
@@ -1063,7 +1068,7 @@ export const QuickRateGrid = ({ onSyncQueueCount, readOnly = false }: QuickRateG
       )}
 
       {/* Pending overrides panel */}
-      {pendingOverrides.size > 0 && (
+      {!readOnly && pendingOverrides.size > 0 && (
         <Card>
           <CardContent className="py-3 px-4">
             <div className="flex items-center justify-between mb-2">
@@ -1093,6 +1098,7 @@ export const QuickRateGrid = ({ onSyncQueueCount, readOnly = false }: QuickRateG
       )}
 
       {/* Bulk Edit Dialog */}
+      {!readOnly && (
       <Dialog open={bulkOpen} onOpenChange={setBulkOpen}>
         <DialogContent>
           <DialogHeader>
@@ -1170,6 +1176,7 @@ export const QuickRateGrid = ({ onSyncQueueCount, readOnly = false }: QuickRateG
           </DialogFooter>
         </DialogContent>
       </Dialog>
+      )}
     </div>
   );
 };
