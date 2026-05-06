@@ -239,6 +239,7 @@ export default function FrontDeskRoomRates() {
           <TabsList className="mb-4">
             <TabsTrigger value="room-cards">Room Cards</TabsTrigger>
             <TabsTrigger value="rate-calendar">Rates List View</TabsTrigger>
+            <TabsTrigger value="rates-calendar-view">Rates Calendar View</TabsTrigger>
           </TabsList>
 
           <TabsContent value="room-cards">
