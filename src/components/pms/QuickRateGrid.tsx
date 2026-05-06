@@ -1003,6 +1003,7 @@ export const QuickRateGrid = ({ onSyncQueueCount, readOnly = false }: QuickRateG
                                   {!readOnly && rate > 0 && !drag.isDragging && (
                                     <div
                                       className="absolute right-0 top-0 bottom-0 w-4 flex items-center justify-center opacity-0 group-hover:opacity-60 hover:!opacity-100 cursor-grab"
+                                      onPointerDown={(e) => e.stopPropagation()}
                                       onMouseDown={(e) => {
                                         e.preventDefault();
                                         e.stopPropagation();
