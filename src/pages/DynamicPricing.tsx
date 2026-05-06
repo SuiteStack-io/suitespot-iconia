@@ -320,18 +320,27 @@ export default function DynamicPricing() {
   const hasAnyDirtyTier = TIER_KEYS.some(k =>
     (tierDrafts[k] ?? []).some((v, i) => v !== undefined && isTierRowDirty(k, i))
   );
-  function applyTierChanges() {
+  function applyTierChanges(skipLevelCheck = false) {
+    const currentAggressionLevel = pendingAggressionLevel ?? rules?.aggression_level ?? 3;
+    if (!skipLevelCheck && currentAggressionLevel !== 3) {
+      setTierResetConfirmOpen(true);
+      return;
+    }
     for (const k of TIER_KEYS) {
       const draft = tierDrafts[k];
       if (!draft) continue;
       for (let i = 0; i < draft.length; i++) {
         const v = draft[i];
         if (v === undefined) continue;
-        if (!isFinite(v) || v < 0 || v > 100) {
-          toast.error('Tier values must be between 0 and 100');
+        if (!isFinite(v) || v < -100 || v > 100) {
+          toast.error('Tier values must be between -100 and 100');
           return;
         }
       }
+    }
+    if (skipLevelCheck && currentAggressionLevel !== 3) {
+      setPendingAggressionLevel(3);
+      setAggressionSliderPos(3);
     }
     setPendingTierChanges(prev => {
       const next = { ...prev };
