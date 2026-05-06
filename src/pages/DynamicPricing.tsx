@@ -2315,10 +2315,16 @@ function PricingDashboard({ propertyId, rules, overridesRefreshKey, onOverridesC
                               : row.final_rate < row.base_rate
                                 ? 'bg-orange-50/60 dark:bg-orange-950/20'
                                 : '';
-                          const todayCellCls = isToday ? 'font-bold text-foreground' : '';
                           return (
-                          <TableRow key={row.target_date} className={cn(tint, isToday && 'font-bold text-foreground')}>
-                            <TableCell className="font-mono text-xs">{row.target_date}</TableCell>
+                          <TableRow key={row.target_date} className={cn(tint, isToday && 'font-bold text-foreground border-y-2 border-foreground')}>
+                            <TableCell className="font-mono text-xs">
+                              <span className="inline-flex items-center gap-2">
+                                {row.target_date}
+                                {isToday && (
+                                  <Badge variant="default" className="text-[10px] px-1.5 py-0">Today</Badge>
+                                )}
+                              </span>
+                            </TableCell>
                             <TableCell className="text-xs">{dayLabel}</TableCell>
                             <TableCell className="text-right">${Math.round(row.base_rate).toLocaleString()}</TableCell>
                             <TableCell className="text-right">×{Number(row.adjustments.day_of_week_multiplier ?? 1).toFixed(2)}</TableCell>
