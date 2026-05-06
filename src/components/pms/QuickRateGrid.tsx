@@ -653,6 +653,7 @@ export const QuickRateGrid = ({ onSyncQueueCount, readOnly = false }: QuickRateG
 
   // Bulk Edit: writes drafts (NOT pricing_overrides directly)
   const applyBulkEdit = () => {
+    if (readOnly) return;
     const rate = parseFloat(bulkRate);
     if (isNaN(rate) || rate <= 0) {
       toast.error('Enter a valid positive rate');
