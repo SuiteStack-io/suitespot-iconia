@@ -356,6 +356,10 @@ export default function FrontDeskRoomRates() {
           <TabsContent value="rate-calendar">
             <QuickRateGrid readOnly />
           </TabsContent>
+
+          <TabsContent value="rates-calendar-view">
+            <RatesCalendarView readOnly />
+          </TabsContent>
         </Tabs>
       </main>
     </div>
