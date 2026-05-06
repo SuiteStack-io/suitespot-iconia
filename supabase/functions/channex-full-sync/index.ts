@@ -439,15 +439,18 @@ Deno.serve(async (req: Request) => {
           // Overlay rate overrides: priority 1 = rate_plan_restrictions, priority 2 = rate_plan_date_overrides
           // Both tables store rates in DOLLARS — convert to cents for Channex
           for (const day of dailyRates) {
-            // Check rate_plan_restrictions for a rate override (highest priority)
-            const restrictionOverride = dateRestrictions?.find(
-              (r: any) => r.rate != null && r.date_from <= day.date && r.date_to > day.date
-            );
-            if (restrictionOverride) {
-              day.rate = Math.round(restrictionOverride.rate * 100);
-              continue;
+            // Skip rate_plan_restrictions.rate overlay when dynamic pricing is active —
+            // engine output (already in day.rate) wins. Other restriction fields handled elsewhere.
+            if (!dynamicCtx) {
+              const restrictionOverride = dateRestrictions?.find(
+                (r: any) => r.rate != null && r.date_from <= day.date && r.date_to > day.date
+              );
+              if (restrictionOverride) {
+                day.rate = Math.round(restrictionOverride.rate * 100);
+                continue;
+              }
             }
-            // Check rate_plan_date_overrides (second priority, stored in dollars)
+            // rate_plan_date_overrides always applies (modern per-date override, stored in dollars)
             const dateOverride = dateOverrides?.find(
               (o: any) => o.override_date === day.date
             );
