@@ -1321,6 +1321,13 @@ function mapRulesRow(row: any): PricingRules {
     revenue_occupancy_conflict_cap: row.revenue_occupancy_conflict_cap,
     revenue_occupancy_conflict_revenue_min: row.revenue_occupancy_conflict_revenue_min,
     revenue_occupancy_conflict_occupancy_max: row.revenue_occupancy_conflict_occupancy_max,
+    aggression_level: typeof row.aggression_level === 'number' ? row.aggression_level : 3,
+    base_tiers: (row.base_tiers && typeof row.base_tiers === 'object') ? {
+      occupancy_adjustments: Array.isArray(row.base_tiers.occupancy_adjustments) ? row.base_tiers.occupancy_adjustments.map(Number) : [0, 5, 10, 18, 28, 40, 55],
+      revenue_adjustments_phase_a: Array.isArray(row.base_tiers.revenue_adjustments_phase_a) ? row.base_tiers.revenue_adjustments_phase_a.map(Number) : [0, 0, 5, 5, 10, 10, 10],
+      revenue_adjustments_phase_b: Array.isArray(row.base_tiers.revenue_adjustments_phase_b) ? row.base_tiers.revenue_adjustments_phase_b.map(Number) : [0, 0, 5, 10, 15, 20, 25],
+      pace_index_bump_threshold: Number(row.base_tiers.pace_index_bump_threshold ?? 1.30),
+    } : null,
   };
 }
 
@@ -1339,6 +1346,8 @@ function toDbRow(patch: Partial<PricingRules>): Record<string, unknown> {
   if (patch.last_minute_strategy !== undefined) out.last_minute_strategy = patch.last_minute_strategy;
   if (patch.channex_min_price_synced !== undefined) out.channex_min_price_synced = patch.channex_min_price_synced;
   if (patch.channex_max_price_synced !== undefined) out.channex_max_price_synced = patch.channex_max_price_synced;
+  if (patch.aggression_level !== undefined) out.aggression_level = patch.aggression_level;
+  if (patch.base_tiers !== undefined) out.base_tiers = patch.base_tiers as unknown as Json;
   return out;
 }
 
