@@ -1309,6 +1309,22 @@ export const QuickRateGrid = ({ onSyncQueueCount, readOnly = false }: QuickRateG
         </DialogContent>
       </Dialog>
       )}
+
+      {!readOnly && select.cols.size > 0 && select.planId && (() => {
+        const planId = select.planId;
+        const price = prices[planId] || null;
+        const date = days[select.anchorCol];
+        const prefill = date ? Math.round(getEffectiveRate(price, date, planId)) : 0;
+        return (
+          <RangeSelectActionBar
+            selectionCount={select.cols.size}
+            prefillValue={prefill}
+            onApply={applySelect}
+            onCancel={cancelSelect}
+            label="cells"
+          />
+        );
+      })()}
     </div>
   );
 };
