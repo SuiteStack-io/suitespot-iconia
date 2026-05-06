@@ -709,7 +709,7 @@ export default function DynamicPricing() {
               <span className="text-sm font-medium">
                 {totalPendingChanges} unsaved change{totalPendingChanges !== 1 ? 's' : ''}
               </span>
-              <Button onClick={saveAllChanges} disabled={saveStatus === 'saving'} size="sm">
+              <Button onClick={() => saveAllChanges()} disabled={saveStatus === 'saving'} size="sm">
                 {saveStatus === 'saving' ? (
                   <Loader2 className="h-4 w-4 mr-2 animate-spin" />
                 ) : (
