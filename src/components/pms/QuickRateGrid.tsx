@@ -487,6 +487,7 @@ export const QuickRateGrid = ({ onSyncQueueCount, readOnly = false }: QuickRateG
   };
 
   const navigateCell = (currentKey: string, direction: 'right' | 'down' | 'left' | 'up') => {
+    if (readOnly) return;
     commitCell(currentKey);
     const [planId, dateStr] = currentKey.split(':');
     const rowIdx = rows.findIndex(r => r.plan.id === planId);
