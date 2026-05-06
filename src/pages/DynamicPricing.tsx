@@ -2316,9 +2316,7 @@ function PricingDashboard({ propertyId, rules, overridesRefreshKey, onOverridesC
                                 return <TableCell key={col.key} className="text-right">—</TableCell>;
                               }
                               const otaRate = row.final_rate * (1 + col.markupPct / 100);
-                              const formatted = Number.isInteger(otaRate)
-                                ? `$${otaRate.toLocaleString()}`
-                                : `$${otaRate.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
+                              const formatted = `$${otaRate.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
                               return <TableCell key={col.key} className="text-right">{formatted}</TableCell>;
                             })}
                             <TableCell>
