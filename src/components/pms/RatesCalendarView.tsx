@@ -103,6 +103,20 @@ export const RatesCalendarView: React.FC<RatesCalendarViewProps> = ({ readOnly =
   const [editDerivedRate, setEditDerivedRate] = useState<number | null>(null);
   const [editSaving, setEditSaving] = useState(false);
 
+  // ── Drag-select state ──
+  const [selection, setSelection] = useState<Set<string>>(new Set());
+  const [isSelecting, setIsSelecting] = useState(false);
+  const [batchSaving, setBatchSaving] = useState(false);
+  const anchorRef = useRef<string | null>(null);
+  const pressRef = useRef<{ x: number; y: number; t: number; ds: string; timer: number | null } | null>(null);
+  const justSelectedRef = useRef<boolean>(false);
+
+  const computeRange = useCallback((anchor: string, hover: string): Set<string> => {
+    // Build set of ymd between anchor and hover, inclusive, in gridCells order (skip nulls)
+    const out = new Set<string>();
+    return out;
+  }, []);
+
   // ── Load rate plans + derived mappings ──
   useEffect(() => {
     if (!propertyId) return;
