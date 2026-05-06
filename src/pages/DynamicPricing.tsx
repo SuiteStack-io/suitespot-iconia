@@ -1607,6 +1607,26 @@ export default function DynamicPricing() {
         </AlertDialogContent>
       </AlertDialog>
 
+      {/* Tier edit requires Level 3 confirm */}
+      <AlertDialog open={tierResetConfirmOpen} onOpenChange={setTierResetConfirmOpen}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Reset slider to Balanced?</AlertDialogTitle>
+            <AlertDialogDescription>
+              Editing tier values directly requires the Pricing Aggression slider to be at Level 3 (Balanced).
+              Your current setting is Level {pendingAggressionLevel ?? rules?.aggression_level ?? 3} ({AGGRESSION_LEVELS[pendingAggressionLevel ?? rules?.aggression_level ?? 3]?.label}).
+              {' '}Continuing will reset the Pricing Aggression slider to Level 3 (Balanced) and save your tier edits as the new baseline. Continue?
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>Cancel</AlertDialogCancel>
+            <AlertDialogAction onClick={() => { setTierResetConfirmOpen(false); applyTierChanges(true); }}>
+              Reset to Balanced and Apply
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
+
       {/* Pace Index Info Dialog */}
       <Dialog open={paceInfoOpen} onOpenChange={setPaceInfoOpen}>
         <DialogContent className="max-w-lg">
