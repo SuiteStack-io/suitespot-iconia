@@ -2301,19 +2301,23 @@ function PricingDashboard({ propertyId, rules, overridesRefreshKey, onOverridesC
                       </TableRow>
                     </TableHeader>
                     <TableBody>
-                      {previewRows.map(row => {
-                        const dow = new Date(row.target_date + 'T00:00:00Z').getUTCDay();
-                        const dayLabel = DAY_LABELS[dow];
-                        const isOverride = row.adjustments.override_active;
-                        const tint = isOverride
-                          ? 'bg-blue-50/60 dark:bg-blue-950/20'
-                          : row.final_rate > row.base_rate
-                            ? 'bg-green-50/60 dark:bg-green-950/20'
-                            : row.final_rate < row.base_rate
-                              ? 'bg-orange-50/60 dark:bg-orange-950/20'
-                              : '';
-                        return (
-                          <TableRow key={row.target_date} className={tint}>
+                      {(() => {
+                        const todayStr = new Date().toLocaleDateString('en-CA');
+                        return previewRows.map(row => {
+                          const dow = new Date(row.target_date + 'T00:00:00Z').getUTCDay();
+                          const dayLabel = DAY_LABELS[dow];
+                          const isOverride = row.adjustments.override_active;
+                          const isToday = row.target_date === todayStr;
+                          const tint = isOverride
+                            ? 'bg-blue-50/60 dark:bg-blue-950/20'
+                            : row.final_rate > row.base_rate
+                              ? 'bg-green-50/60 dark:bg-green-950/20'
+                              : row.final_rate < row.base_rate
+                                ? 'bg-orange-50/60 dark:bg-orange-950/20'
+                                : '';
+                          const todayCellCls = isToday ? 'font-bold text-foreground' : '';
+                          return (
+                          <TableRow key={row.target_date} className={cn(tint, isToday && 'font-bold text-foreground')}>
                             <TableCell className="font-mono text-xs">{row.target_date}</TableCell>
                             <TableCell className="text-xs">{dayLabel}</TableCell>
                             <TableCell className="text-right">${Math.round(row.base_rate).toLocaleString()}</TableCell>
