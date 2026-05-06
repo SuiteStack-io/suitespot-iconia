@@ -110,7 +110,7 @@ interface DragState {
 
 const cellKey = (planId: string, dateStr: string) => `${planId}:${dateStr}`;
 
-export const QuickRateGrid = ({ onSyncQueueCount }: QuickRateGridProps) => {
+export const QuickRateGrid = ({ onSyncQueueCount, readOnly = false }: QuickRateGridProps) => {
   const propertyId = usePropertyId();
   const { activeProperty } = useProperty();
   const { user } = useAuth();
