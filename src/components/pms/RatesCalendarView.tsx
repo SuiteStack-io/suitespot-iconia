@@ -943,6 +943,17 @@ export const RatesCalendarView: React.FC<RatesCalendarViewProps> = ({ readOnly =
           </DialogFooter>
         </DialogContent>
       </Dialog>
+
+      {!readOnly && selection.size > 0 && (
+        <RangeSelectActionBar
+          selectionCount={selection.size}
+          prefillValue={anchorPrefill}
+          onApply={applyBatch}
+          onCancel={cancelBatch}
+          busy={batchSaving}
+          label="dates"
+        />
+      )}
     </div>
   );
 };
