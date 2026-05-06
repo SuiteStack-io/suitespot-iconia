@@ -1797,6 +1797,7 @@ function PricingDashboard({ propertyId, rules, overridesRefreshKey, onOverridesC
   const [briefOpen, setBriefOpen] = useState(false);
   const [dashboardOpen, setDashboardOpen] = useState(true);
   const [derivedMappings, setDerivedMappings] = useState<Array<{
+    id: string;
     base_rate_plan_id: string;
     channel_name: string;
     markup_percentage: number;
@@ -1817,6 +1818,7 @@ function PricingDashboard({ propertyId, rules, overridesRefreshKey, onOverridesC
         return;
       }
       setDerivedMappings(((data as any[]) || []).map((d: any) => ({
+        id: d.id,
         base_rate_plan_id: d.base_rate_plan_id,
         channel_name: d.channel_name,
         markup_percentage: Number(d.markup_percentage),
@@ -1827,25 +1829,19 @@ function PricingDashboard({ propertyId, rules, overridesRefreshKey, onOverridesC
   }, [propertyId]);
 
   const otaColumns = useMemo(() => {
-    if (!selectedRatePlan) return [] as Array<{ key: string; label: string; markupPct: number }>;
-    const forPlan = derivedMappings.filter(d => d.base_rate_plan_id === selectedRatePlan.id);
-    const byChannel = new Map<string, typeof forPlan>();
-    for (const d of forPlan) {
-      const arr = byChannel.get(d.channel_name) ?? [];
-      arr.push(d);
-      byChannel.set(d.channel_name, arr);
+    if (!selectedRatePlan?.id) return [] as Array<{ key: string; label: string; markupPct: number }>;
+    const filtered = derivedMappings.filter(m => m.base_rate_plan_id === selectedRatePlan.id);
+    const channelCounts = new Map<string, number>();
+    for (const m of filtered) {
+      channelCounts.set(m.channel_name, (channelCounts.get(m.channel_name) || 0) + 1);
     }
-    const cols: Array<{ key: string; label: string; markupPct: number }> = [];
-    byChannel.forEach((entries, channel) => {
-      entries.forEach((e, idx) => {
-        cols.push({
-          key: `${channel}_${idx}`,
-          label: `Final ${channel} Rate`,
-          markupPct: e.markup_percentage,
-        });
-      });
+    return filtered.map(m => {
+      const collides = (channelCounts.get(m.channel_name) || 0) > 1;
+      const label = collides
+        ? `Final ${m.channel_name} Rate (+${m.markup_percentage}%)`
+        : `Final ${m.channel_name} Rate`;
+      return { key: m.id, label, markupPct: m.markup_percentage };
     });
-    return cols;
   }, [derivedMappings, selectedRatePlan]);
 
   // Load cards data
