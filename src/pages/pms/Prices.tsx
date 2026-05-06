@@ -16,6 +16,7 @@ import { RatePlanDialog } from '@/components/pms/RatePlanDialog';
 import { BulkRatePlanDialog } from '@/components/pms/BulkRatePlanDialog';
 import { getCancellationPolicyLabel } from '@/components/pms/CancellationPolicyDialog';
 import { QuickRateGrid } from '@/components/pms/QuickRateGrid';
+import { RatesCalendarView } from '@/components/pms/RatesCalendarView';
 import { PricingRulesEditor } from '@/components/pms/PricingRulesEditor';
 import {
   AlertDialog,
