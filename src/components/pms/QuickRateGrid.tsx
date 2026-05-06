@@ -835,6 +835,7 @@ export const QuickRateGrid = ({ onSyncQueueCount, readOnly = false }: QuickRateG
                                   onChange={e => setEditValue(e.target.value)}
                                   onBlur={() => commitCell(key)}
                                   onKeyDown={e => {
+                                    if (readOnly) return;
                                     if (e.key === 'Enter') navigateCell(key, 'down');
                                     else if (e.key === 'Tab') { e.preventDefault(); navigateCell(key, e.shiftKey ? 'left' : 'right'); }
                                     else if (e.key === 'Escape') {
