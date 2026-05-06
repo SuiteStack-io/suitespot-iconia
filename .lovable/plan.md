@@ -1,13 +1,10 @@
-## Rename Tab Label
+# Remove pricing rows from Room Cards on /front-desk/room-rates
 
-Change the visible label only — keep the `value="rate-calendar"` and all tab content intact.
+In `src/pages/front-desk/RoomRates.tsx`, delete lines 279–315 inside the room card's `<CardContent>`:
 
-### Edits
+- The base-rate block with `DollarSign` icon + `weekdayRate`/`weekendRate` (lines 279–300)
+- The `channelRates` (Booking.com etc.) block (lines 302–315)
 
-1. `src/pages/pms/Prices.tsx` line 417
-   - `<TabsTrigger value="rate-calendar">Rate Calendar</TabsTrigger>` → `<TabsTrigger value="rate-calendar">Rates List View</TabsTrigger>`
+Everything else in the card stays: photo, title, area, capacity, amenities, rate plan name. Data fetching and the `weekdayRate / weekendRate / channelRates` fields on the room object are left untouched (just unused for now) to avoid touching queries — pricing remains available via the List View / Calendar View tabs.
 
-2. `src/pages/front-desk/RoomRates.tsx` line 241
-   - `<TabsTrigger value="rate-calendar">Rate Calendar</TabsTrigger>` → `<TabsTrigger value="rate-calendar">Rates List View</TabsTrigger>`
-
-No other changes.
+The unused `DollarSign` import will be removed if it has no other usage in the file.

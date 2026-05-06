@@ -276,44 +276,6 @@ export default function FrontDeskRoomRates() {
                     </CardHeader>
 
                     <CardContent className="space-y-4">
-                      <div className="flex items-center gap-2">
-                        <DollarSign className="h-4 w-4 text-muted-foreground" />
-                        {room.weekdayRate != null ? (
-                          <div className="text-sm">
-                            <span className="font-semibold">
-                              {formatCurrency(room.weekdayRate, room.currency)}
-                            </span>
-                            <span className="text-muted-foreground"> weekday</span>
-                            {room.weekendRate != null && room.weekendRate !== room.weekdayRate && (
-                              <>
-                                <span className="mx-1 text-muted-foreground">/</span>
-                                <span className="font-semibold">
-                                  {formatCurrency(room.weekendRate, room.currency)}
-                                </span>
-                                <span className="text-muted-foreground"> weekend</span>
-                              </>
-                            )}
-                          </div>
-                        ) : (
-                          <span className="text-sm text-muted-foreground">No rate configured</span>
-                        )}
-                      </div>
-
-                      {room.channelRates?.length > 0 && (
-                        <div className="space-y-0.5">
-                          {room.channelRates.map(cr => (
-                            <div key={cr.channel} className="flex items-center gap-2 text-xs text-muted-foreground">
-                              <span>→ {cr.channel}:</span>
-                              <span className="font-medium">
-                                {formatCurrency(cr.weekday, room.currency)}
-                                {cr.weekend !== cr.weekday && ` / ${formatCurrency(cr.weekend, room.currency)}`}
-                              </span>
-                              <Badge variant="outline" className="text-[10px] px-1 py-0">+{cr.markup}%</Badge>
-                            </div>
-                          ))}
-                        </div>
-                      )}
-
                       <div className="flex flex-wrap gap-4 text-sm">
                         {room.area && (
                           <div className="flex items-center gap-1.5 text-muted-foreground">
