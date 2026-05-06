@@ -1485,6 +1485,20 @@ export default function DynamicPricing() {
                         </Table>
                       </div>
 
+                      {/* Apply Changes (top - below Occupancy Tiers) */}
+                      <div className="flex justify-end pt-2">
+                        {hasAnyDirtyTier && (
+                          <Button
+                            type="button"
+                            onClick={() => applyTierChanges()}
+                            className="bg-black text-white hover:bg-black/90"
+                            size="sm"
+                          >
+                            Apply Changes
+                          </Button>
+                        )}
+                      </div>
+
                       {/* Pace Index */}
                       <div className="space-y-2">
                         <div className="flex items-center gap-2">
