@@ -1304,16 +1304,16 @@ export default function DynamicPricing() {
                 </Card>
               </Collapsible>
 
-              {/* Section G-pre: Pricing Aggression Slider */}
+              {/* Section G-pre: Pricing Sensitivity Slider */}
               <Collapsible open={aggressionOpen} onOpenChange={setAggressionOpen}>
                 <Card>
                   <CollapsibleTrigger asChild>
                     <CardHeader className="cursor-pointer hover:bg-muted/50 transition-colors">
                       <div className="flex items-center justify-between">
                         <div>
-                          <CardTitle>Pricing Aggression</CardTitle>
+                          <CardTitle>Pricing Sensitivity</CardTitle>
                           <CardDescription>
-                            Single control for how aggressively the engine adjusts rates. Scales occupancy and revenue tier deltas plus the Pace Index threshold.
+                            Single control for how strongly the engine reacts to demand signals. Scales occupancy and revenue tier deltas plus the Pace Index threshold.
                           </CardDescription>
                         </div>
                         <ChevronDown className={`h-5 w-5 text-muted-foreground transition-transform ${aggressionOpen ? 'rotate-180' : ''}`} />
