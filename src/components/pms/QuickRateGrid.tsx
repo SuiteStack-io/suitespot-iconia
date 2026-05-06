@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useRef, useCallback, useMemo } from 'react';
 import { format, addDays, startOfWeek, startOfMonth, endOfMonth, eachDayOfInterval, differenceInDays, addMonths, subMonths } from 'date-fns';
-import { ChevronLeft, ChevronRight, Send, Trash2, Pencil, GripVertical, Check, CalendarIcon, Save } from 'lucide-react';
+import { ChevronLeft, ChevronRight, Trash2, Pencil, GripVertical, Check, CalendarIcon, Save, Lock, AlertTriangle } from 'lucide-react';
 import { Progress } from '@/components/ui/progress';
 import { Calendar } from '@/components/ui/calendar';
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
@@ -19,12 +19,14 @@ import {
   DialogHeader,
   DialogTitle,
 } from '@/components/ui/dialog';
+import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip';
 import { supabase } from '@/integrations/supabase/client';
 import { toast } from 'sonner';
 import { usePropertyId, withPropertyFilter } from '@/hooks/usePropertyFilter';
 import { useIsMobile } from '@/hooks/use-mobile';
 import { ScrollArea, ScrollBar } from '@/components/ui/scroll-area';
 import { useProperty } from '@/lib/propertyContext';
+import { useAuth } from '@/lib/auth';
 
 interface RatePlan {
   id: string;
@@ -44,15 +46,17 @@ interface RatePlanPrice {
   off_peak_rate: number | null;
   min_stay: number;
   unit_id: string | null;
+  min_rate?: number | null;
+  max_rate?: number | null;
 }
 
-interface PendingChange {
-  ratePlanId: string;
+interface PendingOverride {
+  rate_plan_id: string;
   ratePlanName: string;
-  roomType: string;
-  date: string;
+  room_type: string;
+  override_date: string;
   oldRate: number;
-  newRate: number;
+  value: number;
   isWeekend: boolean;
 }
 
@@ -103,9 +107,12 @@ interface DragState {
   currentColIdx: number;
 }
 
+const cellKey = (planId: string, dateStr: string) => `${planId}:${dateStr}`;
+
 export const QuickRateGrid = ({ onSyncQueueCount }: QuickRateGridProps) => {
   const propertyId = usePropertyId();
   const { activeProperty } = useProperty();
+  const { user } = useAuth();
   const isMobile = useIsMobile();
 
   const weekendDays = useMemo(() => (activeProperty as any)?.weekend_days ?? [4, 5], [activeProperty]);
@@ -117,15 +124,28 @@ export const QuickRateGrid = ({ onSyncQueueCount }: QuickRateGridProps) => {
   const [loading, setLoading] = useState(true);
   const [ratePlans, setRatePlans] = useState<RatePlan[]>([]);
   const [prices, setPrices] = useState<Record<string, RatePlanPrice>>({});
-  const [dateOverrides, setDateOverrides] = useState<Record<string, number>>({});
-  const [overrideSources, setOverrideSources] = useState<Set<string>>(new Set()); // keys that have any override
+
+  // Engine-calculated rates: planId -> dateStr -> final_rate
+  const [previewRates, setPreviewRates] = useState<Record<string, Record<string, number>>>({});
+  const [previewLoading, setPreviewLoading] = useState(false);
+
+  // pricing_overrides rows for this property in the visible window.
+  // Marker-only: keyed by `${planId}:${date}` so we can show the badge
+  // on every rate-plan row whose room_type matches an existing override.
+  const [existingOverrideKeys, setExistingOverrideKeys] = useState<Set<string>>(new Set());
+
+  // Two-stage queue:
+  //   drafts        — typed but not yet applied  (amber border)
+  //   pendingOverrides — applied, awaiting Save  (yellow bg + summary card)
+  const [drafts, setDrafts] = useState<Map<string, number>>(new Map());
+  const [pendingOverrides, setPendingOverrides] = useState<Map<string, PendingOverride>>(new Map());
+
   const [weekStart, setWeekStart] = useState(() => startOfWeek(new Date(), { weekStartsOn: 0 }));
-  const [pendingChanges, setPendingChanges] = useState<Map<string, PendingChange>>(new Map());
   const [activeCell, setActiveCell] = useState<string | null>(null);
   const [editValue, setEditValue] = useState('');
-  const [syncing, setSyncing] = useState(false);
-  const [syncSuccess, setSyncSuccess] = useState(false);
-  const [syncProgress, setSyncProgress] = useState(0);
+  const [saving, setSaving] = useState(false);
+  const [saveSuccess, setSaveSuccess] = useState(false);
+  const [saveProgress, setSaveProgress] = useState(0);
   const [filterRoomType, setFilterRoomType] = useState<string>('all');
   const [filterRatePlan, setFilterRatePlan] = useState<string>('all');
   const [bulkOpen, setBulkOpen] = useState(false);
@@ -157,98 +177,122 @@ export const QuickRateGrid = ({ onSyncQueueCount }: QuickRateGridProps) => {
 
   useEffect(() => {
     const handleBeforeUnload = (e: BeforeUnloadEvent) => {
-      if (pendingChanges.size > 0) {
+      if (drafts.size > 0 || pendingOverrides.size > 0) {
         e.preventDefault();
         e.returnValue = 'You have unsaved rate changes';
       }
     };
     window.addEventListener('beforeunload', handleBeforeUnload);
     return () => window.removeEventListener('beforeunload', handleBeforeUnload);
-  }, [pendingChanges.size]);
+  }, [drafts.size, pendingOverrides.size]);
 
-  useEffect(() => {
-    if (ratePlans.length > 0) {
-      fetchDateOverrides();
+  // ── Existing pricing_overrides (for the Manual Override marker) ──
+  const fetchExistingOverrides = useCallback(async () => {
+    if (!propertyId || ratePlans.length === 0 || days.length === 0) return;
+    const startDate = format(days[0], 'yyyy-MM-dd');
+    const endDate = format(days[days.length - 1], 'yyyy-MM-dd');
+
+    const { data, error } = await supabase
+      .from('pricing_overrides')
+      .select('override_date, room_type')
+      .eq('property_id', propertyId)
+      .gte('override_date', startDate)
+      .lte('override_date', endDate);
+
+    if (error) {
+      console.error('fetch pricing_overrides error', error);
+      return;
     }
-  }, [weekStart, viewMode, ratePlans]);
 
-  const fetchDateOverrides = async () => {
-    try {
-      const visibleDays = viewMode === 'month'
-        ? eachDayOfInterval({ start: startOfMonth(weekStart), end: endOfMonth(weekStart) })
-        : Array.from({ length: isMobile ? 3 : 14 }, (_, i) => addDays(weekStart, i));
-      const startDate = format(visibleDays[0], 'yyyy-MM-dd');
-      const endDate = format(visibleDays[visibleDays.length - 1], 'yyyy-MM-dd');
-      const planIds = ratePlans.map(p => p.id);
-      if (planIds.length === 0) return;
-
-      // Fetch from rate_plan_date_overrides (higher priority)
-      const { data: dateOverrideData, error: doError } = await supabase
-        .from('rate_plan_date_overrides')
-        .select('rate_plan_id, override_date, rate')
-        .in('rate_plan_id', planIds)
-        .gte('override_date', startDate)
-        .lte('override_date', endDate);
-
-      if (doError) throw doError;
-
-      // Fetch from rate_plan_restrictions where rate IS NOT NULL
-      const { data: restrictionData, error: rError } = await supabase
-        .from('rate_plan_restrictions')
-        .select('rate_plan_id, date_from, date_to, rate')
-        .in('rate_plan_id', planIds)
-        .not('rate', 'is', null)
-        .lte('date_from', endDate)
-        .gte('date_to', startDate);
-
-      if (rError) throw rError;
-
-      const overrideMap: Record<string, number> = {};
-      const sourceSet = new Set<string>();
-
-      // First, expand restriction date ranges (lower priority)
-      (restrictionData || []).forEach(row => {
-        const from = new Date(row.date_from + 'T00:00:00');
-        const to = new Date(row.date_to + 'T00:00:00');
-        const visStart = new Date(startDate + 'T00:00:00');
-        const visEnd = new Date(endDate + 'T00:00:00');
-        const effectiveFrom = from < visStart ? visStart : from;
-        const effectiveTo = to > visEnd ? visEnd : to;
-
-        let current = new Date(effectiveFrom);
-        while (current <= effectiveTo) {
-          const ds = format(current, 'yyyy-MM-dd');
-          const key = `${row.rate_plan_id}:${ds}`;
-          overrideMap[key] = Number(row.rate);
-          sourceSet.add(key);
-          current = addDays(current, 1);
+    const keys = new Set<string>();
+    (data || []).forEach((row: any) => {
+      ratePlans.forEach(plan => {
+        // Wildcard (room_type IS NULL) applies to every plan; specific room_type only matches its plan(s).
+        if (row.room_type === null || row.room_type === plan.room_type) {
+          keys.add(cellKey(plan.id, row.override_date));
         }
       });
+    });
+    setExistingOverrideKeys(keys);
+  }, [propertyId, ratePlans, days]);
 
-      // Then, overlay date_overrides (higher priority — overwrites restriction rates)
-      (dateOverrideData || []).forEach(row => {
-        const key = `${row.rate_plan_id}:${row.override_date}`;
-        overrideMap[key] = Number(row.rate);
-        sourceSet.add(key);
+  useEffect(() => {
+    fetchExistingOverrides();
+  }, [fetchExistingOverrides]);
+
+  // ── Engine preview rates ──
+  const fetchPreviewRates = useCallback(async () => {
+    if (!propertyId || ratePlans.length === 0 || days.length === 0) return;
+    const startDate = format(days[0], 'yyyy-MM-dd');
+    const endDate = format(days[days.length - 1], 'yyyy-MM-dd');
+
+    // Only fetch for plans visible after filters (no point computing the rest)
+    const visiblePlans = ratePlans.filter(p => {
+      if (filterRoomType !== 'all' && p.room_type !== filterRoomType) return false;
+      if (filterRatePlan !== 'all' && p.id !== filterRatePlan) return false;
+      return p.room_type;
+    });
+
+    // Determine which (plan, date) combos are missing from cache
+    const toFetch = visiblePlans.filter(plan => {
+      const cached = previewRates[plan.id];
+      if (!cached) return true;
+      return days.some(d => cached[format(d, 'yyyy-MM-dd')] === undefined);
+    });
+    if (toFetch.length === 0) return;
+
+    setPreviewLoading(true);
+    try {
+      const results = await Promise.all(
+        toFetch.map(plan =>
+          supabase.functions.invoke('calculate-dynamic-price-batch', {
+            body: {
+              property_id: propertyId,
+              room_type: plan.room_type,
+              rate_plan_id: plan.id,
+              date_from: startDate,
+              date_to: endDate,
+            },
+          }).then(res => ({ plan, res }))
+        )
+      );
+
+      setPreviewRates(prev => {
+        const next: Record<string, Record<string, number>> = { ...prev };
+        results.forEach(({ plan, res }) => {
+          const data = (res as any)?.data;
+          if (!data?.success || !Array.isArray(data.rates)) return;
+          const planMap = { ...(next[plan.id] || {}) };
+          data.rates.forEach((r: any) => {
+            if (r?.target_date && typeof r.final_rate === 'number') {
+              planMap[r.target_date] = r.final_rate;
+            }
+          });
+          next[plan.id] = planMap;
+        });
+        return next;
       });
-
-      setDateOverrides(overrideMap);
-      setOverrideSources(sourceSet);
     } catch (err) {
-      console.error('Error fetching date overrides:', err);
+      console.error('preview fetch error', err);
+    } finally {
+      setPreviewLoading(false);
     }
-  };
+  }, [propertyId, ratePlans, days, filterRoomType, filterRatePlan, previewRates]);
+
+  useEffect(() => {
+    fetchPreviewRates();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [propertyId, ratePlans, weekStart, viewMode, filterRoomType, filterRatePlan]);
 
   const fetchData = async () => {
     setLoading(true);
     try {
-      const [plansRes, pricesRes, markupsRes, derivedRes] = await Promise.all([
+      const [plansRes, pricesRes, derivedRes] = await Promise.all([
         withPropertyFilter(
           supabase.from('rate_plans').select('id, name, room_type, valid_from, valid_to, property_id').eq('is_active', true).order('room_type').order('name'),
           propertyId
         ),
         supabase.from('rate_plan_prices').select('*').is('unit_id', null),
-        withPropertyFilter(supabase.from('channel_markup_settings').select('id, channel_name, markup_percentage').eq('is_active', true), propertyId),
         withPropertyFilter(supabase.from('derived_rate_plan_mappings').select('id, base_rate_plan_id, channel_markup_id, channel_name, markup_percentage'), propertyId),
       ]);
       if (plansRes.error) throw plansRes.error;
@@ -258,12 +302,11 @@ export const QuickRateGrid = ({ onSyncQueueCount }: QuickRateGridProps) => {
       setRatePlans(plans);
 
       const priceMap: Record<string, RatePlanPrice> = {};
-      (pricesRes.data || []).forEach(p => {
+      (pricesRes.data || []).forEach((p: any) => {
         priceMap[p.rate_plan_id] = p;
       });
       setPrices(priceMap);
 
-      // Build derived channels from actual DB data
       const channelMap = new Map<string, DerivedChannel>();
       ((derivedRes.data as any[]) || []).forEach((dm: any) => {
         const key = dm.channel_name;
@@ -305,123 +348,105 @@ export const QuickRateGrid = ({ onSyncQueueCount }: QuickRateGridProps) => {
     }));
   }, [filteredPlans, prices]);
 
-  const getCellKey = (planId: string, dateStr: string) => `${planId}:${dateStr}`;
-
-  const getEffectiveRate = (price: RatePlanPrice | null, date: Date, planId: string): number => {
+  // Resolved rate that reflects what the engine WILL push to Channex once
+  // drafts/pending are saved and synced.
+  const getEffectiveRate = useCallback((price: RatePlanPrice | null, date: Date, planId: string): number => {
     const dateStr = format(date, 'yyyy-MM-dd');
-    const key = getCellKey(planId, dateStr);
-    const pending = pendingChanges.get(key);
-    if (pending) return pending.newRate;
-    const override = dateOverrides[key];
-    if (override !== undefined) return override;
+    const key = cellKey(planId, dateStr);
+    const draft = drafts.get(key);
+    if (draft !== undefined) return draft;
+    const pending = pendingOverrides.get(key);
+    if (pending) return pending.value;
+    const preview = previewRates[planId]?.[dateStr];
+    if (preview !== undefined) return preview;
     if (!price) return 0;
     if (isOffPeakDay(date) && price.off_peak_rate != null) return price.off_peak_rate;
     if (isWeekendRate(date)) return price.weekend_rate;
     return price.weekday_rate;
-  };
+  }, [drafts, pendingOverrides, previewRates, isOffPeakDay, isWeekendRate]);
+
+  // The "engine" value disregarding any pending/draft (used to detect no-op edits)
+  const getEngineRate = useCallback((price: RatePlanPrice | null, date: Date, planId: string): number => {
+    const dateStr = format(date, 'yyyy-MM-dd');
+    const preview = previewRates[planId]?.[dateStr];
+    if (preview !== undefined) return preview;
+    if (!price) return 0;
+    if (isOffPeakDay(date) && price.off_peak_rate != null) return price.off_peak_rate;
+    if (isWeekendRate(date)) return price.weekend_rate;
+    return price.weekday_rate;
+  }, [previewRates, isOffPeakDay, isWeekendRate]);
 
   const getBaseRate = (planId: string): number => {
     const price = prices[planId];
     return price ? price.weekday_rate : 0;
   };
 
-  // Global mouseup for drag-to-fill
+  // Drag-fill: write into drafts (no equality short-circuit so user clearly sees the fill)
   useEffect(() => {
     const handleMouseUp = () => {
       if (!drag.isDragging || !drag.planId || drag.value === null) {
         setDrag({ isDragging: false, planId: null, value: null, startColIdx: 0, currentColIdx: 0 });
         return;
       }
-
-      const plan = ratePlans.find(p => p.id === drag.planId);
+      const planId = drag.planId;
+      const plan = ratePlans.find(p => p.id === planId);
       if (!plan) {
         setDrag({ isDragging: false, planId: null, value: null, startColIdx: 0, currentColIdx: 0 });
         return;
       }
-
-      const price = prices[drag.planId];
       const minCol = Math.min(drag.startColIdx, drag.currentColIdx);
       const maxCol = Math.max(drag.startColIdx, drag.currentColIdx);
+      const price = prices[planId] || null;
 
-      const newPending = new Map(pendingChanges);
       let count = 0;
-
-      for (let i = minCol; i <= maxCol; i++) {
-        const date = days[i];
-        if (!date) continue;
-        const dateStr = format(date, 'yyyy-MM-dd');
-        const key = getCellKey(drag.planId, dateStr);
-        const weekend = isWeekendRate(date);
-        const oldRate = price ? (weekend ? price.weekend_rate : price.weekday_rate) : 0;
-
-        if (drag.value !== oldRate) {
-          newPending.set(key, {
-            ratePlanId: drag.planId,
-            ratePlanName: plan.name,
-            roomType: plan.room_type || '',
-            date: dateStr,
-            oldRate,
-            newRate: drag.value,
-            isWeekend: weekend,
-          });
+      setDrafts(prev => {
+        const next = new Map(prev);
+        for (let i = minCol; i <= maxCol; i++) {
+          const date = days[i];
+          if (!date) continue;
+          const dateStr = format(date, 'yyyy-MM-dd');
+          const k = cellKey(planId, dateStr);
+          const engine = getEngineRate(price, date, planId);
+          if (drag.value === engine) {
+            next.delete(k);
+          } else {
+            next.set(k, drag.value!);
+          }
           count++;
         }
-      }
-
-      if (count > 0) {
-        setPendingChanges(newPending);
-        toast.success(`${count} cell(s) filled`);
-      }
-
+        return next;
+      });
+      if (count > 0) toast.success(`${count} cell(s) filled (draft)`);
       setDrag({ isDragging: false, planId: null, value: null, startColIdx: 0, currentColIdx: 0 });
     };
 
     window.addEventListener('mouseup', handleMouseUp);
     return () => window.removeEventListener('mouseup', handleMouseUp);
-  }, [drag, days, ratePlans, prices, pendingChanges]);
+  }, [drag, days, ratePlans, prices, getEngineRate]);
 
   const handleCellClick = (planId: string, date: Date, price: RatePlanPrice | null, colIdx: number, shiftKey?: boolean) => {
     if (shiftKey && lastCommittedCell && lastCommittedCell.planId === planId) {
-      const plan = ratePlans.find(p => p.id === planId);
-      if (!plan) return;
-
-      const priceData = prices[planId];
       const minCol = Math.min(lastCommittedCell.colIdx, colIdx);
       const maxCol = Math.max(lastCommittedCell.colIdx, colIdx);
-      const newPending = new Map(pendingChanges);
-      let count = 0;
-
-      for (let i = minCol; i <= maxCol; i++) {
-        const d = days[i];
-        if (!d) continue;
-        const dateStr = format(d, 'yyyy-MM-dd');
-        const key = getCellKey(planId, dateStr);
-        const weekend = isWeekendRate(d);
-        const oldRate = priceData ? (weekend ? priceData.weekend_rate : priceData.weekday_rate) : 0;
-
-        if (lastCommittedCell.value !== oldRate) {
-          newPending.set(key, {
-            ratePlanId: planId,
-            ratePlanName: plan.name,
-            roomType: plan.room_type || '',
-            date: dateStr,
-            oldRate,
-            newRate: lastCommittedCell.value,
-            isWeekend: weekend,
-          });
-          count++;
+      const value = lastCommittedCell.value;
+      setDrafts(prev => {
+        const next = new Map(prev);
+        for (let i = minCol; i <= maxCol; i++) {
+          const d = days[i];
+          if (!d) continue;
+          const ds = format(d, 'yyyy-MM-dd');
+          const k = cellKey(planId, ds);
+          const engine = getEngineRate(price, d, planId);
+          if (value === engine) next.delete(k);
+          else next.set(k, value);
         }
-      }
-
-      if (count > 0) {
-        setPendingChanges(newPending);
-        toast.success(`${count} cell(s) filled`);
-      }
+        return next;
+      });
       return;
     }
 
     const dateStr = format(date, 'yyyy-MM-dd');
-    const key = getCellKey(planId, dateStr);
+    const key = cellKey(planId, dateStr);
     const rate = getEffectiveRate(price, date, planId);
     setActiveCell(key);
     setEditValue(rate > 0 ? String(rate) : '');
@@ -432,44 +457,28 @@ export const QuickRateGrid = ({ onSyncQueueCount }: QuickRateGridProps) => {
     if (!key || activeCell !== key) return;
     const [planId, dateStr] = key.split(':');
     const plan = ratePlans.find(p => p.id === planId);
-    const price = prices[planId];
-    if (!plan) return;
-
+    if (!plan) { setActiveCell(null); return; }
+    if (editValue === '') {
+      // empty input → discard this draft (revert to engine)
+      setDrafts(prev => { const n = new Map(prev); n.delete(key); return n; });
+      setActiveCell(null);
+      return;
+    }
     const newRate = parseFloat(editValue);
     if (isNaN(newRate) || newRate < 0) {
       setActiveCell(null);
       return;
     }
-
     const date = new Date(dateStr + 'T00:00:00');
-    const weekend = isWeekendRate(date);
-    const overrideKey = getCellKey(planId, dateStr);
-    const override = dateOverrides[overrideKey];
-    const oldRate = override !== undefined ? override : (price ? (weekend ? price.weekend_rate : price.weekday_rate) : 0);
     const colIdx = days.findIndex(d => format(d, 'yyyy-MM-dd') === dateStr);
+    const engine = getEngineRate(prices[planId] || null, date, planId);
 
-    if (newRate === oldRate) {
-      setPendingChanges(prev => {
-        const next = new Map(prev);
-        next.delete(key);
-        return next;
-      });
-    } else {
-      setPendingChanges(prev => {
-        const next = new Map(prev);
-        next.set(key, {
-          ratePlanId: planId,
-          ratePlanName: plan.name,
-          roomType: plan.room_type || '',
-          date: dateStr,
-          oldRate,
-          newRate,
-          isWeekend: weekend,
-        });
-        return next;
-      });
-    }
-
+    setDrafts(prev => {
+      const next = new Map(prev);
+      if (newRate === engine) next.delete(key);
+      else next.set(key, newRate);
+      return next;
+    });
     setLastCommittedCell({ planId, colIdx, value: newRate });
     setActiveCell(null);
   };
@@ -498,178 +507,191 @@ export const QuickRateGrid = ({ onSyncQueueCount }: QuickRateGridProps) => {
   const copyToNextCell = (currentKey: string, toEnd: boolean) => {
     commitCell(currentKey);
     const [planId, dateStr] = currentKey.split(':');
-    const plan = ratePlans.find(p => p.id === planId);
-    const priceData = prices[planId];
-    if (!plan) return;
-
     const colIdx = days.findIndex(d => format(d, 'yyyy-MM-dd') === dateStr);
     const value = parseFloat(editValue);
     if (isNaN(value) || colIdx < 0) return;
-
-    const newPending = new Map(pendingChanges);
     const endCol = toEnd ? days.length - 1 : Math.min(colIdx + 1, days.length - 1);
+    const price = prices[planId] || null;
     let count = 0;
-
-    for (let i = colIdx + 1; i <= endCol; i++) {
-      const d = days[i];
-      if (!d) continue;
-      const ds = format(d, 'yyyy-MM-dd');
-      const key = getCellKey(planId, ds);
-      const weekend = isWeekendRate(d);
-      const oldRate = priceData ? (weekend ? priceData.weekend_rate : priceData.weekday_rate) : 0;
-
-      if (value !== oldRate) {
-        newPending.set(key, {
-          ratePlanId: planId,
-          ratePlanName: plan.name,
-          roomType: plan.room_type || '',
-          date: ds,
-          oldRate,
-          newRate: value,
-          isWeekend: weekend,
-        });
-        count++;
+    setDrafts(prev => {
+      const next = new Map(prev);
+      for (let i = colIdx + 1; i <= endCol; i++) {
+        const d = days[i];
+        if (!d) continue;
+        const ds = format(d, 'yyyy-MM-dd');
+        const k = cellKey(planId, ds);
+        const engine = getEngineRate(price, d, planId);
+        if (value === engine) next.delete(k);
+        else { next.set(k, value); count++; }
       }
-    }
-
-    if (count > 0) {
-      setPendingChanges(newPending);
-      toast.success(`Copied to ${count} cell(s)`);
-    }
+      return next;
+    });
+    if (count > 0) toast.success(`Copied to ${count} cell(s) (draft)`);
   };
 
-  const syncNow = async () => {
-    if (pendingChanges.size === 0 || syncing) return;
-    setSyncing(true);
-    setSyncProgress(10);
+  // Apply Changes: validate drafts → move into pendingOverrides
+  const applyDrafts = () => {
+    if (drafts.size === 0) return;
+    const newPending = new Map(pendingOverrides);
+    let added = 0;
+    let invalid = 0;
+    drafts.forEach((value, key) => {
+      const [planId, dateStr] = key.split(':');
+      const plan = ratePlans.find(p => p.id === planId);
+      const price = prices[planId];
+      const room_type = plan?.room_type || price?.room_type || '';
+      if (!plan || !room_type) { invalid++; return; }
+      if (!isFinite(value) || value <= 0 || value > 100000) { invalid++; return; }
+      const date = new Date(dateStr + 'T00:00:00');
+      const oldRate = getEngineRate(price || null, date, planId);
+      newPending.set(key, {
+        rate_plan_id: planId,
+        ratePlanName: plan.name,
+        room_type,
+        override_date: dateStr,
+        oldRate,
+        value,
+        isWeekend: isWeekendRate(date),
+      });
+      added++;
+    });
+    if (invalid > 0) {
+      toast.error(`${invalid} invalid value(s) — must be > 0 and ≤ 100000`);
+      return;
+    }
+    setPendingOverrides(newPending);
+    setDrafts(new Map());
+    toast.success(`${added} override change(s) added to pending`);
+  };
+
+  const discardPending = () => {
+    setPendingOverrides(new Map());
+    toast.message('Pending overrides discarded');
+  };
+
+  const discardDrafts = () => {
+    setDrafts(new Map());
+  };
+
+  // Save Changes: upsert pricing_overrides, then trigger channex-full-sync
+  const saveChanges = async () => {
+    if (pendingOverrides.size === 0) {
+      toast.message('No changes to save');
+      return;
+    }
+    if (!propertyId) {
+      toast.error('No property selected');
+      return;
+    }
+
+    setSaving(true);
+    setSaveProgress(10);
 
     try {
-      const byPlan = new Map<string, PendingChange[]>();
-      pendingChanges.forEach(change => {
-        const list = byPlan.get(change.ratePlanId) || [];
-        list.push(change);
-        byPlan.set(change.ratePlanId, list);
+      // Group by (override_date, room_type) — multiple plan rows for the same room_type+date collapse to one override
+      const dedup = new Map<string, { override_date: string; room_type: string; value: number }>();
+      pendingOverrides.forEach(p => {
+        const k = `${p.override_date}::${p.room_type}`;
+        dedup.set(k, { override_date: p.override_date, room_type: p.room_type, value: p.value });
       });
 
-      setSyncProgress(30);
-      const overrideRows = Array.from(pendingChanges.values()).map(change => ({
-        rate_plan_id: change.ratePlanId,
-        override_date: change.date,
-        rate: change.newRate,
-        updated_at: new Date().toISOString(),
-      }));
-
-      if (overrideRows.length > 0) {
-        const { error: upsertError } = await supabase
-          .from('rate_plan_date_overrides')
-          .upsert(overrideRows, { onConflict: 'rate_plan_id,override_date' });
-        if (upsertError) throw upsertError;
-      }
-
-      setSyncProgress(50);
-
-      const updates = Array.from(pendingChanges.values()).map(change => ({
+      const rows = Array.from(dedup.values()).map(r => ({
         property_id: propertyId,
-        rate_plan_id: change.ratePlanId,
-        date_from: change.date,
-        date_to: change.date,
-        rate: change.newRate,
+        override_date: r.override_date,
+        room_type: r.room_type,
+        override_type: 'fixed_rate',
+        value: r.value,
+        reason: 'Inline calendar edit',
+        created_by: user?.id ?? null,
       }));
 
-      const { error: syncError } = await supabase.functions.invoke('channex-sync-rates', {
-        body: { updates, propertyId },
+      setSaveProgress(35);
+      const { error: upsertError } = await supabase
+        .from('pricing_overrides')
+        .upsert(rows, { onConflict: 'property_id,override_date,room_type' });
+      if (upsertError) throw upsertError;
+
+      setSaveProgress(60);
+
+      // Trigger full sync to push the new effective rates to Channex
+      const { error: syncError } = await supabase.functions.invoke('channex-full-sync', {
+        body: { propertyId },
       });
+
+      setSaveProgress(90);
+
+      // Refresh — clear preview cache so the next render pulls fresh engine values that include the new overrides
+      setPreviewRates({});
+      setPendingOverrides(new Map());
+      await fetchExistingOverrides();
+
+      setSaveProgress(100);
+      setSaveSuccess(true);
+      setTimeout(() => setSaveSuccess(false), 3000);
+      setTimeout(() => setSaveProgress(0), 1500);
+
       if (syncError) {
-        console.warn('Channex sync failed (rates saved locally):', syncError);
-        toast.warning('Rates saved but Channex sync failed');
+        console.warn('channex-full-sync error', syncError);
+        toast.warning('Overrides saved. Channex sync failed — please retry sync.');
+      } else {
+        toast.success(`${rows.length} manual override(s) saved and synced to Channex`);
       }
-
-      setSyncProgress(80);
-
-      setDateOverrides(prev => {
-        const updated = { ...prev };
-        pendingChanges.forEach(change => {
-          updated[`${change.ratePlanId}:${change.date}`] = change.newRate;
-        });
-        return updated;
-      });
-
-      setOverrideSources(prev => {
-        const next = new Set(prev);
-        pendingChanges.forEach(change => {
-          next.add(`${change.ratePlanId}:${change.date}`);
-        });
-        return next;
-      });
-
-      const changeCount = pendingChanges.size;
-      setPendingChanges(new Map());
-
-      setSyncProgress(100);
-      setSyncSuccess(true);
-      setTimeout(() => setSyncSuccess(false), 3000);
-      setTimeout(() => setSyncProgress(0), 1500);
-      toast.success(`${changeCount} rate change(s) saved & synced`);
-    } catch (err) {
-      console.error('Sync error:', err);
-      toast.error('Failed to save rate changes');
-      setSyncProgress(0);
+    } catch (err: any) {
+      console.error('Save error:', err);
+      toast.error(err?.message || 'Failed to save overrides');
+      setSaveProgress(0);
     } finally {
-      setSyncing(false);
+      setSaving(false);
     }
   };
 
+  // Bulk Edit: writes drafts (NOT pricing_overrides directly)
   const applyBulkEdit = () => {
     const rate = parseFloat(bulkRate);
-    if (isNaN(rate) || rate < 0) {
-      toast.error('Enter a valid rate');
+    if (isNaN(rate) || rate <= 0) {
+      toast.error('Enter a valid positive rate');
       return;
     }
     if (!bulkDateFrom || !bulkDateTo) {
       toast.error('Select a date range');
       return;
     }
-
     const targetPlans = ratePlans.filter(p => {
       if (bulkRoomType !== 'all' && p.room_type !== bulkRoomType) return false;
       if (bulkRatePlan !== 'all' && p.id !== bulkRatePlan) return false;
       return true;
     });
-
-    const newPending = new Map(pendingChanges);
-    let count = 0;
-
-    let current = new Date(bulkDateFrom);
-    while (current <= bulkDateTo) {
-      for (const plan of targetPlans) {
-        const price = prices[plan.id];
-        const dateStr = format(current, 'yyyy-MM-dd');
-        const key = getCellKey(plan.id, dateStr);
-        const weekend = isWeekendRate(current);
-        const oldRate = price ? (weekend ? price.weekend_rate : price.weekday_rate) : 0;
-
-        if (rate !== oldRate) {
-          newPending.set(key, {
-            ratePlanId: plan.id,
-            ratePlanName: plan.name,
-            roomType: plan.room_type || '',
-            date: dateStr,
-            oldRate,
-            newRate: rate,
-            isWeekend: weekend,
-          });
-          count++;
-        }
-      }
-      current = addDays(current, 1);
+    if (targetPlans.length === 0) {
+      toast.error('No matching rate plans');
+      return;
     }
 
-    setPendingChanges(newPending);
+    let count = 0;
+    setDrafts(prev => {
+      const next = new Map(prev);
+      let current = new Date(bulkDateFrom);
+      while (current <= bulkDateTo) {
+        for (const plan of targetPlans) {
+          const dateStr = format(current, 'yyyy-MM-dd');
+          const k = cellKey(plan.id, dateStr);
+          const engine = getEngineRate(prices[plan.id] || null, current, plan.id);
+          if (rate === engine) {
+            next.delete(k);
+          } else {
+            next.set(k, rate);
+            count++;
+          }
+        }
+        current = addDays(current, 1);
+      }
+      return next;
+    });
+
     setBulkOpen(false);
     setBulkRate('');
     setBulkDateFrom(undefined);
     setBulkDateTo(undefined);
-    toast.success(`${count} cell(s) updated`);
+    toast.success(`${count} cell(s) drafted — review and click Apply Changes`);
   };
 
   const getDraggedColRange = (): [number, number] | null => {
@@ -693,66 +715,38 @@ export const QuickRateGrid = ({ onSyncQueueCount }: QuickRateGridProps) => {
     setDrag(prev => ({ ...prev, currentColIdx: colIdx }));
   };
 
-  const formatCurrency = (v: number) => `$${v.toLocaleString()}`;
+  const formatCurrency = (v: number) => `$${v.toLocaleString(undefined, { maximumFractionDigits: 2 })}`;
 
   const handlePrev = () => {
-    if (viewMode === 'month') {
-      setWeekStart(prev => subMonths(prev, 1));
-    } else {
-      setWeekStart(prev => addDays(prev, isMobile ? -3 : -14));
-    }
+    if (viewMode === 'month') setWeekStart(prev => subMonths(prev, 1));
+    else setWeekStart(prev => addDays(prev, isMobile ? -3 : -14));
   };
-
   const handleNext = () => {
-    if (viewMode === 'month') {
-      setWeekStart(prev => addMonths(prev, 1));
-    } else {
-      setWeekStart(prev => addDays(prev, isMobile ? 3 : 14));
-    }
+    if (viewMode === 'month') setWeekStart(prev => addMonths(prev, 1));
+    else setWeekStart(prev => addDays(prev, isMobile ? 3 : 14));
   };
-
   const handleToday = () => {
-    if (viewMode === 'month') {
-      setWeekStart(startOfMonth(new Date()));
-    } else {
-      setWeekStart(startOfWeek(new Date(), { weekStartsOn: 0 }));
-    }
+    if (viewMode === 'month') setWeekStart(startOfMonth(new Date()));
+    else setWeekStart(startOfWeek(new Date(), { weekStartsOn: 0 }));
   };
 
   const cellMinWidth = viewMode === 'month' ? 'min-w-[70px]' : 'min-w-[90px]';
 
-  // Build grouped rows: room type header → standard rate row → OTA rows
   const groupedRows = useMemo(() => {
-    const groups: Array<{
-      roomType: string;
-      plans: typeof rows;
-    }> = [];
-
-    const roomTypeOrder: string[] = [];
     const byRoomType = new Map<string, typeof rows>();
-
+    const order: string[] = [];
     rows.forEach(row => {
       const rt = row.plan.room_type || 'Unknown';
-      if (!byRoomType.has(rt)) {
-        byRoomType.set(rt, []);
-        roomTypeOrder.push(rt);
-      }
+      if (!byRoomType.has(rt)) { byRoomType.set(rt, []); order.push(rt); }
       byRoomType.get(rt)!.push(row);
     });
-
-    roomTypeOrder.forEach(rt => {
-      groups.push({ roomType: rt, plans: byRoomType.get(rt)! });
-    });
-
-    return groups;
+    return order.map(rt => ({ roomType: rt, plans: byRoomType.get(rt)! }));
   }, [rows]);
 
-  // Render the combined calendar table
   const renderCombinedTable = () => {
     if (groupedRows.length === 0) {
       return <p className="text-center text-muted-foreground py-8 text-sm">No rate plans found.</p>;
     }
-
     return (
       <ScrollArea className="w-full">
         <table className="w-full border-collapse text-sm select-none">
@@ -770,26 +764,15 @@ export const QuickRateGrid = ({ onSyncQueueCount }: QuickRateGridProps) => {
           <tbody>
             {groupedRows.map(({ roomType, plans: groupPlans }) => (
               <React.Fragment key={roomType}>
-                {/* Room type header row */}
                 <tr className="bg-muted/30">
-                  <td
-                    colSpan={days.length + 1}
-                    className="p-2 font-semibold text-sm border-b border-t"
-                  >
-                    {roomType}
-                  </td>
+                  <td colSpan={days.length + 1} className="p-2 font-semibold text-sm border-b border-t">{roomType}</td>
                 </tr>
 
-                {/* Standard rate rows + OTA rows for each plan */}
                 {groupPlans.map(({ plan, price }) => {
                   const baseRate = getBaseRate(plan.id);
-
-                  // Find derived channels for this plan
                   const planChannels = derivedChannels.filter(ch => ch.basePlanIds.has(plan.id));
-
                   return (
                     <React.Fragment key={plan.id}>
-                      {/* Standard rate row — editable */}
                       <tr className="border-b hover:bg-muted/10">
                         <td className="p-2 pl-4 sticky left-0 bg-background z-10 border-r" style={{ boxShadow: '2px 0 4px rgba(0,0,0,0.1)' }}>
                           <div className="font-medium text-xs leading-tight">Standard Rate – {plan.room_type}</div>
@@ -797,66 +780,93 @@ export const QuickRateGrid = ({ onSyncQueueCount }: QuickRateGridProps) => {
                         </td>
                         {days.map((d, colIdx) => {
                           const dateStr = format(d, 'yyyy-MM-dd');
-                          const key = getCellKey(plan.id, dateStr);
+                          const key = cellKey(plan.id, dateStr);
                           const rate = getEffectiveRate(price, d, plan.id);
-                          const isPending = pendingChanges.has(key);
+                          const isDraft = drafts.has(key);
+                          const isPending = !isDraft && pendingOverrides.has(key);
                           const isActive = activeCell === key;
                           const weekend = isWeekendHighlight(d);
                           const inDragRange = isCellInDragRange(plan.id, colIdx);
                           const offPeak = isOffPeakDay(d);
-                          const hasOverride = overrideSources.has(key);
-                          const varianceColor = !isPending && !inDragRange && rate > 0 ? getCellColor(rate, baseRate, weekend, offPeak) : '';
-                          const arrow = !isPending && rate > 0 ? getVarianceArrow(rate, baseRate) : '';
+                          const hasOverrideMarker = existingOverrideKeys.has(key) || isDraft || isPending;
+                          const varianceColor = !isPending && !isDraft && !inDragRange && rate > 0 ? getCellColor(rate, baseRate, weekend, offPeak) : '';
+                          const arrow = !isPending && !isDraft && rate > 0 ? getVarianceArrow(rate, baseRate) : '';
+
+                          // Clamp warning vs per-rate-plan bounds
+                          const minR = price?.min_rate ?? null;
+                          const maxR = price?.max_rate ?? null;
+                          const willClamp = (isDraft || isPending) && rate > 0 && (
+                            (minR != null && rate < Number(minR)) ||
+                            (maxR != null && rate > Number(maxR))
+                          );
+                          const clampTarget = willClamp
+                            ? (minR != null && rate < Number(minR) ? Number(minR) : Number(maxR))
+                            : null;
 
                           return (
                             <td
                               key={key}
                               className={cn(
-                                `text-center p-0.5 ${cellMinWidth} cursor-pointer`,
+                                `text-center p-0.5 ${cellMinWidth} cursor-pointer relative`,
                                 inDragRange && 'border-2 border-dashed border-primary/60 bg-primary/10',
-                                !inDragRange && isPending && 'bg-yellow-100 dark:bg-yellow-900/30',
+                                !inDragRange && isDraft && 'border-2 border-amber-400 bg-amber-50 dark:bg-amber-900/20',
+                                !inDragRange && !isDraft && isPending && 'bg-yellow-100 dark:bg-yellow-900/30',
                               )}
-                              style={!inDragRange && !isPending && varianceColor ? { backgroundColor: varianceColor } : undefined}
+                              style={!inDragRange && !isPending && !isDraft && varianceColor ? { backgroundColor: varianceColor } : undefined}
                               onClick={(e) => !isActive && !drag.isDragging && handleCellClick(plan.id, d, price, colIdx, e.shiftKey)}
                               onMouseEnter={() => handleDragEnter(plan.id, colIdx)}
                             >
                               {isActive ? (
-                                <div className="flex items-center">
-                                  <input
-                                    ref={el => { inputRefs.current[key] = el; }}
-                                    type="number"
-                                    className="w-full h-8 text-center text-sm border rounded bg-background focus:ring-2 focus:ring-primary [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none"
-                                    value={editValue}
-                                    onChange={e => setEditValue(e.target.value)}
-                                    onBlur={() => commitCell(key)}
-                                    onKeyDown={e => {
-                                      if (e.key === 'Enter') navigateCell(key, 'down');
-                                      else if (e.key === 'Tab') { e.preventDefault(); navigateCell(key, e.shiftKey ? 'left' : 'right'); }
-                                      else if (e.key === 'Escape') setActiveCell(null);
-                                      else if (e.key === 'ArrowDown') { e.preventDefault(); navigateCell(key, 'down'); }
-                                      else if (e.key === 'ArrowUp') { e.preventDefault(); navigateCell(key, 'up'); }
-                                      else if ((e.ctrlKey || e.metaKey) && e.key === 'ArrowRight') {
-                                        e.preventDefault();
-                                        copyToNextCell(key, e.shiftKey);
-                                      }
-                                      else if (e.key === 'ArrowRight' && (e.target as HTMLInputElement).selectionStart === editValue.length) { e.preventDefault(); navigateCell(key, 'right'); }
-                                      else if (e.key === 'ArrowLeft' && (e.target as HTMLInputElement).selectionStart === 0) { e.preventDefault(); navigateCell(key, 'left'); }
-                                    }}
-                                    autoFocus
-                                  />
-                                </div>
+                                <input
+                                  ref={el => { inputRefs.current[key] = el; }}
+                                  type="number"
+                                  className="w-full h-8 text-center text-sm border rounded bg-background focus:ring-2 focus:ring-primary [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none"
+                                  value={editValue}
+                                  onChange={e => setEditValue(e.target.value)}
+                                  onBlur={() => commitCell(key)}
+                                  onKeyDown={e => {
+                                    if (e.key === 'Enter') navigateCell(key, 'down');
+                                    else if (e.key === 'Tab') { e.preventDefault(); navigateCell(key, e.shiftKey ? 'left' : 'right'); }
+                                    else if (e.key === 'Escape') {
+                                      setDrafts(prev => { const n = new Map(prev); n.delete(key); return n; });
+                                      setActiveCell(null);
+                                    }
+                                    else if (e.key === 'ArrowDown') { e.preventDefault(); navigateCell(key, 'down'); }
+                                    else if (e.key === 'ArrowUp') { e.preventDefault(); navigateCell(key, 'up'); }
+                                    else if ((e.ctrlKey || e.metaKey) && e.key === 'ArrowRight') { e.preventDefault(); copyToNextCell(key, e.shiftKey); }
+                                    else if (e.key === 'ArrowRight' && (e.target as HTMLInputElement).selectionStart === editValue.length) { e.preventDefault(); navigateCell(key, 'right'); }
+                                    else if (e.key === 'ArrowLeft' && (e.target as HTMLInputElement).selectionStart === 0) { e.preventDefault(); navigateCell(key, 'left'); }
+                                  }}
+                                  autoFocus
+                                />
                               ) : (
                                 <div className="h-8 flex items-center justify-center text-sm font-mono group relative">
                                   <span>
-                                    {inDragRange && drag.value !== null
-                                      ? formatCurrency(drag.value)
-                                      : rate > 0 ? formatCurrency(rate) : '—'}
+                                    {inDragRange && drag.value !== null ? formatCurrency(drag.value) : rate > 0 ? formatCurrency(rate) : '—'}
                                     {arrow && <span className={`ml-0.5 text-[10px] ${arrow === '▲' ? 'text-green-600' : 'text-orange-600'}`}>{arrow}</span>}
                                   </span>
-                                  {hasOverride && !isPending && rate > 0 && (
-                                    <span className="absolute top-0 left-0.5 text-[8px] text-blue-600 dark:text-blue-400 leading-none">◆</span>
+
+                                  {hasOverrideMarker && rate > 0 && (
+                                    <span className="absolute top-0 right-0.5 leading-none">
+                                      <Lock className="h-2.5 w-2.5 text-purple-600 dark:text-purple-400" />
+                                    </span>
                                   )}
-                                  {isPending && <span className="absolute top-0.5 right-0.5 w-1.5 h-1.5 rounded-full bg-yellow-500" />}
+
+                                  {willClamp && clampTarget != null && (
+                                    <TooltipProvider delayDuration={150}>
+                                      <Tooltip>
+                                        <TooltipTrigger asChild>
+                                          <span className="absolute bottom-0 right-0 leading-none">
+                                            <AlertTriangle className="h-2.5 w-2.5 text-orange-500" />
+                                          </span>
+                                        </TooltipTrigger>
+                                        <TooltipContent>
+                                          This value will be clamped to {formatCurrency(clampTarget)}
+                                        </TooltipContent>
+                                      </Tooltip>
+                                    </TooltipProvider>
+                                  )}
+
                                   {rate > 0 && !drag.isDragging && (
                                     <div
                                       className="absolute right-0 top-0 bottom-0 w-4 flex items-center justify-center opacity-0 group-hover:opacity-60 hover:!opacity-100 cursor-grab"
@@ -876,25 +886,20 @@ export const QuickRateGrid = ({ onSyncQueueCount }: QuickRateGridProps) => {
                         })}
                       </tr>
 
-                      {/* OTA rate rows — read-only, derived from standard rate */}
+                      {/* OTA derived rate rows — read-only, computed from the resolved base value */}
                       {planChannels.map(channel => (
                         <tr key={`${plan.id}-${channel.channelName}`} className="border-b">
                           <td className="p-2 pl-4 sticky left-0 bg-background z-10 border-r" style={{ boxShadow: '2px 0 4px rgba(0,0,0,0.1)' }}>
-                            <div className="text-xs text-muted-foreground leading-tight">
-                              {channel.channelName} Rate
-                            </div>
-                            <div className="text-[10px] text-muted-foreground/70">
-                              Standard Rate + {channel.markupPercentage}% markup
-                            </div>
+                            <div className="text-xs text-muted-foreground leading-tight">{channel.channelName} Rate</div>
+                            <div className="text-[10px] text-muted-foreground/70">Standard Rate + {channel.markupPercentage}% markup</div>
                           </td>
                           {days.map((d) => {
                             const directRate = getEffectiveRate(price, d, plan.id);
-                            const otaRate = directRate > 0 ? Math.round(directRate * (1 + channel.markupPercentage / 100)) : 0;
+                            const otaRate = directRate > 0 ? Math.round(directRate * (1 + channel.markupPercentage / 100) * 100) / 100 : 0;
                             const weekend = isWeekendHighlight(d);
                             const offPeak = isOffPeakDay(d);
                             const otaBaseRate = baseRate > 0 ? Math.round(baseRate * (1 + channel.markupPercentage / 100)) : 0;
                             const varianceColor = otaRate > 0 ? getCellColor(otaRate, otaBaseRate, weekend, offPeak) : '';
-
                             return (
                               <td
                                 key={d.toISOString()}
@@ -925,31 +930,25 @@ export const QuickRateGrid = ({ onSyncQueueCount }: QuickRateGridProps) => {
     return <div className="flex items-center justify-center py-16 text-muted-foreground">Loading rates...</div>;
   }
 
+  const pendingExamples = Array.from(pendingOverrides.values()).slice(0, 5);
+
   return (
     <div className="space-y-4">
       {/* Toolbar */}
       <div className="flex flex-wrap items-center gap-3">
         <Select value={filterRoomType} onValueChange={setFilterRoomType}>
-          <SelectTrigger className="w-[180px]">
-            <SelectValue placeholder="Room Type" />
-          </SelectTrigger>
+          <SelectTrigger className="w-[180px]"><SelectValue placeholder="Room Type" /></SelectTrigger>
           <SelectContent>
             <SelectItem value="all">All Room Types</SelectItem>
-            {roomTypes.map(rt => (
-              <SelectItem key={rt} value={rt}>{rt}</SelectItem>
-            ))}
+            {roomTypes.map(rt => <SelectItem key={rt} value={rt}>{rt}</SelectItem>)}
           </SelectContent>
         </Select>
 
         <Select value={filterRatePlan} onValueChange={setFilterRatePlan}>
-          <SelectTrigger className="w-[180px]">
-            <SelectValue placeholder="Rate Plan" />
-          </SelectTrigger>
+          <SelectTrigger className="w-[180px]"><SelectValue placeholder="Rate Plan" /></SelectTrigger>
           <SelectContent>
             <SelectItem value="all">All Rate Plans</SelectItem>
-            {ratePlans.map(rp => (
-              <SelectItem key={rp.id} value={rp.id}>{rp.room_type} / {rp.name}</SelectItem>
-            ))}
+            {ratePlans.map(rp => <SelectItem key={rp.id} value={rp.id}>{rp.room_type} / {rp.name}</SelectItem>)}
           </SelectContent>
         </Select>
 
@@ -958,124 +957,131 @@ export const QuickRateGrid = ({ onSyncQueueCount }: QuickRateGridProps) => {
           Bulk Edit
         </Button>
 
+        {previewLoading && (
+          <Badge variant="outline" className="gap-1 text-[11px]">Loading engine rates…</Badge>
+        )}
+
         <div className="ml-auto flex items-center gap-2">
-          {syncSuccess && (
+          {saveSuccess && (
             <Badge className="gap-1 bg-green-100 text-green-800 dark:bg-green-900/30 dark:text-green-400 border-green-200">
               <Check className="h-3 w-3" />
               Synced
             </Badge>
           )}
-          {pendingChanges.size > 0 && (
-            <>
-              <Badge variant="secondary" className="gap-1 bg-yellow-100 text-yellow-800 dark:bg-yellow-900/30 dark:text-yellow-400 border-yellow-300">
-                {pendingChanges.size} pending
-              </Badge>
-              <Button size="sm" onClick={syncNow} disabled={syncing} className="gap-1.5 bg-black text-white hover:bg-black/90">
-                <Save className="h-3.5 w-3.5" />
-                {syncing ? 'Saving...' : 'Save Changes'}
-              </Button>
-            </>
+          {drafts.size > 0 && (
+            <Badge variant="outline" className="gap-1 text-amber-700 border-amber-400 bg-amber-50 dark:bg-amber-900/20 dark:text-amber-300">
+              {drafts.size} draft
+            </Badge>
           )}
+          {drafts.size > 0 && (
+            <Button size="sm" onClick={applyDrafts} variant="outline" className="gap-1.5 border-amber-400 text-amber-700 hover:bg-amber-50">
+              Apply Changes
+            </Button>
+          )}
+          {pendingOverrides.size > 0 && (
+            <Badge variant="secondary" className="gap-1 bg-yellow-100 text-yellow-800 dark:bg-yellow-900/30 dark:text-yellow-400 border-yellow-300">
+              {pendingOverrides.size} pending
+            </Badge>
+          )}
+          <Button
+            size="sm"
+            onClick={saveChanges}
+            disabled={saving || pendingOverrides.size === 0}
+            className="gap-1.5 bg-foreground text-background hover:bg-foreground/90"
+          >
+            <Save className="h-3.5 w-3.5" />
+            {saving ? 'Saving...' : `Save Changes${pendingOverrides.size > 0 ? ` (${pendingOverrides.size})` : ''}`}
+          </Button>
         </div>
       </div>
 
-      {/* Progress bar */}
-      {(syncing || syncProgress > 0) && (
-        <Progress value={syncProgress} className="h-2 [&>div]:bg-black" />
+      {(saving || saveProgress > 0) && (
+        <Progress value={saveProgress} className="h-2 [&>div]:bg-foreground" />
       )}
 
-      {/* Date nav + View toggle */}
+      {/* Date nav + view toggle */}
       <div className="flex items-center gap-2 flex-wrap">
-        <Button variant="ghost" size="icon" onClick={handlePrev}>
-          <ChevronLeft className="h-4 w-4" />
-        </Button>
+        <Button variant="ghost" size="icon" onClick={handlePrev}><ChevronLeft className="h-4 w-4" /></Button>
         <span className="text-sm font-medium">
           {viewMode === 'month'
             ? format(startOfMonth(weekStart), 'MMMM yyyy')
-            : `${format(days[0], 'MMM d')} – ${format(days[days.length - 1], 'MMM d, yyyy')}`
-          }
+            : `${format(days[0], 'MMM d')} – ${format(days[days.length - 1], 'MMM d, yyyy')}`}
         </span>
-        <Button variant="ghost" size="icon" onClick={handleNext}>
-          <ChevronRight className="h-4 w-4" />
-        </Button>
+        <Button variant="ghost" size="icon" onClick={handleNext}><ChevronRight className="h-4 w-4" /></Button>
         <Button variant="ghost" size="sm" className="text-xs" onClick={handleToday}>
           {viewMode === 'month' ? 'This Month' : 'Today'}
         </Button>
-
         <div className="ml-auto flex items-center gap-1 border rounded-md p-0.5">
-          <Button
-            variant={viewMode === '14days' ? 'default' : 'ghost'}
-            size="sm"
-            className="text-xs h-7 px-3"
-            onClick={() => setViewMode('14days')}
-          >
-            14 Days
-          </Button>
-          <Button
-            variant={viewMode === 'month' ? 'default' : 'ghost'}
-            size="sm"
-            className="text-xs h-7 px-3"
-            onClick={() => {
-              setViewMode('month');
-              setWeekStart(startOfMonth(weekStart));
-            }}
-          >
-            Month
-          </Button>
+          <Button variant={viewMode === '14days' ? 'default' : 'ghost'} size="sm" className="text-xs h-7 px-3" onClick={() => setViewMode('14days')}>14 Days</Button>
+          <Button variant={viewMode === 'month' ? 'default' : 'ghost'} size="sm" className="text-xs h-7 px-3" onClick={() => { setViewMode('month'); setWeekStart(startOfMonth(weekStart)); }}>Month</Button>
         </div>
       </div>
 
-      {/* Price variance legend */}
+      {/* Legend */}
       <div className="flex items-center gap-4 text-[11px] text-muted-foreground flex-wrap">
-        <div className="flex items-center gap-1.5">
-          <span className="inline-block w-3 h-3 rounded-sm" style={{ backgroundColor: '#C8E6C9' }} />
-          <span>Above base rate</span>
-        </div>
-        <div className="flex items-center gap-1.5">
-          <span className="inline-block w-3 h-3 rounded-sm" style={{ backgroundColor: '#FFE0B2' }} />
-          <span>Below base rate</span>
-        </div>
-        <div className="flex items-center gap-1.5">
-          <span className="inline-block w-3 h-3 rounded-sm" style={{ backgroundColor: 'hsl(0 70% 97%)' }} />
-          <span>Weekend ({weekendDays.map(d => DAY_NAMES[d]).join('–')})</span>
-        </div>
+        <div className="flex items-center gap-1.5"><span className="inline-block w-3 h-3 rounded-sm" style={{ backgroundColor: '#C8E6C9' }} /><span>Above base rate</span></div>
+        <div className="flex items-center gap-1.5"><span className="inline-block w-3 h-3 rounded-sm" style={{ backgroundColor: '#FFE0B2' }} /><span>Below base rate</span></div>
+        <div className="flex items-center gap-1.5"><span className="inline-block w-3 h-3 rounded-sm" style={{ backgroundColor: 'hsl(0 70% 97%)' }} /><span>Weekend ({weekendDays.map(d => DAY_NAMES[d]).join('–')})</span></div>
         {offPeakDays.length > 0 && (
-          <div className="flex items-center gap-1.5">
-            <span className="inline-block w-3 h-3 rounded-sm" style={{ backgroundColor: '#E3F2FD' }} />
-            <span>Off-Peak ({offPeakDays.map(d => DAY_NAMES[d]).join('–')})</span>
-          </div>
+          <div className="flex items-center gap-1.5"><span className="inline-block w-3 h-3 rounded-sm" style={{ backgroundColor: '#E3F2FD' }} /><span>Off-Peak ({offPeakDays.map(d => DAY_NAMES[d]).join('–')})</span></div>
         )}
         <div className="flex items-center gap-1.5">
-          <span className="text-blue-600 dark:text-blue-400 text-xs leading-none">◆</span>
-          <span>Custom Rate</span>
+          <Lock className="h-3 w-3 text-purple-600 dark:text-purple-400" />
+          <span>Manual Override</span>
+        </div>
+        <div className="flex items-center gap-1.5">
+          <span className="inline-block w-3 h-3 rounded-sm border-2 border-amber-400 bg-amber-50" />
+          <span>Draft</span>
         </div>
       </div>
 
-      {/* Combined Rate Calendar */}
+      {/* Calendar */}
       {renderCombinedTable()}
 
-      {/* Pending changes panel */}
-      {pendingChanges.size > 0 && (
+      {/* Drafts panel */}
+      {drafts.size > 0 && (
+        <Card>
+          <CardContent className="py-3 px-4">
+            <div className="flex items-center justify-between">
+              <span className="text-sm font-medium">{drafts.size} unapplied draft(s)</span>
+              <div className="flex items-center gap-2">
+                <Button variant="ghost" size="sm" onClick={discardDrafts}>
+                  <Trash2 className="h-3.5 w-3.5 mr-1" /> Discard Drafts
+                </Button>
+                <Button size="sm" onClick={applyDrafts} variant="outline" className="border-amber-400 text-amber-700 hover:bg-amber-50">
+                  Apply Changes
+                </Button>
+              </div>
+            </div>
+          </CardContent>
+        </Card>
+      )}
+
+      {/* Pending overrides panel */}
+      {pendingOverrides.size > 0 && (
         <Card>
           <CardContent className="py-3 px-4">
             <div className="flex items-center justify-between mb-2">
-              <span className="text-sm font-medium">Pending Changes ({pendingChanges.size})</span>
+              <span className="text-sm font-medium">{pendingOverrides.size} manual override(s) ready to save</span>
               <div className="flex items-center gap-2">
-                <Button variant="ghost" size="sm" onClick={() => setPendingChanges(new Map())}>
-                  <Trash2 className="h-3.5 w-3.5 mr-1" /> Clear All
+                <Button variant="ghost" size="sm" onClick={discardPending}>
+                  <Trash2 className="h-3.5 w-3.5 mr-1" /> Discard
                 </Button>
-                <Button size="sm" onClick={syncNow} disabled={syncing} className="gap-1">
+                <Button size="sm" onClick={saveChanges} disabled={saving} className="gap-1 bg-foreground text-background hover:bg-foreground/90">
                   <Save className="h-3.5 w-3.5" />
-                  {syncing ? 'Saving...' : 'Save Changes'}
+                  {saving ? 'Saving...' : 'Save Changes'}
                 </Button>
               </div>
             </div>
             <div className="space-y-1 max-h-32 overflow-y-auto">
-              {Array.from(pendingChanges.values()).map((c, i) => (
+              {pendingExamples.map((c, i) => (
                 <div key={i} className="text-xs text-muted-foreground">
-                  • {c.roomType} / {c.ratePlanName} / {format(new Date(c.date + 'T00:00:00'), 'MMM d')}: {formatCurrency(c.oldRate)} → <span className="text-foreground font-medium">{formatCurrency(c.newRate)}</span>
+                  • {c.room_type} / {c.ratePlanName} / {format(new Date(c.override_date + 'T00:00:00'), 'MMM d')}: {formatCurrency(c.oldRate)} → <span className="text-foreground font-medium">{formatCurrency(c.value)}</span>
                 </div>
               ))}
+              {pendingOverrides.size > pendingExamples.length && (
+                <div className="text-xs text-muted-foreground italic">… and {pendingOverrides.size - pendingExamples.length} more</div>
+              )}
             </div>
           </CardContent>
         </Card>
@@ -1087,7 +1093,7 @@ export const QuickRateGrid = ({ onSyncQueueCount }: QuickRateGridProps) => {
           <DialogHeader>
             <DialogTitle>Bulk Rate Edit</DialogTitle>
             <DialogDescription>
-              Apply a rate to a specific date range for the selected room type and rate plan.
+              Apply a rate to a specific date range. Changes are queued as drafts — review and click Apply, then Save.
             </DialogDescription>
           </DialogHeader>
           <div className="space-y-4">
@@ -1155,7 +1161,7 @@ export const QuickRateGrid = ({ onSyncQueueCount }: QuickRateGridProps) => {
           </div>
           <DialogFooter>
             <Button variant="outline" onClick={() => setBulkOpen(false)}>Cancel</Button>
-            <Button onClick={applyBulkEdit} disabled={!bulkDateFrom || !bulkDateTo || !bulkRate}>Apply Changes</Button>
+            <Button onClick={applyBulkEdit} disabled={!bulkDateFrom || !bulkDateTo || !bulkRate}>Add to Drafts</Button>
           </DialogFooter>
         </DialogContent>
       </Dialog>
