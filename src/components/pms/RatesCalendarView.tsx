@@ -663,22 +663,38 @@ export const RatesCalendarView: React.FC<RatesCalendarViewProps> = ({ readOnly =
       </div>
 
       {/* Legend */}
-      <div className="flex flex-wrap items-center gap-4 text-xs text-muted-foreground">
-        <span className="flex items-center gap-1.5">
-          <span className="inline-block h-3 w-3 rounded bg-green-100 border" /> Available (0–60%)
-        </span>
-        <span className="flex items-center gap-1.5">
-          <span className="inline-block h-3 w-3 rounded bg-yellow-100 border" /> Filling up (61–85%)
-        </span>
-        <span className="flex items-center gap-1.5">
-          <span className="inline-block h-3 w-3 rounded bg-orange-200 border" /> Almost sold out (86–99%)
-        </span>
-        <span className="flex items-center gap-1.5">
-          <span className="inline-block h-3 w-3 rounded bg-red-300 border" /> Sold out (100%)
-        </span>
-        <span className="flex items-center gap-1.5">
-          <Lock className="h-3 w-3 text-purple-700" /> Manual override
-        </span>
+      <div className="flex flex-col md:flex-row md:gap-10 gap-4">
+        <div>
+          <div className="text-sm font-semibold text-muted-foreground mb-1.5">Room Occupancy</div>
+          <div className="flex flex-wrap items-center gap-4 text-xs text-muted-foreground">
+            <span className="flex items-center gap-1.5">
+              <span className="inline-block h-3 w-3 rounded-sm bg-green-100 border" /> Available (0–60%)
+            </span>
+            <span className="flex items-center gap-1.5">
+              <span className="inline-block h-3 w-3 rounded-sm bg-yellow-100 border" /> Filling up (61–85%)
+            </span>
+            <span className="flex items-center gap-1.5">
+              <span className="inline-block h-3 w-3 rounded-sm bg-orange-200 border" /> Almost sold out (86–99%)
+            </span>
+            <span className="flex items-center gap-1.5">
+              <span className="inline-block h-3 w-3 rounded-sm bg-red-300 border" /> Sold out (100%)
+            </span>
+            <span className="flex items-center gap-1.5">
+              <Lock className="h-3 w-3 text-purple-700" /> Manual override
+            </span>
+          </div>
+        </div>
+        <div>
+          <div className="text-sm font-semibold text-muted-foreground mb-1.5">Room Rates</div>
+          <div className="flex flex-wrap items-center gap-4 text-xs text-muted-foreground">
+            <span className="flex items-center gap-1.5">
+              <span className="inline-block h-3 w-3 rounded-sm bg-purple-600" /> Base rate (PMS)
+            </span>
+            <span className="flex items-center gap-1.5">
+              <span className="inline-block h-3 w-3 rounded-sm" style={{ backgroundColor: '#003580' }} /> Booking.com rate
+            </span>
+          </div>
+        </div>
       </div>
 
       {/* Edit dialog */}
