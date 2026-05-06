@@ -1480,6 +1480,8 @@ export type Database = {
       }
       pricing_rules: {
         Row: {
+          aggression_level: number
+          base_tiers: Json | null
           channex_max_price_synced: boolean
           channex_min_price_synced: boolean
           created_at: string
@@ -1502,6 +1504,8 @@ export type Database = {
           updated_at: string
         }
         Insert: {
+          aggression_level?: number
+          base_tiers?: Json | null
           channex_max_price_synced?: boolean
           channex_min_price_synced?: boolean
           created_at?: string
@@ -1524,6 +1528,8 @@ export type Database = {
           updated_at?: string
         }
         Update: {
+          aggression_level?: number
+          base_tiers?: Json | null
           channex_max_price_synced?: boolean
           channex_min_price_synced?: boolean
           created_at?: string

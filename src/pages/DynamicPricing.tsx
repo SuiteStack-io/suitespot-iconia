@@ -12,6 +12,8 @@ import { Label } from '@/components/ui/label';
 import { Badge } from '@/components/ui/badge';
 import { RadioGroup, RadioGroupItem } from '@/components/ui/radio-group';
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from '@/components/ui/collapsible';
+import { Slider } from '@/components/ui/slider';
+import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter } from '@/components/ui/dialog';
 import { Select, SelectTrigger, SelectValue, SelectContent, SelectItem } from '@/components/ui/select';
@@ -43,6 +45,50 @@ interface PricingRules {
   revenue_occupancy_conflict_cap: number;
   revenue_occupancy_conflict_revenue_min: number;
   revenue_occupancy_conflict_occupancy_max: number;
+  aggression_level: number;
+  base_tiers: BaseTiers | null;
+}
+
+interface BaseTiers {
+  occupancy_adjustments: number[];
+  revenue_adjustments_phase_a: number[];
+  revenue_adjustments_phase_b: number[];
+  pace_index_bump_threshold: number;
+}
+
+const AGGRESSION_LEVELS: Record<number, {
+  occ: number; rev: number; pace: number; label: string; description: string;
+}> = {
+  1: { occ: 0.4,  rev: 0.5,  pace: 1.50, label: 'Conservative',
+       description: 'Gentle pricing. Big bookings barely move rates. Lowest risk of guest pushback.' },
+  2: { occ: 0.7,  rev: 0.75, pace: 1.40, label: 'Moderate',
+       description: 'Cautious response. Moderate adjustments to occupancy and revenue signals.' },
+  3: { occ: 1.0,  rev: 1.0,  pace: 1.30, label: 'Balanced',
+       description: 'Balanced. Standard responsiveness to demand and revenue targets.' },
+  4: { occ: 1.3,  rev: 1.25, pace: 1.20, label: 'Aggressive',
+       description: 'Assertive. Stronger response to high occupancy and revenue gaps.' },
+  5: { occ: 1.6,  rev: 1.5,  pace: 1.15, label: 'Maximum',
+       description: 'Maximum revenue capture. Aggressive adjustments. Higher risk of guest pushback at peak times.' },
+};
+
+function deriveTiersFromBase(base: BaseTiers, level: number): BaseTiers {
+  const m = AGGRESSION_LEVELS[level] ?? AGGRESSION_LEVELS[3];
+  const round2 = (n: number) => Math.round(n * 100) / 100;
+  return {
+    occupancy_adjustments: base.occupancy_adjustments.map(v => round2(Number(v) * m.occ)),
+    revenue_adjustments_phase_a: base.revenue_adjustments_phase_a.map(v => round2(Number(v) * m.rev)),
+    revenue_adjustments_phase_b: base.revenue_adjustments_phase_b.map(v => round2(Number(v) * m.rev)),
+    pace_index_bump_threshold: m.pace,
+  };
+}
+
+function arraysAlmostEqual(a: number[] | undefined, b: number[] | undefined, tol = 1e-4): boolean {
+  if (!a || !b) return false;
+  if (a.length !== b.length) return false;
+  for (let i = 0; i < a.length; i++) {
+    if (Math.abs(Number(a[i]) - Number(b[i])) > tol) return false;
+  }
+  return true;
 }
 
 interface RoomRateBound {
@@ -74,6 +120,11 @@ export default function DynamicPricing() {
   const [rateBounds, setRateBounds] = useState<RoomRateBound[]>([]);
   const [boundsErrors, setBoundsErrors] = useState<Record<string, string>>({});
   const [advancedOpen, setAdvancedOpen] = useState(false);
+  const [aggressionOpen, setAggressionOpen] = useState(true);
+  const [aggressionSliderPos, setAggressionSliderPos] = useState<number>(3);
+  const [pendingAggressionLevel, setPendingAggressionLevel] = useState<number | null>(null);
+  const [aggressionConfirmOpen, setAggressionConfirmOpen] = useState(false);
+  
   const [masterOpen, setMasterOpen] = useState(true);
   const [guardrailsOpen, setGuardrailsOpen] = useState(true);
   const [dowOpen, setDowOpen] = useState(true);
@@ -136,7 +187,7 @@ export default function DynamicPricing() {
     }
     return acc + n;
   }, 0);
-  const totalPendingChanges = pendingRulesCount + pendingBoundsCount + pendingTierCount;
+  const totalPendingChanges = pendingRulesCount + pendingBoundsCount + pendingTierCount + (pendingAggressionLevel !== null ? 1 : 0);
 
   // ---- helpers ----
   const weekendRatio = (b: RoomRateBound) => (b.weekday_rate > 0 ? b.weekend_rate / b.weekday_rate : 1);
@@ -238,6 +289,11 @@ export default function DynamicPricing() {
     window.addEventListener('beforeunload', handleBeforeUnload);
     return () => window.removeEventListener('beforeunload', handleBeforeUnload);
   }, [totalPendingChanges]);
+
+  // Sync slider to saved aggression_level when rules load
+  useEffect(() => {
+    if (rules) setAggressionSliderPos(rules.aggression_level || 3);
+  }, [rules?.id, rules?.aggression_level]);
 
   // ---- load pricing_rules ----
   const loadRules = useCallback(async () => {
@@ -405,9 +461,28 @@ export default function DynamicPricing() {
     });
   }
 
+  // Detect if current saved tier values differ from what saved aggression_level would produce
+  function detectManualTierEdit(): boolean {
+    if (!rules || !rules.base_tiers) return false;
+    const expected = deriveTiersFromBase(rules.base_tiers, rules.aggression_level);
+    return (
+      !arraysAlmostEqual(expected.occupancy_adjustments, rules.occupancy_adjustments) ||
+      !arraysAlmostEqual(expected.revenue_adjustments_phase_a, rules.revenue_adjustments_phase_a) ||
+      !arraysAlmostEqual(expected.revenue_adjustments_phase_b, rules.revenue_adjustments_phase_b) ||
+      Math.abs(expected.pace_index_bump_threshold - Number(rules.pace_index_bump_threshold)) > 1e-4
+    );
+  }
+
   // ---- save all pending changes (with auto Channex sync for rate bounds) ----
-  async function saveAllChanges() {
+  async function saveAllChanges(skipManualEditCheck = false) {
     if (!rules || totalPendingChanges === 0) return;
+
+    // If aggression level change is pending and would overwrite manual edits, confirm first
+    if (!skipManualEditCheck && pendingAggressionLevel !== null && detectManualTierEdit()) {
+      setAggressionConfirmOpen(true);
+      return;
+    }
+
     setSaveStatus('saving');
     setSaveProgress(10);
 
@@ -434,8 +509,27 @@ export default function DynamicPricing() {
 
       setSaveProgress(25);
 
-      // 1. Save pricing_rules changes (merge in queued tier changes)
+      // 1. Save pricing_rules changes (merge in queued tier changes + aggression-derived tiers)
       const rulesPatch: Partial<PricingRules> = { ...pendingRulesChanges, ...pendingTierChanges };
+
+      // Aggression takes precedence over manual tier edits if both pending
+      if (pendingAggressionLevel !== null) {
+        // Ensure base_tiers exists; if not, derive from current values treating them as Level 3
+        const baseTiers: BaseTiers = rules.base_tiers ?? {
+          occupancy_adjustments: [...rules.occupancy_adjustments],
+          revenue_adjustments_phase_a: [...rules.revenue_adjustments_phase_a],
+          revenue_adjustments_phase_b: [...rules.revenue_adjustments_phase_b],
+          pace_index_bump_threshold: Number(rules.pace_index_bump_threshold),
+        };
+        const derived = deriveTiersFromBase(baseTiers, pendingAggressionLevel);
+        rulesPatch.occupancy_adjustments = derived.occupancy_adjustments;
+        rulesPatch.revenue_adjustments_phase_a = derived.revenue_adjustments_phase_a;
+        rulesPatch.revenue_adjustments_phase_b = derived.revenue_adjustments_phase_b;
+        rulesPatch.pace_index_bump_threshold = derived.pace_index_bump_threshold;
+        rulesPatch.aggression_level = pendingAggressionLevel;
+        if (!rules.base_tiers) rulesPatch.base_tiers = baseTiers;
+      }
+
       const hasRulesChanges = Object.keys(rulesPatch).length > 0;
       if (hasRulesChanges) {
         const { error } = await supabase
@@ -525,7 +619,7 @@ export default function DynamicPricing() {
       }
 
       // Trigger Channex full-sync if rules/tier changes affect calculated rates (non-fatal)
-      const triggeredFullSync = (pendingRulesCount > 0 || pendingTierCount > 0) && !!propertyId;
+      const triggeredFullSync = (pendingRulesCount > 0 || pendingTierCount > 0 || pendingAggressionLevel !== null) && !!propertyId;
       let fullSyncFailed = false;
       if (triggeredFullSync) {
         setSaveProgress(90);
@@ -545,6 +639,7 @@ export default function DynamicPricing() {
       setPendingBoundsChanges({});
       setPendingTierChanges({});
       setTierDrafts({});
+      setPendingAggressionLevel(null);
 
       if (triggeredFullSync) {
         if (fullSyncFailed) {
@@ -615,7 +710,7 @@ export default function DynamicPricing() {
               <span className="text-sm font-medium">
                 {totalPendingChanges} unsaved change{totalPendingChanges !== 1 ? 's' : ''}
               </span>
-              <Button onClick={saveAllChanges} disabled={saveStatus === 'saving'} size="sm">
+              <Button onClick={() => saveAllChanges()} disabled={saveStatus === 'saving'} size="sm">
                 {saveStatus === 'saving' ? (
                   <Loader2 className="h-4 w-4 mr-2 animate-spin" />
                 ) : (
@@ -1052,7 +1147,137 @@ export default function DynamicPricing() {
                 </Card>
               </Collapsible>
 
-              {/* Section G: Advanced */}
+              {/* Section G-pre: Pricing Aggression Slider */}
+              <Collapsible open={aggressionOpen} onOpenChange={setAggressionOpen}>
+                <Card>
+                  <CollapsibleTrigger asChild>
+                    <CardHeader className="cursor-pointer hover:bg-muted/50 transition-colors">
+                      <div className="flex items-center justify-between">
+                        <div>
+                          <CardTitle>Pricing Aggression</CardTitle>
+                          <CardDescription>
+                            Single control for how aggressively the engine adjusts rates. Scales occupancy and revenue tier deltas plus the Pace Index threshold.
+                          </CardDescription>
+                        </div>
+                        <ChevronDown className={`h-5 w-5 text-muted-foreground transition-transform ${aggressionOpen ? 'rotate-180' : ''}`} />
+                      </div>
+                    </CardHeader>
+                  </CollapsibleTrigger>
+                  <CollapsibleContent>
+                    <CardContent className="space-y-4">
+                      {(() => {
+                        const savedLevel = rules.aggression_level || 3;
+                        const sliderLevel = aggressionSliderPos;
+                        const cfg = AGGRESSION_LEVELS[sliderLevel];
+                        const savedCfg = AGGRESSION_LEVELS[savedLevel];
+                        const isDirty = sliderLevel !== savedLevel;
+                        const isPending = pendingAggressionLevel === sliderLevel && isDirty;
+                        // Proportional preview vs saved level (50/50 occ + rev)
+                        const ratio = ((cfg.occ / savedCfg.occ) + (cfg.rev / savedCfg.rev)) / 2;
+                        const pctDelta = (ratio - 1) * 100;
+                        const pctText = pctDelta === 0
+                          ? 'roughly the same as your current saved level'
+                          : (pctDelta > 0 ? `≈ +${pctDelta.toFixed(1)}%` : `≈ ${pctDelta.toFixed(1)}%`) + ` vs saved Level ${savedLevel} (${savedCfg.label})`;
+                        return (
+                          <>
+                            {/* Description */}
+                            <div className="rounded-md bg-muted/40 p-3">
+                              <div className="flex items-center gap-2 mb-1">
+                                <span className="text-sm font-semibold">Level {sliderLevel} — {cfg.label}</span>
+                                {isPending && (
+                                  <Badge variant="outline" className="border-amber-500 text-amber-700 bg-amber-50 dark:bg-amber-950/20">
+                                    Pending Save · Level {sliderLevel}
+                                  </Badge>
+                                )}
+                                {isDirty && !isPending && (
+                                  <span className="text-xs text-muted-foreground">(Saved: Level {savedLevel})</span>
+                                )}
+                              </div>
+                              <p className="text-sm text-muted-foreground">{cfg.description}</p>
+                            </div>
+
+                            {/* Slider */}
+                            <div className="px-2 pt-2">
+                              <Slider
+                                min={1}
+                                max={5}
+                                step={1}
+                                value={[sliderLevel]}
+                                onValueChange={(v) => setAggressionSliderPos(v[0] ?? 3)}
+                              />
+                              <div className="grid grid-cols-5 mt-3 text-[11px] text-center">
+                                {[1, 2, 3, 4, 5].map((n) => (
+                                  <div key={n} className={cn('flex flex-col items-center gap-1', n === sliderLevel ? 'text-primary font-semibold' : 'text-muted-foreground')}>
+                                    <span>{n}</span>
+                                    <span>{AGGRESSION_LEVELS[n].label}</span>
+                                  </div>
+                                ))}
+                              </div>
+                            </div>
+
+                            {/* Summary line */}
+                            <div className="text-xs text-muted-foreground border-t pt-3">
+                              Occupancy adjustments × {cfg.occ.toFixed(1)} · Revenue caps × {cfg.rev.toFixed(2)} · Pace Index threshold {cfg.pace.toFixed(2)}
+                              {sliderLevel === 3 && <span className="ml-1">(Current baseline)</span>}
+                            </div>
+
+                            {/* Preview card */}
+                            <div className="rounded-md border bg-card p-3 flex items-start justify-between gap-3">
+                              <div className="text-sm">
+                                <div className="font-medium mb-0.5">At this level, your average rate would be {pctText}.</div>
+                                <div className="text-xs text-muted-foreground">Estimate based on average rate scaling. Actual rates depend on per-date occupancy, revenue, and other factors.</div>
+                              </div>
+                              <TooltipProvider>
+                                <Tooltip>
+                                  <TooltipTrigger asChild>
+                                    <Info className="h-4 w-4 text-muted-foreground shrink-0 mt-0.5 cursor-pointer" />
+                                  </TooltipTrigger>
+                                  <TooltipContent className="max-w-xs">
+                                    <p className="text-xs">Lower aggression = smaller adjustments in BOTH directions (smaller discounts at low occupancy AND smaller premiums at high occupancy). Moving the slider down at low occupancy may show a higher avg rate because discounts shrink.</p>
+                                  </TooltipContent>
+                                </Tooltip>
+                              </TooltipProvider>
+                            </div>
+
+                            {/* Apply button */}
+                            <div className="flex justify-end pt-1">
+                              {isDirty && pendingAggressionLevel !== sliderLevel && (
+                                <Button
+                                  type="button"
+                                  size="sm"
+                                  className="bg-black text-white hover:bg-black/90"
+                                  onClick={() => {
+                                    setPendingAggressionLevel(sliderLevel);
+                                    toast.success(`Level ${sliderLevel} (${cfg.label}) added to pending. Click Save Changes to apply.`);
+                                  }}
+                                >
+                                  Apply
+                                </Button>
+                              )}
+                              {pendingAggressionLevel !== null && (
+                                <Button
+                                  type="button"
+                                  size="sm"
+                                  variant="ghost"
+                                  className="ml-2"
+                                  onClick={() => {
+                                    setPendingAggressionLevel(null);
+                                    setAggressionSliderPos(rules.aggression_level || 3);
+                                  }}
+                                >
+                                  Discard
+                                </Button>
+                              )}
+                            </div>
+                          </>
+                        );
+                      })()}
+                    </CardContent>
+                  </CollapsibleContent>
+                </Card>
+              </Collapsible>
+
+
               <Collapsible open={advancedOpen} onOpenChange={setAdvancedOpen}>
                 <Card>
                   <CollapsibleTrigger asChild>
@@ -1228,6 +1453,25 @@ export default function DynamicPricing() {
         </div>
       </div>
 
+      {/* Aggression overwrite confirm */}
+      <AlertDialog open={aggressionConfirmOpen} onOpenChange={setAggressionConfirmOpen}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Overwrite manually edited tier values?</AlertDialogTitle>
+            <AlertDialogDescription>
+              Your manually edited tier values will be overwritten by Aggression Level {pendingAggressionLevel ?? ''}
+              {pendingAggressionLevel ? ` (${AGGRESSION_LEVELS[pendingAggressionLevel]?.label})` : ''}. Continue?
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>Cancel</AlertDialogCancel>
+            <AlertDialogAction onClick={() => { setAggressionConfirmOpen(false); saveAllChanges(true); }}>
+              Yes, overwrite
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
+
       {/* Pace Index Info Dialog */}
       <Dialog open={paceInfoOpen} onOpenChange={setPaceInfoOpen}>
         <DialogContent className="max-w-lg">
@@ -1277,6 +1521,13 @@ function mapRulesRow(row: any): PricingRules {
     revenue_occupancy_conflict_cap: row.revenue_occupancy_conflict_cap,
     revenue_occupancy_conflict_revenue_min: row.revenue_occupancy_conflict_revenue_min,
     revenue_occupancy_conflict_occupancy_max: row.revenue_occupancy_conflict_occupancy_max,
+    aggression_level: typeof row.aggression_level === 'number' ? row.aggression_level : 3,
+    base_tiers: (row.base_tiers && typeof row.base_tiers === 'object') ? {
+      occupancy_adjustments: Array.isArray(row.base_tiers.occupancy_adjustments) ? row.base_tiers.occupancy_adjustments.map(Number) : [0, 5, 10, 18, 28, 40, 55],
+      revenue_adjustments_phase_a: Array.isArray(row.base_tiers.revenue_adjustments_phase_a) ? row.base_tiers.revenue_adjustments_phase_a.map(Number) : [0, 0, 5, 5, 10, 10, 10],
+      revenue_adjustments_phase_b: Array.isArray(row.base_tiers.revenue_adjustments_phase_b) ? row.base_tiers.revenue_adjustments_phase_b.map(Number) : [0, 0, 5, 10, 15, 20, 25],
+      pace_index_bump_threshold: Number(row.base_tiers.pace_index_bump_threshold ?? 1.30),
+    } : null,
   };
 }
 
@@ -1295,6 +1546,8 @@ function toDbRow(patch: Partial<PricingRules>): Record<string, unknown> {
   if (patch.last_minute_strategy !== undefined) out.last_minute_strategy = patch.last_minute_strategy;
   if (patch.channex_min_price_synced !== undefined) out.channex_min_price_synced = patch.channex_min_price_synced;
   if (patch.channex_max_price_synced !== undefined) out.channex_max_price_synced = patch.channex_max_price_synced;
+  if (patch.aggression_level !== undefined) out.aggression_level = patch.aggression_level;
+  if (patch.base_tiers !== undefined) out.base_tiers = patch.base_tiers as unknown as Json;
   return out;
 }
 
