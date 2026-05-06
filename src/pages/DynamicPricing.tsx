@@ -1528,7 +1528,7 @@ export default function DynamicPricing() {
                         {hasAnyDirtyTier && (
                           <Button
                             type="button"
-                            onClick={applyTierChanges}
+                            onClick={() => applyTierChanges()}
                             className="bg-black text-white hover:bg-black/90"
                             size="sm"
                           >
