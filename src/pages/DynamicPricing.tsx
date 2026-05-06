@@ -2348,7 +2348,7 @@ function PricingDashboard({ propertyId, rules, overridesRefreshKey, onOverridesC
                       })}
                       {previewRows.length === 0 && !previewLoading && (
                         <TableRow>
-                          <TableCell colSpan={8} className="text-center text-muted-foreground py-4">No preview data available.</TableCell>
+                          <TableCell colSpan={8 + otaColumns.length} className="text-center text-muted-foreground py-4">No preview data available.</TableCell>
                         </TableRow>
                       )}
                     </TableBody>
