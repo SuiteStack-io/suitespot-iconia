@@ -895,7 +895,7 @@ export default function DynamicPricing() {
 
         <h1 className="text-2xl font-bold mb-6">Dynamic Pricing</h1>
 
-        <div className="space-y-6 max-w-4xl">
+        <div className="space-y-6 max-w-screen-2xl">
           {/* Section A: Master Toggle */}
           <Collapsible open={masterOpen} onOpenChange={setMasterOpen}>
             <Card>
@@ -946,7 +946,7 @@ export default function DynamicPricing() {
                   </CollapsibleTrigger>
                   <CollapsibleContent>
                 <CardContent className="space-y-4">
-                  <div className="overflow-x-auto">
+                  <div className="md:overflow-visible overflow-x-auto">
                     <Table>
                       <TableHeader>
                         <TableRow>
