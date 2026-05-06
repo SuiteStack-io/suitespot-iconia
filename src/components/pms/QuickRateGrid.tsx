@@ -97,6 +97,7 @@ const getVarianceArrow = (currentRate: number, baseRate: number): string => {
 
 interface QuickRateGridProps {
   onSyncQueueCount?: (count: number) => void;
+  readOnly?: boolean;
 }
 
 interface DragState {
