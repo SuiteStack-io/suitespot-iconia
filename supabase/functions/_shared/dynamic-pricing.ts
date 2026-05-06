@@ -305,6 +305,10 @@ export function calculateDynamicRate(
     };
   }
 
+  // ── Dynamic mode: dow_multiplier is the sole source of day-of-week shaping. ──
+  // Ignore weekend_rate / off_peak_rate (those remain meaningful for static mode only).
+  baseRate = weekdayRate;
+
   // ── Override (defensive filter) ──
   const overrideMatches = (ctx.overrides || []).filter(
     (o) =>
