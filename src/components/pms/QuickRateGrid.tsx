@@ -163,6 +163,114 @@ export const QuickRateGrid = ({ onSyncQueueCount, readOnly = false }: QuickRateG
 
   const [drag, setDrag] = useState<DragState>({ isDragging: false, planId: null, value: null, startColIdx: 0, currentColIdx: 0 });
 
+  // ── Drag-select state (cell-body gesture, distinct from GripVertical drag-fill) ──
+  const [select, setSelect] = useState<{ planId: string | null; cols: Set<number>; anchorCol: number }>({
+    planId: null,
+    cols: new Set(),
+    anchorCol: 0,
+  });
+  const [isSelecting, setIsSelecting] = useState(false);
+  const pressRef = useRef<{ x: number; y: number; t: number; planId: string; colIdx: number; timer: number | null } | null>(null);
+  const justSelectedRef = useRef<boolean>(false);
+
+  const clearPress = () => {
+    if (pressRef.current?.timer) window.clearTimeout(pressRef.current.timer);
+    pressRef.current = null;
+  };
+
+  const enterSelecting = (planId: string, colIdx: number) => {
+    setIsSelecting(true);
+    setSelect({ planId, cols: new Set([colIdx]), anchorCol: colIdx });
+  };
+
+  const handleSelectPointerDown = (e: React.PointerEvent, planId: string, colIdx: number) => {
+    if (readOnly) return;
+    if (e.button !== undefined && e.button !== 0) return;
+    const timer = window.setTimeout(() => {
+      if (readOnly) return;
+      enterSelecting(planId, colIdx);
+    }, 180);
+    pressRef.current = { x: e.clientX, y: e.clientY, t: Date.now(), planId, colIdx, timer };
+  };
+
+  const handleSelectPointerMove = (e: React.PointerEvent) => {
+    if (readOnly) return;
+    const p = pressRef.current;
+    if (!p) return;
+    const dx = e.clientX - p.x;
+    const dy = e.clientY - p.y;
+    const dist = Math.hypot(dx, dy);
+    if (!isSelecting && dist > 5) {
+      if (Math.abs(dy) > Math.abs(dx)) {
+        clearPress();
+        return;
+      }
+      if (p.timer) window.clearTimeout(p.timer);
+      p.timer = null;
+      enterSelecting(p.planId, p.colIdx);
+    }
+    if (isSelecting) e.preventDefault();
+  };
+
+  const handleSelectPointerEnter = (planId: string, colIdx: number) => {
+    if (readOnly) return;
+    if (!isSelecting || !select.planId) return;
+    if (planId !== select.planId) return; // same-row constraint
+    const lo = Math.min(select.anchorCol, colIdx);
+    const hi = Math.max(select.anchorCol, colIdx);
+    const cols = new Set<number>();
+    for (let i = lo; i <= hi; i++) cols.add(i);
+    setSelect({ planId: select.planId, cols, anchorCol: select.anchorCol });
+  };
+
+  const handleSelectPointerUp = (e: React.PointerEvent) => {
+    if (readOnly) return;
+    if (isSelecting) {
+      justSelectedRef.current = true;
+      e.preventDefault();
+      queueMicrotask(() => {
+        setTimeout(() => { justSelectedRef.current = false; }, 0);
+      });
+    }
+    clearPress();
+  };
+
+  const cancelSelect = () => {
+    setSelect({ planId: null, cols: new Set(), anchorCol: 0 });
+    setIsSelecting(false);
+  };
+
+  const applySelect = (value: number) => {
+    if (readOnly) return;
+    if (!select.planId || select.cols.size === 0) return;
+    if (!Number.isFinite(value) || value <= 0) {
+      toast.error('Enter a valid rate');
+      return;
+    }
+    const planId = select.planId;
+    const plan = ratePlans.find(p => p.id === planId);
+    if (!plan) return;
+    const price = prices[planId] || null;
+    let count = 0;
+    setDrafts(prev => {
+      const next = new Map(prev);
+      select.cols.forEach(colIdx => {
+        const date = days[colIdx];
+        if (!date) return;
+        const dateStr = format(date, 'yyyy-MM-dd');
+        const k = cellKey(planId, dateStr);
+        const engine = getEngineRate(price, date, planId);
+        if (value === engine) next.delete(k);
+        else next.set(k, value);
+        count++;
+      });
+      return next;
+    });
+    if (count > 0) toast.success(`${count} cell(s) filled (draft)`);
+    cancelSelect();
+  };
+
+
   const days = useMemo(() => {
     if (viewMode === 'month') {
       const start = startOfMonth(weekStart);
