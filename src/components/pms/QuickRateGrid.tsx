@@ -808,14 +808,15 @@ export const QuickRateGrid = ({ onSyncQueueCount, readOnly = false }: QuickRateG
                             <td
                               key={key}
                               className={cn(
-                                `text-center p-0.5 ${cellMinWidth} cursor-pointer relative`,
-                                inDragRange && 'border-2 border-dashed border-primary/60 bg-primary/10',
-                                !inDragRange && isDraft && 'border-2 border-amber-400 bg-amber-50 dark:bg-amber-900/20',
-                                !inDragRange && !isDraft && isPending && 'bg-yellow-100 dark:bg-yellow-900/30',
+                                `text-center p-0.5 ${cellMinWidth} relative`,
+                                !readOnly && 'cursor-pointer',
+                                !readOnly && inDragRange && 'border-2 border-dashed border-primary/60 bg-primary/10',
+                                !readOnly && !inDragRange && isDraft && 'border-2 border-amber-400 bg-amber-50 dark:bg-amber-900/20',
+                                !readOnly && !inDragRange && !isDraft && isPending && 'bg-yellow-100 dark:bg-yellow-900/30',
                               )}
                               style={!inDragRange && !isPending && !isDraft && varianceColor ? { backgroundColor: varianceColor } : undefined}
-                              onClick={(e) => !isActive && !drag.isDragging && handleCellClick(plan.id, d, price, colIdx, e.shiftKey)}
-                              onMouseEnter={() => handleDragEnter(plan.id, colIdx)}
+                              onClick={(e) => !readOnly && !isActive && !drag.isDragging && handleCellClick(plan.id, d, price, colIdx, e.shiftKey)}
+                              onMouseEnter={() => !readOnly && handleDragEnter(plan.id, colIdx)}
                             >
                               {isActive ? (
                                 <input
