@@ -124,7 +124,7 @@ export default function DynamicPricing() {
   const [aggressionSliderPos, setAggressionSliderPos] = useState<number>(3);
   const [pendingAggressionLevel, setPendingAggressionLevel] = useState<number | null>(null);
   const [aggressionConfirmOpen, setAggressionConfirmOpen] = useState(false);
-  const [pendingSaveAfterConfirm, setPendingSaveAfterConfirm] = useState(false);
+  
   const [masterOpen, setMasterOpen] = useState(true);
   const [guardrailsOpen, setGuardrailsOpen] = useState(true);
   const [dowOpen, setDowOpen] = useState(true);
