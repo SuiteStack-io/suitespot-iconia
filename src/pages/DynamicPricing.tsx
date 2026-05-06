@@ -124,6 +124,7 @@ export default function DynamicPricing() {
   const [aggressionSliderPos, setAggressionSliderPos] = useState<number>(3);
   const [pendingAggressionLevel, setPendingAggressionLevel] = useState<number | null>(null);
   const [aggressionConfirmOpen, setAggressionConfirmOpen] = useState(false);
+  const [tierResetConfirmOpen, setTierResetConfirmOpen] = useState(false);
   
   const [masterOpen, setMasterOpen] = useState(true);
   const [guardrailsOpen, setGuardrailsOpen] = useState(true);
@@ -319,18 +320,27 @@ export default function DynamicPricing() {
   const hasAnyDirtyTier = TIER_KEYS.some(k =>
     (tierDrafts[k] ?? []).some((v, i) => v !== undefined && isTierRowDirty(k, i))
   );
-  function applyTierChanges() {
+  function applyTierChanges(skipLevelCheck = false) {
+    const currentAggressionLevel = pendingAggressionLevel ?? rules?.aggression_level ?? 3;
+    if (!skipLevelCheck && currentAggressionLevel !== 3) {
+      setTierResetConfirmOpen(true);
+      return;
+    }
     for (const k of TIER_KEYS) {
       const draft = tierDrafts[k];
       if (!draft) continue;
       for (let i = 0; i < draft.length; i++) {
         const v = draft[i];
         if (v === undefined) continue;
-        if (!isFinite(v) || v < 0 || v > 100) {
-          toast.error('Tier values must be between 0 and 100');
+        if (!isFinite(v) || v < -100 || v > 100) {
+          toast.error('Tier values must be between -100 and 100');
           return;
         }
       }
+    }
+    if (skipLevelCheck && currentAggressionLevel !== 3) {
+      setPendingAggressionLevel(3);
+      setAggressionSliderPos(3);
     }
     setPendingTierChanges(prev => {
       const next = { ...prev };
@@ -621,6 +631,28 @@ export default function DynamicPricing() {
         rulesPatch.pace_index_bump_threshold = derived.pace_index_bump_threshold;
         rulesPatch.aggression_level = pendingAggressionLevel;
         if (!rules.base_tiers) rulesPatch.base_tiers = baseTiers;
+      }
+
+      // If saving manual tier edits at Level 3, sync base_tiers to match (and ensure
+      // pendingTierChanges win over any aggression-derived values when level is 3).
+      const finalAggressionLevel = pendingAggressionLevel ?? rules.aggression_level ?? 3;
+      const hasTierEdits = Object.keys(pendingTierChanges).length > 0;
+      if (finalAggressionLevel === 3 && hasTierEdits) {
+        if (pendingTierChanges.occupancy_adjustments) rulesPatch.occupancy_adjustments = pendingTierChanges.occupancy_adjustments;
+        if (pendingTierChanges.revenue_adjustments_phase_a) rulesPatch.revenue_adjustments_phase_a = pendingTierChanges.revenue_adjustments_phase_a;
+        if (pendingTierChanges.revenue_adjustments_phase_b) rulesPatch.revenue_adjustments_phase_b = pendingTierChanges.revenue_adjustments_phase_b;
+        const existingBase: BaseTiers = rules.base_tiers ?? {
+          occupancy_adjustments: [...rules.occupancy_adjustments],
+          revenue_adjustments_phase_a: [...rules.revenue_adjustments_phase_a],
+          revenue_adjustments_phase_b: [...rules.revenue_adjustments_phase_b],
+          pace_index_bump_threshold: Number(rules.pace_index_bump_threshold),
+        };
+        rulesPatch.base_tiers = {
+          occupancy_adjustments: pendingTierChanges.occupancy_adjustments ?? existingBase.occupancy_adjustments,
+          revenue_adjustments_phase_a: pendingTierChanges.revenue_adjustments_phase_a ?? existingBase.revenue_adjustments_phase_a,
+          revenue_adjustments_phase_b: pendingTierChanges.revenue_adjustments_phase_b ?? existingBase.revenue_adjustments_phase_b,
+          pace_index_bump_threshold: existingBase.pace_index_bump_threshold,
+        };
       }
 
       const hasRulesChanges = Object.keys(rulesPatch).length > 0;
@@ -1518,7 +1550,7 @@ export default function DynamicPricing() {
                         {hasAnyDirtyTier && (
                           <Button
                             type="button"
-                            onClick={applyTierChanges}
+                            onClick={() => applyTierChanges()}
                             className="bg-black text-white hover:bg-black/90"
                             size="sm"
                           >
@@ -1592,6 +1624,26 @@ export default function DynamicPricing() {
             <AlertDialogCancel>Cancel</AlertDialogCancel>
             <AlertDialogAction onClick={() => { setAggressionConfirmOpen(false); saveAllChanges(true); }}>
               Yes, overwrite
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
+
+      {/* Tier edit requires Level 3 confirm */}
+      <AlertDialog open={tierResetConfirmOpen} onOpenChange={setTierResetConfirmOpen}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Reset slider to Balanced?</AlertDialogTitle>
+            <AlertDialogDescription>
+              Editing tier values directly requires the Pricing Aggression slider to be at Level 3 (Balanced).
+              Your current setting is Level {pendingAggressionLevel ?? rules?.aggression_level ?? 3} ({AGGRESSION_LEVELS[pendingAggressionLevel ?? rules?.aggression_level ?? 3]?.label}).
+              {' '}Continuing will reset the Pricing Aggression slider to Level 3 (Balanced) and save your tier edits as the new baseline. Continue?
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>Cancel</AlertDialogCancel>
+            <AlertDialogAction onClick={() => { setTierResetConfirmOpen(false); applyTierChanges(true); }}>
+              Reset to Balanced and Apply
             </AlertDialogAction>
           </AlertDialogFooter>
         </AlertDialogContent>
