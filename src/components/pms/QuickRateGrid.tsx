@@ -426,6 +426,7 @@ export const QuickRateGrid = ({ onSyncQueueCount, readOnly = false }: QuickRateG
   }, [drag, days, ratePlans, prices, getEngineRate]);
 
   const handleCellClick = (planId: string, date: Date, price: RatePlanPrice | null, colIdx: number, shiftKey?: boolean) => {
+    if (readOnly) return;
     if (shiftKey && lastCommittedCell && lastCommittedCell.planId === planId) {
       const minCol = Math.min(lastCommittedCell.colIdx, colIdx);
       const maxCol = Math.max(lastCommittedCell.colIdx, colIdx);
@@ -455,6 +456,7 @@ export const QuickRateGrid = ({ onSyncQueueCount, readOnly = false }: QuickRateG
   };
 
   const commitCell = (key: string) => {
+    if (readOnly) { setActiveCell(null); return; }
     if (!key || activeCell !== key) return;
     const [planId, dateStr] = key.split(':');
     const plan = ratePlans.find(p => p.id === planId);
@@ -485,6 +487,7 @@ export const QuickRateGrid = ({ onSyncQueueCount, readOnly = false }: QuickRateG
   };
 
   const navigateCell = (currentKey: string, direction: 'right' | 'down' | 'left' | 'up') => {
+    if (readOnly) return;
     commitCell(currentKey);
     const [planId, dateStr] = currentKey.split(':');
     const rowIdx = rows.findIndex(r => r.plan.id === planId);
@@ -532,6 +535,7 @@ export const QuickRateGrid = ({ onSyncQueueCount, readOnly = false }: QuickRateG
 
   // Apply Changes: validate drafts → move into pendingOverrides
   const applyDrafts = () => {
+    if (readOnly) return;
     if (drafts.size === 0) return;
     const newPending = new Map(pendingOverrides);
     let added = 0;
@@ -576,6 +580,7 @@ export const QuickRateGrid = ({ onSyncQueueCount, readOnly = false }: QuickRateG
 
   // Save Changes: upsert pricing_overrides, then trigger channex-full-sync
   const saveChanges = async () => {
+    if (readOnly) return;
     if (pendingOverrides.size === 0) {
       toast.message('No changes to save');
       return;
@@ -648,6 +653,7 @@ export const QuickRateGrid = ({ onSyncQueueCount, readOnly = false }: QuickRateG
 
   // Bulk Edit: writes drafts (NOT pricing_overrides directly)
   const applyBulkEdit = () => {
+    if (readOnly) return;
     const rate = parseFloat(bulkRate);
     if (isNaN(rate) || rate <= 0) {
       toast.error('Enter a valid positive rate');
@@ -708,10 +714,12 @@ export const QuickRateGrid = ({ onSyncQueueCount, readOnly = false }: QuickRateG
   };
 
   const handleDragStart = (planId: string, colIdx: number, value: number) => {
+    if (readOnly) return;
     setDrag({ isDragging: true, planId, value, startColIdx: colIdx, currentColIdx: colIdx });
   };
 
   const handleDragEnter = (planId: string, colIdx: number) => {
+    if (readOnly) return;
     if (!drag.isDragging || drag.planId !== planId) return;
     setDrag(prev => ({ ...prev, currentColIdx: colIdx }));
   };
@@ -818,7 +826,7 @@ export const QuickRateGrid = ({ onSyncQueueCount, readOnly = false }: QuickRateG
                               onClick={(e) => !readOnly && !isActive && !drag.isDragging && handleCellClick(plan.id, d, price, colIdx, e.shiftKey)}
                               onMouseEnter={() => !readOnly && handleDragEnter(plan.id, colIdx)}
                             >
-                              {isActive ? (
+                              {isActive && !readOnly ? (
                                 <input
                                   ref={el => { inputRefs.current[key] = el; }}
                                   type="number"
@@ -827,6 +835,7 @@ export const QuickRateGrid = ({ onSyncQueueCount, readOnly = false }: QuickRateG
                                   onChange={e => setEditValue(e.target.value)}
                                   onBlur={() => commitCell(key)}
                                   onKeyDown={e => {
+                                    if (readOnly) return;
                                     if (e.key === 'Enter') navigateCell(key, 'down');
                                     else if (e.key === 'Tab') { e.preventDefault(); navigateCell(key, e.shiftKey ? 'left' : 'right'); }
                                     else if (e.key === 'Escape') {
@@ -869,7 +878,7 @@ export const QuickRateGrid = ({ onSyncQueueCount, readOnly = false }: QuickRateG
                                     </TooltipProvider>
                                   )}
 
-                                  {rate > 0 && !drag.isDragging && (
+                                  {!readOnly && rate > 0 && !drag.isDragging && (
                                     <div
                                       className="absolute right-0 top-0 bottom-0 w-4 flex items-center justify-center opacity-0 group-hover:opacity-60 hover:!opacity-100 cursor-grab"
                                       onMouseDown={(e) => {
