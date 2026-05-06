@@ -120,6 +120,11 @@ export default function DynamicPricing() {
   const [rateBounds, setRateBounds] = useState<RoomRateBound[]>([]);
   const [boundsErrors, setBoundsErrors] = useState<Record<string, string>>({});
   const [advancedOpen, setAdvancedOpen] = useState(false);
+  const [aggressionOpen, setAggressionOpen] = useState(true);
+  const [aggressionSliderPos, setAggressionSliderPos] = useState<number>(3);
+  const [pendingAggressionLevel, setPendingAggressionLevel] = useState<number | null>(null);
+  const [aggressionConfirmOpen, setAggressionConfirmOpen] = useState(false);
+  const [pendingSaveAfterConfirm, setPendingSaveAfterConfirm] = useState(false);
   const [masterOpen, setMasterOpen] = useState(true);
   const [guardrailsOpen, setGuardrailsOpen] = useState(true);
   const [dowOpen, setDowOpen] = useState(true);
