@@ -187,7 +187,7 @@ export default function DynamicPricing() {
     }
     return acc + n;
   }, 0);
-  const totalPendingChanges = pendingRulesCount + pendingBoundsCount + pendingTierCount;
+  const totalPendingChanges = pendingRulesCount + pendingBoundsCount + pendingTierCount + (pendingAggressionLevel !== null ? 1 : 0);
 
   // ---- helpers ----
   const weekendRatio = (b: RoomRateBound) => (b.weekday_rate > 0 ? b.weekend_rate / b.weekday_rate : 1);
