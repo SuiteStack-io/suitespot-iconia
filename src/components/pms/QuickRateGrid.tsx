@@ -426,6 +426,7 @@ export const QuickRateGrid = ({ onSyncQueueCount, readOnly = false }: QuickRateG
   }, [drag, days, ratePlans, prices, getEngineRate]);
 
   const handleCellClick = (planId: string, date: Date, price: RatePlanPrice | null, colIdx: number, shiftKey?: boolean) => {
+    if (readOnly) return;
     if (shiftKey && lastCommittedCell && lastCommittedCell.planId === planId) {
       const minCol = Math.min(lastCommittedCell.colIdx, colIdx);
       const maxCol = Math.max(lastCommittedCell.colIdx, colIdx);
