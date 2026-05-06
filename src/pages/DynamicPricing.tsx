@@ -188,6 +188,99 @@ export default function DynamicPricing() {
     return acc + n;
   }, 0);
   const totalPendingChanges = pendingRulesCount + pendingBoundsCount + pendingTierCount + (pendingAggressionLevel !== null ? 1 : 0);
+  const [pendingExpanded, setPendingExpanded] = useState(false);
+
+  // ---- pending changes description builder ----
+  const LEVEL_LABEL: Record<number, string> = {
+    1: 'Conservative', 2: 'Moderate', 3: 'Balanced', 4: 'Aggressive', 5: 'Maximum',
+  };
+  const FULL_DAY_LABELS = ['Sunday', 'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday'];
+
+  function fmtPct(n: number | undefined | null): string {
+    if (n === undefined || n === null || !isFinite(Number(n))) return '—';
+    const v = Number(n);
+    const sign = v > 0 ? '+' : v < 0 ? '−' : '';
+    return `${sign}${Math.abs(v)}%`;
+  }
+  function prettyKey(k: string): string {
+    return k.replace(/_/g, ' ').replace(/\b\w/g, (c) => c.toUpperCase());
+  }
+  function tierBandLabel(tierKey: TierKey, idx: number): string {
+    if (!rules) return `Tier #${idx + 1}`;
+    const thresholds = tierKey === 'occupancy_adjustments'
+      ? rules.occupancy_thresholds
+      : rules.revenue_thresholds;
+    const lower = idx === 0 ? 0 : (thresholds?.[idx - 1] ?? 0);
+    const upper = thresholds?.[idx];
+    const name = tierKey === 'occupancy_adjustments' ? 'Occupancy Tier'
+      : tierKey === 'revenue_adjustments_phase_a' ? 'Revenue Tier (Phase A)'
+      : 'Revenue Tier (Phase B)';
+    const range = upper !== undefined ? `${lower}–${upper}%` : `${lower}%+`;
+    return `${name} (${range})`;
+  }
+  function formatRuleChange(key: string, newVal: any, oldVal: any): string[] {
+    if (key === 'day_of_week_multipliers' && newVal && typeof newVal === 'object') {
+      const lines: string[] = [];
+      const old = (oldVal ?? {}) as Record<string, number>;
+      for (const [day, v] of Object.entries(newVal as Record<string, number>)) {
+        if (old[day] === v) continue;
+        const label = FULL_DAY_LABELS[Number(day)] ?? `Day ${day}`;
+        const oldStr = old[day] !== undefined ? ` (was ${Number(old[day]).toFixed(2)}×)` : '';
+        lines.push(`${label} multiplier → ${Number(v).toFixed(2)}×${oldStr}`);
+      }
+      return lines;
+    }
+    if (key === 'pace_index_bump_threshold') {
+      return [`Pace Index Threshold → ${Number(newVal).toFixed(2)}${oldVal !== undefined ? ` (was ${Number(oldVal).toFixed(2)})` : ''}`];
+    }
+    if (key === 'monthly_revenue_target' || key === 'monthly_revenue_stretch') {
+      const label = key === 'monthly_revenue_target' ? 'Monthly Revenue Target' : 'Monthly Revenue Stretch';
+      return [`${label} → ${formatUsd(newVal)}${oldVal !== undefined && oldVal !== null ? ` (was ${formatUsd(oldVal)})` : ''}`];
+    }
+    if (key === 'last_minute_strategy') {
+      return [`Last-Minute Strategy → "${newVal}"${oldVal !== undefined ? ` (was "${oldVal}")` : ''}`];
+    }
+    if (key === 'is_enabled') {
+      return [`Dynamic Pricing → ${newVal ? 'Enabled' : 'Disabled'}`];
+    }
+    if (key.startsWith('revenue_occupancy_conflict_')) {
+      return [`${prettyKey(key)} → ${newVal}${oldVal !== undefined ? ` (was ${oldVal})` : ''}`];
+    }
+    return [`${prettyKey(key)} → ${typeof newVal === 'object' ? JSON.stringify(newVal) : String(newVal)}`];
+  }
+  function formatBoundsChange(roomType: string, original: { min: number | null; max: number | null }, pending: { min: number | null; max: number | null }): string[] {
+    const minChanged = original.min !== pending.min;
+    const maxChanged = original.max !== pending.max;
+    if (minChanged && maxChanged) {
+      return [`${roomType} bounds → ${formatUsd(pending.min)}/${formatUsd(pending.max)} (was ${formatUsd(original.min)}/${formatUsd(original.max)})`];
+    }
+    if (minChanged) return [`${roomType} min_rate → ${formatUsd(pending.min)} (was ${formatUsd(original.min)})`];
+    if (maxChanged) return [`${roomType} max_rate → ${formatUsd(pending.max)} (was ${formatUsd(original.max)})`];
+    return [];
+  }
+  function buildPendingDescriptions(): string[] {
+    const out: string[] = [];
+    if (pendingAggressionLevel !== null) {
+      out.push(`Pricing Aggression → Level ${pendingAggressionLevel} (${LEVEL_LABEL[pendingAggressionLevel]})`);
+    }
+    for (const [key, newVal] of Object.entries(pendingRulesChanges)) {
+      const oldVal = rules ? (rules as any)[key] : undefined;
+      out.push(...formatRuleChange(key, newVal, oldVal));
+    }
+    for (const tierKey of TIER_KEYS) {
+      const arr = pendingTierChanges[tierKey];
+      if (!arr || !rules) continue;
+      const baseline = (rules[tierKey] ?? []) as number[];
+      arr.forEach((v, idx) => {
+        if (v === undefined || v === baseline[idx]) return;
+        out.push(`${tierBandLabel(tierKey, idx)} → ${fmtPct(v)} (was ${fmtPct(baseline[idx])})`);
+      });
+    }
+    for (const [roomType, ch] of Object.entries(pendingBoundsChanges)) {
+      out.push(...formatBoundsChange(roomType, ch.original, ch.pending));
+    }
+    return out;
+  }
 
   // ---- helpers ----
   const weekendRatio = (b: RoomRateBound) => (b.weekday_rate > 0 ? b.weekend_rate / b.weekday_rate : 1);
@@ -704,13 +797,44 @@ export default function DynamicPricing() {
         </div>
 
         {/* Sticky save bar */}
-        {totalPendingChanges > 0 && (
+        {totalPendingChanges > 0 && (() => {
+          const descriptions = buildPendingDescriptions();
+          const showCollapsed = descriptions.length >= 4 && !pendingExpanded;
+          return (
           <div className="sticky top-0 z-20 mb-4">
-            <div className="flex items-center justify-between bg-card border rounded-lg px-4 py-3 shadow-sm">
-              <span className="text-sm font-medium">
-                {totalPendingChanges} unsaved change{totalPendingChanges !== 1 ? 's' : ''}
-              </span>
-              <Button onClick={() => saveAllChanges()} disabled={saveStatus === 'saving'} size="sm">
+            <div className="flex flex-col md:flex-row md:items-start md:justify-between gap-3 bg-card border rounded-lg px-4 py-3 shadow-sm">
+              <div className="min-w-0 flex-1 text-sm">
+                {descriptions.length === 1 ? (
+                  <p>
+                    <span className="font-medium">Pending:</span>{' '}
+                    <span title={descriptions[0]} className="md:truncate inline-block align-bottom max-w-full">
+                      {descriptions[0]}
+                    </span>
+                  </p>
+                ) : (
+                  <>
+                    <button
+                      type="button"
+                      onClick={() => setPendingExpanded((v) => !v)}
+                      className="flex items-center gap-1 font-medium hover:underline"
+                      aria-expanded={!showCollapsed}
+                    >
+                      Pending changes ({descriptions.length}):
+                      {descriptions.length >= 4 && (
+                        <ChevronDown className={cn('h-4 w-4 transition-transform', !showCollapsed && 'rotate-180')} />
+                      )}
+                    </button>
+                    {!showCollapsed && (
+                      <ul className="mt-1 space-y-0.5 list-disc pl-5 text-muted-foreground">
+                        {descriptions.map((d, i) => (
+                          <li key={i} className="md:truncate" title={d}>{d}</li>
+                        ))}
+                      </ul>
+                    )}
+                  </>
+                )}
+              </div>
+              <Button onClick={() => saveAllChanges()} disabled={saveStatus === 'saving'} size="sm" className="md:self-start shrink-0">
                 {saveStatus === 'saving' ? (
                   <Loader2 className="h-4 w-4 mr-2 animate-spin" />
                 ) : (
@@ -734,7 +858,8 @@ export default function DynamicPricing() {
               </div>
             )}
           </div>
-        )}
+          );
+        })()}
 
         <h1 className="text-2xl font-bold mb-6">Dynamic Pricing</h1>
 
