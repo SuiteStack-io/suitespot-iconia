@@ -271,6 +271,7 @@ export default function Promotions() {
       .from('promotional_periods' as any)
       .select('*')
       .eq('property_id', propertyId)
+      .is('deleted_at', null)
       .order('booking_window_start', { ascending: true });
     if (error) {
       toast.error('Failed to load promotions: ' + error.message);
