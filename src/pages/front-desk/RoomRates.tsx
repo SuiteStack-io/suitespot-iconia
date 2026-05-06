@@ -13,6 +13,7 @@ import { Users, Maximize2, DollarSign, ImageIcon } from 'lucide-react';
 import { AspectRatio } from '@/components/ui/aspect-ratio';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { QuickRateGrid } from '@/components/pms/QuickRateGrid';
+import { RatesCalendarView } from '@/components/pms/RatesCalendarView';
 
 interface RoomTypeData {
   name: string;
@@ -239,6 +240,7 @@ export default function FrontDeskRoomRates() {
           <TabsList className="mb-4">
             <TabsTrigger value="room-cards">Room Cards</TabsTrigger>
             <TabsTrigger value="rate-calendar">Rates List View</TabsTrigger>
+            <TabsTrigger value="rates-calendar-view">Rates Calendar View</TabsTrigger>
           </TabsList>
 
           <TabsContent value="room-cards">
@@ -353,6 +355,10 @@ export default function FrontDeskRoomRates() {
 
           <TabsContent value="rate-calendar">
             <QuickRateGrid readOnly />
+          </TabsContent>
+
+          <TabsContent value="rates-calendar-view">
+            <RatesCalendarView readOnly />
           </TabsContent>
         </Tabs>
       </main>
