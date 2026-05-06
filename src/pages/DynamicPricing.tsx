@@ -2356,8 +2356,9 @@ function PricingDashboard({ propertyId, rules, overridesRefreshKey, onOverridesC
                               )}
                             </TableCell>
                           </TableRow>
-                        );
-                      })}
+                          );
+                        });
+                      })()}
                       {previewRows.length === 0 && !previewLoading && (
                         <TableRow>
                           <TableCell colSpan={8 + otaColumns.length} className="text-center text-muted-foreground py-4">No preview data available.</TableCell>
