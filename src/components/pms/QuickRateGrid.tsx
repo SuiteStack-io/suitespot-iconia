@@ -1021,22 +1021,24 @@ export const QuickRateGrid = ({ onSyncQueueCount, readOnly = false }: QuickRateG
       </div>
 
       {/* Legend */}
-      <div className="flex items-center gap-4 text-[11px] text-muted-foreground flex-wrap">
-        <div className="flex items-center gap-1.5"><span className="inline-block w-3 h-3 rounded-sm" style={{ backgroundColor: '#C8E6C9' }} /><span>Above base rate</span></div>
-        <div className="flex items-center gap-1.5"><span className="inline-block w-3 h-3 rounded-sm" style={{ backgroundColor: '#FFE0B2' }} /><span>Below base rate</span></div>
-        <div className="flex items-center gap-1.5"><span className="inline-block w-3 h-3 rounded-sm" style={{ backgroundColor: 'hsl(0 70% 97%)' }} /><span>Weekend ({weekendDays.map(d => DAY_NAMES[d]).join('–')})</span></div>
-        {offPeakDays.length > 0 && (
-          <div className="flex items-center gap-1.5"><span className="inline-block w-3 h-3 rounded-sm" style={{ backgroundColor: '#E3F2FD' }} /><span>Off-Peak ({offPeakDays.map(d => DAY_NAMES[d]).join('–')})</span></div>
-        )}
-        <div className="flex items-center gap-1.5">
-          <Lock className="h-3 w-3 text-purple-600 dark:text-purple-400" />
-          <span>Manual Override</span>
+      {!readOnly && (
+        <div className="flex items-center gap-4 text-[11px] text-muted-foreground flex-wrap">
+          <div className="flex items-center gap-1.5"><span className="inline-block w-3 h-3 rounded-sm" style={{ backgroundColor: '#C8E6C9' }} /><span>Above base rate</span></div>
+          <div className="flex items-center gap-1.5"><span className="inline-block w-3 h-3 rounded-sm" style={{ backgroundColor: '#FFE0B2' }} /><span>Below base rate</span></div>
+          <div className="flex items-center gap-1.5"><span className="inline-block w-3 h-3 rounded-sm" style={{ backgroundColor: 'hsl(0 70% 97%)' }} /><span>Weekend ({weekendDays.map(d => DAY_NAMES[d]).join('–')})</span></div>
+          {offPeakDays.length > 0 && (
+            <div className="flex items-center gap-1.5"><span className="inline-block w-3 h-3 rounded-sm" style={{ backgroundColor: '#E3F2FD' }} /><span>Off-Peak ({offPeakDays.map(d => DAY_NAMES[d]).join('–')})</span></div>
+          )}
+          <div className="flex items-center gap-1.5">
+            <Lock className="h-3 w-3 text-purple-600 dark:text-purple-400" />
+            <span>Manual Override</span>
+          </div>
+          <div className="flex items-center gap-1.5">
+            <span className="inline-block w-3 h-3 rounded-sm border-2 border-amber-400 bg-amber-50" />
+            <span>Draft</span>
+          </div>
         </div>
-        <div className="flex items-center gap-1.5">
-          <span className="inline-block w-3 h-3 rounded-sm border-2 border-amber-400 bg-amber-50" />
-          <span>Draft</span>
-        </div>
-      </div>
+      )}
 
       {/* Calendar */}
       {renderCombinedTable()}
