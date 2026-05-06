@@ -767,19 +767,29 @@ export const RatesCalendarView: React.FC<RatesCalendarViewProps> = ({ readOnly =
             const pct = unitsTotal > 0 ? (bookedCount / unitsTotal) * 100 : 0;
             const bg = occColor(pct, unitsTotal > 0);
             const clickable = !readOnly;
+            const isSelected = selection.has(ds);
 
             return (
               <button
                 key={ds}
                 type="button"
                 disabled={!clickable}
-                onClick={() => openEdit(cell)}
+                onClick={() => {
+                  if (justSelectedRef.current) return;
+                  openEdit(cell);
+                }}
+                onPointerDown={(e) => handleCellPointerDown(e, ds)}
+                onPointerMove={handleCellPointerMove}
+                onPointerEnter={() => handleCellPointerEnter(ds)}
+                onPointerUp={handleCellPointerUp}
+                style={isSelecting ? { touchAction: 'none' } : undefined}
                 className={cn(
                   'relative text-left border-t border-l first:border-l-0 min-h-[110px] p-2 flex flex-col gap-1.5 transition-colors',
                   bg,
                   clickable
                     ? 'hover:brightness-95 cursor-pointer'
-                    : 'cursor-default'
+                    : 'cursor-default',
+                  isSelected && 'ring-2 ring-inset ring-primary'
                 )}
               >
                 <div className="flex items-start justify-between">
