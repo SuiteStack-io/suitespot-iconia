@@ -930,10 +930,23 @@ export const QuickRateGrid = ({ onSyncQueueCount, readOnly = false }: QuickRateG
                                 !readOnly && inDragRange && 'border-2 border-dashed border-primary/60 bg-primary/10',
                                 !readOnly && !inDragRange && isDraft && 'border-2 border-amber-400 bg-amber-50 dark:bg-amber-900/20',
                                 !readOnly && !inDragRange && !isDraft && isPending && 'bg-yellow-100 dark:bg-yellow-900/30',
+                                !readOnly && select.planId === plan.id && select.cols.has(colIdx) && 'ring-2 ring-inset ring-primary',
                               )}
-                              style={!inDragRange && !isPending && !isDraft && varianceColor ? { backgroundColor: varianceColor } : undefined}
-                              onClick={(e) => !readOnly && !isActive && !drag.isDragging && handleCellClick(plan.id, d, price, colIdx, e.shiftKey)}
+                              style={{
+                                ...(!inDragRange && !isPending && !isDraft && varianceColor ? { backgroundColor: varianceColor } : {}),
+                                ...(isSelecting ? { touchAction: 'none' } : {}),
+                              }}
+                              onClick={(e) => {
+                                if (readOnly) return;
+                                if (justSelectedRef.current) return;
+                                if (isActive || drag.isDragging) return;
+                                handleCellClick(plan.id, d, price, colIdx, e.shiftKey);
+                              }}
                               onMouseEnter={() => !readOnly && handleDragEnter(plan.id, colIdx)}
+                              onPointerDown={(e) => handleSelectPointerDown(e, plan.id, colIdx)}
+                              onPointerMove={handleSelectPointerMove}
+                              onPointerEnter={() => handleSelectPointerEnter(plan.id, colIdx)}
+                              onPointerUp={handleSelectPointerUp}
                             >
                               {isActive && !readOnly ? (
                                 <input
