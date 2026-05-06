@@ -972,7 +972,7 @@ export default function DynamicPricing() {
                       <TableBody>
                         {rateBounds.length === 0 && (
                           <TableRow>
-                            <TableCell colSpan={5} className="text-center text-muted-foreground">No room types found. Create rate plans first.</TableCell>
+                            <TableCell colSpan={1 + 4 * (1 + channelMarkups.length)} className="text-center text-muted-foreground">No room types found. Create rate plans first.</TableCell>
                           </TableRow>
                         )}
                         {rateBounds.map((bound) => {
@@ -987,73 +987,68 @@ export default function DynamicPricing() {
                           const effMin = draftMin ?? savedMin;
                           const effMax = draftMax ?? savedMax;
                           return (
-                            <>
-                              <TableRow key={bound.room_type}>
-                                <TableCell className="font-medium align-top">{bound.room_type}</TableCell>
-                                <TableCell className="text-right align-top">{bound.weekday_rate.toFixed(2)}</TableCell>
-                                <TableCell className="text-right align-top">{bound.weekend_rate.toFixed(2)}</TableCell>
-                                <TableCell className="text-right align-top">
-                                  <div className="flex flex-col items-end gap-1">
-                                    <Input
-                                      type="number"
-                                      step="1"
-                                      placeholder="No minimum"
-                                      className="w-28 text-right"
-                                      value={draft.min}
-                                      onChange={(e) => setDraft(bound.room_type, 'min', e.target.value)}
-                                    />
-                                    {draftMin !== null && (
-                                      <span className="text-xs text-muted-foreground">
-                                        Weekend: {formatUsd(draftMin * ratio)}
-                                      </span>
-                                    )}
-                                    {boundsErrors[bound.room_type] && (
-                                      <p className="text-xs text-destructive">{boundsErrors[bound.room_type]}</p>
-                                    )}
-                                  </div>
+                            <TableRow key={bound.room_type}>
+                              <TableCell className="font-medium align-top">{bound.room_type}</TableCell>
+                              <TableCell className="text-right align-top">{bound.weekday_rate.toFixed(2)}</TableCell>
+                              {channelMarkups.map((ch) => (
+                                <TableCell key={`${bound.room_type}-wd-${ch.id}`} className="text-right align-top text-xs text-muted-foreground">
+                                  {formatUsd(withMarkup(bound.weekday_rate, Number(ch.markup_percentage)))}
                                 </TableCell>
-                                <TableCell className="text-right align-top">
-                                  <div className="flex flex-col items-end gap-1">
-                                    <Input
-                                      type="number"
-                                      step="1"
-                                      placeholder="No maximum"
-                                      className="w-28 text-right"
-                                      value={draft.max}
-                                      onChange={(e) => setDraft(bound.room_type, 'max', e.target.value)}
-                                    />
-                                    {draftMax !== null && (
-                                      <span className="text-xs text-muted-foreground">
-                                        Weekend: {formatUsd(draftMax * ratio)}
-                                      </span>
-                                    )}
-                                  </div>
+                              ))}
+                              <TableCell className="text-right align-top">{bound.weekend_rate.toFixed(2)}</TableCell>
+                              {channelMarkups.map((ch) => (
+                                <TableCell key={`${bound.room_type}-we-${ch.id}`} className="text-right align-top text-xs text-muted-foreground">
+                                  {formatUsd(withMarkup(bound.weekend_rate, Number(ch.markup_percentage)))}
                                 </TableCell>
-                              </TableRow>
-                              <TableRow key={`${bound.room_type}-ota`} className="border-b">
-                                <TableCell colSpan={5} className="bg-muted/30 py-2">
-                                  <div className="flex flex-col gap-1 text-xs text-muted-foreground">
-                                    {channelMarkups.length === 0 ? (
-                                      <span>No OTA channels connected</span>
-                                    ) : (
-                                      channelMarkups.map((ch) => (
-                                        <div key={ch.id} className="flex items-center gap-2 flex-wrap">
-                                          <Badge variant="secondary" className="text-[10px]">{ch.channel_name}</Badge>
-                                          <span className="text-[11px]">+{Number(ch.markup_percentage)}%</span>
-                                          <span>
-                                            Min on {ch.channel_name}: {formatUsd(withMarkup(effMin, Number(ch.markup_percentage)))}
-                                          </span>
-                                          <span>·</span>
-                                          <span>
-                                            Max on {ch.channel_name}: {formatUsd(withMarkup(effMax, Number(ch.markup_percentage)))}
-                                          </span>
-                                        </div>
-                                      ))
-                                    )}
-                                  </div>
+                              ))}
+                              <TableCell className="text-right align-top">
+                                <div className="flex flex-col items-end gap-1">
+                                  <Input
+                                    type="number"
+                                    step="1"
+                                    placeholder="No minimum"
+                                    className="w-28 text-right"
+                                    value={draft.min}
+                                    onChange={(e) => setDraft(bound.room_type, 'min', e.target.value)}
+                                  />
+                                  {draftMin !== null && (
+                                    <span className="text-xs text-muted-foreground">
+                                      Weekend: {formatUsd(draftMin * ratio)}
+                                    </span>
+                                  )}
+                                  {boundsErrors[bound.room_type] && (
+                                    <p className="text-xs text-destructive">{boundsErrors[bound.room_type]}</p>
+                                  )}
+                                </div>
+                              </TableCell>
+                              {channelMarkups.map((ch) => (
+                                <TableCell key={`${bound.room_type}-mn-${ch.id}`} className="text-right align-top text-xs text-muted-foreground">
+                                  {formatUsd(withMarkup(effMin, Number(ch.markup_percentage)))}
                                 </TableCell>
-                              </TableRow>
-                            </>
+                              ))}
+                              <TableCell className="text-right align-top">
+                                <div className="flex flex-col items-end gap-1">
+                                  <Input
+                                    type="number"
+                                    step="1"
+                                    placeholder="No maximum"
+                                    className="w-28 text-right"
+                                    value={draft.max}
+                                    onChange={(e) => setDraft(bound.room_type, 'max', e.target.value)}
+                                  />
+                                  {draftMax !== null && (
+                                    <span className="text-xs text-muted-foreground">
+                                      Weekend: {formatUsd(draftMax * ratio)}
+                                    </span>
+                                  )}
+                                </div>
+                              </TableCell>
+                              {channelMarkups.map((ch) => (
+                                <TableCell key={`${bound.room_type}-mx-${ch.id}`} className="text-right align-top text-xs text-muted-foreground">
+                                  {formatUsd(withMarkup(effMax, Number(ch.markup_percentage)))}
+                                </TableCell>
+                              ))}
+                            </TableRow>
                           );
                         })}
                       </TableBody>
