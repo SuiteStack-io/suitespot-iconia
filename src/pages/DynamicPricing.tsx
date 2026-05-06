@@ -461,9 +461,28 @@ export default function DynamicPricing() {
     });
   }
 
+  // Detect if current saved tier values differ from what saved aggression_level would produce
+  function detectManualTierEdit(): boolean {
+    if (!rules || !rules.base_tiers) return false;
+    const expected = deriveTiersFromBase(rules.base_tiers, rules.aggression_level);
+    return (
+      !arraysAlmostEqual(expected.occupancy_adjustments, rules.occupancy_adjustments) ||
+      !arraysAlmostEqual(expected.revenue_adjustments_phase_a, rules.revenue_adjustments_phase_a) ||
+      !arraysAlmostEqual(expected.revenue_adjustments_phase_b, rules.revenue_adjustments_phase_b) ||
+      Math.abs(expected.pace_index_bump_threshold - Number(rules.pace_index_bump_threshold)) > 1e-4
+    );
+  }
+
   // ---- save all pending changes (with auto Channex sync for rate bounds) ----
-  async function saveAllChanges() {
+  async function saveAllChanges(skipManualEditCheck = false) {
     if (!rules || totalPendingChanges === 0) return;
+
+    // If aggression level change is pending and would overwrite manual edits, confirm first
+    if (!skipManualEditCheck && pendingAggressionLevel !== null && detectManualTierEdit()) {
+      setAggressionConfirmOpen(true);
+      return;
+    }
+
     setSaveStatus('saving');
     setSaveProgress(10);
 
@@ -490,8 +509,27 @@ export default function DynamicPricing() {
 
       setSaveProgress(25);
 
-      // 1. Save pricing_rules changes (merge in queued tier changes)
+      // 1. Save pricing_rules changes (merge in queued tier changes + aggression-derived tiers)
       const rulesPatch: Partial<PricingRules> = { ...pendingRulesChanges, ...pendingTierChanges };
+
+      // Aggression takes precedence over manual tier edits if both pending
+      if (pendingAggressionLevel !== null) {
+        // Ensure base_tiers exists; if not, derive from current values treating them as Level 3
+        const baseTiers: BaseTiers = rules.base_tiers ?? {
+          occupancy_adjustments: [...rules.occupancy_adjustments],
+          revenue_adjustments_phase_a: [...rules.revenue_adjustments_phase_a],
+          revenue_adjustments_phase_b: [...rules.revenue_adjustments_phase_b],
+          pace_index_bump_threshold: Number(rules.pace_index_bump_threshold),
+        };
+        const derived = deriveTiersFromBase(baseTiers, pendingAggressionLevel);
+        rulesPatch.occupancy_adjustments = derived.occupancy_adjustments;
+        rulesPatch.revenue_adjustments_phase_a = derived.revenue_adjustments_phase_a;
+        rulesPatch.revenue_adjustments_phase_b = derived.revenue_adjustments_phase_b;
+        rulesPatch.pace_index_bump_threshold = derived.pace_index_bump_threshold;
+        rulesPatch.aggression_level = pendingAggressionLevel;
+        if (!rules.base_tiers) rulesPatch.base_tiers = baseTiers;
+      }
+
       const hasRulesChanges = Object.keys(rulesPatch).length > 0;
       if (hasRulesChanges) {
         const { error } = await supabase
