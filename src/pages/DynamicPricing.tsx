@@ -290,6 +290,11 @@ export default function DynamicPricing() {
     return () => window.removeEventListener('beforeunload', handleBeforeUnload);
   }, [totalPendingChanges]);
 
+  // Sync slider to saved aggression_level when rules load
+  useEffect(() => {
+    if (rules) setAggressionSliderPos(rules.aggression_level || 3);
+  }, [rules?.id, rules?.aggression_level]);
+
   // ---- load pricing_rules ----
   const loadRules = useCallback(async () => {
     if (!propertyId) return;
