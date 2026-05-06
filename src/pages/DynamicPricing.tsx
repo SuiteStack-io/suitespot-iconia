@@ -1453,6 +1453,25 @@ export default function DynamicPricing() {
         </div>
       </div>
 
+      {/* Aggression overwrite confirm */}
+      <AlertDialog open={aggressionConfirmOpen} onOpenChange={setAggressionConfirmOpen}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Overwrite manually edited tier values?</AlertDialogTitle>
+            <AlertDialogDescription>
+              Your manually edited tier values will be overwritten by Aggression Level {pendingAggressionLevel ?? ''}
+              {pendingAggressionLevel ? ` (${AGGRESSION_LEVELS[pendingAggressionLevel]?.label})` : ''}. Continue?
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>Cancel</AlertDialogCancel>
+            <AlertDialogAction onClick={() => { setAggressionConfirmOpen(false); saveAllChanges(true); }}>
+              Yes, overwrite
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
+
       {/* Pace Index Info Dialog */}
       <Dialog open={paceInfoOpen} onOpenChange={setPaceInfoOpen}>
         <DialogContent className="max-w-lg">
