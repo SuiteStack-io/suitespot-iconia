@@ -797,13 +797,44 @@ export default function DynamicPricing() {
         </div>
 
         {/* Sticky save bar */}
-        {totalPendingChanges > 0 && (
+        {totalPendingChanges > 0 && (() => {
+          const descriptions = buildPendingDescriptions();
+          const showCollapsed = descriptions.length >= 4 && !pendingExpanded;
+          return (
           <div className="sticky top-0 z-20 mb-4">
-            <div className="flex items-center justify-between bg-card border rounded-lg px-4 py-3 shadow-sm">
-              <span className="text-sm font-medium">
-                {totalPendingChanges} unsaved change{totalPendingChanges !== 1 ? 's' : ''}
-              </span>
-              <Button onClick={() => saveAllChanges()} disabled={saveStatus === 'saving'} size="sm">
+            <div className="flex flex-col md:flex-row md:items-start md:justify-between gap-3 bg-card border rounded-lg px-4 py-3 shadow-sm">
+              <div className="min-w-0 flex-1 text-sm">
+                {descriptions.length === 1 ? (
+                  <p>
+                    <span className="font-medium">Pending:</span>{' '}
+                    <span title={descriptions[0]} className="md:truncate inline-block align-bottom max-w-full">
+                      {descriptions[0]}
+                    </span>
+                  </p>
+                ) : (
+                  <>
+                    <button
+                      type="button"
+                      onClick={() => setPendingExpanded((v) => !v)}
+                      className="flex items-center gap-1 font-medium hover:underline"
+                      aria-expanded={!showCollapsed}
+                    >
+                      Pending changes ({descriptions.length}):
+                      {descriptions.length >= 4 && (
+                        <ChevronDown className={cn('h-4 w-4 transition-transform', !showCollapsed && 'rotate-180')} />
+                      )}
+                    </button>
+                    {!showCollapsed && (
+                      <ul className="mt-1 space-y-0.5 list-disc pl-5 text-muted-foreground">
+                        {descriptions.map((d, i) => (
+                          <li key={i} className="md:truncate" title={d}>{d}</li>
+                        ))}
+                      </ul>
+                    )}
+                  </>
+                )}
+              </div>
+              <Button onClick={() => saveAllChanges()} disabled={saveStatus === 'saving'} size="sm" className="md:self-start shrink-0">
                 {saveStatus === 'saving' ? (
                   <Loader2 className="h-4 w-4 mr-2 animate-spin" />
                 ) : (
