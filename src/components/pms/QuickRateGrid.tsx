@@ -27,6 +27,7 @@ import { useIsMobile } from '@/hooks/use-mobile';
 import { ScrollArea, ScrollBar } from '@/components/ui/scroll-area';
 import { useProperty } from '@/lib/propertyContext';
 import { useAuth } from '@/lib/auth';
+import { RangeSelectActionBar } from './RangeSelectActionBar';
 
 interface RatePlan {
   id: string;
@@ -161,6 +162,114 @@ export const QuickRateGrid = ({ onSyncQueueCount, readOnly = false }: QuickRateG
   const inputRefs = useRef<Record<string, HTMLInputElement | null>>({});
 
   const [drag, setDrag] = useState<DragState>({ isDragging: false, planId: null, value: null, startColIdx: 0, currentColIdx: 0 });
+
+  // ── Drag-select state (cell-body gesture, distinct from GripVertical drag-fill) ──
+  const [select, setSelect] = useState<{ planId: string | null; cols: Set<number>; anchorCol: number }>({
+    planId: null,
+    cols: new Set(),
+    anchorCol: 0,
+  });
+  const [isSelecting, setIsSelecting] = useState(false);
+  const pressRef = useRef<{ x: number; y: number; t: number; planId: string; colIdx: number; timer: number | null } | null>(null);
+  const justSelectedRef = useRef<boolean>(false);
+
+  const clearPress = () => {
+    if (pressRef.current?.timer) window.clearTimeout(pressRef.current.timer);
+    pressRef.current = null;
+  };
+
+  const enterSelecting = (planId: string, colIdx: number) => {
+    setIsSelecting(true);
+    setSelect({ planId, cols: new Set([colIdx]), anchorCol: colIdx });
+  };
+
+  const handleSelectPointerDown = (e: React.PointerEvent, planId: string, colIdx: number) => {
+    if (readOnly) return;
+    if (e.button !== undefined && e.button !== 0) return;
+    const timer = window.setTimeout(() => {
+      if (readOnly) return;
+      enterSelecting(planId, colIdx);
+    }, 180);
+    pressRef.current = { x: e.clientX, y: e.clientY, t: Date.now(), planId, colIdx, timer };
+  };
+
+  const handleSelectPointerMove = (e: React.PointerEvent) => {
+    if (readOnly) return;
+    const p = pressRef.current;
+    if (!p) return;
+    const dx = e.clientX - p.x;
+    const dy = e.clientY - p.y;
+    const dist = Math.hypot(dx, dy);
+    if (!isSelecting && dist > 5) {
+      if (Math.abs(dy) > Math.abs(dx)) {
+        clearPress();
+        return;
+      }
+      if (p.timer) window.clearTimeout(p.timer);
+      p.timer = null;
+      enterSelecting(p.planId, p.colIdx);
+    }
+    if (isSelecting) e.preventDefault();
+  };
+
+  const handleSelectPointerEnter = (planId: string, colIdx: number) => {
+    if (readOnly) return;
+    if (!isSelecting || !select.planId) return;
+    if (planId !== select.planId) return; // same-row constraint
+    const lo = Math.min(select.anchorCol, colIdx);
+    const hi = Math.max(select.anchorCol, colIdx);
+    const cols = new Set<number>();
+    for (let i = lo; i <= hi; i++) cols.add(i);
+    setSelect({ planId: select.planId, cols, anchorCol: select.anchorCol });
+  };
+
+  const handleSelectPointerUp = (e: React.PointerEvent) => {
+    if (readOnly) return;
+    if (isSelecting) {
+      justSelectedRef.current = true;
+      e.preventDefault();
+      queueMicrotask(() => {
+        setTimeout(() => { justSelectedRef.current = false; }, 0);
+      });
+    }
+    clearPress();
+  };
+
+  const cancelSelect = () => {
+    setSelect({ planId: null, cols: new Set(), anchorCol: 0 });
+    setIsSelecting(false);
+  };
+
+  const applySelect = (value: number) => {
+    if (readOnly) return;
+    if (!select.planId || select.cols.size === 0) return;
+    if (!Number.isFinite(value) || value <= 0) {
+      toast.error('Enter a valid rate');
+      return;
+    }
+    const planId = select.planId;
+    const plan = ratePlans.find(p => p.id === planId);
+    if (!plan) return;
+    const price = prices[planId] || null;
+    let count = 0;
+    setDrafts(prev => {
+      const next = new Map(prev);
+      select.cols.forEach(colIdx => {
+        const date = days[colIdx];
+        if (!date) return;
+        const dateStr = format(date, 'yyyy-MM-dd');
+        const k = cellKey(planId, dateStr);
+        const engine = getEngineRate(price, date, planId);
+        if (value === engine) next.delete(k);
+        else next.set(k, value);
+        count++;
+      });
+      return next;
+    });
+    if (count > 0) toast.success(`${count} cell(s) filled (draft)`);
+    cancelSelect();
+  };
+
 
   const days = useMemo(() => {
     if (viewMode === 'month') {
@@ -821,10 +930,23 @@ export const QuickRateGrid = ({ onSyncQueueCount, readOnly = false }: QuickRateG
                                 !readOnly && inDragRange && 'border-2 border-dashed border-primary/60 bg-primary/10',
                                 !readOnly && !inDragRange && isDraft && 'border-2 border-amber-400 bg-amber-50 dark:bg-amber-900/20',
                                 !readOnly && !inDragRange && !isDraft && isPending && 'bg-yellow-100 dark:bg-yellow-900/30',
+                                !readOnly && select.planId === plan.id && select.cols.has(colIdx) && 'ring-2 ring-inset ring-primary',
                               )}
-                              style={!inDragRange && !isPending && !isDraft && varianceColor ? { backgroundColor: varianceColor } : undefined}
-                              onClick={(e) => !readOnly && !isActive && !drag.isDragging && handleCellClick(plan.id, d, price, colIdx, e.shiftKey)}
+                              style={{
+                                ...(!inDragRange && !isPending && !isDraft && varianceColor ? { backgroundColor: varianceColor } : {}),
+                                ...(isSelecting ? { touchAction: 'none' } : {}),
+                              }}
+                              onClick={(e) => {
+                                if (readOnly) return;
+                                if (justSelectedRef.current) return;
+                                if (isActive || drag.isDragging) return;
+                                handleCellClick(plan.id, d, price, colIdx, e.shiftKey);
+                              }}
                               onMouseEnter={() => !readOnly && handleDragEnter(plan.id, colIdx)}
+                              onPointerDown={(e) => handleSelectPointerDown(e, plan.id, colIdx)}
+                              onPointerMove={handleSelectPointerMove}
+                              onPointerEnter={() => handleSelectPointerEnter(plan.id, colIdx)}
+                              onPointerUp={handleSelectPointerUp}
                             >
                               {isActive && !readOnly ? (
                                 <input
@@ -881,6 +1003,7 @@ export const QuickRateGrid = ({ onSyncQueueCount, readOnly = false }: QuickRateG
                                   {!readOnly && rate > 0 && !drag.isDragging && (
                                     <div
                                       className="absolute right-0 top-0 bottom-0 w-4 flex items-center justify-center opacity-0 group-hover:opacity-60 hover:!opacity-100 cursor-grab"
+                                      onPointerDown={(e) => e.stopPropagation()}
                                       onMouseDown={(e) => {
                                         e.preventDefault();
                                         e.stopPropagation();
@@ -1186,6 +1309,22 @@ export const QuickRateGrid = ({ onSyncQueueCount, readOnly = false }: QuickRateG
         </DialogContent>
       </Dialog>
       )}
+
+      {!readOnly && select.cols.size > 0 && select.planId && (() => {
+        const planId = select.planId;
+        const price = prices[planId] || null;
+        const date = days[select.anchorCol];
+        const prefill = date ? Math.round(getEffectiveRate(price, date, planId)) : 0;
+        return (
+          <RangeSelectActionBar
+            selectionCount={select.cols.size}
+            prefillValue={prefill}
+            onApply={applySelect}
+            onCancel={cancelSelect}
+            label="cells"
+          />
+        );
+      })()}
     </div>
   );
 };
