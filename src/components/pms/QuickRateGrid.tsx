@@ -1098,6 +1098,7 @@ export const QuickRateGrid = ({ onSyncQueueCount, readOnly = false }: QuickRateG
       )}
 
       {/* Bulk Edit Dialog */}
+      {!readOnly && (
       <Dialog open={bulkOpen} onOpenChange={setBulkOpen}>
         <DialogContent>
           <DialogHeader>
