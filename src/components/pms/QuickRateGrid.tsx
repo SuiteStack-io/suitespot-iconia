@@ -1068,7 +1068,7 @@ export const QuickRateGrid = ({ onSyncQueueCount, readOnly = false }: QuickRateG
       )}
 
       {/* Pending overrides panel */}
-      {pendingOverrides.size > 0 && (
+      {!readOnly && pendingOverrides.size > 0 && (
         <Card>
           <CardContent className="py-3 px-4">
             <div className="flex items-center justify-between mb-2">
