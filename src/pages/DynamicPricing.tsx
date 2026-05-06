@@ -1147,7 +1147,137 @@ export default function DynamicPricing() {
                 </Card>
               </Collapsible>
 
-              {/* Section G: Advanced */}
+              {/* Section G-pre: Pricing Aggression Slider */}
+              <Collapsible open={aggressionOpen} onOpenChange={setAggressionOpen}>
+                <Card>
+                  <CollapsibleTrigger asChild>
+                    <CardHeader className="cursor-pointer hover:bg-muted/50 transition-colors">
+                      <div className="flex items-center justify-between">
+                        <div>
+                          <CardTitle>Pricing Aggression</CardTitle>
+                          <CardDescription>
+                            Single control for how aggressively the engine adjusts rates. Scales occupancy and revenue tier deltas plus the Pace Index threshold.
+                          </CardDescription>
+                        </div>
+                        <ChevronDown className={`h-5 w-5 text-muted-foreground transition-transform ${aggressionOpen ? 'rotate-180' : ''}`} />
+                      </div>
+                    </CardHeader>
+                  </CollapsibleTrigger>
+                  <CollapsibleContent>
+                    <CardContent className="space-y-4">
+                      {(() => {
+                        const savedLevel = rules.aggression_level || 3;
+                        const sliderLevel = aggressionSliderPos;
+                        const cfg = AGGRESSION_LEVELS[sliderLevel];
+                        const savedCfg = AGGRESSION_LEVELS[savedLevel];
+                        const isDirty = sliderLevel !== savedLevel;
+                        const isPending = pendingAggressionLevel === sliderLevel && isDirty;
+                        // Proportional preview vs saved level (50/50 occ + rev)
+                        const ratio = ((cfg.occ / savedCfg.occ) + (cfg.rev / savedCfg.rev)) / 2;
+                        const pctDelta = (ratio - 1) * 100;
+                        const pctText = pctDelta === 0
+                          ? 'roughly the same as your current saved level'
+                          : (pctDelta > 0 ? `≈ +${pctDelta.toFixed(1)}%` : `≈ ${pctDelta.toFixed(1)}%`) + ` vs saved Level ${savedLevel} (${savedCfg.label})`;
+                        return (
+                          <>
+                            {/* Description */}
+                            <div className="rounded-md bg-muted/40 p-3">
+                              <div className="flex items-center gap-2 mb-1">
+                                <span className="text-sm font-semibold">Level {sliderLevel} — {cfg.label}</span>
+                                {isPending && (
+                                  <Badge variant="outline" className="border-amber-500 text-amber-700 bg-amber-50 dark:bg-amber-950/20">
+                                    Pending Save · Level {sliderLevel}
+                                  </Badge>
+                                )}
+                                {isDirty && !isPending && (
+                                  <span className="text-xs text-muted-foreground">(Saved: Level {savedLevel})</span>
+                                )}
+                              </div>
+                              <p className="text-sm text-muted-foreground">{cfg.description}</p>
+                            </div>
+
+                            {/* Slider */}
+                            <div className="px-2 pt-2">
+                              <Slider
+                                min={1}
+                                max={5}
+                                step={1}
+                                value={[sliderLevel]}
+                                onValueChange={(v) => setAggressionSliderPos(v[0] ?? 3)}
+                              />
+                              <div className="grid grid-cols-5 mt-3 text-[11px] text-center">
+                                {[1, 2, 3, 4, 5].map((n) => (
+                                  <div key={n} className={cn('flex flex-col items-center gap-1', n === sliderLevel ? 'text-primary font-semibold' : 'text-muted-foreground')}>
+                                    <span>{n}</span>
+                                    <span>{AGGRESSION_LEVELS[n].label}</span>
+                                  </div>
+                                ))}
+                              </div>
+                            </div>
+
+                            {/* Summary line */}
+                            <div className="text-xs text-muted-foreground border-t pt-3">
+                              Occupancy adjustments × {cfg.occ.toFixed(1)} · Revenue caps × {cfg.rev.toFixed(2)} · Pace Index threshold {cfg.pace.toFixed(2)}
+                              {sliderLevel === 3 && <span className="ml-1">(Current baseline)</span>}
+                            </div>
+
+                            {/* Preview card */}
+                            <div className="rounded-md border bg-card p-3 flex items-start justify-between gap-3">
+                              <div className="text-sm">
+                                <div className="font-medium mb-0.5">At this level, your average rate would be {pctText}.</div>
+                                <div className="text-xs text-muted-foreground">Estimate based on average rate scaling. Actual rates depend on per-date occupancy, revenue, and other factors.</div>
+                              </div>
+                              <TooltipProvider>
+                                <Tooltip>
+                                  <TooltipTrigger asChild>
+                                    <Info className="h-4 w-4 text-muted-foreground shrink-0 mt-0.5 cursor-pointer" />
+                                  </TooltipTrigger>
+                                  <TooltipContent className="max-w-xs">
+                                    <p className="text-xs">Lower aggression = smaller adjustments in BOTH directions (smaller discounts at low occupancy AND smaller premiums at high occupancy). Moving the slider down at low occupancy may show a higher avg rate because discounts shrink.</p>
+                                  </TooltipContent>
+                                </Tooltip>
+                              </TooltipProvider>
+                            </div>
+
+                            {/* Apply button */}
+                            <div className="flex justify-end pt-1">
+                              {isDirty && pendingAggressionLevel !== sliderLevel && (
+                                <Button
+                                  type="button"
+                                  size="sm"
+                                  className="bg-black text-white hover:bg-black/90"
+                                  onClick={() => {
+                                    setPendingAggressionLevel(sliderLevel);
+                                    toast.success(`Level ${sliderLevel} (${cfg.label}) added to pending. Click Save Changes to apply.`);
+                                  }}
+                                >
+                                  Apply
+                                </Button>
+                              )}
+                              {pendingAggressionLevel !== null && (
+                                <Button
+                                  type="button"
+                                  size="sm"
+                                  variant="ghost"
+                                  className="ml-2"
+                                  onClick={() => {
+                                    setPendingAggressionLevel(null);
+                                    setAggressionSliderPos(rules.aggression_level || 3);
+                                  }}
+                                >
+                                  Discard
+                                </Button>
+                              )}
+                            </div>
+                          </>
+                        );
+                      })()}
+                    </CardContent>
+                  </CollapsibleContent>
+                </Card>
+              </Collapsible>
+
+
               <Collapsible open={advancedOpen} onOpenChange={setAdvancedOpen}>
                 <Card>
                   <CollapsibleTrigger asChild>
