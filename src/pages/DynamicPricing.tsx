@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback } from 'react';
+import { useState, useEffect, useCallback, useMemo } from 'react';
 import { supabase } from '@/integrations/supabase/client';
 import { SlideMenu } from '@/components/SlideMenu';
 import { AdminBreadcrumb } from '@/components/AdminBreadcrumb';
@@ -1796,6 +1796,57 @@ function PricingDashboard({ propertyId, rules, overridesRefreshKey, onOverridesC
   const [quickDialog, setQuickDialog] = useState<{ open: boolean; initial: OverrideDialogInitial | undefined }>({ open: false, initial: undefined });
   const [briefOpen, setBriefOpen] = useState(false);
   const [dashboardOpen, setDashboardOpen] = useState(true);
+  const [derivedMappings, setDerivedMappings] = useState<Array<{
+    base_rate_plan_id: string;
+    channel_name: string;
+    markup_percentage: number;
+  }>>([]);
+
+  // Load derived rate plan mappings (copied pattern from QuickRateGrid.tsx:406)
+  useEffect(() => {
+    let cancelled = false;
+    async function loadDerived() {
+      if (!propertyId) return;
+      const { data, error } = await withPropertyFilter(
+        supabase.from('derived_rate_plan_mappings').select('id, base_rate_plan_id, channel_markup_id, channel_name, markup_percentage'),
+        propertyId
+      );
+      if (cancelled) return;
+      if (error) {
+        console.error('Failed to load derived rate plan mappings', error);
+        return;
+      }
+      setDerivedMappings(((data as any[]) || []).map((d: any) => ({
+        base_rate_plan_id: d.base_rate_plan_id,
+        channel_name: d.channel_name,
+        markup_percentage: Number(d.markup_percentage),
+      })));
+    }
+    loadDerived();
+    return () => { cancelled = true; };
+  }, [propertyId]);
+
+  const otaColumns = useMemo(() => {
+    if (!selectedRatePlan) return [] as Array<{ key: string; label: string; markupPct: number }>;
+    const forPlan = derivedMappings.filter(d => d.base_rate_plan_id === selectedRatePlan.id);
+    const byChannel = new Map<string, typeof forPlan>();
+    for (const d of forPlan) {
+      const arr = byChannel.get(d.channel_name) ?? [];
+      arr.push(d);
+      byChannel.set(d.channel_name, arr);
+    }
+    const cols: Array<{ key: string; label: string; markupPct: number }> = [];
+    byChannel.forEach((entries, channel) => {
+      entries.forEach((e, idx) => {
+        cols.push({
+          key: `${channel}_${idx}`,
+          label: `Final ${channel} Rate`,
+          markupPct: e.markup_percentage,
+        });
+      });
+    });
+    return cols;
+  }, [derivedMappings, selectedRatePlan]);
 
   // Load cards data
   useEffect(() => {
@@ -2232,7 +2283,10 @@ function PricingDashboard({ propertyId, rules, overridesRefreshKey, onOverridesC
                         <TableHead className="text-right">Day Mult</TableHead>
                         <TableHead className="text-right">Occ Adj</TableHead>
                         <TableHead className="text-right">Rev Adj</TableHead>
-                        <TableHead className="text-right">Final Rate</TableHead>
+                        <TableHead className="text-right">Final Base Rate</TableHead>
+                        {otaColumns.map(col => (
+                          <TableHead key={col.key} className="text-right">{col.label}</TableHead>
+                        ))}
                         <TableHead>Override</TableHead>
                       </TableRow>
                     </TableHeader>
@@ -2257,6 +2311,16 @@ function PricingDashboard({ propertyId, rules, overridesRefreshKey, onOverridesC
                             <TableCell className="text-right">{row.adjustments.occupancy_adjustment >= 0 ? '+' : ''}{row.adjustments.occupancy_adjustment}%</TableCell>
                             <TableCell className="text-right">{row.adjustments.revenue_adjustment >= 0 ? '+' : ''}{row.adjustments.revenue_adjustment}%</TableCell>
                             <TableCell className="text-right font-semibold">${Math.round(row.final_rate).toLocaleString()}</TableCell>
+                            {otaColumns.map(col => {
+                              if (row.final_rate == null) {
+                                return <TableCell key={col.key} className="text-right">—</TableCell>;
+                              }
+                              const otaRate = row.final_rate * (1 + col.markupPct / 100);
+                              const formatted = Number.isInteger(otaRate)
+                                ? `$${otaRate.toLocaleString()}`
+                                : `$${otaRate.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
+                              return <TableCell key={col.key} className="text-right">{formatted}</TableCell>;
+                            })}
                             <TableCell>
                               {isOverride ? (
                                 <button
@@ -2284,7 +2348,7 @@ function PricingDashboard({ propertyId, rules, overridesRefreshKey, onOverridesC
                       })}
                       {previewRows.length === 0 && !previewLoading && (
                         <TableRow>
-                          <TableCell colSpan={8} className="text-center text-muted-foreground py-4">No preview data available.</TableCell>
+                          <TableCell colSpan={8 + otaColumns.length} className="text-center text-muted-foreground py-4">No preview data available.</TableCell>
                         </TableRow>
                       )}
                     </TableBody>
