@@ -271,6 +271,7 @@ export default function Promotions() {
       .from('promotional_periods' as any)
       .select('*')
       .eq('property_id', propertyId)
+      .is('deleted_at', null)
       .order('booking_window_start', { ascending: true });
     if (error) {
       toast.error('Failed to load promotions: ' + error.message);
@@ -323,7 +324,7 @@ export default function Promotions() {
     if (!deleteTarget) return;
     const { error } = await supabase
       .from('promotional_periods' as any)
-      .delete()
+      .update({ deleted_at: new Date().toISOString() })
       .eq('id', deleteTarget.id);
     if (error) {
       toast.error('Failed to delete: ' + error.message);

@@ -109,6 +109,7 @@ Deno.serve(async (req: Request) => {
         .select('id, discount_type, discount_value, room_types, created_at, stay_start, stay_end, booking_window_start, booking_window_end, is_active')
         .eq('property_id', propertyId)
         .eq('is_active', true)
+        .is('deleted_at', null)
         .lte('booking_window_start', todayInTz)
         .gte('booking_window_end', todayInTz)
         .lte('stay_start', endDateStr)

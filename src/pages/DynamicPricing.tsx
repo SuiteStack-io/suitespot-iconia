@@ -2513,6 +2513,7 @@ function PricingBriefDialog({
             .select('id, name, discount_type, discount_value, booking_window_start, booking_window_end, stay_start, stay_end, room_types')
             .eq('property_id', propertyId)
             .eq('is_active', true)
+            .is('deleted_at', null)
             .lte('stay_start', summary!.monthEndInclusive)
             .gte('stay_end', summary!.monthStart),
           needPreview

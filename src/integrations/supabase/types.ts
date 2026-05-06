@@ -1602,6 +1602,7 @@ export type Database = {
           booking_window_start: string
           created_at: string
           created_by: string | null
+          deleted_at: string | null
           description: string | null
           discount_type: string
           discount_value: number
@@ -1620,6 +1621,7 @@ export type Database = {
           booking_window_start: string
           created_at?: string
           created_by?: string | null
+          deleted_at?: string | null
           description?: string | null
           discount_type?: string
           discount_value: number
@@ -1638,6 +1640,7 @@ export type Database = {
           booking_window_start?: string
           created_at?: string
           created_by?: string | null
+          deleted_at?: string | null
           description?: string | null
           discount_type?: string
           discount_value?: number
