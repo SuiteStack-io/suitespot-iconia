@@ -810,7 +810,10 @@ export const RatesCalendarView: React.FC<RatesCalendarViewProps> = ({ readOnly =
                     <span className="text-[10px] text-muted-foreground">—</span>
                   ) : null}
                   {derived !== null && (
-                    <span className="px-1.5 py-0.5 rounded text-[11px] font-semibold bg-orange-500 text-white">
+                    <span
+                      className="px-1.5 py-0.5 rounded text-[11px] font-semibold text-white"
+                      style={{ backgroundColor: '#003580' }}
+                    >
                       ${derived}
                     </span>
                   )}
