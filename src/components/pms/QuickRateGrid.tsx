@@ -1176,6 +1176,7 @@ export const QuickRateGrid = ({ onSyncQueueCount, readOnly = false }: QuickRateG
           </DialogFooter>
         </DialogContent>
       </Dialog>
+      )}
     </div>
   );
 };
