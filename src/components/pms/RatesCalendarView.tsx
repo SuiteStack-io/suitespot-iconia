@@ -651,7 +651,7 @@ export const RatesCalendarView: React.FC<RatesCalendarViewProps> = ({ readOnly =
     return Math.round(engineMap[a] ?? 0);
   })();
 
-
+  if (loading) {
     return <div className="text-sm text-muted-foreground p-4">Loading rate calendar…</div>;
   }
 
