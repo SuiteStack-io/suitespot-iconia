@@ -1796,6 +1796,57 @@ function PricingDashboard({ propertyId, rules, overridesRefreshKey, onOverridesC
   const [quickDialog, setQuickDialog] = useState<{ open: boolean; initial: OverrideDialogInitial | undefined }>({ open: false, initial: undefined });
   const [briefOpen, setBriefOpen] = useState(false);
   const [dashboardOpen, setDashboardOpen] = useState(true);
+  const [derivedMappings, setDerivedMappings] = useState<Array<{
+    base_rate_plan_id: string;
+    channel_name: string;
+    markup_percentage: number;
+  }>>([]);
+
+  // Load derived rate plan mappings (copied pattern from QuickRateGrid.tsx:406)
+  useEffect(() => {
+    let cancelled = false;
+    async function loadDerived() {
+      if (!propertyId) return;
+      const { data, error } = await withPropertyFilter(
+        supabase.from('derived_rate_plan_mappings').select('id, base_rate_plan_id, channel_markup_id, channel_name, markup_percentage'),
+        propertyId
+      );
+      if (cancelled) return;
+      if (error) {
+        console.error('Failed to load derived rate plan mappings', error);
+        return;
+      }
+      setDerivedMappings(((data as any[]) || []).map((d: any) => ({
+        base_rate_plan_id: d.base_rate_plan_id,
+        channel_name: d.channel_name,
+        markup_percentage: Number(d.markup_percentage),
+      })));
+    }
+    loadDerived();
+    return () => { cancelled = true; };
+  }, [propertyId]);
+
+  const otaColumns = useMemo(() => {
+    if (!selectedRatePlan) return [] as Array<{ key: string; label: string; markupPct: number }>;
+    const forPlan = derivedMappings.filter(d => d.base_rate_plan_id === selectedRatePlan.id);
+    const byChannel = new Map<string, typeof forPlan>();
+    for (const d of forPlan) {
+      const arr = byChannel.get(d.channel_name) ?? [];
+      arr.push(d);
+      byChannel.set(d.channel_name, arr);
+    }
+    const cols: Array<{ key: string; label: string; markupPct: number }> = [];
+    byChannel.forEach((entries, channel) => {
+      entries.forEach((e, idx) => {
+        cols.push({
+          key: `${channel}_${idx}`,
+          label: `Final ${channel} Rate`,
+          markupPct: e.markup_percentage,
+        });
+      });
+    });
+    return cols;
+  }, [derivedMappings, selectedRatePlan]);
 
   // Load cards data
   useEffect(() => {
