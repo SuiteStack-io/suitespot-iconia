@@ -639,6 +639,7 @@ export default function DynamicPricing() {
       setPendingBoundsChanges({});
       setPendingTierChanges({});
       setTierDrafts({});
+      setPendingAggressionLevel(null);
 
       if (triggeredFullSync) {
         if (fullSyncFailed) {
