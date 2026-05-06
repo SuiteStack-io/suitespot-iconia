@@ -956,50 +956,54 @@ export const QuickRateGrid = ({ onSyncQueueCount, readOnly = false }: QuickRateG
           </Select>
         )}
 
-        <Button variant="outline" size="sm" onClick={() => setBulkOpen(true)} className="gap-1.5">
-          <Pencil className="h-3.5 w-3.5" />
-          Bulk Edit
-        </Button>
+        {!readOnly && (
+          <Button variant="outline" size="sm" onClick={() => setBulkOpen(true)} className="gap-1.5">
+            <Pencil className="h-3.5 w-3.5" />
+            Bulk Edit
+          </Button>
+        )}
 
         {previewLoading && (
           <Badge variant="outline" className="gap-1 text-[11px]">Loading engine rates…</Badge>
         )}
 
-        <div className="ml-auto flex items-center gap-2">
-          {saveSuccess && (
-            <Badge className="gap-1 bg-green-100 text-green-800 dark:bg-green-900/30 dark:text-green-400 border-green-200">
-              <Check className="h-3 w-3" />
-              Synced
-            </Badge>
-          )}
-          {drafts.size > 0 && (
-            <Badge variant="outline" className="gap-1 text-amber-700 border-amber-400 bg-amber-50 dark:bg-amber-900/20 dark:text-amber-300">
-              {drafts.size} draft
-            </Badge>
-          )}
-          {drafts.size > 0 && (
-            <Button size="sm" onClick={applyDrafts} variant="outline" className="gap-1.5 border-amber-400 text-amber-700 hover:bg-amber-50">
-              Apply Changes
+        {!readOnly && (
+          <div className="ml-auto flex items-center gap-2">
+            {saveSuccess && (
+              <Badge className="gap-1 bg-green-100 text-green-800 dark:bg-green-900/30 dark:text-green-400 border-green-200">
+                <Check className="h-3 w-3" />
+                Synced
+              </Badge>
+            )}
+            {drafts.size > 0 && (
+              <Badge variant="outline" className="gap-1 text-amber-700 border-amber-400 bg-amber-50 dark:bg-amber-900/20 dark:text-amber-300">
+                {drafts.size} draft
+              </Badge>
+            )}
+            {drafts.size > 0 && (
+              <Button size="sm" onClick={applyDrafts} variant="outline" className="gap-1.5 border-amber-400 text-amber-700 hover:bg-amber-50">
+                Apply Changes
+              </Button>
+            )}
+            {pendingOverrides.size > 0 && (
+              <Badge variant="secondary" className="gap-1 bg-yellow-100 text-yellow-800 dark:bg-yellow-900/30 dark:text-yellow-400 border-yellow-300">
+                {pendingOverrides.size} pending
+              </Badge>
+            )}
+            <Button
+              size="sm"
+              onClick={saveChanges}
+              disabled={saving || pendingOverrides.size === 0}
+              className="gap-1.5 bg-foreground text-background hover:bg-foreground/90"
+            >
+              <Save className="h-3.5 w-3.5" />
+              {saving ? 'Saving...' : `Save Changes${pendingOverrides.size > 0 ? ` (${pendingOverrides.size})` : ''}`}
             </Button>
-          )}
-          {pendingOverrides.size > 0 && (
-            <Badge variant="secondary" className="gap-1 bg-yellow-100 text-yellow-800 dark:bg-yellow-900/30 dark:text-yellow-400 border-yellow-300">
-              {pendingOverrides.size} pending
-            </Badge>
-          )}
-          <Button
-            size="sm"
-            onClick={saveChanges}
-            disabled={saving || pendingOverrides.size === 0}
-            className="gap-1.5 bg-foreground text-background hover:bg-foreground/90"
-          >
-            <Save className="h-3.5 w-3.5" />
-            {saving ? 'Saving...' : `Save Changes${pendingOverrides.size > 0 ? ` (${pendingOverrides.size})` : ''}`}
-          </Button>
-        </div>
+          </div>
+        )}
       </div>
 
-      {(saving || saveProgress > 0) && (
+      {!readOnly && (saving || saveProgress > 0) && (
         <Progress value={saveProgress} className="h-2 [&>div]:bg-foreground" />
       )}
 
