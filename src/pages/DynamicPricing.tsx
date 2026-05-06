@@ -43,6 +43,50 @@ interface PricingRules {
   revenue_occupancy_conflict_cap: number;
   revenue_occupancy_conflict_revenue_min: number;
   revenue_occupancy_conflict_occupancy_max: number;
+  aggression_level: number;
+  base_tiers: BaseTiers | null;
+}
+
+interface BaseTiers {
+  occupancy_adjustments: number[];
+  revenue_adjustments_phase_a: number[];
+  revenue_adjustments_phase_b: number[];
+  pace_index_bump_threshold: number;
+}
+
+const AGGRESSION_LEVELS: Record<number, {
+  occ: number; rev: number; pace: number; label: string; description: string;
+}> = {
+  1: { occ: 0.4,  rev: 0.5,  pace: 1.50, label: 'Conservative',
+       description: 'Gentle pricing. Big bookings barely move rates. Lowest risk of guest pushback.' },
+  2: { occ: 0.7,  rev: 0.75, pace: 1.40, label: 'Moderate',
+       description: 'Cautious response. Moderate adjustments to occupancy and revenue signals.' },
+  3: { occ: 1.0,  rev: 1.0,  pace: 1.30, label: 'Balanced',
+       description: 'Balanced. Standard responsiveness to demand and revenue targets.' },
+  4: { occ: 1.3,  rev: 1.25, pace: 1.20, label: 'Aggressive',
+       description: 'Assertive. Stronger response to high occupancy and revenue gaps.' },
+  5: { occ: 1.6,  rev: 1.5,  pace: 1.15, label: 'Maximum',
+       description: 'Maximum revenue capture. Aggressive adjustments. Higher risk of guest pushback at peak times.' },
+};
+
+function deriveTiersFromBase(base: BaseTiers, level: number): BaseTiers {
+  const m = AGGRESSION_LEVELS[level] ?? AGGRESSION_LEVELS[3];
+  const round2 = (n: number) => Math.round(n * 100) / 100;
+  return {
+    occupancy_adjustments: base.occupancy_adjustments.map(v => round2(Number(v) * m.occ)),
+    revenue_adjustments_phase_a: base.revenue_adjustments_phase_a.map(v => round2(Number(v) * m.rev)),
+    revenue_adjustments_phase_b: base.revenue_adjustments_phase_b.map(v => round2(Number(v) * m.rev)),
+    pace_index_bump_threshold: m.pace,
+  };
+}
+
+function arraysAlmostEqual(a: number[] | undefined, b: number[] | undefined, tol = 1e-4): boolean {
+  if (!a || !b) return false;
+  if (a.length !== b.length) return false;
+  for (let i = 0; i < a.length; i++) {
+    if (Math.abs(Number(a[i]) - Number(b[i])) > tol) return false;
+  }
+  return true;
 }
 
 interface RoomRateBound {
