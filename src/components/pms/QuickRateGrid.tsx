@@ -945,13 +945,15 @@ export const QuickRateGrid = ({ onSyncQueueCount, readOnly = false }: QuickRateG
           </SelectContent>
         </Select>
 
-        <Select value={filterRatePlan} onValueChange={setFilterRatePlan}>
-          <SelectTrigger className="w-[180px]"><SelectValue placeholder="Rate Plan" /></SelectTrigger>
-          <SelectContent>
-            <SelectItem value="all">All Rate Plans</SelectItem>
-            {ratePlans.map(rp => <SelectItem key={rp.id} value={rp.id}>{rp.room_type} / {rp.name}</SelectItem>)}
-          </SelectContent>
-        </Select>
+        {!readOnly && (
+          <Select value={filterRatePlan} onValueChange={setFilterRatePlan}>
+            <SelectTrigger className="w-[180px]"><SelectValue placeholder="Rate Plan" /></SelectTrigger>
+            <SelectContent>
+              <SelectItem value="all">All Rate Plans</SelectItem>
+              {ratePlans.map(rp => <SelectItem key={rp.id} value={rp.id}>{rp.room_type} / {rp.name}</SelectItem>)}
+            </SelectContent>
+          </Select>
+        )}
 
         <Button variant="outline" size="sm" onClick={() => setBulkOpen(true)} className="gap-1.5">
           <Pencil className="h-3.5 w-3.5" />
