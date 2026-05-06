@@ -580,6 +580,7 @@ export const QuickRateGrid = ({ onSyncQueueCount, readOnly = false }: QuickRateG
 
   // Save Changes: upsert pricing_overrides, then trigger channex-full-sync
   const saveChanges = async () => {
+    if (readOnly) return;
     if (pendingOverrides.size === 0) {
       toast.message('No changes to save');
       return;
