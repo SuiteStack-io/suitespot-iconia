@@ -414,7 +414,7 @@ const PMSPrices = () => {
           <TabsList className="mb-4">
             <TabsTrigger value="rate-plans">Rate Plans</TabsTrigger>
             <TabsTrigger value="pricing-rules">Pricing Rules</TabsTrigger>
-            <TabsTrigger value="rate-calendar">Rate Calendar</TabsTrigger>
+            <TabsTrigger value="rate-calendar">Rates List View</TabsTrigger>
           </TabsList>
 
           <TabsContent value="rate-calendar">
