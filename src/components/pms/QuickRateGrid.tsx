@@ -456,6 +456,7 @@ export const QuickRateGrid = ({ onSyncQueueCount, readOnly = false }: QuickRateG
   };
 
   const commitCell = (key: string) => {
+    if (readOnly) { setActiveCell(null); return; }
     if (!key || activeCell !== key) return;
     const [planId, dateStr] = key.split(':');
     const plan = ratePlans.find(p => p.id === planId);
