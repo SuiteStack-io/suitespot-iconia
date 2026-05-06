@@ -324,7 +324,7 @@ export default function Promotions() {
     if (!deleteTarget) return;
     const { error } = await supabase
       .from('promotional_periods' as any)
-      .delete()
+      .update({ deleted_at: new Date().toISOString() })
       .eq('id', deleteTarget.id);
     if (error) {
       toast.error('Failed to delete: ' + error.message);
