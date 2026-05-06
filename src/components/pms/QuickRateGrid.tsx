@@ -826,7 +826,7 @@ export const QuickRateGrid = ({ onSyncQueueCount, readOnly = false }: QuickRateG
                               onClick={(e) => !readOnly && !isActive && !drag.isDragging && handleCellClick(plan.id, d, price, colIdx, e.shiftKey)}
                               onMouseEnter={() => !readOnly && handleDragEnter(plan.id, colIdx)}
                             >
-                              {isActive ? (
+                              {isActive && !readOnly ? (
                                 <input
                                   ref={el => { inputRefs.current[key] = el; }}
                                   type="number"
