@@ -478,7 +478,180 @@ export const RatesCalendarView: React.FC<RatesCalendarViewProps> = ({ readOnly =
     }
   };
 
-  if (loading) {
+  // ── Drag-select helpers ──
+  const orderedDateStrs = gridCells.filter((c): c is Date => !!c).map((d) => ymd(d));
+
+  const computeRange = (anchor: string, hover: string): Set<string> => {
+    const a = orderedDateStrs.indexOf(anchor);
+    const b = orderedDateStrs.indexOf(hover);
+    if (a < 0 || b < 0) return new Set();
+    const lo = Math.min(a, b);
+    const hi = Math.max(a, b);
+    return new Set(orderedDateStrs.slice(lo, hi + 1));
+  };
+
+  const clearPress = () => {
+    if (pressRef.current?.timer) {
+      window.clearTimeout(pressRef.current.timer);
+    }
+    pressRef.current = null;
+  };
+
+  const handleCellPointerDown = (e: React.PointerEvent, ds: string) => {
+    if (readOnly) return;
+    if (e.button !== undefined && e.button !== 0) return;
+    const timer = window.setTimeout(() => {
+      if (readOnly) return;
+      setIsSelecting(true);
+      anchorRef.current = ds;
+      setSelection(new Set([ds]));
+    }, 180);
+    pressRef.current = { x: e.clientX, y: e.clientY, t: Date.now(), ds, timer };
+  };
+
+  const handleCellPointerMove = (e: React.PointerEvent) => {
+    if (readOnly) return;
+    const p = pressRef.current;
+    if (!p) return;
+    const dx = e.clientX - p.x;
+    const dy = e.clientY - p.y;
+    const dist = Math.hypot(dx, dy);
+    if (!isSelecting && dist > 5) {
+      if (Math.abs(dy) > Math.abs(dx)) {
+        clearPress();
+        return;
+      }
+      if (p.timer) window.clearTimeout(p.timer);
+      p.timer = null;
+      setIsSelecting(true);
+      anchorRef.current = p.ds;
+      setSelection(new Set([p.ds]));
+    }
+    if (isSelecting) e.preventDefault();
+  };
+
+  const handleCellPointerEnter = (ds: string) => {
+    if (readOnly) return;
+    if (!isSelecting || !anchorRef.current) return;
+    setSelection(computeRange(anchorRef.current, ds));
+  };
+
+  const handleCellPointerUp = (e: React.PointerEvent) => {
+    if (readOnly) return;
+    if (isSelecting) {
+      justSelectedRef.current = true;
+      e.preventDefault();
+      queueMicrotask(() => {
+        setTimeout(() => { justSelectedRef.current = false; }, 0);
+      });
+    }
+    clearPress();
+  };
+
+  const cancelBatch = () => {
+    setSelection(new Set());
+    setIsSelecting(false);
+    anchorRef.current = null;
+  };
+
+  const applyBatch = async (valueNum: number) => {
+    if (readOnly) return;
+    if (!propertyId || !selectedRoomType) return;
+    if (selection.size === 0) return;
+    if (!Number.isFinite(valueNum) || valueNum <= 0) {
+      toast.error('Enter a valid rate');
+      return;
+    }
+    setBatchSaving(true);
+    const dates = Array.from(selection).sort();
+    try {
+      for (const ds of dates) {
+        const { data: existing, error: selErr } = await supabase
+          .from('pricing_overrides')
+          .select('id')
+          .eq('property_id', propertyId)
+          .eq('override_date', ds)
+          .eq('room_type', selectedRoomType)
+          .maybeSingle();
+        if (selErr) throw selErr;
+
+        if (existing?.id) {
+          const { error: updErr } = await supabase
+            .from('pricing_overrides')
+            .update({
+              value: valueNum,
+              override_type: 'fixed_rate',
+              reason: null,
+              created_by: user?.id || null,
+            })
+            .eq('id', existing.id);
+          if (updErr) throw updErr;
+        } else {
+          const { error: insErr } = await supabase.from('pricing_overrides').insert({
+            property_id: propertyId,
+            override_date: ds,
+            room_type: selectedRoomType,
+            override_type: 'fixed_rate',
+            value: valueNum,
+            reason: null,
+            created_by: user?.id || null,
+          });
+          if (insErr) throw insErr;
+        }
+      }
+
+      try {
+        await supabase.functions.invoke('channex-full-sync', {
+          body: {
+            property_id: propertyId,
+            date_from: dates[0],
+            date_to: dates[dates.length - 1],
+          },
+        });
+      } catch (e) {
+        console.warn('channex-full-sync failed (non-blocking)', e);
+      }
+
+      setEngineCache(prev => {
+        const next = { ...prev };
+        if (next[selectedRoomType]?.[selectedRatePlanId]) {
+          const planMap = { ...next[selectedRoomType][selectedRatePlanId] };
+          delete planMap[mKey];
+          next[selectedRoomType] = { ...next[selectedRoomType], [selectedRatePlanId]: planMap };
+        }
+        return next;
+      });
+      setOverridesCache(prev => {
+        const next = { ...prev };
+        if (next[selectedRoomType]) {
+          const m = { ...next[selectedRoomType] };
+          delete m[mKey];
+          next[selectedRoomType] = m;
+        }
+        return next;
+      });
+      setTimeout(() => {
+        fetchEngine(true);
+        fetchOverrides(true);
+      }, 50);
+
+      toast.success(`Applied to ${dates.length} date${dates.length === 1 ? '' : 's'}`);
+      cancelBatch();
+    } catch (e: any) {
+      console.error('batch override error', e);
+      toast.error(e?.message || 'Failed to apply batch override');
+    } finally {
+      setBatchSaving(false);
+    }
+  };
+
+  const anchorPrefill = (() => {
+    const a = anchorRef.current;
+    if (!a) return 0;
+    return Math.round(engineMap[a] ?? 0);
+  })();
+
+
     return <div className="text-sm text-muted-foreground p-4">Loading rate calendar…</div>;
   }
 
