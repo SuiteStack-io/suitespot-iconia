@@ -262,7 +262,7 @@ export default function DynamicPricing() {
   function buildPendingDescriptions(): string[] {
     const out: string[] = [];
     if (pendingAggressionLevel !== null) {
-      out.push(`Pricing Aggression → Level ${pendingAggressionLevel} (${LEVEL_LABEL[pendingAggressionLevel]})`);
+      out.push(`Pricing Sensitivity → Level ${pendingAggressionLevel} (${LEVEL_LABEL[pendingAggressionLevel]})`);
     }
     for (const [key, newVal] of Object.entries(pendingRulesChanges)) {
       const oldVal = rules ? (rules as any)[key] : undefined;
