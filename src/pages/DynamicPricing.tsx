@@ -262,7 +262,7 @@ export default function DynamicPricing() {
   function buildPendingDescriptions(): string[] {
     const out: string[] = [];
     if (pendingAggressionLevel !== null) {
-      out.push(`Pricing Aggression → Level ${pendingAggressionLevel} (${LEVEL_LABEL[pendingAggressionLevel]})`);
+      out.push(`Pricing Sensitivity → Level ${pendingAggressionLevel} (${LEVEL_LABEL[pendingAggressionLevel]})`);
     }
     for (const [key, newVal] of Object.entries(pendingRulesChanges)) {
       const oldVal = rules ? (rules as any)[key] : undefined;
@@ -1304,16 +1304,16 @@ export default function DynamicPricing() {
                 </Card>
               </Collapsible>
 
-              {/* Section G-pre: Pricing Aggression Slider */}
+              {/* Section G-pre: Pricing Sensitivity Slider */}
               <Collapsible open={aggressionOpen} onOpenChange={setAggressionOpen}>
                 <Card>
                   <CollapsibleTrigger asChild>
                     <CardHeader className="cursor-pointer hover:bg-muted/50 transition-colors">
                       <div className="flex items-center justify-between">
                         <div>
-                          <CardTitle>Pricing Aggression</CardTitle>
+                          <CardTitle>Pricing Sensitivity</CardTitle>
                           <CardDescription>
-                            Single control for how aggressively the engine adjusts rates. Scales occupancy and revenue tier deltas plus the Pace Index threshold.
+                            Single control for how strongly the engine reacts to demand signals. Scales occupancy and revenue tier deltas plus the Pace Index threshold.
                           </CardDescription>
                         </div>
                         <ChevronDown className={`h-5 w-5 text-muted-foreground transition-transform ${aggressionOpen ? 'rotate-180' : ''}`} />
@@ -1610,13 +1610,13 @@ export default function DynamicPricing() {
         </div>
       </div>
 
-      {/* Aggression overwrite confirm */}
+      {/* Sensitivity overwrite confirm */}
       <AlertDialog open={aggressionConfirmOpen} onOpenChange={setAggressionConfirmOpen}>
         <AlertDialogContent>
           <AlertDialogHeader>
             <AlertDialogTitle>Overwrite manually edited tier values?</AlertDialogTitle>
             <AlertDialogDescription>
-              Your manually edited tier values will be overwritten by Aggression Level {pendingAggressionLevel ?? ''}
+              Your manually edited tier values will be overwritten by Sensitivity Level {pendingAggressionLevel ?? ''}
               {pendingAggressionLevel ? ` (${AGGRESSION_LEVELS[pendingAggressionLevel]?.label})` : ''}. Continue?
             </AlertDialogDescription>
           </AlertDialogHeader>
@@ -1635,9 +1635,9 @@ export default function DynamicPricing() {
           <AlertDialogHeader>
             <AlertDialogTitle>Reset slider to Balanced?</AlertDialogTitle>
             <AlertDialogDescription>
-              Editing tier values directly requires the Pricing Aggression slider to be at Level 3 (Balanced).
+              Editing tier values directly requires the Pricing Sensitivity slider to be at Level 3 (Balanced).
               Your current setting is Level {pendingAggressionLevel ?? rules?.aggression_level ?? 3} ({AGGRESSION_LEVELS[pendingAggressionLevel ?? rules?.aggression_level ?? 3]?.label}).
-              {' '}Continuing will reset the Pricing Aggression slider to Level 3 (Balanced) and save your tier edits as the new baseline. Continue?
+              {' '}Continuing will reset the Pricing Sensitivity slider to Level 3 (Balanced) and save your tier edits as the new baseline. Continue?
             </AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter>
