@@ -714,10 +714,12 @@ export const QuickRateGrid = ({ onSyncQueueCount, readOnly = false }: QuickRateG
   };
 
   const handleDragStart = (planId: string, colIdx: number, value: number) => {
+    if (readOnly) return;
     setDrag({ isDragging: true, planId, value, startColIdx: colIdx, currentColIdx: colIdx });
   };
 
   const handleDragEnter = (planId: string, colIdx: number) => {
+    if (readOnly) return;
     if (!drag.isDragging || drag.planId !== planId) return;
     setDrag(prev => ({ ...prev, currentColIdx: colIdx }));
   };
