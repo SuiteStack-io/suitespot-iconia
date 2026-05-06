@@ -619,7 +619,7 @@ export default function DynamicPricing() {
       }
 
       // Trigger Channex full-sync if rules/tier changes affect calculated rates (non-fatal)
-      const triggeredFullSync = (pendingRulesCount > 0 || pendingTierCount > 0) && !!propertyId;
+      const triggeredFullSync = (pendingRulesCount > 0 || pendingTierCount > 0 || pendingAggressionLevel !== null) && !!propertyId;
       let fullSyncFailed = false;
       if (triggeredFullSync) {
         setSaveProgress(90);
