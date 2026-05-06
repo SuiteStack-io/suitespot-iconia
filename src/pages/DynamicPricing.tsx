@@ -951,10 +951,22 @@ export default function DynamicPricing() {
                       <TableHeader>
                         <TableRow>
                           <TableHead>Room Type</TableHead>
-                          <TableHead className="text-right">Weekday Rate</TableHead>
-                          <TableHead className="text-right">Weekend Rate</TableHead>
-                          <TableHead className="text-right">Min Rate</TableHead>
-                          <TableHead className="text-right">Max Rate</TableHead>
+                          <TableHead className="text-right">Base Weekday Rate</TableHead>
+                          {channelMarkups.map((ch) => (
+                            <TableHead key={`h-wd-${ch.id}`} className="text-right text-muted-foreground">{ch.channel_name} Weekday Rate</TableHead>
+                          ))}
+                          <TableHead className="text-right">Base Weekend Rate</TableHead>
+                          {channelMarkups.map((ch) => (
+                            <TableHead key={`h-we-${ch.id}`} className="text-right text-muted-foreground">{ch.channel_name} Weekend Rate</TableHead>
+                          ))}
+                          <TableHead className="text-right">Base Min Rate</TableHead>
+                          {channelMarkups.map((ch) => (
+                            <TableHead key={`h-mn-${ch.id}`} className="text-right text-muted-foreground">{ch.channel_name} Min Rate</TableHead>
+                          ))}
+                          <TableHead className="text-right">Base Max Rate</TableHead>
+                          {channelMarkups.map((ch) => (
+                            <TableHead key={`h-mx-${ch.id}`} className="text-right text-muted-foreground">{ch.channel_name} Max Rate</TableHead>
+                          ))}
                         </TableRow>
                       </TableHeader>
                       <TableBody>
