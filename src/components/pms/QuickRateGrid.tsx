@@ -535,6 +535,7 @@ export const QuickRateGrid = ({ onSyncQueueCount, readOnly = false }: QuickRateG
 
   // Apply Changes: validate drafts → move into pendingOverrides
   const applyDrafts = () => {
+    if (readOnly) return;
     if (drafts.size === 0) return;
     const newPending = new Map(pendingOverrides);
     let added = 0;
