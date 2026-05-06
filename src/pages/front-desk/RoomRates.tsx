@@ -11,6 +11,8 @@ import { Badge } from '@/components/ui/badge';
 import { Skeleton } from '@/components/ui/skeleton';
 import { Users, Maximize2, DollarSign, ImageIcon } from 'lucide-react';
 import { AspectRatio } from '@/components/ui/aspect-ratio';
+import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
+import { QuickRateGrid } from '@/components/pms/QuickRateGrid';
 
 interface RoomTypeData {
   name: string;
@@ -233,113 +235,126 @@ export default function FrontDeskRoomRates() {
       </header>
 
       <main className="p-4 md:p-6 max-w-7xl mx-auto">
-        {isLoading ? (
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-            {[1, 2, 3].map((i) => (
-              <Card key={i}>
-                <CardHeader>
-                  <Skeleton className="h-6 w-40" />
-                </CardHeader>
-                <CardContent className="space-y-4">
-                  <Skeleton className="h-40 w-full rounded-md" />
-                  <Skeleton className="h-4 w-24" />
-                  <Skeleton className="h-4 w-32" />
-                </CardContent>
-              </Card>
-            ))}
-          </div>
-        ) : !roomTypes?.length ? (
-          <div className="text-center py-12 text-muted-foreground">
-            No room types found.
-          </div>
-        ) : (
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-            {roomTypes.map((room) => (
-              <Card key={room.name} className="overflow-hidden">
-                <AspectRatio ratio={16 / 10}>
-                  <RoomPhotoCard photos={room.photos} name={room.name} />
-                </AspectRatio>
+        <Tabs defaultValue="room-cards">
+          <TabsList className="mb-4">
+            <TabsTrigger value="room-cards">Room Cards</TabsTrigger>
+            <TabsTrigger value="rate-calendar">Rate Calendar</TabsTrigger>
+          </TabsList>
 
-                <CardHeader className="pb-2">
-                  <CardTitle className="text-lg">{room.name}</CardTitle>
-                </CardHeader>
+          <TabsContent value="room-cards">
+            {isLoading ? (
+              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+                {[1, 2, 3].map((i) => (
+                  <Card key={i}>
+                    <CardHeader>
+                      <Skeleton className="h-6 w-40" />
+                    </CardHeader>
+                    <CardContent className="space-y-4">
+                      <Skeleton className="h-40 w-full rounded-md" />
+                      <Skeleton className="h-4 w-24" />
+                      <Skeleton className="h-4 w-32" />
+                    </CardContent>
+                  </Card>
+                ))}
+              </div>
+            ) : !roomTypes?.length ? (
+              <div className="text-center py-12 text-muted-foreground">
+                No room types found.
+              </div>
+            ) : (
+              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+                {roomTypes.map((room) => (
+                  <Card key={room.name} className="overflow-hidden">
+                    <AspectRatio ratio={16 / 10}>
+                      <RoomPhotoCard photos={room.photos} name={room.name} />
+                    </AspectRatio>
 
-                <CardContent className="space-y-4">
-                  <div className="flex items-center gap-2">
-                    <DollarSign className="h-4 w-4 text-muted-foreground" />
-                    {room.weekdayRate != null ? (
-                      <div className="text-sm">
-                        <span className="font-semibold">
-                          {formatCurrency(room.weekdayRate, room.currency)}
-                        </span>
-                        <span className="text-muted-foreground"> weekday</span>
-                        {room.weekendRate != null && room.weekendRate !== room.weekdayRate && (
-                          <>
-                            <span className="mx-1 text-muted-foreground">/</span>
+                    <CardHeader className="pb-2">
+                      <CardTitle className="text-lg">{room.name}</CardTitle>
+                    </CardHeader>
+
+                    <CardContent className="space-y-4">
+                      <div className="flex items-center gap-2">
+                        <DollarSign className="h-4 w-4 text-muted-foreground" />
+                        {room.weekdayRate != null ? (
+                          <div className="text-sm">
                             <span className="font-semibold">
-                              {formatCurrency(room.weekendRate, room.currency)}
+                              {formatCurrency(room.weekdayRate, room.currency)}
                             </span>
-                            <span className="text-muted-foreground"> weekend</span>
-                          </>
+                            <span className="text-muted-foreground"> weekday</span>
+                            {room.weekendRate != null && room.weekendRate !== room.weekdayRate && (
+                              <>
+                                <span className="mx-1 text-muted-foreground">/</span>
+                                <span className="font-semibold">
+                                  {formatCurrency(room.weekendRate, room.currency)}
+                                </span>
+                                <span className="text-muted-foreground"> weekend</span>
+                              </>
+                            )}
+                          </div>
+                        ) : (
+                          <span className="text-sm text-muted-foreground">No rate configured</span>
                         )}
                       </div>
-                    ) : (
-                      <span className="text-sm text-muted-foreground">No rate configured</span>
-                    )}
-                  </div>
 
-                  {room.channelRates?.length > 0 && (
-                    <div className="space-y-0.5">
-                      {room.channelRates.map(cr => (
-                        <div key={cr.channel} className="flex items-center gap-2 text-xs text-muted-foreground">
-                          <span>→ {cr.channel}:</span>
-                          <span className="font-medium">
-                            {formatCurrency(cr.weekday, room.currency)}
-                            {cr.weekend !== cr.weekday && ` / ${formatCurrency(cr.weekend, room.currency)}`}
-                          </span>
-                          <Badge variant="outline" className="text-[10px] px-1 py-0">+{cr.markup}%</Badge>
+                      {room.channelRates?.length > 0 && (
+                        <div className="space-y-0.5">
+                          {room.channelRates.map(cr => (
+                            <div key={cr.channel} className="flex items-center gap-2 text-xs text-muted-foreground">
+                              <span>→ {cr.channel}:</span>
+                              <span className="font-medium">
+                                {formatCurrency(cr.weekday, room.currency)}
+                                {cr.weekend !== cr.weekday && ` / ${formatCurrency(cr.weekend, room.currency)}`}
+                              </span>
+                              <Badge variant="outline" className="text-[10px] px-1 py-0">+{cr.markup}%</Badge>
+                            </div>
+                          ))}
                         </div>
-                      ))}
-                    </div>
-                  )}
+                      )}
 
-                  <div className="flex flex-wrap gap-4 text-sm">
-                    {room.area && (
-                      <div className="flex items-center gap-1.5 text-muted-foreground">
-                        <Maximize2 className="h-4 w-4" />
-                        <span>{room.area.includes('m') ? room.area : `${room.area} m²`}</span>
+                      <div className="flex flex-wrap gap-4 text-sm">
+                        {room.area && (
+                          <div className="flex items-center gap-1.5 text-muted-foreground">
+                            <Maximize2 className="h-4 w-4" />
+                            <span>{room.area.includes('m') ? room.area : `${room.area} m²`}</span>
+                          </div>
+                        )}
+                        {room.maxGuests && (
+                          <div className="flex items-center gap-1.5 text-muted-foreground">
+                            <Users className="h-4 w-4" />
+                            <span>Up to {room.maxGuests} guests</span>
+                          </div>
+                        )}
                       </div>
-                    )}
-                    {room.maxGuests && (
-                      <div className="flex items-center gap-1.5 text-muted-foreground">
-                        <Users className="h-4 w-4" />
-                        <span>Up to {room.maxGuests} guests</span>
-                      </div>
-                    )}
-                  </div>
 
-                  {room.features?.length > 0 ? (
-                    <div className="flex flex-wrap gap-1.5">
-                      {room.features.map((f) => (
-                        <Badge key={f} variant="secondary" className="text-xs font-normal">
-                          {f}
-                        </Badge>
-                      ))}
-                    </div>
-                  ) : (
-                    <p className="text-xs text-muted-foreground italic">No amenities listed</p>
-                  )}
+                      {room.features?.length > 0 ? (
+                        <div className="flex flex-wrap gap-1.5">
+                          {room.features.map((f) => (
+                            <Badge key={f} variant="secondary" className="text-xs font-normal">
+                              {f}
+                            </Badge>
+                          ))}
+                        </div>
+                      ) : (
+                        <p className="text-xs text-muted-foreground italic">No amenities listed</p>
+                      )}
 
-                  {room.ratePlanName && (
-                    <p className="text-xs text-muted-foreground">
-                      Rate plan: {room.ratePlanName}
-                    </p>
-                  )}
-                </CardContent>
-              </Card>
-            ))}
-          </div>
-        )}
+                      {room.ratePlanName && (
+                        <p className="text-xs text-muted-foreground">
+                          Rate plan: {room.ratePlanName}
+                        </p>
+                      )}
+                    </CardContent>
+                  </Card>
+                ))}
+              </div>
+            )}
+          </TabsContent>
+
+          <TabsContent value="rate-calendar">
+            <QuickRateGrid readOnly />
+          </TabsContent>
+        </Tabs>
       </main>
     </div>
   );

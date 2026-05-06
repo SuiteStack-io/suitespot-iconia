@@ -97,6 +97,7 @@ const getVarianceArrow = (currentRate: number, baseRate: number): string => {
 
 interface QuickRateGridProps {
   onSyncQueueCount?: (count: number) => void;
+  readOnly?: boolean;
 }
 
 interface DragState {
@@ -109,7 +110,7 @@ interface DragState {
 
 const cellKey = (planId: string, dateStr: string) => `${planId}:${dateStr}`;
 
-export const QuickRateGrid = ({ onSyncQueueCount }: QuickRateGridProps) => {
+export const QuickRateGrid = ({ onSyncQueueCount, readOnly = false }: QuickRateGridProps) => {
   const propertyId = usePropertyId();
   const { activeProperty } = useProperty();
   const { user } = useAuth();
@@ -944,13 +945,15 @@ export const QuickRateGrid = ({ onSyncQueueCount }: QuickRateGridProps) => {
           </SelectContent>
         </Select>
 
-        <Select value={filterRatePlan} onValueChange={setFilterRatePlan}>
-          <SelectTrigger className="w-[180px]"><SelectValue placeholder="Rate Plan" /></SelectTrigger>
-          <SelectContent>
-            <SelectItem value="all">All Rate Plans</SelectItem>
-            {ratePlans.map(rp => <SelectItem key={rp.id} value={rp.id}>{rp.room_type} / {rp.name}</SelectItem>)}
-          </SelectContent>
-        </Select>
+        {!readOnly && (
+          <Select value={filterRatePlan} onValueChange={setFilterRatePlan}>
+            <SelectTrigger className="w-[180px]"><SelectValue placeholder="Rate Plan" /></SelectTrigger>
+            <SelectContent>
+              <SelectItem value="all">All Rate Plans</SelectItem>
+              {ratePlans.map(rp => <SelectItem key={rp.id} value={rp.id}>{rp.room_type} / {rp.name}</SelectItem>)}
+            </SelectContent>
+          </Select>
+        )}
 
         <Button variant="outline" size="sm" onClick={() => setBulkOpen(true)} className="gap-1.5">
           <Pencil className="h-3.5 w-3.5" />
@@ -1018,22 +1021,24 @@ export const QuickRateGrid = ({ onSyncQueueCount }: QuickRateGridProps) => {
       </div>
 
       {/* Legend */}
-      <div className="flex items-center gap-4 text-[11px] text-muted-foreground flex-wrap">
-        <div className="flex items-center gap-1.5"><span className="inline-block w-3 h-3 rounded-sm" style={{ backgroundColor: '#C8E6C9' }} /><span>Above base rate</span></div>
-        <div className="flex items-center gap-1.5"><span className="inline-block w-3 h-3 rounded-sm" style={{ backgroundColor: '#FFE0B2' }} /><span>Below base rate</span></div>
-        <div className="flex items-center gap-1.5"><span className="inline-block w-3 h-3 rounded-sm" style={{ backgroundColor: 'hsl(0 70% 97%)' }} /><span>Weekend ({weekendDays.map(d => DAY_NAMES[d]).join('–')})</span></div>
-        {offPeakDays.length > 0 && (
-          <div className="flex items-center gap-1.5"><span className="inline-block w-3 h-3 rounded-sm" style={{ backgroundColor: '#E3F2FD' }} /><span>Off-Peak ({offPeakDays.map(d => DAY_NAMES[d]).join('–')})</span></div>
-        )}
-        <div className="flex items-center gap-1.5">
-          <Lock className="h-3 w-3 text-purple-600 dark:text-purple-400" />
-          <span>Manual Override</span>
+      {!readOnly && (
+        <div className="flex items-center gap-4 text-[11px] text-muted-foreground flex-wrap">
+          <div className="flex items-center gap-1.5"><span className="inline-block w-3 h-3 rounded-sm" style={{ backgroundColor: '#C8E6C9' }} /><span>Above base rate</span></div>
+          <div className="flex items-center gap-1.5"><span className="inline-block w-3 h-3 rounded-sm" style={{ backgroundColor: '#FFE0B2' }} /><span>Below base rate</span></div>
+          <div className="flex items-center gap-1.5"><span className="inline-block w-3 h-3 rounded-sm" style={{ backgroundColor: 'hsl(0 70% 97%)' }} /><span>Weekend ({weekendDays.map(d => DAY_NAMES[d]).join('–')})</span></div>
+          {offPeakDays.length > 0 && (
+            <div className="flex items-center gap-1.5"><span className="inline-block w-3 h-3 rounded-sm" style={{ backgroundColor: '#E3F2FD' }} /><span>Off-Peak ({offPeakDays.map(d => DAY_NAMES[d]).join('–')})</span></div>
+          )}
+          <div className="flex items-center gap-1.5">
+            <Lock className="h-3 w-3 text-purple-600 dark:text-purple-400" />
+            <span>Manual Override</span>
+          </div>
+          <div className="flex items-center gap-1.5">
+            <span className="inline-block w-3 h-3 rounded-sm border-2 border-amber-400 bg-amber-50" />
+            <span>Draft</span>
+          </div>
         </div>
-        <div className="flex items-center gap-1.5">
-          <span className="inline-block w-3 h-3 rounded-sm border-2 border-amber-400 bg-amber-50" />
-          <span>Draft</span>
-        </div>
-      </div>
+      )}
 
       {/* Calendar */}
       {renderCombinedTable()}
