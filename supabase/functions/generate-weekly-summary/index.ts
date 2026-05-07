@@ -227,7 +227,7 @@ const handler = async (req: Request): Promise<Response> => {
     const { start, end, startDate, endDate } = getWeekRange(today);
 
     const { data: property } = await supabase
-      .from("properties").select("id, name, currency")
+      .from("properties").select("id, name, currency, revenue_recognition_method")
       .eq("is_default", true).single();
 
     if (!property) {
