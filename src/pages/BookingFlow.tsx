@@ -132,6 +132,12 @@ interface RatePlanRateState {
   extraAdultRate: number;
 }
 
+interface DailyRate {
+  date: string;
+  finalRate: number;
+  baseRate: number;
+}
+
 interface GroupedUnitType {
   unit_type: string;
   name: string;
@@ -156,7 +162,8 @@ const BookingFlow = () => {
   const [defaultPropertyName, setDefaultPropertyName] = useState<string>("SuiteSpot");
   const [selectedUnitType, setSelectedUnitType] = useState<string>("");
   const [ratePlanRate, setRatePlanRate] = useState<RatePlanRateState | null>(null);
-  
+  const [dailyRates, setDailyRates] = useState<DailyRate[]>([]);
+
   // Booking data
   const [dateRange, setDateRange] = useState<DateRange | undefined>();
   const [selectedUnit, setSelectedUnit] = useState<string>("");
@@ -446,10 +453,10 @@ const BookingFlow = () => {
   // Helper function to group units by type
   const groupUnitsByType = (unitsList: Unit[]): GroupedUnitType[] => {
     const groupMap = new Map<string, GroupedUnitType>();
-    
+
     unitsList.forEach(unit => {
       if (!unit.unit_type) return;
-      
+
       if (!groupMap.has(unit.unit_type)) {
         groupMap.set(unit.unit_type, {
           unit_type: unit.unit_type,
@@ -464,7 +471,7 @@ const BookingFlow = () => {
         existing.available_unit_ids.push(unit.id);
       }
     });
-    
+
     return Array.from(groupMap.values());
   };
 
@@ -590,20 +597,21 @@ const BookingFlow = () => {
   useEffect(() => {
     const fetchRate = async () => {
       const unit = units.find(u => u.id === selectedUnit);
-      if (!unit?.unit_type || !dateRange?.from) {
+      const roomType = unit?.booking_com_name || unit?.name || unit?.unit_type;
+      if (!roomType || !dateRange?.from) {
         setRatePlanRate(null);
+        setDailyRates([]);
         return;
       }
       try {
-        const result = await getActiveRate(unit.unit_type, dateRange.from, selectedUnit);
+        const result = await getActiveRate(roomType, dateRange.from, selectedUnit);
         if (result) {
-          // Also fetch the extra_adult_rate from the matched rate plan
           const { data: plan } = await supabase
             .from('rate_plans')
             .select('extra_adult_rate')
             .eq('id', result.ratePlanId)
             .single();
-          
+
           setRatePlanRate({
             weekdayRate: result.weekdayRate,
             weekendRate: result.weekendRate,
@@ -612,16 +620,55 @@ const BookingFlow = () => {
             ratePlanId: result.ratePlanId,
             extraAdultRate: plan?.extra_adult_rate ?? 50,
           });
+
+          if (dateRange?.from && dateRange?.to && defaultPropertyId) {
+            const dateFrom = format(dateRange.from, 'yyyy-MM-dd');
+            const lastNight = new Date(dateRange.to);
+            lastNight.setDate(lastNight.getDate() - 1);
+            const dateTo = format(lastNight, 'yyyy-MM-dd');
+
+            try {
+              const { data: batchResult, error: batchError } = await supabase.functions.invoke(
+                'calculate-dynamic-price-batch',
+                {
+                  body: {
+                    property_id: defaultPropertyId,
+                    room_type: roomType,
+                    rate_plan_id: result.ratePlanId,
+                    date_from: dateFrom,
+                    date_to: dateTo,
+                  },
+                }
+              );
+
+              if (!batchError && batchResult?.success && batchResult.rates?.length > 0) {
+                setDailyRates(
+                  batchResult.rates.map((r: any) => ({
+                    date: r.target_date,
+                    finalRate: r.final_rate,
+                    baseRate: r.base_rate,
+                  }))
+                );
+              } else {
+                setDailyRates([]);
+              }
+            } catch (batchErr) {
+              console.error('Dynamic pricing batch failed, using static rates:', batchErr);
+              setDailyRates([]);
+            }
+          }
         } else {
           setRatePlanRate(null);
+          setDailyRates([]);
         }
       } catch (err) {
         console.error('Error fetching rate plan:', err);
         setRatePlanRate(null);
+        setDailyRates([]);
       }
     };
     fetchRate();
-  }, [selectedUnit, dateRange?.from, units]);
+  }, [selectedUnit, dateRange?.from, dateRange?.to, units, defaultPropertyId]);
 
   // Initialize single primary guest form (additional guest details collected at check-in)
   useEffect(() => {
@@ -701,29 +748,31 @@ const BookingFlow = () => {
     return Math.ceil(diff / (1000 * 60 * 60 * 24));
   };
 
-  // Helper function to check if a date is a weekend day (Thu=4, Fri=5, Sat=6)
+  // Weekend days from property config: Thu=4, Fri=5
+  const weekendDays = [4, 5];
   const isWeekendDay = (date: Date): boolean => {
-    const day = date.getDay();
-    return day === 4 || day === 5 || day === 6; // Thursday, Friday, Saturday
+    return weekendDays.includes(date.getDay());
   };
 
   const calculateSubtotal = () => {
     if (!ratePlanRate || !dateRange?.from || !dateRange?.to) return 0;
-    
+
     let subtotal = 0;
-    const startDate = new Date(dateRange.from);
-    const endDate = new Date(dateRange.to);
-    
-    for (let d = new Date(startDate); d < endDate; d.setDate(d.getDate() + 1)) {
-      const rate = isWeekendDay(d) ? ratePlanRate.weekendRate : ratePlanRate.weekdayRate;
-      subtotal += rate;
+
+    if (dailyRates.length > 0) {
+      subtotal = dailyRates.reduce((sum, r) => sum + r.finalRate, 0);
+    } else {
+      for (let d = new Date(dateRange.from); d < dateRange.to; d.setDate(d.getDate() + 1)) {
+        const rate = isWeekendDay(d) ? ratePlanRate.weekendRate : ratePlanRate.weekdayRate;
+        subtotal += rate;
+      }
     }
-    
+
     const nights = calculateNights();
     if (adults === 3) {
       subtotal += (ratePlanRate.extraAdultRate || 50) * nights;
     }
-    
+
     return subtotal;
   };
 
@@ -735,24 +784,38 @@ const BookingFlow = () => {
     return 0;
   };
 
-  // Get detailed breakdown of weekday vs weekend nights
+  const hasDynamicRates = dailyRates.length > 0;
+
   const getRateBreakdown = () => {
     if (!ratePlanRate || !dateRange?.from || !dateRange?.to) {
-      return { weekdayNights: 0, weekendNights: 0, weekdayRate: 0, weekendRate: 0, dailyBreakdown: [] as { date: Date; isWeekend: boolean; rate: number }[] };
+      return { weekdayNights: 0, weekendNights: 0, weekdayRate: 0, weekendRate: 0, dailyBreakdown: [] as { date: Date; isWeekend: boolean; rate: number }[], isDynamic: false };
     }
 
     const dailyBreakdown: { date: Date; isWeekend: boolean; rate: number }[] = [];
     let weekdayNights = 0;
     let weekendNights = 0;
 
-    for (let d = new Date(dateRange.from); d < dateRange.to; d.setDate(d.getDate() + 1)) {
-      const isWeekend = isWeekendDay(d);
-      const rate = isWeekend ? ratePlanRate.weekendRate : ratePlanRate.weekdayRate;
-      dailyBreakdown.push({ date: new Date(d), isWeekend, rate });
-      if (isWeekend && ratePlanRate.weekendRate !== ratePlanRate.weekdayRate) {
-        weekendNights++;
-      } else {
-        weekdayNights++;
+    if (hasDynamicRates) {
+      for (const dr of dailyRates) {
+        const d = new Date(dr.date + 'T00:00:00');
+        const isWeekend = isWeekendDay(d);
+        dailyBreakdown.push({ date: d, isWeekend, rate: dr.finalRate });
+        if (isWeekend) {
+          weekendNights++;
+        } else {
+          weekdayNights++;
+        }
+      }
+    } else {
+      for (let d = new Date(dateRange.from); d < dateRange.to; d.setDate(d.getDate() + 1)) {
+        const isWeekend = isWeekendDay(d);
+        const rate = isWeekend ? ratePlanRate.weekendRate : ratePlanRate.weekdayRate;
+        dailyBreakdown.push({ date: new Date(d), isWeekend, rate });
+        if (isWeekend && ratePlanRate.weekendRate !== ratePlanRate.weekdayRate) {
+          weekendNights++;
+        } else {
+          weekdayNights++;
+        }
       }
     }
 
@@ -761,7 +824,8 @@ const BookingFlow = () => {
       weekendNights,
       weekdayRate: ratePlanRate.weekdayRate,
       weekendRate: ratePlanRate.weekendRate,
-      dailyBreakdown
+      dailyBreakdown,
+      isDynamic: hasDynamicRates,
     };
   };
 
@@ -887,7 +951,9 @@ const BookingFlow = () => {
         source: "direct website",
         booking_reference: `WEB-${Date.now()}`,
         channel: "Direct Website",
-        price_per_night: ratePlanRate?.weekdayRate || 0,
+        price_per_night: dailyRates.length > 0
+          ? Math.round(dailyRates.reduce((sum, r) => sum + r.finalRate, 0) / dailyRates.length)
+          : (ratePlanRate?.weekdayRate || 0),
         total_price: calculateTotalPrice(),
         commission_rate: 0,
         commission_amount: 0,
@@ -1169,7 +1235,7 @@ const BookingFlow = () => {
                             ) : (
                               groupedUnitTypes.map((group) => (
                                 <SelectItem key={group.unit_type} value={group.unit_type}>
-                                  {group.name}{ratePlanRate ? ` - $${ratePlanRate.weekdayRate}/night` : ''}
+                                  {group.name}
                                 </SelectItem>
                               ))
                             )}
@@ -1232,45 +1298,73 @@ const BookingFlow = () => {
                 )}
 
                 {/* Pricing Information */}
-                {selectedUnit && ratePlanRate && dateRange?.from && dateRange?.to && (
-                  <div className="p-4 border rounded-lg bg-accent/5">
-                    <div className="space-y-2">
-                      <div className="flex justify-between items-center">
-                        <span className="text-sm text-muted-foreground">Price per night:</span>
-                        <span className="text-lg font-semibold">${ratePlanRate.weekdayRate}</span>
-                      </div>
-                      <div className="flex justify-between items-center">
-                        <span className="text-sm text-muted-foreground">{calculateNights()} night{calculateNights() !== 1 ? "s" : ""}:</span>
-                        <span className="text-sm">${ratePlanRate.weekdayRate} × {calculateNights()}</span>
-                      </div>
-                      {adults === 3 && (
-                        <div className="flex justify-between items-center">
-                          <span className="text-sm text-muted-foreground">Third guest fee:</span>
-                          <span className="text-sm">${ratePlanRate.extraAdultRate || 50} × {calculateNights()}</span>
-                        </div>
-                      )}
-                      <div className="border-t pt-2 mt-2 space-y-1">
-                        <div className="flex justify-between items-center">
-                          <span className="font-semibold text-sm uppercase">Price:</span>
-                          <span className="font-bold">${calculateSubtotal().toFixed(2)}</span>
-                        </div>
-                        <div className="flex justify-between items-center">
-                          <span className="font-semibold text-sm uppercase">Tax ({units.find(u => u.id === selectedUnit)?.tax_percentage || 14}%):</span>
-                          <span className="font-bold">${calculateTax().toFixed(2)}</span>
-                        </div>
-                        <div className="flex justify-between items-center pt-2 border-t">
-                          <span className="font-semibold uppercase">Grand Total:</span>
-                          <span className="text-2xl font-bold text-accent">${calculateTotalPrice().toFixed(2)}</span>
-                        </div>
-                        <div className="mt-3 pt-3 border-t">
-                          <p className="text-xs text-foreground leading-relaxed text-center italic">
-                            All rates are based on double occupancy, with a maximum room capacity of 3 people. A third guest (age 18+) may stay in room, based on availability, for ${ratePlanRate.extraAdultRate || 50} USD (including taxes). Children are free of charge.
-                          </p>
+                {selectedUnit && ratePlanRate && dateRange?.from && dateRange?.to && (() => {
+                  const breakdown = getRateBreakdown();
+                  const avgRate = breakdown.isDynamic
+                    ? Math.round(dailyRates.reduce((s, r) => s + r.finalRate, 0) / dailyRates.length)
+                    : ratePlanRate.weekdayRate;
+
+                  return (
+                    <div className="p-4 border rounded-lg bg-accent/5">
+                      <div className="space-y-2">
+                        {breakdown.isDynamic ? (
+                          <>
+                            <div className="flex justify-between items-center">
+                              <span className="text-sm text-muted-foreground">Avg. price per night:</span>
+                              <span className="text-lg font-semibold">${avgRate}</span>
+                            </div>
+                            <div className="space-y-1">
+                              {breakdown.dailyBreakdown.map((day, i) => (
+                                <div key={i} className="flex justify-between text-sm">
+                                  <span className={day.isWeekend ? "text-amber-600" : "text-muted-foreground"}>
+                                    {format(day.date, "EEE, MMM d")}{day.isWeekend ? " (weekend)" : ""}
+                                  </span>
+                                  <span className={day.isWeekend ? "text-amber-600" : ""}>${day.rate.toFixed(2)}</span>
+                                </div>
+                              ))}
+                            </div>
+                          </>
+                        ) : (
+                          <>
+                            <div className="flex justify-between items-center">
+                              <span className="text-sm text-muted-foreground">Price per night:</span>
+                              <span className="text-lg font-semibold">${ratePlanRate.weekdayRate}</span>
+                            </div>
+                            <div className="flex justify-between items-center">
+                              <span className="text-sm text-muted-foreground">{calculateNights()} night{calculateNights() !== 1 ? "s" : ""}:</span>
+                              <span className="text-sm">${ratePlanRate.weekdayRate} × {calculateNights()}</span>
+                            </div>
+                          </>
+                        )}
+                        {adults === 3 && (
+                          <div className="flex justify-between items-center">
+                            <span className="text-sm text-muted-foreground">Third guest fee:</span>
+                            <span className="text-sm">${ratePlanRate.extraAdultRate || 50} × {calculateNights()}</span>
+                          </div>
+                        )}
+                        <div className="border-t pt-2 mt-2 space-y-1">
+                          <div className="flex justify-between items-center">
+                            <span className="font-semibold text-sm uppercase">Price:</span>
+                            <span className="font-bold">${calculateSubtotal().toFixed(2)}</span>
+                          </div>
+                          <div className="flex justify-between items-center">
+                            <span className="font-semibold text-sm uppercase">Tax ({units.find(u => u.id === selectedUnit)?.tax_percentage || 14}%):</span>
+                            <span className="font-bold">${calculateTax().toFixed(2)}</span>
+                          </div>
+                          <div className="flex justify-between items-center pt-2 border-t">
+                            <span className="font-semibold uppercase">Grand Total:</span>
+                            <span className="text-2xl font-bold text-accent">${calculateTotalPrice().toFixed(2)}</span>
+                          </div>
+                          <div className="mt-3 pt-3 border-t">
+                            <p className="text-xs text-foreground leading-relaxed text-center italic">
+                              All rates are based on double occupancy, with a maximum room capacity of 3 people. A third guest (age 18+) may stay in room, based on availability, for ${ratePlanRate.extraAdultRate || 50} USD (including taxes). Children are free of charge.
+                            </p>
+                          </div>
                         </div>
                       </div>
                     </div>
-                  </div>
-                )}
+                  );
+                })()}
 
                 {/* Photo Gallery - Only show for non-preselected units (already shown above for preselected) */}
                 {!preSelectedUnitId && selectedUnit && units.find(u => u.id === selectedUnit)?.photos && units.find(u => u.id === selectedUnit)!.photos!.length > 0 && (
@@ -1690,14 +1784,15 @@ const BookingFlow = () => {
                           <>
                             <div className="border-t border-amber-400 pt-4 flex justify-between">
                               <span>Average nightly rate before tax</span>
-                              <span>US${ratePlanRate.weekdayRate}</span>
+                              <span>US${dailyRates.length > 0
+                                ? Math.round(dailyRates.reduce((sum, r) => sum + r.finalRate, 0) / dailyRates.length)
+                                : ratePlanRate.weekdayRate}</span>
                             </div>
-                            
+
                             <div className="border-t border-amber-400 pt-4 flex justify-between font-medium">
                               <span>Room total (tax included)</span>
                               <span>US${(() => {
                                 const unit = units.find(u => u.id === selectedUnit);
-                                const nights = calculateNights();
                                 const subtotal = calculateSubtotal();
                                 const taxRate = unit?.tax_percentage || 0;
                                 return Math.round(subtotal * (1 + taxRate / 100));
@@ -1744,20 +1839,29 @@ const BookingFlow = () => {
 
                   {ratePlanRate && (() => {
                     const breakdown = getRateBreakdown();
-                    const hasWeekendRate = ratePlanRate.weekendRate !== ratePlanRate.weekdayRate && breakdown.weekendNights > 0;
-                    
+                    const hasWeekendRate = !breakdown.isDynamic && ratePlanRate.weekendRate !== ratePlanRate.weekdayRate && breakdown.weekendNights > 0;
+
                     return (
                       <div className="border-t pt-4">
                         <div className="space-y-3">
                           {/* Rate Header */}
-                          {hasWeekendRate ? (
+                          {breakdown.isDynamic ? (
                             <div className="bg-muted/50 rounded-lg p-3 space-y-1">
                               <div className="flex justify-between text-sm">
-                                <span className="text-muted-foreground">Weekday Rate (Sun–Wed):</span>
+                                <span className="text-muted-foreground">Dynamic pricing active</span>
+                                <span className="font-medium">
+                                  Avg ${Math.round(dailyRates.reduce((s, r) => s + r.finalRate, 0) / dailyRates.length)}/night
+                                </span>
+                              </div>
+                            </div>
+                          ) : hasWeekendRate ? (
+                            <div className="bg-muted/50 rounded-lg p-3 space-y-1">
+                              <div className="flex justify-between text-sm">
+                                <span className="text-muted-foreground">Weekday Rate (Sun-Wed):</span>
                                 <span className="font-medium">${breakdown.weekdayRate}/night</span>
                               </div>
                               <div className="flex justify-between text-sm">
-                                <span className="text-muted-foreground">Weekend Rate (Thu–Sat):</span>
+                                <span className="text-muted-foreground">Weekend Rate (Thu-Fri):</span>
                                 <span className="font-medium text-amber-600">${breakdown.weekendRate}/night</span>
                               </div>
                             </div>
@@ -1769,7 +1873,18 @@ const BookingFlow = () => {
                           )}
 
                           {/* Nightly Breakdown */}
-                          {hasWeekendRate ? (
+                          {breakdown.isDynamic ? (
+                            <div className="space-y-1">
+                              {breakdown.dailyBreakdown.map((day, i) => (
+                                <div key={i} className="flex justify-between text-sm">
+                                  <span className={day.isWeekend ? "text-amber-600" : "text-muted-foreground"}>
+                                    {format(day.date, "EEE, MMM d")}{day.isWeekend ? " (weekend)" : ""}
+                                  </span>
+                                  <span className={day.isWeekend ? "text-amber-600" : ""}>${day.rate.toFixed(2)}</span>
+                                </div>
+                              ))}
+                            </div>
+                          ) : hasWeekendRate ? (
                             <div className="space-y-2">
                               {breakdown.weekdayNights > 0 && (
                                 <div className="flex justify-between text-sm">

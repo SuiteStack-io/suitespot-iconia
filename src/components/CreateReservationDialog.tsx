@@ -238,6 +238,10 @@ export function CreateReservationDialog() {
   const [blockedUnitIds, setBlockedUnitIds] = useState<string[]>([]);
   // Rate plan price lookup: booking_com_name -> weekday_rate
   const [ratePriceMap, setRatePriceMap] = useState<Map<string, number>>(new Map());
+  // Dynamic pricing lookup: booking_com_name -> avg dynamic rate
+  const [dynamicRateMap, setDynamicRateMap] = useState<Map<string, number>>(new Map());
+  // Rate plan ID lookup: booking_com_name -> rate_plan_id
+  const [ratePlanIdMap, setRatePlanIdMap] = useState<Map<string, string>>(new Map());
   // Extra adult rate lookup: booking_com_name -> extra_adult_rate
   const [extraAdultRateMap, setExtraAdultRateMap] = useState<Map<string, number>>(new Map());
   const [checkingAvailability, setCheckingAvailability] = useState(false);
@@ -479,6 +483,74 @@ export function CreateReservationDialog() {
     }
   }, [checkInDate, checkOutDate, allUnits]);
 
+  // Fetch dynamic pricing for all room types when dates are selected
+  useEffect(() => {
+    const fetchDynamicRates = async () => {
+      if (!checkInDate || !checkOutDate || !propertyId || ratePlanIdMap.size === 0) {
+        setDynamicRateMap(new Map());
+        return;
+      }
+      const dateFrom = format(checkInDate, 'yyyy-MM-dd');
+      const lastNight = new Date(checkOutDate);
+      lastNight.setDate(lastNight.getDate() - 1);
+      const dateTo = format(lastNight, 'yyyy-MM-dd');
+
+      const newMap = new Map<string, number>();
+      const entries = Array.from(ratePlanIdMap.entries());
+
+      await Promise.all(
+        entries.map(async ([roomType, ratePlanId]) => {
+          try {
+            const { data, error } = await supabase.functions.invoke(
+              'calculate-dynamic-price-batch',
+              {
+                body: {
+                  property_id: propertyId,
+                  room_type: roomType,
+                  rate_plan_id: ratePlanId,
+                  date_from: dateFrom,
+                  date_to: dateTo,
+                },
+              }
+            );
+            if (!error && data?.success && data.rates?.length > 0) {
+              const avg = Math.round(
+                data.rates.reduce((s: number, r: any) => s + r.final_rate, 0) / data.rates.length
+              );
+              newMap.set(roomType, avg);
+            }
+          } catch {
+            // fall back to static rate
+          }
+        })
+      );
+      setDynamicRateMap(newMap);
+    };
+    fetchDynamicRates();
+  }, [checkInDate, checkOutDate, propertyId, ratePlanIdMap]);
+
+  // Re-fill room prices when dynamic rates arrive
+  useEffect(() => {
+    if (dynamicRateMap.size === 0) return;
+    const newPrices = [...roomPrices];
+    let changed = false;
+    for (let i = 0; i < selectedUnitIds.length; i++) {
+      const unitId = selectedUnitIds[i];
+      if (!unitId) continue;
+      const unit = allUnits.find(u => u.id === unitId);
+      if (!unit) continue;
+      const baseRate = getBaseRateForUnit(unit);
+      if (baseRate == null) continue;
+      const surcharge = getOccupancySurcharge(i);
+      const newPrice = baseRate + surcharge;
+      if (newPrices[i] !== newPrice) {
+        newPrices[i] = newPrice;
+        changed = true;
+      }
+    }
+    if (changed) setRoomPrices(newPrices);
+  }, [dynamicRateMap]);
+
   const fetchUnits = async () => {
     const { data, error } = await withPropertyFilter(supabase
       .from("units")
@@ -509,17 +581,25 @@ export function CreateReservationDialog() {
 
     const priceMap = new Map<string, number>();
     const extraRateMap = new Map<string, number>();
+    const planIdMap = new Map<string, string>();
     for (const rp of ratePlans || []) {
       const prices = (rp as any).rate_plan_prices || [];
       const roomType = rp.room_type as string | null;
-      
+
       // Build extra adult rate map from rate plan
       if (roomType && rp.extra_adult_rate != null) {
         if (!extraRateMap.has(roomType) || rp.is_default) {
           extraRateMap.set(roomType, Number(rp.extra_adult_rate));
         }
       }
-      
+
+      // Build rate plan ID map
+      if (roomType) {
+        if (!planIdMap.has(roomType) || rp.is_default) {
+          planIdMap.set(roomType, rp.id);
+        }
+      }
+
       for (const p of prices) {
         if (p.unit_id) continue;
         const rt = p.room_type as string;
@@ -531,6 +611,7 @@ export function CreateReservationDialog() {
       }
     }
     setRatePriceMap(priceMap);
+    setRatePlanIdMap(planIdMap);
     setExtraAdultRateMap(extraRateMap);
   };
 
@@ -618,8 +699,10 @@ export function CreateReservationDialog() {
     setGuestGenders(newGuestGenders);
   };
 
-  // Helper: get base rate for a room (from rate plan or unit fallback)
+  // Helper: get base rate for a room (dynamic > static rate plan > unit fallback)
   const getBaseRateForUnit = (unit: Unit): number | null => {
+    const dynamicRate = unit.booking_com_name ? dynamicRateMap.get(unit.booking_com_name) : undefined;
+    if (dynamicRate != null) return dynamicRate;
     const ratePlanPrice = unit.booking_com_name ? ratePriceMap.get(unit.booking_com_name) : null;
     return ratePlanPrice ?? unit.price_per_night ?? null;
   };
@@ -1469,11 +1552,16 @@ export function CreateReservationDialog() {
                       step="1"
                       className={cn(!isRoomPriceValid(roomIndex) && !hasPermission('can_override_rates') && "border-destructive focus-visible:ring-destructive")}
                     />
-                    {getMinPriceForRoom(roomIndex) !== null && (
-                      <p className="text-xs text-muted-foreground">
-                        Standard rate: ${getMinPriceForRoom(roomIndex)?.toFixed(2)}/night
-                      </p>
-                    )}
+                    {getMinPriceForRoom(roomIndex) !== null && (() => {
+                      const unitId = selectedUnitIds[roomIndex];
+                      const unit = allUnits.find(u => u.id === unitId);
+                      const isDynamic = unit?.booking_com_name ? dynamicRateMap.has(unit.booking_com_name) : false;
+                      return (
+                        <p className="text-xs text-muted-foreground">
+                          {isDynamic ? 'Avg. dynamic rate' : 'Standard rate'}: ${getMinPriceForRoom(roomIndex)?.toFixed(2)}/night
+                        </p>
+                      );
+                    })()}
                     {surcharge > 0 && selectedUnit && (
                       <p className="text-xs text-muted-foreground">
                         Includes ${extraRate}/night extra guest fee ({extraAdultsCount} additional adult{extraAdultsCount > 1 ? 's' : ''})

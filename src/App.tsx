@@ -23,19 +23,7 @@ import Guests from "./pages/Guests";
 import MyReservations from "./pages/MyReservations";
 import Rooms from "./pages/Rooms";
 import RoomRates from "./pages/RoomRates";
-import PublicHome from "./pages/PublicHome";
-import BookingFlow from "./pages/BookingFlow";
-import BookingConfirmation from "./pages/BookingConfirmation";
-import IconiaZamalek from "./pages/IconiaZamalek";
-import About from "./pages/About";
-import Locations from "./pages/Locations";
-import Suites from "./pages/Suites";
-import Wellness from "./pages/Wellness";
-import Experiences from "./pages/Experiences";
-import Nearby from "./pages/Nearby";
-import Blog from "./pages/Blog";
-import BlogPost from "./pages/BlogPost";
-import FAQ from "./pages/FAQ";
+import { Navigate } from "react-router-dom";
 import HomepageManagement from "./pages/HomepageManagement";
 import Settings from "./pages/Settings";
 import BookingComReservations from "./pages/BookingComReservations";
@@ -89,20 +77,8 @@ const App = () => (
               <Sonner />
             <BrowserRouter>
               <Routes>
-              {/* Public Routes - For findyoursuitespot.com */}
-              <Route path="/" element={<PublicHome />} />
-              <Route path="/book" element={<BookingFlow />} />
-              <Route path="/booking-confirmation" element={<BookingConfirmation />} />
-              <Route path="/iconia-zamalek" element={<IconiaZamalek />} />
-              <Route path="/about" element={<About />} />
-              <Route path="/locations" element={<Locations />} />
-              <Route path="/suites" element={<Suites />} />
-              <Route path="/wellness" element={<Wellness />} />
-              <Route path="/experiences" element={<Experiences />} />
-              <Route path="/nearby" element={<Nearby />} />
-              <Route path="/blog" element={<Blog />} />
-              <Route path="/blog/:slug" element={<BlogPost />} />
-              <Route path="/faq" element={<FAQ />} />
+              {/* Root redirects to dashboard */}
+              <Route path="/" element={<Navigate to="/admin" replace />} />
             <Route path="/kyc/:token" element={<KYCLanding />} />
             <Route path="/kyc-management" element={<ProtectedRoute><KYCManagement /></ProtectedRoute>} />
             <Route path="/selection-sessions" element={<ProtectedRoute><SelectionSessions /></ProtectedRoute>} />
