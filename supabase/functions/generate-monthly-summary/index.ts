@@ -323,10 +323,8 @@ const handler = async (req: Request): Promise<Response> => {
     const lowestDay = occData.dailyData.length > 0 ? occData.dailyData.reduce((a, b) => a.rate < b.rate ? a : b) : null;
 
     // ===== REVENUE =====
-    const revenueData = await fetchRevenueData(supabase, property.id, start, end);
-    const grossRevenue = revenueData.reduce((s: number, r: any) => s + (r.total_price || 0), 0);
-    const totalCommission = revenueData.reduce((s: number, r: any) => s + (r.commission_amount || 0), 0);
-    const netRevenue = grossRevenue - totalCommission;
+    const revenueData = await fetchRevenueData(supabase, property.id, start, end, revenueMethod);
+    const { gross: grossRevenue, comm: totalCommission, net: netRevenue } = sumRevenue(revenueData, start, end);
     const adr = occData.sold > 0 ? netRevenue / occData.sold : 0;
     const revpar = occData.available > 0 ? netRevenue / occData.available : 0;
 
