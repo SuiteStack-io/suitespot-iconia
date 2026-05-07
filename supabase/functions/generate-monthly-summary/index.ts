@@ -384,10 +384,10 @@ const handler = async (req: Request): Promise<Response> => {
       } else {
         const mB = await fetchNewBookings(supabase, property.id, mRange.start, mRange.end);
         mBookings = mB.length;
-        const mR = await fetchRevenueData(supabase, property.id, mRange.start, mRange.end);
-        mGross = mR.reduce((s: number, r: any) => s + (r.total_price || 0), 0);
-        const mC = mR.reduce((s: number, r: any) => s + (r.commission_amount || 0), 0);
-        mNet = mGross - mC;
+        const mR = await fetchRevenueData(supabase, property.id, mRange.start, mRange.end, revenueMethod);
+        const mAgg = sumRevenue(mR, mRange.start, mRange.end);
+        mGross = mAgg.gross;
+        mNet = mAgg.net;
       }
 
       months.push({
