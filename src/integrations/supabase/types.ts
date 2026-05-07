@@ -1699,7 +1699,11 @@ export type Database = {
           id: string
           is_active: boolean | null
           is_default: boolean | null
+          landlord_email: string | null
+          landlord_name: string | null
+          landlord_phone: string | null
           landlord_share_percentage: number
+          landlord_visible_metrics: Json | null
           latitude: number | null
           legal_name: string | null
           longitude: number | null
@@ -1749,7 +1753,11 @@ export type Database = {
           id?: string
           is_active?: boolean | null
           is_default?: boolean | null
+          landlord_email?: string | null
+          landlord_name?: string | null
+          landlord_phone?: string | null
           landlord_share_percentage?: number
+          landlord_visible_metrics?: Json | null
           latitude?: number | null
           legal_name?: string | null
           longitude?: number | null
@@ -1799,7 +1807,11 @@ export type Database = {
           id?: string
           is_active?: boolean | null
           is_default?: boolean | null
+          landlord_email?: string | null
+          landlord_name?: string | null
+          landlord_phone?: string | null
           landlord_share_percentage?: number
+          landlord_visible_metrics?: Json | null
           latitude?: number | null
           legal_name?: string | null
           longitude?: number | null
