@@ -111,15 +111,15 @@ async function computeMonthOccupancy(
   return { avgRate, sold: totalSold, available: totalAvailable, dailyData };
 }
 
-async function fetchRevenueData(supabase: any, propertyId: string, start: string, end: string) {
-  const { data } = await supabase
+async function fetchRevenueData(supabase: any, propertyId: string, start: string, end: string, method: RevenueRecognitionMethod) {
+  let q: any = supabase
     .from("reservations")
-    .select("total_price, commission_amount, source, channel, nights")
+    .select("total_price, commission_amount, source, channel, nights, check_in_date, check_out_date")
     .neq("status", "Cancelled")
     .is("cancelled_at", null)
-    .gte("check_in_date", start)
-    .lte("check_in_date", end)
     .eq("property_id", propertyId);
+  q = applyRevenueDateFilter(q, method, start, end);
+  const { data } = await q;
   return data || [];
 }
 
