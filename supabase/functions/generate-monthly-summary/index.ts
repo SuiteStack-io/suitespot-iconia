@@ -340,10 +340,8 @@ const handler = async (req: Request): Promise<Response> => {
     const priorYear = currentMonth === 0 ? currentYear - 1 : currentYear;
     const priorRange = getMonthRange(priorYear, priorMonth);
     const priorOcc = await computeMonthOccupancy(supabase, property.id, unitIds, priorRange.start, priorRange.end);
-    const priorRevData = await fetchRevenueData(supabase, property.id, priorRange.start, priorRange.end);
-    const priorGross = priorRevData.reduce((s: number, r: any) => s + (r.total_price || 0), 0);
-    const priorComm = priorRevData.reduce((s: number, r: any) => s + (r.commission_amount || 0), 0);
-    const priorNet = priorGross - priorComm;
+    const priorRevData = await fetchRevenueData(supabase, property.id, priorRange.start, priorRange.end, revenueMethod);
+    const { gross: priorGross, comm: priorComm, net: priorNet } = sumRevenue(priorRevData, priorRange.start, priorRange.end);
     const priorAdr = priorOcc.sold > 0 ? priorNet / priorOcc.sold : 0;
     const priorRevpar = priorOcc.available > 0 ? priorNet / priorOcc.available : 0;
     const priorBookings = await fetchNewBookings(supabase, property.id, priorRange.start, priorRange.end);
