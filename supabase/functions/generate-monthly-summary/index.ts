@@ -350,10 +350,8 @@ const handler = async (req: Request): Promise<Response> => {
     // ===== SAME MONTH LAST YEAR =====
     const lyRange = getMonthRange(currentYear - 1, currentMonth);
     const lyOcc = await computeMonthOccupancy(supabase, property.id, unitIds, lyRange.start, lyRange.end);
-    const lyRevData = await fetchRevenueData(supabase, property.id, lyRange.start, lyRange.end);
-    const lyGross = lyRevData.reduce((s: number, r: any) => s + (r.total_price || 0), 0);
-    const lyComm = lyRevData.reduce((s: number, r: any) => s + (r.commission_amount || 0), 0);
-    const lyNet = lyGross - lyComm;
+    const lyRevData = await fetchRevenueData(supabase, property.id, lyRange.start, lyRange.end, revenueMethod);
+    const { gross: lyGross, comm: lyComm, net: lyNet } = sumRevenue(lyRevData, lyRange.start, lyRange.end);
     const lyAdr = lyOcc.sold > 0 ? lyNet / lyOcc.sold : 0;
     const lyRevpar = lyOcc.available > 0 ? lyNet / lyOcc.available : 0;
     const lyHasData = lyRevData.length > 0 || lyOcc.sold > 0;
