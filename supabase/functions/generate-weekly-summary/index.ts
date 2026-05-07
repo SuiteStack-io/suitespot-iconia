@@ -293,7 +293,7 @@ const handler = async (req: Request): Promise<Response> => {
 
       const wOcc = await computeWeekOccupancy(supabase, property.id, unitIds, wStart, wEnd);
       const wBookings = await computeWeekBookings(supabase, property.id, ws, we);
-      const wRevenue = await computeWeekRevenue(supabase, property.id, ws, we);
+      const wRevenue = await computeWeekRevenue(supabase, property.id, ws, we, revenueMethod);
 
       weeks.push({
         label: `${formatDateShort(wStart)}–${formatDateShort(wEnd)}`,
