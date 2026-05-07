@@ -112,11 +112,11 @@ export function SlideMenu({ userRole }: SlideMenuProps) {
     {
       label: 'MANAGEMENT',
       items: [
-        { title: 'Commissions', url: '/commissions', icon: Wallet },
-        { title: 'Cash Settlement', url: '/cash-settlement', icon: Banknote },
-        { title: 'Revenue Analytics', url: '/analytics', icon: DollarSign },
+        { title: 'Commissions', url: '/commissions', icon: Wallet, showFor: ['admin'] },
+        { title: 'Cash Settlement', url: '/cash-settlement', icon: Banknote, showFor: ['admin'] },
+        { title: 'Revenue Analytics', url: '/analytics', icon: DollarSign, showFor: ['admin', 'landlord'] },
       ],
-      showFor: ['admin'],
+      showFor: ['admin', 'landlord'],
     },
     {
       label: 'WEBSITE',

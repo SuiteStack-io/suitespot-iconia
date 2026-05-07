@@ -54,6 +54,9 @@ const Analytics = () => {
 
   const savedLandlordPercentage = Number((activeProperty as any)?.landlord_share_percentage ?? 70);
   const hasLandlord: boolean = ((activeProperty as any)?.has_landlord ?? true) as boolean;
+  const isLandlord = userRole === 'landlord';
+  const landlordVisibleMetrics: string[] = ((activeProperty as any)?.landlord_visible_metrics as string[]) || [];
+  const canSee = (metric: string) => !isLandlord || landlordVisibleMetrics.includes(metric);
   const method: RevenueRecognitionMethod =
     ((activeProperty as any)?.revenue_recognition_method as RevenueRecognitionMethod) ?? 'check_in';
   const methodDisplayLabel =
@@ -160,13 +163,13 @@ const Analytics = () => {
   }>>([]);
 
   useEffect(() => {
-    if (!loading && userRole !== 'admin') {
+    if (!loading && userRole !== 'admin' && userRole !== 'landlord') {
       navigate('/admin');
     }
   }, [userRole, loading, navigate]);
 
   useEffect(() => {
-    if (userRole === 'admin') {
+    if (userRole === 'admin' || userRole === 'landlord') {
       fetchAllStats();
       
       const channel = supabase
@@ -832,15 +835,17 @@ const Analytics = () => {
         'Metric': 'RevPAR (Revenue per Available Room)',
         'Value': formatCurrency(revpar),
       },
-      {},
-      {
-        'Metric': `Landlord Share (${landlordPercentage}%)`,
-        'Value': formatCurrency(revenueStats.netRevenue * (landlordPercentage / 100)),
-      },
-      {
-        'Metric': `Suitespot Share (${100 - landlordPercentage}%)`,
-        'Value': formatCurrency(revenueStats.netRevenue * ((100 - landlordPercentage) / 100)),
-      },
+      ...(hasLandlord ? [
+        {},
+        {
+          'Metric': `Landlord Share (${landlordPercentage}%)`,
+          'Value': formatCurrency(revenueStats.netRevenue * (landlordPercentage / 100)),
+        },
+        {
+          'Metric': `Suitespot Share (${100 - landlordPercentage}%)`,
+          'Value': formatCurrency(revenueStats.netRevenue * ((100 - landlordPercentage) / 100)),
+        },
+      ] : []),
       {},
       {
         'Metric': 'Direct Bookings',
@@ -888,24 +893,26 @@ const Analytics = () => {
           <AdminBreadcrumb section="ICONIA" currentPage="Analytics" />
           <div className="flex items-center gap-4 mb-2">
             <SlideMenu userRole={userRole} />
-            <Button variant="ghost" onClick={() => navigate('/admin')} className="md:hidden" size="icon">
-              <ArrowLeft className="h-5 w-5" />
-            </Button>
-            <Button variant="ghost" onClick={() => navigate('/admin')} className="hidden md:flex items-center gap-2">
-              <ArrowLeft className="h-4 w-4" />
-              Back
-            </Button>
-            <span className="text-sm text-muted-foreground">Back to Dashboard</span>
+            {!isLandlord && <>
+              <Button variant="ghost" onClick={() => navigate('/admin')} className="md:hidden" size="icon">
+                <ArrowLeft className="h-5 w-5" />
+              </Button>
+              <Button variant="ghost" onClick={() => navigate('/admin')} className="hidden md:flex items-center gap-2">
+                <ArrowLeft className="h-4 w-4" />
+                Back
+              </Button>
+              <span className="text-sm text-muted-foreground">Back to Dashboard</span>
+            </>}
           </div>
           <div className="flex items-center justify-between gap-4 flex-wrap">
             <div className="flex items-center gap-3">
               <BarChart3 className="h-8 w-8 text-primary" />
               <h1 className="text-2xl font-bold">Analytics & Reporting</h1>
             </div>
-            <Button variant="outline" size="sm" onClick={handleExportExcel} className="gap-2">
+            {!isLandlord && <Button variant="outline" size="sm" onClick={handleExportExcel} className="gap-2">
               <FileSpreadsheet className="h-4 w-4" />
               Export
-            </Button>
+            </Button>}
           </div>
         </div>
       </header>
@@ -1002,7 +1009,7 @@ const Analytics = () => {
         </div>
 
         {/* Revenue Share Slider / Recognition Method */}
-        {hasLandlord ? (
+        {!isLandlord && hasLandlord ? (
           <Card className="bg-gradient-to-r from-card to-card/80">
             <CardContent className="py-4">
               <div className="flex items-center gap-4 flex-wrap">
@@ -1049,7 +1056,7 @@ const Analytics = () => {
         {/* KPI Cards */}
         <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-4">
           {/* Occupancy */}
-          <Card className="cursor-pointer hover:shadow-md transition-shadow" onClick={handleOccupancyClick}>
+          {canSee('occupancy') && <Card className="cursor-pointer hover:shadow-md transition-shadow" onClick={handleOccupancyClick}>
             <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
               <CardTitle className="text-sm font-medium">Occupancy</CardTitle>
               <div className="flex items-center gap-1">
@@ -1063,10 +1070,10 @@ const Analytics = () => {
                 {totalNights} nights / {totalAvailableRooms} available
               </p>
             </CardContent>
-          </Card>
+          </Card>}
 
           {/* Total Bookings */}
-          <Card className="cursor-pointer hover:shadow-md transition-shadow" onClick={handleBookingsClick}>
+          {canSee('bookings') && <Card className="cursor-pointer hover:shadow-md transition-shadow" onClick={handleBookingsClick}>
             <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
               <CardTitle className="text-sm font-medium">Total Bookings</CardTitle>
               <div className="flex items-center gap-1">
@@ -1078,10 +1085,10 @@ const Analytics = () => {
               <div className="text-2xl font-bold">{totalBookings}</div>
               <p className="text-xs text-muted-foreground">reservations</p>
             </CardContent>
-          </Card>
+          </Card>}
 
           {/* Total Guests */}
-          <Card className="cursor-pointer hover:shadow-md transition-shadow" onClick={handleGuestsClick}>
+          {canSee('guests') && <Card className="cursor-pointer hover:shadow-md transition-shadow" onClick={handleGuestsClick}>
             <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
               <CardTitle className="text-sm font-medium">Total Guests</CardTitle>
               <div className="flex items-center gap-1">
@@ -1095,10 +1102,10 @@ const Analytics = () => {
                 Direct: {bookingSources.direct.count} | OTA: {bookingSources.indirect.count}
               </p>
             </CardContent>
-          </Card>
+          </Card>}
 
           {/* Booking Sources */}
-          <Card className="cursor-pointer hover:shadow-md transition-shadow" onClick={handleSourcesClick}>
+          {canSee('sources') && <Card className="cursor-pointer hover:shadow-md transition-shadow" onClick={handleSourcesClick}>
             <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
               <CardTitle className="text-sm font-medium">Sources</CardTitle>
               <div className="flex items-center gap-1">
@@ -1112,13 +1119,13 @@ const Analytics = () => {
                 Direct: ${formatCurrency(bookingSources.direct.revenue)} | OTA: ${formatCurrency(bookingSources.indirect.revenue)}
               </p>
             </CardContent>
-          </Card>
+          </Card>}
         </div>
 
         {/* Revenue Cards */}
         <div className="grid gap-4 md:grid-cols-3">
           {/* Total Revenue */}
-          <Card className="cursor-pointer hover:shadow-md transition-shadow" onClick={handleTotalRevenueClick}>
+          {canSee('gross_revenue') && <Card className="cursor-pointer hover:shadow-md transition-shadow" onClick={handleTotalRevenueClick}>
             <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
               <CardTitle className="text-sm font-medium">Gross Revenue</CardTitle>
               <div className="flex items-center gap-1">
@@ -1128,17 +1135,17 @@ const Analytics = () => {
             </CardHeader>
             <CardContent>
               <div className="text-2xl font-bold">${formatCurrency(revenueStats.totalRevenue)}</div>
-              {hasLandlord && (
+              {hasLandlord && canSee('landlord_share') && (
                 <div className="mt-2 space-y-1 text-xs text-muted-foreground">
                   <p>Landlord ({landlordPercentage}%): ${formatCurrency(revenueStats.totalRevenue * (landlordPercentage / 100))}</p>
                   <p>Suitespot ({100 - landlordPercentage}%): ${formatCurrency(revenueStats.totalRevenue * ((100 - landlordPercentage) / 100))}</p>
                 </div>
               )}
             </CardContent>
-          </Card>
+          </Card>}
 
           {/* Net Revenue */}
-          <Card className="cursor-pointer hover:shadow-md transition-shadow" onClick={handleNetRevenueClick}>
+          {canSee('net_revenue') && <Card className="cursor-pointer hover:shadow-md transition-shadow" onClick={handleNetRevenueClick}>
             <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
               <CardTitle className="text-sm font-medium">Net Revenue</CardTitle>
               <div className="flex items-center gap-1">
@@ -1148,17 +1155,17 @@ const Analytics = () => {
             </CardHeader>
             <CardContent>
               <div className="text-2xl font-bold">${formatCurrency(revenueStats.netRevenue)}</div>
-              {hasLandlord && (
+              {hasLandlord && canSee('landlord_share') && (
                 <div className="mt-2 space-y-1 text-xs text-muted-foreground">
                   <p>Landlord ({landlordPercentage}%): ${formatCurrency(revenueStats.netRevenue * (landlordPercentage / 100))}</p>
                   <p>Suitespot ({100 - landlordPercentage}%): ${formatCurrency(revenueStats.netRevenue * ((100 - landlordPercentage) / 100))}</p>
                 </div>
               )}
             </CardContent>
-          </Card>
+          </Card>}
 
           {/* Commission */}
-          <Card className="cursor-pointer hover:shadow-md transition-shadow" onClick={handleCommissionClick}>
+          {canSee('commission') && <Card className="cursor-pointer hover:shadow-md transition-shadow" onClick={handleCommissionClick}>
             <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
               <CardTitle className="text-sm font-medium">Commission</CardTitle>
               <div className="flex items-center gap-1">
@@ -1175,12 +1182,12 @@ const Analytics = () => {
                 <p>Booking.com: ${formatCurrency(bookingComCommission)}</p>
               </div>
             </CardContent>
-          </Card>
+          </Card>}
         </div>
 
         {/* ADR & RevPAR */}
         <div className="grid gap-4 md:grid-cols-2">
-          <Card>
+          {canSee('adr') && <Card>
             <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
               <CardTitle className="text-sm font-medium">ADR (Average Daily Rate)</CardTitle>
               <DollarSign className="h-4 w-4 text-muted-foreground" />
@@ -1189,9 +1196,9 @@ const Analytics = () => {
               <div className="text-2xl font-bold">${formatCurrency(adr)}</div>
               <p className="text-xs text-muted-foreground">Per occupied room night</p>
             </CardContent>
-          </Card>
+          </Card>}
 
-          <Card>
+          {canSee('revpar') && <Card>
             <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
               <CardTitle className="text-sm font-medium">RevPAR</CardTitle>
               <DollarSign className="h-4 w-4 text-muted-foreground" />
@@ -1200,29 +1207,31 @@ const Analytics = () => {
               <div className="text-2xl font-bold">${formatCurrency(revpar)}</div>
               <p className="text-xs text-muted-foreground">Revenue per available room</p>
             </CardContent>
-          </Card>
+          </Card>}
         </div>
 
         {/* Occupancy by Month */}
-        <OccupancyByMonthChart
+        {canSee('occupancy_trend') && <OccupancyByMonthChart
           propertyId={propertyId}
           method={method}
           startDate={startDate}
           endDate={endDate}
-        />
+        />}
 
         {/* Revenue Breakdown Charts */}
-        <div className="grid gap-6 md:grid-cols-2">
-          <RevenueBySource mainDateRange={{ from: new Date(startDate), to: new Date(endDate) }} method={method} />
-          <RevenueByRoom mainDateRange={{ from: new Date(startDate), to: new Date(endDate) }} method={method} />
-        </div>
-        <div className="grid gap-6 md:grid-cols-2">
-          <RevenueByGuests mainDateRange={{ from: new Date(startDate), to: new Date(endDate) }} method={method} />
-          <RevenueByNationality mainDateRange={{ from: new Date(startDate), to: new Date(endDate) }} method={method} />
-        </div>
+        {canSee('revenue_trend') && <>
+          <div className="grid gap-6 md:grid-cols-2">
+            <RevenueBySource mainDateRange={{ from: new Date(startDate), to: new Date(endDate) }} method={method} />
+            <RevenueByRoom mainDateRange={{ from: new Date(startDate), to: new Date(endDate) }} method={method} />
+          </div>
+          <div className="grid gap-6 md:grid-cols-2">
+            <RevenueByGuests mainDateRange={{ from: new Date(startDate), to: new Date(endDate) }} method={method} />
+            <RevenueByNationality mainDateRange={{ from: new Date(startDate), to: new Date(endDate) }} method={method} />
+          </div>
+        </>}
 
         {/* Cancellation Analytics */}
-        <CancellationAnalytics startDate={startDate} endDate={endDate} />
+        {canSee('cancellations') && <CancellationAnalytics startDate={startDate} endDate={endDate} />}
 
         {/* Dialogs */}
         {/* Occupancy Dialog */}
@@ -1432,8 +1441,8 @@ const Analytics = () => {
                   <TableHead>Unit #</TableHead>
                   <TableHead className="text-right">Bookings</TableHead>
                   <TableHead className="text-right">Gross Revenue</TableHead>
-                  <TableHead className="text-right">Landlord ({landlordPercentage}%)</TableHead>
-                  <TableHead className="text-right">Suitespot ({100 - landlordPercentage}%)</TableHead>
+                  {hasLandlord && <TableHead className="text-right">Landlord ({landlordPercentage}%)</TableHead>}
+                  {hasLandlord && <TableHead className="text-right">Suitespot ({100 - landlordPercentage}%)</TableHead>}
                 </TableRow>
               </TableHeader>
               <TableBody>
@@ -1443,8 +1452,8 @@ const Analytics = () => {
                     <TableCell>{d.unitNumber}</TableCell>
                     <TableCell className="text-right">{d.bookings}</TableCell>
                     <TableCell className="text-right">${formatCurrency(d.grossRevenue)}</TableCell>
-                    <TableCell className="text-right">${formatCurrency(d.landlordShare)}</TableCell>
-                    <TableCell className="text-right">${formatCurrency(d.suitespotShare)}</TableCell>
+                    {hasLandlord && <TableCell className="text-right">${formatCurrency(d.landlordShare)}</TableCell>}
+                    {hasLandlord && <TableCell className="text-right">${formatCurrency(d.suitespotShare)}</TableCell>}
                   </TableRow>
                 ))}
               </TableBody>
@@ -1466,8 +1475,8 @@ const Analytics = () => {
                   <TableHead className="text-right">Gross</TableHead>
                   <TableHead className="text-right">Commission</TableHead>
                   <TableHead className="text-right">Net Revenue</TableHead>
-                  <TableHead className="text-right">Landlord ({landlordPercentage}%)</TableHead>
-                  <TableHead className="text-right">Suitespot ({100 - landlordPercentage}%)</TableHead>
+                  {hasLandlord && <TableHead className="text-right">Landlord ({landlordPercentage}%)</TableHead>}
+                  {hasLandlord && <TableHead className="text-right">Suitespot ({100 - landlordPercentage}%)</TableHead>}
                 </TableRow>
               </TableHeader>
               <TableBody>
@@ -1478,8 +1487,8 @@ const Analytics = () => {
                     <TableCell className="text-right">${formatCurrency(d.grossRevenue)}</TableCell>
                     <TableCell className="text-right text-red-500">${formatCurrency(d.commission)}</TableCell>
                     <TableCell className="text-right font-medium">${formatCurrency(d.netRevenue)}</TableCell>
-                    <TableCell className="text-right">${formatCurrency(d.landlordShare)}</TableCell>
-                    <TableCell className="text-right">${formatCurrency(d.suitespotShare)}</TableCell>
+                    {hasLandlord && <TableCell className="text-right">${formatCurrency(d.landlordShare)}</TableCell>}
+                    {hasLandlord && <TableCell className="text-right">${formatCurrency(d.suitespotShare)}</TableCell>}
                   </TableRow>
                 ))}
               </TableBody>

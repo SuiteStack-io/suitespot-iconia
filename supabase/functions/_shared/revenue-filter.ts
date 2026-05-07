@@ -16,18 +16,24 @@ export function applyRevenueDateFilter<T>(
 }
 
 export function prorateFactor(
-  checkIn: string, checkOut: string, windowStart: string, windowEnd: string,
+  checkIn: string,
+  checkOut: string,
+  windowStart: string,
+  windowEnd: string,
 ): number {
   const ci = new Date(checkIn + 'T00:00:00');
   const co = new Date(checkOut + 'T00:00:00');
   const ws = new Date(windowStart + 'T00:00:00');
   const we = new Date(windowEnd + 'T00:00:00');
+
   const totalNights = Math.round((co.getTime() - ci.getTime()) / 86400000);
   if (totalNights <= 0) return 0;
+
   const overlapStart = ci > ws ? ci : ws;
   const dayAfterEnd = new Date(we.getTime() + 86400000);
   const overlapEnd = co <= we ? co : dayAfterEnd;
   if (overlapStart >= overlapEnd) return 0;
+
   const nightsInWindow = Math.round((overlapEnd.getTime() - overlapStart.getTime()) / 86400000);
   return nightsInWindow / totalNights;
 }

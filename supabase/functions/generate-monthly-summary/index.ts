@@ -111,15 +111,15 @@ async function computeMonthOccupancy(
   return { avgRate, sold: totalSold, available: totalAvailable, dailyData };
 }
 
-async function fetchRevenueData(supabase: any, propertyId: string, start: string, end: string, method: RevenueRecognitionMethod) {
-  let q: any = supabase
+async function fetchRevenueData(supabase: any, propertyId: string, start: string, end: string, method: RevenueRecognitionMethod = "check_in") {
+  const baseQuery = supabase
     .from("reservations")
     .select("total_price, commission_amount, source, channel, nights, check_in_date, check_out_date")
     .neq("status", "Cancelled")
     .is("cancelled_at", null)
     .eq("property_id", propertyId);
-  q = applyRevenueDateFilter(q, method, start, end);
-  const { data } = await q;
+
+  const { data } = await applyRevenueDateFilter(baseQuery, method, start, end);
   return data || [];
 }
 
@@ -133,15 +133,44 @@ async function fetchNewBookings(supabase: any, propertyId: string, start: string
   return data || [];
 }
 
+function computeNetRevenue(data: any[], method: RevenueRecognitionMethod, start: string, end: string): number {
+  let total = 0;
+  for (const r of data) {
+    const net = (r.total_price || 0) - (r.commission_amount || 0);
+    const factor = method === 'prorata' ? prorateFactor(r.check_in_date, r.check_out_date, start, end) : 1;
+    total += net * factor;
+  }
+  return total;
+}
+
+function computeGrossRevenue(data: any[], method: RevenueRecognitionMethod, start: string, end: string): number {
+  let total = 0;
+  for (const r of data) {
+    const factor = method === 'prorata' ? prorateFactor(r.check_in_date, r.check_out_date, start, end) : 1;
+    total += (r.total_price || 0) * factor;
+  }
+  return total;
+}
+
+function computeCommission(data: any[], method: RevenueRecognitionMethod, start: string, end: string): number {
+  let total = 0;
+  for (const r of data) {
+    const factor = method === 'prorata' ? prorateFactor(r.check_in_date, r.check_out_date, start, end) : 1;
+    total += (r.commission_amount || 0) * factor;
+  }
+  return total;
+}
+
 interface SourceBreakdown { [source: string]: { count: number; revenue: number } }
 
-function buildSourceBreakdown(data: any[]): SourceBreakdown {
+function buildSourceBreakdown(data: any[], method: RevenueRecognitionMethod = "check_in", start = "", end = ""): SourceBreakdown {
   const bd: SourceBreakdown = {};
   for (const r of data) {
     const src = r.source || r.channel || "Unknown";
     if (!bd[src]) bd[src] = { count: 0, revenue: 0 };
+    const factor = method === 'prorata' ? prorateFactor(r.check_in_date, r.check_out_date, start, end) : 1;
     bd[src].count++;
-    bd[src].revenue += (r.total_price || 0) - (r.commission_amount || 0);
+    bd[src].revenue += ((r.total_price || 0) - (r.commission_amount || 0)) * factor;
   }
   return bd;
 }
@@ -273,18 +302,7 @@ const handler = async (req: Request): Promise<Response> => {
     }
 
     const currency = property.currency || "EGP";
-    const revenueMethod: RevenueRecognitionMethod = ((property as any).revenue_recognition_method as RevenueRecognitionMethod) || "check_in";
-    const sumRevenue = (rows: any[], rangeStart: string, rangeEnd: string) => {
-      let gross = 0, comm = 0;
-      for (const r of rows) {
-        const f = revenueMethod === 'prorata'
-          ? prorateFactor(r.check_in_date, r.check_out_date, rangeStart, rangeEnd)
-          : 1;
-        gross += (r.total_price || 0) * f;
-        comm  += (r.commission_amount || 0) * f;
-      }
-      return { gross, comm, net: gross - comm };
-    };
+    const revenueMethod: RevenueRecognitionMethod = property.revenue_recognition_method || "check_in";
     const settings = await getPropertySettings(supabase, property.id);
     const recipients = await getRecipients(supabase, property.id);
     if (recipients.length === 0) {
@@ -324,7 +342,9 @@ const handler = async (req: Request): Promise<Response> => {
 
     // ===== REVENUE =====
     const revenueData = await fetchRevenueData(supabase, property.id, start, end, revenueMethod);
-    const { gross: grossRevenue, comm: totalCommission, net: netRevenue } = sumRevenue(revenueData, start, end);
+    const grossRevenue = computeGrossRevenue(revenueData, revenueMethod, start, end);
+    const totalCommission = computeCommission(revenueData, revenueMethod, start, end);
+    const netRevenue = grossRevenue - totalCommission;
     const adr = occData.sold > 0 ? netRevenue / occData.sold : 0;
     const revpar = occData.available > 0 ? netRevenue / occData.available : 0;
 
@@ -333,7 +353,7 @@ const handler = async (req: Request): Promise<Response> => {
     const avgBookingValue = newBookings.length > 0 ? newBookings.reduce((s: number, r: any) => s + (r.total_price || 0), 0) / newBookings.length : 0;
     const avgLOS = newBookings.length > 0 ? newBookings.reduce((s: number, r: any) => s + (r.nights || 0), 0) / newBookings.length : 0;
     const bookingBreakdown = simpleSourceBreakdown(newBookings);
-    const sourceBreakdown = buildSourceBreakdown(newBookings);
+    const sourceBreakdown = buildSourceBreakdown(newBookings, revenueMethod, start, end);
 
     // ===== PRIOR MONTH =====
     const priorMonth = currentMonth === 0 ? 11 : currentMonth - 1;
@@ -341,17 +361,21 @@ const handler = async (req: Request): Promise<Response> => {
     const priorRange = getMonthRange(priorYear, priorMonth);
     const priorOcc = await computeMonthOccupancy(supabase, property.id, unitIds, priorRange.start, priorRange.end);
     const priorRevData = await fetchRevenueData(supabase, property.id, priorRange.start, priorRange.end, revenueMethod);
-    const { gross: priorGross, comm: priorComm, net: priorNet } = sumRevenue(priorRevData, priorRange.start, priorRange.end);
+    const priorGross = computeGrossRevenue(priorRevData, revenueMethod, priorRange.start, priorRange.end);
+    const priorComm = computeCommission(priorRevData, revenueMethod, priorRange.start, priorRange.end);
+    const priorNet = priorGross - priorComm;
     const priorAdr = priorOcc.sold > 0 ? priorNet / priorOcc.sold : 0;
     const priorRevpar = priorOcc.available > 0 ? priorNet / priorOcc.available : 0;
     const priorBookings = await fetchNewBookings(supabase, property.id, priorRange.start, priorRange.end);
-    const priorSourceBreakdown = buildSourceBreakdown(priorBookings);
+    const priorSourceBreakdown = buildSourceBreakdown(priorBookings, revenueMethod, priorRange.start, priorRange.end);
 
     // ===== SAME MONTH LAST YEAR =====
     const lyRange = getMonthRange(currentYear - 1, currentMonth);
     const lyOcc = await computeMonthOccupancy(supabase, property.id, unitIds, lyRange.start, lyRange.end);
     const lyRevData = await fetchRevenueData(supabase, property.id, lyRange.start, lyRange.end, revenueMethod);
-    const { gross: lyGross, comm: lyComm, net: lyNet } = sumRevenue(lyRevData, lyRange.start, lyRange.end);
+    const lyGross = computeGrossRevenue(lyRevData, revenueMethod, lyRange.start, lyRange.end);
+    const lyComm = computeCommission(lyRevData, revenueMethod, lyRange.start, lyRange.end);
+    const lyNet = lyGross - lyComm;
     const lyAdr = lyOcc.sold > 0 ? lyNet / lyOcc.sold : 0;
     const lyRevpar = lyOcc.available > 0 ? lyNet / lyOcc.available : 0;
     const lyHasData = lyRevData.length > 0 || lyOcc.sold > 0;
@@ -385,9 +409,9 @@ const handler = async (req: Request): Promise<Response> => {
         const mB = await fetchNewBookings(supabase, property.id, mRange.start, mRange.end);
         mBookings = mB.length;
         const mR = await fetchRevenueData(supabase, property.id, mRange.start, mRange.end, revenueMethod);
-        const mAgg = sumRevenue(mR, mRange.start, mRange.end);
-        mGross = mAgg.gross;
-        mNet = mAgg.net;
+        mGross = computeGrossRevenue(mR, revenueMethod, mRange.start, mRange.end);
+        const mC = computeCommission(mR, revenueMethod, mRange.start, mRange.end);
+        mNet = mGross - mC;
       }
 
       months.push({

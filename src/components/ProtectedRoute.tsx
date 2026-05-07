@@ -7,7 +7,7 @@ interface ProtectedRouteProps {
 }
 
 export const ProtectedRoute = ({ children }: ProtectedRouteProps) => {
-  const { user, loading } = useAuth();
+  const { user, loading, userRole } = useAuth();
   const navigate = useNavigate();
   const location = useLocation();
 
@@ -16,6 +16,12 @@ export const ProtectedRoute = ({ children }: ProtectedRouteProps) => {
       navigate(`/auth?redirect=${encodeURIComponent(location.pathname)}`, { replace: true });
     }
   }, [user, loading, navigate, location]);
+
+  useEffect(() => {
+    if (!loading && userRole === 'landlord' && location.pathname !== '/analytics') {
+      navigate('/analytics', { replace: true });
+    }
+  }, [userRole, loading, location.pathname, navigate]);
 
   if (loading) {
     return (

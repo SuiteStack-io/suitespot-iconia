@@ -56,7 +56,7 @@ Deno.serve(async (req) => {
     }
 
     // Parse request body
-    const { email, password, fullName, role } = await req.json();
+    const { email, password, fullName, role, propertyId } = await req.json();
 
     if (!email || !password || !fullName || !role) {
       return new Response(
@@ -66,7 +66,7 @@ Deno.serve(async (req) => {
     }
 
     // Validate role
-    const validRoles = ["admin", "manager", "front_desk", "housekeeping"];
+    const validRoles = ["admin", "manager", "front_desk", "housekeeping", "landlord"];
     if (!validRoles.includes(role)) {
       return new Response(
         JSON.stringify({ error: "Invalid role" }),
@@ -97,12 +97,18 @@ Deno.serve(async (req) => {
 
     if (roleInsertError) {
       console.error("Error inserting role:", roleInsertError);
-      // Try to clean up the created user
       await supabaseAdmin.auth.admin.deleteUser(newUser.user.id);
       return new Response(
         JSON.stringify({ error: "Failed to assign role: " + roleInsertError.message }),
         { status: 500, headers: { ...corsHeaders, "Content-Type": "application/json" } }
       );
+    }
+
+    // For landlord role, link to the specific property
+    if (role === "landlord" && propertyId) {
+      await supabaseAdmin
+        .from("user_property_access")
+        .insert({ user_id: newUser.user.id, property_id: propertyId, role: "viewer" });
     }
 
     return new Response(

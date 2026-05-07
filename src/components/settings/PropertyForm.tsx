@@ -17,8 +17,9 @@ import {
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
 import { Switch } from '@/components/ui/switch';
 import { PhoneInput } from '@/components/ui/phone-input';
+import { Checkbox } from '@/components/ui/checkbox';
 import { toast } from 'sonner';
-import { CheckCircle2, ArrowRight, ArrowLeft, Info } from 'lucide-react';
+import { CheckCircle2, ArrowRight, ArrowLeft, Info, UserPlus } from 'lucide-react';
 
 const PROPERTY_TYPES = ['Hotel', 'Serviced Apartment', 'Vacation Rental', 'Hostel', 'B&B', 'Resort', 'Other'];
 const CURRENCIES = ['USD', 'EUR', 'GBP', 'EGP', 'AED', 'SAR'];
@@ -111,12 +112,80 @@ export function PropertyForm({ property, open, onClose, onSaved }: PropertyFormP
     revenue_recognition_method: ((property as any)?.revenue_recognition_method as string) || 'check_in',
     has_landlord: ((property as any)?.has_landlord ?? true) as boolean,
     landlord_share_percentage: ((property as any)?.landlord_share_percentage ?? 70) as number,
+    landlord_name: ((property as any)?.landlord_name as string) || '',
+    landlord_email: ((property as any)?.landlord_email as string) || '',
+    landlord_phone: ((property as any)?.landlord_phone as string) || '',
+    landlord_visible_metrics: ((property as any)?.landlord_visible_metrics as string[]) || ['occupancy', 'gross_revenue', 'net_revenue', 'commission', 'landlord_share', 'adr', 'revpar', 'bookings', 'sources', 'guests', 'cancellations', 'occupancy_trend', 'revenue_trend'],
     occupancy_target_annual:
       (property as any)?.occupancy_target_annual != null
         ? String((property as any).occupancy_target_annual)
         : '',
   });
   const [saving, setSaving] = useState(false);
+  const [creatingLandlord, setCreatingLandlord] = useState(false);
+  const [landlordPassword, setLandlordPassword] = useState('');
+
+  const ALL_METRICS = [
+    { key: 'occupancy', label: 'Occupancy' },
+    { key: 'bookings', label: 'Total Bookings' },
+    { key: 'guests', label: 'Total Guests' },
+    { key: 'sources', label: 'Booking Sources' },
+    { key: 'gross_revenue', label: 'Gross Revenue' },
+    { key: 'net_revenue', label: 'Net Revenue' },
+    { key: 'commission', label: 'Commission' },
+    { key: 'landlord_share', label: 'Landlord/Operator Share' },
+    { key: 'adr', label: 'ADR (Avg Daily Rate)' },
+    { key: 'revpar', label: 'RevPAR' },
+    { key: 'occupancy_trend', label: 'Occupancy Trend Chart' },
+    { key: 'revenue_trend', label: 'Revenue Trend Charts' },
+    { key: 'cancellations', label: 'Cancellation Analytics' },
+  ];
+
+  const toggleMetric = (key: string) => {
+    const current = form.landlord_visible_metrics;
+    const next = current.includes(key)
+      ? current.filter((k: string) => k !== key)
+      : [...current, key];
+    update('landlord_visible_metrics', next);
+  };
+
+  const handleCreateLandlordAccount = async () => {
+    if (!form.landlord_name || !form.landlord_email || !landlordPassword) {
+      toast.error('Please fill in landlord name, email, and password');
+      return;
+    }
+    if (landlordPassword.length < 6) {
+      toast.error('Password must be at least 6 characters');
+      return;
+    }
+    setCreatingLandlord(true);
+    try {
+      const propertyId = property?.id || createdPropertyId;
+      const { data, error } = await supabase.functions.invoke('create-admin-user', {
+        body: {
+          email: form.landlord_email,
+          password: landlordPassword,
+          fullName: form.landlord_name,
+          role: 'landlord',
+          propertyId,
+        },
+      });
+      if (error) throw error;
+      if (data?.error) throw new Error(data.error);
+      toast.success('Landlord account created', {
+        description: `${form.landlord_name} can now log in with ${form.landlord_email}`,
+      });
+      setLandlordPassword('');
+    } catch (err: any) {
+      if (err.message?.includes('already registered') || err.message?.includes('already exists')) {
+        toast.error('This email is already registered');
+      } else {
+        toast.error(err.message || 'Failed to create landlord account');
+      }
+    } finally {
+      setCreatingLandlord(false);
+    }
+  };
 
   const update = (key: string, val: any) => setForm(prev => ({ ...prev, [key]: val }));
 
@@ -181,6 +250,10 @@ export function PropertyForm({ property, open, onClose, onSaved }: PropertyFormP
         revenue_recognition_method: form.revenue_recognition_method,
         has_landlord: form.has_landlord,
         landlord_share_percentage: form.landlord_share_percentage,
+        landlord_name: form.landlord_name || null,
+        landlord_email: form.landlord_email || null,
+        landlord_phone: form.landlord_phone || null,
+        landlord_visible_metrics: form.landlord_visible_metrics,
         occupancy_target_annual:
           form.occupancy_target_annual !== '' ? Number(form.occupancy_target_annual) : null,
       };
@@ -625,32 +698,81 @@ export function PropertyForm({ property, open, onClose, onSaved }: PropertyFormP
               </div>
 
               {form.has_landlord && (
-                <div>
-                  <Label htmlFor="landlord-share">Landlord Revenue Share (%)</Label>
-                  <div className="relative mt-1">
-                    <Input
-                      id="landlord-share"
-                      type="number"
-                      min={0}
-                      max={100}
-                      step={1}
-                      value={form.landlord_share_percentage}
-                      onChange={(e) =>
-                        update(
-                          'landlord_share_percentage',
-                          Math.max(0, Math.min(100, Number(e.target.value) || 0))
-                        )
-                      }
-                      className="pr-8"
-                    />
-                    <span className="absolute right-3 top-1/2 -translate-y-1/2 text-sm text-muted-foreground pointer-events-none">
-                      %
-                    </span>
+                <>
+                  <div>
+                    <Label htmlFor="landlord-share">Landlord Revenue Share (%)</Label>
+                    <div className="relative mt-1">
+                      <Input
+                        id="landlord-share"
+                        type="number"
+                        min={0}
+                        max={100}
+                        step={1}
+                        value={form.landlord_share_percentage}
+                        onChange={(e) =>
+                          update(
+                            'landlord_share_percentage',
+                            Math.max(0, Math.min(100, Number(e.target.value) || 0))
+                          )
+                        }
+                        className="pr-8"
+                      />
+                      <span className="absolute right-3 top-1/2 -translate-y-1/2 text-sm text-muted-foreground pointer-events-none">
+                        %
+                      </span>
+                    </div>
+                    <p className="text-xs text-muted-foreground mt-1">
+                      Operator share: {100 - form.landlord_share_percentage}%
+                    </p>
                   </div>
-                  <p className="text-xs text-muted-foreground mt-1">
-                    Operator share: {100 - form.landlord_share_percentage}%
-                  </p>
-                </div>
+
+                  <div className="border-t pt-4 mt-4 space-y-3">
+                    <h4 className="text-sm font-semibold">Landlord Contact</h4>
+                    <div>
+                      <Label htmlFor="landlord-name">Name</Label>
+                      <Input id="landlord-name" value={form.landlord_name} onChange={(e) => update('landlord_name', e.target.value)} placeholder="Landlord full name" />
+                    </div>
+                    <div>
+                      <Label htmlFor="landlord-email">Email</Label>
+                      <Input id="landlord-email" type="email" value={form.landlord_email} onChange={(e) => update('landlord_email', e.target.value)} placeholder="landlord@example.com" />
+                    </div>
+                    <div>
+                      <Label htmlFor="landlord-phone">Phone</Label>
+                      <Input id="landlord-phone" type="tel" value={form.landlord_phone} onChange={(e) => update('landlord_phone', e.target.value)} placeholder="+20 xxx xxx xxxx" />
+                    </div>
+                  </div>
+
+                  {isEdit && (
+                    <div className="border-t pt-4 mt-4 space-y-3">
+                      <h4 className="text-sm font-semibold">Landlord PMS Account</h4>
+                      <p className="text-xs text-muted-foreground">Create a login for the landlord to view analytics</p>
+                      <div>
+                        <Label htmlFor="landlord-password">Password</Label>
+                        <Input id="landlord-password" type="password" value={landlordPassword} onChange={(e) => setLandlordPassword(e.target.value)} placeholder="Min 6 characters" minLength={6} />
+                      </div>
+                      <Button type="button" variant="outline" size="sm" onClick={handleCreateLandlordAccount} disabled={creatingLandlord || !form.landlord_name || !form.landlord_email || !landlordPassword}>
+                        <UserPlus className="h-4 w-4 mr-2" />
+                        {creatingLandlord ? 'Creating...' : 'Create Landlord Account'}
+                      </Button>
+                    </div>
+                  )}
+
+                  <div className="border-t pt-4 mt-4 space-y-3">
+                    <h4 className="text-sm font-semibold">Landlord Visible Metrics</h4>
+                    <p className="text-xs text-muted-foreground">Select which analytics the landlord can see</p>
+                    <div className="grid grid-cols-2 gap-2">
+                      {ALL_METRICS.map((m) => (
+                        <label key={m.key} className="flex items-center gap-2 text-sm cursor-pointer">
+                          <Checkbox
+                            checked={form.landlord_visible_metrics.includes(m.key)}
+                            onCheckedChange={() => toggleMetric(m.key)}
+                          />
+                          {m.label}
+                        </label>
+                      ))}
+                    </div>
+                  </div>
+                </>
               )}
 
               <div className="pt-2">
