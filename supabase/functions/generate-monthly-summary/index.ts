@@ -1,6 +1,7 @@
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2.39.3";
 import { Resend } from "https://esm.sh/resend@3.2.0";
 import { getPropertySettings } from "../_shared/property-settings.ts";
+import { applyRevenueDateFilter, prorateFactor, type RevenueRecognitionMethod } from "../_shared/revenue-filter.ts";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
@@ -110,15 +111,15 @@ async function computeMonthOccupancy(
   return { avgRate, sold: totalSold, available: totalAvailable, dailyData };
 }
 
-async function fetchRevenueData(supabase: any, propertyId: string, start: string, end: string) {
-  const { data } = await supabase
+async function fetchRevenueData(supabase: any, propertyId: string, start: string, end: string, method: RevenueRecognitionMethod) {
+  let q: any = supabase
     .from("reservations")
-    .select("total_price, commission_amount, source, channel, nights")
+    .select("total_price, commission_amount, source, channel, nights, check_in_date, check_out_date")
     .neq("status", "Cancelled")
     .is("cancelled_at", null)
-    .gte("check_in_date", start)
-    .lte("check_in_date", end)
     .eq("property_id", propertyId);
+  q = applyRevenueDateFilter(q, method, start, end);
+  const { data } = await q;
   return data || [];
 }
 
@@ -262,7 +263,7 @@ const handler = async (req: Request): Promise<Response> => {
     const monthName = fullMonthLabel(currentYear, currentMonth);
 
     const { data: property } = await supabase
-      .from("properties").select("id, name, currency")
+      .from("properties").select("id, name, currency, revenue_recognition_method")
       .eq("is_default", true).single();
 
     if (!property) {
@@ -272,6 +273,18 @@ const handler = async (req: Request): Promise<Response> => {
     }
 
     const currency = property.currency || "EGP";
+    const revenueMethod: RevenueRecognitionMethod = ((property as any).revenue_recognition_method as RevenueRecognitionMethod) || "check_in";
+    const sumRevenue = (rows: any[], rangeStart: string, rangeEnd: string) => {
+      let gross = 0, comm = 0;
+      for (const r of rows) {
+        const f = revenueMethod === 'prorata'
+          ? prorateFactor(r.check_in_date, r.check_out_date, rangeStart, rangeEnd)
+          : 1;
+        gross += (r.total_price || 0) * f;
+        comm  += (r.commission_amount || 0) * f;
+      }
+      return { gross, comm, net: gross - comm };
+    };
     const settings = await getPropertySettings(supabase, property.id);
     const recipients = await getRecipients(supabase, property.id);
     if (recipients.length === 0) {
@@ -310,10 +323,8 @@ const handler = async (req: Request): Promise<Response> => {
     const lowestDay = occData.dailyData.length > 0 ? occData.dailyData.reduce((a, b) => a.rate < b.rate ? a : b) : null;
 
     // ===== REVENUE =====
-    const revenueData = await fetchRevenueData(supabase, property.id, start, end);
-    const grossRevenue = revenueData.reduce((s: number, r: any) => s + (r.total_price || 0), 0);
-    const totalCommission = revenueData.reduce((s: number, r: any) => s + (r.commission_amount || 0), 0);
-    const netRevenue = grossRevenue - totalCommission;
+    const revenueData = await fetchRevenueData(supabase, property.id, start, end, revenueMethod);
+    const { gross: grossRevenue, comm: totalCommission, net: netRevenue } = sumRevenue(revenueData, start, end);
     const adr = occData.sold > 0 ? netRevenue / occData.sold : 0;
     const revpar = occData.available > 0 ? netRevenue / occData.available : 0;
 
@@ -329,10 +340,8 @@ const handler = async (req: Request): Promise<Response> => {
     const priorYear = currentMonth === 0 ? currentYear - 1 : currentYear;
     const priorRange = getMonthRange(priorYear, priorMonth);
     const priorOcc = await computeMonthOccupancy(supabase, property.id, unitIds, priorRange.start, priorRange.end);
-    const priorRevData = await fetchRevenueData(supabase, property.id, priorRange.start, priorRange.end);
-    const priorGross = priorRevData.reduce((s: number, r: any) => s + (r.total_price || 0), 0);
-    const priorComm = priorRevData.reduce((s: number, r: any) => s + (r.commission_amount || 0), 0);
-    const priorNet = priorGross - priorComm;
+    const priorRevData = await fetchRevenueData(supabase, property.id, priorRange.start, priorRange.end, revenueMethod);
+    const { gross: priorGross, comm: priorComm, net: priorNet } = sumRevenue(priorRevData, priorRange.start, priorRange.end);
     const priorAdr = priorOcc.sold > 0 ? priorNet / priorOcc.sold : 0;
     const priorRevpar = priorOcc.available > 0 ? priorNet / priorOcc.available : 0;
     const priorBookings = await fetchNewBookings(supabase, property.id, priorRange.start, priorRange.end);
@@ -341,10 +350,8 @@ const handler = async (req: Request): Promise<Response> => {
     // ===== SAME MONTH LAST YEAR =====
     const lyRange = getMonthRange(currentYear - 1, currentMonth);
     const lyOcc = await computeMonthOccupancy(supabase, property.id, unitIds, lyRange.start, lyRange.end);
-    const lyRevData = await fetchRevenueData(supabase, property.id, lyRange.start, lyRange.end);
-    const lyGross = lyRevData.reduce((s: number, r: any) => s + (r.total_price || 0), 0);
-    const lyComm = lyRevData.reduce((s: number, r: any) => s + (r.commission_amount || 0), 0);
-    const lyNet = lyGross - lyComm;
+    const lyRevData = await fetchRevenueData(supabase, property.id, lyRange.start, lyRange.end, revenueMethod);
+    const { gross: lyGross, comm: lyComm, net: lyNet } = sumRevenue(lyRevData, lyRange.start, lyRange.end);
     const lyAdr = lyOcc.sold > 0 ? lyNet / lyOcc.sold : 0;
     const lyRevpar = lyOcc.available > 0 ? lyNet / lyOcc.available : 0;
     const lyHasData = lyRevData.length > 0 || lyOcc.sold > 0;
@@ -377,10 +384,10 @@ const handler = async (req: Request): Promise<Response> => {
       } else {
         const mB = await fetchNewBookings(supabase, property.id, mRange.start, mRange.end);
         mBookings = mB.length;
-        const mR = await fetchRevenueData(supabase, property.id, mRange.start, mRange.end);
-        mGross = mR.reduce((s: number, r: any) => s + (r.total_price || 0), 0);
-        const mC = mR.reduce((s: number, r: any) => s + (r.commission_amount || 0), 0);
-        mNet = mGross - mC;
+        const mR = await fetchRevenueData(supabase, property.id, mRange.start, mRange.end, revenueMethod);
+        const mAgg = sumRevenue(mR, mRange.start, mRange.end);
+        mGross = mAgg.gross;
+        mNet = mAgg.net;
       }
 
       months.push({

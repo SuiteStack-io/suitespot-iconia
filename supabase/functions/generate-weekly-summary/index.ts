@@ -1,6 +1,7 @@
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2.39.3";
 import { Resend } from "https://esm.sh/resend@3.2.0";
 import { getPropertySettings } from "../_shared/property-settings.ts";
+import { applyRevenueDateFilter, prorateFactor, type RevenueRecognitionMethod } from "../_shared/revenue-filter.ts";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
@@ -140,21 +141,22 @@ async function computeWeekBookings(supabase: any, propertyId: string, start: str
   return data?.length || 0;
 }
 
-async function computeWeekRevenue(supabase: any, propertyId: string, start: string, end: string): Promise<number> {
-  const { data } = await supabase
+async function computeWeekRevenue(supabase: any, propertyId: string, start: string, end: string, method: RevenueRecognitionMethod): Promise<number> {
+  let baseQuery: any = supabase
     .from("reservations")
-    .select("total_price, commission_amount")
+    .select("total_price, commission_amount, check_in_date, check_out_date")
     .neq("status", "Cancelled")
     .is("cancelled_at", null)
-    .gte("check_in_date", start)
-    .lte("check_in_date", end)
     .eq("property_id", propertyId);
+  baseQuery = applyRevenueDateFilter(baseQuery, method, start, end);
+  const { data } = await baseQuery;
 
   let total = 0;
   for (const r of (data || [])) {
     const gross = r.total_price || 0;
     const comm = r.commission_amount || 0;
-    total += gross - comm;
+    const f = method === 'prorata' ? prorateFactor(r.check_in_date, r.check_out_date, start, end) : 1;
+    total += (gross - comm) * f;
   }
   return total;
 }
@@ -225,7 +227,7 @@ const handler = async (req: Request): Promise<Response> => {
     const { start, end, startDate, endDate } = getWeekRange(today);
 
     const { data: property } = await supabase
-      .from("properties").select("id, name, currency")
+      .from("properties").select("id, name, currency, revenue_recognition_method")
       .eq("is_default", true).single();
 
     if (!property) {
@@ -235,6 +237,7 @@ const handler = async (req: Request): Promise<Response> => {
     }
 
     const currency = property.currency || "USD";
+    const revenueMethod: RevenueRecognitionMethod = ((property as any).revenue_recognition_method as RevenueRecognitionMethod) || "check_in";
     const settings = await getPropertySettings(supabase, property.id);
     const recipients = await getRecipients(supabase, property.id);
     if (recipients.length === 0) {
@@ -290,7 +293,7 @@ const handler = async (req: Request): Promise<Response> => {
 
       const wOcc = await computeWeekOccupancy(supabase, property.id, unitIds, wStart, wEnd);
       const wBookings = await computeWeekBookings(supabase, property.id, ws, we);
-      const wRevenue = await computeWeekRevenue(supabase, property.id, ws, we);
+      const wRevenue = await computeWeekRevenue(supabase, property.id, ws, we, revenueMethod);
 
       weeks.push({
         label: `${formatDateShort(wStart)}–${formatDateShort(wEnd)}`,
