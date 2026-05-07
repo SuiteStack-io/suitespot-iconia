@@ -141,21 +141,22 @@ async function computeWeekBookings(supabase: any, propertyId: string, start: str
   return data?.length || 0;
 }
 
-async function computeWeekRevenue(supabase: any, propertyId: string, start: string, end: string): Promise<number> {
-  const { data } = await supabase
+async function computeWeekRevenue(supabase: any, propertyId: string, start: string, end: string, method: RevenueRecognitionMethod): Promise<number> {
+  let baseQuery: any = supabase
     .from("reservations")
-    .select("total_price, commission_amount")
+    .select("total_price, commission_amount, check_in_date, check_out_date")
     .neq("status", "Cancelled")
     .is("cancelled_at", null)
-    .gte("check_in_date", start)
-    .lte("check_in_date", end)
     .eq("property_id", propertyId);
+  baseQuery = applyRevenueDateFilter(baseQuery, method, start, end);
+  const { data } = await baseQuery;
 
   let total = 0;
   for (const r of (data || [])) {
     const gross = r.total_price || 0;
     const comm = r.commission_amount || 0;
-    total += gross - comm;
+    const f = method === 'prorata' ? prorateFactor(r.check_in_date, r.check_out_date, start, end) : 1;
+    total += (gross - comm) * f;
   }
   return total;
 }
