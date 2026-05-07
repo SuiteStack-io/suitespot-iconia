@@ -237,6 +237,7 @@ const handler = async (req: Request): Promise<Response> => {
     }
 
     const currency = property.currency || "USD";
+    const revenueMethod: RevenueRecognitionMethod = ((property as any).revenue_recognition_method as RevenueRecognitionMethod) || "check_in";
     const settings = await getPropertySettings(supabase, property.id);
     const recipients = await getRecipients(supabase, property.id);
     if (recipients.length === 0) {
