@@ -273,6 +273,18 @@ const handler = async (req: Request): Promise<Response> => {
     }
 
     const currency = property.currency || "EGP";
+    const revenueMethod: RevenueRecognitionMethod = ((property as any).revenue_recognition_method as RevenueRecognitionMethod) || "check_in";
+    const sumRevenue = (rows: any[], rangeStart: string, rangeEnd: string) => {
+      let gross = 0, comm = 0;
+      for (const r of rows) {
+        const f = revenueMethod === 'prorata'
+          ? prorateFactor(r.check_in_date, r.check_out_date, rangeStart, rangeEnd)
+          : 1;
+        gross += (r.total_price || 0) * f;
+        comm  += (r.commission_amount || 0) * f;
+      }
+      return { gross, comm, net: gross - comm };
+    };
     const settings = await getPropertySettings(supabase, property.id);
     const recipients = await getRecipients(supabase, property.id);
     if (recipients.length === 0) {
