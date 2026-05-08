@@ -50,13 +50,13 @@ interface MenuItem {
   title: string;
   url: string;
   icon: React.ElementType;
-  showFor?: ('admin' | 'manager' | 'front_desk' | 'housekeeping')[];
+  showFor?: ('admin' | 'manager' | 'front_desk' | 'housekeeping' | 'landlord')[];
 }
 
 interface MenuSection {
   label: string;
   items: MenuItem[];
-  showFor?: ('admin' | 'manager' | 'front_desk' | 'housekeeping')[];
+  showFor?: ('admin' | 'manager' | 'front_desk' | 'housekeeping' | 'landlord')[];
 }
 
 export function SlideMenu({ userRole }: SlideMenuProps) {
